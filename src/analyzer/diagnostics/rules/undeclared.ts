@@ -40,6 +40,7 @@ import {
 	resolveRuntimeFunction,
 	resolveRuntimeObject,
 	resolveVbaLibraryQualifier,
+	type VbaRuntimeFunction,
 } from '../../runtime/vbaRuntime';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { BareIdentifierContext } from '../../symbols/nameResolution';
@@ -79,6 +80,7 @@ import {
 	activeModuleMembers,
 	bareAssignmentTarget,
 	firstExecutableTokenIndex,
+	forEachStatement,
 	forEachVariableGroup,
 	matchParenFrom,
 	setAssignmentTarget,
@@ -88,6 +90,102 @@ import {
 	tokenText,
 	type ProcedureStatementVisitor,
 } from '../walker';
+
+/**
+ * Rule: a VBA library procedure named bare where a value goes (issue #318,
+ * measured in Excel 16.0, with or without Option Explicit). One that needs an
+ * argument, `Main = Left` or `TypeName(Kill)`, is "Argument not optional"; a
+ * statement that takes none, `Main = Beep` or `Reset`, is "Expected Function
+ * or variable". One whose arguments are all optional, Now or Timer, gives its
+ * value. A name the module, the project, the host or the module's own object
+ * declares is theirs.
+ */
+export function checkBuiltinsReadBare(
+	source: string,
+	mod: ModuleNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	activity: ConditionalActivityTracker | undefined,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
+	moduleKind: ModuleSymbolKind | undefined,
+	hostModel: HostObjectModel | undefined,
+	designerClass: string | undefined,
+	implicitMembers: readonly { name: string; type: string }[] | undefined,
+	push: PushFn,
+	ownMembers: ReadonlySet<string> = new Set(),
+): void {
+	if (moduleKind === 'userform' && implicitMembers === undefined) {
+		return;
+	}
+	const appMembers = applicationMemberNames(hostModel);
+	const designerMembers = designerClassMemberNames(designerClass, hostModel);
+	const implicitNames = new Set((implicitMembers ?? []).map((member) => member.name.toLowerCase()));
+	const explicit = hasOptionExplicit(mod, activity);
+	const builtin = (name: string, procSym: VbaSymbol | undefined): VbaRuntimeFunction | undefined => {
+		const lower = name.toLowerCase();
+		if (appMembers.has(lower) || designerMembers.has(lower) || ownMembers.has(lower) || implicitNames.has(lower)
+			|| sourceIdentifierBound(symbols, procSym, projectVisibleSymbols, name, 'expression')
+			|| resolveHostGlobal(name, hostModel) !== undefined || resolveHostGlobalMember(name, hostModel) !== undefined
+			|| resolveHostConstant(name, hostModel) !== undefined || resolveHostEnum(name, hostModel) !== undefined
+			|| resolveRuntimeConstant(name) !== undefined || resolveRuntimeObject(name) !== undefined) {
+			return undefined;
+		}
+		return resolveRuntimeFunction(name);
+	};
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		const procSym = procedureSymbolFor(symbols, member);
+		const redim = redimTargetNamesIn(source, member.body, activity);
+		forEachStatement(member.body, (stmt) => {
+			for (const span of statementAndBranchSpans(stmt)) {
+				const toks = statementTokens(source, span);
+				const assignment = bareAssignmentTarget(source, span);
+				const valueFrom = assignment && assignment.valueTokens.length > 0 ? toks.findIndex((tok) => tok.start === assignment.valueTokens[0].start) : -1;
+				let depth = 0;
+				toks.forEach((tok, i) => {
+					depth += tok.rawText === '(' ? 1 : tok.rawText === ')' ? -1 : 0;
+					const next = toks[i + 1]?.rawText;
+					if (tok.kind !== 'identifier' || (depth === 0 && (valueFrom < 0 || i < valueFrom)) || ['.', '!'].includes(toks[i - 1]?.rawText ?? '')
+						|| ['(', '.', '!', ':=', '$'].includes(next ?? '') || redim.has(tok.rawText.toLowerCase())) {
+						return;
+					}
+					const runtime = builtin(tok.rawText, procSym);
+					if (!runtime) {
+						return;
+					}
+					const at = { start: span.start + tok.start, end: span.start + tok.end };
+					// `Line` and `Name` open statements and name no procedure: read as a
+					// value under Option Explicit, each is "Variable not defined".
+					if (runtime.name === 'Line' || runtime.name === 'Name') {
+						if (explicit) {
+							push('undeclaredVariable', `Variable not defined: '${tok.rawText}'. It opens the ${runtime.name} statement, which gives no value. Declare a variable of that name, or remove Option Explicit.`, at);
+						}
+						return;
+					}
+					const required = runtimeRequiredCount(runtime);
+					if (required > 0) {
+						push('argumentCount', `'${tok.rawText}' needs ${required === 1 ? 'an argument' : `${required} arguments`}, and is named here with none where a value goes. This is a VBE compile error: Argument not optional.`, at);
+					} else if (runtime.kind === 'statement') {
+						push('subUsedAsValue', `'${tok.rawText}' is a statement, which returns nothing, so it cannot be used as a value. This is a VBE compile error: Expected Function or variable.`, at);
+					}
+				});
+			}
+		}, activity);
+	}
+}
+
+/** How many arguments a library procedure needs: those not in brackets, from its signature. */
+function runtimeRequiredCount(runtime: VbaRuntimeFunction): number {
+	if (runtime.params) {
+		return runtime.params.filter((param) => !param.optional && !param.paramArray).length;
+	}
+	const open = runtime.signature.indexOf('(');
+	const list = open >= 0
+		? runtime.signature.slice(open + 1, runtime.signature.indexOf(')', open))
+		: runtime.signature.slice(runtime.name.length);
+	return list.split(',').map((part) => part.trim()).filter((part) => part !== '' && !part.startsWith('[') && !/^(ParamArray|Optional)\b/i.test(part)).length;
+}
 
 /** Per-statement rule: rides the shared procedure-statement walk (audit #0). */
 export function checkMemberNotFound(

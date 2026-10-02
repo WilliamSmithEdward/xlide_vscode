@@ -130,23 +130,25 @@ describe('hidden host members', () => {
 	it('keeps a hidden Application member in bare scope where there is no Global', () => {
 		// Access binds Application itself bare - its type library makes it the
 		// app object - so hidden or not, its members are callable unqualified.
-		// Only where a Global interface answers for bare names do Application's
-		// hidden members stay out.
+		// Where a Global interface answers for bare names, only the members it
+		// has too are in scope: Application's hidden members stay out, and so
+		// do the ones Global lacks (issue #318).
 		const members = [
 			{ name: 'Visible', kind: 'property' as const },
 			{ name: 'SecretThing', kind: 'method' as const, hidden: true },
+			{ name: 'Caption', kind: 'property' as const },
 		];
 		const model = (globalType?: string) => ({
 			source: 'test',
 			types: {
 				'Test.Application': { displayName: 'Application', members },
-				...(globalType ? { [globalType]: { displayName: 'Global', members: [] } } : {}),
+				...(globalType ? { [globalType]: { displayName: 'Global', members: [{ name: 'Visible', kind: 'property' }] } } : {}),
 			},
 			aliases: { application: 'Test.Application' },
 			globals: { Application: 'Test.Application' },
 			...(globalType ? { globalType } : {}),
 		}) as unknown as Parameters<typeof applicationMemberNames>[0];
-		expect([...applicationMemberNames(model())]).toEqual(['visible', 'secretthing']);
+		expect([...applicationMemberNames(model())]).toEqual(['visible', 'secretthing', 'caption']);
 		expect([...applicationMemberNames(model('Test.Global'))]).toEqual(['visible']);
 	});
 

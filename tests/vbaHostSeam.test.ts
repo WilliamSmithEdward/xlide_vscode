@@ -52,13 +52,14 @@ describe('the host registry', () => {
 });
 
 describe('analysis under a named host', () => {
-	// `Volatile` is an Excel Application member injected into the bare global
-	// scope, so under Excel a bare call to it is known; under Word it is not
-	// an assertion anyone can make.
+	// `Calculate` is a member of Excel's Global interface, so under Excel a
+	// bare call to it is known; Word's Global has no Calculate. (Volatile, an
+	// Application member Global lacks, is "Sub or Function not defined" bare:
+	// issue #318, measured in Excel 16.0.)
 	const SOURCE = [
 		'Option Explicit',
 		'Public Sub Recalc()',
-		'    Volatile',
+		'    Calculate',
 		'End Sub',
 		'',
 	].join('\r\n');
@@ -75,7 +76,7 @@ describe('analysis under a named host', () => {
 			.map((d) => d.message);
 	}
 
-	it('absent host keeps Excel behavior: Volatile is a known bare call', () => {
+	it('absent host keeps Excel behavior: Calculate is a known bare call', () => {
 		expect(unknownCalls(undefined)).toEqual([]);
 	});
 
@@ -84,7 +85,7 @@ describe('analysis under a named host', () => {
 	});
 
 	it('word does not pretend to know Excel Application members', () => {
-		expect(unknownCalls('word').some((m) => m.includes('Volatile'))).toBe(true);
+		expect(unknownCalls('word').some((m) => m.includes('Calculate'))).toBe(true);
 	});
 });
 
@@ -92,7 +93,7 @@ describe('the worker carries the host token', () => {
 	const SOURCE = [
 		'Option Explicit',
 		'Public Sub Recalc()',
-		'    Volatile',
+		'    Calculate',
 		'End Sub',
 		'',
 	].join('\r\n');
@@ -119,7 +120,7 @@ describe('the worker carries the host token', () => {
 		});
 		expect(word?.kind).toBe('result');
 		if (word?.kind !== 'result') { return; }
-		expect(word.diagnostics.some((d) => d.code === 'unknown-call' && d.message.includes('Volatile')))
+		expect(word.diagnostics.some((d) => d.code === 'unknown-call' && d.message.includes('Calculate')))
 			.toBe(true);
 	});
 });

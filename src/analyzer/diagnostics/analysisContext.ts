@@ -9,7 +9,7 @@
 // share one computation without threading a context object through every
 // helper signature.
 
-import { getHostMembers, resolveHostGlobal } from '../host/hostModel';
+import { getHostMembers, resolveHostGlobal, resolveHostGlobalMember } from '../host/hostModel';
 import type { ModuleNode, Span } from '../parser/nodes';
 import type { buildModuleSymbols } from '../symbols/buildModuleSymbols';
 import type {
@@ -366,9 +366,13 @@ export function applicationMemberNames(model?: HostObjectModel): ReadonlySet<str
 function computeApplicationMemberNames(model: HostObjectModel | undefined): ReadonlySet<string> {
 	const appType = resolveHostGlobal('Application', model);
 	const globalAnswers = (model ?? getExcelObjectModel()).globalType !== undefined;
+	// Only what Global has too: a bare `ScreenUpdating`, `Name` or `Caption`
+	// is "Variable not defined" in a standard module, Application's though
+	// they are (issue #318, measured in Excel 16.0; 250 of Application's 338
+	// members are not Global's).
 	return new Set(
 		(appType ? getHostMembers(appType, model) : [])
-			.filter((member) => !(globalAnswers && member.hidden))
+			.filter((member) => !(globalAnswers && (member.hidden || resolveHostGlobalMember(member.name, model) === undefined)))
 			.map((member) => member.name.toLowerCase()),
 	);
 }
