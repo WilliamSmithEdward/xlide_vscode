@@ -1696,9 +1696,11 @@ function runtimeConversionValueHits(
 				const lower = name.toLowerCase();
 				const invalid = target === 'date'
 					? isInvalidDateString(value)
-						// A time out of range, and TimeValue of digits alone (issue #262).
-						|| ((lower === 'cdate' || lower === 'datevalue' || lower === 'timevalue') && isInvalidTimeString(value))
-						|| (lower === 'timevalue' && /^\d+$/.test(value.replace(/^[ \t]+|[ \t]+$/g, '')))
+						// A time out of range for every reader of a date, and DateValue
+						// or TimeValue of a whole number (issues #262, #444, measured in
+						// Excel 16.0): Year("25:00"), DateValue("12"), TimeValue("-1").
+						|| isInvalidTimeString(value)
+						|| ((lower === 'timevalue' || lower === 'datevalue') && /^[+-]?\d+$/.test(value.replace(/^[ \t]+|[ \t]+$/g, '')))
 					: target === 'boolean'
 						? isInvalidBooleanString(value)
 						: isInvalidNumericString(value);
