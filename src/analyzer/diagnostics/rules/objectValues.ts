@@ -37,7 +37,7 @@ import { parseVbaIntegerLiteral } from '../../constants/integerConstantExpressio
 import type { VbaProjectClassMember, VbaProjectClassMembers } from '../../symbols/symbolModel';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
-import { isKnownObjectAssignmentType, isKnownScalarType, normalizeType, objectLetAssignmentVerdict, objectValueNeedsIndex, typeEnvironmentFor } from '../typeInference';
+import { daoWholeValueError, isKnownObjectAssignmentType, isKnownScalarType, normalizeType, objectLetAssignmentVerdict, objectValueNeedsIndex, typeEnvironmentFor } from '../typeInference';
 import {
 	bareAssignmentTarget,
 	firstExecutableTokenIndex,
@@ -177,6 +177,13 @@ export function checkObjectDefaultValues(
 						continue;
 					}
 					const type = env.get(lower)!;
+					// DAO checks the missing index itself (issue #464).
+					const daoError = verdict === 'argument' && !read.operator && !read.intoTypedValue ? daoWholeValueError(type) : undefined;
+					if (daoError) {
+						const nothing = autoInstanced.has(lower) ? '' : `, or '91' while it is Nothing`;
+						push('objectDefaultValue', `'${read.tok.rawText}' is ${article(type)} ${type}: read whole, its default member reaches an Item that needs an index, so it has no value to read here. This will raise Run-time error ${daoError}${nothing}.`, { start: span.start + read.tok.start, end: span.start + read.tok.end });
+						continue;
+					}
 					// A default member that needs an index raises 450 read as a
 					// value; with an operator, or into a typed value, it is a
 					// compile error, collection-operand's.

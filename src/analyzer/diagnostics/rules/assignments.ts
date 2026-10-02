@@ -501,7 +501,8 @@ export function checkAssignmentTypes(
 				const verdict = objectLetAssignmentVerdict(expected, memberCtx);
 				// `x = 5` on a Word Paragraph: its default member Range holds an
 				// object, which a Let cannot write (issue #462, measured in Word 16.0).
-				const holding = verdict === 'lets' ? objectHoldingDefault(expected, memberCtx) : undefined;
+				// A DAO Recordset's Fields holds an object too (issue #464).
+				const holding = verdict !== 'noDefault' ? objectHoldingDefault(expected, memberCtx) : undefined;
 				if (holding) {
 					push(
 						'invalidPropertyUse',
