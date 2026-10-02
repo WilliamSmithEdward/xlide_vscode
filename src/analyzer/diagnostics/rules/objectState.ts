@@ -867,8 +867,23 @@ function checkObjectVariableNotSetStatement(
 	// 16.0 on a Range, the Selection and a TextRange).
 	for (const span of branches) {
 		const operandToks = statementTokens(source, span).filter((tok) => tok.kind !== 'comment');
-		// A Set's `=` is no operator: `Set x = y` reads neither value.
+		// A Set's `=` is no operator: `Set x = y` reads neither value. Its
+		// value indexed, `Set p = o(1)`, calls o's default member, which
+		// needs o (issue #296, measured in Excel 16.0: 91).
 		if (tokenText(operandToks[0]) === 'set' || setAssignmentTarget(source, span)) {
+			const eq = operandToks.findIndex((tok) => tok.rawText === '=');
+			const value = operandToks[eq + 1];
+			const lower = tokenName(value)?.toLowerCase();
+			const local = lower ? locals.get(lower) : undefined;
+			if (eq > 0 && local && !local.letOnly && !local.variant && operandToks[eq + 2]?.rawText === '(' && state.get(lower!) === 'unset'
+				&& !guardedAt(lower!, span.start + value.start) && matchParenFrom(operandToks, eq + 2) === operandToks.length - 1
+				&& objectLetAssignmentVerdict(local.asType, memberCtx) !== 'noDefault') {
+				push(
+					'objectVariableNotSet',
+					`Object variable '${value.rawText}' is Nothing when its default member is indexed. This will raise Run-time error '91': Object variable or With block variable not set.`,
+					{ start: span.start + value.start, end: span.start + value.end },
+				);
+			}
 			continue;
 		}
 		const target = bareAssignmentTarget(source, span);
