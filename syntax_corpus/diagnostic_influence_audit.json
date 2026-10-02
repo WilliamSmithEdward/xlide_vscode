@@ -126,11 +126,17 @@
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "ambiguous_project_procedure_declarations_only_compile",
-        "ambiguous_project_procedure_unqualified_call_compile"
+        "ambiguous_project_procedure_unqualified_call_compile",
+        "issue290_01_compile",
+        "issue290_02_compile",
+        "issue290_03_compile",
+        "issue290_04_compile",
+        "issue290_06_compile",
+        "issue290_07_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Reports the CALL SITE, not the declarations: the accepted control shows a project exporting a name twice compiles until something calls it unqualified, so flagging declarations would fire on every project that qualifies its calls. Quiet when the call is qualified, when the calling module declares the name itself (module-local scope binds first), when a local or parameter shadows it, and when only one module exports it. Private declarations are not exported and do not collide.",
+      "notes": "Reports the CALL SITE, not the declarations: the accepted control shows a project exporting a name twice compiles until something calls it unqualified, so flagging declarations would fire on every project that qualifies its calls. Quiet when the call is qualified, when the calling module declares the name itself (module-local scope binds first), when a local or parameter shadows it, and when only one module exports it. Private declarations are not exported and do not collide. Issue #290: a bare read in an expression too, and a Public variable or Const of a standard module counts as a procedure does.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -5639,7 +5645,8 @@
         "issue369c_17_compile",
         "issue369c_18_compile",
         "issue403_07_compile",
-        "issue436_03_compile"
+        "issue436_03_compile",
+        "issue290_05_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],

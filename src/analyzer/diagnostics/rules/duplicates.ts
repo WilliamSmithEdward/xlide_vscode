@@ -40,7 +40,7 @@ import {
 	sourceIdentifierBound,
 	sourceNameScopeFor,
 } from '../typeInference';
-import { activeModuleMembers, type ProcedureStatementVisitor } from '../walker';
+import { activeModuleMembers, statementAndBranchSpans, statementTokens, type ProcedureStatementVisitor } from '../walker';
 
 /** True when the symbol is one of the three Property accessor kinds. */
 function isPropertyAccessor(sym: VbaSymbol): boolean {
@@ -482,8 +482,10 @@ export function checkAmbiguousBareProcedureCalls(
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	push: PushFn,
 ): ProcedureStatementVisitor {
-	const ambiguousNames = ambiguousProjectProcedureOwners(projectProcedures, moduleName);
+	const ambiguousNames = ambiguousProjectProcedureOwners(projectProcedures, moduleName, projectVisibleSymbols);
 	const sameModuleSignatures = sameModuleCallableSignatures(symbols);
+	// The module's own names settle a name before the project is asked.
+	const ownNames = new Set((symbols.root.children ?? []).map((child) => child.name.toLowerCase()));
 	return (member) => {
 		// No name in this project is exported twice: nothing here can be
 		// ambiguous, so skip the per-statement work entirely.
@@ -491,29 +493,45 @@ export function checkAmbiguousBareProcedureCalls(
 			return () => { };
 		}
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
+		const locals = new Set([
+			...member.params.map((param) => param.name.toLowerCase()),
+			...(procedureSymbolFor(symbols, member)?.children ?? []).map((child) => child.name.toLowerCase()),
+		]);
+		const ambiguous = (name: string): string[] | undefined => {
+			const lower = name.toLowerCase();
+			const owners = ambiguousNames.get(lower);
+			return owners && !sameModuleSignatures.has(lower) && !ownNames.has(lower) && !locals.has(lower) && !bareCallableSourceShadowed(name, sourceNames) ? owners : undefined;
+		};
 		return (stmt) => {
 			const call = extractCall(source, stmt.span);
-			if (!call || call.qualifier) {
-				return;
+			const callOwners = call && !call.qualifier ? ambiguous(call.name) : undefined;
+			if (call && callOwners) {
+				push(
+					'ambiguousProjectProcedure',
+					`Ambiguous name detected: '${call.name}' is exported by ${callOwners.join(' and ')}. ` +
+					'VBA refuses to compile the project until this call is qualified with a module name.',
+					call.nameSpan,
+				);
 			}
-			const lower = call.name.toLowerCase();
-			const owners = ambiguousNames.get(lower);
-			if (!owners) {
-				return;
+			// `Main = Foo()`, `Main = gX`: a bare read of the name (issue #290,
+			// measured in Excel 16.0).
+			for (const span of statementAndBranchSpans(stmt)) {
+				const toks = statementTokens(source, span);
+				toks.forEach((tok, i) => {
+					const owners = tok.kind === 'identifier' && !['.', '!'].includes(toks[i - 1]?.rawText ?? '') && toks[i + 1]?.rawText !== ':=' && toks[i + 1]?.rawText !== '.'
+						? ambiguous(tok.rawText) : undefined;
+					const at = span.start + tok.start;
+					if (!owners || (call && at === call.nameSpan.start)) {
+						return;
+					}
+					push(
+						'ambiguousProjectProcedure',
+						`Ambiguous name detected: '${tok.rawText}' is declared Public by ${owners.join(' and ')}. ` +
+						'VBA refuses to compile the project until this name is qualified with a module name.',
+						{ start: at, end: span.start + tok.end },
+					);
+				});
 			}
-			// This module declares it, so VBA binds locally and never asks.
-			if (sameModuleSignatures.has(lower)) {
-				return;
-			}
-			if (bareCallableSourceShadowed(call.name, sourceNames)) {
-				return;
-			}
-			push(
-				'ambiguousProjectProcedure',
-				`Ambiguous name detected: '${call.name}' is exported by ${owners.join(' and ')}. ` +
-				'VBA refuses to compile the project until this call is qualified with a module name.',
-				call.nameSpan,
-			);
 		};
 	};
 }
@@ -526,25 +544,38 @@ export function checkAmbiguousBareProcedureCalls(
 function ambiguousProjectProcedureOwners(
 	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
 	moduleName: string,
+	projectVisibleSymbols?: readonly VbaSymbol[],
 ): Map<string, string[]> {
 	const out = new Map<string, string[]>();
 	if (!projectProcedures) {
 		return out;
 	}
 	const self = moduleName.toLowerCase();
+	const ownersByName = new Map<string, string[]>();
+	const add = (name: string, owner: string): void => {
+		const owners = ownersByName.get(name.toLowerCase()) ?? [];
+		if (!owners.some((known) => known.toLowerCase() === owner.toLowerCase())) {
+			owners.push(owner);
+		}
+		ownersByName.set(name.toLowerCase(), owners);
+	};
 	for (const [name, signatures] of projectProcedures) {
-		const owners: string[] = [];
 		for (const signature of signatures) {
 			// A Private procedure is not exported, so it cannot collide.
-			if (signature.visibility === 'Private') {
-				continue;
-			}
-			if (!owners.some((owner) => owner.toLowerCase() === signature.moduleName.toLowerCase())) {
-				owners.push(signature.moduleName);
+			if (signature.visibility !== 'Private') {
+				add(name, signature.moduleName);
 			}
 		}
+	}
+	// A Public variable or Const collides as a procedure does (issue #290).
+	for (const symbol of projectVisibleSymbols ?? []) {
+		if ((symbol.kind === 'moduleVariable' || symbol.kind === 'constant') && symbol.moduleName) {
+			add(symbol.name, symbol.moduleName);
+		}
+	}
+	for (const [name, owners] of ownersByName) {
 		if (owners.length > 1 && !owners.some((owner) => owner.toLowerCase() === self)) {
-			out.set(name.toLowerCase(), owners);
+			out.set(name, owners);
 		}
 	}
 	return out;

@@ -82887,6 +82887,303 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim k As Long\r\n    Dim b As Byte\r\n    With Application\r\n        b = 255\r\n        b = b + 1\r\n    End With\r\n    Main = 1\r\n    Close\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue290_01_compile",
+      "description": "Issue #290 the same Public name in two modules, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Foo()\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo() As Long\r\n    Foo = 2\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo() As Long\r\n    Foo = 3\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue290_02_compile",
+      "description": "Issue #290 the same Public name in two modules, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = gX\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic gX As Long\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic gX As Long\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue290_03_compile",
+      "description": "Issue #290 the same Public name in two modules, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = KK\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Const KK As Long = 1\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Const KK As Long = 2\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue290_04_compile",
+      "description": "Issue #290 the same Public name in two modules, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Foo\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Foo As Long\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo() As Long\r\n    Foo = 3\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue290_05_compile",
+      "description": "Issue #290 the same Public name in two modules, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Module2()\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Module2() As Long\r\n    Module2 = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Other() As Long\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue290_06_compile",
+      "description": "Issue #290 the same Public name in two modules, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Foo\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo() As Long\r\n    Foo = 2\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo() As Long\r\n    Foo = 3\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue290_07_compile",
+      "description": "Issue #290 the same Public name in two modules, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Call Foo\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Foo()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Foo()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue290_08_compile",
+      "description": "Issue #290 the same Public name in two modules, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Module2.Foo()\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo() As Long\r\n    Foo = 2\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo() As Long\r\n    Foo = 3\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue290_09_compile",
+      "description": "Issue #290 the same Public name in two modules, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Foo()\r\nEnd Function\r\nPrivate Function Foo() As Long\r\n    Foo = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo() As Long\r\n    Foo = 2\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo() As Long\r\n    Foo = 3\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue290_10_compile",
+      "description": "Issue #290 the same Public name in two modules, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim Foo As Long\r\n    Main = Foo\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo() As Long\r\n    Foo = 2\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo() As Long\r\n    Foo = 3\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue290_11_compile",
+      "description": "Issue #290 the same Public name in two modules, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Foo()\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo() As Long\r\n    Foo = 2\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate Function Foo() As Long\r\n    Foo = 3\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
     }
   ]
 }
