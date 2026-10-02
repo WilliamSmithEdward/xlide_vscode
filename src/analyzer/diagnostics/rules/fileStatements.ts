@@ -32,7 +32,7 @@
 import { bareCallStatementTarget } from '../../call/callContext';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import { parseVbaIntegerLiteral } from '../../constants/integerConstantExpression';
-import { statementLabelDeclaration } from '../../flow/procedureLabels';
+import { jumpTargetLabelDeclaration } from '../../flow/procedureLabels';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type { BodyNode, LeafStatementNode, ModuleNode, Span } from '../../parser/nodes';
 import { isLeafStatement } from '../../parser/nodes';
@@ -128,7 +128,7 @@ export function checkFileStatements(
 			// A label may be reached from anywhere, an error handler's included,
 			// so nothing is known there; and a call to a procedure may open or
 			// close any file (issue #146).
-			if (statementLabelDeclaration(source, node.span) || tokenText(toks[0]) === 'gosub') {
+			if (jumpTargetLabelDeclaration(source, node.span) || tokenText(toks[0]) === 'gosub') {
 				states.clear();
 			}
 			if (checkOpenPathUse(node.span, toks, states, push)) {

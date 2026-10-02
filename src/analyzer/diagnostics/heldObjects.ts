@@ -6,7 +6,7 @@
 // does not. Blocks are entered as issue #237 enters them.
 
 import type { ConditionalActivityTracker } from '../conditional/conditionalCompilation';
-import { statementLabelDeclaration } from '../flow/procedureLabels';
+import { jumpTargetLabelDeclaration } from '../flow/procedureLabels';
 import { splitTopLevelTokenGroups } from '../lexer/tokenHelpers';
 import type { VbaToken } from '../lexer/tokenKinds';
 import type { BodyNode, ProcedureNode } from '../parser/nodes';
@@ -71,7 +71,7 @@ export function heldObjectsAt(
 			return;
 		}
 		const toks = statementTokensAfterLeadingLabel(source, node.span).filter((tok) => tok.kind !== 'comment');
-		if (statementLabelDeclaration(source, node.span) || tokenText(toks[0]) === 'gosub') {
+		if (jumpTargetLabelDeclaration(source, node.span) || tokenText(toks[0]) === 'gosub') {
 			forget([...state.classes.keys(), ...state.items.keys()]);
 		}
 		if (state.classes.size > 0 || state.items.size > 0) {

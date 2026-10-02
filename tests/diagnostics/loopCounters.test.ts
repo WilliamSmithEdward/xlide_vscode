@@ -54,7 +54,7 @@ describe('loop counters past what they index (issue #200)', () => {
 		['a counter the body changes', '    Dim a(1 To 5) As Long\n    For i = 1 To 6\n        a(i) = i\n        i = i + 1\n    Next i'],
 		// Not measured: what the rules cannot know stays quiet.
 		['a counter a call may change', '    Dim a(1 To 5) As Long\n    For i = 1 To 6\n        Bump i\n        a(i) = i\n    Next i'],
-		['a label before the use', '    Dim a(1 To 5) As Long\n    For i = 1 To 6\nHere:\n        a(i) = i\n    Next i'],
+		['a label a GoTo names before the use', '    Dim a(1 To 5) As Long\n    For i = 1 To 6\nHere:\n        a(i) = i\n        If i = 0 Then GoTo Here\n    Next i'],
 		['an array the body resizes', '    Dim b() As Long\n    ReDim b(1 To 3)\n    For i = 1 To UBound(b) + 1\n        ReDim Preserve b(1 To i)\n        b(i) = i\n    Next i'],
 		['a Collection the body adds to', '    For i = 1 To c.Count + 1\n        c.Add "x"\n        Main = Main & c(i)\n    Next i'],
 		['For Each', '    Dim v As Variant\n    For Each v In c\n        Main = Main & Mid$(s, 0 + Len(v), 1)\n    Next v'],

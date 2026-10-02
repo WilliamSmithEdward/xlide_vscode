@@ -72,7 +72,7 @@ import { resolveReceiverTypeAt } from '../../completion/memberAccess';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type { BodyNode, ProcedureNode, Span } from '../../parser/nodes';
 import { isLeafStatement } from '../../parser/nodes';
-import { statementLabelDeclaration } from '../../flow/procedureLabels';
+import { jumpTargetLabelDeclaration } from '../../flow/procedureLabels';
 import { splitTopLevelTokenGroups } from '../../lexer/tokenHelpers';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { procedureSymbolFor, type AnalyzeModuleOptions, type PushFn } from '../analysisContext';
@@ -282,7 +282,7 @@ function activeSheetsAt(source: string, proc: ProcedureNode, activity: Condition
 				notActive = new Set();
 				continue;
 			}
-			if (statementLabelDeclaration(source, node.span)) {
+			if (jumpTargetLabelDeclaration(source, node.span)) {
 				notActive = new Set();
 			}
 			if (notActive.size > 0) {
@@ -392,7 +392,7 @@ function sheetFactsAt(source: string, proc: ProcedureNode, activity: Conditional
 				[empty, distinct] = [new Set(), new Set()];
 				continue;
 			}
-			if (statementLabelDeclaration(source, node.span)) {
+			if (jumpTargetLabelDeclaration(source, node.span)) {
 				[empty, distinct] = [new Set(), new Set()];
 			}
 			if (empty.size > 0 || distinct.size > 0) {
@@ -559,7 +559,7 @@ function checkProtectedSheets(source: string, proc: ProcedureNode, activity: Con
 				protectedSheets = new Map();
 				continue;
 			}
-			if (statementLabelDeclaration(source, node.span)) {
+			if (jumpTargetLabelDeclaration(source, node.span)) {
 				protectedSheets = new Map();
 			}
 			const toks = statementTokensAfterLeadingLabel(source, node.span).filter((tok) => tok.kind !== 'comment');
@@ -654,7 +654,7 @@ function newDocumentsAt(source: string, proc: ProcedureNode, activity: Condition
 				}
 				continue;
 			}
-			if (statementLabelDeclaration(source, node.span)) {
+			if (jumpTargetLabelDeclaration(source, node.span)) {
 				state.clear();
 			}
 			if (state.size > 0) {

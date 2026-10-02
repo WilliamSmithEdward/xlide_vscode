@@ -21,7 +21,7 @@
 // key with an Empty item, whose member raises 424.
 
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
-import { statementLabelDeclaration } from '../../flow/procedureLabels';
+import { jumpTargetLabelDeclaration } from '../../flow/procedureLabels';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type { BodyNode, ModuleNode, Span } from '../../parser/nodes';
 import { isLeafStatement } from '../../parser/nodes';
@@ -72,7 +72,7 @@ export function checkDictionaryState(
 			if (!isLeafStatement(node)) {
 				return;
 			}
-			if (statementLabelDeclaration(source, node.span)) {
+			if (jumpTargetLabelDeclaration(source, node.span)) {
 				states.clear();
 			}
 			if (node.kind === 'Statement' && node.singleLineIfBranches) {

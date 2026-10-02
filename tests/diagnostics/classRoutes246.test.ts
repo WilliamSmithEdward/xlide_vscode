@@ -30,11 +30,11 @@ describe('through an Object variable', () => {
 		expectDiagnostic(src, byCode(diags, 'assignment-object-type-mismatch'), 'assignment-object-type-mismatch', { message: "'b', which holds a Flat1 here" });
 	});
 
-	it('forgets the class after Nothing, a ByRef pass or a label', () => {
+	it('forgets the class after Nothing, a ByRef pass or a label a GoTo names', () => {
 		for (const lines of [
 			['Dim o As Object, c As Round1', 'Set o = New Flat1', 'Set o = Nothing', 'Set c = o'],
 			['Dim o As Object, c As Round1', 'Set o = New Flat1', 'Fill o', 'Set c = o'],
-			['Dim o As Object, c As Round1', 'Set o = New Flat1', 'Again:', 'Set c = o'],
+			['Dim o As Object, c As Round1', 'Set o = New Flat1', 'Again:', 'Set c = o', 'If c Is Nothing Then GoTo Again'],
 		]) {
 			expect(byCode(analyze(...lines).diags, 'assignment-object-type-mismatch'), lines.join('; ')).toHaveLength(0);
 		}

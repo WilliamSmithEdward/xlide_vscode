@@ -35,7 +35,7 @@ import type { IntegerConstantLookup } from '../../constants/integerConstantExpre
 import type { BodyNode, ModuleNode, ProcedureNode, Span } from '../../parser/nodes';
 import { walkEnteringBlocks } from '../dataflow';
 import { isLeafStatement } from '../../parser/nodes';
-import { statementLabelDeclaration } from '../../flow/procedureLabels';
+import { jumpTargetLabelDeclaration } from '../../flow/procedureLabels';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
 import { counterText, loopCountersAt, numericCounterPasses, type LoopCounter } from '../loopCounters';
 import { isKnownScalarType, knownLocalLiteralValuesAt, normalizeType, procedureIntegerConstantLookup, stringLiteralValue, unreachableStatementsIn, withKnownLocals } from '../typeInference';
@@ -162,7 +162,7 @@ export function checkCollectionState(
 			const subject = withSubjects[withSubjects.length - 1];
 			const toks = subject ? withReceiver(own, subject) : own;
 			// A label may be reached from anywhere; a GoSub may run any statement.
-			if (statementLabelDeclaration(source, node.span) || tokenText(toks[0]) === 'gosub') {
+			if (jumpTargetLabelDeclaration(source, node.span) || tokenText(toks[0]) === 'gosub') {
 				states.clear();
 			}
 			// `Set c = New Collection` starts an empty collection. `Set o = c`
@@ -359,7 +359,7 @@ function simulateCountedLoop(
 		}
 		const toks = statementTokensAfterLeadingLabel(source, stmt.span).filter((tok) => tok.kind !== 'comment');
 		const head = tokenText(toks[0]);
-		if (['exit', 'goto', 'gosub', 'resume', 'return', 'end', 'on', 'stop'].includes(head) || statementLabelDeclaration(source, stmt.span)) {
+		if (['exit', 'goto', 'gosub', 'resume', 'return', 'end', 'on', 'stop'].includes(head) || jumpTargetLabelDeclaration(source, stmt.span)) {
 			return;
 		}
 		// The counter only read: an operand, a whole collection index, or the
@@ -478,7 +478,7 @@ function simulateFillingLoop(
 		if (activity?.isInactive(stmt.span)) {
 			continue;
 		}
-		if (!isLeafStatement(stmt) || (stmt.kind === 'Statement' && stmt.singleLineIfBranches) || statementLabelDeclaration(source, stmt.span)) {
+		if (!isLeafStatement(stmt) || (stmt.kind === 'Statement' && stmt.singleLineIfBranches) || jumpTargetLabelDeclaration(source, stmt.span)) {
 			return undefined;
 		}
 		const toks = statementTokensAfterLeadingLabel(source, stmt.span).filter((tok) => tok.kind !== 'comment');

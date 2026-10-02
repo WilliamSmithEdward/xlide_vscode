@@ -15,7 +15,7 @@ import type { VbaToken } from '../lexer/tokenKinds';
 import type { BodyNode, LeafStatementNode, ProcedureNode } from '../parser/nodes';
 import { isLeafStatement } from '../parser/nodes';
 import type { buildModuleSymbols } from '../symbols/buildModuleSymbols';
-import { statementLabelDeclaration } from '../flow/procedureLabels';
+import { jumpTargetLabelDeclaration } from '../flow/procedureLabels';
 import { procedureSymbolFor } from './analysisContext';
 import { walkEnteringBlocks } from './dataflow';
 import { literalDimensions, type FixedArrayBound } from './rules/arrays';
@@ -135,7 +135,7 @@ export function typeMemberStatesAt(
 		if (!isLeafStatement(node)) {
 			return;
 		}
-		if (statementLabelDeclaration(source, node.span)) {
+		if (jumpTargetLabelDeclaration(source, node.span)) {
 			forget(roots.keys());
 		}
 		const toks = statementTokensAfterLeadingLabel(source, node.span);
