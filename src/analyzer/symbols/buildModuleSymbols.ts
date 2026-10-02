@@ -527,5 +527,35 @@ export function buildModuleSymbols(
 		attributes: moduleAttributes,
 	};
 
-	return { moduleName, moduleKind, root, all: flat };
+	const defTypes = moduleDefTypes(source);
+	return { moduleName, moduleKind, root, all: flat, ...(defTypes.size > 0 ? { defTypes } : {}) };
+}
+
+const DEF_TYPE_NAMES: Readonly<Record<string, string>> = {
+	bool: 'Boolean', byte: 'Byte', int: 'Integer', lng: 'Long', lnglng: 'LongLong', lngptr: 'LongPtr', cur: 'Currency',
+	sng: 'Single', dbl: 'Double', dec: 'Decimal', date: 'Date', str: 'String', obj: 'Object', var: 'Variant',
+};
+
+/**
+ * The type each first letter gives a name declared with no type, from the
+ * module's DefType lines: `DefInt A-Z`, `DefStr S, T-U` (MS-VBAL 5.2.2;
+ * issue #285, measured in Excel 16.0).
+ */
+function moduleDefTypes(source: string): Map<string, string> {
+	const out = new Map<string, string>();
+	for (const match of source.matchAll(/^[ \t]*Def(Bool|Byte|Int|LngLng|LngPtr|Lng|Cur|Sng|Dbl|Dec|Date|Str|Obj|Var)[ \t]+([A-Za-z][A-Za-z \t,-]*)/gim)) {
+		const type = DEF_TYPE_NAMES[match[1].toLowerCase()];
+		for (const range of match[2].split(',')) {
+			const ends = /^\s*([A-Za-z])\s*(?:-\s*([A-Za-z]))?\s*$/.exec(range);
+			if (!ends) {
+				continue;
+			}
+			const from = ends[1].toLowerCase().charCodeAt(0);
+			const to = (ends[2] ?? ends[1]).toLowerCase().charCodeAt(0);
+			for (let code = from; code <= to; code++) {
+				out.set(String.fromCharCode(code), type);
+			}
+		}
+	}
+	return out;
 }

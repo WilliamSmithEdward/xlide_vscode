@@ -81778,6 +81778,171 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d() As Long\r\n    ReDim d(2.5)\r\n    Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue285_01_runtime",
+      "description": "Issue #285 names a DefType line types, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nDefInt A-Z\r\nFunction Main() As Variant\r\n    Dim i\r\n    i = 40000\r\n    Main = i\r\nEnd Function\r\n\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue285_02_runtime",
+      "description": "Issue #285 names a DefType line types, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nDefInt A-Z\r\nFunction Main() As Variant\r\n    Dim i\r\n    i = 32767\r\n    i = i + 1\r\n    Main = i\r\nEnd Function\r\n\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue285_03_runtime",
+      "description": "Issue #285 names a DefType line types, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nDefInt I-K\r\nFunction Main() As Variant\r\n    Dim k\r\n    k = 40000\r\n    Main = k\r\nEnd Function\r\n\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue285_04_runtime",
+      "description": "Issue #285 names a DefType line types, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nDefByte B\r\nFunction Main() As Variant\r\n    Dim b\r\n    b = -1\r\n    Main = b\r\nEnd Function\r\n\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue285_05_runtime",
+      "description": "Issue #285 names a DefType line types, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nDefDate D\r\nFunction Main() As Variant\r\n    Dim d\r\n    d = \"abc\"\r\n    Main = d\r\nEnd Function\r\n\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue285_06_runtime",
+      "description": "Issue #285 names a DefType line types, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nDefObj O\r\nFunction Main() As Variant\r\n    Dim o\r\n    Main = o.Count\r\nEnd Function\r\n\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue285_07_runtime",
+      "description": "Issue #285 names a DefType line types, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nDefInt A-Z\r\nFunction Main() As Variant\r\n    Main = Twice(40000)\r\nEnd Function\r\nFunction Twice(n)\r\n    Twice = n * 2\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue285_08_runtime",
+      "description": "Issue #285 names a DefType line types, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nDefInt A-Z\r\nFunction Main() As Variant\r\n    Main = Big()\r\nEnd Function\r\nFunction Big()\r\n    Big = 40000\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue285_09_runtime",
+      "description": "Issue #285 names a DefType line types, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nDefInt A-Z\r\nFunction Main() As Variant\r\n    Dim i\r\n    For i = 1 To 40000\r\n    Next\r\n    Main = 1\r\nEnd Function\r\n\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue285_10_runtime",
+      "description": "Issue #285 names a DefType line types, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 40000.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nDefInt I-K\r\nFunction Main() As Variant\r\n    Dim a\r\n    a = 40000\r\n    Main = a\r\nEnd Function\r\n\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue285_11_runtime",
+      "description": "Issue #285 names a DefType line types, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 40000.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nDefInt A-Z\r\nFunction Main() As Variant\r\n    Dim i As Long\r\n    i = 40000\r\n    Main = i\r\nEnd Function\r\n\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue285_12_runtime",
+      "description": "Issue #285 names a DefType line types, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 40000.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nDefInt A-Z\r\nFunction Main() As Variant\r\n    Dim i&\r\n    i = 40000\r\n    Main = i\r\nEnd Function\r\n\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue285_13_runtime",
+      "description": "Issue #285 names a DefType line types, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 40000.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nDefLng A-Z\r\nFunction Main() As Variant\r\n    Dim i\r\n    i = 40000\r\n    Main = i\r\nEnd Function\r\n\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue285_14_runtime",
+      "description": "Issue #285 names a DefType line types, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> True.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nDefBool A-Z\r\nFunction Main() As Variant\r\n    Dim i\r\n    i = 5\r\n    Main = i\r\nEnd Function\r\n\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue285_15_runtime",
+      "description": "Issue #285 names a DefType line types, case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 30000.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nDefInt A-Z\r\nFunction Main() As Variant\r\n    Dim i\r\n    i = 30000\r\n    Main = i\r\nEnd Function\r\n\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

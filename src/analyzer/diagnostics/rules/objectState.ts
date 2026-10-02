@@ -29,6 +29,7 @@ import { statementLabelDeclarations, statementLabelReferences } from '../../flow
 import { builtinNameBefore, resolveExhaustiveMemberSurface, ONE_VALUE_BUILTINS } from '../rules/shared';
 import {
 	declaredTypeForSourceBinding,
+	defTypeOf,
 	isKnownObjectAssignmentType,
 	sourceIdentifierBinding,
 	isKnownScalarType,
@@ -1259,6 +1260,8 @@ function localObjectVariablesFor(
 	const out = new Map<string, LocalObjectVariable>();
 	const procSym = procedureSymbolFor(symbols, proc);
 	for (const child of procSym?.children ?? []) {
+		// `DefObj O` then `Dim o` is an Object (issue #285).
+		const asType = child.asType ?? (child.kind === 'localVariable' ? defTypeOf(symbols, child.name) : undefined);
 		if (
 			child.kind !== 'localVariable' ||
 			child.visibility === 'Static' ||
@@ -1268,12 +1271,12 @@ function localObjectVariablesFor(
 			// never be Nothing when a member is touched. Tracking it produced
 			// error 91 warnings on code that runs.
 			child.isAutoInstantiated === true ||
-			!isKnownObjectAssignmentType(child.asType, memberCtx) ||
-			!child.asType
+			!isKnownObjectAssignmentType(asType, memberCtx) ||
+			!asType
 		) {
 			continue;
 		}
-		out.set(child.name.toLowerCase(), { name: child.name, asType: child.asType });
+		out.set(child.name.toLowerCase(), { name: child.name, asType });
 	}
 	// A Variant is followed only where the procedure sets it to Nothing.
 	const text = source.slice(proc.span.start, proc.span.end);

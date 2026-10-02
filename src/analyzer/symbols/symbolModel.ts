@@ -422,6 +422,11 @@ export interface ModuleSymbols {
 	root: VbaSymbol;
 	/** Flat list of every symbol in the module, including nested ones. */
 	all: VbaSymbol[];
+	/**
+	 * The type a DefType line gives names declared with no type, by their
+	 * lowercased first letter (issue #285). Absent with no DefType line.
+	 */
+	defTypes?: ReadonlyMap<string, string>;
 }
 
 /** True for the five source procedure body symbol kinds. */

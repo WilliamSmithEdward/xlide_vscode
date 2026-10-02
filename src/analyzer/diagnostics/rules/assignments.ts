@@ -61,6 +61,7 @@ import {
 	objectHoldingDefault,
 	objectLetAssignmentVerdict,
 	inferArgumentType,
+	defTypeOf,
 	isKnownObjectAssignmentType,
 	isKnownScalarType,
 	isMemberStatementChainThrough,
@@ -487,7 +488,7 @@ export function checkAssignmentTypes(
 				return shape.resolved && shape.shape?.isArray === true;
 			})();
 			const declaredExpected = (targetType.resolved
-				? targetType.asType
+				? targetType.asType ?? (untypedArray ? undefined : defTypeOf(symbols, assignment.name))
 				: env.get(assignment.name.toLowerCase())) ?? (untypedArray ? 'Variant' : undefined);
 			// A variable As an Enum is a Long: `x = "abc"` raises 13 and
 			// `x = 3000000000#` 6 (issue #436, measured in Excel 16.0).
