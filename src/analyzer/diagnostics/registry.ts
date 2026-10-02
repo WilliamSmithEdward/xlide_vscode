@@ -111,6 +111,7 @@ import { checkOverflow } from './rules/overflow';
 import { checkHostArguments, workbookSheetsToCheck } from './rules/hostArguments';
 import { checkCollectionLoopCounters, checkCollectionState } from './rules/collectionState';
 import { checkDictionaryState } from './rules/dictionaryState';
+import { checkExcelSessionState } from './rules/excelSessionState';
 import { checkByNameCalls } from './rules/byNameCalls';
 import { checkVariantValueMisuse } from './rules/variantValues';
 import { checkRuntimeMemberNotFound } from './rules/lateBoundMembers';
@@ -423,6 +424,20 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'dictionaryState',
 		run: (ctx, push) => checkDictionaryState(ctx.source, ctx.mod, ctx.activity, push),
+	},
+	{
+		name: 'excelSessionState',
+		run: (ctx, push) => checkExcelSessionState(
+			ctx.source,
+			ctx.mod,
+			new Set([
+				...(ctx.symbols.root.children ?? []).filter((symbol) => ['sub', 'function', 'declare', 'propertyGet', 'propertyLet', 'propertySet'].includes(symbol.kind)).map((symbol) => symbol.name.toLowerCase()),
+				...[...(ctx.opts.projectProcedures?.keys() ?? [])].map((name) => name.toLowerCase()),
+			]),
+			ctx.memberCtx,
+			ctx.activity,
+			push,
+		),
 	},
 	{
 		name: 'variantValueMisuse',

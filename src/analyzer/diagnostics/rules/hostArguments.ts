@@ -783,6 +783,7 @@ function checkSpan(
 				push('hostArgumentOutOfRange', `Range("${address}") is one area, so Areas(${index}) names none. This will raise Run-time error '1004': Application-defined or object-defined error.`, at(i + 7, i + 7));
 			}
 		}
+		checkBeforeAndAfter(source, span, toks, memberCtx, push);
 	}
 	for (let i = 0; i < toks.length; i++) {
 		const callee = hostCalleeAt(source, span, toks, i, model, memberCtx, sourceNames);
@@ -810,6 +811,7 @@ function checkSpan(
 		}
 		checkArgumentLimits(span, callee, valueOf, push);
 		if (host === 'Excel') {
+			checkExcelMethodArguments(span, toks, callee, stringOf, push);
 			checkExcelCallee(source, span, toks, callee, calleeSpan, env, arrays, valueOf, push, stringOf);
 		} else if (host === 'Word') {
 			if (lower === 'range' && callee.receiver === 'Word.Document' && callee.openIndex > 0) {
@@ -954,6 +956,119 @@ function checkArgumentLimits(
 			`${callee.receiver.slice(callee.receiver.indexOf('.') + 1)}.${callee.name} takes ${limit.parameter} ${limit.runs}; ${value} is outside that. This will raise Run-time error '${limit.error.number}': ${limit.error.text}.`,
 			argSpan(span, arg!),
 		);
+	}
+}
+
+/**
+ * Excel methods whose 1004 the arguments prove (issue #308, measured in
+ * Excel 16.0): AutoFill into a range that does not hold its source, a Sort
+ * of several cells keyed on a column outside them, and Names.Add of a name
+ * Excel cannot hold.
+ */
+function checkExcelMethodArguments(
+	span: Span,
+	toks: readonly VbaToken[],
+	callee: HostCallee,
+	stringOf: (arg: readonly VbaToken[]) => string | undefined,
+	push: PushFn,
+): void {
+	const lower = callee.name.toLowerCase();
+	const given = (name: string, position: number): VbaToken[] | undefined => {
+		const arg = argumentByNameOrPosition(callee.args, name, position);
+		return arg && arg.length > 0 ? arg : undefined;
+	};
+	if (callee.receiver === 'Excel.Range' && lower === 'autofill') {
+		const from = literalRangeReceiver(toks, callee.nameIndex - 1);
+		const destination = given('Destination', 0);
+		const to = destination ? literalRangeArgument(destination) : undefined;
+		const holds = from && to && to.row <= from.row && to.column <= from.column && to.row + to.rows >= from.row + from.rows && to.column + to.width >= from.column + from.width;
+		const same = holds && to.rows === from.rows && to.width === from.width;
+		if (from && to && (!holds || same)) {
+			push('hostArgumentOutOfRange', `AutoFill fills from ${from.text} into ${to.text}, which ${same ? 'is the source itself' : 'does not take it in'}: the destination must hold the source and reach past it. This will raise Run-time error '1004': AutoFill method of Range class failed.`, argSpan(span, destination!));
+		}
+		return;
+	}
+	if (callee.receiver === 'Excel.Range' && lower === 'sort' && !given('Orientation', 10)) {
+		const block = literalRangeReceiver(toks, callee.nameIndex - 1);
+		if (!block || (block.rows === 1 && block.width === 1)) {
+			return; // one cell sorts its current region, which the data decides
+		}
+		for (const [name, position] of [['Key1', 0], ['Key2', 2], ['Key3', 5]] as const) {
+			const key = given(name, position);
+			const at = key ? literalRangeArgument(key) : undefined;
+			if (at && (at.column + at.width <= block.column || at.column >= block.column + block.width)) {
+				push('hostArgumentOutOfRange', `${name} ${at.text} lies outside the columns of ${block.text}, which is what is sorted. This will raise Run-time error '1004': The sort reference is not valid.`, argSpan(span, key!));
+				return;
+			}
+		}
+		return;
+	}
+	if (callee.receiver === 'Excel.Names' && lower === 'add') {
+		const arg = given('Name', 0);
+		const name = arg ? stringOf(arg) : undefined;
+		const why = name === undefined ? undefined : refusedName(name);
+		if (why) {
+			push('hostArgumentOutOfRange', `"${name}" ${why}, so Excel holds no name of that spelling. This will raise Run-time error '1004': The syntax of this name isn't correct.`, argSpan(span, arg!));
+		}
+	}
+}
+
+/**
+ * Why Excel refuses a name, where it is plain (issue #308, measured in
+ * Excel 16.0): a space, a digit first, or the spelling of a cell, A1 or
+ * R1C1. A0, XFE1 and A1048577 are names it accepts.
+ */
+function refusedName(name: string): string | undefined {
+	if (/\s/.test(name)) {
+		return 'holds a space';
+	}
+	if (/^\d/.test(name)) {
+		return 'starts with a digit';
+	}
+	const cell = /^\$?([A-Za-z]{1,3})\$?(\d+)$/.exec(name);
+	if (cell && columnNumber(cell[1]) <= EXCEL_MAX_COLUMN && Number(cell[2]) >= 1 && Number(cell[2]) <= EXCEL_MAX_ROW) {
+		return 'is the address of a cell';
+	}
+	if (/^[Rr]\d+[Cc]\d+$/.test(name)) {
+		return 'is an R1C1 address';
+	}
+	return undefined;
+}
+
+/** `Range("B1:B3")` as a whole argument: its top-left cell and its size. */
+function literalRangeArgument(arg: readonly VbaToken[]): { row: number; column: number; rows: number; width: number; text: string } | undefined {
+	const toks = arg.filter((tok) => tok.kind !== 'comment');
+	return toks.length === 4 ? literalRangeAt(toks, 0) : undefined;
+}
+
+const BEFORE_AND_AFTER_TYPES: ReadonlySet<string> = new Set(['Excel.Sheets', 'Excel.Worksheets', 'Excel.Charts', 'Excel.Worksheet', 'Excel.Chart']);
+
+/**
+ * `Worksheets.Add Before:=..., After:=...` and Move or Copy of a sheet
+ * given both: the sheet goes before one or after one, never both (issue
+ * #308, measured in Excel 16.0: 1004).
+ */
+function checkBeforeAndAfter(source: string, span: Span, toks: readonly VbaToken[], memberCtx: MemberCompletionContext, push: PushFn): void {
+	for (let i = 1; i < toks.length; i++) {
+		const lower = tokenText(toks[i]);
+		if (toks[i - 1].rawText !== '.' || (lower !== 'add' && lower !== 'move' && lower !== 'copy')) {
+			continue;
+		}
+		const open = toks[i + 1]?.rawText === '(' ? i + 1 : -1;
+		const close = open > 0 ? matchParenFrom(toks, open) : toks.length;
+		if (open < 0 && i !== firstExecutableTokenIndexOfMemberCall(toks, i)) {
+			continue;
+		}
+		const args = close > (open > 0 ? open + 1 : i + 1) ? splitTopLevel(toks.slice(open > 0 ? open + 1 : i + 1, close)) : [];
+		const before = argumentByNameOrPosition(args, 'Before', 0);
+		const after = argumentByNameOrPosition(args, 'After', 1);
+		if (!before?.length || !after?.length) {
+			continue;
+		}
+		const parts = (resolveReceiverTypeAt(source, span.start + toks[i - 1].end, memberCtx) ?? '').replace(/^union:/, '').split('|');
+		if (parts.every((part) => BEFORE_AND_AFTER_TYPES.has(part))) {
+			push('hostArgumentOutOfRange', `${toks[i].rawText} takes Before or After, not both: a sheet goes before one sheet or after one. This will raise Run-time error '1004': Method '${toks[i].rawText}' failed.`, { start: span.start + toks[i].start, end: span.start + toks[close === toks.length ? close - 1 : close].end });
+		}
 	}
 }
 
@@ -1584,6 +1699,25 @@ function rangeChainReceiver(
 		const block = literalRangeReceiver(toks, dotIndex);
 		return block ? { ...block } : undefined;
 	}
+	// `Cells(1, 2)`, `Rows(3)`, `Columns(2)` unqualified: a cell, a whole row
+	// or a whole column of the sheet (issue #308, measured in Excel 16.0).
+	if (toks[open - 2]?.rawText !== '.' && (name === 'cells' || name === 'rows' || name === 'columns')) {
+		const args = close > open + 1 ? splitTopLevelTokenGroups(toks, open + 1, ',', close) : [];
+		const first = args[0] ? valueOf(args[0]) : undefined;
+		const text = toks.slice(open - 1, close + 1).map((tok) => tok.rawText).join('');
+		if (name === 'cells' && args.length === 2) {
+			const column = valueOf(args[1]);
+			return first !== undefined && column !== undefined && first >= 1 && column >= 1 && first <= EXCEL_MAX_ROW && column <= EXCEL_MAX_COLUMN
+				? { row: first, column, rows: 1, width: 1, text } : undefined;
+		}
+		if (args.length !== 1 || first === undefined || first < 1) {
+			return undefined;
+		}
+		if (name === 'rows') {
+			return first <= EXCEL_MAX_ROW ? { row: first, column: 1, rows: 1, width: EXCEL_MAX_COLUMN, text } : undefined;
+		}
+		return name === 'columns' && first <= EXCEL_MAX_COLUMN ? { row: 1, column: first, rows: EXCEL_MAX_ROW, width: 1, text } : undefined;
+	}
 	if (!CHAIN_MEMBERS.has(name) || toks[open - 2]?.rawText !== '.') {
 		return undefined;
 	}
@@ -1662,10 +1796,15 @@ function literalRangeReceiver(toks: readonly VbaToken[], dotIndex: number): { ro
 	}
 	const close = dotIndex - 1;
 	const open = toks.findIndex((tok, k) => tok.rawText === '(' && matchParenFrom(toks, k) === close);
-	if (open < 1 || tokenText(toks[open - 1]) !== 'range' || close !== open + 2 || toks[open + 1].kind !== 'stringLiteral') {
+	return open < 1 ? undefined : literalRangeAt(toks, open - 1);
+}
+
+/** `Range("B2:C3")` starting at `toks[at]`: its top-left cell and its size. */
+function literalRangeAt(toks: readonly VbaToken[], at: number): { row: number; column: number; rows: number; width: number; text: string } | undefined {
+	if (tokenText(toks[at]) !== 'range' || toks[at + 1]?.rawText !== '(' || toks[at + 2]?.kind !== 'stringLiteral' || toks[at + 3]?.rawText !== ')') {
 		return undefined;
 	}
-	const area = parseA1Address(stringLiteralValue(toks[open + 1].rawText));
+	const area = parseA1Address(stringLiteralValue(toks[at + 2].rawText));
 	if (!area?.valid || area.row === undefined || area.column === undefined) {
 		return undefined;
 	}

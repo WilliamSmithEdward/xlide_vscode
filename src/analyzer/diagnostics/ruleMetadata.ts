@@ -1011,6 +1011,18 @@ export const DIAGNOSTIC_RULES = {
 		allowSeverityDowngrade: true,
 		confidence: 'high',
 	},
+	pasteWithNothingCopied: {
+		code: 'paste-with-nothing-copied',
+		title: 'PasteSpecial after the clipboard was emptied',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: false,
+		diagnosticKind: 'deterministic-runtime-error',
+		source: 'XLIDE',
+		specReference: 'Excel runtime error 1004: PasteSpecial method of Range class failed, after Application.CutCopyMode = False with no Copy or Cut since (issue #308, Excel 16.0)',
+		allowSeverityDowngrade: true,
+		confidence: 'high',
+	},
 	multiCellRangeAsScalar: {
 		code: 'multi-cell-range-as-scalar',
 		title: 'Multi-cell range read as a scalar',
