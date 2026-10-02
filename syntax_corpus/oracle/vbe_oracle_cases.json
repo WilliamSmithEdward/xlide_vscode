@@ -84847,6 +84847,266 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add 0\r\n    Main = c.Item(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue305_01_runtime",
+      "description": "Issue #305 Collection items assigned and members no open type has, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 424.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add 1\r\n    c(1) = 5\r\n    Main = c(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue305_02_runtime",
+      "description": "Issue #305 Collection items assigned and members no open type has, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 424.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add 1\r\n    c.Item(1) = 5\r\n    Main = c(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue305_03_runtime",
+      "description": "Issue #305 Collection items assigned and members no open type has, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add 1\r\n    Main = c.Nope\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue305_04_runtime",
+      "description": "Issue #305 Collection items assigned and members no open type has, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add 1\r\n    c.Nope 1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue305_05_runtime",
+      "description": "Issue #305 Collection items assigned and members no open type has, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Cells.Nope\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue305_06_runtime",
+      "description": "Issue #305 Collection items assigned and members no open type has, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Range(\"A1\").Nope\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue305_07_runtime",
+      "description": "Issue #305 Collection items assigned and members no open type has, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = ActiveSheet.Nope\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue305_08_runtime",
+      "description": "Issue #305 Collection items assigned and members no open type has, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Application\r\n    Set a = Application\r\n    Main = a.Nope\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue305_09_runtime",
+      "description": "Issue #305 Collection items assigned and members no open type has, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = WorksheetFunction.Nope(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue305_10_runtime",
+      "description": "Issue #305 Collection items assigned and members no open type has, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Application.WorksheetFunction.Nope(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue305_11_runtime",
+      "description": "Issue #305 Collection items assigned and members no open type has, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 424.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection\r\n    Set c = New Collection\r\n    c.Add 1\r\n    c(1) = 5\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue305_12_runtime",
+      "description": "Issue #305 Collection items assigned and members no open type has, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim r As Range\r\n    Set r = Range(\"A1\")\r\n    Main = r.Nope\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue305_13_runtime",
+      "description": "Issue #305 Collection items assigned and members no open type has, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = VBA.Len(\"ab\")\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue305_14_runtime",
+      "description": "Issue #305 Collection items assigned and members no open type has, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = VBA.Strings.Len(\"ab\")\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue305_15_runtime",
+      "description": "Issue #305 Collection items assigned and members no open type has, case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> Microsoft Excel.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Excel.Application.Name\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue305_16_runtime",
+      "description": "Issue #305 Collection items assigned and members no open type has, case 16, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add 1\r\n    Main = c(1) + c.Item(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue305_17_runtime",
+      "description": "Issue #305 Collection items assigned and members no open type has, case 17, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> $A$1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Range(\"A1\").Address\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue305_18_runtime",
+      "description": "Issue #305 Collection items assigned and members no open type has, case 18, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add New Collection\r\n    c(1).Add 5\r\n    Main = c(1)(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue305_19_runtime",
+      "description": "Issue #305 Collection items assigned and members no open type has, case 19, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 3.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = WorksheetFunction.Sum(1, 2)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue305_20_runtime",
+      "description": "Issue #305 Collection items assigned and members no open type has, case 20, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> Sheet1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = ActiveSheet.Name\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue305_21_compile",
+      "description": "Issue #305 Collection items assigned and members no open type has, case 21, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add 1\r\n    c.Count = 2\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue305_22_compile",
+      "description": "Issue #305 Collection items assigned and members no open type has, case 22, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = VBA.Nope\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue305_23_compile",
+      "description": "Issue #305 Collection items assigned and members no open type has, case 23, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = VBA.Strings.Nope(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue305_24_compile",
+      "description": "Issue #305 Collection items assigned and members no open type has, case 24, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Excel.Nope\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }

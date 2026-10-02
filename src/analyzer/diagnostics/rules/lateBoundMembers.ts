@@ -359,7 +359,9 @@ export function checkRuntimeMemberNotFound(
 		const env = typeEnvironmentFor(symbols, member);
 		forEachStatement(member.body, (stmt) => {
 			for (const span of statementAndBranchSpans(stmt)) {
-				checkFormControlNames(source, span.start, statementTokens(source, span), memberCtx, push);
+				const toks = statementTokens(source, span);
+				checkFormControlNames(source, span.start, toks, memberCtx, push);
+				checkOpenTypeMembers(source, span.start, toks, env, applicationSurface, memberCtx, push);
 			}
 		}, activity);
 		checkCollectionItems(source, member, symbols, env, memberCtx, activity, push);
@@ -705,6 +707,89 @@ function checkStatement(
 			}
 		}
 	}
+}
+
+/** Collection's members, its hidden enumerator included. */
+const COLLECTION_SURFACE: ReadonlySet<string> = new Set([...COLLECTION_MEMBERS, '_newenum']);
+
+const MEMBER_NOT_SUPPORTED = 'This will raise Run-time error \'438\': Object doesn\'t support this property or method.';
+
+/**
+ * A member no early-bound receiver of an open type has (issue #305, each
+ * measured in Excel 16.0): the VBE compiles the name, since the interface is
+ * extensible, and the call raises 438. A local As Collection, a Range by
+ * any route (`Cells.Nope`, `Range("A1").Nope`, a Range variable), a
+ * variable As Application, and ActiveSheet when neither a Worksheet nor a
+ * Chart nor any document module of the project has the name.
+ */
+function checkOpenTypeMembers(
+	source: string,
+	base: number,
+	toks: readonly VbaToken[],
+	env: ReadonlyMap<string, string>,
+	applicationSurface: ReadonlySet<string> | undefined,
+	memberCtx: MemberCompletionContext,
+	push: PushFn,
+): void {
+	const model = memberCtx.model;
+	const projectTypes = memberCtx.projectClassMembers ?? [];
+	let rangeNames: ReadonlySet<string> | undefined;
+	let sheetNames: ReadonlySet<string> | undefined;
+	for (let i = 1; i + 1 < toks.length; i++) {
+		const name = toks[i].rawText === '.' ? tokenName(toks[i + 1]) : undefined;
+		if (!name || (tokenName(toks[i - 1]) === undefined && toks[i - 1].rawText !== ')') || toks[i - 1].kind === 'keyword') {
+			continue;
+		}
+		const lower = name.toLowerCase();
+		const at = { start: base + toks[i + 1].start, end: base + toks[i + 1].end };
+		// A plain name before the dot: `c.Nope`, `a.Nope`, `ActiveSheet.Nope`.
+		const receiver = toks[i - 1].rawText !== ')' && toks[i - 2]?.rawText !== '.' ? tokenName(toks[i - 1]) : undefined;
+		const declared = receiver ? normalizeType(env.get(receiver.toLowerCase())) : undefined;
+		if (declared === 'collection' || declared === 'vba.collection') {
+			if (!COLLECTION_SURFACE.has(lower) && !projectTypes.some((type) => type.name.toLowerCase() === 'collection')) {
+				push('runtimeMemberNotFound', `'${receiver}' is a Collection, which has only Add, Count, Item and Remove. The VBE compiles '${name}'; ${MEMBER_NOT_SUPPORTED}`, at);
+			}
+			continue;
+		}
+		if (!applicationSurface) {
+			continue;
+		}
+		if ((declared === 'application' || declared === 'excel.application') && !applicationSurface.has(lower)) {
+			push('runtimeMemberNotFound', `'${receiver}' is an Application, which has no member '${name}', and it is not a worksheet function either. The VBE compiles the name because Application is extensible; ${MEMBER_NOT_SUPPORTED}`, at);
+			continue;
+		}
+		if (receiver && tokenText(toks[i - 1]) === 'activesheet' && !env.has('activesheet')) {
+			sheetNames ??= sheetSurface(model, projectTypes);
+			if (!sheetNames.has(lower)) {
+				push('runtimeMemberNotFound', `ActiveSheet has no member '${name}': neither a Worksheet nor a Chart has one, and no document module of the project declares it. ${MEMBER_NOT_SUPPORTED}`, at);
+			}
+			continue;
+		}
+		rangeNames ??= getHostType('Excel.Range', model)?.exhaustive === true
+			? new Set(getHostMembers('Excel.Range', model).map((member) => member.name.toLowerCase()))
+			: new Set();
+		if (rangeNames.size > 0 && !rangeNames.has(lower) && resolveReceiverTypeAt(source, base + toks[i].end, memberCtx) === 'Excel.Range') {
+			push('runtimeMemberNotFound', `A Range has no member '${name}'. The VBE compiles the name because Range is extensible; ${MEMBER_NOT_SUPPORTED}`, at);
+		}
+	}
+}
+
+/** What ActiveSheet may answer to: a Worksheet's members, a Chart's, and every document module's. */
+function sheetSurface(model: HostObjectModel | undefined, projectTypes: NonNullable<MemberCompletionContext['projectClassMembers']>): ReadonlySet<string> {
+	const names = new Set<string>();
+	for (const type of ['Excel.Worksheet', 'Excel.Chart']) {
+		for (const member of getHostMembers(type, model)) {
+			names.add(member.name.toLowerCase());
+		}
+	}
+	for (const type of projectTypes) {
+		if (type.kind === 'document') {
+			for (const member of type.members) {
+				names.add(member.name.toLowerCase());
+			}
+		}
+	}
+	return names;
 }
 
 /**

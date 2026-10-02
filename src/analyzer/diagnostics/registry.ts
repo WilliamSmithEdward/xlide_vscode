@@ -460,7 +460,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'vbaLibraryMembers',
-		run: (ctx, push) => checkVbaLibraryMembers(ctx.source, ctx.mod, ctx.symbols, ctx.opts.projectVisibleSymbols, ctx.activity, push),
+		run: (ctx, push) => checkVbaLibraryMembers(ctx.source, ctx.mod, ctx.symbols, ctx.opts.projectVisibleSymbols, ctx.activity, push, ctx.opts.hostModel?.hostName),
 	},
 	{
 		name: 'statementTypes',
