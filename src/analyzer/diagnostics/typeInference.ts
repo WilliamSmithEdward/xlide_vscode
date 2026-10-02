@@ -3449,9 +3449,16 @@ export function knownLocalLiteralValuesAt(
 		: straightLineAssignments(source, proc.body, activity, walkStart(symbols, proc, locals));
 	// Statements in a run share one reaching map, so they share one result.
 	const results = new Map<ReachingAssignments, ReadonlyMap<string, KnownLocalValue>>();
+	// A block's opening line, given as a statement of its own, sees what
+	// reaches the block: `x = "abc"` then `While x` (issue #424).
+	let blocksByStart: Map<number, BodyNode> | undefined;
+	const blockAt = (stmt: BodyNode): BodyNode | undefined => {
+		blocksByStart ??= new Map([...reaching.keys()].filter((node: BodyNode) => !isLeafStatement(node)).map((node: BodyNode) => [node.span.start, node]));
+		return blocksByStart.get(stmt.span.start);
+	};
 	return (stmt) => {
 		// No statement: a block header, which sees the procedure-wide values.
-		const assignments = stmt ? reaching.get(stmt) : undefined;
+		const assignments = stmt ? reaching.get(stmt) ?? (stmt.kind === 'Statement' && isLeafStatement(stmt) ? reaching.get(blockAt(stmt)!) : undefined) : undefined;
 		if (!assignments) {
 			return whole;
 		}

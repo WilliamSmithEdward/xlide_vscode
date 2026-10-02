@@ -21,6 +21,7 @@ import {
 	procedureSymbolFor,
 	type PushFn,
 } from '../analysisContext';
+import { conditionOperands } from '../conditionOperands';
 import { walkBranchMergedBody, walkStraightLineBody } from '../dataflow';
 import { untouchedModuleVariablesIn } from '../moduleState';
 import { procedureHasUnstructuredFlow } from '../../flow/procedureUnstructured';
@@ -475,9 +476,28 @@ function walkObjectState(
 			// The header runs as the block is entered, with the state as it
 			// stands: `For i = 1 To c.Count`, `Select Case c.Count` (issue #233).
 			if (node.kind === 'SelectBlock' || node.kind === 'DoBlock' || node.kind === 'WhileBlock' || (node.kind === 'ForBlock' && !node.each)) {
-				const { before } = blockHeaderStatements(source, node);
+				const { before, after } = blockHeaderStatements(source, node);
 				if (before) {
 					checkObjectVariableNotSetStatement(source, before, locals, state, setAnywhere, memberCtx, report, lets, facts, elements);
+				}
+				// `Loop Until x` reads x after the body, with what it entered with
+				// when the body never names x (issue #424).
+				if (after && node.kind === 'DoBlock') {
+					const inBody = source.slice(before?.span.end ?? node.span.start, after.span.start).toLowerCase();
+					const afterToks = statementTokensAfterLeadingLabel(source, after.span);
+					const named = conditionOperands(afterToks).some((hit) => new RegExp(`\\b${afterToks[hit.index].rawText.toLowerCase()}\\b`).test(inBody));
+					if (!named) {
+						checkObjectVariableNotSetStatement(source, after, locals, state, setAnywhere, memberCtx, report, lets, facts);
+					}
+				}
+			}
+			// A block If's own line and its ElseIf lines read their conditions
+			// as the block is entered (issue #424).
+			if (node.kind === 'IfBlock') {
+				for (const branch of node.branches) {
+					if (branch.branchKind !== 'else') {
+						checkObjectVariableNotSetStatement(source, { kind: 'Statement', span: branch.headerSpan, raw: source.slice(branch.headerSpan.start, branch.headerSpan.end) }, locals, state, setAnywhere, memberCtx, report, lets, facts);
+					}
 				}
 			}
 			// A For Each that runs to its end leaves the control variable
@@ -809,14 +829,17 @@ function checkObjectVariableNotSetStatement(
 	// raises 91 whatever its type's default member (issue #268, measured in
 	// Excel 16.0 on a Collection). A type with no default member is
 	// object-default-value's, 438 or 91 (issue #415).
-	if ((head === 'if' || head === 'elseif') && tokenText(toks[2]) === 'then') {
-		const lower = tokenName(toks[1])?.toLowerCase();
-		const local = lower ? locals.get(lower) : undefined;
-		if (local && !local.letOnly && !local.variant && state.get(lower!) === 'unset' && objectLetAssignmentVerdict(local.asType, memberCtx) !== 'noDefault') {
+	// So do a loop's condition, Select Case, IIf, Not and And (issue #424).
+	for (const { index, form } of conditionOperands(toks)) {
+		const lower = toks[index].rawText.toLowerCase();
+		const local = locals.get(lower);
+		if (local && !local.letOnly && !local.variant && state.get(lower) === 'unset' && !guardedAt(lower, stmt.span.start + toks[index].start)
+			&& objectLetAssignmentVerdict(local.asType, memberCtx) !== 'noDefault') {
+			const reads = form === 'condition' ? 'the condition reads' : form === 'select' ? 'Select Case reads' : form === 'iif' ? 'IIf reads' : `'${form === 'not' ? 'Not' : 'the Boolean operator'}' reads`;
 			push(
 				'objectVariableNotSet',
-				`Object variable '${toks[1].rawText}' is Nothing when the condition reads its value. This will raise Run-time error '91': Object variable or With block variable not set.`,
-				{ start: stmt.span.start + toks[1].start, end: stmt.span.start + toks[1].end },
+				`Object variable '${toks[index].rawText}' is Nothing when ${reads} its value. This will raise Run-time error '91': Object variable or With block variable not set.`,
+				{ start: stmt.span.start + toks[index].start, end: stmt.span.start + toks[index].end },
 			);
 		}
 	}

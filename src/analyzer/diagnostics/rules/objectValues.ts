@@ -121,15 +121,8 @@ export function checkObjectDefaultValues(
 			if (lateBound.length > 0) {
 				checkHeldCollections(source, stmt, lateBound, (lower) => holdsCollection(stmt, lower), push);
 			}
-			// `If c Then` reads c's value for the condition: a Collection's
-			// default member Item needs an index (issue #268, measured in
-			// Excel 16.0: 450). An As New Collection is never Nothing there;
-			// one still Nothing is object-state's 91.
+			// `If c Then` on a Collection is condition-values' (issues #268, #424).
 			const condition = statementTokens(source, stmt.span).filter((tok) => tok.kind !== 'comment');
-			const conditionName = ['if', 'elseif'].includes(tokenText(condition[0])) && tokenText(condition[2]) === 'then' ? tokenName(condition[1])?.toLowerCase() : undefined;
-			if (conditionName && isCollection(conditionName) && autoInstanced.has(conditionName)) {
-				push('objectDefaultValue', `'${condition[1].rawText}' is a Collection: its default member Item needs an index, so the condition has no value to read. This will raise Run-time error '450': Wrong number of arguments or invalid property assignment.`, { start: stmt.span.start + condition[1].start, end: stmt.span.start + condition[1].end });
-			}
 			// `If ws Then`, `ws(1)`, `CStr(ws)`: a type with no default member
 			// has no value there either (issue #415, measured in Excel 16.0 on
 			// a Worksheet, a Workbook and a Font).

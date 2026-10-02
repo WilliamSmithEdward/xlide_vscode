@@ -114,6 +114,7 @@ import { checkDictionaryState } from './rules/dictionaryState';
 import { checkByNameCalls } from './rules/byNameCalls';
 import { checkVariantValueMisuse } from './rules/variantValues';
 import { checkRuntimeMemberNotFound } from './rules/lateBoundMembers';
+import { checkConditionValues } from './rules/conditionValues';
 import { checkObjectDefaultValues } from './rules/objectValues';
 import { checkEventHandlerSignatures } from './rules/eventHandlerSignatures';
 import { checkDeclarationForms } from './rules/declarationForms';
@@ -371,6 +372,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 			push,
 			ownObjectMemberNames(ctx.opts),
 		),
+	},
+	{
+		name: 'conditionValues',
+		run: (ctx, push) => checkConditionValues(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push),
 	},
 	{
 		name: 'handlerFlow',
