@@ -410,7 +410,30 @@ function checkRecursiveProperty(
 						absoluteRange(entry.leaf.span, toks[i], toks[i + 2]),
 					);
 				}
+				// `Value = Value() + 1`: with its parentheses the name calls the
+				// property, where bare it is the return variable (issue #338).
+				if (tokenName(toks[i])?.toLowerCase() === lower && toks[i - 1]?.rawText !== '.' && toks[i + 1].rawText === '(' && toks[i + 2].rawText === ')'
+					&& proc.params.length === 0) {
+					push(
+						'recursivePropertyAccessor',
+						`Property Get '${proc.name}' calls '${proc.name}()', which is itself: the call never returns. This will raise Run-time error '28': Out of stack space.`,
+						absoluteRange(entry.leaf.span, toks[i], toks[i + 2]),
+					);
+				}
 			}
+			continue;
+		}
+		// `Me.Value = v` in the Let, `Set Me.Items = v` in the Set: the
+		// property assigned through Me is this procedure (issue #338).
+		const meAt = tokenText(toks[0]) === 'set' ? 1 : 0;
+		const setForm = meAt === 1;
+		if (tokenText(toks[meAt]) === 'me' && toks[meAt + 1]?.rawText === '.' && tokenName(toks[meAt + 2])?.toLowerCase() === lower
+			&& toks[meAt + 3]?.rawText === '=' && setForm === (proc.procKind === 'PropertySet') && proc.params.length === 1) {
+			push(
+				'recursivePropertyAccessor',
+				`${proc.procKind === 'PropertyLet' ? 'Property Let' : 'Property Set'} '${proc.name}' assigns 'Me.${proc.name}', which is itself: the call never returns. This will raise Run-time error '28': Out of stack space.`,
+				absoluteRange(entry.leaf.span, toks[meAt], toks[meAt + 2]),
+			);
 			continue;
 		}
 		// Property Let/Set: `Name = value` assigns the property, which is this
@@ -542,6 +565,18 @@ function procedureCallIn(
 	const assigns = toks.some((tok) => tok.rawText === '=') && head === 0;
 	if (headProc && !assigns && toks[head + 1]?.rawText !== '.' && toks[head + 1]?.rawText !== '!') {
 		return { callee: headName!, first: toks[0], last: toks[head] };
+	}
+	// `Me.Go`, `Twice = Me.Twice`: through Me a member is always called, never
+	// the return variable (issue #338, measured in Excel 16.0). Me reaches a
+	// Public or Friend member only.
+	for (let i = 2; i < toks.length; i++) {
+		const lower = tokenName(toks[i])?.toLowerCase();
+		const callee = lower ? procedures.get(lower) : undefined;
+		if (callee && toks[i - 1].rawText === '.' && tokenText(toks[i - 2]) === 'me' && toks[i - 3]?.rawText !== '.'
+			&& !callee.modifiers.some((modifier) => modifier.toLowerCase() === 'private')
+			&& (callee.params.length === 0 || toks[i + 1]?.rawText === '(')) {
+			return { callee: lower!, first: toks[i - 2], last: toks[i] };
+		}
 	}
 	for (let i = 1; i < toks.length - 1; i++) {
 		const lower = tokenName(toks[i])?.toLowerCase();
