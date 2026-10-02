@@ -460,17 +460,19 @@ function isSingleLineIfTail(node: BodyNode): node is LeafStatementNode {
 }
 
 /** Statement heads after which the rest of the list does not run. */
-const LIST_LEAVING_HEADS: ReadonlySet<string> = new Set(['exit', 'goto', 'resume', 'return']);
+const LIST_LEAVING_HEADS: ReadonlySet<string> = new Set(['exit', 'goto', 'return']);
 
 /**
- * Whether a statement always leaves the list it is in: Exit, GoTo,
- * Resume, Return, a bare End, and Err.Raise unless the procedure resumes
- * past errors (issue #273).
+ * Whether a statement always leaves the list it is in: Exit, GoTo, Return, a
+ * bare End, and Resume and Err.Raise unless the procedure resumes past
+ * errors: under On Error Resume Next a Resume with no error pending raises
+ * 20, which is skipped (issues #273, #446).
  */
 export function leavesTheList(source: string, span: Span, raiseLeaves = true): boolean {
 	const toks = tokensAfterLabel(source, span);
 	const head = tokenWord(toks[0]);
 	return LIST_LEAVING_HEADS.has(head) || (head === 'end' && toks.length === 1)
+		|| (raiseLeaves && head === 'resume')
 		|| (raiseLeaves && head === 'err' && toks[1]?.rawText === '.' && tokenWord(toks[2]) === 'raise');
 }
 

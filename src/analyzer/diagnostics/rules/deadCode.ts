@@ -444,10 +444,15 @@ export function checkUnreachableCode(
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
+	let resumeRuns = false;
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
+		// Under On Error Resume Next a Resume with no error pending raises 20,
+		// which is skipped, so the next line runs (issue #446, measured in
+		// Excel 16.0).
+		resumeRuns = /\bon\s+(?:local\s+)?error\s+resume\s+next\b/i.test(source.slice(member.span.start, member.span.end));
 		walkBody(member.body);
 	}
 
@@ -487,7 +492,7 @@ export function checkUnreachableCode(
 				if (isLandingPoint(source, node, toks)) {
 					flush();
 					const after = tokensAfterLineNumber(toks);
-					const exit = terminalStatement(after);
+					const exit = terminalStatement(after, resumeRuns);
 					if (exit) {
 						terminator = exit;
 					}
@@ -497,7 +502,7 @@ export function checkUnreachableCode(
 					dead = dead ? { start: dead.start, end: node.span.end } : { start: node.span.start, end: node.span.end };
 					continue;
 				}
-				const exit = terminalStatement(toks);
+				const exit = terminalStatement(toks, resumeRuns);
 				if (exit) {
 					terminator = exit;
 				}
@@ -552,7 +557,7 @@ function tokensAfterLineNumber(toks: readonly VbaToken[]): readonly VbaToken[] {
 	return toks.length > 0 && toks[0].kind === 'integerLiteral' ? toks.slice(1) : toks;
 }
 
-function terminalStatement(toks: readonly VbaToken[]): Terminator | undefined {
+function terminalStatement(toks: readonly VbaToken[], resumeRuns = false): Terminator | undefined {
 	if (toks.length === 0) {
 		return undefined;
 	}
@@ -565,7 +570,7 @@ function terminalStatement(toks: readonly VbaToken[]): Terminator | undefined {
 	if (head === 'goto' && toks.length >= 2) {
 		return { text: `GoTo ${toks[1].rawText}` };
 	}
-	if (head === 'resume') {
+	if (head === 'resume' && !resumeRuns) {
 		return { text: toks.length === 1 ? 'Resume' : `Resume ${toks[1].canonicalText ?? toks[1].rawText}` };
 	}
 	if (head === 'end' && toks.length === 1) {
