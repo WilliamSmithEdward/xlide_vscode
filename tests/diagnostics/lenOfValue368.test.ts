@@ -58,3 +58,28 @@ describe('Len of a value that is not a String', () => {
 		}
 	});
 });
+
+// Measured in Excel 16.0 64-bit (build 20430, 2026-10-02) with Debug > Compile (issue #455).
+describe('Len of an expression with a Variant in it', () => {
+	const DIMS = ['Dim v As Variant, c As Currency, i As Integer, d As Double, s As String', 'Dim g As Single, b As Byte, l As Long'];
+
+	it('compiles when an operand or the function result is a Variant', () => {
+		for (const expr of [
+			'c < v', 'i \\ Round(1.5)', 'v Like "a"', 'i \\ v', 'i Mod Round(1.5)', 'i + Round(1.5)', 'i And Round(1.5)',
+			'Not Round(1.5)', 'Fix(i)', 'Int(l)', 'Fix(v)', 'Abs(b)', 'Abs(Round(1.5))', 'v & 1',
+		]) {
+			expect(byCode(analyzeModule(source(...DIMS, `Main = Len(${expr})`)), CODE), expr).toEqual([]);
+		}
+	});
+
+	it('is Variable required for a typed result, named by its type', () => {
+		for (const [expr, type] of [
+			['i \\ 2', 'an Integer'], ['i \\ d', 'a Long'], ['d Mod 2', 'a Long'], ['i Like s', 'a Boolean'], ['s < "a"', 'a Boolean'],
+			['Fix(d)', 'a Double'], ['Int(g)', 'a Single'], ['Fix(c)', 'a Currency'], ['Fix(2)', 'an Integer'], ['Abs(l)', 'a Long'],
+			['Abs(s)', 'a Double'], ['Sgn(v)', 'an Integer'], ['Sqr(v)', 'a Double'], ['-d', 'a Double'], ['Not i', 'an Integer'],
+		] as const) {
+			const src = source(...DIMS, `Main = Len(${expr})`);
+			expectDiagnostic(src, byCode(analyzeModule(src), CODE), CODE, { span: expr, message: `Len of ${type} ` });
+		}
+	});
+});
