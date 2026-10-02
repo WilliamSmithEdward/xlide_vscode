@@ -70055,6 +70055,196 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Object\r\n    Set x = New Collection\r\n    Main = (x = 0)\r\n    If IsEmpty(Main) Then Main = 0\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue410_01_compile",
+      "description": "Issue #410 Arguments to project procedures, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, n As Long, s As String, v As Variant, arr() As Long\r\n    TL c\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Sub TL(p As Long)\r\nEnd Sub\r\nPrivate Sub TS(p As String)\r\nEnd Sub\r\nPrivate Sub TBvL(ByVal p As Long)\r\nEnd Sub\r\nPrivate Sub TC(p As Collection)\r\nEnd Sub\r\nPrivate Sub TBvC(ByVal p As Collection)\r\nEnd Sub\r\nPrivate Sub TArr(p() As Long)\r\nEnd Sub\r\nPrivate Sub TTwo(a As Long, b As Long)\r\nEnd Sub\r\nPrivate Sub TOptTwo(a As Long, Optional b As Long)\r\nEnd Sub\r\nPrivate Function Add2(a As Long, b As Long) As Long\r\n    Add2 = a + b\r\nEnd Function\r\nPrivate Sub TParam(a As Long, ParamArray r() As Variant)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410_02_compile",
+      "description": "Issue #410 Arguments to project procedures, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, n As Long, s As String, v As Variant, arr() As Long\r\n    TS c\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Sub TL(p As Long)\r\nEnd Sub\r\nPrivate Sub TS(p As String)\r\nEnd Sub\r\nPrivate Sub TBvL(ByVal p As Long)\r\nEnd Sub\r\nPrivate Sub TC(p As Collection)\r\nEnd Sub\r\nPrivate Sub TBvC(ByVal p As Collection)\r\nEnd Sub\r\nPrivate Sub TArr(p() As Long)\r\nEnd Sub\r\nPrivate Sub TTwo(a As Long, b As Long)\r\nEnd Sub\r\nPrivate Sub TOptTwo(a As Long, Optional b As Long)\r\nEnd Sub\r\nPrivate Function Add2(a As Long, b As Long) As Long\r\n    Add2 = a + b\r\nEnd Function\r\nPrivate Sub TParam(a As Long, ParamArray r() As Variant)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410_03_compile",
+      "description": "Issue #410 Arguments to project procedures, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, n As Long, s As String, v As Variant, arr() As Long\r\n    TC n\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Sub TL(p As Long)\r\nEnd Sub\r\nPrivate Sub TS(p As String)\r\nEnd Sub\r\nPrivate Sub TBvL(ByVal p As Long)\r\nEnd Sub\r\nPrivate Sub TC(p As Collection)\r\nEnd Sub\r\nPrivate Sub TBvC(ByVal p As Collection)\r\nEnd Sub\r\nPrivate Sub TArr(p() As Long)\r\nEnd Sub\r\nPrivate Sub TTwo(a As Long, b As Long)\r\nEnd Sub\r\nPrivate Sub TOptTwo(a As Long, Optional b As Long)\r\nEnd Sub\r\nPrivate Function Add2(a As Long, b As Long) As Long\r\n    Add2 = a + b\r\nEnd Function\r\nPrivate Sub TParam(a As Long, ParamArray r() As Variant)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410_04_compile",
+      "description": "Issue #410 Arguments to project procedures, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, n As Long, s As String, v As Variant, arr() As Long\r\n    TC s\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Sub TL(p As Long)\r\nEnd Sub\r\nPrivate Sub TS(p As String)\r\nEnd Sub\r\nPrivate Sub TBvL(ByVal p As Long)\r\nEnd Sub\r\nPrivate Sub TC(p As Collection)\r\nEnd Sub\r\nPrivate Sub TBvC(ByVal p As Collection)\r\nEnd Sub\r\nPrivate Sub TArr(p() As Long)\r\nEnd Sub\r\nPrivate Sub TTwo(a As Long, b As Long)\r\nEnd Sub\r\nPrivate Sub TOptTwo(a As Long, Optional b As Long)\r\nEnd Sub\r\nPrivate Function Add2(a As Long, b As Long) As Long\r\n    Add2 = a + b\r\nEnd Function\r\nPrivate Sub TParam(a As Long, ParamArray r() As Variant)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410_05_compile",
+      "description": "Issue #410 Arguments to project procedures, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, n As Long, s As String, v As Variant, arr() As Long\r\n    TC v\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Sub TL(p As Long)\r\nEnd Sub\r\nPrivate Sub TS(p As String)\r\nEnd Sub\r\nPrivate Sub TBvL(ByVal p As Long)\r\nEnd Sub\r\nPrivate Sub TC(p As Collection)\r\nEnd Sub\r\nPrivate Sub TBvC(ByVal p As Collection)\r\nEnd Sub\r\nPrivate Sub TArr(p() As Long)\r\nEnd Sub\r\nPrivate Sub TTwo(a As Long, b As Long)\r\nEnd Sub\r\nPrivate Sub TOptTwo(a As Long, Optional b As Long)\r\nEnd Sub\r\nPrivate Function Add2(a As Long, b As Long) As Long\r\n    Add2 = a + b\r\nEnd Function\r\nPrivate Sub TParam(a As Long, ParamArray r() As Variant)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410_06_compile",
+      "description": "Issue #410 Arguments to project procedures, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, n As Long, s As String, v As Variant, arr() As Long\r\n    TArr -1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Sub TL(p As Long)\r\nEnd Sub\r\nPrivate Sub TS(p As String)\r\nEnd Sub\r\nPrivate Sub TBvL(ByVal p As Long)\r\nEnd Sub\r\nPrivate Sub TC(p As Collection)\r\nEnd Sub\r\nPrivate Sub TBvC(ByVal p As Collection)\r\nEnd Sub\r\nPrivate Sub TArr(p() As Long)\r\nEnd Sub\r\nPrivate Sub TTwo(a As Long, b As Long)\r\nEnd Sub\r\nPrivate Sub TOptTwo(a As Long, Optional b As Long)\r\nEnd Sub\r\nPrivate Function Add2(a As Long, b As Long) As Long\r\n    Add2 = a + b\r\nEnd Function\r\nPrivate Sub TParam(a As Long, ParamArray r() As Variant)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410_07_compile",
+      "description": "Issue #410 Arguments to project procedures, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, n As Long, s As String, v As Variant, arr() As Long\r\n    TArr c\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Sub TL(p As Long)\r\nEnd Sub\r\nPrivate Sub TS(p As String)\r\nEnd Sub\r\nPrivate Sub TBvL(ByVal p As Long)\r\nEnd Sub\r\nPrivate Sub TC(p As Collection)\r\nEnd Sub\r\nPrivate Sub TBvC(ByVal p As Collection)\r\nEnd Sub\r\nPrivate Sub TArr(p() As Long)\r\nEnd Sub\r\nPrivate Sub TTwo(a As Long, b As Long)\r\nEnd Sub\r\nPrivate Sub TOptTwo(a As Long, Optional b As Long)\r\nEnd Sub\r\nPrivate Function Add2(a As Long, b As Long) As Long\r\n    Add2 = a + b\r\nEnd Function\r\nPrivate Sub TParam(a As Long, ParamArray r() As Variant)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410_08_compile",
+      "description": "Issue #410 Arguments to project procedures, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, n As Long, s As String, v As Variant, arr() As Long\r\n    TArr \"a\"\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Sub TL(p As Long)\r\nEnd Sub\r\nPrivate Sub TS(p As String)\r\nEnd Sub\r\nPrivate Sub TBvL(ByVal p As Long)\r\nEnd Sub\r\nPrivate Sub TC(p As Collection)\r\nEnd Sub\r\nPrivate Sub TBvC(ByVal p As Collection)\r\nEnd Sub\r\nPrivate Sub TArr(p() As Long)\r\nEnd Sub\r\nPrivate Sub TTwo(a As Long, b As Long)\r\nEnd Sub\r\nPrivate Sub TOptTwo(a As Long, Optional b As Long)\r\nEnd Sub\r\nPrivate Function Add2(a As Long, b As Long) As Long\r\n    Add2 = a + b\r\nEnd Function\r\nPrivate Sub TParam(a As Long, ParamArray r() As Variant)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410_09_compile",
+      "description": "Issue #410 Arguments to project procedures, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, n As Long, s As String, v As Variant, arr() As Long\r\n    TTwo a:=1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Sub TL(p As Long)\r\nEnd Sub\r\nPrivate Sub TS(p As String)\r\nEnd Sub\r\nPrivate Sub TBvL(ByVal p As Long)\r\nEnd Sub\r\nPrivate Sub TC(p As Collection)\r\nEnd Sub\r\nPrivate Sub TBvC(ByVal p As Collection)\r\nEnd Sub\r\nPrivate Sub TArr(p() As Long)\r\nEnd Sub\r\nPrivate Sub TTwo(a As Long, b As Long)\r\nEnd Sub\r\nPrivate Sub TOptTwo(a As Long, Optional b As Long)\r\nEnd Sub\r\nPrivate Function Add2(a As Long, b As Long) As Long\r\n    Add2 = a + b\r\nEnd Function\r\nPrivate Sub TParam(a As Long, ParamArray r() As Variant)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410_10_compile",
+      "description": "Issue #410 Arguments to project procedures, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, n As Long, s As String, v As Variant, arr() As Long\r\n    TTwo b:=2\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Sub TL(p As Long)\r\nEnd Sub\r\nPrivate Sub TS(p As String)\r\nEnd Sub\r\nPrivate Sub TBvL(ByVal p As Long)\r\nEnd Sub\r\nPrivate Sub TC(p As Collection)\r\nEnd Sub\r\nPrivate Sub TBvC(ByVal p As Collection)\r\nEnd Sub\r\nPrivate Sub TArr(p() As Long)\r\nEnd Sub\r\nPrivate Sub TTwo(a As Long, b As Long)\r\nEnd Sub\r\nPrivate Sub TOptTwo(a As Long, Optional b As Long)\r\nEnd Sub\r\nPrivate Function Add2(a As Long, b As Long) As Long\r\n    Add2 = a + b\r\nEnd Function\r\nPrivate Sub TParam(a As Long, ParamArray r() As Variant)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410_11_compile",
+      "description": "Issue #410 Arguments to project procedures, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, n As Long, s As String, v As Variant, arr() As Long\r\n    Main = Add2(b:=2)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Sub TL(p As Long)\r\nEnd Sub\r\nPrivate Sub TS(p As String)\r\nEnd Sub\r\nPrivate Sub TBvL(ByVal p As Long)\r\nEnd Sub\r\nPrivate Sub TC(p As Collection)\r\nEnd Sub\r\nPrivate Sub TBvC(ByVal p As Collection)\r\nEnd Sub\r\nPrivate Sub TArr(p() As Long)\r\nEnd Sub\r\nPrivate Sub TTwo(a As Long, b As Long)\r\nEnd Sub\r\nPrivate Sub TOptTwo(a As Long, Optional b As Long)\r\nEnd Sub\r\nPrivate Function Add2(a As Long, b As Long) As Long\r\n    Add2 = a + b\r\nEnd Function\r\nPrivate Sub TParam(a As Long, ParamArray r() As Variant)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410_12_compile",
+      "description": "Issue #410 Arguments to project procedures, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, n As Long, s As String, v As Variant, arr() As Long\r\n    TTwo 1, b:=2\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Sub TL(p As Long)\r\nEnd Sub\r\nPrivate Sub TS(p As String)\r\nEnd Sub\r\nPrivate Sub TBvL(ByVal p As Long)\r\nEnd Sub\r\nPrivate Sub TC(p As Collection)\r\nEnd Sub\r\nPrivate Sub TBvC(ByVal p As Collection)\r\nEnd Sub\r\nPrivate Sub TArr(p() As Long)\r\nEnd Sub\r\nPrivate Sub TTwo(a As Long, b As Long)\r\nEnd Sub\r\nPrivate Sub TOptTwo(a As Long, Optional b As Long)\r\nEnd Sub\r\nPrivate Function Add2(a As Long, b As Long) As Long\r\n    Add2 = a + b\r\nEnd Function\r\nPrivate Sub TParam(a As Long, ParamArray r() As Variant)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue410_13_compile",
+      "description": "Issue #410 Arguments to project procedures, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, n As Long, s As String, v As Variant, arr() As Long\r\n    TTwo b:=2, a:=1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Sub TL(p As Long)\r\nEnd Sub\r\nPrivate Sub TS(p As String)\r\nEnd Sub\r\nPrivate Sub TBvL(ByVal p As Long)\r\nEnd Sub\r\nPrivate Sub TC(p As Collection)\r\nEnd Sub\r\nPrivate Sub TBvC(ByVal p As Collection)\r\nEnd Sub\r\nPrivate Sub TArr(p() As Long)\r\nEnd Sub\r\nPrivate Sub TTwo(a As Long, b As Long)\r\nEnd Sub\r\nPrivate Sub TOptTwo(a As Long, Optional b As Long)\r\nEnd Sub\r\nPrivate Function Add2(a As Long, b As Long) As Long\r\n    Add2 = a + b\r\nEnd Function\r\nPrivate Sub TParam(a As Long, ParamArray r() As Variant)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue410_14_compile",
+      "description": "Issue #410 Arguments to project procedures, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, n As Long, s As String, v As Variant, arr() As Long\r\n    TOptTwo a:=1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Sub TL(p As Long)\r\nEnd Sub\r\nPrivate Sub TS(p As String)\r\nEnd Sub\r\nPrivate Sub TBvL(ByVal p As Long)\r\nEnd Sub\r\nPrivate Sub TC(p As Collection)\r\nEnd Sub\r\nPrivate Sub TBvC(ByVal p As Collection)\r\nEnd Sub\r\nPrivate Sub TArr(p() As Long)\r\nEnd Sub\r\nPrivate Sub TTwo(a As Long, b As Long)\r\nEnd Sub\r\nPrivate Sub TOptTwo(a As Long, Optional b As Long)\r\nEnd Sub\r\nPrivate Function Add2(a As Long, b As Long) As Long\r\n    Add2 = a + b\r\nEnd Function\r\nPrivate Sub TParam(a As Long, ParamArray r() As Variant)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue410_15_compile",
+      "description": "Issue #410 Arguments to project procedures, case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, n As Long, s As String, v As Variant, arr() As Long\r\n    TC c\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Sub TL(p As Long)\r\nEnd Sub\r\nPrivate Sub TS(p As String)\r\nEnd Sub\r\nPrivate Sub TBvL(ByVal p As Long)\r\nEnd Sub\r\nPrivate Sub TC(p As Collection)\r\nEnd Sub\r\nPrivate Sub TBvC(ByVal p As Collection)\r\nEnd Sub\r\nPrivate Sub TArr(p() As Long)\r\nEnd Sub\r\nPrivate Sub TTwo(a As Long, b As Long)\r\nEnd Sub\r\nPrivate Sub TOptTwo(a As Long, Optional b As Long)\r\nEnd Sub\r\nPrivate Function Add2(a As Long, b As Long) As Long\r\n    Add2 = a + b\r\nEnd Function\r\nPrivate Sub TParam(a As Long, ParamArray r() As Variant)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue410_16_compile",
+      "description": "Issue #410 Arguments to project procedures, case 16, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, n As Long, s As String, v As Variant, arr() As Long\r\n    TL n\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Sub TL(p As Long)\r\nEnd Sub\r\nPrivate Sub TS(p As String)\r\nEnd Sub\r\nPrivate Sub TBvL(ByVal p As Long)\r\nEnd Sub\r\nPrivate Sub TC(p As Collection)\r\nEnd Sub\r\nPrivate Sub TBvC(ByVal p As Collection)\r\nEnd Sub\r\nPrivate Sub TArr(p() As Long)\r\nEnd Sub\r\nPrivate Sub TTwo(a As Long, b As Long)\r\nEnd Sub\r\nPrivate Sub TOptTwo(a As Long, Optional b As Long)\r\nEnd Sub\r\nPrivate Function Add2(a As Long, b As Long) As Long\r\n    Add2 = a + b\r\nEnd Function\r\nPrivate Sub TParam(a As Long, ParamArray r() As Variant)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue410_17_compile",
+      "description": "Issue #410 Arguments to project procedures, case 17, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, n As Long, s As String, v As Variant, arr() As Long\r\n    TArr arr\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Sub TL(p As Long)\r\nEnd Sub\r\nPrivate Sub TS(p As String)\r\nEnd Sub\r\nPrivate Sub TBvL(ByVal p As Long)\r\nEnd Sub\r\nPrivate Sub TC(p As Collection)\r\nEnd Sub\r\nPrivate Sub TBvC(ByVal p As Collection)\r\nEnd Sub\r\nPrivate Sub TArr(p() As Long)\r\nEnd Sub\r\nPrivate Sub TTwo(a As Long, b As Long)\r\nEnd Sub\r\nPrivate Sub TOptTwo(a As Long, Optional b As Long)\r\nEnd Sub\r\nPrivate Function Add2(a As Long, b As Long) As Long\r\n    Add2 = a + b\r\nEnd Function\r\nPrivate Sub TParam(a As Long, ParamArray r() As Variant)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue410_18_compile",
+      "description": "Issue #410 Arguments to project procedures, case 18, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, n As Long, s As String, v As Variant, arr() As Long\r\n    TL (c)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Sub TL(p As Long)\r\nEnd Sub\r\nPrivate Sub TS(p As String)\r\nEnd Sub\r\nPrivate Sub TBvL(ByVal p As Long)\r\nEnd Sub\r\nPrivate Sub TC(p As Collection)\r\nEnd Sub\r\nPrivate Sub TBvC(ByVal p As Collection)\r\nEnd Sub\r\nPrivate Sub TArr(p() As Long)\r\nEnd Sub\r\nPrivate Sub TTwo(a As Long, b As Long)\r\nEnd Sub\r\nPrivate Sub TOptTwo(a As Long, Optional b As Long)\r\nEnd Sub\r\nPrivate Function Add2(a As Long, b As Long) As Long\r\n    Add2 = a + b\r\nEnd Function\r\nPrivate Sub TParam(a As Long, ParamArray r() As Variant)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410_19_compile",
+      "description": "Issue #410 Arguments to project procedures, case 19, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, n As Long, s As String, v As Variant, arr() As Long\r\n    TC Nothing\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Sub TL(p As Long)\r\nEnd Sub\r\nPrivate Sub TS(p As String)\r\nEnd Sub\r\nPrivate Sub TBvL(ByVal p As Long)\r\nEnd Sub\r\nPrivate Sub TC(p As Collection)\r\nEnd Sub\r\nPrivate Sub TBvC(ByVal p As Collection)\r\nEnd Sub\r\nPrivate Sub TArr(p() As Long)\r\nEnd Sub\r\nPrivate Sub TTwo(a As Long, b As Long)\r\nEnd Sub\r\nPrivate Sub TOptTwo(a As Long, Optional b As Long)\r\nEnd Sub\r\nPrivate Function Add2(a As Long, b As Long) As Long\r\n    Add2 = a + b\r\nEnd Function\r\nPrivate Sub TParam(a As Long, ParamArray r() As Variant)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
     }
   ]
 }
