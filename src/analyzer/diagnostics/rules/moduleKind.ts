@@ -24,7 +24,7 @@ import type {
 	VariableGroupNode,
 } from '../../parser/nodes';
 import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
-import type { ModuleSymbolKind } from '../../symbols/symbolModel';
+import type { ModuleSymbolKind, VbaProjectClassMembers } from '../../symbols/symbolModel';
 import {
 	isObjectModuleKind,
 	type PushFn,
@@ -188,9 +188,16 @@ export function checkWithEventsDeclarations(
 	moduleKind: ModuleSymbolKind,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	projectClasses: readonly VbaProjectClassMembers[] = [],
 ): void {
 	const report = (message: string, span: Span): void => {
 		push('withEventsDeclaration', message, span);
+	};
+	// A project class whose member list is complete and holds no Event:
+	// `WithEvents s As Plain` (issue #445, measured in Excel 16.0).
+	const classWithoutEvents = (lower: string): boolean => {
+		const type = projectClasses.find((candidate) => candidate.name.toLowerCase() === lower);
+		return type?.kind === 'class' && type.exhaustive === true && !type.members.some((member) => member.kind === 'event');
 	};
 	const inspect = (group: VariableGroupNode, insideProcedure: boolean): void => {
 		if (!group.withEvents || isInactiveNode(activity, group)) {
@@ -235,7 +242,7 @@ export function checkWithEventsDeclarations(
 					`WithEvents variable '${decl.name}' must be declared As a specific class that raises events; ${decl.asType ? `'${decl.asType}'` : 'no type'} names none.`,
 					nameSpan,
 				);
-			} else if (normalized === 'collection' || isKnownScalarType(normalized)) {
+			} else if (normalized === 'collection' || isKnownScalarType(normalized) || classWithoutEvents(normalized)) {
 				report(
 					`WithEvents variable '${decl.name}' is declared As ${decl.asType}, which does not source automation events.`,
 					nameSpan,

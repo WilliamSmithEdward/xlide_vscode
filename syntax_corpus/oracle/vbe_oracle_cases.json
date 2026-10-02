@@ -62672,6 +62672,137 @@
       ],
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue445_01_compile",
+      "description": "Issue #445 WithEvents of a class with no events, an Optional default naming nothing, and ParamArray controls, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Plain",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic N As Long\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents s As Plain\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue445_02_compile",
+      "description": "Issue #445 WithEvents of a class with no events, an Optional default naming nothing, and ParamArray controls, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Eventful",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Done()\r\nPublic Sub Fire()\r\n    RaiseEvent Done\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents s As Eventful\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue445_03_compile",
+      "description": "Issue #445 WithEvents of a class with no events, an Optional default naming nothing, and ParamArray controls, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Plain",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic N As Long\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate s As Plain\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue445_04_compile",
+      "description": "Issue #445 WithEvents of a class with no events, an Optional default naming nothing, and ParamArray controls, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = F()\r\nEnd Function\r\nPrivate Function F(Optional x As Long = y) As Long\r\n    F = x\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue445_05_compile",
+      "description": "Issue #445 WithEvents of a class with no events, an Optional default naming nothing, and ParamArray controls, case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const y = 3\r\nFunction Main() As Variant\r\n    Main = F()\r\nEnd Function\r\nPrivate Function F(Optional x As Long = y) As Long\r\n    F = x\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue445_06_compile",
+      "description": "Issue #445 WithEvents of a class with no events, an Optional default naming nothing, and ParamArray controls, case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = F(1, 2)\r\nEnd Function\r\nPrivate Function F(ParamArray p() As Variant) As Long\r\n    F = G(p)\r\nEnd Function\r\nPrivate Function G(ByVal a As Variant) As Long\r\n    G = UBound(a)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue445_07_compile",
+      "description": "Issue #445 WithEvents of a class with no events, an Optional default naming nothing, and ParamArray controls, case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = F(1, 2)\r\nEnd Function\r\nPrivate Function F(ParamArray p() As Variant) As Long\r\n    F = G(p(0))\r\nEnd Function\r\nPrivate Function G(a As Variant) As Long\r\n    G = a\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue445_08_compile",
+      "description": "Issue #445 WithEvents of a class with no events, an Optional default naming nothing, and ParamArray controls, case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = F(1, 2)\r\nEnd Function\r\nPrivate Function F(ParamArray p() As Variant) As Long\r\n    F = UBound(p)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
     }
   ]
 }

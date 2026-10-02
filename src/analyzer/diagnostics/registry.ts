@@ -668,7 +668,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'withEventsDeclarations',
-		run: (ctx, push) => checkWithEventsDeclarations(ctx.source, ctx.mod, ctx.moduleKind, ctx.activity, push),
+		run: (ctx, push) => checkWithEventsDeclarations(ctx.source, ctx.mod, ctx.moduleKind, ctx.activity, push, ctx.memberCtx.projectClassMembers),
 	},
 	{
 		name: 'friendDeclarations',

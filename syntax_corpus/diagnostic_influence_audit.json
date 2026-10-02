@@ -247,13 +247,14 @@
         "issue369b_02_compile",
         "issue369b_03_compile",
         "issue369b_04_compile",
-        "issue423_05_compile"
+        "issue423_05_compile",
+        "issue445_04_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
         "syntax_corpus/excel_vba_analysis_final_hardening_cases.md"
       ],
-      "notes": "Active rule covers project-backed Option Explicit write/read positions: bare assignment and Set targets, RHS and call-argument reads, control-flow block headers, member receivers, and indexed bases. Runtime constants and generated Excel enum constants suppress false positives. Type-name, label, named-argument, and unresolved external-style call positions remain intentionally silent until the binder can prove broader reference shapes without false positives. Hidden built-ins (VarPtr/StrPtr/ObjPtr, the byte-string ...B family, and the vbLongLong constant) resolve via the runtime catalog and must not be reported as undeclared (oracle-verified accept). Also a procedure's own Dim, Static or Const used above its line under Option Explicit (localDeclarationOrder.ts; a declaration covers only the lines after it). Issue #228: a module's own object is in scope bare: a sheet's members (UsedRange, Shapes, CodeName) in its module, a Workbook's in ThisWorkbook, a Document's in Word's ThisDocument, and VBA's UserForm members (Controls, Tag, Repaint) in a form; a sheet of unknown type takes a Worksheet's and a Chart's. Issue #369: a name nothing defines in a Const's value, module or local, is Variable not defined, and in an Enum member's value Constant expression required.",
+      "notes": "Active rule covers project-backed Option Explicit write/read positions: bare assignment and Set targets, RHS and call-argument reads, control-flow block headers, member receivers, and indexed bases. Runtime constants and generated Excel enum constants suppress false positives. Type-name, label, named-argument, and unresolved external-style call positions remain intentionally silent until the binder can prove broader reference shapes without false positives. Hidden built-ins (VarPtr/StrPtr/ObjPtr, the byte-string ...B family, and the vbLongLong constant) resolve via the runtime catalog and must not be reported as undeclared (oracle-verified accept). Also a procedure's own Dim, Static or Const used above its line under Option Explicit (localDeclarationOrder.ts; a declaration covers only the lines after it). Issue #228: a module's own object is in scope bare: a sheet's members (UsedRange, Shapes, CodeName) in its module, a Workbook's in ThisWorkbook, a Document's in Word's ThisDocument, and VBA's UserForm members (Controls, Tag, Repaint) in a form; a sheet of unknown type takes a Worksheet's and a Chart's. Issue #369: a name nothing defines in a Const's value, module or local, is Variable not defined, and in an Enum member's value Constant expression required. Issue #445: a name nothing defines in an Optional parameter default is Variable not defined.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -2141,7 +2142,8 @@
       "assertedOracleCases": [
         "corpus_withevents_003_compile",
         "corpus_withevents_004_compile",
-        "corpus_cls_010_compile"
+        "corpus_cls_010_compile",
+        "issue445_01_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
@@ -2150,7 +2152,7 @@
         "excel_vba_realtime_analysis_test_corpus.md",
         "excel_vba_analysis_additional_edge_cases.md"
       ],
-      "notes": "The active rule is deliberately narrow: it flags WithEvents declarations only when parsed declaration facts prove a standard-module declaration, a procedure-local declaration, an As New declarator, or an array declarator. Module-level object-module WithEvents declarations stay quiet, and event-source type compatibility such as generic Object remains deferred until reference/object metadata can prove it.",
+      "notes": "The active rule is deliberately narrow: it flags WithEvents declarations only when parsed declaration facts prove a standard-module declaration, a procedure-local declaration, an As New declarator, or an array declarator. Module-level object-module WithEvents declarations stay quiet, and event-source type compatibility such as generic Object remains deferred until reference/object metadata can prove it. Issue #445: WithEvents As a project class whose member list is complete and holds no Event is Object does not source automation events.",
       "diagnosticKind": "compile-error"
     },
     {
