@@ -275,6 +275,15 @@ function valOfString(text: string): Typed | 'overflow' | undefined {
 /** What a name means to the folder: a typed value, or nothing. */
 type NameLookup = (lower: string) => Typed | undefined;
 
+/** The operators that read both sides as numbers: arithmetic and comparison. */
+const BINARY_ON_NUMBERS: ReadonlySet<string> = new Set(['+', '-', '*', '/', '\\', '^', 'mod', '=', '<>', '<', '>', '<=', '>=']);
+
+/** The logical operators, lowest precedence first. */
+const LOGICAL_OPERATORS = ['imp', 'eqv', 'xor', 'or', 'and'] as const;
+
+/** What TypedFolder.logical answers for an expression with no logical operator. */
+const NOT_LOGICAL = Symbol('not logical');
+
 /**
  * Folds an arithmetic expression over literals, Consts and known locals with
  * VBA's result typing, stopping at the first operation whose result its type
@@ -295,6 +304,10 @@ class TypedFolder {
 		if (this.toks.length === 0) {
 			return undefined;
 		}
+		const logical = this.logical();
+		if (logical !== NOT_LOGICAL) {
+			return logical;
+		}
 		// `Not` binds below every arithmetic operator: `Not 255 + 256` is
 		// Not 511 (issue #235, measured in Excel 16.0).
 		if (this.toks[0].kind === 'keyword' && tokenText(this.toks[0]) === 'not') {
@@ -306,6 +319,57 @@ class TypedFolder {
 			return result;
 		}
 		return this.index === this.toks.length ? result : undefined;
+	}
+
+	/**
+	 * `a And b`, Or, Xor, Eqv and Imp, split at the last top-level one of the
+	 * lowest precedence. Each operand is converted to a Long first, so one
+	 * outside the Long range overflows: `1E10 And 1` is "Overflow" in a Const
+	 * (issue #367, measured in Excel 16.0) and error 6 at run time (#323).
+	 */
+	private logical(): Folded | typeof NOT_LOGICAL {
+		for (const word of LOGICAL_OPERATORS) {
+			let depth = 0;
+			let at = -1;
+			this.toks.forEach((tok, i) => {
+				depth += tok.rawText === '(' ? 1 : tok.rawText === ')' ? -1 : 0;
+				if (depth === 0 && i > 0 && tok.kind === 'keyword' && tokenText(tok) === word) {
+					at = i;
+				}
+			});
+			if (at < 0) {
+				continue;
+			}
+			const left = new TypedFolder(this.toks.slice(0, at), this.base, this.names, this.divisionByZero).fold();
+			if (left === undefined || isOverflow(left)) {
+				return left;
+			}
+			const right = new TypedFolder(this.toks.slice(at + 1), this.base, this.names, this.divisionByZero).fold();
+			if (right === undefined || isOverflow(right)) {
+				return right;
+			}
+			if (left.type === 'longlong' || right.type === 'longlong') {
+				return undefined;
+			}
+			const span = this.span(0, this.toks.length - 1);
+			const operands = [left, right].map((operand) => bankersRound(operand.value));
+			const outside = [left, right].find((_, k) => !inRange(operands[k], 'long'));
+			if (outside) {
+				return { overflow: true, span, detail: `${describe(outside)} is outside the Long range that ${this.toks[at].rawText} converts its operands to` };
+			}
+			const [a, b] = operands;
+			const value = word === 'and' ? a & b : word === 'or' ? a | b : word === 'xor' ? a ^ b : word === 'eqv' ? ~(a ^ b) : ~a | b;
+			const small = (operand: Typed): boolean => operand.type === 'byte' || operand.type === 'integer';
+			const type: NumericType = left.type === 'byte' && right.type === 'byte' ? 'byte' : small(left) && small(right) ? 'integer' : 'long';
+			const kept = type === 'byte' ? value & 0xff : value;
+			return {
+				value: kept,
+				type,
+				...(left.constant && right.constant ? { constant: true } : {}),
+				...(left.boolean && right.boolean ? { boolean: true } : {}),
+			};
+		}
+		return NOT_LOGICAL;
 	}
 
 	private span(from: number, to: number): Span {
@@ -1258,6 +1322,18 @@ function stringConstRefusal(
 	asType: string | undefined,
 	base: number,
 ): { detail: string; span: Span; overflow?: boolean } | undefined {
+	// `"" + 1`, `"abc" < 1`, `1 / ""`: a string with no digit beside a number
+	// or a Date in arithmetic or a comparison (issue #367, measured in Excel
+	// 16.0). `"2" * 2`, `"a" & 1` and `"a" = "b"` compile.
+	if (value.length === 3 && BINARY_ON_NUMBERS.has(tokenText(value[1]) || value[1].rawText)) {
+		const [a, b] = [value[0], value[2]];
+		const text = a.kind === 'stringLiteral' ? a : b.kind === 'stringLiteral' ? b : undefined;
+		const other = text === a ? b : a;
+		const numberOrDate = other.kind === 'integerLiteral' || other.kind === 'floatLiteral' || other.kind === 'dateLiteral';
+		if (text && numberOrDate && !/\d/.test(stringLiteralValue(text.rawText))) {
+			return { detail: `${text.rawText} is no number, so ${value[1].rawText} cannot take it beside ${other.rawText}`, span: { start: base + value[0].start, end: base + value[2].end } };
+		}
+	}
 	const operator = value.length === 2 && (value[0].rawText === '-' || tokenText(value[0]) === 'not') ? value[0] : undefined;
 	const literal = value[operator ? 1 : 0];
 	if (value.length !== (operator ? 2 : 1) || literal?.kind !== 'stringLiteral') {
