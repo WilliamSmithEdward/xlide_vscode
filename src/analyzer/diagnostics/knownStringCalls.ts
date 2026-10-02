@@ -52,7 +52,109 @@ export function moduleCompare(source: string): ModuleCompare {
 	return compare;
 }
 
-const FOLDED = new Set(['instr', 'instrrev', 'len', 'asc', 'ascw']);
+const FOLDED = new Set(['instr', 'instrrev', 'len', 'asc', 'ascw', 'year', 'month', 'day', 'datediff']);
+
+/** A `#m/d/yyyy#` date literal as a UTC date, or undefined for any other spelling. */
+export function parseDateLiteral(raw: string): Date | undefined {
+	// A year of three digits is that year: #1/1/100# (issue #262).
+	const match = /^#\s*(\d{1,2})\/(\d{1,2})\/(\d{3,4})\s*(?:(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?)?\s*#$/i.exec(raw);
+	if (!match) {
+		return undefined;
+	}
+	const month = Number(match[1]);
+	const day = Number(match[2]);
+	const year = Number(match[3]);
+	if (month < 1 || month > 12 || day < 1 || day > 31 || year < 100) {
+		return undefined;
+	}
+	let hour = Number(match[4] ?? 0);
+	if (match[7]) {
+		hour = hour % 12 + (match[7].toUpperCase() === 'PM' ? 12 : 0);
+	}
+	const date = new Date(0);
+	date.setUTCFullYear(year, month - 1, day);
+	date.setUTCHours(hour, Number(match[5] ?? 0), Number(match[6] ?? 0), 0);
+	return date;
+}
+
+/**
+ * The date a date expression names, where it is known (issue #510): a date
+ * literal, `DateSerial` of whole numbers from year 100 on, and `DateValue`
+ * or `CDate` of a string every locale reads alike, "12/31/9999" with a day
+ * past 12 or "9999-12-31". Undefined for anything else, and for a date past
+ * the range.
+ */
+export function knownDate(arg: readonly VbaToken[], integerValue: (toks: readonly VbaToken[]) => number | undefined): Date | undefined {
+	let toks = arg.filter((tok) => tok.kind !== 'comment');
+	while (toks.length > 2 && toks[0].rawText === '(' && matchParenFrom(toks, 0) === toks.length - 1) {
+		toks = toks.slice(1, -1);
+	}
+	if (toks.length === 1 && toks[0].kind === 'dateLiteral') {
+		return parseDateLiteral(toks[0].rawText);
+	}
+	const at = tokenText(toks[0]) === 'vba' && toks[1]?.rawText === '.' ? 2 : 0;
+	const name = tokenText(toks[at]);
+	if (toks[at + 1]?.rawText !== '(' || matchParenFrom(toks, at + 1) !== toks.length - 1) {
+		return undefined;
+	}
+	const args = splitTopLevelTokenGroups(toks, at + 2, ',', toks.length - 1);
+	if (name === 'dateserial' && args.length === 3) {
+		const parts = args.map((group) => integerValue(group));
+		if (parts.some((part) => part === undefined || part < -32768 || part > 32767) || parts[0]! < 100) {
+			return undefined;
+		}
+		const date = new Date(0);
+		date.setUTCFullYear(parts[0]!, parts[1]! - 1, 1);
+		date.setUTCDate(parts[2]!);
+		return inDateRange(date) ? date : undefined;
+	}
+	if ((name === 'datevalue' || name === 'cdate') && args.length === 1 && args[0].length === 1 && args[0][0].kind === 'stringLiteral') {
+		const text = stringLiteralValue(args[0][0].rawText).trim();
+		const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(text);
+		const slashed = /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/.exec(text);
+		let parts: [number, number, number] | undefined;
+		if (iso) {
+			parts = [Number(iso[1]), Number(iso[2]), Number(iso[3])];
+		} else if (slashed) {
+			const [a, b] = [Number(slashed[1]), Number(slashed[2])];
+			// Only an order every locale agrees on: one of the two is past 12.
+			parts = a > 12 && b <= 12 ? [Number(slashed[3]), b, a] : b > 12 && a <= 12 ? [Number(slashed[3]), a, b] : undefined;
+		}
+		if (!parts || parts[0] < 100 || parts[1] < 1 || parts[1] > 12 || parts[2] < 1) {
+			return undefined;
+		}
+		const date = new Date(0);
+		date.setUTCFullYear(parts[0], parts[1] - 1, parts[2]);
+		return date.getUTCDate() === parts[2] && inDateRange(date) ? date : undefined;
+	}
+	return undefined;
+}
+
+function inDateRange(date: Date): boolean {
+	return date.getTime() >= Date.UTC(100, 0, 1) && date.getUTCFullYear() <= 9999;
+}
+
+/** DateDiff of known dates, for the intervals that count whole units. */
+function dateDiff(interval: string, from: Date, to: Date): number | undefined {
+	const DAY = 86400000;
+	const units: Readonly<Record<string, number>> = { h: 3600000, n: 60000, s: 1000 };
+	const days = (date: Date): number => Math.floor(date.getTime() / DAY);
+	switch (interval) {
+		case 'd':
+		case 'y':
+			return days(to) - days(from);
+		case 'w':
+			return Math.trunc((days(to) - days(from)) / 7);
+		case 'm':
+			return (to.getUTCFullYear() - from.getUTCFullYear()) * 12 + to.getUTCMonth() - from.getUTCMonth();
+		case 'q':
+			return (to.getUTCFullYear() - from.getUTCFullYear()) * 4 + Math.floor(to.getUTCMonth() / 3) - Math.floor(from.getUTCMonth() / 3);
+		case 'yyyy':
+			return to.getUTCFullYear() - from.getUTCFullYear();
+	}
+	const unit = units[interval];
+	return unit === undefined ? undefined : Math.floor(to.getTime() / unit) - Math.floor(from.getTime() / unit);
+}
 
 /**
  * The expression's text with each foldable call replaced by its number, or
@@ -96,6 +198,19 @@ function callValue(name: string, args: VbaToken[][], ctx: KnownStringCallContext
 			return inStr(args, ctx);
 		case 'instrrev':
 			return inStrRev(args, ctx);
+		// Parts of a known date, and DateDiff between two (issue #510).
+		case 'year':
+		case 'month':
+		case 'day': {
+			const date = args.length === 1 ? knownDate(args[0], (toks) => wholeNumber(toks, ctx)) : undefined;
+			return !date ? undefined : name === 'year' ? date.getUTCFullYear() : name === 'month' ? date.getUTCMonth() + 1 : date.getUTCDate();
+		}
+		case 'datediff': {
+			const interval = args.length === 3 ? knownString(args[0], ctx)?.toLowerCase() : undefined;
+			const from = args.length === 3 ? knownDate(args[1], (toks) => wholeNumber(toks, ctx)) : undefined;
+			const to = args.length === 3 ? knownDate(args[2], (toks) => wholeNumber(toks, ctx)) : undefined;
+			return interval === undefined || !from || !to ? undefined : dateDiff(interval, from, to);
+		}
 		default:
 			return undefined;
 	}

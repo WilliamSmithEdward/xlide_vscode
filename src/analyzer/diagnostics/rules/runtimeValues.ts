@@ -35,7 +35,7 @@ import { collectModuleLiteralIntegerConstants } from '../constExpr';
 import { knownArrayShapesAt, moduleOptionBase, redimShapesAt } from './arrays';
 import { checkEachCounterPass, loopCountersAt } from '../loopCounters';
 import { straightLineAssignments } from '../straightLineValues';
-import { foldKnownStringCalls, moduleCompare, type KnownStringCallContext } from '../knownStringCalls';
+import { foldKnownStringCalls, knownDate, moduleCompare, parseDateLiteral, type KnownStringCallContext } from '../knownStringCalls';
 import { bankersRound, isBareOrVbaQualifiedIntrinsicCall } from '../rules/shared';
 import { isInvalidBooleanString, isInvalidDateString, isInvalidNumericString, isInvalidTimeString } from '../stringConversion';
 import { fixedStringLength, moduleTypes } from '../typeFields';
@@ -771,7 +771,7 @@ function runtimeArgumentValueHits(
 				...(literal.error === 6 ? { error: 6 as const } : {}),
 			});
 		}
-		const overflow = dateAddPastMaximum(source, span, call, constants)
+		const overflow = dateAddPastMaximum(source, span, call, constants, stringCalls)
 			?? dateSerialPastMaximum(source, span, call, constants)
 			?? argumentRelationHit(source, span, call, constants, declarationOf);
 		if (overflow) {
@@ -1016,6 +1016,7 @@ function dateAddPastMaximum(
 	span: Span,
 	call: { displayName: string; slots: VbaToken[][] },
 	constants: IntegerConstantLookup,
+	stringCalls?: KnownStringCallContext,
 ): RuntimeArgumentValueHit | undefined {
 	if (call.displayName !== 'DateAdd' || call.slots.length < 3) {
 		return undefined;
@@ -1025,13 +1026,16 @@ function dateAddPastMaximum(
 		return undefined;
 	}
 	const interval = stringLiteralValue(intervalSlot[0].rawText).toLowerCase();
-	const count = integerGroupValue(source, span, numberSlot, constants);
+	// A count or a date another call gives: `Year(#6/15/5000#)`,
+	// `DateValue("12/31/9999")` (issue #510, measured in Excel 16.0).
+	const folded = stringCalls && numberSlot.length > 0 ? foldKnownStringCalls(numberSlot, stringCalls) : undefined;
+	const count = folded !== undefined ? evaluateIntegerConstantExpression(folded, constants) : integerGroupValue(source, span, numberSlot, constants);
 	if (count === undefined || count === 0) {
 		return undefined;
 	}
 	const date = dateSlot.length === 1 && dateSlot[0].kind === 'dateLiteral'
 		? parseDateLiteral(dateSlot[0].rawText)
-		: dateSerialOfLiterals(source, span, dateSlot, constants);
+		: dateSerialOfLiterals(source, span, dateSlot, constants) ?? knownDate(dateSlot, (group) => integerGroupValue(source, span, group, constants));
 	if (!date) {
 		return undefined;
 	}
@@ -1123,29 +1127,6 @@ function dateSerialPastMaximum(
 		value: `${year} with month ${month} and day ${day}, a date past December 31, 9999`,
 		span: { start: span.start + first.start, end: span.start + last.end },
 	};
-}
-
-/** A `#m/d/yyyy#` date literal as a UTC date, or undefined for any other spelling. */
-function parseDateLiteral(raw: string): Date | undefined {
-	// A year of three digits is that year: #1/1/100# (issue #262).
-	const match = /^#\s*(\d{1,2})\/(\d{1,2})\/(\d{3,4})\s*(?:(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?)?\s*#$/i.exec(raw);
-	if (!match) {
-		return undefined;
-	}
-	const month = Number(match[1]);
-	const day = Number(match[2]);
-	const year = Number(match[3]);
-	if (month < 1 || month > 12 || day < 1 || day > 31 || year < 100) {
-		return undefined;
-	}
-	let hour = Number(match[4] ?? 0);
-	if (match[7]) {
-		hour = hour % 12 + (match[7].toUpperCase() === 'PM' ? 12 : 0);
-	}
-	const date = new Date(0);
-	date.setUTCFullYear(year, month - 1, day);
-	date.setUTCHours(hour, Number(match[5] ?? 0), Number(match[6] ?? 0), 0);
-	return date;
 }
 
 function runtimeArgumentValueCallAt(
