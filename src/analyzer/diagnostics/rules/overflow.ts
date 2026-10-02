@@ -97,6 +97,8 @@ interface Typed {
 	 * Excel 16.0).
 	 */
 	variant?: boolean;
+	/** A Currency value in ten-thousandths, exactly (issue #494). */
+	scaled?: bigint;
 }
 
 interface Overflow {
@@ -215,7 +217,8 @@ function literalValue(tok: VbaToken): Typed | undefined {
 		if (!Number.isFinite(value)) {
 			return undefined;
 		}
-		return { value, type: suffix === '!' ? 'single' : suffix === '@' ? 'currency' : 'double' };
+		const scaled = suffix === '@' ? currencyScaled(raw.replace(/@$/, '')) : undefined;
+		return { value, type: suffix === '!' ? 'single' : suffix === '@' ? 'currency' : 'double', ...(scaled !== undefined ? { scaled } : {}) };
 	}
 	if (tok.kind === 'dateLiteral') {
 		const serial = dateLiteralSerial(tok.rawText);
@@ -283,7 +286,13 @@ function valOfString(text: string): Typed | 'overflow' | undefined {
 type NameLookup = (lower: string) => Typed | undefined;
 
 /** The operators that read both sides as numbers: arithmetic and comparison. */
-const BINARY_ON_NUMBERS: ReadonlySet<string> = new Set(['+', '-', '*', '/', '\\', '^', 'mod', '=', '<>', '<', '>', '<=', '>=']);
+const BINARY_ON_NUMBERS: ReadonlySet<string> = new Set(['+', '-', '*', '/', '\\', '^', 'mod', '=', '<>', '<', '>', '<=', '>=',
+	// The logical operators convert a String to a number too: `"" And 255`
+	// is a Type mismatch (issue #494, measured in Excel 16.0).
+	'and', 'or', 'xor', 'eqv', 'imp']);
+
+/** The operators a String beside a number converts under in a Const (issue #494). */
+const ARITHMETIC_BESIDE: ReadonlySet<string> = new Set(['+', '-', '*', '/']);
 
 /** The logical operators, lowest precedence first. */
 const LOGICAL_OPERATORS = ['imp', 'eqv', 'xor', 'or', 'and'] as const;
@@ -526,6 +535,26 @@ class TypedFolder {
 			&& !['*', '/', '^'].includes(after) && !['*', '/', '^', '-', '+'].includes(before)) {
 			this.index++;
 			return this.stringOperand([tok]);
+		}
+		// In a Const, a string beside a number in `+`, `-`, `*` or `/` is the
+		// number it spells, in the number's type: `1 - "1E3"` is -999, and
+		// `922337203685477.5807@ + "2"` overflows a Currency (issue #494,
+		// measured in Excel 16.0). Two strings under `+` join instead.
+		const beside = ARITHMETIC_BESIDE.has(before) ? this.toks[this.index - 2] : ARITHMETIC_BESIDE.has(after) ? this.toks[this.index + 2] : undefined;
+		const besideType = beside && beside.kind !== 'stringLiteral' ? literalValue(beside)?.type : undefined;
+		if (tok.kind === 'stringLiteral' && this.divisionByZero && besideType) {
+			const read = numberInString(stringLiteralValue(tok.rawText));
+			if (read === 'overflow' || read === undefined) {
+				return read === undefined ? undefined : { overflow: true, span: this.span(this.index, this.index), detail: `${tok.rawText} spells a number past the Double range` };
+			}
+			this.index++;
+			const whole = Number.isInteger(read.value);
+			const type: NumericType = besideType === 'currency' || (whole && WHOLE_TYPES.has(besideType)) ? besideType : 'double';
+			if (!inRange(read.value, type)) {
+				return { overflow: true, span: this.span(this.index - 1, this.index - 1), detail: `${tok.rawText} is outside the ${RANGES[type].label} range` };
+			}
+			const scaled = type === 'currency' ? currencyScaled(String(Math.abs(read.value))) : undefined;
+			return { value: read.value, type, constant: true, ...(scaled !== undefined ? { scaled: read.value < 0 ? -scaled : scaled } : {}) };
 		}
 		const name = tokenName(tok);
 		if (!name) {
@@ -848,6 +877,18 @@ class TypedFolder {
 		if ((left.type === 'longlong' || right.type === 'longlong') && op !== '/' && op !== '^') {
 			return combineLongLong(left, right, op, span);
 		}
+		// A Currency sum in ten-thousandths, exactly: a double cannot tell
+		// 922337203685477.5807 from one past it (issue #494, measured in Excel 16.0).
+		if ((op === '+' || op === '-') && arithmeticResultType(left.type, right.type, op) === 'currency') {
+			const a = scaledOf(left);
+			const b = scaledOf(right);
+			if (a !== undefined && b !== undefined) {
+				const sum = op === '+' ? a + b : a - b;
+				return sum >= -LONGLONG_LIMIT && sum < LONGLONG_LIMIT
+					? { value: Number(sum) / 10000, type: 'currency', scaled: sum }
+					: { overflow: true, span, detail: `${describe(left)} ${op} ${describe(right)} is past the Currency range` };
+			}
+		}
 		let type: NumericType;
 		let value: number;
 		switch (op) {
@@ -924,6 +965,23 @@ function spelledWhole(shown: string): bigint | undefined {
 
 const WHOLE_TYPES: ReadonlySet<NumericType> = new Set(['byte', 'integer', 'long', 'longlong']);
 
+/** A Currency or whole-number operand in ten-thousandths, exactly, when it has that. */
+function scaledOf(typed: Typed): bigint | undefined {
+	if (typed.scaled !== undefined) {
+		return typed.scaled;
+	}
+	return WHOLE_TYPES.has(typed.type) && Number.isSafeInteger(typed.value) ? BigInt(typed.value) * 10000n : undefined;
+}
+
+/** A Currency literal's digits in ten-thousandths: `922337203685477.5807@`. */
+function currencyScaled(text: string): bigint | undefined {
+	const match = /^(\d*)(?:\.(\d{0,4}))?$/.exec(text);
+	if (!match || (match[1] === '' && !match[2])) {
+		return undefined;
+	}
+	return BigInt(match[1] || '0') * 10000n + BigInt((match[2] ?? '').padEnd(4, '0'));
+}
+
 /** A whole-number operand's exact value, when it has one. */
 function exactOf(typed: Typed): bigint | undefined {
 	if (typed.exact !== undefined) {
@@ -994,6 +1052,12 @@ function notOf(operand: Typed, span: Span): Folded {
 }
 
 function describe(typed: Typed): string {
+	if (typed.scaled !== undefined) {
+		const sign = typed.scaled < 0n ? '-' : '';
+		const digits = (typed.scaled < 0n ? -typed.scaled : typed.scaled).toString().padStart(5, '0');
+		const fraction = digits.slice(-4).replace(/0+$/, '');
+		return `${sign}${digits.slice(0, -4)}${fraction ? `.${fraction}` : ''} (Currency)`;
+	}
 	if (typed.type === 'date') {
 		// Before serial 0 the fraction counts forward from the day's start
 		// too: -1.25 is 12/29/1899 6:00:00 AM.
