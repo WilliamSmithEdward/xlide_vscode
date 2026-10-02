@@ -75241,6 +75241,149 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim ws As Worksheet\r\n    Set ws = ActiveSheet\r\n    If ws.Range(\"A1:A2\").Cells(1, 1).Value = 0 Then\r\n        Main = 1\r\n    End If\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue499_01_runtime",
+      "description": "Issue #499 On n GoTo and GoSub index, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long, d As Double, s As String\r\n    On -1 GoTo L1\r\n    Main = 9\r\n    Exit Function\r\nL1:\r\n    Main = 1\r\n    Exit Function\r\nL2:\r\n    Main = 2\r\n    Exit Function\r\nS1:\r\n    Main = 7\r\n    Return\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue499_02_runtime",
+      "description": "Issue #499 On n GoTo and GoSub index, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long, d As Double, s As String\r\n    On 300 GoTo L1\r\n    Main = 9\r\n    Exit Function\r\nL1:\r\n    Main = 1\r\n    Exit Function\r\nL2:\r\n    Main = 2\r\n    Exit Function\r\nS1:\r\n    Main = 7\r\n    Return\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue499_03_runtime",
+      "description": "Issue #499 On n GoTo and GoSub index, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long, d As Double, s As String\r\n    n = 256\r\n    On n GoTo L1, L2\r\n    Main = 9\r\n    Exit Function\r\nL1:\r\n    Main = 1\r\n    Exit Function\r\nL2:\r\n    Main = 2\r\n    Exit Function\r\nS1:\r\n    Main = 7\r\n    Return\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue499_04_runtime",
+      "description": "Issue #499 On n GoTo and GoSub index, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long, d As Double, s As String\r\n    n = -1\r\n    On n GoTo L1, L2\r\n    Main = 9\r\n    Exit Function\r\nL1:\r\n    Main = 1\r\n    Exit Function\r\nL2:\r\n    Main = 2\r\n    Exit Function\r\nS1:\r\n    Main = 7\r\n    Return\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue499_05_runtime",
+      "description": "Issue #499 On n GoTo and GoSub index, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long, d As Double, s As String\r\n    n = 256\r\n    On n GoSub S1\r\n    Main = 9\r\n    Exit Function\r\nL1:\r\n    Main = 1\r\n    Exit Function\r\nL2:\r\n    Main = 2\r\n    Exit Function\r\nS1:\r\n    Main = 7\r\n    Return\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue499_06_runtime",
+      "description": "Issue #499 On n GoTo and GoSub index, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long, d As Double, s As String\r\n    s = \"x\"\r\n    On s GoTo L1\r\n    Main = 9\r\n    Exit Function\r\nL1:\r\n    Main = 1\r\n    Exit Function\r\nL2:\r\n    Main = 2\r\n    Exit Function\r\nS1:\r\n    Main = 7\r\n    Return\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue499_07_runtime",
+      "description": "Issue #499 On n GoTo and GoSub index, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long, d As Double, s As String\r\n    n = 0\r\n    On n GoTo L1, L2\r\n    Main = 9\r\n    Exit Function\r\nL1:\r\n    Main = 1\r\n    Exit Function\r\nL2:\r\n    Main = 2\r\n    Exit Function\r\nS1:\r\n    Main = 7\r\n    Return\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue499_08_runtime",
+      "description": "Issue #499 On n GoTo and GoSub index, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long, d As Double, s As String\r\n    n = 3\r\n    On n GoTo L1, L2\r\n    Main = 9\r\n    Exit Function\r\nL1:\r\n    Main = 1\r\n    Exit Function\r\nL2:\r\n    Main = 2\r\n    Exit Function\r\nS1:\r\n    Main = 7\r\n    Return\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue499_09_runtime",
+      "description": "Issue #499 On n GoTo and GoSub index, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long, d As Double, s As String\r\n    n = 255\r\n    On n GoTo L1, L2\r\n    Main = 9\r\n    Exit Function\r\nL1:\r\n    Main = 1\r\n    Exit Function\r\nL2:\r\n    Main = 2\r\n    Exit Function\r\nS1:\r\n    Main = 7\r\n    Return\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue499_10_runtime",
+      "description": "Issue #499 On n GoTo and GoSub index, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long, d As Double, s As String\r\n    n = 2\r\n    On n GoTo L1, L2\r\n    Main = 9\r\n    Exit Function\r\nL1:\r\n    Main = 1\r\n    Exit Function\r\nL2:\r\n    Main = 2\r\n    Exit Function\r\nS1:\r\n    Main = 7\r\n    Return\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue499_11_runtime",
+      "description": "Issue #499 On n GoTo and GoSub index, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long, d As Double, s As String\r\n    d = 1.5\r\n    On d GoTo L1, L2\r\n    Main = 9\r\n    Exit Function\r\nL1:\r\n    Main = 1\r\n    Exit Function\r\nL2:\r\n    Main = 2\r\n    Exit Function\r\nS1:\r\n    Main = 7\r\n    Return\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue499_12_runtime",
+      "description": "Issue #499 On n GoTo and GoSub index, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long, d As Double, s As String\r\n    n = 1\r\n    On n GoSub S1\r\n    Main = 9\r\n    Exit Function\r\nL1:\r\n    Main = 1\r\n    Exit Function\r\nL2:\r\n    Main = 2\r\n    Exit Function\r\nS1:\r\n    Main = 7\r\n    Return\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue499_13_runtime",
+      "description": "Issue #499 On n GoTo and GoSub index, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long, d As Double, s As String\r\n    s = \"2\"\r\n    On s GoTo L1, L2\r\n    Main = 9\r\n    Exit Function\r\nL1:\r\n    Main = 1\r\n    Exit Function\r\nL2:\r\n    Main = 2\r\n    Exit Function\r\nS1:\r\n    Main = 7\r\n    Return\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

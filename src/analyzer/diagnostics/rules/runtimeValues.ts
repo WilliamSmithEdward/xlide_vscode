@@ -312,6 +312,23 @@ function runtimeStatementValueHits(
 	const out: Array<{ message: string; span: Span }> = [];
 	const at = (tok: VbaToken): Span => ({ start: span.start + tok.start, end: span.start + tok.end });
 	const first = toks[0];
+	// `On n GoTo L1, L2` and `On n GoSub`: an index outside 0 to 255 raises 5,
+	// and text that is no number raises 13 (issue #499, measured in Excel
+	// 16.0). 0, or one past the last label, falls through to the next line.
+	const jump = toks.findIndex((tok, i) => i > 1 && (tokenText(tok) === 'goto' || tokenText(tok) === 'gosub'));
+	if (tokenText(first) === 'on' && tokenText(toks[1]) !== 'error' && tokenText(toks[1]) !== 'local' && jump > 1) {
+		const index = toks.slice(1, jump).filter((tok) => tok.kind !== 'comment');
+		const value = integerGroupValue(source, span, index, constants);
+		const name = index.length === 1 ? tokenName(index[0])?.toLowerCase() : undefined;
+		const text = index.length === 1 && index[0].kind === 'stringLiteral' ? stringLiteralValue(index[0].rawText) : name !== undefined ? knownStrings.get(name) : undefined;
+		const indexSpan = { start: span.start + index[0].start, end: span.start + index[index.length - 1].end };
+		const shown = toks.slice(1, jump).map((tok) => tok.rawText).join(' ');
+		if (value !== undefined && (value < 0 || value > 255)) {
+			out.push({ message: `On ${tokenText(toks[jump]) === 'goto' ? 'GoTo' : 'GoSub'} takes an index from 0 to 255, and ${shown} is ${value}. This will raise Run-time error '5': Invalid procedure call or argument.`, span: indexSpan });
+		} else if (value === undefined && text !== undefined && !/\d/.test(text)) {
+			out.push({ message: `On ${tokenText(toks[jump]) === 'goto' ? 'GoTo' : 'GoSub'} takes a number for its index, and ${shown} holds "${text}". This will raise Run-time error '13': Type mismatch.`, span: indexSpan });
+		}
+	}
 	// `Mid(s, 5, 1) = "x"` with s holding "abc": the statement form starts
 	// past the end of the string, error 5 (issue #118). Only the length
 	// matters, which an earlier Mid statement cannot have changed. A
