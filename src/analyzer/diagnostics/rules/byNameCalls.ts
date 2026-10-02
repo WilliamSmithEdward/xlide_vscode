@@ -201,6 +201,25 @@ function argumentCountProblem(signature: string, given: number, shown: string): 
 	return undefined;
 }
 
+/** Whether a name is a cell address in A1 (`Pub2`, `XFD1`) or R1C1 (`R1C1`, `R2`, `C3`) style. */
+function readsAsCellAddress(name: string): boolean {
+	const a1 = /^([A-Za-z]{1,3})(\d+)$/.exec(name);
+	if (a1) {
+		const column = [...a1[1].toUpperCase()].reduce((n, c) => n * 26 + c.charCodeAt(0) - 64, 0);
+		const row = Number(a1[2]);
+		if (column <= 16384 && row >= 1 && row <= 1048576) {
+			return true;
+		}
+	}
+	const r1c1 = /^(?:R(\d+)C(\d+)|R(\d+)|C(\d+))$/i.exec(name);
+	if (!r1c1) {
+		return false;
+	}
+	const row = Number(r1c1[1] ?? r1c1[3] ?? 1);
+	const column = Number(r1c1[2] ?? r1c1[4] ?? 1);
+	return row >= 1 && row <= 1048576 && column >= 1 && column <= 16384;
+}
+
 function checkApplicationRun(
 	span: Span,
 	toks: readonly VbaToken[],
@@ -225,6 +244,13 @@ function checkApplicationRun(
 		const candidates = (memberCtx.projectClassMembers ?? [])
 			.filter((type) => type.kind === 'standardModule' && (moduleName === undefined || type.name.toLowerCase() === moduleName))
 			.flatMap((type) => type.members.filter((member) => member.kind === 'method' && member.name.toLowerCase() === procedure));
+		// A bare name that reads as a cell address, `Pub2` or `R1C1`, is taken
+		// as the address (issue #468, measured in Excel 16.0).
+		if (moduleName === undefined && readsAsCellAddress(name)) {
+			const owner = candidates.length === 1 ? candidates[0].moduleName : undefined;
+			push('runtimeMemberNotFound', `Application.Run reads '${name}' as a cell address, not as the procedure of that name. This will raise Run-time error '1004': Cannot run the macro '${name}'.${owner ? ` Name it with its module: "${owner}.${name}".` : ''}`, spanOf(span, macro));
+			return;
+		}
 		const problem = candidates.length === 1 && candidates[0].signature ? argumentCountProblem(candidates[0].signature, args.length - 1, name) : undefined;
 		if (problem) {
 			push('runtimeMemberNotFound', `Application.Run ${problem}`, spanOf(span, macro));

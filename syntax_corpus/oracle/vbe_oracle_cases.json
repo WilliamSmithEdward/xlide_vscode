@@ -77152,6 +77152,466 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Double, l As Long, s As String, v As Variant, r As Double\r\n    Dim da(2) As Double\r\n    d = 1: l = 1: s = \"abc\": v = 5: r = -1\r\n    da(0) = -1000: da(1) = 600: da(2) = 600\r\n    Main = NPV(0.1, da)\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue468_01_runtime",
+      "description": "Issue #468 Application.Run of a name that reads as a cell address, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Application.Run \"Pub2\"\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Pub2()\r\nEnd Sub\r\nPublic Sub AB12()\r\nEnd Sub\r\nPublic Sub XFD1()\r\nEnd Sub\r\nPublic Sub R1C1()\r\nEnd Sub\r\nPublic Sub R2()\r\nEnd Sub\r\nPublic Sub C3()\r\nEnd Sub\r\nPublic Sub XFE1()\r\nEnd Sub\r\nPublic Sub Calc1()\r\nEnd Sub\r\nPublic Sub Test1()\r\nEnd Sub\r\nPublic Sub Pubx()\r\nEnd Sub\r\nPublic Sub Run_1()\r\nEnd Sub\r\nPublic Sub Main2()\r\nEnd Sub\r\nPublic Sub Go()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue468_02_runtime",
+      "description": "Issue #468 Application.Run of a name that reads as a cell address, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Application.Run \"AB12\"\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Pub2()\r\nEnd Sub\r\nPublic Sub AB12()\r\nEnd Sub\r\nPublic Sub XFD1()\r\nEnd Sub\r\nPublic Sub R1C1()\r\nEnd Sub\r\nPublic Sub R2()\r\nEnd Sub\r\nPublic Sub C3()\r\nEnd Sub\r\nPublic Sub XFE1()\r\nEnd Sub\r\nPublic Sub Calc1()\r\nEnd Sub\r\nPublic Sub Test1()\r\nEnd Sub\r\nPublic Sub Pubx()\r\nEnd Sub\r\nPublic Sub Run_1()\r\nEnd Sub\r\nPublic Sub Main2()\r\nEnd Sub\r\nPublic Sub Go()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue468_03_runtime",
+      "description": "Issue #468 Application.Run of a name that reads as a cell address, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Application.Run \"XFD1\"\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Pub2()\r\nEnd Sub\r\nPublic Sub AB12()\r\nEnd Sub\r\nPublic Sub XFD1()\r\nEnd Sub\r\nPublic Sub R1C1()\r\nEnd Sub\r\nPublic Sub R2()\r\nEnd Sub\r\nPublic Sub C3()\r\nEnd Sub\r\nPublic Sub XFE1()\r\nEnd Sub\r\nPublic Sub Calc1()\r\nEnd Sub\r\nPublic Sub Test1()\r\nEnd Sub\r\nPublic Sub Pubx()\r\nEnd Sub\r\nPublic Sub Run_1()\r\nEnd Sub\r\nPublic Sub Main2()\r\nEnd Sub\r\nPublic Sub Go()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue468_04_runtime",
+      "description": "Issue #468 Application.Run of a name that reads as a cell address, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Application.Run \"R1C1\"\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Pub2()\r\nEnd Sub\r\nPublic Sub AB12()\r\nEnd Sub\r\nPublic Sub XFD1()\r\nEnd Sub\r\nPublic Sub R1C1()\r\nEnd Sub\r\nPublic Sub R2()\r\nEnd Sub\r\nPublic Sub C3()\r\nEnd Sub\r\nPublic Sub XFE1()\r\nEnd Sub\r\nPublic Sub Calc1()\r\nEnd Sub\r\nPublic Sub Test1()\r\nEnd Sub\r\nPublic Sub Pubx()\r\nEnd Sub\r\nPublic Sub Run_1()\r\nEnd Sub\r\nPublic Sub Main2()\r\nEnd Sub\r\nPublic Sub Go()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue468_05_runtime",
+      "description": "Issue #468 Application.Run of a name that reads as a cell address, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Application.Run \"R2\"\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Pub2()\r\nEnd Sub\r\nPublic Sub AB12()\r\nEnd Sub\r\nPublic Sub XFD1()\r\nEnd Sub\r\nPublic Sub R1C1()\r\nEnd Sub\r\nPublic Sub R2()\r\nEnd Sub\r\nPublic Sub C3()\r\nEnd Sub\r\nPublic Sub XFE1()\r\nEnd Sub\r\nPublic Sub Calc1()\r\nEnd Sub\r\nPublic Sub Test1()\r\nEnd Sub\r\nPublic Sub Pubx()\r\nEnd Sub\r\nPublic Sub Run_1()\r\nEnd Sub\r\nPublic Sub Main2()\r\nEnd Sub\r\nPublic Sub Go()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue468_06_runtime",
+      "description": "Issue #468 Application.Run of a name that reads as a cell address, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Application.Run \"C3\"\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Pub2()\r\nEnd Sub\r\nPublic Sub AB12()\r\nEnd Sub\r\nPublic Sub XFD1()\r\nEnd Sub\r\nPublic Sub R1C1()\r\nEnd Sub\r\nPublic Sub R2()\r\nEnd Sub\r\nPublic Sub C3()\r\nEnd Sub\r\nPublic Sub XFE1()\r\nEnd Sub\r\nPublic Sub Calc1()\r\nEnd Sub\r\nPublic Sub Test1()\r\nEnd Sub\r\nPublic Sub Pubx()\r\nEnd Sub\r\nPublic Sub Run_1()\r\nEnd Sub\r\nPublic Sub Main2()\r\nEnd Sub\r\nPublic Sub Go()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue468_07_runtime",
+      "description": "Issue #468 Application.Run of a name that reads as a cell address, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Run \"Pub2\"\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Pub2()\r\nEnd Sub\r\nPublic Sub AB12()\r\nEnd Sub\r\nPublic Sub XFD1()\r\nEnd Sub\r\nPublic Sub R1C1()\r\nEnd Sub\r\nPublic Sub R2()\r\nEnd Sub\r\nPublic Sub C3()\r\nEnd Sub\r\nPublic Sub XFE1()\r\nEnd Sub\r\nPublic Sub Calc1()\r\nEnd Sub\r\nPublic Sub Test1()\r\nEnd Sub\r\nPublic Sub Pubx()\r\nEnd Sub\r\nPublic Sub Run_1()\r\nEnd Sub\r\nPublic Sub Main2()\r\nEnd Sub\r\nPublic Sub Go()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue468_08_runtime",
+      "description": "Issue #468 Application.Run of a name that reads as a cell address, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Application.Run \"XFE1\"\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Pub2()\r\nEnd Sub\r\nPublic Sub AB12()\r\nEnd Sub\r\nPublic Sub XFD1()\r\nEnd Sub\r\nPublic Sub R1C1()\r\nEnd Sub\r\nPublic Sub R2()\r\nEnd Sub\r\nPublic Sub C3()\r\nEnd Sub\r\nPublic Sub XFE1()\r\nEnd Sub\r\nPublic Sub Calc1()\r\nEnd Sub\r\nPublic Sub Test1()\r\nEnd Sub\r\nPublic Sub Pubx()\r\nEnd Sub\r\nPublic Sub Run_1()\r\nEnd Sub\r\nPublic Sub Main2()\r\nEnd Sub\r\nPublic Sub Go()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue468_09_runtime",
+      "description": "Issue #468 Application.Run of a name that reads as a cell address, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Application.Run \"Calc1\"\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Pub2()\r\nEnd Sub\r\nPublic Sub AB12()\r\nEnd Sub\r\nPublic Sub XFD1()\r\nEnd Sub\r\nPublic Sub R1C1()\r\nEnd Sub\r\nPublic Sub R2()\r\nEnd Sub\r\nPublic Sub C3()\r\nEnd Sub\r\nPublic Sub XFE1()\r\nEnd Sub\r\nPublic Sub Calc1()\r\nEnd Sub\r\nPublic Sub Test1()\r\nEnd Sub\r\nPublic Sub Pubx()\r\nEnd Sub\r\nPublic Sub Run_1()\r\nEnd Sub\r\nPublic Sub Main2()\r\nEnd Sub\r\nPublic Sub Go()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue468_10_runtime",
+      "description": "Issue #468 Application.Run of a name that reads as a cell address, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Application.Run \"Test1\"\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Pub2()\r\nEnd Sub\r\nPublic Sub AB12()\r\nEnd Sub\r\nPublic Sub XFD1()\r\nEnd Sub\r\nPublic Sub R1C1()\r\nEnd Sub\r\nPublic Sub R2()\r\nEnd Sub\r\nPublic Sub C3()\r\nEnd Sub\r\nPublic Sub XFE1()\r\nEnd Sub\r\nPublic Sub Calc1()\r\nEnd Sub\r\nPublic Sub Test1()\r\nEnd Sub\r\nPublic Sub Pubx()\r\nEnd Sub\r\nPublic Sub Run_1()\r\nEnd Sub\r\nPublic Sub Main2()\r\nEnd Sub\r\nPublic Sub Go()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue468_11_runtime",
+      "description": "Issue #468 Application.Run of a name that reads as a cell address, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Application.Run \"Pubx\"\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Pub2()\r\nEnd Sub\r\nPublic Sub AB12()\r\nEnd Sub\r\nPublic Sub XFD1()\r\nEnd Sub\r\nPublic Sub R1C1()\r\nEnd Sub\r\nPublic Sub R2()\r\nEnd Sub\r\nPublic Sub C3()\r\nEnd Sub\r\nPublic Sub XFE1()\r\nEnd Sub\r\nPublic Sub Calc1()\r\nEnd Sub\r\nPublic Sub Test1()\r\nEnd Sub\r\nPublic Sub Pubx()\r\nEnd Sub\r\nPublic Sub Run_1()\r\nEnd Sub\r\nPublic Sub Main2()\r\nEnd Sub\r\nPublic Sub Go()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue468_12_runtime",
+      "description": "Issue #468 Application.Run of a name that reads as a cell address, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Application.Run \"Run_1\"\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Pub2()\r\nEnd Sub\r\nPublic Sub AB12()\r\nEnd Sub\r\nPublic Sub XFD1()\r\nEnd Sub\r\nPublic Sub R1C1()\r\nEnd Sub\r\nPublic Sub R2()\r\nEnd Sub\r\nPublic Sub C3()\r\nEnd Sub\r\nPublic Sub XFE1()\r\nEnd Sub\r\nPublic Sub Calc1()\r\nEnd Sub\r\nPublic Sub Test1()\r\nEnd Sub\r\nPublic Sub Pubx()\r\nEnd Sub\r\nPublic Sub Run_1()\r\nEnd Sub\r\nPublic Sub Main2()\r\nEnd Sub\r\nPublic Sub Go()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue468_13_runtime",
+      "description": "Issue #468 Application.Run of a name that reads as a cell address, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Application.Run \"Main2\"\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Pub2()\r\nEnd Sub\r\nPublic Sub AB12()\r\nEnd Sub\r\nPublic Sub XFD1()\r\nEnd Sub\r\nPublic Sub R1C1()\r\nEnd Sub\r\nPublic Sub R2()\r\nEnd Sub\r\nPublic Sub C3()\r\nEnd Sub\r\nPublic Sub XFE1()\r\nEnd Sub\r\nPublic Sub Calc1()\r\nEnd Sub\r\nPublic Sub Test1()\r\nEnd Sub\r\nPublic Sub Pubx()\r\nEnd Sub\r\nPublic Sub Run_1()\r\nEnd Sub\r\nPublic Sub Main2()\r\nEnd Sub\r\nPublic Sub Go()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue468_14_runtime",
+      "description": "Issue #468 Application.Run of a name that reads as a cell address, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Application.Run \"Go\"\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Pub2()\r\nEnd Sub\r\nPublic Sub AB12()\r\nEnd Sub\r\nPublic Sub XFD1()\r\nEnd Sub\r\nPublic Sub R1C1()\r\nEnd Sub\r\nPublic Sub R2()\r\nEnd Sub\r\nPublic Sub C3()\r\nEnd Sub\r\nPublic Sub XFE1()\r\nEnd Sub\r\nPublic Sub Calc1()\r\nEnd Sub\r\nPublic Sub Test1()\r\nEnd Sub\r\nPublic Sub Pubx()\r\nEnd Sub\r\nPublic Sub Run_1()\r\nEnd Sub\r\nPublic Sub Main2()\r\nEnd Sub\r\nPublic Sub Go()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue468_15_runtime",
+      "description": "Issue #468 Application.Run of a name that reads as a cell address, case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Application.Run \"Module2.Pub2\"\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Pub2()\r\nEnd Sub\r\nPublic Sub AB12()\r\nEnd Sub\r\nPublic Sub XFD1()\r\nEnd Sub\r\nPublic Sub R1C1()\r\nEnd Sub\r\nPublic Sub R2()\r\nEnd Sub\r\nPublic Sub C3()\r\nEnd Sub\r\nPublic Sub XFE1()\r\nEnd Sub\r\nPublic Sub Calc1()\r\nEnd Sub\r\nPublic Sub Test1()\r\nEnd Sub\r\nPublic Sub Pubx()\r\nEnd Sub\r\nPublic Sub Run_1()\r\nEnd Sub\r\nPublic Sub Main2()\r\nEnd Sub\r\nPublic Sub Go()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue468_16_runtime",
+      "description": "Issue #468 Application.Run of a name that reads as a cell address, case 16, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Application.Run \"Module2.AB12\"\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Pub2()\r\nEnd Sub\r\nPublic Sub AB12()\r\nEnd Sub\r\nPublic Sub XFD1()\r\nEnd Sub\r\nPublic Sub R1C1()\r\nEnd Sub\r\nPublic Sub R2()\r\nEnd Sub\r\nPublic Sub C3()\r\nEnd Sub\r\nPublic Sub XFE1()\r\nEnd Sub\r\nPublic Sub Calc1()\r\nEnd Sub\r\nPublic Sub Test1()\r\nEnd Sub\r\nPublic Sub Pubx()\r\nEnd Sub\r\nPublic Sub Run_1()\r\nEnd Sub\r\nPublic Sub Main2()\r\nEnd Sub\r\nPublic Sub Go()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue468_17_runtime",
+      "description": "Issue #468 Application.Run of a name that reads as a cell address, case 17, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Application.Run \"Module2.XFD1\"\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Pub2()\r\nEnd Sub\r\nPublic Sub AB12()\r\nEnd Sub\r\nPublic Sub XFD1()\r\nEnd Sub\r\nPublic Sub R1C1()\r\nEnd Sub\r\nPublic Sub R2()\r\nEnd Sub\r\nPublic Sub C3()\r\nEnd Sub\r\nPublic Sub XFE1()\r\nEnd Sub\r\nPublic Sub Calc1()\r\nEnd Sub\r\nPublic Sub Test1()\r\nEnd Sub\r\nPublic Sub Pubx()\r\nEnd Sub\r\nPublic Sub Run_1()\r\nEnd Sub\r\nPublic Sub Main2()\r\nEnd Sub\r\nPublic Sub Go()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue468_18_runtime",
+      "description": "Issue #468 Application.Run of a name that reads as a cell address, case 18, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Application.Run \"Module2.R1C1\"\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Pub2()\r\nEnd Sub\r\nPublic Sub AB12()\r\nEnd Sub\r\nPublic Sub XFD1()\r\nEnd Sub\r\nPublic Sub R1C1()\r\nEnd Sub\r\nPublic Sub R2()\r\nEnd Sub\r\nPublic Sub C3()\r\nEnd Sub\r\nPublic Sub XFE1()\r\nEnd Sub\r\nPublic Sub Calc1()\r\nEnd Sub\r\nPublic Sub Test1()\r\nEnd Sub\r\nPublic Sub Pubx()\r\nEnd Sub\r\nPublic Sub Run_1()\r\nEnd Sub\r\nPublic Sub Main2()\r\nEnd Sub\r\nPublic Sub Go()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue468_19_runtime",
+      "description": "Issue #468 Application.Run of a name that reads as a cell address, case 19, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Application.Run \"Module2.R2\"\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Pub2()\r\nEnd Sub\r\nPublic Sub AB12()\r\nEnd Sub\r\nPublic Sub XFD1()\r\nEnd Sub\r\nPublic Sub R1C1()\r\nEnd Sub\r\nPublic Sub R2()\r\nEnd Sub\r\nPublic Sub C3()\r\nEnd Sub\r\nPublic Sub XFE1()\r\nEnd Sub\r\nPublic Sub Calc1()\r\nEnd Sub\r\nPublic Sub Test1()\r\nEnd Sub\r\nPublic Sub Pubx()\r\nEnd Sub\r\nPublic Sub Run_1()\r\nEnd Sub\r\nPublic Sub Main2()\r\nEnd Sub\r\nPublic Sub Go()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue468_20_runtime",
+      "description": "Issue #468 Application.Run of a name that reads as a cell address, case 20, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Application.Run \"Module2.C3\"\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Pub2()\r\nEnd Sub\r\nPublic Sub AB12()\r\nEnd Sub\r\nPublic Sub XFD1()\r\nEnd Sub\r\nPublic Sub R1C1()\r\nEnd Sub\r\nPublic Sub R2()\r\nEnd Sub\r\nPublic Sub C3()\r\nEnd Sub\r\nPublic Sub XFE1()\r\nEnd Sub\r\nPublic Sub Calc1()\r\nEnd Sub\r\nPublic Sub Test1()\r\nEnd Sub\r\nPublic Sub Pubx()\r\nEnd Sub\r\nPublic Sub Run_1()\r\nEnd Sub\r\nPublic Sub Main2()\r\nEnd Sub\r\nPublic Sub Go()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
