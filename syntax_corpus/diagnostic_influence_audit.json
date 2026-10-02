@@ -4717,11 +4717,16 @@
         "issue458_08_compile",
         "issue458_17_compile",
         "issue458_18_compile",
-        "issue458_20_compile"
+        "issue458_20_compile",
+        "issue494_05_compile",
+        "issue494_06_compile",
+        "issue494_07_compile",
+        "issue494_09_compile",
+        "issue494_10_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Const value overflows. MS-VBAL 5.6.9.3; VBE compile error: Overflow (issue #116, Excel 16.0). A LongLong Const past the range, Const C As LongLong = 1E+19 (issue #232, 64-bit Excel 16.0). Not into a narrow type, As Byte = Not 0, and a digit string past the type, As Integer = \"40000\"; negating the Long minimum while folding wraps and is not reported (issue #235, Excel 16.0). Issue #255: a Const from an Enum member, Const K As Integer = eBig with eBig = 40000, and a Date Const past 12/31/9999, Const D2 = D1 + 1, are Overflow (measured in Excel 16.0). A Const value that opens with a date literal is read as a date, no longer as a directive. Issue #367: And, Or, Xor, Eqv and Imp convert each operand to a Long, so one outside the Long range (1E10 And 1, 922337203685477@ Xor 1) is Overflow; the result keeps the operands type, Byte for two Bytes, Integer for Integers. Issue #458: \\ and Mod convert both operands to a Long, so a Const operand past the Long range overflows (1E10 \\ 2, 7 Mod 922337203685477@). A string operand of a logical operator, \\ or Mod is read as the number it spells first: \"3E9\" Or 0 overflows.",
+      "notes": "Const value overflows. MS-VBAL 5.6.9.3; VBE compile error: Overflow (issue #116, Excel 16.0). A LongLong Const past the range, Const C As LongLong = 1E+19 (issue #232, 64-bit Excel 16.0). Not into a narrow type, As Byte = Not 0, and a digit string past the type, As Integer = \"40000\"; negating the Long minimum while folding wraps and is not reported (issue #235, Excel 16.0). Issue #255: a Const from an Enum member, Const K As Integer = eBig with eBig = 40000, and a Date Const past 12/31/9999, Const D2 = D1 + 1, are Overflow (measured in Excel 16.0). A Const value that opens with a date literal is read as a date, no longer as a directive. Issue #367: And, Or, Xor, Eqv and Imp convert each operand to a Long, so one outside the Long range (1E10 And 1, 922337203685477@ Xor 1) is Overflow; the result keeps the operands type, Byte for two Bytes, Integer for Integers. Issue #458: \\ and Mod convert both operands to a Long, so a Const operand past the Long range overflows (1E10 \\ 2, 7 Mod 922337203685477@). A string operand of a logical operator, \\ or Mod is read as the number it spells first: \"3E9\" Or 0 overflows. Issue #494: in a Const a String beside a number under + - * / is the number it spells in that number's type, and a Currency sum is folded exactly: 922337203685477.5807@ + 0.0001@ overflows.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -4750,11 +4755,16 @@
         "issue367_08_compile",
         "issue367_09_compile",
         "issue367_10_compile",
-        "issue458_09_compile"
+        "issue458_09_compile",
+        "issue494_01_compile",
+        "issue494_02_compile",
+        "issue494_03_compile",
+        "issue494_04_compile",
+        "issue494_08_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "A Const value the VBE cannot evaluate: a division by zero, 1 / 0, 1 Mod False, 2 * (1 \\ 0) -> Division by zero; a string that is no number into a numeric or Boolean Const, or under - or Not -> Type mismatch (issue #235, Excel 16.0). Issue #367: a string with no digit beside a number or a Date in arithmetic or a comparison, \"\" + 1, \"abc\" < 1, 1 / \"\", is Type mismatch.",
+      "notes": "A Const value the VBE cannot evaluate: a division by zero, 1 / 0, 1 Mod False, 2 * (1 \\ 0) -> Division by zero; a string that is no number into a numeric or Boolean Const, or under - or Not -> Type mismatch (issue #235, Excel 16.0). Issue #367: a string with no digit beside a number or a Date in arithmetic or a comparison, \"\" + 1, \"abc\" < 1, 1 / \"\", is Type mismatch. Issue #494: a String that spells no number beside a number under And, Or, Xor, Eqv or Imp is a Type mismatch in a Const: \"\" And 255.",
       "diagnosticKind": "compile-error"
     },
     {
