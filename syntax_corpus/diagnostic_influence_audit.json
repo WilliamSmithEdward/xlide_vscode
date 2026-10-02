@@ -2478,11 +2478,13 @@
         "class_public_type_declaration_compile",
         "class_public_declare_declaration_compile",
         "issue212_17_compile",
-        "issue212_18_compile"
+        "issue212_18_compile",
+        "issue490_01_compile",
+        "issue490_02_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "The active rule is module-kind-sensitive and only fires for explicit Public constants, arrays, fixed-length strings, user-defined Types, and Declare statements in object modules. Standard modules and non-public declarations remain outside this rule. Also a Global variable, and a Public variable of the module's own Private Type (issue #212, measured in a class module).",
+      "notes": "The active rule is module-kind-sensitive and only fires for explicit Public constants, arrays, fixed-length strings, user-defined Types, and Declare statements in object modules. Standard modules and non-public declarations remain outside this rule. Also a Global variable, and a Public variable of the module's own Private Type (issue #212, measured in a class module). Issue #490: a Type or Declare with no scope keyword in a class module is Public and refused the same way; an Enum or Const with none compiles.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -2592,11 +2594,15 @@
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "runtime_function_as_type_name_int",
-        "issue212_62_compile"
+        "issue212_62_compile",
+        "issue490_03_compile",
+        "issue490_04_compile",
+        "issue490_05_compile",
+        "issue490_06_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Broad unknown type-name diagnostics are deferred to the project-wide binder and external-reference story. The active rule uses the shared type-position scanner/resolver and only flags unresolved reserved/runtime names, visible project declarations known not to be types, and ambiguous visible project type names.",
+      "notes": "Broad unknown type-name diagnostics are deferred to the project-wide binder and external-reference story. The active rule uses the shared type-position scanner/resolver and only flags unresolved reserved/runtime names, visible project declarations known not to be types, and ambiguous visible project type names. Issue #490: a Private Type or Enum of another module, bare or qualified by its module, and any type qualified by a variable, is User-defined type not defined.",
       "diagnosticKind": "compile-error"
     },
     {

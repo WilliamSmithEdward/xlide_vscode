@@ -105,12 +105,14 @@ export function checkObjectModulePublicMembers(
 			continue;
 		}
 
-		if (member.kind === 'Type' && isPublicModifier(member.visibility)) {
+		// With no scope keyword a Type or a Declare is Public, and refused the
+		// same way (issue #490, measured in Excel 16.0).
+		if (member.kind === 'Type' && (!member.visibility || isPublicModifier(member.visibility))) {
 			report('user-defined types', declaredNameSpan(source, member.span, member.name));
 			continue;
 		}
 
-		if (member.kind === 'Declare' && isPublicModifier(member.visibility)) {
+		if (member.kind === 'Declare' && (!member.visibility || isPublicModifier(member.visibility))) {
 			report('Declare statements', declaredNameSpan(source, member.span, member.name));
 		}
 	}

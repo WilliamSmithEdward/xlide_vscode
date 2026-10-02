@@ -1080,6 +1080,34 @@ export class ProjectIndex {
 		return shadowedByOwnModule(out, currentLower);
 	}
 
+	/**
+	 * The Private Type and Enum names of the other modules, lowercased, bare
+	 * and as `module.name`: names `moduleName` cannot use as a type, which the
+	 * VBE refuses as "User-defined type not defined" (issue #490). A name some
+	 * module exports, or the asking module declares, is left out.
+	 */
+	hiddenTypeNames(moduleName: string): Set<string> {
+		const currentLower = moduleName.toLowerCase();
+		const visible = new Set(this.visibleTypeNames(moduleName).map((type) => type.name.toLowerCase()));
+		const out = new Set<string>();
+		for (const mod of this.modules.values()) {
+			if (mod.moduleName.toLowerCase() === currentLower) {
+				continue;
+			}
+			for (const symbol of mod.root.children ?? []) {
+				if (!projectTypeKind(symbol) || isTypeExported(symbol)) {
+					continue;
+				}
+				const lower = symbol.name.toLowerCase();
+				out.add(`${mod.moduleName.toLowerCase()}.${lower}`);
+				if (!visible.has(lower)) {
+					out.add(lower);
+				}
+			}
+		}
+		return out;
+	}
+
 	/** One module's part of {@link visibleTypeNames}. */
 	private moduleTypeNames(mod: ModuleSymbols, sameModule: boolean): VbaProjectTypeName[] {
 		const out: VbaProjectTypeName[] = [];
