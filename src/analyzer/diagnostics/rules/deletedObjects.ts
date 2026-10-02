@@ -22,6 +22,7 @@ import { isLeafStatement } from '../../parser/nodes';
 import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
 import { normalizeType } from '../typeInference';
+import { statementLabelDeclaration } from '../../flow/procedureLabels';
 import { activeModuleMembers, isInactiveNode, statementTokensAfterLeadingLabel, tokenName, tokenText } from '../walker';
 
 /** What deletes or closes each type, and what a member of it then raises. */
@@ -86,9 +87,29 @@ export function checkDeletedObjects(
 					}
 					continue;
 				}
+				// A label is reached from wherever a jump to it runs: an error
+				// handler from any line after its On Error GoTo, the Delete's
+				// included (issue #584). Nothing known before it holds there.
+				if (statementLabelDeclaration(source, node.span)) {
+					ended.clear();
+					rangesOf.clear();
+					arrayVariants.clear();
+					emptied.clear();
+				}
 				const toks = statementTokensAfterLeadingLabel(source, node.span).filter((tok) => tok.kind !== 'comment');
 				const line = source.slice(0, node.span.start).split('\n').length;
 				const head = tokenText(toks[0]);
+				// `ReDim a(1)` and `ReDim Preserve a(5)` allocate again what Erase
+				// emptied (issue #584, measured in Excel 16.0).
+				if (head === 'redim') {
+					for (const tok of toks.slice(1)) {
+						const lower = tokenName(tok)?.toLowerCase();
+						if (lower) {
+							forget(lower);
+						}
+					}
+					continue;
+				}
 				// `Set x = ...` gives x a new object.
 				if (head === 'set' && tokenName(toks[1]) && toks[2]?.rawText === '=') {
 					const target = toks[1].rawText.toLowerCase();

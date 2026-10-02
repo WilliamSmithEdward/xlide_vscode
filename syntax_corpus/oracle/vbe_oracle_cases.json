@@ -89916,6 +89916,149 @@
       ],
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue584_01_runtime",
+      "description": "Issue #584 a handler after a Delete, ReDim after Erase, and Adds inside With, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> True.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w2 As Worksheet\r\n    Set w2 = Worksheets.Add\r\n    On Error GoTo H\r\n    w2.Protect\r\n    Main = IsEmpty(w2.Range(\"A1\").Value)\r\n    w2.Unprotect\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\n    Exit Function\r\nH:\r\n    Dim e As Long: e = Err.Number\r\n    On Error Resume Next\r\n    w2.Unprotect \"pw\"\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\n    Main = e\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue584_02_runtime",
+      "description": "Issue #584 a handler after a Delete, ReDim after Erase, and Adds inside With, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: run ->.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Variant\r\n    a = Split(\"x,y\")\r\n    Erase a\r\n    ReDim a(1)\r\n    Main = a(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue584_03_runtime",
+      "description": "Issue #584 a handler after a Delete, ReDim after Erase, and Adds inside With, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Variant\r\n    a = Array(10, 20, 30)\r\n    Erase a\r\n    ReDim a(1)\r\n    Main = a(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue584_04_runtime",
+      "description": "Issue #584 a handler after a Delete, ReDim after Erase, and Adds inside With, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Variant\r\n    a = Array(10, 20, 30)\r\n    Erase a\r\n    ReDim Preserve a(5)\r\n    Main = UBound(a)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue584_05_runtime",
+      "description": "Issue #584 a handler after a Delete, ReDim after Erase, and Adds inside With, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 30.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection\r\n    Set c = New Collection\r\n    With c\r\n        .Add 10, \"k\"\r\n        .Add 20\r\n    End With\r\n    Main = c(\"k\") + c(2)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue584_06_runtime",
+      "description": "Issue #584 a handler after a Delete, ReDim after Erase, and Adds inside With, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Variant\r\n    a = Array(10, 20, 30)\r\n    Erase a\r\n    Main = a(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue584_07_runtime",
+      "description": "Issue #584 a handler after a Delete, ReDim after Erase, and Adds inside With, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection\r\n    Set c = New Collection\r\n    Main = c(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue584_08_runtime",
+      "description": "Issue #584 a handler after a Delete, ReDim after Erase, and Adds inside With, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection\r\n    Set c = New Collection\r\n    With c\r\n        .Add 10\r\n        .Add 20\r\n    End With\r\n    Main = c(3)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue584_09_runtime",
+      "description": "Issue #584 a handler after a Delete, ReDim after Erase, and Adds inside With, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection\r\n    Set c = New Collection\r\n    With c\r\n        .Add 10, \"k\"\r\n    End With\r\n    Main = c(\"zz\")\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue584_10_runtime",
+      "description": "Issue #584 a handler after a Delete, ReDim after Erase, and Adds inside With, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection\r\n    Set c = New Collection\r\n    c.Add 10\r\n    c.Add 20\r\n    With c\r\n        .Remove 1\r\n    End With\r\n    Main = c(2)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue584_11_runtime",
+      "description": "Issue #584 a handler after a Delete, ReDim after Erase, and Adds inside With, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 20.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection\r\n    Set c = New Collection\r\n    With c\r\n        .Add 10\r\n        If Main = 0 Then .Add 20\r\n    End With\r\n    Main = c(2)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue584_12_runtime",
+      "description": "Issue #584 a handler after a Delete, ReDim after Erase, and Adds inside With, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 20.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection\r\n    Set c = New Collection\r\n    With c\r\n        .Add 10\r\n    End With\r\n    c.Add 20\r\n    Main = c(2)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue584_13_runtime",
+      "description": "Issue #584 a handler after a Delete, ReDim after Erase, and Adds inside With, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: raise -2147221080.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w2 As Worksheet\r\n    Set w2 = Worksheets.Add\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\n    Main = w2.Name\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }
