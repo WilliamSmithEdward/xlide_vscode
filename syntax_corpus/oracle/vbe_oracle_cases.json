@@ -84717,6 +84717,136 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim r As Range\r\n    Set r = Range(\"A1\")\r\n    Main = r(1)\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue304_01_compile",
+      "description": "Issue #304 argument counts of Collection methods and Excel globals, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add 0\r\n    c.Add\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue304_02_compile",
+      "description": "Issue #304 argument counts of Collection methods and Excel globals, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add 0\r\n    c.Add 1, , , , 5\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue304_03_compile",
+      "description": "Issue #304 argument counts of Collection methods and Excel globals, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add 0\r\n    Main = c.Item()\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue304_04_compile",
+      "description": "Issue #304 argument counts of Collection methods and Excel globals, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add 0\r\n    Main = c.Count(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue304_05_compile",
+      "description": "Issue #304 argument counts of Collection methods and Excel globals, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add 0\r\n    Main = Cells(1, 1, 1).Address\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue304_06_compile",
+      "description": "Issue #304 argument counts of Collection methods and Excel globals, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add 0\r\n    Main = Range(\"A1\", \"B2\", \"C3\").Address\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue304_07_compile",
+      "description": "Issue #304 argument counts of Collection methods and Excel globals, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add 0\r\n    Main = Evaluate()\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue304_08_compile",
+      "description": "Issue #304 argument counts of Collection methods and Excel globals, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add 0\r\n    Main = Intersect(Range(\"A1\")) Is Nothing\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue304_09_compile",
+      "description": "Issue #304 argument counts of Collection methods and Excel globals, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add 0\r\n    Main = Union(Range(\"A1\")).Address\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue304_10_compile",
+      "description": "Issue #304 argument counts of Collection methods and Excel globals, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add 0\r\n    Main = Sheets.Count(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue304_11_compile",
+      "description": "Issue #304 argument counts of Collection methods and Excel globals, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add 0\r\n    Main = Union(Range(\"A1\"), Range(\"B2\")).Address\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue304_12_compile",
+      "description": "Issue #304 argument counts of Collection methods and Excel globals, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add 0\r\n    c.Add 1, \"k\"\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue304_13_compile",
+      "description": "Issue #304 argument counts of Collection methods and Excel globals, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add 0\r\n    Main = c.Item(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
     }
   ]
 }

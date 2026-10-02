@@ -24,14 +24,21 @@ import {
 	expressionCalls,
 	memberExpressionCalls,
 	memberStatementCalls,
+	normalizeType,
+	parseRuntimeDisplaySignature,
+	resolveExactMemberCompletion,
 	runtimeAritySignature,
 	runtimeCallableSourceShadowed,
 	sameModuleCallableSignatures,
 	type SourceNameScope,
 	sourceNameScopeFor,
+	typeEnvironmentFor,
 	uniqueProjectTypeSignatures,
 } from '../typeInference';
-import { statementAndBranchSpans, type ProcedureStatementVisitor } from '../walker';
+import { matchParenFrom, statementAndBranchSpans, statementTokens, tokenName, type ProcedureStatementVisitor } from '../walker';
+import { splitTopLevelTokenGroups } from '../../lexer/tokenHelpers';
+import type { VbaToken } from '../../lexer/tokenKinds';
+import { resolveHostGlobalMember } from '../../host/hostModel';
 
 /**
  * Rule: a call to a known Sub/Function/Declare must supply an argument count the
@@ -62,7 +69,11 @@ export function checkArgumentCount(
 	const moduleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
 	return (member) => {
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
+		const env = typeEnvironmentFor(symbols, member);
 		return (stmt) => {
+			for (const span of statementAndBranchSpans(stmt)) {
+				checkUnmodelledArity(source, span, env, sourceNames, memberCtx, push);
+			}
 			const projectQualifiedCallSpans = new Set<string>();
 			const statementCall = extractCall(source, stmt.span);
 			const qualifiedStatementCall = statementCall
@@ -136,6 +147,100 @@ export function checkArgumentCount(
 			}
 		};
 	};
+}
+
+/** VBA's Collection methods, which no host model carries (issue #304). */
+const COLLECTION_SIGNATURES: ReadonlyMap<string, string> = new Map([
+	['add', 'Add(Item, [Key], [Before], [After])'],
+	['item', 'Item(Index)'],
+	['count', 'Count()'],
+	['remove', 'Remove(Index)'],
+]);
+
+/** Excel's Global properties that take an index: Cells reaches Range.Item. */
+const INDEXED_GLOBALS: ReadonlyMap<string, string> = new Map([
+	['cells', 'Cells([RowIndex], [ColumnIndex])'],
+	['range', 'Range(Cell1, [Cell2])'],
+]);
+
+const SCALAR_TYPES: ReadonlySet<string> = new Set(['long', 'integer', 'byte', 'double', 'single', 'currency', 'boolean', 'longlong']);
+
+/**
+ * The calls the signature tables above do not reach (issue #304, each
+ * measured in Excel 16.0): a Collection's Add, Item, Count and Remove; a
+ * bare Excel Global method such as Evaluate, Intersect or Union, and Cells
+ * or Range given more than they take; and a host property that holds a
+ * number, `Sheets.Count(1)`, given an argument.
+ */
+function checkUnmodelledArity(
+	source: string,
+	span: { start: number; end: number },
+	env: ReadonlyMap<string, string>,
+	sourceNames: SourceNameScope,
+	memberCtx: MemberCompletionContext,
+	push: PushFn,
+): void {
+	const toks = statementTokens(source, span).filter((tok) => tok.kind !== 'comment');
+	const validate = (signature: string, display: string, nameIndex: number, slots: VbaToken[][]): void => {
+		const call: CallArguments = {
+			name: display,
+			nameSpan: { start: span.start + toks[nameIndex].start, end: span.start + toks[nameIndex].end },
+			slots,
+			sliceStart: span.start,
+		};
+		validateArity(source, parseRuntimeDisplaySignature(display, signature), call, push);
+	};
+	const argumentsAt = (open: number): VbaToken[][] | undefined => {
+		const close = matchParenFrom(toks, open);
+		if (close < 0) {
+			return undefined;
+		}
+		return close === open + 1 ? [] : splitTopLevelTokenGroups(toks, open + 1, ',', close);
+	};
+	toks.forEach((tok, i) => {
+		const name = tokenName(tok);
+		if (!name) {
+			return;
+		}
+		const lower = name.toLowerCase();
+		const member = toks[i - 1]?.rawText === '.';
+		// `c.Add 1`, `c.Item()`: a local As Collection's own methods.
+		const receiver = member ? tokenName(toks[i - 2])?.toLowerCase() : undefined;
+		if (member && receiver && toks[i - 3]?.rawText !== '.' && normalizeType(env.get(receiver)) === 'collection' && COLLECTION_SIGNATURES.has(lower)) {
+			// A project class named Collection keeps its own members.
+			if (resolveExactMemberCompletion(source, name, span.start + tok.end, memberCtx)?.definitions) {
+				return;
+			}
+			const statement = i === 2 && toks[i + 1]?.rawText !== '(' && toks[i + 1]?.rawText !== '=';
+			const slots = toks[i + 1]?.rawText === '(' ? argumentsAt(i + 1) : statement ? (i + 1 < toks.length ? splitTopLevelTokenGroups(toks, i + 1, ',', toks.length) : []) : undefined;
+			if (slots) {
+				validate(COLLECTION_SIGNATURES.get(lower)!, name, i, slots);
+			}
+			return;
+		}
+		if (toks[i + 1]?.rawText !== '(') {
+			return;
+		}
+		// `Evaluate()`, `Union(r)`, `Cells(1, 1, 1)`: a bare Excel Global member.
+		if (!member && !bareCallableSourceShadowed(name, sourceNames) && !runtimeCallableSourceShadowed(name, sourceNames) && !env.has(lower)) {
+			const global = resolveHostGlobalMember(name, memberCtx.model);
+			const signature = global?.kind === 'method' ? global.signature : global ? INDEXED_GLOBALS.get(lower) : undefined;
+			const slots = signature ? argumentsAt(i + 1) : undefined;
+			if (signature && slots) {
+				validate(signature, name, i, slots);
+			}
+			return;
+		}
+		// `Sheets.Count(1)`: a host property that holds a number takes no argument.
+		if (member) {
+			const resolved = resolveExactMemberCompletion(source, name, span.start + tok.end, memberCtx);
+			const type = normalizeType(resolved?.declaredType ?? resolved?.returns);
+			const slots = argumentsAt(i + 1);
+			if (resolved?.kind === 'property' && !resolved.signature && !resolved.definitions && resolved.letAccessor === undefined && type && SCALAR_TYPES.has(type) && slots && slots.length > 0) {
+				validate(`${resolved.name}()`, name, i, slots);
+			}
+		}
+	});
 }
 
 function recordProjectQualifiedCallSpan(call: CallArguments, out: Set<string>): void {
