@@ -4571,7 +4571,10 @@
         "issue262_157_runtime",
         "issue262_158_runtime",
         "issue262_159_runtime",
-        "issue262_181_runtime"
+        "issue262_181_runtime",
+        "issue287_01_runtime",
+        "issue287_02_runtime",
+        "issue287_03_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -4640,7 +4643,10 @@
       "assertedOracleCases": [
         "issue123_c_runtime",
         "issue146_b_runtime",
-        "issue146_c_runtime"
+        "issue146_c_runtime",
+        "issue287_04_runtime",
+        "issue287_05_runtime",
+        "issue287_06_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -4675,7 +4681,10 @@
         "issue419_28_runtime",
         "issue419_31_runtime",
         "issue419_32_runtime",
-        "issue419_33_runtime"
+        "issue419_33_runtime",
+        "issue287_13_runtime",
+        "issue287_14_runtime",
+        "issue287_15_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -4695,7 +4704,10 @@
         "issue419_41_runtime",
         "issue419_42_runtime",
         "issue419_43_runtime",
-        "issue419_44_runtime"
+        "issue419_44_runtime",
+        "issue287_10_runtime",
+        "issue287_11_runtime",
+        "issue287_12_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -4941,7 +4953,16 @@
         "issue278_04_runtime",
         "issue278_05_runtime",
         "issue278_06_runtime",
-        "issue278_07_runtime"
+        "issue278_07_runtime",
+        "issue287_16_runtime",
+        "issue287_17_runtime",
+        "issue287_18_runtime",
+        "issue287_19_runtime",
+        "issue287_20_runtime",
+        "issue287_21_runtime",
+        "issue287_22_runtime",
+        "issue287_23_runtime",
+        "issue287_24_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -6326,7 +6347,10 @@
         "issue262_49_runtime",
         "issue262_80_runtime",
         "issue262_164_runtime",
-        "issue262_165_runtime"
+        "issue262_165_runtime",
+        "issue287_07_runtime",
+        "issue287_08_runtime",
+        "issue287_09_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
