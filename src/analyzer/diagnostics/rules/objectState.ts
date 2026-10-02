@@ -25,7 +25,7 @@ import { walkBranchMergedBody, walkStraightLineBody } from '../dataflow';
 import { untouchedModuleVariablesIn } from '../moduleState';
 import { procedureHasUnstructuredFlow } from '../../flow/procedureUnstructured';
 import { statementLabelDeclarations, statementLabelReferences } from '../../flow/procedureLabels';
-import { resolveExhaustiveMemberSurface } from '../rules/shared';
+import { builtinNameBefore, resolveExhaustiveMemberSurface, ONE_VALUE_BUILTINS } from '../rules/shared';
 import {
 	declaredTypeForSourceBinding,
 	isKnownObjectAssignmentType,
@@ -48,6 +48,7 @@ import {
 	forEachStatement,
 	isInactiveNode,
 	localsNamedWhole,
+	matchParenFrom,
 	setAssignmentTarget,
 	statementAndBranchSpans,
 	statementTokens,
@@ -683,11 +684,12 @@ function checkObjectVariableNotSetStatement(
 	}
 	// `If c Then` reads c's value for the condition: on c still Nothing that
 	// raises 91 whatever its type's default member (issue #268, measured in
-	// Excel 16.0 on a Collection).
+	// Excel 16.0 on a Collection). A type with no default member is
+	// object-default-value's, 438 or 91 (issue #415).
 	if ((head === 'if' || head === 'elseif') && tokenText(toks[2]) === 'then') {
 		const lower = tokenName(toks[1])?.toLowerCase();
 		const local = lower ? locals.get(lower) : undefined;
-		if (local && !local.letOnly && state.get(lower!) === 'unset') {
+		if (local && !local.letOnly && state.get(lower!) === 'unset' && objectLetAssignmentVerdict(local.asType, memberCtx) !== 'noDefault') {
 			push(
 				'objectVariableNotSet',
 				`Object variable '${toks[1].rawText}' is Nothing when the condition reads its value. This will raise Run-time error '91': Object variable or With block variable not set.`,
@@ -731,14 +733,31 @@ function checkObjectVariableNotSetStatement(
 		for (let i = 0; i < limit; i++) {
 			const lower = tokenName(operandToks[i])?.toLowerCase();
 			const local = lower ? locals.get(lower) : undefined;
-			if (!local || local.letOnly || i === eq - 1 || operandToks[i - 1]?.rawText === '.' || operandToks[i + 1]?.rawText === '(' || operandToks[i + 1]?.rawText === '.'
-				|| !(isOperator(i - 1) || isOperator(i + 1)) || state.get(lower!) !== 'unset' || guardedAt(lower!, span.start + operandToks[i].start)
-				|| objectLetAssignmentVerdict(local.asType, memberCtx) !== 'lets' || objectHoldingDefault(local.asType, memberCtx)) {
+			if (!local || local.letOnly || i === eq - 1 || operandToks[i - 1]?.rawText === '.' || operandToks[i + 1]?.rawText === '.'
+				|| state.get(lower!) !== 'unset' || guardedAt(lower!, span.start + operandToks[i].start) || objectHoldingDefault(local.asType, memberCtx)) {
+				continue;
+			}
+			const verdict = objectLetAssignmentVerdict(local.asType, memberCtx);
+			// `CStr(x)`, `Len(x)`: a whole argument of a built-in that reads one
+			// value (issue #415, measured in Excel 16.0). A Collection or Names
+			// there does not compile, which is collection-operand's; a type with
+			// no default member is object-default-value's, 438 or 91.
+			const argument = ['(', ','].includes(operandToks[i - 1]?.rawText ?? '') && [')', ','].includes(operandToks[i + 1]?.rawText ?? '')
+				&& ONE_VALUE_BUILTINS.has(tokenText(operandToks[builtinNameBefore(operandToks, i)])) && verdict === 'lets';
+			// `x(1)` passes the index to the default member: an Excel Range's
+			// takes one, an Object is late bound, and a Collection's needs one.
+			// A default that takes none, as Application's Name, does not
+			// compile; a type with none is object-default-value's.
+			const type = normalizeType(local.asType);
+			const close = operandToks[i + 1]?.rawText === '(' ? matchParenFrom(operandToks, i + 1) : -1;
+			const indexed = close > i + 2 && operandToks[close + 1]?.rawText !== '.' && (verdict === 'argument' || type === 'object' || (type === 'range' && memberCtx.model?.hostName !== 'Word' && memberCtx.model?.hostName !== 'PowerPoint'));
+			const operand = operandToks[i + 1]?.rawText !== '(' && (isOperator(i - 1) || isOperator(i + 1)) && verdict === 'lets';
+			if (!argument && !indexed && !operand) {
 				continue;
 			}
 			push(
 				'objectVariableNotSet',
-				`Object variable '${operandToks[i].rawText}' is Nothing when its default member is read as an operand. This will raise Run-time error '91': Object variable or With block variable not set.`,
+				`Object variable '${operandToks[i].rawText}' is Nothing when its ${indexed ? 'default member is indexed' : argument ? 'value is read' : 'default member is read as an operand'}. This will raise Run-time error '91': Object variable or With block variable not set.`,
 				{ start: span.start + operandToks[i].start, end: span.start + operandToks[i].end },
 			);
 		}

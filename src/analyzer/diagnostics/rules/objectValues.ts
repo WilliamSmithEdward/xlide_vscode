@@ -30,7 +30,9 @@
 
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type { MemberCompletionContext } from '../../completion/memberAccess';
-import type { BodyNode, ProcedureNode, Span } from '../../parser/nodes';
+import type { BodyNode, LeafStatementNode, ProcedureNode, Span } from '../../parser/nodes';
+import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
+import { heldObjectsAt, type HeldObjects } from '../heldObjects';
 import { parseVbaIntegerLiteral } from '../../constants/integerConstantExpression';
 import type { VbaProjectClassMember, VbaProjectClassMembers } from '../../symbols/symbolModel';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
@@ -39,12 +41,14 @@ import { isKnownObjectAssignmentType, isKnownScalarType, normalizeType, objectLe
 import {
 	bareAssignmentTarget,
 	firstExecutableTokenIndex,
+	matchParenFrom,
 	statementAndBranchSpans,
 	statementTokens,
 	tokenName,
 	tokenText,
 	type ProcedureStatementVisitor,
 } from '../walker';
+import { builtinNameBefore, ONE_VALUE_BUILTINS } from './shared';
 
 const SCALAR_OPERATORS: ReadonlySet<string> = new Set(['=', '<', '>', '<=', '>=', '<>', '+', '-', '*', '/', '\\', '&', '^']);
 
@@ -53,6 +57,7 @@ export function checkObjectDefaultValues(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	memberCtx: MemberCompletionContext,
 	push: PushFn,
+	activity?: ConditionalActivityTracker,
 ): ProcedureStatementVisitor {
 	const moduleAutoInstanced = new Set<string>();
 	const moduleNames = new Set((symbols.root.children ?? []).map((child) => child.name.toLowerCase()));
@@ -105,7 +110,17 @@ export function checkObjectDefaultValues(
 		const classOf = (lower: string): VbaProjectClassMembers | undefined =>
 			lower === proc.name.toLowerCase() || arrays.has(lower) ? undefined : projectClass(env.get(lower), memberCtx);
 		checkForEachEnumerators(proc.body, classOf, push);
+		// An Object holding a Collection, `Set x = New Collection` with x As
+		// Object, is late bound: its value read raises 450 when it runs, and
+		// a Let to it 438 (issue #415, measured in Excel 16.0).
+		const lateBound = [...env].filter(([, type]) => normalizeType(type) === 'object').map(([lower]) => lower);
+		let heldAt: ((node: BodyNode) => HeldObjects) | undefined;
+		const holdsCollection = (stmt: BodyNode, lower: string): boolean =>
+			(heldAt ??= heldObjectsAt(source, proc, symbols, activity))(stmt).classes.get(lower)?.toLowerCase() === 'collection';
 		return (stmt) => {
+			if (lateBound.length > 0) {
+				checkHeldCollections(source, stmt, lateBound, (lower) => holdsCollection(stmt, lower), push);
+			}
 			// `If c Then` reads c's value for the condition: a Collection's
 			// default member Item needs an index (issue #268, measured in
 			// Excel 16.0: 450). An As New Collection is never Nothing there;
@@ -114,6 +129,15 @@ export function checkObjectDefaultValues(
 			const conditionName = ['if', 'elseif'].includes(tokenText(condition[0])) && tokenText(condition[2]) === 'then' ? tokenName(condition[1])?.toLowerCase() : undefined;
 			if (conditionName && isCollection(conditionName) && autoInstanced.has(conditionName)) {
 				push('objectDefaultValue', `'${condition[1].rawText}' is a Collection: its default member Item needs an index, so the condition has no value to read. This will raise Run-time error '450': Wrong number of arguments or invalid property assignment.`, { start: stmt.span.start + condition[1].start, end: stmt.span.start + condition[1].end });
+			}
+			// `If ws Then`, `ws(1)`, `CStr(ws)`: a type with no default member
+			// has no value there either (issue #415, measured in Excel 16.0 on
+			// a Worksheet, a Workbook and a Font).
+			for (const hit of noDefaultReads(condition, ['if', 'elseif'].includes(tokenText(condition[0])), (lower) => verdictFor(lower) === 'noDefault' && !classOf(lower))) {
+				const lower = hit.rawText.toLowerCase();
+				const type = env.get(lower)!;
+				const nothing = autoInstanced.has(lower) ? '' : `, or '91' while it is Nothing`;
+				push('objectDefaultValue', `'${hit.rawText}' is ${article(type)} ${type}, which has no default member, so it has no value to read here. This will raise Run-time error '438': Object doesn't support this property or method${nothing}.`, { start: stmt.span.start + hit.start, end: stmt.span.start + hit.end });
 			}
 			for (const span of statementAndBranchSpans(stmt)) {
 				for (const hit of collectionArguments(statementTokens(source, span), isCollection, moduleNames)) {
@@ -172,6 +196,65 @@ export function checkObjectDefaultValues(
 			}
 		};
 	};
+}
+
+/** `x + 1`, `If x Then`, `CStr(x)` and `x = 5` on an Object local that holds a Collection here. */
+function checkHeldCollections(
+	source: string,
+	stmt: LeafStatementNode,
+	lateBound: readonly string[],
+	holds: (lower: string) => boolean,
+	push: PushFn,
+): void {
+	const toks = statementTokens(source, stmt.span).filter((tok) => tok.kind !== 'comment');
+	if (!toks.some((tok) => lateBound.includes(tokenName(tok)?.toLowerCase() ?? '')) || tokenText(toks[0]) === 'set') {
+		return;
+	}
+	const at = (tok: VbaToken): Span => ({ start: stmt.span.start + tok.start, end: stmt.span.start + tok.end });
+	const target = bareAssignmentTarget(source, stmt.span);
+	if (target && lateBound.includes(target.name.toLowerCase()) && holds(target.name.toLowerCase())) {
+		push('objectDefaultValue', `'${target.name}' holds a Collection, whose default member Item needs an index, so a Let cannot reach it. This will raise Run-time error '438': Object doesn't support this property or method.`, target.span);
+		return;
+	}
+	const isLateBound = (name: string): boolean => lateBound.includes(name.toLowerCase());
+	const reads = [
+		...valueReads(source, stmt.span, stmt.kind === 'Statement' && stmt.singleLineIfBranches !== undefined, () => false, () => false).map((read) => read.tok),
+		...noDefaultReads(toks, ['if', 'elseif'].includes(tokenText(toks[0])), isLateBound).filter((tok) => toks[toks.indexOf(tok) + 1]?.rawText !== '('),
+	];
+	for (const tok of reads) {
+		const lower = tokenName(tok)?.toLowerCase();
+		if (lower && isLateBound(lower) && holds(lower)) {
+			push('objectDefaultValue', `'${tok.rawText}' holds a Collection, whose default member Item needs an index, so it has no value to read here. This will raise Run-time error '450': Wrong number of arguments or invalid property assignment.`, at(tok));
+		}
+	}
+}
+
+/**
+ * Plain names read as a value where valueReads does not look: the whole
+ * condition of an If or ElseIf, an index `x(1)` with no member after it, and
+ * a whole argument of a built-in that reads one value. Offsets are the
+ * statement's.
+ */
+function noDefaultReads(toks: readonly VbaToken[], ifHead: boolean, judged: (lower: string) => boolean): VbaToken[] {
+	const out: VbaToken[] = [];
+	const then = ifHead ? toks.findIndex((tok) => tokenText(tok) === 'then') : -1;
+	if (then === 2 && tokenName(toks[1]) && judged(tokenName(toks[1])!.toLowerCase())) {
+		out.push(toks[1]);
+	}
+	for (let i = 0; i < toks.length; i++) {
+		const name = tokenName(toks[i]);
+		if (!name || !judged(name.toLowerCase()) || toks[i - 1]?.rawText === '.') {
+			continue;
+		}
+		const close = toks[i + 1]?.rawText === '(' ? matchParenFrom(toks, i + 1) : -1;
+		const indexed = close > i + 2 && toks[close + 1]?.rawText !== '.' && toks[close + 1]?.rawText !== '=';
+		const argument = toks[i + 1]?.rawText !== '(' && toks[i + 1]?.rawText !== '.' && ['(', ','].includes(toks[i - 1]?.rawText ?? '')
+			&& [')', ','].includes(toks[i + 1]?.rawText ?? '') && ONE_VALUE_BUILTINS.has(tokenText(toks[builtinNameBefore(toks, i)]));
+		if (indexed || argument) {
+			out.push(toks[i]);
+		}
+	}
+	return out;
 }
 
 /**
