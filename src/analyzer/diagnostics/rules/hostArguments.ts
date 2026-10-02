@@ -75,7 +75,7 @@ import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { procedureSymbolFor, type AnalyzeModuleOptions, type PushFn } from '../analysisContext';
 import type { SheetChanges, WorkbookSheetInfo } from '../../symbols/sheetChanges';
 import { checkEachCounterPass, loopCountersAt } from '../loopCounters';
-import { stringLiteralValue, typeEnvironmentFor, normalizeType } from '../typeInference';
+import { knownLocalLiteralValuesAt, normalizeType, stringLiteralValue, typeEnvironmentFor, type KnownLocalValue } from '../typeInference';
 import {
 	bareAssignmentTarget,
 	firstExecutableTokenIndex,
@@ -167,12 +167,30 @@ export function checkHostArguments(
 		}
 		// `Cells(r, 1)` inside `For r = 0 To 3`: each pass's value (issue #200).
 		const counters = loopCountersAt(source, proc.body, activity);
+		// A local known to hold one value here: `r = 0` then `Cells(r, 1)`
+		// (issue #345, measured in Excel 16.0).
+		let valuesAt: ReturnType<typeof knownLocalLiteralValuesAt> | undefined;
 		return (stmt) => {
 			const stmtCounters = counters.get(stmt);
+			const known = (valuesAt ??= knownLocalLiteralValuesAt(source, proc, symbols, activity))(stmt);
+			const heldBy = (arg: readonly VbaToken[]): KnownLocalValue | undefined => {
+				const toks = arg.filter((tok) => tok.kind !== 'comment');
+				const held = toks.length === 1 ? known.get(tokenName(toks[0])?.toLowerCase() ?? '') : undefined;
+				return held && !held.contentMutated ? held : undefined;
+			};
+			const knownNumber = (arg: readonly VbaToken[]): number | undefined => {
+				const held = heldBy(arg);
+				return held?.kind === 'number' && Number.isInteger(held.value) ? held.value as number : undefined;
+			};
+			const stringOf = (arg: readonly VbaToken[]): string | undefined => {
+				const held = heldBy(arg);
+				return literalString(arg) ?? (held?.kind === 'string' ? held.value as string : undefined);
+			};
+			const literalOrKnown = (arg: readonly VbaToken[]): number | undefined => integerLiteralValue(arg) ?? knownNumber(arg);
 			if (!stmtCounters) {
-				checkSpan(source, stmt.span, host, model, memberCtx, env, arrays, sourceNames, integerLiteralValue, push);
+				checkSpan(source, stmt.span, host, model, memberCtx, env, arrays, sourceNames, literalOrKnown, push, stringOf);
 				if (workbook) {
-					checkWorkbookSheetAccess(source, stmt.span, workbook, sourceNames, integerLiteralValue, push);
+					checkWorkbookSheetAccess(source, stmt.span, workbook, sourceNames, literalOrKnown, push);
 				}
 				return;
 			}
@@ -180,12 +198,12 @@ export function checkHostArguments(
 				const valueOf = (arg: readonly VbaToken[]): number | undefined => {
 					const literal = integerLiteralValue(arg);
 					if (literal !== undefined || values.size === 0) {
-						return literal;
+						return literal ?? knownNumber(arg);
 					}
 					const toks = arg.filter((tok) => tok.kind !== 'comment');
-					return toks.length === 1 ? values.get(tokenName(toks[0])?.toLowerCase() ?? '') : undefined;
+					return toks.length === 1 ? values.get(tokenName(toks[0])?.toLowerCase() ?? '') ?? knownNumber(arg) : undefined;
 				};
-				checkSpan(source, stmt.span, host, model, memberCtx, env, arrays, sourceNames, valueOf, report);
+				checkSpan(source, stmt.span, host, model, memberCtx, env, arrays, sourceNames, valueOf, report, stringOf);
 				if (workbook) {
 					checkWorkbookSheetAccess(source, stmt.span, workbook, sourceNames, valueOf, report);
 				}
@@ -205,6 +223,7 @@ function checkSpan(
 	sourceNames: ReadonlySet<string>,
 	valueOf: (arg: readonly VbaToken[]) => number | undefined,
 	push: PushFn,
+	stringOf: (arg: readonly VbaToken[]) => string | undefined = literalString,
 ): void {
 	const toks = statementTokens(source, span);
 	const at = (from: number, to: number): Span => ({ start: span.start + toks[from].start, end: span.start + toks[to].end });
@@ -237,7 +256,7 @@ function checkSpan(
 		}
 		checkArgumentLimits(span, callee, valueOf, push);
 		if (host === 'Excel') {
-			checkExcelCallee(source, span, toks, callee, calleeSpan, env, arrays, valueOf, push);
+			checkExcelCallee(source, span, toks, callee, calleeSpan, env, arrays, valueOf, push, stringOf);
 		} else if (host === 'Word') {
 			if (lower === 'range' && callee.receiver === 'Word.Document' && callee.openIndex > 0) {
 				const start = callee.args[0] ? valueOf(callee.args[0]) : undefined;
@@ -539,6 +558,7 @@ function checkExcelCallee(
 	arrays: ReadonlySet<string>,
 	valueOf: (arg: readonly VbaToken[]) => number | undefined,
 	push: PushFn,
+	stringOf: (arg: readonly VbaToken[]) => string | undefined = literalString,
 ): void {
 	const lower = callee.name.toLowerCase();
 	if (callee.openIndex < 0) {
@@ -571,8 +591,9 @@ function checkExcelCallee(
 		// A column given by its letters: "AB" and "$a" run; "XFE", "AAAA", ""
 		// and "A " raise 13; "A1" and "5" raise 1004 (issue #243).
 		const column = callee.args[1];
-		if (column?.length === 1 && column[0].kind === 'stringLiteral') {
-			const text = stringLiteralValue(column[0].rawText);
+		const columnText = column ? stringOf(column) : undefined;
+		if (column?.length === 1 && columnText !== undefined) {
+			const text = columnText;
 			const letters = /^\$?([A-Za-z]{1,3})$/.exec(text);
 			if (!letters || columnNumber(letters[1]) > EXCEL_MAX_COLUMN) {
 				const digits = /\d/.test(text);
@@ -648,7 +669,10 @@ function checkExcelCallee(
 		return;
 	}
 	if (lower === 'range' && callee.returns === 'Excel.Range') {
-		const areas = callee.args.map((arg) => (arg.length === 1 && arg[0].kind === 'stringLiteral' ? parseA1Address(stringLiteralValue(arg[0].rawText)) : undefined));
+		const areas = callee.args.map((arg) => {
+			const text = stringOf(arg);
+			return text === undefined ? undefined : parseA1Address(text);
+		});
 		for (let k = 0; k < callee.args.length; k++) {
 			const area = areas[k];
 			if (area?.blank) {
@@ -1165,6 +1189,12 @@ function checkWorkbookSheetAccess(
 
 function capitalize(text: string): string {
 	return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/** The text of an argument that is one string literal. */
+function literalString(arg: readonly VbaToken[]): string | undefined {
+	const toks = arg.filter((tok) => tok.kind !== 'comment');
+	return toks.length === 1 && toks[0].kind === 'stringLiteral' ? stringLiteralValue(toks[0].rawText) : undefined;
 }
 
 function integerLiteralValue(arg: readonly VbaToken[]): number | undefined {
