@@ -59,7 +59,23 @@ interface OpenFile {
 	written?: boolean;
 	/** For Input: the file is known to be empty, and nothing has checked EOF or LOF yet. */
 	emptyUnchecked?: boolean;
+	/** The `path:` key it was opened from, in any mode, while that name still holds it. */
+	openPath?: string;
 }
+
+/**
+ * The modes each statement works in; any other raises 54, Bad file mode
+ * (issue #419, measured in Excel 16.0). Input and Line Input read a Binary
+ * file too; Get and Put need Binary or Random.
+ */
+const STATEMENT_MODES: Readonly<Record<string, readonly FileMode[]>> = {
+	print: ['output', 'append'],
+	write: ['output', 'append'],
+	input: ['input', 'binary'],
+	'line input': ['input', 'binary'],
+	get: ['binary', 'random'],
+	put: ['binary', 'random'],
+};
 
 /**
  * What is known about each file number key as the statements run, and under
@@ -115,6 +131,9 @@ export function checkFileStatements(
 			if (statementLabelDeclaration(source, node.span) || tokenText(toks[0]) === 'gosub') {
 				states.clear();
 			}
+			if (checkOpenPathUse(node.span, toks, states, push)) {
+				return;
+			}
 			if (!isFileStatementHead(tokenText(toks[0])) && bareCallStatementTarget(source, node.span)) {
 				states.clear();
 				return;
@@ -124,13 +143,14 @@ export function checkFileStatements(
 			const assigned = bareAssignmentTarget(source, node.span);
 			if (assigned) {
 				states.delete(assigned.name.toLowerCase());
-				states.delete(`path:${assigned.name.toLowerCase()}`);
+				forgetPath(states, `path:${assigned.name.toLowerCase()}`);
 			}
 			// A path passed whole to a procedure may come back changed; a file
 			// statement only reads it.
 			if (!isFileStatementHead(tokenText(toks[0]))) {
-				for (const lower of trackedLocalsNamedWhole(toks, node.span.start, (name) => states.has(`path:${name}`), READ_ONLY_INTRINSICS).keys()) {
-					states.delete(`path:${lower}`);
+				const tracked = (name: string): boolean => states.has(`path:${name}`) || [...states.values()].some((state) => typeof state === 'object' && state.openPath === `path:${name}`);
+				for (const lower of trackedLocalsNamedWhole(toks, node.span.start, tracked, READ_ONLY_INTRINSICS).keys()) {
+					forgetPath(states, `path:${lower}`);
 				}
 			}
 			checkStatement(node.span, toks, states, push);
@@ -215,6 +235,7 @@ function checkStatement(base: Span, toks: readonly VbaToken[], states: FileState
 			span: base,
 			...(opened.mode === 'output' && opened.path !== undefined ? { path: opened.path, written: false } : {}),
 			...(opened.mode === 'input' && empty ? { emptyUnchecked: true } : {}),
+			...(opened.path !== undefined ? { openPath: opened.path } : {}),
 		});
 		return;
 	}
@@ -285,7 +306,8 @@ function checkStatement(base: Span, toks: readonly VbaToken[], states: FileState
 	}
 	const writes = statement === 'print' || statement === 'write';
 	const reads = statement === 'input' || statement === 'line input';
-	if ((writes && state.mode === 'input') || (reads && (state.mode === 'output' || state.mode === 'append'))) {
+	const modes = STATEMENT_MODES[statement];
+	if (modes && !modes.includes(state.mode)) {
 		const word = statement === 'line input' ? 'Line Input' : head.charAt(0).toUpperCase() + head.slice(1);
 		push('fileModeMismatch', `'${word} #' on a file opened For ${modeWord(state.mode)} raises Run-time error '54': Bad file mode.`, at(toks[0]));
 		return;
@@ -315,6 +337,11 @@ function reportEmptyInputFunction(toks: readonly VbaToken[], states: FileStates,
 		const numberTok = toks[comma + 1]?.rawText === '#' ? toks[comma + 2] : toks[comma + 1];
 		const key = comma > 0 && numberTok ? fileNumberKey(numberTok) : undefined;
 		const state = key ? states.get(key) : undefined;
+		// `Input(1, #1)` reads an Input or Binary file only (issue #419).
+		if (key && state && state !== 'closed' && state !== 'empty' && state.mode !== 'input' && state.mode !== 'binary') {
+			push('fileModeMismatch', `'${toks[i].rawText}' reads file ${describeKey(key)}, opened For ${modeWord(state.mode)}. This will raise Run-time error '54': Bad file mode.`, at(toks[i]));
+			continue;
+		}
 		if (key && state && state !== 'closed' && state !== 'empty' && state.emptyUnchecked) {
 			push('fileReadPastEnd', `'${toks[i].rawText}' reads file ${describeKey(key)}, which this procedure created empty and reopened For Input without checking EOF. This will raise Run-time error '62': Input past end of file.`, at(toks[i]));
 			states.set(key, { ...state, emptyUnchecked: false });
@@ -367,9 +394,49 @@ function forgetPathsNamedIn(states: FileStates, toks: readonly VbaToken[]): void
 	for (const tok of toks) {
 		const lower = tokenName(tok)?.toLowerCase();
 		if (lower) {
-			states.delete(`path:${lower}`);
+			forgetPath(states, `path:${lower}`);
 		}
 	}
+}
+
+/** A path key whose name may now hold another path: neither an empty file nor an open one is known by it. */
+function forgetPath(states: FileStates, path: string): void {
+	states.delete(path);
+	for (const [key, state] of states) {
+		if (typeof state === 'object' && state.openPath === path) {
+			const rest = { ...state };
+			delete rest.openPath;
+			states.set(key, rest);
+		}
+	}
+}
+
+/**
+ * `Kill p`, `FileCopy p, q` or `Name p As q` while p is open (FileCopy: open
+ * in any mode but Input): Run-time error
+ * 55, File already open (issue #419, measured in Excel 16.0). True when the
+ * statement is one of these, which changes no file number.
+ */
+function checkOpenPathUse(base: Span, toks: readonly VbaToken[], states: FileStates, push: PushFn): boolean {
+	const head = tokenText(toks[0]);
+	if ((head !== 'kill' && head !== 'filecopy' && head !== 'name') || (head === 'name' && !toks.some((tok) => tokenText(tok) === 'as')) || ['=', '.', '('].includes(toks[1]?.rawText ?? '')) {
+		return false;
+	}
+	const end = toks.findIndex((tok, k) => k > 0 && (tok.rawText === ',' || tokenText(tok) === 'as'));
+	const pathToks = toks.slice(1, end < 0 ? toks.length : end);
+	const path = pathToks.length !== 1 ? undefined
+		: pathToks[0].kind === 'stringLiteral' ? `path:"${stringLiteralValue(pathToks[0].rawText)}"`
+			: tokenName(pathToks[0]) !== undefined ? `path:${tokenName(pathToks[0])!.toLowerCase()}` : undefined;
+	// FileCopy reads a file open For Input, and is refused one open in any other mode.
+	const open = path ? [...states].find(([, state]) => typeof state === 'object' && state.openPath === path && (head !== 'filecopy' || state.mode !== 'input')) : undefined;
+	if (open) {
+		const word = head === 'kill' ? 'Kill' : head === 'filecopy' ? 'FileCopy' : 'Name';
+		push('fileAlreadyOpen', `'${pathToks[0].rawText}' is the path of file ${describeKey(open[0])}, still open from the Open statement above; ${word} on an open file raises Run-time error '55': File already open. Close it first.`, { start: base.start + toks[0].start, end: base.start + pathToks[0].end });
+	}
+	if (path && head !== 'filecopy') {
+		forgetPath(states, path);
+	}
+	return true;
 }
 
 /**
