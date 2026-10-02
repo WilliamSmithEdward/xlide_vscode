@@ -62,6 +62,7 @@ import {
 	absoluteSpan,
 	activeModuleMembers,
 	bareAssignmentTarget,
+	blockHeaderStatements,
 	forEachStatement,
 	forEachStatementWithHeaders,
 	forEachVariableGroup,
@@ -216,6 +217,8 @@ interface RedimBlockedDeclaration {
 interface RedimDimension {
 	key?: string;
 	lowerKey?: string;
+	/** Whether the bound writes a lower, `1 To n`; without one it takes the Option Base. */
+	lowerWritten?: boolean;
 	lowerValue?: number;
 	upperValue?: number;
 	span: Span;
@@ -470,6 +473,7 @@ function redimTargetFromGroup(
 				dimensions.push({
 					key: bound.key,
 					lowerKey: bound.lowerKey,
+					lowerWritten: dimTokens.some((tok) => tokenText(tok) === 'to'),
 					lowerValue: bound.lowerValue,
 					upperValue: bound.upperValue,
 					span: tokenGroupSpan(base, dimTokens),
@@ -880,7 +884,7 @@ export function checkRedimPreserveDimensions(
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
-		checkRedimPreserveDimensionsInBody(source, member.body, new Map(), activity, push);
+		checkRedimPreserveDimensionsInBody(source, member.body, new Map(), activity, push, moduleOptionBase(mod, activity));
 	}
 }
 
@@ -890,6 +894,7 @@ function checkRedimPreserveDimensionsInBody(
 	initialShapes: ReadonlyMap<string, RedimTarget>,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	base: number,
 ): void {
 	const shapes = new Map(initialShapes);
 	for (const node of body) {
@@ -913,7 +918,7 @@ function checkRedimPreserveDimensionsInBody(
 				if (target.preserve) {
 					const previous = shapes.get(target.name.toLowerCase());
 					const reason = previous
-						? redimPreserveDimensionMismatch(previous, target)
+						? redimPreserveDimensionMismatch(previous, target, base)
 						: undefined;
 					if (reason) {
 						push(
@@ -936,6 +941,7 @@ function checkRedimPreserveDimensionsInBody(
 				shapes,
 				activity,
 				push,
+				base,
 			);
 		}
 	}
@@ -944,7 +950,24 @@ function checkRedimPreserveDimensionsInBody(
 function redimPreserveDimensionMismatch(
 	previous: RedimTarget,
 	current: RedimTarget,
+	base: number,
 ): string | undefined {
+	// A bound written with no lower takes the Option Base: after
+	// `ReDim a(1 To 3)`, `ReDim Preserve a(UBound(a) + 1)` moves the lower
+	// bound to 0, which raises 9 (issue #342, measured in Excel 16.0).
+	const movesLower = (before: RedimDimension | undefined, after: RedimDimension | undefined): boolean =>
+		before !== undefined && after !== undefined
+		&& ((before.lowerWritten === true && after.lowerWritten === false && before.lowerValue !== undefined && before.lowerValue !== base)
+			|| (before.lowerWritten === false && after.lowerWritten === true && after.lowerValue !== undefined && after.lowerValue !== base));
+	if (previous.dimensions.length === current.dimensions.length) {
+		for (let i = 0; i < current.dimensions.length; i++) {
+			if (movesLower(previous.dimensions[i], current.dimensions[i])) {
+				const lower = previous.dimensions[i].lowerValue ?? base;
+				const now = current.dimensions[i].lowerValue ?? base;
+				return `The lower bound of dimension ${i + 1} changes under Preserve, from ${lower} to ${now}: a bound written without one takes the Option Base.`;
+			}
+		}
+	}
 	if (
 		previous.dimensions.length > 0 &&
 		current.dimensions.length > 0 &&
@@ -974,6 +997,8 @@ function redimPreserveDimensionMismatch(
 interface DynamicArrayDeclaration {
 	name: string;
 	span: Span;
+	/** A Variant local that takes a copy of a dynamic array (issue #342). */
+	variant?: boolean;
 }
 
 type DynamicArrayAllocationState = 'unallocated' | 'allocated' | 'unknown';
@@ -1002,6 +1027,12 @@ export function checkUnallocatedDynamicArrayAccess(
 		for (const lower of arrays.keys()) {
 			state.set(lower, 'unallocated');
 		}
+		// A Variant that takes a copy of one: `v = a` with a unallocated
+		// leaves v an array with no storage (issue #342, measured in Excel 16.0).
+		for (const [lower, decl] of variantArrayCopies(source, member.body, arrays, activity)) {
+			arrays.set(lower, decl);
+			state.set(lower, 'unknown');
+		}
 		// The GoTo-following walk runs the body until its labels settle,
 		// and reports on its last run (issue #271).
 		let silent = false;
@@ -1019,6 +1050,15 @@ export function checkUnallocatedDynamicArrayAccess(
 			onStatement: (stmt) =>
 				checkUnallocatedDynamicArrayAccessStatement(source, stmt, arrays, state, report),
 			onBlock: (node) => {
+				// The header runs as the block is entered: `For i = 0 To
+				// UBound(a)`, `Do While i <= UBound(a)`, `Select Case UBound(a)`
+				// (issue #342, measured in Excel 16.0).
+				if (node.kind === 'SelectBlock' || node.kind === 'DoBlock' || node.kind === 'WhileBlock' || (node.kind === 'ForBlock' && !node.each)) {
+					const { before } = blockHeaderStatements(source, node);
+					if (before) {
+						checkUnallocatedDynamicArrayAccessStatement(source, before, arrays, state, report);
+					}
+				}
 				// `For Each x In a` over an array with no storage raises 92, For
 				// loop not initialized, not 9 (issue #181, measured in Excel 16.0).
 				const over = node.kind === 'ForBlock' && node.each ? node.sourceExpression?.trim().toLowerCase() : undefined;
@@ -1071,7 +1111,8 @@ function checkUnallocatedDynamicArrayAccessStatement(
 	if (erased.size > 0) {
 		for (const lower of erased) {
 			if (arrays.has(lower)) {
-				state.set(lower, 'unallocated');
+				// An erased Variant may hold a fixed array, which Erase clears and keeps.
+				state.set(lower, arrays.get(lower)!.variant ? 'unknown' : 'unallocated');
 			}
 		}
 		return;
@@ -1114,7 +1155,10 @@ function checkUnallocatedDynamicArrayAccessStatement(
 	const assignment = bareAssignmentTarget(source, stmt.span);
 	const assignmentLower = assignment?.name.toLowerCase();
 	if (assignmentLower && arrays.has(assignmentLower)) {
-		state.set(assignmentLower, 'unknown');
+		// `a = b` copies b's storage, or its lack of it (issue #342).
+		const value = assignment!.valueTokens.filter((tok) => tok.kind !== 'comment');
+		const from = value.length === 1 ? tokenName(value[0])?.toLowerCase() : undefined;
+		state.set(assignmentLower, from && arrays.has(from) ? state.get(from) ?? 'unknown' : 'unknown');
 	}
 	for (const lower of passedWhole.keys()) {
 		if (state.get(lower) === 'unallocated') {
@@ -1127,6 +1171,13 @@ function checkUnallocatedDynamicArrayAccessStatement(
 	for (const target of conditionalRedims) {
 		const lower = target.name.toLowerCase();
 		if (arrays.has(lower) && target.dimensions.length > 0 && state.get(lower) === 'unallocated') {
+			state.set(lower, 'unknown');
+		}
+	}
+	// `If L > 0 Then tb = txt` gives the array storage on one path only.
+	for (const branch of statementAndBranchSpansOf(stmt).slice(1)) {
+		const lower = bareAssignmentTarget(source, branch)?.name.toLowerCase();
+		if (lower && arrays.has(lower) && state.get(lower) === 'unallocated') {
 			state.set(lower, 'unknown');
 		}
 	}
@@ -1149,6 +1200,40 @@ function localDynamicArrayDeclarationsForBody(
 			if (!out.has(lower)) {
 				out.set(lower, { name: decl.name, span: decl.span });
 			}
+		}
+	}, activity);
+	return out;
+}
+
+/** The Variant locals some statement assigns one of the dynamic arrays whole: `v = a`. */
+function variantArrayCopies(
+	source: string,
+	body: readonly BodyNode[],
+	arrays: ReadonlyMap<string, DynamicArrayDeclaration>,
+	activity: ConditionalActivityTracker | undefined,
+): Map<string, DynamicArrayDeclaration> {
+	const variants = new Map<string, DynamicArrayDeclaration>();
+	forEachVariableGroup(body as BodyNode[], (group) => {
+		if (group.isConst || group.modifier === 'Static') {
+			return;
+		}
+		for (const decl of group.declarations) {
+			const type = normalizeType(decl.asType);
+			if (!decl.isArray && !decl.typeSuffix && (type === undefined || type === 'variant')) {
+				variants.set(decl.name.toLowerCase(), { name: decl.name, span: decl.span, variant: true });
+			}
+		}
+	}, activity);
+	const out = new Map<string, DynamicArrayDeclaration>();
+	if (variants.size === 0) {
+		return out;
+	}
+	forEachStatement(body as BodyNode[], (stmt) => {
+		const bare = bareAssignmentTarget(source, stmt.span);
+		const value = bare?.valueTokens.filter((tok) => tok.kind !== 'comment') ?? [];
+		const lower = bare?.name.toLowerCase() ?? '';
+		if (variants.has(lower) && value.length === 1 && arrays.has(tokenName(value[0])?.toLowerCase() ?? '')) {
+			out.set(lower, variants.get(lower)!);
 		}
 	}, activity);
 	return out;
@@ -1251,6 +1336,12 @@ function dynamicArrayTouchesInStatement(
 	const assignmentLower = assignment?.name.toLowerCase();
 	if (assignmentLower && arrays.has(assignmentLower)) {
 		out.add(assignmentLower);
+	}
+	for (const branch of statementAndBranchSpansOf(stmt).slice(1)) {
+		const lower = bareAssignmentTarget(source, branch)?.name.toLowerCase();
+		if (lower && arrays.has(lower)) {
+			out.add(lower);
+		}
 	}
 	for (const lower of localsNamedWhole(source, stmt.span, arrays, ARRAY_READ_ONLY_INTRINSICS).keys()) {
 		out.add(lower);
@@ -1772,7 +1863,7 @@ export function knownArrayShapesAt(
  * label or GoSub end what is known. Blocks are entered as issue #237 enters
  * them.
  */
-function redimShapesAt(
+export function redimShapesAt(
 	source: string,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	proc: ProcedureNode,

@@ -19,6 +19,7 @@ import type {
 	ModuleNode,
 	Span,
 } from '../../parser/nodes';
+import { isLeafStatement } from '../../parser/nodes';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type {
 	VbaProcedureSignature,
@@ -31,6 +32,7 @@ import {
 	splitArgSlots,
 } from '../callExtraction';
 import { collectModuleLiteralIntegerConstants } from '../constExpr';
+import { moduleOptionBase, redimShapesAt } from './arrays';
 import { checkEachCounterPass, loopCountersAt } from '../loopCounters';
 import { straightLineAssignments } from '../straightLineValues';
 import { foldKnownStringCalls, moduleCompare, type KnownStringCallContext } from '../knownStringCalls';
@@ -160,16 +162,25 @@ export function checkRuntimeArgumentValues(
 		// A local declared as a scalar, which `Join(n)` refuses (issue #239),
 		// or as a fixed array, whose element type and dimensions Join reads.
 		const locals = procedureSymbolFor(symbols, member)?.children ?? [];
+		let shapesAt: ReturnType<typeof redimShapesAt> | undefined;
+		let currentStmt: BodyNode | undefined;
 		const declarationOf = (lower: string): LocalDeclaration | undefined => {
 			const local = locals.find((child) => child.name.toLowerCase() === lower);
 			if (local?.kind !== 'localVariable') {
 				return undefined;
 			}
 			const type = normalizeType(local.asType);
+			if (local.isArray && local.arrayBounds === undefined) {
+				// A dynamic array may still be unallocated, which Join takes; one
+				// a straight line has ReDim'd is judged as a fixed one (issue #342).
+				const stmt = currentStmt;
+				const shape = stmt && isLeafStatement(stmt)
+					? (shapesAt ??= redimShapesAt(source, symbols, member, activity, moduleOptionBase(mod, activity))).get(stmt)?.get(lower)
+					: undefined;
+				return shape ? { asType: local.asType ?? 'Variant', dimensions: shape.dims.length } : undefined;
+			}
 			if (local.isArray) {
-				return local.arrayBounds === undefined
-					? undefined // a dynamic array may still be unallocated, which Join takes
-					: { asType: local.asType ?? 'Variant', dimensions: splitTopLevelTokenGroups(rawExpressionTokens(local.arrayBounds), 0, ',').length };
+				return { asType: local.asType ?? 'Variant', dimensions: splitTopLevelTokenGroups(rawExpressionTokens(local.arrayBounds!), 0, ',').length };
 			}
 			return type !== undefined && type !== 'variant' && isKnownScalarType(type) ? { asType: local.asType!, dimensions: 0 } : undefined;
 		};
@@ -211,6 +222,7 @@ export function checkRuntimeArgumentValues(
 		let reaching: ReturnType<typeof straightLineAssignments> | undefined;
 		return (stmt) => {
 			known = valuesAt(stmt);
+			currentStmt = stmt;
 			const { strings: knownStrings, lengths: knownStringLengths } = stringsAt(known);
 			// The argument's type; for a Variant local, the type of what a
 			// straight line has just put in it.
