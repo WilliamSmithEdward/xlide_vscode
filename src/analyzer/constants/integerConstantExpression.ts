@@ -133,25 +133,69 @@ class IntegerConstantExpressionParser {
 			this.depth--;
 			return undefined;
 		}
-		const result = this.expressionInner();
+		const result = this.logical(0);
 		this.depth--;
 		return result;
 	}
 
+	/**
+	 * Xor, Or and And, loosest first, then Not, over whole numbers within the
+	 * Long range: `Const K0 = 15 And 255` is 15 (issue #496, measured in Excel
+	 * 16.0).
+	 */
+	private logical(level: number): number | undefined {
+		if (level === LOGICAL_LEVELS.length) {
+			if (this.acceptWord('not')) {
+				const operand = this.logical(level);
+				return operand === undefined || !isLong(operand) ? undefined : ~operand;
+			}
+			return this.expressionInner();
+		}
+		const word = LOGICAL_LEVELS[level];
+		let value = this.logical(level + 1);
+		while (value !== undefined && this.acceptWord(word)) {
+			const right = this.logical(level + 1);
+			if (right === undefined || !isLong(value) || !isLong(right)) {
+				return undefined;
+			}
+			value = word === 'and' ? value & right : word === 'or' ? value | right : value ^ right;
+		}
+		return value;
+	}
+
 	private expressionInner(): number | undefined {
-		let value = this.term();
+		let value = this.modulo();
 		while (value !== undefined) {
 			if (this.accept('+')) {
-				const right = this.term();
+				const right = this.modulo();
 				value = right === undefined ? undefined : safeInteger(value + right);
 				continue;
 			}
 			if (this.accept('-')) {
-				const right = this.term();
+				const right = this.modulo();
 				value = right === undefined ? undefined : safeInteger(value - right);
 				continue;
 			}
 			break;
+		}
+		return value;
+	}
+
+	/** Mod binds below `\`, and `\` below `*`: `50 Mod 7 + 10` is 11. */
+	private modulo(): number | undefined {
+		let value = this.integerDivision();
+		while (value !== undefined && this.acceptWord('mod')) {
+			const right = this.integerDivision();
+			value = right === undefined || right === 0 ? undefined : safeInteger(value % right);
+		}
+		return value;
+	}
+
+	private integerDivision(): number | undefined {
+		let value = this.term();
+		while (value !== undefined && this.accept('\\')) {
+			const right = this.term();
+			value = right === undefined || right === 0 ? undefined : safeInteger(Math.trunc(value / right));
 		}
 		return value;
 	}
@@ -234,6 +278,22 @@ class IntegerConstantExpressionParser {
 		this.index++;
 		return true;
 	}
+
+	private acceptWord(word: string): boolean {
+		const token = this.current();
+		if (token?.kind !== 'keyword' || token.rawText.toLowerCase() !== word) {
+			return false;
+		}
+		this.index++;
+		return true;
+	}
+}
+
+/** The logical operators, loosest first. */
+const LOGICAL_LEVELS: readonly string[] = ['xor', 'or', 'and'];
+
+function isLong(value: number): boolean {
+	return Number.isInteger(value) && value >= -2147483648 && value <= 2147483647;
 }
 
 /**

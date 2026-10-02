@@ -2105,11 +2105,18 @@
         "issue209_29_compile",
         "issue209_30_compile",
         "issue209_32_compile",
-        "issue209_33_compile"
+        "issue209_33_compile",
+        "issue496_01_compile",
+        "issue496_02_compile",
+        "issue496_03_compile",
+        "issue496_04_compile",
+        "issue496_05_compile",
+        "issue496_06_compile",
+        "issue496_07_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Reports a Dim/Static/Private/Public array declaration or Type member dimension whose lower bound is above the upper one: \"Range has no values\" in the VBE (issues #130, #209, measured in Excel 16.0). Each bound is a literal or a constant expression the module, the procedure, another module's Public Const, an Enum or the host defines; with no To the lower bound is Option Base, and a lone float literal is rounded half to even (1.5 To 1 is refused, 2.5 To 2 is not). A bound naming a variable, and inactive-branch bounds, stay quiet. ReDim is covered separately by redim-impossible-bounds.",
+      "notes": "Reports a Dim/Static/Private/Public array declaration or Type member dimension whose lower bound is above the upper one: \"Range has no values\" in the VBE (issues #130, #209, measured in Excel 16.0). Each bound is a literal or a constant expression the module, the procedure, another module's Public Const, an Enum or the host defines; with no To the lower bound is Option Base, and a lone float literal is rounded half to even (1.5 To 1 is refused, 2.5 To 2 is not). A bound naming a variable, and inactive-branch bounds, stay quiet. ReDim is covered separately by redim-impossible-bounds. Issue #496: a bound or a Const folds integer division, Mod, Not, And, Or and Xor at VBA's precedence: Const K0 = 15 And 255 then Dim m(K0 To 3) is Range has no values.",
       "diagnosticKind": "compile-error"
     },
     {
