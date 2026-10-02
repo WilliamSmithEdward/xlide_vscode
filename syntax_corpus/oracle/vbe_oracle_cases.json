@@ -59427,6 +59427,94 @@
       ],
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue421_01_runtime",
+      "description": "Issue #421 a handler nothing jumps to, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    ' On Error GoTo EH\r\n    Main = 1\r\n    Exit Function\r\n    EH:\r\n    Main = Err.Description\r\n    Resume Next\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue421_02_runtime",
+      "description": "Issue #421 a handler nothing jumps to, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    ' On Error GoTo EH\r\n    Main = 1\r\n    ExitHere:\r\n    Exit Function\r\n    EH:\r\n    Resume ExitHere\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue421_03_runtime",
+      "description": "Issue #421 a handler nothing jumps to, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    ' On Error GoTo EH\r\n    Main = 1\r\n    Exit Function\r\n    EH:\r\n    Resume\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue421_04_runtime",
+      "description": "Issue #421 a handler nothing jumps to, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    On Error GoTo 0\r\n    Main = 1\r\n    Exit Function\r\n    EH:\r\n    Resume Next\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue421_05_runtime",
+      "description": "Issue #421 a handler nothing jumps to, case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim d As Long\r\n    ' On Error GoTo EH\r\n    Main = 1\r\n    Exit Function\r\n    EH:\r\n    Main = 10 / d\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue421_06_runtime",
+      "description": "Issue #421 a handler nothing jumps to, case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 20.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\n    Resume Next\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue421_07_runtime",
+      "description": "Issue #421 a handler nothing jumps to, case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 20.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\n    GoTo EH\r\n    Exit Function\r\n    EH:\r\n    Resume Next\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue421_08_runtime",
+      "description": "Issue #421 a handler nothing jumps to, case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim d As Long\r\n    Main = 1\r\n    GoTo EH\r\n    Exit Function\r\n    EH:\r\n    Main = 10 / d\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }
