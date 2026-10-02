@@ -112,6 +112,7 @@ import { checkHostArguments, workbookSheetsToCheck } from './rules/hostArguments
 import { checkCollectionLoopCounters, checkCollectionState } from './rules/collectionState';
 import { checkDictionaryState } from './rules/dictionaryState';
 import { checkExcelSessionState } from './rules/excelSessionState';
+import { checkErrorValues } from './rules/errorValues';
 import { checkByNameCalls } from './rules/byNameCalls';
 import { checkVariantValueMisuse } from './rules/variantValues';
 import { checkRuntimeMemberNotFound } from './rules/lateBoundMembers';
@@ -438,6 +439,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 			ctx.activity,
 			push,
 		),
+	},
+	{
+		name: 'errorValues',
+		run: (ctx, push) => checkErrorValues(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push),
 	},
 	{
 		name: 'variantValueMisuse',
