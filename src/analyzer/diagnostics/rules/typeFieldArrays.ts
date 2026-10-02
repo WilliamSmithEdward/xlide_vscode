@@ -199,7 +199,7 @@ function lenOfArrays(
 		} else if (!array && toks[i - 1]?.rawText !== '.') {
 			const type = nonStringValueType(toks.slice(from, to + 1), symbols, proc, valueType);
 			if (type) {
-				out.push({ span: at, rule: 'variableRequired', message: `${toks[i].rawText} of a ${type} reports a variable's storage size, and '${toks.slice(from, to + 1).map((tok) => tok.rawText).join('')}' is no variable. This is a VBE compile error: Variable required - can't assign to this expression.` });
+				out.push({ span: at, rule: 'variableRequired', message: `${toks[i].rawText} of ${/^[AEIOU]/.test(type) ? 'an' : 'a'} ${type} reports a variable's storage size, and '${toks.slice(from, to + 1).map((tok) => tok.rawText).join('')}' is no variable. This is a VBE compile error: Variable required - can't assign to this expression.` });
 			}
 		} else if (array && array.elementType !== 'byte') {
 			out.push({ span: at, rule: 'variantValueMisuse', message: `'${array.display}' is an array, and not of Byte, so VBA.${toks[i].rawText} cannot convert it to a string. This will raise Run-time error '13': Type mismatch.` });
@@ -234,6 +234,12 @@ function nonStringValueType(
 	if (word === 'true' || word === 'false') {
 		return 'Boolean';
 	}
+	// `Len(c < v)`, `Len(i \ Round(1.5))`: an operation with a Variant
+	// operand gives a Variant, and Len of a Variant compiles (issue #455).
+	const settled = (operand: VbaToken[]): string | undefined => settledType(operand, symbols, proc, valueType);
+	if (!settled(value)) {
+		return undefined;
+	}
 	// `Len(i = 1)`: a comparison at the top level is a Boolean.
 	let depth = 0;
 	for (const tok of value) {
@@ -253,14 +259,163 @@ function nonStringValueType(
 	// A call names a project Function or a typed VBA function; any other
 	// library function may return a Variant, as Now does.
 	const call = name && value[1]?.rawText === '(' && matchParenFrom(value, 1) === value.length - 1;
+	if (call && ARGUMENT_TYPED.has(name!.toLowerCase())) {
+		return scalarName(settled(value));
+	}
 	if (call && !TYPED_RETURNS.has(name!.toLowerCase()) && !symbols.root.children?.some((child) => child.kind === 'function' && child.name.toLowerCase() === name!.toLowerCase())) {
 		return undefined;
 	}
 	if (value.length === 1 && name && !named) {
 		return undefined;
 	}
-	const type = valueType(value);
+	// `\` and Mod give a whole number, never the Double valueType names.
+	const division = topLevelOperands(value);
+	if (division.operators.length && division.operators.every((op) => op === '\\' || op === 'mod')) {
+		return scalarName(settled(value));
+	}
+	// `Len(-d)`, `Len(Not i)`: a sign or Not keeps its operand's type.
+	return scalarName(normalizeType(valueType(value)) ?? settled(value));
+}
+
+/** A type's display name, for a scalar type other than String or Variant. */
+function scalarName(type: string | undefined): string | undefined {
 	return type && type !== 'string' && type !== 'variant' && isKnownScalarType(type) ? (type[0].toUpperCase() + type.slice(1)) : undefined;
+}
+
+/**
+ * VBA functions whose result type follows their argument, measured in Excel
+ * 16.0 with Len (issue #455): Sgn is an Integer and Sqr a Double whatever
+ * they take; Abs keeps its argument's type but gives a Variant for a Byte or
+ * Variant; Int and Fix keep a Single, Double or Currency and give a Variant
+ * for a Long or Integer variable.
+ */
+const ARGUMENT_TYPED: ReadonlySet<string> = new Set(['abs', 'int', 'fix', 'sgn', 'sqr']);
+
+const COMPARISONS: ReadonlySet<string> = new Set(['=', '<>', '<', '>', '<=', '>=', 'like', 'is']);
+const BINARY_OPERATORS: ReadonlySet<string> = new Set([
+	...COMPARISONS, '+', '-', '*', '/', '\\', '^', '&', 'mod', 'and', 'or', 'xor', 'eqv', 'imp',
+]);
+const INTEGRAL_RANK: Readonly<Record<string, number>> = { boolean: 1, byte: 1, integer: 2, long: 3, longlong: 4 };
+/** The type a number literal's suffix gives it. */
+const LITERAL_SUFFIX_TYPES: Readonly<Record<string, string>> = { '#': 'double', '!': 'single', '@': 'currency', '%': 'integer', '&': 'long', '^': 'longlong' };
+
+/** The operands and operators at the top level of an expression, outer parentheses and unary signs left on the operands. */
+function topLevelOperands(value: VbaToken[]): { operands: VbaToken[][]; operators: string[] } {
+	const operands: VbaToken[][] = [[]];
+	const operators: string[] = [];
+	let depth = 0;
+	for (const tok of value) {
+		const text = tokenText(tok);
+		const current = operands[operands.length - 1];
+		depth += tok.rawText === '(' ? 1 : tok.rawText === ')' ? -1 : 0;
+		const last = current[current.length - 1];
+		const afterOperand = last !== undefined && !(last.kind === 'operator' && last.rawText !== ')') && tokenText(last) !== 'not';
+		if (depth === 0 && afterOperand && BINARY_OPERATORS.has(text)) {
+			operators.push(text);
+			operands.push([]);
+		} else {
+			current.push(tok);
+		}
+	}
+	return { operands, operators };
+}
+
+/**
+ * The type of a value, lowercased, where VBA gives it a type other than
+ * Variant, or undefined where it is a Variant or unsettled: a literal, a
+ * Const, a declared variable, a typed VBA function or project Function, a
+ * unary sign or Not, and an operation none of whose operands may be a
+ * Variant (issue #455, measured in Excel 16.0).
+ */
+function settledType(
+	toks: VbaToken[],
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	proc: ProcedureNode,
+	valueType: (value: VbaToken[]) => string | undefined,
+): string | undefined {
+	let value = toks;
+	while (value.length > 2 && value[0].rawText === '(' && matchParenFrom(value, 0) === value.length - 1) {
+		value = value.slice(1, -1);
+	}
+	const { operands, operators } = topLevelOperands(value);
+	if (operators.length) {
+		// `o Is Nothing` is a Boolean whatever the operands.
+		if (operators.length === 1 && operators[0] === 'is') {
+			return 'boolean';
+		}
+		const types = operands.map((operand) => (operand.length ? settledType(operand, symbols, proc, valueType) : undefined));
+		if (types.some((type) => !type)) {
+			return undefined;
+		}
+		if (operators.some((op) => COMPARISONS.has(op))) {
+			return 'boolean';
+		}
+		if (operators.includes('&')) {
+			return 'string';
+		}
+		if (operators.every((op) => op === '\\' || op === 'mod')) {
+			const rank = Math.max(...types.map((type) => INTEGRAL_RANK[type!] ?? 3));
+			return rank >= 4 ? 'longlong' : rank === 3 ? 'long' : 'integer';
+		}
+		return normalizeType(valueType(value)) ?? types[0];
+	}
+	const head = tokenText(value[0]);
+	if (value.length > 1 && (head === '-' || head === '+' || head === 'not')) {
+		return settledType(value.slice(1), symbols, proc, valueType);
+	}
+	if (value.length === 1) {
+		const tok = value[0];
+		if (tok.kind === 'stringLiteral') {
+			return 'string';
+		}
+		if (tok.kind === 'dateLiteral') {
+			return 'date';
+		}
+		if (tok.kind === 'integerLiteral' || tok.kind === 'floatLiteral') {
+			const suffixed = LITERAL_SUFFIX_TYPES[tok.rawText.slice(-1)];
+			const whole = tok.kind === 'integerLiteral' ? Number(tok.rawText) : NaN;
+			return suffixed ?? (Number.isNaN(whole) ? 'double' : Math.abs(whole) <= 32767 ? 'integer' : Math.abs(whole) <= 2147483647 ? 'long' : 'double');
+		}
+		if (head === 'true' || head === 'false') {
+			return 'boolean';
+		}
+	}
+	const name = tokenName(value[0]);
+	if (!name) {
+		return undefined;
+	}
+	const lower = name.toLowerCase();
+	const call = value.length > 2 && value[1].rawText === '(' && matchParenFrom(value, 1) === value.length - 1;
+	if (value.length === 1) {
+		const symbol = [...(procedureSymbolFor(symbols, proc)?.children ?? []), ...(symbols.root.children ?? [])].find((child) => child.name.toLowerCase() === lower);
+		if (symbol?.kind === 'constant') {
+			return normalizeType(symbol.asType) ?? normalizeType(valueType(rawExpressionTokens(symbol.defaultRaw ?? '').filter((tok) => tok.kind !== 'comment')));
+		}
+		const type = normalizeType(variableSymbolIn(symbols, proc, lower)?.asType);
+		return type && type !== 'variant' ? type : undefined;
+	}
+	if (!call) {
+		return undefined;
+	}
+	if (lower === 'sgn') {
+		return 'integer';
+	}
+	if (lower === 'sqr') {
+		return 'double';
+	}
+	if (lower === 'abs' || lower === 'int' || lower === 'fix') {
+		const argument = settledType(value.slice(2, -1), symbols, proc, valueType);
+		// Fix(2) is refused where Fix(i) compiles: a literal keeps its type.
+		const literal = value.length === 4 && (value[2].kind === 'integerLiteral' || value[2].kind === 'floatLiteral');
+		const kept = lower === 'abs' ? argument !== 'byte' : literal || argument === 'single' || argument === 'double' || argument === 'currency';
+		return kept ? (lower === 'abs' && argument === 'string' ? 'double' : argument) : undefined;
+	}
+	if (TYPED_RETURNS.has(lower)) {
+		return normalizeType(valueType(value));
+	}
+	const fn = symbols.root.children?.find((child) => child.kind === 'function' && child.name.toLowerCase() === lower);
+	const type = normalizeType(fn?.asType);
+	return type && type !== 'variant' ? type : undefined;
 }
 
 /** The array the tokens from `from` to `to` name whole, a variable or a field, and its element type, lowercased. */

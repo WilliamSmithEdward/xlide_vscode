@@ -62803,6 +62803,556 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = F(1, 2)\r\nEnd Function\r\nPrivate Function F(ParamArray p() As Variant) As Long\r\n    F = UBound(p)\r\nEnd Function\r\n\r\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue455_01_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\"\r\n    Main = Len(c < v)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue455_02_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\"\r\n    Main = Len(i \\ Round(1.5))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue455_03_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\"\r\n    Main = Len(i \\ 2)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue455_04_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\"\r\n    Main = Len(d + 1)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue455_05_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\"\r\n    Main = Len(i < 2)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue455_06_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\"\r\n    Main = Len(Fix(d))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue455_07_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\"\r\n    Main = Len(Int(d))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue455_08_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\"\r\n    Main = Len(Abs(d))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue455_09_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\"\r\n    Main = Len(Sgn(d))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue455_10_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\"\r\n    Main = Len(Fix(i))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue455_11_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\"\r\n    Main = Len(Int(i))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue455_12_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\"\r\n    Main = Len(Abs(i))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue455_13_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\"\r\n    Main = Len(v Like \"a\")\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue455_14_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\"\r\n    Main = Len(i Like \"a\")\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue455_15_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\"\r\n    Main = Len(i < v)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue455_16_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 16, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\"\r\n    Main = Len(v = 1)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue455_17_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 17, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\"\r\n    Main = Len(i \\ v)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue455_18_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 18, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\"\r\n    Main = Len(i Mod Round(1.5))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue455_19_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 19, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\"\r\n    Main = Len(i \\ d)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue455_20_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 20, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\"\r\n    Main = Len(d Mod 2)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue455_21_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 21, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\"\r\n    Main = Len(i < Round(1.5))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue455_22_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 22, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\"\r\n    Main = Len(Fix(v))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue455_23_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 23, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\"\r\n    Main = Len(Int(c))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue455_24_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 24, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\"\r\n    Main = Len(s < \"a\")\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue455_25_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 25, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\"\r\n    Main = Len(v & 1)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue455_26_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 26, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\"\r\n    Main = Len(i & 1)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue455_27_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 27, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\"\r\n    Main = Len(Abs(c))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue455_28_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 28, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\"\r\n    Main = Len(Int(1.5))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue455_29_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 29, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\"\r\n    Main = Len(Fix(2))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue455_30_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 30, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\"\r\n    Main = Len(i + Round(1.5))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue455_31_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 31, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\"\r\n    Main = Len(Sqr(d))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue455_32_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 32, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\"\r\n    Main = Len(Not i)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue455_33_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 33, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\"\r\n    Main = Len(i And Round(1.5))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue455_34_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 34, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\"\r\n    Main = Len(-d)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue455_35_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 35, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\"\r\n    Main = Len(Not Round(1.5))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue455_36_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 36, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    Dim g As Single, b As Byte, t As Boolean, l As Long\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\": g = 1.5: b = 2: l = 4\r\n    Main = Len(Sgn(i))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue455_37_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 37, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    Dim g As Single, b As Byte, t As Boolean, l As Long\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\": g = 1.5: b = 2: l = 4\r\n    Main = Len(Sqr(i))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue455_38_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 38, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    Dim g As Single, b As Byte, t As Boolean, l As Long\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\": g = 1.5: b = 2: l = 4\r\n    Main = Len(Sgn(c))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue455_39_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 39, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    Dim g As Single, b As Byte, t As Boolean, l As Long\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\": g = 1.5: b = 2: l = 4\r\n    Main = Len(Int(g))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue455_40_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 40, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    Dim g As Single, b As Byte, t As Boolean, l As Long\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\": g = 1.5: b = 2: l = 4\r\n    Main = Len(Fix(c))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue455_41_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 41, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    Dim g As Single, b As Byte, t As Boolean, l As Long\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\": g = 1.5: b = 2: l = 4\r\n    Main = Len(Abs(b))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue455_42_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 42, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    Dim g As Single, b As Byte, t As Boolean, l As Long\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\": g = 1.5: b = 2: l = 4\r\n    Main = Len(Not b)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue455_43_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 43, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    Dim g As Single, b As Byte, t As Boolean, l As Long\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\": g = 1.5: b = 2: l = 4\r\n    Main = Len(Abs(2))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue455_44_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 44, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    Dim g As Single, b As Byte, t As Boolean, l As Long\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\": g = 1.5: b = 2: l = 4\r\n    Main = Len(Sgn(v))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue455_45_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 45, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    Dim g As Single, b As Byte, t As Boolean, l As Long\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\": g = 1.5: b = 2: l = 4\r\n    Main = Len(Sqr(v))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue455_46_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 46, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    Dim g As Single, b As Byte, t As Boolean, l As Long\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\": g = 1.5: b = 2: l = 4\r\n    Main = Len(Int(l))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue455_47_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 47, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    Dim g As Single, b As Byte, t As Boolean, l As Long\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\": g = 1.5: b = 2: l = 4\r\n    Main = Len(Abs(l))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue455_48_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 48, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    Dim g As Single, b As Byte, t As Boolean, l As Long\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\": g = 1.5: b = 2: l = 4\r\n    Main = Len(-i)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue455_49_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 49, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    Dim g As Single, b As Byte, t As Boolean, l As Long\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\": g = 1.5: b = 2: l = 4\r\n    Main = Len(i \\ l)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue455_50_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 50, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    Dim g As Single, b As Byte, t As Boolean, l As Long\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\": g = 1.5: b = 2: l = 4\r\n    Main = Len(b Mod 2)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue455_51_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 51, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    Dim g As Single, b As Byte, t As Boolean, l As Long\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\": g = 1.5: b = 2: l = 4\r\n    Main = Len(Abs(Round(1.5)))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue455_52_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 52, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    Dim g As Single, b As Byte, t As Boolean, l As Long\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\": g = 1.5: b = 2: l = 4\r\n    Main = Len(Sgn(Round(1.5)))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue455_53_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 53, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    Dim g As Single, b As Byte, t As Boolean, l As Long\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\": g = 1.5: b = 2: l = 4\r\n    Main = Len(Not t)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue455_54_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 54, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    Dim g As Single, b As Byte, t As Boolean, l As Long\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\": g = 1.5: b = 2: l = 4\r\n    Main = Len(i Like s)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue455_55_compile",
+      "description": "Issue #455 Len of an expression with or without a Variant operand, case 55, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, c As Currency, i As Integer, d As Double, s As String\r\n    Dim g As Single, b As Byte, t As Boolean, l As Long\r\n    v = 2.5: i = 3: d = 1.5: s = \"x\": g = 1.5: b = 2: l = 4\r\n    Main = Len(Abs(s))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }
