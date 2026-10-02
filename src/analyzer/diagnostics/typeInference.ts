@@ -35,7 +35,7 @@ import {
 	type VbaRuntimeFunction,
 } from '../runtime/vbaRuntime';
 import { standaloneEmptyParenthesizedCallStatement } from '../call/callContext';
-import type { BodyNode, ProcedureNode, Span } from '../parser/nodes';
+import type { BodyNode, IfBlockNode, ProcedureNode, Span } from '../parser/nodes';
 import { isLeafStatement } from '../parser/nodes';
 import type { ConditionalActivityTracker } from '../conditional/conditionalCompilation';
 import type { buildModuleSymbols } from '../symbols/buildModuleSymbols';
@@ -3392,8 +3392,12 @@ export function knownLocalLiteralValuesAt(
 ): (stmt: BodyNode | undefined) => ReadonlyMap<string, KnownLocalValue> {
 	const whole = knownLocalLiteralValues(source, proc, symbols, activity);
 	const locals = literalValueLocals(proc, symbols);
+	const moduleVariables = followedModuleVariables(proc, symbols);
+	let writes: ReadonlyMap<string, readonly BodyNode[]> | undefined;
 	// The same start as unreachableStatementsIn, so the two share one walk.
-	const reaching = locals.size === 0 ? new Map() : straightLineAssignments(source, proc.body, activity, walkStart(symbols, proc, locals));
+	const reaching = locals.size === 0 && moduleVariables.size === 0
+		? new Map()
+		: straightLineAssignments(source, proc.body, activity, walkStart(symbols, proc, locals));
 	// Statements in a run share one reaching map, so they share one result.
 	const results = new Map<ReachingAssignments, ReadonlyMap<string, KnownLocalValue>>();
 	return (stmt) => {
@@ -3421,8 +3425,160 @@ export function knownLocalLiteralValuesAt(
 			result = next;
 			results.set(assignments, result);
 		}
-		return result;
+		// A module variable written in the straight line holds the value
+		// while nothing between could run other code (issue #348).
+		let withModule: Map<string, KnownLocalValue> | undefined;
+		for (const [lower, value] of assignments) {
+			if (!moduleVariables.has(lower) || locals.has(lower)) {
+				continue;
+			}
+			const kind = moduleVariables.get(lower) ?? (unwrapOuterParens(value)[0]?.kind === 'stringLiteral' ? 'string' : 'number');
+			const literal = plainLiteralText([...value], kind);
+			// The reaching write is the last one that runs before the
+			// statement: a later one in a block would have ended the value.
+			const dead = unreachableStatementsIn(source, proc, symbols, activity);
+			const write = [...(writes ??= moduleVariableWrites(source, proc, activity)).get(lower) ?? []]
+				.reverse().find((node) => node.span.end <= stmt!.span.start && !dead.has(node));
+			if (literal === undefined || !write
+				|| codeMayRun(statementTokens(source, { start: write.span.end, end: stmt!.span.end }), proc, symbols)) {
+				continue;
+			}
+			withModule ??= new Map(result);
+			withModule.set(lower, { kind, value: kind === 'number' ? Number(literal) : literal, origin: 'literal' });
+		}
+		return withModule ?? result;
 	};
+}
+
+/**
+ * The module variables a procedure may follow through its straight line,
+ * with their kind as {@link literalValueLocals} gives a local's. A local or
+ * parameter of the same name hides one.
+ */
+function followedModuleVariables(
+	proc: ProcedureNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+): ReadonlyMap<string, 'number' | 'string' | undefined> {
+	const hidden = new Set([proc.name, ...proc.params.map((param) => param.name), ...(procedureSymbolFor(symbols, proc)?.children ?? []).map((child) => child.name)]
+		.map((name) => name.toLowerCase()));
+	const out = new Map<string, 'number' | 'string' | undefined>();
+	for (const child of symbols.root.children ?? []) {
+		if (child.kind !== 'moduleVariable' || child.isArray || child.isAutoInstantiated || child.fixedLength !== undefined || hidden.has(child.name.toLowerCase())) {
+			continue;
+		}
+		const type = normalizeType(child.asType);
+		const kind = type === undefined || type === 'variant' ? undefined : isNumericType(type) ? 'number' : type === 'string' ? 'string' : 'other';
+		if (kind !== 'other') {
+			out.set(child.name.toLowerCase(), kind);
+		}
+	}
+	return out;
+}
+
+/** The statements of a procedure that assign a name, `x = value`, in source order, by lowercased name. */
+function moduleVariableWrites(
+	source: string,
+	proc: ProcedureNode,
+	activity: ConditionalActivityTracker | undefined,
+): Map<string, BodyNode[]> {
+	const out = new Map<string, BodyNode[]>();
+	const visit = (body: readonly BodyNode[]): void => {
+		for (const node of body) {
+			if (activity?.isInactive(node.span)) {
+				continue;
+			}
+			if (node.kind === 'IfBlock') {
+				for (const branch of (node as IfBlockNode).branches) {
+					visit(branch.body);
+				}
+				continue;
+			}
+			if ('body' in node && Array.isArray(node.body)) {
+				visit(node.body as BodyNode[]);
+				continue;
+			}
+			const bare = isLeafStatement(node) ? bareAssignmentTarget(source, node.span) : undefined;
+			if (bare) {
+				const lower = bare.name.toLowerCase();
+				out.set(lower, [...(out.get(lower) ?? []), node]);
+			}
+		}
+	};
+	visit(proc.body);
+	return out;
+}
+
+/** VBA functions that wait for the user or call by name, so other code may run meanwhile. */
+const CODE_RUNNING_FUNCTIONS: ReadonlySet<string> = new Set(['callbyname', 'doevents', 'inputbox', 'msgbox']);
+
+/**
+ * Whether the tokens may run code other than the procedure's own, which
+ * could write a module variable: a call to a procedure, a member of an
+ * object (a class's property, or a host event), `New` of a class,
+ * RaiseEvent, or a ByRef parameter, which may be the module variable itself.
+ * The procedure's locals, its ByVal parameters, the module's variables and
+ * Consts, and the VBA library's functions and constants run nothing.
+ */
+function codeMayRun(toks: readonly VbaToken[], proc: ProcedureNode, symbols: ReturnType<typeof buildModuleSymbols>): boolean {
+	const safe = new Set<string>();
+	for (const child of procedureSymbolFor(symbols, proc)?.children ?? []) {
+		safe.add(child.name.toLowerCase());
+	}
+	for (const param of proc.params) {
+		if (!param.byVal) {
+			safe.delete(param.name.toLowerCase());
+		}
+	}
+	for (const child of symbols.root.children ?? []) {
+		if (child.kind === 'moduleVariable' || child.kind === 'constant') {
+			safe.add(child.name.toLowerCase());
+		}
+	}
+	for (let i = 0; i < toks.length; i++) {
+		const tok = toks[i];
+		if (tok.kind === 'comment') {
+			continue;
+		}
+		const prev = toks[i - 1];
+		const name = tokenName(tok)?.toLowerCase();
+		if (prev?.rawText === '.' || prev?.rawText === '!') {
+			// `Debug.Print` and `Err.Number` run nothing of the project's.
+			const object = tokenText(toks[i - 2]);
+			if ((object === 'debug' || object === 'err') && name !== 'raise') {
+				continue;
+			}
+			return true;
+		}
+		if (!name) {
+			continue;
+		}
+		if (name === 'raiseevent') {
+			return true;
+		}
+		if (tokenText(prev) === 'new') {
+			// `Dim c As New Collection` makes nothing until c is used.
+			if (name !== 'collection' && tokenText(toks[i - 2]) !== 'as') {
+				return true;
+			}
+			continue;
+		}
+		if (tok.kind === 'keyword' && !resolveRuntimeFunction(name)) {
+			continue;
+		}
+		if (tokenText(prev) === 'as' || safe.has(name) || resolveRuntimeConstant(name)) {
+			continue;
+		}
+		// The procedure's own name is its result; with an argument list it is a call.
+		if (name === proc.name.toLowerCase() && toks[i + 1]?.rawText !== '(') {
+			continue;
+		}
+		const fn = resolveRuntimeFunction(name) ?? resolveRuntimeFunction(`${name}$`);
+		if (fn && !CODE_RUNNING_FUNCTIONS.has(name) && !moduleMemberNames(symbols).has(name)) {
+			continue;
+		}
+		return true;
+	}
+	return false;
 }
 
 /**

@@ -72052,6 +72052,127 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Long\r\n    x = 0\r\n    x = 2\r\n    Main = Cells(x, 1).Row\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue348_01_runtime",
+      "description": "Issue #348 module variable written just before its use, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate m As Integer\r\nFunction Main() As Variant\r\n    m = 0\r\n    Main = CStr(Mid(\"abc\", m))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue348_02_runtime",
+      "description": "Issue #348 module variable written just before its use, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate k As String\r\nFunction Main() As Variant\r\n    k = \"xyz\"\r\n    Main = CStr(DateValue(k))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue348_03_runtime",
+      "description": "Issue #348 module variable written just before its use, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate m As Integer\r\nFunction Main() As Variant\r\n    m = 1\r\n    Dim c As New Collection\r\n    Main = c(m)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue348_04_runtime",
+      "description": "Issue #348 module variable written just before its use, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate d As Long\r\nFunction Main() As Variant\r\n    d = 0\r\n    Main = 10 / d\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue348_05_runtime",
+      "description": "Issue #348 module variable written just before its use, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate d As Variant\r\nFunction Main() As Variant\r\n    d = 0\r\n    Main = 10 / d\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue348_06_runtime",
+      "description": "Issue #348 module variable written just before its use, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPublic d As Double\r\nFunction Main() As Variant\r\n    d = 0\r\n    Debug.Print \"x\"\r\n    Main = 10 / d\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue348_07_runtime",
+      "description": "Issue #348 module variable written just before its use, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nDim a(3) As Long\r\nPrivate j As Long\r\nFunction Main() As Variant\r\n    j = 5\r\n    Main = a(j)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue348_08_runtime",
+      "description": "Issue #348 module variable written just before its use, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate d As Long\r\nFunction Main() As Variant\r\n    d = 0\r\n    Main = Helper(d)\r\nEnd Function\r\nFunction Helper(ByRef x As Long) As Variant\r\n    x = 2\r\n    Helper = 10 / d\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue348_09_runtime",
+      "description": "Issue #348 module variable written just before its use, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 12.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate d As Long\r\nFunction Main() As Variant\r\n    d = 0\r\n    Main = 10 / Twice() + 10 / d\r\nEnd Function\r\nFunction Twice() As Long\r\n    d = 5\r\n    Twice = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue348_10_runtime",
+      "description": "Issue #348 module variable written just before its use, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate d As Long\r\nFunction Main() As Variant\r\n    d = 0\r\n    d = 2\r\n    Main = 10 / d\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue348_11_runtime",
+      "description": "Issue #348 module variable written just before its use, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 10.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate d As Long\r\nFunction Main() As Variant\r\n    d = 0\r\n    If Rnd() > 2 Then d = 1\r\n    Main = 10 / (d + 1)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
