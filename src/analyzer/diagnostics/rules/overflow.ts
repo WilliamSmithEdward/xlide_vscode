@@ -91,6 +91,12 @@ interface Typed {
 	 * names it. Most uses of it raise (issue #405).
 	 */
 	pastDate?: string;
+	/**
+	 * Held in a Variant, whose arithmetic widens the type instead of
+	 * overflowing: 32767 + 1 is the Long 32768 (issue #480, measured in
+	 * Excel 16.0).
+	 */
+	variant?: boolean;
 }
 
 interface Overflow {
@@ -784,7 +790,8 @@ class TypedFolder {
 		}
 		if (target === 'int' || target === 'fix') {
 			const value = target === 'int' ? Math.floor(inner.value) : Math.trunc(inner.value);
-			return { value, type: inner.type === 'byte' || inner.type === 'integer' || inner.type === 'long' ? inner.type : 'double' };
+			// A LongLong stays one: `Fix(q) Mod 7` works in LongLong (issue #480).
+			return { value, type: inner.type === 'byte' || inner.type === 'integer' || inner.type === 'long' || inner.type === 'longlong' ? inner.type : 'double' };
 		}
 		if (target === 'exp') {
 			const value = Math.exp(inner.value);
@@ -887,6 +894,13 @@ class TypedFolder {
 		// Excel 16.0). `Date + number` raises 6.
 		if (!inRange(value, type) && type === 'date' && left.type !== 'date') {
 			return { value, type, pastDate: `${describe(left)} ${op} ${describe(right)}` };
+		}
+		if ((left.variant || right.variant) && (op === '+' || op === '-' || op === '*')) {
+			let widened: NumericType | undefined = type;
+			while (widened && !inRange(value, widened)) {
+				widened = VARIANT_WIDENING.get(widened);
+			}
+			return widened ? { value, type: widened, variant: true } : undefined;
 		}
 		if (!inRange(value, type)) {
 			const result = type === 'date'
@@ -1036,6 +1050,11 @@ function article(label: string): string {
 
 /** The VBA functions whose result the folder works out (issue #407). */
 const RESULT_FUNCTIONS: ReadonlySet<string> = new Set(['sgn', 'choose', 'iif', 'len', 'asc', 'ascw']);
+
+/** The type a Variant's arithmetic widens to when a result does not fit (issue #480). */
+const VARIANT_WIDENING: ReadonlyMap<NumericType, NumericType> = new Map([
+	['byte', 'integer'], ['integer', 'long'], ['long', 'double'], ['single', 'double'],
+]);
 
 const CONVERSIONS: ReadonlyMap<string, NumericType | 'abs' | 'int' | 'fix' | 'exp' | 'hex' | 'oct' | 'decimal' | 'longptr'> = new Map([
 	['cbyte', 'byte'], ['cint', 'integer'], ['clng', 'long'], ['csng', 'single'], ['cdbl', 'double'],
@@ -1899,6 +1918,10 @@ function checkStatement(
 			if (!bare.element) {
 				stored = { name: bare.name.toLowerCase(), value: folded };
 			}
+		} else if (folded && !target && !bare.element && env.has(bare.name.toLowerCase()) && (normalizeType(declared) ?? 'variant') === 'variant') {
+			// A Variant holds the value with its own type: `v = 2147483648#`
+			// then `v Mod 7` converts a Double to Long and raises 6 (issue #480).
+			stored = { name: bare.name.toLowerCase(), value: { ...folded, variant: true } };
 		} else if (folded && target) {
 			const kept = storedValue(folded, target);
 			if (!inRange(kept.value, target, kept.exact)) {
