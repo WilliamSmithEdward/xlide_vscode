@@ -5216,11 +5216,17 @@
         "issue263_35_runtime",
         "issue263_36_runtime",
         "issue263_39_runtime",
-        "issue406_24_runtime"
+        "issue406_24_runtime",
+        "issue452_01_runtime",
+        "issue452_02_runtime",
+        "issue452_03_runtime",
+        "issue452_17_runtime",
+        "issue452_18_runtime",
+        "issue452_20_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Collection index out of range. VBE runtime errors 5 and 9 on VBA.Collection (issue #121, Excel 16.0). Issue #219: Add with Before or After on an empty collection (5), or outside 1 to Count (9). Inside blocks too: each If arm and Case from the state the block starts with, a loop's body as its first pass runs it; a block forgets only what it names (issue #237, Excel 16.0). Issue #238: an index through a Const or a local with one known value is evaluated. Measured in Excel 16.0 (build 20326). Issue #243: d.Keys()(n) and d.Items()(n) past the last key of a Scripting.Dictionary raise 9; they are based at 0 (measured in Excel 16.0, build 20326, issue243_* oracle cases). Issue #263: a For loop whose bounds the contents decide (literals, c.Count) and whose body touches the collection only by c.Remove k and c(k), k a whole number or the counter plus or minus one, is run pass by pass: For i = 1 To c.Count with c.Remove i on three elements finds no element 3 (9), and Remove 1 on an emptied collection raises 5. Removing from Count down to 1 runs. Measured in Excel 16.0. Issue #406: code that never runs is not judged: an If under a Const whose value is a literal False or 0, a loop of no pass (For with bounds that pass each other, Do While or While with a False condition, Do Until with a True one, For Each over Array()), and code after GoTo up to the next label, whatever state it builds.",
+      "notes": "Collection index out of range. VBE runtime errors 5 and 9 on VBA.Collection (issue #121, Excel 16.0). Issue #219: Add with Before or After on an empty collection (5), or outside 1 to Count (9). Inside blocks too: each If arm and Case from the state the block starts with, a loop's body as its first pass runs it; a block forgets only what it names (issue #237, Excel 16.0). Issue #238: an index through a Const or a local with one known value is evaluated. Measured in Excel 16.0 (build 20326). Issue #243: d.Keys()(n) and d.Items()(n) past the last key of a Scripting.Dictionary raise 9; they are based at 0 (measured in Excel 16.0, build 20326, issue243_* oracle cases). Issue #263: a For loop whose bounds the contents decide (literals, c.Count) and whose body touches the collection only by c.Remove k and c(k), k a whole number or the counter plus or minus one, is run pass by pass: For i = 1 To c.Count with c.Remove i on three elements finds no element 3 (9), and Remove 1 on an emptied collection raises 5. Removing from Count down to 1 runs. Measured in Excel 16.0. Issue #406: code that never runs is not judged: an If under a Const whose value is a literal False or 0, a loop of no pass (For with bounds that pass each other, Do While or While with a False condition, Do Until with a True one, For Each over Array()), and code after GoTo up to the next label, whatever state it builds. Issue #452: an element added as a tracked Collection shares it, so c(1)(2), c(1).Remove and c(1).Add are judged against the inner Collection, and a change through either name is seen by both. Any other use of the inner Collection, or passing it on, stops it being read.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -5238,7 +5244,8 @@
         "issue237_24_runtime",
         "issue243_12_runtime",
         "issue243_58_runtime",
-        "issue243_61_runtime"
+        "issue243_61_runtime",
+        "issue452_22_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -5260,7 +5267,8 @@
         "issue237_35_runtime",
         "issue237_36_runtime",
         "issue237_54_runtime",
-        "issue243_11_runtime"
+        "issue243_11_runtime",
+        "issue452_04_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -5403,11 +5411,17 @@
         "issue260_168_runtime",
         "issue260_195_runtime",
         "issue262_96_runtime",
-        "issue268_28_runtime"
+        "issue268_28_runtime",
+        "issue452_05_runtime",
+        "issue452_06_runtime",
+        "issue452_07_runtime",
+        "issue452_08_runtime",
+        "issue452_23_runtime",
+        "issue452_24_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Variant value used as another kind. VBE runtime errors 424 and 13 on a Variant holding a scalar or an array (issue #121, Excel 16.0). Issue #219: Erase, ReDim Preserve and For Each on a Variant holding a scalar, or Empty because nothing assigns it (13). Issue #239: an array that Array() or Split() returns, used as the operand of a scalar operator (+, &, =, Like, And, unary - or Not), raises 13; Join(v) with v holding a scalar does too. An indexed result, Split(s)(0), is a scalar. Measured in Excel 16.0 (build 20326). Issue #248: Len or LenB of an array value, Len(v) with v = Array(1), Len(Array(1)), Len(Split(...)), and VBA.Len(a) of an array not of Byte, raise 13; VBA.LenB of a Byte array runs (measured in Excel 16.0). Issue #260: an Optional Variant a same-module call omits is Missing in the callee, and the callee's first use of it, on the path every call runs, raises 13 when it is an operand of an arithmetic, comparison, &, And, Or, Like, Not or sign operator, the condition of If, ElseIf, Do While/Until or Select Case, the first argument of Len, LenB, Left, Right, Mid, Trim, UCase, LCase, InStr (either), Int, Abs, Fix, Sgn, Val, Format, Hex, Chr, Asc, Space, Str, CDate or LBound, a value assigned to a typed local or a typed Function's result, or a ByVal typed argument of a same-module procedure. IsMissing, IsError, IsEmpty, VarType, TypeName, CStr, CLng, CDbl, CInt, CSng, CCur, CBool, IIf, a Variant parameter and Debug.Print read it cleanly. The read stops at Exit, GoTo, Return, End, Resume, On, Stop, Error and Err.Raise, at a single-line If arm, and at a block that uses the name. A ParamArray element the call skips is Missing too. Reported at the call. Measured in Excel 16.0.",
+      "notes": "Variant value used as another kind. VBE runtime errors 424 and 13 on a Variant holding a scalar or an array (issue #121, Excel 16.0). Issue #219: Erase, ReDim Preserve and For Each on a Variant holding a scalar, or Empty because nothing assigns it (13). Issue #239: an array that Array() or Split() returns, used as the operand of a scalar operator (+, &, =, Like, And, unary - or Not), raises 13; Join(v) with v holding a scalar does too. An indexed result, Split(s)(0), is a scalar. Measured in Excel 16.0 (build 20326). Issue #248: Len or LenB of an array value, Len(v) with v = Array(1), Len(Array(1)), Len(Split(...)), and VBA.Len(a) of an array not of Byte, raise 13; VBA.LenB of a Byte array runs (measured in Excel 16.0). Issue #260: an Optional Variant a same-module call omits is Missing in the callee, and the callee's first use of it, on the path every call runs, raises 13 when it is an operand of an arithmetic, comparison, &, And, Or, Like, Not or sign operator, the condition of If, ElseIf, Do While/Until or Select Case, the first argument of Len, LenB, Left, Right, Mid, Trim, UCase, LCase, InStr (either), Int, Abs, Fix, Sgn, Val, Format, Hex, Chr, Asc, Space, Str, CDate or LBound, a value assigned to a typed local or a typed Function's result, or a ByVal typed argument of a same-module procedure. IsMissing, IsError, IsEmpty, VarType, TypeName, CStr, CLng, CDbl, CInt, CSng, CCur, CBool, IIf, a Variant parameter and Debug.Print read it cleanly. The read stops at Exit, GoTo, Return, End, Resume, On, Stop, Error and Err.Raise, at a single-line If arm, and at a block that uses the name. A ParamArray element the call skips is Missing too. Reported at the call. Measured in Excel 16.0. Issue #452: an element a Collection holds as a number or string literal raises 424 for a member (c(2).Count) and 13 for an index (c(2)(1)).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -5742,11 +5756,14 @@
         "issue256_08_runtime",
         "issue256_09_runtime",
         "issue256_16_runtime",
-        "issue268_29_runtime"
+        "issue268_29_runtime",
+        "issue452_09_runtime",
+        "issue452_21_runtime",
+        "issue452_27_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Object read as a value has no default member. VBE runtime errors 438 and 450 reading an object with no default member, or one that needs an argument (issue #183, Excel 16.0). Issue #219: New Collection or a New object with no default member assigned into a Variant or a Function result without Set (450, 438). Issue #221: Excel's other objects with no default member (Workbook, Font, Interior, Validation, Window, PageSetup, Border, Shape, Hyperlink; the model's complete member list with no _Default) raise 438; its collections whose default is Item (Hyperlinks, Areas, Borders, Windows, Workbooks, Shapes, Comments, ListObjects) raise 450. A default typed Object (Worksheets, Sheets) and Names are not judged. Issue #242: a Collection as the first argument of a built-in whose Variant parameter reads its value raises 450: InStr, Format, UCase, LCase, Trim, LTrim, RTrim, Left, Right, Mid, CVar, StrComp, Hex (measured in Excel 16.0). Issue #256 (measured in Excel 16.0 from workbooks pyOpenVBA wrote, so the Attribute lines reach the VBE): a class whose default member needs a required argument, read with none, raises 449; one whose parameterless default returns a Collection raises 450; a class with no default member indexed, c(1), raises 438. For Each over a class asks its VB_UserMemId = -4 member: with none it raises 438, with one returning a Collection 451. A Public field marked VB_VarUserMemId = 0 is a default member. Issue #268: If c Then on an As New Collection reads its value for the condition, and Item needs an index: 450. Measured in Excel 16.0. Issue #438: Word, PowerPoint and Access defaults come from the type library (DISPID 0, scripts/dump-default-members.py into hostDefaultMembers.ts): a Word Range and Selection default to Text, a Paragraph to its Range, a collection to Item(Index).",
+      "notes": "Object read as a value has no default member. VBE runtime errors 438 and 450 reading an object with no default member, or one that needs an argument (issue #183, Excel 16.0). Issue #219: New Collection or a New object with no default member assigned into a Variant or a Function result without Set (450, 438). Issue #221: Excel's other objects with no default member (Workbook, Font, Interior, Validation, Window, PageSetup, Border, Shape, Hyperlink; the model's complete member list with no _Default) raise 438; its collections whose default is Item (Hyperlinks, Areas, Borders, Windows, Workbooks, Shapes, Comments, ListObjects) raise 450. A default typed Object (Worksheets, Sheets) and Names are not judged. Issue #242: a Collection as the first argument of a built-in whose Variant parameter reads its value raises 450: InStr, Format, UCase, LCase, Trim, LTrim, RTrim, Left, Right, Mid, CVar, StrComp, Hex (measured in Excel 16.0). Issue #256 (measured in Excel 16.0 from workbooks pyOpenVBA wrote, so the Attribute lines reach the VBE): a class whose default member needs a required argument, read with none, raises 449; one whose parameterless default returns a Collection raises 450; a class with no default member indexed, c(1), raises 438. For Each over a class asks its VB_UserMemId = -4 member: with none it raises 438, with one returning a Collection 451. A Public field marked VB_VarUserMemId = 0 is a default member. Issue #268: If c Then on an As New Collection reads its value for the condition, and Item needs an index: 450. Measured in Excel 16.0. Issue #438: Word, PowerPoint and Access defaults come from the type library (DISPID 0, scripts/dump-default-members.py into hostDefaultMembers.ts): a Word Range and Selection default to Text, a Paragraph to its Range, a collection to Item(Index). Issue #452: an element that is a Collection, Let into a scalar or Variant local or the Function result (v = c(1)), raises 450.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
