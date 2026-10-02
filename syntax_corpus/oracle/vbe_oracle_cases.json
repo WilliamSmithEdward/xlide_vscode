@@ -86006,6 +86006,83 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w1 As Worksheet, w2 As Worksheet\r\n    Set w1 = Worksheets.Add\r\n    Set w2 = Worksheets.Add\r\n    w1.Name = \"Qa\"\r\n    w1.Name = \"qa\"\r\n    w2.Name = \"Qb\"\r\n    Application.DisplayAlerts = False\r\n    w1.Delete\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue309_01_runtime",
+      "description": "Issue #309 insertion positions past the end or at 0, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim lo As ListObject\r\n    Set lo = ActiveSheet.ListObjects.Add(xlSrcRange, Range(\"A1:B3\"), , xlYes)\r\n    lo.ListRows.Add 0\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue309_02_runtime",
+      "description": "Issue #309 insertion positions past the end or at 0, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim lo As ListObject\r\n    Set lo = ActiveSheet.ListObjects.Add(xlSrcRange, Range(\"A1:B3\"), , xlYes)\r\n    lo.ListColumns.Add 0\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue309_03_runtime",
+      "description": "Issue #309 insertion positions past the end or at 0, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim lo As ListObject\r\n    Set lo = ActiveSheet.ListObjects.Add(xlSrcRange, Range(\"A1:B3\"), , xlYes)\r\n    lo.ListRows.Add lo.ListRows.Count + 2\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue309_04_runtime",
+      "description": "Issue #309 insertion positions past the end or at 0, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim lo As ListObject\r\n    Set lo = ActiveSheet.ListObjects.Add(xlSrcRange, Range(\"A1:B3\"), , xlYes)\r\n    lo.ListColumns.Add lo.ListColumns.Count + 2\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue309_05_runtime",
+      "description": "Issue #309 insertion positions past the end or at 0, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Worksheets(Worksheets.Count + 1).Name\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue309_06_runtime",
+      "description": "Issue #309 insertion positions past the end or at 0, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim lo As ListObject\r\n    Set lo = ActiveSheet.ListObjects.Add(xlSrcRange, Range(\"A1:B3\"), , xlYes)\r\n    lo.ListRows.Add lo.ListRows.Count + 1\r\n    lo.ListColumns.Add 1\r\n    lo.Unlist\r\n    Range(\"A1:D5\").Clear\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue309_07_runtime",
+      "description": "Issue #309 insertion positions past the end or at 0, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> Sheet1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Worksheets(Worksheets.Count).Name\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

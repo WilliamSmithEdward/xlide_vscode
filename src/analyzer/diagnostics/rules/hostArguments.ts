@@ -808,8 +808,22 @@ function checkSpan(
 				);
 				continue;
 			}
+			// `Worksheets(Worksheets.Count + 1)`: past the last element (issue
+			// #309, measured in Excel and Word 16.0).
+			const chain = chainText(toks, receiverStart(toks, callee.nameIndex), lower === 'item' ? callee.nameIndex - 2 : callee.nameIndex);
+			const past = chain ? countOffset(callee.args[0], chain) : undefined;
+			if (past !== undefined && past >= 1) {
+				const error = collectionIndexError(host, collection, model);
+				push(
+					'hostArgumentOutOfRange',
+					`${chain}.Count + ${past} is past the last element of ${chain}. This will raise Run-time error '${error.number}': ${error.text}.`,
+					at(callee.openIndex + 1, callee.closeIndex - 1),
+				);
+				continue;
+			}
 		}
 		checkArgumentLimits(span, callee, valueOf, push);
+		checkInsertionPosition(span, toks, callee, valueOf, push);
 		if (host === 'Excel') {
 			checkExcelMethodArguments(span, toks, callee, stringOf, push);
 			checkExcelCallee(source, span, toks, callee, calleeSpan, env, arrays, valueOf, push, stringOf);
@@ -825,15 +839,6 @@ function checkSpan(
 						at(callee.openIndex + 1, callee.closeIndex - 1),
 					);
 				}
-			}
-		} else if (lower === 'add' && callee.receiver === 'PowerPoint.Slides' && callee.args.length >= 1) {
-			const index = valueOf(callee.args[0]);
-			if (index !== undefined && index < 1) {
-				push(
-					'hostArgumentOutOfRange',
-					`Slides.Add places the new slide at Index, which starts at 1. This will raise Run-time error '-2147188160': Integer out of range.`,
-					argSpan(span, callee.args[0]),
-				);
 			}
 		}
 	}
@@ -1070,6 +1075,68 @@ function checkBeforeAndAfter(source: string, span: Span, toks: readonly VbaToken
 			push('hostArgumentOutOfRange', `${toks[i].rawText} takes Before or After, not both: a sheet goes before one sheet or after one. This will raise Run-time error '1004': Method '${toks[i].rawText}' failed.`, { start: span.start + toks[i].start, end: span.start + toks[close === toks.length ? close - 1 : close].end });
 		}
 	}
+}
+
+/**
+ * Methods that insert at a position from 1 to Count + 1 (issue #309,
+ * measured in Excel and PowerPoint 16.0): 0 and below, and Count + 2 or
+ * more written against the collection's own Count, are refused.
+ */
+const INSERTIONS: ReadonlyArray<{ receiver: string; member: string; parameter: string; noun: string; error: { number: string; text: string } }> = [
+	{ receiver: 'PowerPoint.Slides', member: 'add', parameter: 'Index', noun: 'slide', error: { number: '-2147188160', text: 'Integer out of range' } },
+	{ receiver: 'PowerPoint.Slides', member: 'addslide', parameter: 'Index', noun: 'slide', error: { number: '-2147188160', text: 'Integer out of range' } },
+	{ receiver: 'Excel.ListRows', member: 'add', parameter: 'Position', noun: 'row', error: { number: '9', text: 'Subscript out of range' } },
+	{ receiver: 'Excel.ListColumns', member: 'add', parameter: 'Position', noun: 'column', error: { number: '9', text: 'Subscript out of range' } },
+];
+
+function checkInsertionPosition(
+	span: Span,
+	toks: readonly VbaToken[],
+	callee: HostCallee,
+	valueOf: (arg: readonly VbaToken[]) => number | undefined,
+	push: PushFn,
+): void {
+	const lower = callee.name.toLowerCase();
+	const insertion = INSERTIONS.find((entry) => entry.member === lower && entry.receiver === callee.receiver);
+	const arg = insertion ? argumentByNameOrPosition(callee.args, insertion.parameter, 0) : undefined;
+	if (!insertion || !arg?.length) {
+		return;
+	}
+	const value = valueOf(arg);
+	const chain = chainText(toks, receiverStart(toks, callee.nameIndex), callee.nameIndex - 2);
+	const past = chain ? countOffset(arg, chain) : undefined;
+	const shown = value !== undefined && value < 1 ? `${value}` : past !== undefined && past >= 2 ? `${chain}.Count + ${past}` : undefined;
+	if (shown) {
+		const type = callee.receiver.slice(callee.receiver.indexOf('.') + 1);
+		push(
+			'hostArgumentOutOfRange',
+			`${type}.${callee.name} puts the new ${insertion.noun} at ${insertion.parameter}, from 1 to Count + 1; ${shown} is outside that. This will raise Run-time error '${insertion.error.number}': ${insertion.error.text}.`,
+			argSpan(span, arg),
+		);
+	}
+}
+
+/** The text of `toks[from..to]` when it is names and dots only: `d.Paragraphs`. */
+function chainText(toks: readonly VbaToken[], from: number, to: number): string | undefined {
+	const part = toks.slice(from, to + 1);
+	return part.length > 0 && part.every((tok, k) => (k % 2 === 0 ? tokenName(tok) !== undefined : tok.rawText === '.')) && part.length % 2 === 1
+		? part.map((tok) => tok.rawText).join('')
+		: undefined;
+}
+
+/** `k` for an argument written `<chain>.Count + k` (0 for `<chain>.Count`), or undefined. */
+function countOffset(arg: readonly VbaToken[], chain: string): number | undefined {
+	const toks = arg.filter((tok) => tok.kind !== 'comment');
+	const count = toks.findIndex((tok, k) => tokenText(tok) === 'count' && toks[k - 1]?.rawText === '.');
+	if (count < 2 || chainText(toks, 0, count - 2)?.toLowerCase() !== chain.toLowerCase()) {
+		return undefined;
+	}
+	const rest = toks.slice(count + 1);
+	if (rest.length === 0) {
+		return 0;
+	}
+	const k = rest.length === 2 && rest[1].kind === 'integerLiteral' ? Number(rest[1].rawText) : undefined;
+	return k === undefined ? undefined : rest[0].rawText === '+' ? k : rest[0].rawText === '-' ? -k : undefined;
 }
 
 /** An argument's value tokens, named (`Count:=0`) or at its position before any named one. */
