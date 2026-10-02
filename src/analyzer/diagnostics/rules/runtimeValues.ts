@@ -55,6 +55,7 @@ import {
 	stringLiteralValue,
 	typeEnvironmentFor,
 	unwrapOuterParens,
+	pickedValues,
 } from '../typeInference';
 import {
 	matchParenFrom,
@@ -197,19 +198,14 @@ export function checkRuntimeArgumentValues(
 			}
 			return isKnownScalarType(type) ? { asType: local.asType!, dimensions: 0 } : undefined;
 		};
-		const stringsFor = new Map<ReadonlyMap<string, KnownLocalValue>, { strings: Map<string, string>; lengths: Map<string, number> }>();
-		const stringsAt = (values: ReadonlyMap<string, KnownLocalValue>): { strings: Map<string, string>; lengths: Map<string, number> } => {
+		const stringsFor = new Map<ReadonlyMap<string, KnownLocalValue>, { strings: ReadonlyMap<string, string>; lengths: ReadonlyMap<string, number> }>();
+		const stringsAt = (values: ReadonlyMap<string, KnownLocalValue>): { strings: ReadonlyMap<string, string>; lengths: ReadonlyMap<string, number> } => {
 			let out = stringsFor.get(values);
 			if (!out) {
-				out = { strings: new Map(), lengths: new Map() };
-				for (const [lower, value] of values) {
-					if (value.kind === 'string') {
-						out.lengths.set(lower, (value.value as string).length);
-						if (!value.contentMutated) {
-							out.strings.set(lower, value.value as string);
-						}
-					}
-				}
+				out = {
+					strings: pickedValues(values, (_lower, value) => (value.kind === 'string' && !value.contentMutated ? value.value as string : undefined)),
+					lengths: pickedValues(values, (_lower, value) => (value.kind === 'string' ? (value.value as string).length : undefined)),
+				};
 				stringsFor.set(values, out);
 			}
 			return out;
@@ -1700,12 +1696,7 @@ export function checkRuntimeConversionValues(
 		// `s = "abc"` then `CLng(s)`: the string a local holds here (issue #238).
 		const valuesAt = knownLocalLiteralValuesAt(source, member, symbols, activity);
 		return (stmt) => {
-			const strings = new Map<string, string>();
-			for (const [lower, value] of valuesAt(stmt)) {
-				if (value.kind === 'string' && !value.contentMutated) {
-					strings.set(lower, value.value as string);
-				}
-			}
+			const strings = pickedValues(valuesAt(stmt), (_lower, value) => (value.kind === 'string' && !value.contentMutated ? value.value as string : undefined));
 			for (const hit of runtimeConversionValueHits(source, stmt.span, sourceNames, strings)) {
 				push(
 					'runtimeConversionValue',

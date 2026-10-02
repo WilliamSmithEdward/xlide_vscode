@@ -35,6 +35,7 @@ import {
 	typeEnvironmentFor,
 	type KnownLocalValue,
 	type SourceNameScope,
+	pickedValues,
 } from '../typeInference';
 import {
 	activeModuleMembers,
@@ -76,27 +77,20 @@ export function checkVariantValueMisuse(
 		// assignment to reach it, or the one value the procedure agrees on.
 		const valuesAt = knownLocalLiteralValuesAt(source, member, symbols, activity);
 		const shapesAt = knownArrayShapesAt(source, symbols, member, activity, optionBase);
-		const scalarsFor = memoByIdentity((values: ReadonlyMap<string, KnownLocalValue>) => {
-			const scalars = new Map<string, string>();
-			for (const [lower, value] of values) {
-				if (value.origin === 'literal' && isVariant(lower)) {
-					scalars.set(lower, value.kind === 'string' ? `the string "${value.value}"` : `the number ${value.value}`);
-				}
-			}
-			return scalars;
-		});
+		const scalarsFor = memoByIdentity((values: ReadonlyMap<string, KnownLocalValue>) => pickedValues(values, (lower, value) => (value.origin === 'literal' && isVariant(lower)
+			? (value.kind === 'string' ? `the string "${value.value}"` : `the number ${value.value}`)
+			: undefined)));
 		// One cell's value is no array, whatever it holds: `v = Range("A1").Value`
 		// then `v(1, 1)` or `UBound(v)` raises 13 (issue #278, measured in Excel 16.0).
 		let reaching: ReturnType<typeof straightLineAssignments> | undefined;
-		const cellScalarsAt = (stmt: BodyNode): ReadonlyMap<string, string> => {
+		// Asked by name, as the scalars are (issue #322).
+		const cellScalarsAt = (stmt: BodyNode): { get(lower: string): string | undefined; has(lower: string): boolean } => {
 			const held = (reaching ??= straightLineAssignments(source, member.body, activity)).get(stmt);
-			const out = new Map<string, string>();
-			for (const [lower, toks] of held ?? []) {
-				if (isVariant(lower) && singleCellValue(toks.filter((tok) => tok.kind !== 'comment'))) {
-					out.set(lower, "one cell's value, which is no array");
-				}
-			}
-			return out;
+			const get = (lower: string): string | undefined => {
+				const toks = held?.get(lower);
+				return toks && isVariant(lower) && singleCellValue(toks.filter((tok) => tok.kind !== 'comment')) ? "one cell's value, which is no array" : undefined;
+			};
+			return { get, has: (lower) => get(lower) !== undefined };
 		};
 		const arraysFor = memoByIdentity((shapes: ReadonlyMap<string, FixedArrayBound>) => {
 			const arrays = new Map<string, string>();
@@ -192,12 +186,12 @@ export function checkVariantValueMisuse(
 					}
 				}
 			}
+			// Looked up by the names the statement uses: asking the scalars'
+			// size would walk every local (issue #322).
 			const cells = cellScalarsAt(stmt);
-			const scalars = cells.size === 0 ? scalarsFor(valuesAt(stmt)) : new Map([...scalarsFor(valuesAt(stmt)), ...cells]);
+			const literals = scalarsFor(valuesAt(stmt));
+			const scalars = { get: (lower: string): string | undefined => cells.get(lower) ?? literals.get(lower) };
 			const arrays = arraysFor(shapesAt(stmt));
-			if (scalars.size === 0 && arrays.size === 0) {
-				return;
-			}
 			for (const span of statementAndBranchSpans(stmt)) {
 				const toks = statementTokens(source, span);
 				const target = bareAssignmentTarget(source, span);
