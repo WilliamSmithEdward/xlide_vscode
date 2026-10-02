@@ -71865,6 +71865,193 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim s As String, d As Date\r\n    s = \"\"\r\n    d = #1/1/2000#\r\n    Main = s + d\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue345_01_runtime",
+      "description": "Issue #345 host arguments held in a local, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Long\r\n    x = 0\r\n    Main = Cells(x, 1).Row\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue345_02_runtime",
+      "description": "Issue #345 host arguments held in a local, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Integer\r\n    x = 0\r\n    Main = Cells(x, 1).Row\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue345_03_runtime",
+      "description": "Issue #345 host arguments held in a local, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Double\r\n    x = 0\r\n    Main = Cells(x, 1).Row\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue345_04_runtime",
+      "description": "Issue #345 host arguments held in a local, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Variant\r\n    x = 0\r\n    Main = Cells(x, 1).Row\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue345_05_runtime",
+      "description": "Issue #345 host arguments held in a local, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Long\r\n    x = 0\r\n    Main = Cells(1, x).Row\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue345_06_runtime",
+      "description": "Issue #345 host arguments held in a local, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Long\r\n    x = 0\r\n    Main = Rows(x).Row\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue345_07_runtime",
+      "description": "Issue #345 host arguments held in a local, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Long\r\n    x = 0\r\n    Main = Columns(x).Column\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue345_08_runtime",
+      "description": "Issue #345 host arguments held in a local, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Long\r\n    x = 1048577\r\n    Main = Cells(x, 1).Row\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue345_09_runtime",
+      "description": "Issue #345 host arguments held in a local, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Long\r\n    x = -1\r\n    Main = Range(\"A1\").Offset(x).Row\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue345_10_runtime",
+      "description": "Issue #345 host arguments held in a local, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Long\r\n    x = 0\r\n    Main = Range(\"A1\").Resize(x).Row\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue345_11_runtime",
+      "description": "Issue #345 host arguments held in a local, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Long\r\n    x = 0\r\n    Main = Worksheets(x).Name\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue345_12_runtime",
+      "description": "Issue #345 host arguments held in a local, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim s As String\r\n    s = \"A1:\"\r\n    Main = Range(s).Row\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue345_13_runtime",
+      "description": "Issue #345 host arguments held in a local, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim s As String\r\n    s = \"AAAA\"\r\n    Main = Cells(1, s).Row\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue345_14_runtime",
+      "description": "Issue #345 host arguments held in a local, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim s As String\r\n    s = \"B2\"\r\n    Main = Range(s).Row\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue345_15_runtime",
+      "description": "Issue #345 host arguments held in a local, case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim r As Long\r\n    r = 1\r\n    Main = Cells(r, 1).Row\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue345_16_runtime",
+      "description": "Issue #345 host arguments held in a local, case 16, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Long\r\n    Main = Cells(x, 1).Row\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue345_17_runtime",
+      "description": "Issue #345 host arguments held in a local, case 17, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Long\r\n    x = 0\r\n    x = 2\r\n    Main = Cells(x, 1).Row\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
