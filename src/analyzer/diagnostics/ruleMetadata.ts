@@ -1368,6 +1368,17 @@ export const DIAGNOSTIC_RULES = {
 		allowSeverityDowngrade: true,
 		confidence: 'high',
 	},
+	longLongNarrowing: {
+		code: 'longlong-narrowing',
+		title: 'LongLong narrowed implicitly in 64-bit VBA',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'VBA 64-bit: a LongLong or LongPtr converts to no narrower whole-number type implicitly; VBE compile error Type mismatch',
+		confidence: 'high',
+	},
 	unallocatedDynamicArrayAccess: {
 		code: 'unallocated-dynamic-array-access',
 		title: 'Dynamic array is not allocated',

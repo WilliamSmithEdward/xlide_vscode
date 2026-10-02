@@ -1238,6 +1238,18 @@ const RELATION_FUNCTIONS: ReadonlyMap<string, string> = new Map(
  *  - Overflow, error 6: TimeSerial and DateSerial take Integers, ChrB a Byte,
  *    String's Number and InStr's Start a Long, and Error at most 65535.
  */
+/**
+ * The arguments of a VBA library call that take a whole number with bounds,
+ * Mid's Start or Space's Number: each a Long or Integer parameter (issue
+ * #298). Empty for a call this table does not know.
+ */
+export function wholeNumberArguments(name: string, slots: readonly VbaToken[][], host: string | undefined): VbaToken[][] {
+	return runtimeArgumentValueSpecs(name, host)
+		.filter((spec) => spec.minimum !== undefined)
+		.map((spec) => runtimeArgumentValueSlot(slots as VbaToken[][], spec))
+		.filter((slot): slot is VbaToken[] => slot !== undefined && slot.length > 0);
+}
+
 function runtimeArgumentValueSpecs(name: string, host: string | undefined): readonly RuntimeArgumentValueSpec[] {
 	// 2 is vbDatabaseCompare, which only Access accepts in these three.
 	const databaseCompare = host === 'access' ? [] : [2];

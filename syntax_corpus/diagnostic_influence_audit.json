@@ -6986,6 +6986,43 @@
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "notes": ""
+    },
+    {
+      "code": "longlong-narrowing",
+      "status": "vbe-oracle-verified",
+      "diagnosticKind": "compile-error",
+      "sourceOfTruth": "Excel/VBE compile oracle, 64-bit: Type mismatch",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue298_01_compile",
+        "issue298_02_compile",
+        "issue298_03_compile",
+        "issue298_04_compile",
+        "issue298_05_compile",
+        "issue298_06_compile",
+        "issue298_07_compile",
+        "issue298_08_compile",
+        "issue298_09_compile",
+        "issue298_10_compile",
+        "issue298_11_compile",
+        "issue298_12_compile",
+        "issue298_13_compile",
+        "issue298_14_compile",
+        "issue298_15_compile",
+        "issue298_16_compile",
+        "issue298_17_compile",
+        "issue298_18_compile",
+        "issue298_19_compile",
+        "issue298_20_compile",
+        "issue298_21_compile",
+        "issue298_22_compile",
+        "issue298_23_compile",
+        "issue298_24_compile",
+        "issue298_25_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": ""
     }
   ]
 }

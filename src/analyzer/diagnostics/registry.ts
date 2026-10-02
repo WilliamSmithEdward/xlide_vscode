@@ -117,6 +117,7 @@ import { checkRuntimeMemberNotFound } from './rules/lateBoundMembers';
 import { checkConditionValues } from './rules/conditionValues';
 import { checkLockedArrays } from './rules/lockedArrays';
 import { checkDeletedObjects } from './rules/deletedObjects';
+import { checkLongLongNarrowing } from './rules/longLongNarrowing';
 import { checkObjectDefaultValues } from './rules/objectValues';
 import { checkEventHandlerSignatures } from './rules/eventHandlerSignatures';
 import { checkDeclarationForms } from './rules/declarationForms';
@@ -727,6 +728,20 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'raiseEventArguments',
 		run: (ctx, push) => checkRaiseEventArguments(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push),
+	},
+	{
+		name: 'longLongNarrowing',
+		run: (ctx, push) => checkLongLongNarrowing(
+			ctx.source,
+			ctx.mod,
+			ctx.symbols,
+			ctx.opts.conditionalCompilation,
+			ctx.opts.host,
+			ctx.opts.projectProcedures,
+			ctx.opts.projectVisibleSymbols,
+			ctx.activity,
+			push,
+		),
 	},
 	{
 		name: 'declarePtrSafeForWin64',
