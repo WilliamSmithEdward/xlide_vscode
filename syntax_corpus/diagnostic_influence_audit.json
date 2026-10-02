@@ -5141,11 +5141,13 @@
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "issue125_c_compile",
-        "issue144_b_compile"
+        "issue144_b_compile",
+        "issue291_12_compile",
+        "issue291_16_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Interface member not implemented. MS-VBAL 5.2.4.1; VBE \"Object module needs to implement ... for interface ...\" (issue #125, Excel 16.0).",
+      "notes": "Interface member not implemented. MS-VBAL 5.2.4.1; VBE \"Object module needs to implement ... for interface ...\" (issue #125, Excel 16.0). Issue #291: a Friend member is no part of the interface; a Public variable of the interface needs a Get and a Let (value type), a Set (object) or both (Variant).",
       "diagnosticKind": "compile-error"
     },
     {
@@ -5154,11 +5156,20 @@
       "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #125): 1 asserted case from the issue's measured corpus",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
-        "issue125_d_compile"
+        "issue125_d_compile",
+        "issue291_04_compile",
+        "issue291_05_compile",
+        "issue291_06_compile",
+        "issue291_07_compile",
+        "issue291_09_compile",
+        "issue291_11_compile",
+        "issue291_14_compile",
+        "issue291_15_compile",
+        "issue291_17_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Interface member implemented with another signature. MS-VBAL 5.2.4.1; VBE \"Procedure declaration does not match description of event or procedure having the same name\" (issue #125, Excel 16.0).",
+      "notes": "Interface member implemented with another signature. MS-VBAL 5.2.4.1; VBE \"Procedure declaration does not match description of event or procedure having the same name\" (issue #125, Excel 16.0). Issue #291: each parameter's ByVal or ByRef, its Optional and its default must match, a Function is not implemented by a Sub, and a Public variable's setter takes its value ByVal, or ByRef for a Variant.",
       "diagnosticKind": "compile-error"
     },
     {

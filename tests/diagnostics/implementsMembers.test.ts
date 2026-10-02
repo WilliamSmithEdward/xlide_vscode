@@ -95,7 +95,7 @@ describe('string defaults and read-write properties (issue #144)', () => {
 		const getOnly = 'Option Explicit\nImplements IShape2\nPrivate Property Get IShape2_Size() As Long\nEnd Property\n';
 		expectDiagnostic(getOnly, analyzeModule(getOnly, { moduleName: 'CSquare2', moduleKind: 'class', projectClassMembers: [ISHAPE] }), 'implements-member-missing', {
 			span: 'IShape2',
-			message: ['Property Let or Set', "'IShape2_Size'"],
+			message: ['Property Let', "'IShape2_Size'"],
 		});
 		const both = getOnly + 'Private Property Let IShape2_Size(ByVal RHS As Long)\nEnd Property\n';
 		expect(byCode(analyzeModule(both, { moduleName: 'CSquare3', moduleKind: 'class', projectClassMembers: [ISHAPE] }), 'implements-member-missing')).toHaveLength(0);

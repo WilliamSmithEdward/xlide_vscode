@@ -449,6 +449,13 @@ function lastParameter(symbol: VbaSymbol): VbaSymbol | undefined {
 	return params[params.length - 1];
 }
 
+/** The procedure kind a member symbol is, for its recorded parameters (issue #291). */
+function memberProcedureKind(symbol: VbaSymbol): 'sub' | 'function' | 'propertyGet' | 'propertyLet' | 'propertySet' | undefined {
+	return symbol.kind === 'sub' || symbol.kind === 'function' || symbol.kind === 'propertyGet' || symbol.kind === 'propertyLet' || symbol.kind === 'propertySet'
+		? symbol.kind
+		: undefined;
+}
+
 function projectObjectMemberSignature(symbol: VbaSymbol): string | undefined {
 	const procedure = procedureSignatureFromSymbol(symbol);
 	if (procedure) {
@@ -1697,6 +1704,10 @@ export class ProjectIndex {
 				} else if (symbol.kind === 'propertySet') {
 					existing.setAccessor = true;
 				}
+				const procedureKind = memberProcedureKind(symbol);
+				if (procedureKind) {
+					existing.procedureParams = { ...existing.procedureParams, [procedureKind]: procedureParamsFromSymbol(symbol, { includePassing: true }) };
+				}
 				existing.attributes = mergeMemberAttributes(existing.attributes, symbol.attributes);
 				existing.definitions = [
 					...(existing.definitions ?? []),
@@ -1719,6 +1730,7 @@ export class ProjectIndex {
 				...(symbol.kind === 'propertyLet' ? { letAccessor: true } : {}),
 				...(symbol.kind === 'propertySet' ? { setAccessor: true } : {}),
 				...(symbol.kind === 'sub' ? { sub: true } : {}),
+				...(memberProcedureKind(symbol) ? { procedureParams: { [memberProcedureKind(symbol)!]: procedureParamsFromSymbol(symbol, { includePassing: true }) } } : {}),
 				attributes: mergeMemberAttributes(undefined, symbol.attributes),
 			});
 		}
