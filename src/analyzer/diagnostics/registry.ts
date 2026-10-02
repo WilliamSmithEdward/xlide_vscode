@@ -74,6 +74,7 @@ import {
 	checkScalarMemberAccess,
 } from './rules/objectState';
 import {
+	checkIsOperandsInConditions,
 	checkIsOperatorOperands,
 	checkTypeOfIsCompatibility,
 	checkTypeOfMissingOperand,
@@ -1053,6 +1054,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'isOperatorNonObject',
 		procedureExpressions: (ctx, push) => checkIsOperatorOperands(ctx.symbols, push),
+	},
+	{
+		name: 'isOperandsInConditions',
+		run: (ctx, push) => checkIsOperandsInConditions(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push),
 	},
 	{
 		name: 'nonScalarBinaryOperand',

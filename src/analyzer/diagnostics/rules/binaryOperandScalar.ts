@@ -59,6 +59,20 @@ export function checkBinaryOperandScalar(
 	return (member) => {
 		const shapes = declarationShapeEnvironmentFor(symbols, member);
 		return (expr) => {
+			// Nothing is no value for any operator but Is: `Nothing + 1`,
+			// `"a" & Nothing`, `-Nothing`, `Not Nothing` (issue #325, measured
+			// in Excel 16.0).
+			const operation = expr.exprKind === 'BinaryExpr' && expr.operator !== 'Is'
+				? { operator: expr.operator, nothing: [expr.left, expr.right].find(isNothing) }
+				: expr.exprKind === 'UnaryExpr' ? { operator: expr.operator, nothing: isNothing(expr.operand) ? expr.operand : undefined } : undefined;
+			if (operation?.nothing) {
+				push(
+					'nonScalarBinaryOperand',
+					`The '${operation.operator}' operator needs a value, and Nothing is an object reference. This is a VBE compile error: Invalid use of object.`,
+					operation.nothing.span,
+				);
+				return;
+			}
 			if (expr.exprKind !== 'BinaryExpr' || !SCALAR_OPERAND_OPERATORS.has(expr.operator)) {
 				return;
 			}
@@ -73,6 +87,11 @@ export function checkBinaryOperandScalar(
 			}
 		};
 	};
+}
+
+function isNothing(expr: ExprNode): boolean {
+	const inner = expr.exprKind === 'ParenExpr' ? expr.inner : expr;
+	return inner.exprKind === 'LiteralExpr' && inner.literalKind === 'nothing';
 }
 
 /** A provably non-scalar identifier operand (a bare array, or a same-module

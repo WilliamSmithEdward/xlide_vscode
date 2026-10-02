@@ -23,6 +23,7 @@
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type { BodyNode, ForBlockNode, ModuleNode } from '../../parser/nodes';
+import { isLeafStatement } from '../../parser/nodes';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
 import type { VbaSymbol } from '../../symbols/symbolModel';
@@ -38,6 +39,7 @@ import {
 import {
 	activeModuleMembers,
 	bareAssignmentTarget,
+	blockHeaderLineSpan,
 	forEachStatement,
 	isInactiveNode,
 	matchParenFrom,
@@ -130,10 +132,50 @@ export function checkVariantValueMisuse(
 			return uses[0]?.start === offset;
 		};
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
+		// `With v` with v a number, a string or Empty, and a member access as
+		// the first statement inside (issue #325, measured in Excel 16.0: 424
+		// there; an empty With runs).
+		const visitWith = (body: readonly BodyNode[]): void => {
+			for (const node of body) {
+				if (isInactiveNode(activity, node)) {
+					continue;
+				}
+				if (node.kind === 'WithBlock') {
+					const header = blockHeaderLineSpan(source, node.span);
+					const toks = statementTokens(source, header).filter((tok) => tok.kind !== 'comment');
+					const lower = toks.length === 2 && tokenText(toks[0]) === 'with' ? tokenName(toks[1])?.toLowerCase() : undefined;
+					const first = (node.body as BodyNode[]).find((child) => !isInactiveNode(activity, child) && isLeafStatement(child));
+					const memberFirst = first !== undefined && statementTokens(source, first.span)[0]?.rawText === '.';
+					if (lower && isVariant(lower) && memberFirst) {
+						const scalar = scalarsFor(valuesAt(node)).get(lower);
+						const at = { start: header.start + toks[1].start, end: header.start + toks[1].end };
+						if (scalar) {
+							push('variantValueMisuse', `'${toks[1].rawText}' holds ${scalar} here, not an object for With to reach members of. This will raise Run-time error '424': Object required.`, at);
+						} else if (emptyHere(lower, at.start)) {
+							push('variantValueMisuse', `'${toks[1].rawText}' is never assigned, so it is Empty here, not an object for With to reach members of. This will raise Run-time error '424': Object required.`, at);
+						}
+					}
+				}
+				if ('body' in node && Array.isArray(node.body)) {
+					visitWith(node.body as BodyNode[]);
+				}
+			}
+		};
+		visitWith(member.body);
 		forEachStatement(member.body, (stmt) => {
 			for (const span of statementAndBranchSpans(stmt)) {
 				for (const hit of arrayCallOperands(statementTokens(source, span), sourceNames)) {
 					push('variantValueMisuse', hit.message, { start: span.start + hit.start, end: span.start + hit.end });
+				}
+			}
+			// `v Is Nothing` with v still Empty (issue #325, measured: 424).
+			for (const span of statementAndBranchSpans(stmt)) {
+				const toks = statementTokens(source, span);
+				for (let i = 0; i < toks.length; i++) {
+					const lower = toks[i - 1]?.rawText === '.' ? undefined : tokenName(toks[i])?.toLowerCase();
+					if (lower && (tokenText(toks[i + 1]) === 'is' || tokenText(toks[i - 1]) === 'is') && tokenText(toks[i - 1]) !== 'typeof' && emptyHere(lower, span.start + toks[i].start)) {
+						push('variantValueMisuse', `'${toks[i].rawText}' is never assigned, so it is Empty here, not an object for Is to compare. This will raise Run-time error '424': Object required.`, { start: span.start + toks[i].start, end: span.start + toks[i].end });
+					}
 				}
 			}
 			for (const span of statementAndBranchSpans(stmt)) {
@@ -175,6 +217,11 @@ export function checkVariantValueMisuse(
 						continue;
 					}
 					const next = toks[i + 1];
+					// `v Is Nothing` on a number or a string (issue #325, measured: 424).
+					if (scalar && (tokenText(next) === 'is' || (tokenText(toks[i - 1]) === 'is' && tokenText(toks[i - 2]) !== 'typeof'))) {
+						push('variantValueMisuse', `'${toks[i].rawText}' holds ${scalar} here, not an object for Is to compare. This will raise Run-time error '424': Object required.`, at);
+						continue;
+					}
 					if (next?.rawText === '.' && tokenName(toks[i + 2])) {
 						const holds = scalar ?? `an array from ${array}`;
 						push('variantValueMisuse', `'${toks[i].rawText}' holds ${holds} here, which has no members. This will raise Run-time error '424': Object required.`, at);

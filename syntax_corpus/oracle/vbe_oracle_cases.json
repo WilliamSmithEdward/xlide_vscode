@@ -86699,6 +86699,367 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a() As Long\r\n    10 Main = 0\r\n    20 If True Then\r\n    30 Main = a(0)\r\n    40 End If\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue325_01_runtime",
+      "description": "Issue #325 values used as objects, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 424.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function TakeL(ByVal n As Long) As Long\r\n    TakeL = n\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v\r\n    v = 5\r\n    With v\r\n        .x = 1\r\n    End With\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue325_02_runtime",
+      "description": "Issue #325 values used as objects, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 424.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function TakeL(ByVal n As Long) As Long\r\n    TakeL = n\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v\r\n    v = \"abc\"\r\n    With v\r\n        .x = 1\r\n    End With\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue325_03_runtime",
+      "description": "Issue #325 values used as objects, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 424.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function TakeL(ByVal n As Long) As Long\r\n    TakeL = n\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v\r\n    With v\r\n        .x = 1\r\n    End With\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue325_04_runtime",
+      "description": "Issue #325 values used as objects, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function TakeL(ByVal n As Long) As Long\r\n    TakeL = n\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v\r\n    Set v = Nothing\r\n    With v\r\n        .x = 1\r\n    End With\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue325_05_runtime",
+      "description": "Issue #325 values used as objects, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 424.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function TakeL(ByVal n As Long) As Long\r\n    TakeL = n\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v\r\n    v = 5\r\n    Main = (v Is Nothing)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue325_06_runtime",
+      "description": "Issue #325 values used as objects, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 424.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function TakeL(ByVal n As Long) As Long\r\n    TakeL = n\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v\r\n    v = \"a\"\r\n    Main = (v Is Nothing)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue325_07_runtime",
+      "description": "Issue #325 values used as objects, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 424.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function TakeL(ByVal n As Long) As Long\r\n    TakeL = n\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v\r\n    Main = (v Is Nothing)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue325_08_compile",
+      "description": "Issue #325 values used as objects, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function TakeL(ByVal n As Long) As Long\r\n    TakeL = n\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim a(2) As Long\r\n    With a(1)\r\n    End With\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue325_09_compile",
+      "description": "Issue #325 values used as objects, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function TakeL(ByVal n As Long) As Long\r\n    TakeL = n\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim a(2) As String\r\n    With a(1)\r\n    End With\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue325_10_compile",
+      "description": "Issue #325 values used as objects, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function TakeL(ByVal n As Long) As Long\r\n    TakeL = n\r\nEnd Function\r\nFunction Main() As Variant\r\n    With TakeL(1)\r\n    End With\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue325_11_compile",
+      "description": "Issue #325 values used as objects, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function TakeL(ByVal n As Long) As Long\r\n    TakeL = n\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Nothing + 1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue325_12_compile",
+      "description": "Issue #325 values used as objects, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function TakeL(ByVal n As Long) As Long\r\n    TakeL = n\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = \"a\" & Nothing\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue325_13_compile",
+      "description": "Issue #325 values used as objects, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function TakeL(ByVal n As Long) As Long\r\n    TakeL = n\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    If n Is Nothing Then Main = 1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue325_14_compile",
+      "description": "Issue #325 values used as objects, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function TakeL(ByVal n As Long) As Long\r\n    TakeL = n\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long\r\n    If a Is b Then Main = 1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue325_15_compile",
+      "description": "Issue #325 values used as objects, case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function TakeL(ByVal n As Long) As Long\r\n    TakeL = n\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim s As String\r\n    If s Is Nothing Then Main = 1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue325_16_compile",
+      "description": "Issue #325 values used as objects, case 16, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function TakeL(ByVal n As Long) As Long\r\n    TakeL = n\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    Do While n Is Nothing\r\n    Loop\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue325_17_runtime",
+      "description": "Issue #325 values used as objects, case 17, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function TakeL(ByVal n As Long) As Long\r\n    TakeL = n\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v\r\n    v = 5\r\n    With v\r\n    End With\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue325_18_runtime",
+      "description": "Issue #325 values used as objects, case 18, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function TakeL(ByVal n As Long) As Long\r\n    TakeL = n\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v\r\n    Set v = New Collection\r\n    With v\r\n        .Add 1\r\n    End With\r\n    Main = v.Count\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue325_19_runtime",
+      "description": "Issue #325 values used as objects, case 19, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> False.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function TakeL(ByVal n As Long) As Long\r\n    TakeL = n\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v\r\n    Set v = New Collection\r\n    Main = (v Is Nothing)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue325_20_compile",
+      "description": "Issue #325 values used as objects, case 20, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function TakeL(ByVal n As Long) As Long\r\n    TakeL = n\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim a(2) As Variant\r\n    With a(1)\r\n    End With\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue325_21_compile",
+      "description": "Issue #325 values used as objects, case 21, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function TakeL(ByVal n As Long) As Long\r\n    TakeL = n\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim a(2) As Collection\r\n    Set a(1) = New Collection\r\n    With a(1)\r\n    End With\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue325_22_runtime",
+      "description": "Issue #325 values used as objects, case 22, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function TakeL(ByVal n As Long) As Long\r\n    TakeL = n\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v\r\n    v = 5\r\n    If v = 5 Then Main = 1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue325_23_compile",
+      "description": "Issue #325 values used as objects, case 23, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Nothing + 1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue325_24_compile",
+      "description": "Issue #325 values used as objects, case 24, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1 - Nothing\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue325_25_compile",
+      "description": "Issue #325 values used as objects, case 25, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Nothing * 2\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue325_26_compile",
+      "description": "Issue #325 values used as objects, case 26, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = \"a\" & Nothing\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue325_27_compile",
+      "description": "Issue #325 values used as objects, case 27, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Nothing & \"a\"\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue325_28_compile",
+      "description": "Issue #325 values used as objects, case 28, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = (1 = Nothing)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue325_29_compile",
+      "description": "Issue #325 values used as objects, case 29, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = (Nothing <> 1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue325_30_compile",
+      "description": "Issue #325 values used as objects, case 30, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = (Nothing And True)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue325_31_compile",
+      "description": "Issue #325 values used as objects, case 31, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = (1 Or Nothing)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue325_32_compile",
+      "description": "Issue #325 values used as objects, case 32, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = -Nothing\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue325_33_compile",
+      "description": "Issue #325 values used as objects, case 33, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Not Nothing\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue325_34_compile",
+      "description": "Issue #325 values used as objects, case 34, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = (Nothing Is Nothing)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue325_35_compile",
+      "description": "Issue #325 values used as objects, case 35, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = (Nothing Like \"a\")\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }

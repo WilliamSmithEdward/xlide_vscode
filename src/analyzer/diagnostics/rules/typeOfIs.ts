@@ -22,8 +22,10 @@
 //     the other), proven via the existing object tables in both directions.
 
 import type {
+	BodyNode,
 	ExprNode,
 	IdentifierExpr,
+	ModuleNode,
 	Span,
 	TypeOfIsExpr,
 } from '../../parser/nodes';
@@ -38,6 +40,10 @@ import {
 	typeEnvironmentFor,
 } from '../typeInference';
 import { tokenizeCached } from '../../lexer/tokenize';
+import type { VbaToken } from '../../lexer/tokenKinds';
+import { parseExpression } from '../../parser/parseExpression';
+import { forEachSubExpression } from '../exprWalk';
+import { activeModuleMembers, blockFooterLineSpan, blockHeaderLineSpan, isInactiveNode, statementTokens, tokenText } from '../walker';
 import type { ProcedureExpressionVisitor } from '../exprWalk';
 
 /**
@@ -188,6 +194,77 @@ export function checkIsOperatorOperands(
 			}
 		};
 	};
+}
+
+/**
+ * The same check on the conditions the expression walk does not parse: a
+ * single-line If's, and a Do or While loop's (issue #325, measured in Excel
+ * 16.0: each is a compile error, Type mismatch).
+ */
+export function checkIsOperandsInConditions(
+	source: string,
+	mod: ModuleNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		const env = typeEnvironmentFor(symbols, member);
+		const check = (span: Span, from: number, to: (toks: readonly VbaToken[]) => number): void => {
+			// Absolute offsets, so the parsed nodes carry the source's spans.
+			const toks = statementTokens(source, span)
+				.filter((tok) => tok.kind !== 'comment')
+				.map((tok) => ({ ...tok, start: span.start + tok.start, end: span.start + tok.end }));
+			const end = to(toks);
+			if (end <= from) {
+				return;
+			}
+			const parsed = parseExpression(toks, from, end).expr;
+			if (!parsed) {
+				return;
+			}
+			forEachSubExpression(parsed, (expr) => {
+				if (expr.exprKind !== 'BinaryExpr' || expr.operator !== 'Is') {
+					return;
+				}
+				const offender = nonObjectOperand(expr.left, env) ?? nonObjectOperand(expr.right, env);
+				if (offender) {
+					push('isOperatorNonObject', `The 'Is' operator requires object operands, but ${offender.detail}, which is not an object.`, offender.span);
+				}
+			});
+		};
+		const visit = (body: readonly BodyNode[]): void => {
+			for (const node of body) {
+				if (isInactiveNode(activity, node)) {
+					continue;
+				}
+				if (node.kind === 'Statement' && node.singleLineIfBranches) {
+					check(node.span, 1, (toks) => (tokenText(toks[0]) === 'if' ? toks.findIndex((tok) => tokenText(tok) === 'then') : -1));
+				} else if (node.kind === 'DoBlock' || node.kind === 'WhileBlock') {
+					const header = blockHeaderLineSpan(source, node.span);
+					const headToks = statementTokens(source, header);
+					const from = tokenText(headToks[0]) === 'do' && ['while', 'until'].includes(tokenText(headToks[1])) ? 2 : tokenText(headToks[0]) === 'while' ? 1 : -1;
+					if (from > 0) {
+						check(header, from, (toks) => toks.length);
+					}
+					if (node.kind === 'DoBlock') {
+						const footer = blockFooterLineSpan(source, node.span);
+						const footToks = statementTokens(source, footer);
+						if (tokenText(footToks[0]) === 'loop' && ['while', 'until'].includes(tokenText(footToks[1]))) {
+							check(footer, 2, (toks) => toks.length);
+						}
+					}
+				}
+				if ('body' in node && Array.isArray(node.body)) {
+					visit(node.body as BodyNode[]);
+				}
+			}
+		};
+		visit(member.body);
+	}
 }
 
 /** Describes a provably non-object (scalar) operand of `Is`, or undefined. */
