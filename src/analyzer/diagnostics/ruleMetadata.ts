@@ -1344,6 +1344,18 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.2.3.1 (array declaration bounds)',
 		confidence: 'high',
 	},
+	arrayTemporarilyLocked: {
+		code: 'array-temporarily-locked',
+		title: 'Array is locked while it is resized or erased',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: false,
+		diagnosticKind: 'deterministic-runtime-error',
+		source: 'XLIDE',
+		specReference: 'VBE runtime error 10: This array is fixed or temporarily locked',
+		allowSeverityDowngrade: true,
+		confidence: 'high',
+	},
 	unallocatedDynamicArrayAccess: {
 		code: 'unallocated-dynamic-array-access',
 		title: 'Dynamic array is not allocated',

@@ -81943,6 +81943,160 @@
       "source": "Option Explicit\r\nDefInt A-Z\r\nFunction Main() As Variant\r\n    Dim i\r\n    i = 30000\r\n    Main = i\r\nEnd Function\r\n\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue283_01_runtime",
+      "description": "Issue #283 an array resized or erased while it is locked, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 10.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a() As Long, x As Variant\r\n    ReDim a(2)\r\n    For Each x In a\r\n        Erase a\r\n    Next\r\n    Main = 1\r\nEnd Function\r\n\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue283_02_runtime",
+      "description": "Issue #283 an array resized or erased while it is locked, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 10.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a() As Long, x As Variant\r\n    ReDim a(2)\r\n    For Each x In a\r\n        ReDim a(5)\r\n    Next\r\n    Main = 1\r\nEnd Function\r\n\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue283_03_runtime",
+      "description": "Issue #283 an array resized or erased while it is locked, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 10.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a() As Long, x As Variant\r\n    ReDim a(2)\r\n    For Each x In a\r\n        ReDim Preserve a(5)\r\n    Next\r\n    Main = 1\r\nEnd Function\r\n\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue283_04_runtime",
+      "description": "Issue #283 an array resized or erased while it is locked, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 10.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, x As Variant\r\n    v = Array(1, 2)\r\n    For Each x In v\r\n        Erase v\r\n    Next\r\n    Main = 1\r\nEnd Function\r\n\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue283_05_runtime",
+      "description": "Issue #283 an array resized or erased while it is locked, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 10.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant, x As Variant\r\n    v = Array(1, 2)\r\n    For Each x In v\r\n        v = Array(9)\r\n    Next\r\n    Main = 1\r\nEnd Function\r\n\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue283_06_runtime",
+      "description": "Issue #283 an array resized or erased while it is locked, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 10.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Type T\r\n    n As Long\r\nEnd Type\r\nFunction Main() As Variant\r\n    Dim t() As T\r\n    ReDim t(1)\r\n    With t(0)\r\n        ReDim t(3)\r\n    End With\r\n    Main = 1\r\nEnd Function\r\n\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue283_07_runtime",
+      "description": "Issue #283 an array resized or erased while it is locked, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 10.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a() As Long\r\n    ReDim a(2)\r\n    Zap a(0), a\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Zap(ByRef e As Long, ByRef a() As Long)\r\n    Erase a\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue283_08_runtime",
+      "description": "Issue #283 an array resized or erased while it is locked, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 10.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a() As Long\r\n    ReDim a(2)\r\n    Grow a(0), a\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Grow(ByRef e As Long, ByRef a() As Long)\r\n    ReDim a(5)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue283_09_runtime",
+      "description": "Issue #283 an array resized or erased while it is locked, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a() As Long, x As Variant\r\n    ReDim a(2)\r\n    For Each x In a\r\n        If x > 5 Then Erase a\r\n    Next\r\n    Main = 1\r\nEnd Function\r\n\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue283_10_runtime",
+      "description": "Issue #283 an array resized or erased while it is locked, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a() As Long, x As Variant\r\n    ReDim a(2)\r\n    Dim i As Long\r\n    For Each x In a\r\n        a(0) = 1\r\n    Next\r\n    Main = 1\r\nEnd Function\r\n\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue283_11_runtime",
+      "description": "Issue #283 an array resized or erased while it is locked, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a() As Long, i As Long\r\n    ReDim a(2)\r\n    For i = 0 To 2\r\n        ReDim Preserve a(5)\r\n    Next\r\n    Main = 1\r\nEnd Function\r\n\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue283_12_runtime",
+      "description": "Issue #283 an array resized or erased while it is locked, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a() As Long, x As Variant\r\n    ReDim a(2)\r\n    For Each x In a\r\n    Next\r\n    Erase a\r\n    Main = 1\r\nEnd Function\r\n\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue283_13_runtime",
+      "description": "Issue #283 an array resized or erased while it is locked, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a() As Long, b() As Long, x As Variant\r\n    ReDim a(2)\r\n    ReDim b(2)\r\n    For Each x In a\r\n        Erase b\r\n    Next\r\n    Main = 1\r\nEnd Function\r\n\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue283_14_runtime",
+      "description": "Issue #283 an array resized or erased while it is locked, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a() As Long, e As Long\r\n    ReDim a(2)\r\n    Zap e, a\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Zap(ByRef e As Long, ByRef a() As Long)\r\n    Erase a\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
