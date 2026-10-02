@@ -324,6 +324,29 @@ describe('analyzeModule - unreachable-code', () => {
 		expect(src.slice(edit!.span.start, edit!.span.end)).toBe('    Debug.Print 2\n    Debug.Print 3\n');
 	});
 
+	// A declaration is not run but names the variable for the whole procedure:
+	// each body below runs in Excel 16.0 (issue #466, measured 2026-10-02).
+	it('leaves a Dim, Static or Const out of what the fix deletes', () => {
+		const body = (...lines: string[]): string => `Option Explicit\nPublic Function Main() As Variant\n${lines.map((line) => `    ${line}`).join('\n')}\nEnd Function\n`;
+		expect(byCode(analyzeModule(body('GoTo Inside', 'Dim i As Long', 'For i = 1 To 2', 'Inside:', 'Next', 'Main = 1')), 'unreachable-code')).toEqual([]);
+		const src = body('GoTo L', 'Main = 2', 'Const K = 3', 'Static s As Long', 'Main = 4', 'L:', 'Main = K + s');
+		const found = byCode(analyzeModule(src), 'unreachable-code');
+		expect(found.map((diag) => spanText(src, diag))).toEqual(['Main = 2', 'Main = 4']);
+		for (const diag of found) {
+			const edit = diag.data?.removeUnreachableCode?.edit;
+			expect(src.slice(edit!.span.start, edit!.span.end)).toMatch(/^ {4}Main = [24]\n$/);
+		}
+		// A deletion that would take a declaration with it is not offered.
+		for (const lines of [
+			['GoTo L', 'Dim k As Long: k = 9', 'L:', 'k = k + 1', 'Main = k'],
+			['GoTo L', 'If True Then', '    Dim j As Long', 'End If', 'L:', 'j = 4', 'Main = j'],
+		]) {
+			const dead = byCode(analyzeModule(body(...lines)), 'unreachable-code');
+			expect(dead, lines.join(' / ')).toHaveLength(1);
+			expect(dead[0].data?.removeUnreachableCode).toBeUndefined();
+		}
+	});
+
 	it('flags after GoTo, Resume, End, Return, Exit Do and Exit For', () => {
 		const src = [
 			'Sub T()',

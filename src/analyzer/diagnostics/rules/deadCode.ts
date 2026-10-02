@@ -459,16 +459,27 @@ export function checkUnreachableCode(
 	function walkBody(body: BodyNode[]): void {
 		let terminator: Terminator | undefined;
 		let dead: Span | undefined;
-		const flush = (): void => {
+		// A Dim, Static or Const is not run: it names the variable for the
+		// whole procedure, so code after it still compiles with it. The fix
+		// must not delete one (issue #466, measured in Excel 16.0).
+		const declarations: Span[] = [];
+		let declaresInside = false;
+		const report = (): void => {
 			if (dead && terminator) {
+				const lines = wholeLineSpan(source, dead);
+				const keeps = declaresInside || declarations.some((decl) => decl.start < lines.end && decl.end > lines.start);
 				push(
 					'unreachableCode',
 					`Unreachable code after '${terminator.text}'.`,
 					dead,
-					{ removeUnreachableCode: { edit: { span: wholeLineSpan(source, dead), newText: '' } } },
+					keeps ? undefined : { removeUnreachableCode: { edit: { span: lines, newText: '' } } },
 				);
 			}
 			dead = undefined;
+			declaresInside = false;
+		};
+		const flush = (): void => {
+			report();
 			terminator = undefined;
 		};
 		for (const node of body) {
@@ -477,6 +488,11 @@ export function checkUnreachableCode(
 			}
 			if (node.kind === 'ConditionalDirective') {
 				flush();
+				continue;
+			}
+			if (terminator && isDeclaration(source, node)) {
+				report();
+				declarations.push(node.span);
 				continue;
 			}
 			if (isLeafStatement(node) && node.singleLineIfTail) {
@@ -516,6 +532,7 @@ export function checkUnreachableCode(
 					continue;
 				}
 				dead = dead ? { start: dead.start, end: node.span.end } : { start: node.span.start, end: node.span.end };
+				declaresInside ||= blockDeclares(source, node);
 				continue;
 			}
 			walkBlock(node);
@@ -580,6 +597,26 @@ function terminalStatement(toks: readonly VbaToken[], resumeRuns = false): Termi
 		return { text: 'Return' };
 	}
 	return undefined;
+}
+
+/** A Dim, Static or Const statement. */
+function isDeclaration(source: string, node: BodyNode): boolean {
+	if (node.kind === 'VariableGroup') {
+		return true;
+	}
+	if (!isLeafStatement(node)) {
+		return false;
+	}
+	const head = tokenText(tokensAfterLineNumber(statementTokens(source, node.span))[0]);
+	return head === 'dim' || head === 'static' || head === 'const';
+}
+
+/** Whether a block holds a declaration at any depth. */
+function blockDeclares(source: string, node: BodyNode): boolean {
+	const bodies: BodyNode[][] = node.kind === 'IfBlock'
+		? node.branches.map((branch) => branch.body)
+		: 'body' in node && Array.isArray(node.body) ? [node.body] : [];
+	return bodies.some((body) => body.some((child) => isDeclaration(source, child) || blockDeclares(source, child)));
 }
 
 function blockHasLandingPoint(source: string, node: BodyNode): boolean {
