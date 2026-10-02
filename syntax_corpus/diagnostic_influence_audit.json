@@ -5653,11 +5653,21 @@
         "issue442_39_runtime",
         "issue442_40_runtime",
         "issue442_41_runtime",
-        "issue442_42_runtime"
+        "issue442_42_runtime",
+        "issue408_01_runtime",
+        "issue408_02_runtime",
+        "issue408_03_runtime",
+        "issue408_04_runtime",
+        "issue408_05_runtime",
+        "issue408_06_runtime",
+        "issue408_18_runtime",
+        "issue408_21_runtime",
+        "issue408_22_runtime",
+        "issue408_23_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Member not found at run time. VBE runtime error 438: Object doesn't support this property or method (issue #121, Excel 16.0). Issue #224: a class reaches the late-bound variable from one declared as it (Set o = c; 91 while c may be Nothing); a Private member is absent (438); a Let into a Get-only property raises 451 and a read of a Let-only property 450. Issue #226: f.Controls(\"Nope\") on a form whose controls are known raises -2147024809. Issue #243: CallByName with a literal name: no Public member of a project class (a Private one included), or a Collection name other than Add, Count, Item and Remove, raises 438; VbGet or VbLet on a Sub or Function raises 450. In Excel, Application.Run of a name no standard or document module of the project declares raises 1004 (Private procedures count, class members do not; judged only with the project) (measured in Excel 16.0, build 20326, issue243_* oracle cases). Issue #246: c(i).Member on a Collection whose item i, or every item, was added as New C asks C for the member: 438 when C lacks it (measured in Excel 16.0). Issue #356: c.Add with Before:=n or After:=n, a whole number within the items, puts the item there; a key or an expression for either leaves the order unknown and nothing is judged by index. Issue #442: also a name WorksheetFunction lacks, WorksheetFunction.Mid or a typo, which compiles and raises 438. The list is the type library one Application already reads as complete.",
+      "notes": "Member not found at run time. VBE runtime error 438: Object doesn't support this property or method (issue #121, Excel 16.0). Issue #224: a class reaches the late-bound variable from one declared as it (Set o = c; 91 while c may be Nothing); a Private member is absent (438); a Let into a Get-only property raises 451 and a read of a Let-only property 450. Issue #226: f.Controls(\"Nope\") on a form whose controls are known raises -2147024809. Issue #243: CallByName with a literal name: no Public member of a project class (a Private one included), or a Collection name other than Add, Count, Item and Remove, raises 438; VbGet or VbLet on a Sub or Function raises 450. In Excel, Application.Run of a name no standard or document module of the project declares raises 1004 (Private procedures count, class members do not; judged only with the project) (measured in Excel 16.0, build 20326, issue243_* oracle cases). Issue #246: c(i).Member on a Collection whose item i, or every item, was added as New C asks C for the member: 438 when C lacks it (measured in Excel 16.0). Issue #356: c.Add with Before:=n or After:=n, a whole number within the items, puts the item there; a key or an expression for either leaves the order unknown and nothing is judged by index. Issue #442: also a name WorksheetFunction lacks, WorksheetFunction.Mid or a typo, which compiles and raises 438. The list is the type library one Application already reads as complete. Issue #408: the bare Run is Application.Run; too many arguments for the procedure named raise 450 and too few 449, through Run and CallByName; CallByName VbLet on a Property Get alone raises 451; and a Collection member reached by any call type but VbMethod raises 438.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
