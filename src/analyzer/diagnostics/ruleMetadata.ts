@@ -888,13 +888,13 @@ export const DIAGNOSTIC_RULES = {
 	},
 	collectionOperand: {
 		code: 'collection-operand',
-		title: 'Collection used as an operand',
+		title: 'Collection or object without a value used as an operand',
 		defaultSeverity: 'error',
 		category: 'semantic',
 		vbeCompileEquivalent: true,
 		diagnosticKind: 'compile-error',
 		source: 'XLIDE',
-		specReference: 'VBE "Argument not optional" on a Collection whose default member Item takes an index (issue #125, Excel 16.0)',
+		specReference: 'VBE "Argument not optional" on a Collection whose default member Item takes an index (issue #125, Excel 16.0); "Type mismatch" on a Word Paragraph, whose default member Range holds an object (issue #462, Word 16.0)',
 		confidence: 'high',
 	},
 	subUsedAsValue: {

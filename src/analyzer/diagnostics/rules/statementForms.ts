@@ -21,7 +21,7 @@ import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { VbaProcedureSignature } from '../../symbols/symbolModel';
 import { statementLabelDeclarations, statementLabelReferences } from '../../flow/procedureLabels';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
-import { isKnownScalarType, normalizeType, objectValueNeedsIndex, typeEnvironmentFor } from '../typeInference';
+import { isKnownScalarType, normalizeType, objectHoldingDefault, objectValueNeedsIndex, typeEnvironmentFor } from '../typeInference';
 import { projectClassMemberAt, type MemberCompletionContext } from '../../completion/memberAccess';
 import { resolveHostAlias } from '../../host/hostModel';
 import {
@@ -168,6 +168,19 @@ export function checkStatementForms(
 						// typed value (issue #221).
 						if (target && i === eq + 1 && toks.length === eq + 2 && typedValue(target.name.toLowerCase())) {
 							push('collectionOperand', `'${name}' is ${/^[aeiou]/i.test(typeName) ? 'an' : 'a'} ${typeName}: its default member Item needs an index, so it has no value for '${target.name}' to take. This is a VBE compile error: Argument not optional.`, at(i));
+							continue;
+						}
+					}
+					// `x + 1` and `s = x` on a Word Paragraph, whose default member
+					// Range holds an object (issue #462, measured in Word 16.0).
+					const holding = toks[i + 1]?.rawText !== '(' && toks[i + 1]?.rawText !== '.' && env.has(lower) ? objectHoldingDefault(env.get(lower), memberCtx) : undefined;
+					if (holding) {
+						const typeName = env.get(lower)!;
+						const previous = i - 1 === eq ? undefined : toks[i - 1];
+						const operator = [toks[i + 1], previous].find((tok) => tok && ((tok.kind === 'operator' && SCALAR_OPERATORS.has(tok.rawText)) || tokenText(tok) === 'mod'));
+						const intoTyped = !operator && target && i === eq + 1 && toks.length === eq + 2 && typedValue(target.name.toLowerCase());
+						if (operator || intoTyped) {
+							push('collectionOperand', `'${name}' is ${/^[aeiou]/i.test(typeName) ? 'an' : 'a'} ${typeName}: its default member ${holding.name} holds an object (${holding.returns}), so ${operator ? `'${operator.rawText}' has no value to work on` : `it has no value for '${target!.name}' to take`}. This is a VBE compile error: Type mismatch.`, at(i));
 							continue;
 						}
 					}
