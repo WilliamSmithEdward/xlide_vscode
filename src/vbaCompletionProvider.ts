@@ -27,6 +27,8 @@ import {
 	callableCompletionShouldInsertParens,
 	resolveEventHandlerCompletions,
 	resolveArgumentValueCompletion,
+	resolveMacroNameCompletions,
+	type MacroNameCandidate,
 	resolveIdentifierCompletions,
 	type ArgumentValueCompletion,
 	type HostConstant,
@@ -224,6 +226,23 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 		const list = (items: vscode.CompletionItem[]): vscode.CompletionList =>
 			new vscode.CompletionList(items, !contextComplete);
 
+		// A string that names a procedure: `Application.Run "`, ReDim's
+		// `.OnClick "` (issue #217). Nothing else is offered inside it.
+		const macroNames = resolveMacroNameCompletions(source, offset, {
+			...toMemberCompletionContext(fastProjectCtx),
+			moduleName: fastProjectCtx.moduleName,
+			moduleSource: source,
+			projectProcedures: fastProjectCtx.projectProcedures,
+		});
+		if (macroNames) {
+			const replace = new vscode.Range(document.positionAt(macroNames.contentSpan.start), document.positionAt(macroNames.contentSpan.end));
+			return list(macroNames.candidates.map((candidate) => this._toMacroNameItem(candidate, replace)));
+		}
+		// A quote opens or closes any other string, where nothing is offered.
+		if (context?.triggerKind === vscode.CompletionTriggerKind.TriggerCharacter && context.triggerCharacter === '"') {
+			return new vscode.CompletionList(directiveItems, false);
+		}
+
 		const fastTypes = resolveTypeCompletions(source, offset, toTypeCompletionContext(fastProjectCtx));
 		if (fastTypes.length > 0) {
 			return list(fastTypes.map((t) => this._toTypeItem(t, range)));
@@ -338,6 +357,18 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 		}
 		item.range = range;
 		item.sortText = `0:${constant.name}`;
+		return item;
+	}
+
+	/** A procedure offered inside a string that names one, `Module.Proc` (issue #217). */
+	private _toMacroNameItem(candidate: MacroNameCandidate, range: vscode.Range): vscode.CompletionItem {
+		const procedure = candidate.procedure;
+		const item = new vscode.CompletionItem(candidate.name, procedure.kind === 'function' ? vscode.CompletionItemKind.Function : vscode.CompletionItemKind.Method);
+		item.detail = procedure.signature ?? `${procedure.kind === 'function' ? 'Function' : 'Sub'} ${procedure.name}`;
+		if (hasDocContent(procedure.doc)) {
+			item.documentation = new vscode.MarkdownString(renderDocMarkdown(procedure.doc));
+		}
+		item.range = range;
 		return item;
 	}
 

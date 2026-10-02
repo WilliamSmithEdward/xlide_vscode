@@ -49,6 +49,7 @@ import {
 import { DocRegistry } from '../docs/docRegistry';
 import { VbaDoc, hasDocContent, renderDocMarkdown } from '../docs/docModel';
 import type { VbaProjectClassMembers } from '../symbols/symbolModel';
+import { macroNameStringAt, macroNameTarget } from '../completion/macroNames';
 
 /** A resolved hover description for the identifier under the cursor. */
 export interface HoverInfo {
@@ -123,7 +124,7 @@ export function resolveHover(
 	const tokens = tokenizeCached(source);
 	const idx = findIdentTokenIndex(tokens, offset);
 	if (idx < 0) {
-		return undefined;
+		return resolveMacroNameHover(source, offset, ctx);
 	}
 	const token = tokens[idx];
 	const span: Span = { start: token.start, end: token.end };
@@ -459,6 +460,21 @@ function resolveUserSymbol(
 		info.documentation = renderDocMarkdown(doc);
 	}
 	return info;
+}
+
+/**
+ * A string that names a procedure, `Application.Run "Demo.BuildReport"` or a
+ * handler string such as ReDim's `.OnClick "Demo.BuildReport"`: the procedure
+ * it names (issue #217).
+ */
+function resolveMacroNameHover(source: string, offset: number, ctx: HoverContext): HoverInfo | undefined {
+	const macro = macroNameStringAt(source, offset, ctx);
+	const target = macro ? macroNameTarget(macro.text, ctx) : undefined;
+	if (!macro || !target) {
+		return undefined;
+	}
+	const span: Span = { start: macro.contentSpan.start, end: macro.contentSpan.end };
+	return resolveProjectProcedureHover(target.name, { ...ctx, projectProcedures: [target] }, span);
 }
 
 function resolveProjectProcedureHover(

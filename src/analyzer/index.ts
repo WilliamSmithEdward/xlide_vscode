@@ -156,6 +156,10 @@ export {
 	type ArgumentValueCompletion,
 } from './completion/argumentValueCompletion';
 export {
+	resolveMacroNameCompletions,
+	type MacroNameCandidate,
+} from './completion/macroNames';
+export {
 	resolveSignatureHelp,
 	SignatureHelpContext,
 } from './signature/signatureHelp';
