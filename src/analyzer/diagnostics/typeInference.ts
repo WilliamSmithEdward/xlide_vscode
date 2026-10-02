@@ -3219,7 +3219,7 @@ export function knownLocalLiteralValues(
 					if (entry) {
 						const value = toks.slice(first + 2).filter((tok) => tok.kind !== 'comment');
 						const kind = entry.kind ?? (unwrapOuterParens(value)[0]?.kind === 'stringLiteral' ? 'string' : 'number');
-						const literal = plainLiteralText(value, kind);
+						const literal = plainLiteralText(value, kind, entry.kind !== undefined);
 						if (literal === undefined || (entry.kind !== undefined && entry.kind !== kind)) {
 							entry.mutated = true;
 						} else {
@@ -3374,7 +3374,7 @@ function literalValueLocals(
 			continue;
 		}
 		const type = normalizeType(child.asType);
-		const kind = type === undefined || type === 'variant' ? undefined : isNumericType(type) ? 'number' : type === 'string' ? 'string' : 'other';
+		const kind = type === undefined || type === 'variant' ? undefined : isNumericType(type) || type === 'boolean' || type === 'date' ? 'number' : type === 'string' ? 'string' : 'other';
 		if (kind === 'other' || child.fixedLength !== undefined) {
 			continue;
 		}
@@ -3420,7 +3420,7 @@ export function knownLocalLiteralValuesAt(
 					continue;
 				}
 				const kind = locals.get(lower) ?? (unwrapOuterParens(value)[0]?.kind === 'stringLiteral' ? 'string' : 'number');
-				const literal = plainLiteralText([...value], kind);
+				const literal = plainLiteralText([...value], kind, locals.get(lower) !== undefined);
 				const origin = value === DEFAULT_NUMBER || value === DEFAULT_STRING ? 'default' : 'literal';
 				if (literal === undefined) {
 					next.delete(lower);
@@ -3439,7 +3439,7 @@ export function knownLocalLiteralValuesAt(
 				continue;
 			}
 			const kind = moduleVariables.get(lower) ?? (unwrapOuterParens(value)[0]?.kind === 'stringLiteral' ? 'string' : 'number');
-			const literal = plainLiteralText([...value], kind);
+			const literal = plainLiteralText([...value], kind, moduleVariables.get(lower) !== undefined);
 			// The reaching write is the last one that runs before the
 			// statement: a later one in a block would have ended the value.
 			const dead = unreachableStatementsIn(source, proc, symbols, activity);
@@ -3709,10 +3709,16 @@ const DEFAULT_NUMBER: readonly VbaToken[] = rawExpressionTokens('0');
 const DEFAULT_STRING: readonly VbaToken[] = rawExpressionTokens('""');
 
 /** The literal a plain `x = literal` assigns, as text, or undefined for any other value. */
-function plainLiteralText(value: VbaToken[], kind: 'number' | 'string'): string | undefined {
+function plainLiteralText(value: VbaToken[], kind: 'number' | 'string', typed = false): string | undefined {
 	const toks = unwrapOuterParens(value);
 	if (kind === 'string') {
 		return toks.length === 1 && toks[0].kind === 'stringLiteral' ? stringLiteralValue(toks[0].rawText) : undefined;
+	}
+	// A typed number or Boolean stores True as -1 and False as 0 (issue
+	// #491); a Variant keeps a Boolean, which is no number here.
+	const word = toks.length === 1 && toks[0].kind === 'keyword' ? tokenText(toks[0]) : '';
+	if (typed && (word === 'true' || word === 'false')) {
+		return word === 'true' ? '-1' : '0';
 	}
 	let sign = 1;
 	let rest = toks;

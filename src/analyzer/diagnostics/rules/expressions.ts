@@ -102,6 +102,7 @@ import {
 	type ProcedureStatementVisitor,
 } from '../walker';
 import { straightLineAssignments } from '../straightLineValues';
+import { conditionValue } from '../conditionValue';
 
 /**
  * Rule: every parenthesis must be matched within its logical statement. VBA has
@@ -611,6 +612,7 @@ export function checkDivisionByZeroExpressions(
 		// `1 / i` divides by 0 on the first (issue #263).
 		const counters = loopCountersAt(source, member.body, activity);
 		let passValues: ReadonlyMap<string, number> = new Map();
+		let heldNow: (lower: string) => readonly VbaToken[] | undefined = () => undefined;
 		const lookup: IntegerConstantLookup = {
 			get: (name) => {
 				const pass = passValues.get(name.toLowerCase());
@@ -623,6 +625,15 @@ export function checkDivisionByZeroExpressions(
 				}
 				const local = known.get(name.toLowerCase());
 				if (local?.kind === 'empty') {
+					return 0;
+				}
+				// "0" divides as 0 (issue #491, measured in Excel 16.0).
+				if (local?.kind === 'string' && !local.contentMutated && /^\s*[+-]?(0+\.?0*|\.0+)\s*$/.test(local.value as string)) {
+					return 0;
+				}
+				// A Variant the straight line just set to Empty or CDec(0).
+				const held = heldNow(name.toLowerCase());
+				if (held && ((held.length === 1 && tokenText(held[0]) === 'empty') || zeroConversionCallEnd(held, 0) === held.length - 1)) {
 					return 0;
 				}
 				const field = members.get(name.toLowerCase());
@@ -657,6 +668,7 @@ export function checkDivisionByZeroExpressions(
 				return;
 			}
 			known = valuesAt(stmt);
+			heldNow = (lower) => (reaching ??= straightLineAssignments(source, member.body, activity)).get(stmt)?.get(lower)?.filter((t) => t.kind !== 'comment');
 			// A single-line If's branch sees the members less what its condition names.
 			members = membersAt ? membersAt(stmt, stmt.span.end) : members;
 			checkEachCounterPass(source, stmt.span, counters.get(stmt), () => undefined, (values, report) => {
@@ -1426,6 +1438,16 @@ function zeroDivisorExpression(
 	if (folded === 0) {
 		return toks.slice(start, endExclusive);
 	}
+	// A comparison known False is 0: `5 / (n = 2)` with n = 1 (issue #491).
+	const inner = toks.slice(start, endExclusive);
+	let depth = 0;
+	const compares = inner.some((tok) => {
+		depth += tok.rawText === '(' ? 1 : tok.rawText === ')' ? -1 : 0;
+		return depth === 0 && ['=', '<>', '<', '>', '<=', '>='].includes(tok.rawText);
+	});
+	if (compares && conditionValue(inner, { value: (lower) => constants.get(lower) }) === false) {
+		return inner;
+	}
 	if (toks[start]?.rawText === '(') {
 		const close = matchParenFrom(toks, start);
 		if (close === endExclusive - 1) {
@@ -1443,7 +1465,7 @@ function zeroDivisorExpression(
 	if (endExclusive === start + 1 && isZeroDivisorAtom(toks[start], constants)) {
 		return [toks[start]];
 	}
-	if (zeroConversionCallEnd(toks, start) === endExclusive - 1) {
+	if (zeroConversionCallEnd(toks, start, constants) === endExclusive - 1) {
 		return toks.slice(start, endExclusive);
 	}
 	return undefined;
@@ -1474,7 +1496,7 @@ function zeroDivisorAtomTokenGroup(
 	if (isZeroDivisorAtom(first, constants) && isDivisorAtomBoundary(toks[start + 1])) {
 		return [first];
 	}
-	const close = zeroConversionCallEnd(toks, start);
+	const close = zeroConversionCallEnd(toks, start, constants);
 	if (close !== undefined && isDivisorAtomBoundary(toks[close + 1])) {
 		return toks.slice(start, close + 1);
 	}
@@ -1490,7 +1512,7 @@ const FRACTIONAL_CONVERSIONS: ReadonlySet<string> = new Set(['csng', 'cdbl', 'cc
  * `CDbl(0)`, `CLng(0.4)`, which rounds to 0 (issue #219, measured in Excel
  * 16.0; `10 / CDbl(0.4)` runs). A `VBA.` qualifier is allowed.
  */
-function zeroConversionCallEnd(toks: readonly VbaToken[], start: number): number | undefined {
+function zeroConversionCallEnd(toks: readonly VbaToken[], start: number, constants?: IntegerConstantLookup): number | undefined {
 	let index = start;
 	if (tokenText(toks[index]) === 'vba' && toks[index + 1]?.rawText === '.') {
 		index += 2;
@@ -1504,6 +1526,10 @@ function zeroConversionCallEnd(toks: readonly VbaToken[], start: number): number
 	const inner = close < 0 ? [] : toks.slice(index + 2, close);
 	const signed = inner.length === 2 && (inner[0].rawText === '-' || inner[0].rawText === '+');
 	const literal = inner.length === 1 ? inner[0] : signed ? inner[1] : undefined;
+	// `CByte(o)` with o a Boolean still False, `CLng(v)` with v Empty (issue #491).
+	if (literal && constants && isZeroDivisorAtom(literal, constants)) {
+		return close;
+	}
 	if (!literal || (literal.kind !== 'integerLiteral' && literal.kind !== 'floatLiteral')) {
 		return undefined;
 	}
@@ -1533,7 +1559,7 @@ function isZeroDivisorAtom(
 ): boolean {
 	// False is 0 as a number: `1 \ False` raises 11 (issue #458, measured in
 	// Excel 16.0).
-	if (isZeroNumericLiteral(tok) || (tok?.kind === 'keyword' && tokenText(tok) === 'false')) {
+	if (isZeroNumericLiteral(tok) || (tok?.kind === 'keyword' && (tokenText(tok) === 'false' || tokenText(tok) === 'empty'))) {
 		return true;
 	}
 	const name = tok ? tokenName(tok) : undefined;

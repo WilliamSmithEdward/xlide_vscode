@@ -74565,6 +74565,226 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, n As Long, d As Long\r\n    On Error Resume Next\r\n    If False Then\r\n        On Error GoTo 0\r\n    End If\r\n    Main = 1 / d\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue491_01_runtime",
+      "description": "Issue #491 zero divisors that are not numbers, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As Boolean\r\n    Main = 5 / o\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue491_02_runtime",
+      "description": "Issue #491 zero divisors that are not numbers, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As Boolean\r\n    Main = 5 \\ o\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue491_03_runtime",
+      "description": "Issue #491 zero divisors that are not numbers, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As Boolean\r\n    Main = 5 Mod o\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue491_04_runtime",
+      "description": "Issue #491 zero divisors that are not numbers, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As Boolean\r\n    Main = 5 / CByte(o)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue491_05_runtime",
+      "description": "Issue #491 zero divisors that are not numbers, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As Boolean\r\n    o = False\r\n    Main = 5 / o\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue491_06_runtime",
+      "description": "Issue #491 zero divisors that are not numbers, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant\r\n    v = Empty\r\n    Main = 5 / v\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue491_07_runtime",
+      "description": "Issue #491 zero divisors that are not numbers, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant\r\n    v = CDec(0)\r\n    Main = 5 / v\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue491_08_runtime",
+      "description": "Issue #491 zero divisors that are not numbers, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant\r\n    Main = 5 / CLng(v)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue491_09_runtime",
+      "description": "Issue #491 zero divisors that are not numbers, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = 1\r\n    Main = 5 / (n = 2)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue491_10_runtime",
+      "description": "Issue #491 zero divisors that are not numbers, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 5 / (1 = 2)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue491_11_runtime",
+      "description": "Issue #491 zero divisors that are not numbers, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim t As Date\r\n    Main = 5 / t\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue491_12_runtime",
+      "description": "Issue #491 zero divisors that are not numbers, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim s As String\r\n    s = \"0\"\r\n    Main = 5 / s\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue491_13_runtime",
+      "description": "Issue #491 zero divisors that are not numbers, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 5 / Empty\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue491_14_runtime",
+      "description": "Issue #491 zero divisors that are not numbers, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> -5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As Boolean\r\n    o = True\r\n    Main = 5 / o\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue491_15_runtime",
+      "description": "Issue #491 zero divisors that are not numbers, case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> -5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = 2\r\n    Main = 5 / (n = 2)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue491_16_runtime",
+      "description": "Issue #491 zero divisors that are not numbers, case 16, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim s As String\r\n    s = \"2\"\r\n    Main = 5 / s\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue491_17_runtime",
+      "description": "Issue #491 zero divisors that are not numbers, case 17, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.000136888791545748.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim t As Date\r\n    t = #1/1/2000#\r\n    Main = 5 / t\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue491_18_runtime",
+      "description": "Issue #491 zero divisors that are not numbers, case 18, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> -5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant\r\n    v = True\r\n    Main = 5 / v\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue491_19_runtime",
+      "description": "Issue #491 zero divisors that are not numbers, case 19, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As Boolean, a(-1 To 1) As Long\r\n    o = True\r\n    Main = a(o)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue491_20_runtime",
+      "description": "Issue #491 zero divisors that are not numbers, case 20, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> x.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As Boolean\r\n    Main = Mid(\"abc\", 1, o) & \"x\"\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
