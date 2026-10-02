@@ -75,6 +75,20 @@ export function straightLineAssignments(
  * GoTo may arrive there. A block's own statements are in it when the whole
  * block never runs.
  */
+/**
+ * The spans of the one-line If branches that never run, because the walk
+ * knows the condition (issue #430): the Else of `If x = 2 Then ... Else ...`
+ * with x still 2. The If itself runs, so it is not in the unreachable set.
+ */
+export function straightLineDeadBranches(
+	source: string,
+	body: readonly BodyNode[],
+	activity: ConditionalActivityTracker | undefined,
+	initial: ReachingAssignments = NONE,
+): readonly Span[] {
+	return cachedWalk(source, body, activity, initial).deadSpans;
+}
+
 export function straightLineUnreachable(
 	source: string,
 	body: readonly BodyNode[],
@@ -107,8 +121,9 @@ function cachedWalk(
 	const dead = new Set<BodyNode>();
 	// Under On Error Resume Next, Err.Raise goes on to the next line.
 	const text = body.length > 0 ? source.slice(body[0].span.start, body[body.length - 1].span.end) : '';
-	walkList(source, body, initial, activity, { out, dead, raiseLeaves: !/\bon\s+error\s+resume\s+next\b/i.test(text), referenced: referencedLabels(source, body, activity) });
-	const walk: CachedWalk = { source, activity, result: out, dead };
+	const deadSpans: Span[] = [];
+	walkList(source, body, initial, activity, { out, dead, deadSpans, raiseLeaves: !/\bon\s+error\s+resume\s+next\b/i.test(text), referenced: referencedLabels(source, body, activity) });
+	const walk: CachedWalk = { source, activity, result: out, dead, deadSpans };
 	byStart.set(key, walk);
 	return walk;
 }
@@ -118,12 +133,15 @@ interface CachedWalk {
 	activity: ConditionalActivityTracker | undefined;
 	result: ReadonlyMap<BodyNode, ReachingAssignments>;
 	dead: ReadonlySet<BodyNode>;
+	deadSpans: readonly Span[];
 }
 
 /** What one walk collects: each statement's reaching values, and the statements that never run. */
 interface WalkOut {
 	out: Map<BodyNode, ReachingAssignments>;
 	dead: Set<BodyNode>;
+	/** The one-line If branches a known condition decides against. */
+	deadSpans: Span[];
 	/** Whether Err.Raise leaves the list: not when the procedure resumes past errors. */
 	raiseLeaves: boolean;
 	/** The keys of the labels some GoTo, GoSub, Resume or On ... GoTo names. */
@@ -230,6 +248,20 @@ function walkSingleLineIf(
 			}
 		}
 		return state;
+	}
+	// `If x = 2 Then y = 0 Else y = Sqr(-1)` with x known: the If runs, and
+	// the branch its condition decides against does not (issue #430).
+	if (branches.length === 2) {
+		const decided = conditionValue(ifConditionTokens(statementTokensAfterLeadingLabel(source, ifStmt.span)) ?? [], factsFrom(current));
+		if (decided !== undefined) {
+			const elseStart = branches[1].start;
+			walk.deadSpans.push(branches[decided ? 1 : 0]);
+			for (const tail of group.slice(1)) {
+				if ((tail.span.start >= elseStart) === decided) {
+					walk.deadSpans.push(tail.span);
+				}
+			}
+		}
 	}
 	const touched = touchedBy(source, group);
 	const after = touched === 'all' ? NONE : without(current, touched);

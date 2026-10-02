@@ -24,11 +24,13 @@ import { tokenizeCached } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
 import {
 	absoluteSpan,
+	activeModuleMembers,
 	statementTokens,
 	walkProcedureStatements,
 	type ProcedureStatementVisitor,
 } from './walker';
 import { physicalLineSpanAtOffset } from '../../vbaSourceScan';
+import { deadBranchSpansIn, unreachableStatementsIn } from './typeInference';
 import {
 	walkProcedureExpressions,
 	type ProcedureExpressionVisitor,
@@ -376,7 +378,39 @@ function runRules(
 	for (const buffer of buffers) {
 		out.push(...buffer);
 	}
-	return out;
+	return withoutRuntimeErrorsInDeadCode(out, ctx);
+}
+
+/** The codes of the rules that report an error raised when a statement runs. */
+const RUNTIME_ERROR_CODES: ReadonlySet<string> = new Set(
+	Object.values(DIAGNOSTIC_RULES).filter((meta) => meta.diagnosticKind === 'deterministic-runtime-error').map((meta) => meta.code),
+);
+
+/**
+ * Drops a run-time error found in a statement that never runs: under a guard
+ * the code decides against (`x = 2: If x = 1 Then y = Sqr(-1)`), after
+ * `GoTo` or Exit, or in a loop of no pass (issues #406, #430, measured in
+ * Excel 16.0). Each rule used to decide this on its own, and the ones that
+ * judge a literal did not.
+ */
+function withoutRuntimeErrorsInDeadCode(diagnostics: VbaDiagnostic[], ctx: RulePassContext): VbaDiagnostic[] {
+	if (!diagnostics.some((diag) => RUNTIME_ERROR_CODES.has(diag.code))) {
+		return diagnostics;
+	}
+	const dead: Span[] = [];
+	for (const member of activeModuleMembers(ctx.mod, ctx.activity)) {
+		if (member.kind === 'Procedure') {
+			for (const node of unreachableStatementsIn(ctx.source, member, ctx.symbols, ctx.activity)) {
+				dead.push(node.span);
+			}
+			dead.push(...deadBranchSpansIn(ctx.source, member, ctx.symbols, ctx.activity));
+		}
+	}
+	if (dead.length === 0) {
+		return diagnostics;
+	}
+	return diagnostics.filter((diag) => !RUNTIME_ERROR_CODES.has(diag.code)
+		|| !dead.some((span) => diag.span.start >= span.start && diag.span.end <= span.end));
 }
 
 function diagnosticMemberCompletionContext(

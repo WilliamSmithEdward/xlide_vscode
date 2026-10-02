@@ -56,12 +56,12 @@ describe('runtime-argument-value - error 5 arguments (issue #118)', () => {
 	});
 
 	it('flags Err.Raise and Error with a number outside 1 to 65535', () => {
-		const src = wrap('Err.Raise 0', 'Err.Raise 65536', 'Error 0', 'Err.Raise 5', 'Error 5');
-		expectDiagnostics(src, analyzeModule(src), ARG, [
-			{ span: '0', message: 'Err.Raise 0' },
-			{ span: '65536', message: 'Err.Raise 65536' },
-			{ span: '0', message: 'Error 0' },
-		]);
+		// Each on its own: a line after one that raises never runs (issue #430).
+		for (const [line, message] of [['Err.Raise 0', 'Err.Raise 0'], ['Err.Raise 65536', 'Err.Raise 65536'], ['Error 0', 'Error 0']]) {
+			const src = wrap(line);
+			expectDiagnostics(src, analyzeModule(src), ARG, [{ span: line.split(' ').pop()!, message }]);
+		}
+		expect(byCode(analyzeModule(wrap('Err.Raise 5')), ARG)).toHaveLength(0);
 	});
 
 	it('flags a negative base with a fractional power and zero with a negative power', () => {
