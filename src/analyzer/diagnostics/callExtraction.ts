@@ -536,6 +536,13 @@ export function validateArity(
 		}
 	}
 
+	// A parameterless Function of the project named Left, InStr, InStrB or
+	// StrComp does not hide VBA's when the call gives VBA's argument count:
+	// `Left("abc", 1)` gives "a" (issue #645, measured in Excel 16.0). Every
+	// other VBA name, and Left with one or three arguments, is refused.
+	if (params.length === 0 && !call.qualifier && BUILT_INS_PAST_PARAMETERLESS.get(sig.name.toLowerCase())?.includes(n)) {
+		return;
+	}
 	if (n < required || n > max) {
 		const missingParam = n < required ? params[n] : undefined;
 		const placeholder = missingParam
@@ -549,6 +556,14 @@ export function validateArity(
 		);
 	}
 }
+
+/** VBA functions a parameterless project Function does not hide, by the argument counts that reach them (issue #645). */
+const BUILT_INS_PAST_PARAMETERLESS: ReadonlyMap<string, readonly number[]> = new Map([
+	['left', [2]],
+	['instr', [2, 3]],
+	['instrb', [2]],
+	['strcomp', [2]],
+]);
 
 function callDisplayName(sig: CallableTypeSignature, call: CallArguments): string {
 	return call.qualifier ? `${call.qualifier}.${sig.name}` : sig.name;

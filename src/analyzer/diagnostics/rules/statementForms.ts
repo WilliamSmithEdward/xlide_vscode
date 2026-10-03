@@ -21,7 +21,7 @@ import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { VbaProcedureSignature } from '../../symbols/symbolModel';
 import { statementLabelDeclarations, statementLabelReferences } from '../../flow/procedureLabels';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
-import { argumentlessHostDefault, isKnownScalarType, normalizeType, objectHoldingDefault, objectValueNeedsIndex, typeEnvironmentFor } from '../typeInference';
+import { argumentlessHostDefault, buildModuleTypeSignatures, isKnownScalarType, normalizeType, objectHoldingDefault, objectValueNeedsIndex, typeEnvironmentFor } from '../typeInference';
 import { projectClassMemberAt, type MemberCompletionContext } from '../../completion/memberAccess';
 import { resolveHostAlias } from '../../host/hostModel';
 import {
@@ -80,6 +80,25 @@ export function checkStatementForms(
 	for (const [lower, signatures] of projectProcedures ?? []) {
 		for (const signature of signatures) {
 			(signature.kind === 'sub' ? subs : notSubs).add(lower.toLowerCase());
+		}
+	}
+	// Functions and Property Gets that need an argument, by name: this
+	// module's, and another module's Public one when it is the only one of
+	// its name. Read bare, `Main = F`, one is "Argument not optional" (issue
+	// #645, measured in Excel 16.0).
+	const needsArgument = new Map<string, string>();
+	const required = (params: readonly { optional: boolean; paramArray: boolean }[]): boolean => params.some((p) => !p.optional && !p.paramArray);
+	const ownSignatures = buildModuleTypeSignatures(symbols);
+	for (const [lower, signature] of ownSignatures) {
+		if (signature.valued && required(signature.params)) {
+			needsArgument.set(lower, symbols.moduleName.toLowerCase());
+		}
+	}
+	for (const [lower, signatures] of projectProcedures ?? []) {
+		const [only] = signatures;
+		if (signatures.length === 1 && !ownSignatures.has(lower.toLowerCase()) && !ownNames.has(lower.toLowerCase()) && only.kind === 'function'
+			&& only.visibility !== 'Private' && only.moduleName.toLowerCase() !== symbols.moduleName.toLowerCase() && required(only.params)) {
+			needsArgument.set(lower.toLowerCase(), only.moduleName.toLowerCase());
 		}
 	}
 	for (const member of activeModuleMembers(mod, activity)) {
@@ -160,6 +179,17 @@ export function checkStatementForms(
 					if (name && target && i > eq && toks[i - 1]?.rawText === '.' && toks[i + 1]?.rawText !== '.' && tokenText(toks[i - 3]) !== 'addressof'
 						&& projectClassMemberAt(source, span.start + toks[i - 1].end, name, memberCtx)?.sub) {
 						push('subUsedAsValue', `'${name}' is a Sub of the class, which returns nothing, so it cannot be used as a value. This is a VBE compile error: Expected Function or variable.`, at(i));
+						continue;
+					}
+					// `Main = F`, `F + 1`, `CStr(F)` and `Module1.F` with F a Function
+					// that needs an argument (issue #645).
+					const bareLower = name?.toLowerCase();
+					const home = bareLower === undefined ? undefined : needsArgument.get(bareLower);
+					const qualifier = toks[i - 1]?.rawText === '.' ? tokenName(toks[i - 2])?.toLowerCase() : undefined;
+					if (name && home && target && i > eq && !['(', '.', '!', ':='].includes(toks[i + 1]?.rawText ?? '')
+						&& (toks[i - 1]?.rawText !== '.' || (qualifier === home && toks[i - 3]?.rawText !== '.'))
+						&& tokenText(toks[i - 1]) !== 'addressof' && !(qualifier && tokenText(toks[i - 3]) === 'addressof') && !locals.has(bareLower!) && !env.has(bareLower!) && bareLower !== member.name.toLowerCase()) {
+						push('argumentCount', `'${name}' needs an argument, and is read here with none. This is a VBE compile error: Argument not optional.`, at(i));
 						continue;
 					}
 					if (!name || toks[i - 1]?.rawText === '.' || toks[i + 1]?.rawText === ':=' || i === eq - 1) {
