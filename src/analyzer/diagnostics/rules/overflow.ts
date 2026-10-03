@@ -27,6 +27,7 @@
 // `/` and `^` make Double. A value the folder cannot type stays unknown and
 // nothing is reported for it.
 
+import { MAX_EXPRESSION_DEPTH } from '../../parser/expressionLimits';
 import { DATE_EPOCH_MS, DAY_MS, dateLiteralSerial } from '../../constants/dateLiteral';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import { parseVbaIntegerLiteral } from '../../constants/integerConstantExpression';
@@ -330,9 +331,13 @@ class TypedFolder {
 		private readonly names: NameLookup,
 		/** Told of a division by zero, which a Const cannot hold: "Division by zero" while compiling. */
 		private readonly divisionByZero?: (span: Span) => void,
+		private readonly nesting = 0,
 	) {}
 
 	fold(): Folded {
+		// Parsing already treats deeper expressions as recovery input. Keep an
+		// untypable expression from aborting the rest of the overflow rule.
+		if (this.nesting >= MAX_EXPRESSION_DEPTH) { return undefined; }
 		if (this.toks.length === 0) {
 			return undefined;
 		}
@@ -343,7 +348,7 @@ class TypedFolder {
 		// `Not` binds below every arithmetic operator: `Not 255 + 256` is
 		// Not 511 (issue #235, measured in Excel 16.0).
 		if (this.toks[0].kind === 'keyword' && tokenText(this.toks[0]) === 'not') {
-			const operand = new TypedFolder(this.toks.slice(1), this.base, this.names, this.divisionByZero).fold();
+			const operand = new TypedFolder(this.toks.slice(1), this.base, this.names, this.divisionByZero, this.nesting + 1).fold();
 			return operand === undefined || isOverflow(operand) ? operand : notOf(operand, this.span(0, this.toks.length - 1));
 		}
 		const result = this.additive();
@@ -379,11 +384,11 @@ class TypedFolder {
 			}
 		}
 		if (at < 0) { return NOT_LOGICAL; }
-		const left = this.stringOperand(this.toks.slice(0, at)) ?? new TypedFolder(this.toks.slice(0, at), this.base, this.names, this.divisionByZero).fold();
+		const left = this.stringOperand(this.toks.slice(0, at)) ?? new TypedFolder(this.toks.slice(0, at), this.base, this.names, this.divisionByZero, this.nesting).fold();
 		if (left === undefined || isOverflow(left)) {
 			return left;
 		}
-		const right = this.stringOperand(this.toks.slice(at + 1)) ?? new TypedFolder(this.toks.slice(at + 1), this.base, this.names, this.divisionByZero).fold();
+		const right = this.stringOperand(this.toks.slice(at + 1)) ?? new TypedFolder(this.toks.slice(at + 1), this.base, this.names, this.divisionByZero, this.nesting).fold();
 		if (right === undefined || isOverflow(right)) {
 			return right;
 		}
@@ -493,12 +498,13 @@ class TypedFolder {
 		return this.leftAssociative(['^'], () => this.primary(), () => this.unary());
 	}
 
-	private unary(): Folded {
+	private unary(depth = 0): Folded {
 		const tok = this.toks[this.index];
 		if (tok?.kind === 'operator' && (tok.rawText === '-' || tok.rawText === '+')) {
+			if (depth + this.nesting >= MAX_EXPRESSION_DEPTH) { return undefined; }
 			const start = this.index;
 			this.index++;
-			const operand = this.unary();
+			const operand = this.unary(depth + 1);
 			if (operand === undefined || isOverflow(operand)) {
 				return operand;
 			}
@@ -533,7 +539,7 @@ class TypedFolder {
 			if (close < 0) {
 				return undefined;
 			}
-			const inner = new TypedFolder(this.toks.slice(this.index + 1, close), this.base, this.names, this.divisionByZero);
+			const inner = new TypedFolder(this.toks.slice(this.index + 1, close), this.base, this.names, this.divisionByZero, this.nesting + 1);
 			const value = inner.fold();
 			this.index = close + 1;
 			return value;
@@ -651,7 +657,7 @@ class TypedFolder {
 			if (callee === 'val') {
 				return undefined;
 			}
-			const inner = new TypedFolder(argument, this.base, this.names).fold();
+			const inner = new TypedFolder(argument, this.base, this.names, undefined, this.nesting + 1).fold();
 			if (inner === undefined || isOverflow(inner)) {
 				return inner;
 			}
@@ -663,7 +669,7 @@ class TypedFolder {
 		if (callee === 'round' && this.toks[calleeIndex + 1]?.rawText === '(') {
 			const close = matchParenFrom(this.toks, calleeIndex + 1);
 			const args = close < 0 ? [] : splitTopLevelTokenGroups(this.toks, calleeIndex + 2, ',', close);
-			const inner = args.length === 1 ? new TypedFolder(args[0], this.base, this.names).fold() : undefined;
+			const inner = args.length === 1 ? new TypedFolder(args[0], this.base, this.names, undefined, this.nesting + 1).fold() : undefined;
 			if (inner && !isOverflow(inner) && inner.type === 'currency') {
 				const rounded = bankersRound(inner.value);
 				if (rounded < RANGES.currency.min || rounded > RANGES.currency.max) {
@@ -748,7 +754,7 @@ class TypedFolder {
 			return undefined;
 		}
 		const value = sheetSizeOf(segments, (expr) => {
-			const folded = new TypedFolder(expr, this.base, this.names, this.divisionByZero).fold();
+			const folded = new TypedFolder(expr, this.base, this.names, this.divisionByZero, this.nesting + 1).fold();
 			return folded && !isOverflow(folded) ? folded.value : undefined;
 		}, this.names);
 		if (value === undefined) {
@@ -774,14 +780,18 @@ class TypedFolder {
 	private functionResult(callee: string, args: VbaToken[][]): Folded {
 		// Every argument is evaluated, the ones Choose and IIf do not pick
 		// too: an overflow in any of them raises (issue #258).
+		const values = new Map<readonly VbaToken[], Typed | undefined>();
 		for (const arg of args) {
-			const folded = arg.length > 0 ? new TypedFolder(arg, this.base, this.names, this.divisionByZero).fold() : undefined;
+			const folded = arg.length > 0 ? new TypedFolder(arg, this.base, this.names, this.divisionByZero, this.nesting + 1).fold() : undefined;
 			if (isOverflow(folded)) {
 				return folded;
 			}
+			values.set(arg, folded);
 		}
 		const fold = (toks: VbaToken[] | undefined): Typed | undefined => {
-			const folded = toks && toks.length > 0 ? new TypedFolder(toks, this.base, this.names, this.divisionByZero).fold() : undefined;
+			// Original arguments were already checked above, including unknowns.
+			if (toks && values.has(toks)) { return values.get(toks); }
+			const folded = toks && toks.length > 0 ? new TypedFolder(toks, this.base, this.names, this.divisionByZero, this.nesting + 1).fold() : undefined;
 			return folded && !isOverflow(folded) ? folded : undefined;
 		};
 		const call = (toks: VbaToken[] | undefined, name: string): VbaToken[][] | undefined => {
@@ -2448,7 +2458,9 @@ function checkParts(
 	report: (folded: Overflow) => void,
 	reportPastDate?: (folded: Typed, span: Span) => void,
 	callee?: string,
+	nesting = 0,
 ): void {
+	if (nesting >= MAX_EXPRESSION_DEPTH) { return; }
 	let from = 0;
 	const part = (to: number): void => {
 		const start = from;
@@ -2487,7 +2499,7 @@ function checkParts(
 					continue;
 				}
 			}
-			checkParts(piece.slice(i + 1, close), base, names, report, reportPastDate, tokenText(piece[i - 1]));
+			checkParts(piece.slice(i + 1, close), base, names, report, reportPastDate, tokenText(piece[i - 1]), nesting + 1);
 			i = close;
 		}
 	};
