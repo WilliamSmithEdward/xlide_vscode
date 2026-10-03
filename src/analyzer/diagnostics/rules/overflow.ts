@@ -650,6 +650,20 @@ class TypedFolder {
 			}
 			return this.convert(callee, inner, this.span(start, close));
 		}
+		// `Round(c)` of a Currency comes back a Currency, rounded half to even:
+		// Round(922337203685477.5807@) is past the Currency range and raises 6
+		// (issue #332, measured in Excel 16.0).
+		if (callee === 'round' && this.toks[calleeIndex + 1]?.rawText === '(') {
+			const close = matchParenFrom(this.toks, calleeIndex + 1);
+			const args = close < 0 ? [] : splitTopLevelTokenGroups(this.toks, calleeIndex + 2, ',', close);
+			const inner = args.length === 1 ? new TypedFolder(args[0], this.base, this.names).fold() : undefined;
+			if (inner && !isOverflow(inner) && inner.type === 'currency') {
+				const rounded = bankersRound(inner.value);
+				if (rounded < RANGES.currency.min || rounded > RANGES.currency.max) {
+					return { overflow: true, span: this.span(calleeIndex, close), detail: `Round of ${showNumber(inner.value)} gives ${showNumber(rounded)}, past the Currency range` };
+				}
+			}
+		}
 		if (this.toks[calleeIndex + 1]?.rawText === '(' && RESULT_FUNCTIONS.has(callee)) {
 			const close = matchParenFrom(this.toks, calleeIndex + 1);
 			const result = close < 0 ? undefined : this.functionResult(callee, splitTopLevelTokenGroups(this.toks, calleeIndex + 2, ',', close));
@@ -895,9 +909,10 @@ class TypedFolder {
 			return decimal === undefined ? undefined : { value: Number(decimal), type: 'double', decimal };
 		}
 		if (target === 'hex' || target === 'oct') {
-			// Hex and Oct take a value that fits a Long (or a LongLong on 64-bit
-			// for whole numbers; 1E+20 fits neither).
-			return inRange(inner.value, 'long') || (Number.isInteger(inner.value) && Math.abs(inner.value) < 9.2e18)
+			// Hex and Oct take a value that fits a Long, or a LongLong on 64-bit
+			// once rounded: Hex(3000000000.5) runs there (issue #332, measured in
+			// Excel 16.0); 1E+20 fits neither.
+			return inRange(inner.value, 'long') || Math.abs(bankersRound(inner.value)) < 9.2e18
 				? undefined
 				: { overflow: true, span, detail: `${callee === 'hex' ? 'Hex' : 'Oct'}(${inner.value}) takes a value outside the Long range` };
 		}

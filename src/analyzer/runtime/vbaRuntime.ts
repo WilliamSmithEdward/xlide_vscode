@@ -281,7 +281,8 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	fn('Val', 'Val(String) As Double', 'Double', NULL_RAISES_PARAM('String')),
 	fn('Hex', 'Hex(Number) As String', 'String'),
 	fn('Hex$', 'Hex$(Number) As String', 'String', NULL_RAISES_PARAM('Number')),
-	fn('Oct', 'Oct(Number) As String', 'String', NULL_RAISES_PARAM('Number')),
+	// Oct(Null) gives Null back (issue #332, measured in Excel 16.0).
+	fn('Oct', 'Oct(Number) As String', 'String'),
 
 	// CVDate is the legacy conversion function the type-conversion reference
 	// still documents beside CDate.
@@ -293,9 +294,10 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	fn('Fix', 'Fix(Number) As Variant', 'Variant'),
 	// Sgn(Null) raises 94; Abs, Int and Hex pass Null through (issue #242).
 	fn('Sgn', 'Sgn(Number) As Integer', 'Integer', NULL_RAISES_PARAM('Number')),
-	fn('Sqr', 'Sqr(Number) As Double', 'Double'),
-	fn('Exp', 'Exp(Number) As Double', 'Double'),
-	fn('Log', 'Log(Number) As Double', 'Double'),
+	// Sqr, Exp and Log raise 94 on Null (issue #332, measured in Excel 16.0).
+	fn('Sqr', 'Sqr(Number) As Double', 'Double', NULL_RAISES_PARAM('Number')),
+	fn('Exp', 'Exp(Number) As Double', 'Double', NULL_RAISES_PARAM('Number')),
+	fn('Log', 'Log(Number) As Double', 'Double', NULL_RAISES_PARAM('Number')),
 	fn('Sin', 'Sin(Number) As Double', 'Double'),
 	fn('Cos', 'Cos(Number) As Double', 'Double'),
 	fn('Tan', 'Tan(Number) As Double', 'Double'),
@@ -319,7 +321,8 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	fn('Weekday', 'Weekday(Date, [FirstDayOfWeek As VbDayOfWeek = vbSunday]) As Integer', 'Integer'),
 	fn('MonthName', 'MonthName(Month, [Abbreviate As Boolean = False]) As String', 'String'),
 	fn('WeekdayName', 'WeekdayName(Weekday, [Abbreviate As Boolean = False], [FirstDayOfWeek As VbDayOfWeek = vbUseSystemDayOfWeek]) As String', 'String'),
-	fn('DateAdd', 'DateAdd(Interval, Number, Date) As Date', 'Date'),
+	// DateAdd("d", Null, d) raises 94 (issue #332, measured in Excel 16.0).
+	fn('DateAdd', 'DateAdd(Interval, Number, Date) As Date', 'Date', [{ name: 'Interval', type: 'Variant' }, { name: 'Number', type: 'Variant', nullRaises: true }, { name: 'Date', type: 'Variant' }]),
 	fn('DateDiff', 'DateDiff(Interval, Date1, Date2, [FirstDayOfWeek As VbDayOfWeek], [FirstWeekOfYear As VbFirstWeekOfYear]) As Long', 'Long'),
 	fn('DatePart', 'DatePart(Interval, Date, [FirstDayOfWeek As VbDayOfWeek], [FirstWeekOfYear As VbFirstWeekOfYear]) As Integer', 'Integer'),
 	fn('DateSerial', 'DateSerial(Year, Month, Day) As Date', 'Date'),

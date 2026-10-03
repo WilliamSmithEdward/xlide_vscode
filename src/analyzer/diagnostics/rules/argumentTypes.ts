@@ -5,6 +5,8 @@
 
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import { heldObjectsAt } from '../heldObjects';
+import { elementKey, knownIndex, straightLineAssignments } from '../straightLineValues';
+import { dateLiteralSerial } from '../../constants/dateLiteral';
 import type { MemberCompletionContext } from '../../completion/memberAccess';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type {
@@ -22,19 +24,18 @@ import {
 import {
 	callableTypeSignaturesFor,
 	expressionCalls,
+	knownLocalLiteralValuesAt,
 	memberExpressionCalls,
 	memberStatementCalls,
+	normalizeType,
 	sourceBindingTypeResolvers,
 	sourceNameScopeFor,
 	typeEnvironmentFor,
 	VALUE_HELD,
-	knownLocalLiteralValuesAt,
-	normalizeType,
 	validateArgumentTypes,
 	validateArgumentTypesForSignature,
 } from '../typeInference';
-import { forEachStatementWithHeaders, statementAndBranchSpans, statementTokens, tokenName, tokenText, type ProcedureStatementVisitor } from '../walker';
-import { straightLineAssignments } from '../straightLineValues';
+import { forEachStatementWithHeaders, rawExpressionTokens, statementAndBranchSpans, statementTokens, tokenName, tokenText, type ProcedureStatementVisitor } from '../walker';
 
 /**
  * Rule: when both a callable parameter type and an argument type are known, flag
@@ -96,12 +97,31 @@ export function checkArgumentTypes(
 				?? (normalizeType(env.get(lower)) === 'variant'
 					&& (['empty', 'number', 'string'].includes(valuesAt(stmt).get(lower)?.kind ?? '') || namedFirstAt(lower, stmt.span.start)) ? VALUE_HELD : undefined);
 			// A Variant local a straight line has just given Null (issue #324).
+			// An element of an array, "a(i)", the subscript naming it here (issue #332).
 			const heldNull = (lower: string): boolean => {
-				if (!variantLocals.has(lower)) {
+				const element = /^([^(]+)\((.+)\)$/.exec(lower);
+				if (!element && !variantLocals.has(lower)) {
 					return false;
 				}
-				const held = (reaching ??= straightLineAssignments(source, member.body, activity)).get(stmt)?.get(lower)?.filter((tok) => tok.kind !== 'comment');
+				const here = (reaching ??= straightLineAssignments(source, member.body, activity)).get(stmt);
+				const index = element ? knownIndex(rawExpressionTokens(element[2]), here ?? new Map()) : undefined;
+				const key = element ? (index === undefined ? undefined : elementKey(element[1], index)) : lower;
+				const held = key === undefined ? undefined : here?.get(key)?.filter((tok) => tok.kind !== 'comment');
 				return held?.length === 1 && tokenText(held[0]) === 'null';
+			};
+			// The number, or for a call to the project's own procedure the
+			// String, a local holds here (issues #332 and #558).
+			const heldNumber = (lower: string): number | string | undefined => {
+				const held = valuesAt(stmt).get(lower);
+				if ((held?.kind === 'number' || held?.kind === 'string') && !held.contentMutated) {
+					return held.value;
+				}
+				// A Date local a straight line has just set to a Date literal
+				// passes its serial: #1/2/2000# is 36527 (issue #558).
+				const value = normalizeType(env.get(lower)) === 'date'
+					? (reaching ??= straightLineAssignments(source, member.body, activity)).get(stmt)?.get(lower)?.filter((tok) => tok.kind !== 'comment')
+					: undefined;
+				return value?.length === 1 && value[0].kind === 'dateLiteral' ? dateLiteralSerial(value[0].rawText) : undefined;
 			};
 			// `Call Two(Nothing, 1)` is found both as an expression call and as
 			// the statement's call; report each argument once (issue #223).
@@ -126,6 +146,7 @@ export function checkArgumentTypes(
 					resolveQualifiedExpressionType,
 					heldClassOf,
 					heldNull,
+					heldNumber,
 				);
 			}
 			for (const memberCall of memberExpressionCalls(
@@ -146,6 +167,7 @@ export function checkArgumentTypes(
 					resolveQualifiedExpressionType,
 					heldClassOf,
 					heldNull,
+					heldNumber,
 				);
 			}
 			for (const memberCall of memberStatementCalls(
@@ -166,6 +188,7 @@ export function checkArgumentTypes(
 					resolveQualifiedExpressionType,
 					heldClassOf,
 					heldNull,
+					heldNumber,
 				);
 			}
 			// A single-line If's branch is a statement call too: `If x Then Sl Nothing` (issue #254).
@@ -184,6 +207,7 @@ export function checkArgumentTypes(
 						resolveQualifiedExpressionType,
 						heldClassOf,
 						heldNull,
+						heldNumber,
 					);
 				}
 			}

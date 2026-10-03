@@ -106,6 +106,12 @@ export interface InferredArgumentType {
 	 * `numericValue`, whose range checks assume a whole number exactly held.
 	 */
 	floatValue?: number;
+	/**
+	 * The local whose known value `numericValue` or `floatValue` is, so the
+	 * range checks say whose value it is rather than call it a literal
+	 * (issue #332).
+	 */
+	heldBy?: string;
 }
 
 /**

@@ -32,6 +32,7 @@ import {
 	splitArgSlots,
 } from '../callExtraction';
 import { collectModuleLiteralIntegerConstants } from '../constExpr';
+import { dateLiteralSerial } from '../../constants/dateLiteral';
 import { knownArrayShapesAt, moduleOptionBase, redimShapesAt } from './arrays';
 import { checkEachCounterPass, loopCountersAt } from '../loopCounters';
 import { functionIntegerResult, knownFunctionResults } from '../functionResults';
@@ -229,6 +230,14 @@ export function checkRuntimeArgumentValues(
 				if (local) {
 					return local.kind === 'number' && Number.isInteger(local.value) ? (local.value as number) : undefined;
 				}
+				// A Date local a straight line has just set to a Date literal
+				// passes its serial: Chr(d) with d = #1/2/2000# (issue #332).
+				if (currentStmt && normalizeType(env.get(name.toLowerCase())) === 'date') {
+					const held = (reaching ??= straightLineAssignments(source, member.body, activity)).get(currentStmt)?.get(name.toLowerCase())?.filter((tok) => tok.kind !== 'comment');
+					if (held?.length === 1 && held[0].kind === 'dateLiteral') {
+						return dateLiteralSerial(held[0].rawText);
+					}
+				}
 				// `Mid(s, F())` with F a Function of the module returning 0 (issue #448).
 				return functionIntegerResult(name, results ??= knownFunctionResults(source, mod, activity), member, symbols);
 			},
@@ -258,6 +267,24 @@ export function checkRuntimeArgumentValues(
 				const held = lower ? (reaching ??= straightLineAssignments(source, member.body, activity)).get(stmt)?.get(lower)?.filter((tok) => tok.kind !== 'comment') : undefined;
 				return held?.length === 1 && tokenText(held[0]) === 'null';
 			};
+			// `Dim x As Double: x = -1.5: Chr(x)`: a local known to hold a number
+			// that is not whole, or Empty, stands in as that literal (issue #332,
+			// measured in Excel 16.0). A whole number already comes through the
+			// lookup.
+			const standIn = (slot: readonly VbaToken[]): readonly VbaToken[] => {
+				const value = slot.filter((tok) => tok.kind !== 'comment');
+				const lower = value.length === 1 ? tokenName(value[0])?.toLowerCase() : undefined;
+				// `a = Empty` reads as the keyword, which the literal checks know.
+				const reached = lower ? (reaching ??= straightLineAssignments(source, member.body, activity)).get(stmt)?.get(lower)?.filter((tok) => tok.kind !== 'comment') : undefined;
+				if (reached?.length === 1 && tokenText(reached[0]) === 'empty') {
+					return [{ ...value[0], kind: 'keyword', rawText: 'Empty' }];
+				}
+				const held = lower ? known.get(lower) : undefined;
+				if (!held || held.contentMutated || held.kind !== 'number' || Number.isInteger(held.value)) {
+					return slot;
+				}
+				return literalTokensFor(held.value as number, value[0]);
+			};
 			// A bound of Len(s) reads the length s has as the loop starts.
 			const atomValue = (atom: { kind: string; name: string }, counter: { loopNode: BodyNode }): number | undefined =>
 				atom.kind === 'len' ? stringsAt(valuesAt(counter.loopNode)).lengths.get(atom.name) : undefined;
@@ -275,7 +302,7 @@ export function checkRuntimeArgumentValues(
 						return held?.length === 1 && held[0].kind === 'dateLiteral' && (declared === 'date' || declared === 'variant') ? parseDateLiteral(held[0].rawText) : undefined;
 					},
 				};
-				for (const hit of runtimeArgumentValueHits(source, stmt.span, moduleSignatures, env, lookup, stringCalls, sourceNames, host, declarationOf, isNullSlot, valueType)) {
+				for (const hit of runtimeArgumentValueHits(source, stmt.span, moduleSignatures, env, lookup, stringCalls, sourceNames, host, declarationOf, isNullSlot, valueType, standIn)) {
 					const raises = hit.error === 6 ? `'6': Overflow` : `'5': Invalid procedure call or argument`;
 					report(
 						'runtimeArgumentValue',
@@ -295,6 +322,22 @@ export function checkRuntimeArgumentValues(
 			counterValues = NO_COUNTER_VALUES;
 		};
 	};
+}
+
+/** A count DateAdd reads: it drops the fraction, so DateAdd("d", -0.6, #1/1/100#) runs. */
+function truncated(value: number | undefined): number | undefined {
+	return value === undefined ? undefined : Math.trunc(value);
+}
+
+/** Literal tokens for a number, at the place of the token they stand in for: `-1.5` is `-` and `1.5`. */
+function literalTokensFor(value: number, at: VbaToken): VbaToken[] {
+	const magnitude = Math.abs(value);
+	const literal: VbaToken = {
+		...at,
+		kind: Number.isInteger(magnitude) ? 'integerLiteral' : 'floatLiteral',
+		rawText: String(magnitude).toUpperCase(),
+	};
+	return value < 0 ? [{ ...at, kind: 'operator', rawText: '-', end: at.start }, literal] : [literal];
 }
 
 /**
@@ -773,6 +816,7 @@ function runtimeArgumentValueHits(
 	declarationOf?: (lower: string) => LocalDeclaration | undefined,
 	isNullSlot: (slot: readonly VbaToken[]) => boolean = () => false,
 	valueType: (slot: readonly VbaToken[] | undefined) => string | undefined = () => undefined,
+	standIn: (slot: readonly VbaToken[]) => readonly VbaToken[] = (slot) => slot,
 ): RuntimeArgumentValueHit[] {
 	const toks = statementTokens(source, span);
 	if (isDeclarationLikeStatement(toks)) {
@@ -780,15 +824,30 @@ function runtimeArgumentValueHits(
 	}
 	const hits: RuntimeArgumentValueHit[] = [];
 	for (let i = 0; i < toks.length - 1; i++) {
-		const call = runtimeArgumentValueCallAt(toks, i, span, moduleSignatures, env, sourceNames, host);
-		if (!call) {
+		const found = runtimeArgumentValueCallAt(toks, i, span, moduleSignatures, env, sourceNames, host);
+		if (!found) {
 			continue;
 		}
+		// A local known to hold a number is read as that number (issue #332).
+		const call = { ...found, slots: found.slots.map((slot) => [...standIn(slot)]) };
 		// `Mid(Null, 0)`, `InStr(0, Null, "a")`: a Null argument makes the call
 		// return Null before the others are checked (issue #364, measured in
 		// Excel 16.0).
 		// String checks its Character for Null first: String(-1, Null) is Null
 		// (issue #409, measured in Excel 16.0).
+		// A Null Start is no position: InStr(v, "abc", "a") with v Null raises
+		// 94, where a Null string hands Null back (issue #332, measured).
+		if (call.specs[0]?.canonicalName === 'InStr' && call.slots.length >= 3 && isNullSlot(call.slots[0])) {
+			const start = call.slots[0].filter((tok) => tok.kind !== 'comment');
+			hits.push({
+				displayName: call.displayName,
+				parameterName: 'Start',
+				value: 'Null',
+				message: `InStr's Start is Null here, which is no position. This will raise Run-time error '94': Invalid use of Null.`,
+				span: { start: span.start + start[0].start, end: span.start + start[start.length - 1].end },
+			});
+			continue;
+		}
 		const nullCharacter = call.specs[0]?.canonicalName === 'String' && call.slots[1] !== undefined && isNullSlot(call.slots[1]);
 		if (nullCharacter || (NULL_RETURNING.has(call.specs[0]?.canonicalName.toLowerCase() ?? '') && call.slots.some((slot) => isNullSlot(slot)))) {
 			continue;
@@ -1076,9 +1135,25 @@ function dateAddPastMaximum(
 	// A count or a date another call gives: `Year(#6/15/5000#)`,
 	// `DateValue("12/31/9999")` (issue #510, measured in Excel 16.0).
 	const folded = stringCalls && numberSlot.length > 0 ? foldKnownStringCalls(numberSlot, stringCalls) : undefined;
-	const count = folded !== undefined ? evaluateIntegerConstantExpression(folded, constants) : integerGroupValue(source, span, numberSlot, constants);
+	const count = folded !== undefined
+		? evaluateIntegerConstantExpression(folded, constants)
+		: integerGroupValue(source, span, numberSlot, constants) ?? truncated(numericLiteralGroupValue(numberSlot));
 	if (count === undefined || count === 0) {
 		return undefined;
+	}
+	// The count is held as a Long: 2147483648 of any interval overflows
+	// (issue #332, measured in Excel 16.0).
+	if (Math.abs(count) > 2147483647) {
+		const first = numberSlot[0];
+		const last = numberSlot[numberSlot.length - 1];
+		return {
+			displayName: 'DateAdd',
+			parameterName: 'Number',
+			value: String(count),
+			message: `DateAdd counts its intervals in a Long, and ${source.slice(span.start + first.start, span.start + last.end)} is outside it. This will raise Run-time error '6': Overflow.`,
+			span: { start: span.start + first.start, end: span.start + last.end },
+			error: 6,
+		};
 	}
 	const date = dateSlot.length === 1 && dateSlot[0].kind === 'dateLiteral'
 		? parseDateLiteral(dateSlot[0].rawText)
@@ -1094,7 +1169,9 @@ function dateAddPastMaximum(
 		const result = date.getTime() + count * units[interval];
 		past = result >= Date.UTC(10000, 0, 1) ? 'past December 31, 9999' : result < Date.UTC(100, 0, 1) ? 'before January 1, 100' : undefined;
 	} else if (months[interval] !== undefined) {
-		const month = date.getUTCFullYear() * 12 + date.getUTCMonth() + count * months[interval];
+		// The months are counted in a Long that wraps: DateAdd("yyyy",
+		// 2147483647, #1/1/2000#) gives 1/1/1999 (issue #332, measured).
+		const month = date.getUTCFullYear() * 12 + date.getUTCMonth() + (((count * months[interval]) % 2 ** 32) + 2 ** 32 + 2 ** 31) % 2 ** 32 - 2 ** 31;
 		past = month > 9999 * 12 + 11 ? 'past December 31, 9999' : month < 100 * 12 ? 'before January 1, 100' : undefined;
 	}
 	if (!past) {
@@ -1571,7 +1648,8 @@ function integerArgumentOutsideBounds(
 			return undefined;
 		}
 		const knownName = tokenName(toks[0])?.toLowerCase();
-		const known = knownName !== undefined ? knownStrings.get(knownName) : undefined;
+		// Asc(Empty) is Asc("") (issue #332, measured in Excel 16.0).
+		const known = knownName === 'empty' && spec.canonicalName === 'Asc' ? '' : knownName !== undefined ? knownStrings.get(knownName) : undefined;
 		if (toks[0].kind !== 'stringLiteral' && known === undefined) {
 			return undefined;
 		}
@@ -1584,7 +1662,9 @@ function integerArgumentOutsideBounds(
 		}
 		const value = toks[0].kind === 'stringLiteral'
 			? toks[0].rawText
-			: `"${text}" (${toks[0].rawText} is never given another value)`;
+			: knownName === 'empty'
+				? `Empty, which it reads as ""`
+				: `"${text}" (${toks[0].rawText} is never given another value)`;
 		return { value, span: { start: sliceStart + toks[0].start, end: sliceStart + toks[0].end } };
 	}
 	let sign = 1;
@@ -1614,6 +1694,11 @@ function integerArgumentOutsideBounds(
 	const word = toks.length === 1 ? tokenText(toks[0]) : '';
 	if (literalValue === undefined && (word === 'true' || word === 'false' || word === 'empty')) {
 		literalValue = word === 'true' ? -1 : 0;
+	}
+	// A Date passes its serial: Chr(#1/2/2000#) is Chr(36527), which raises
+	// 5 (issue #332, measured in Excel 16.0).
+	if (literalValue === undefined && toks.length === 1 && toks[0].kind === 'dateLiteral') {
+		literalValue = dateLiteralSerial(toks[0].rawText);
 	}
 	if (literalValue !== undefined) {
 		const verdict = argumentValueVerdict(literalValue, spec);
@@ -1761,7 +1846,8 @@ export function checkRuntimeConversionValues(
 		const valuesAt = knownLocalLiteralValuesAt(source, member, symbols, activity);
 		return (stmt) => {
 			const strings = pickedValues(valuesAt(stmt), (_lower, value) => (value.kind === 'string' && !value.contentMutated ? value.value as string : undefined));
-			for (const hit of runtimeConversionValueHits(source, stmt.span, sourceNames, strings)) {
+			const numbers = pickedValues(valuesAt(stmt), (_lower, value) => (value.kind === 'number' && !value.contentMutated ? value.value as number : undefined));
+			for (const hit of runtimeConversionValueHits(source, stmt.span, sourceNames, strings, numbers)) {
 				push(
 					'runtimeConversionValue',
 					`${hit.displayName} cannot convert ${hit.name} to ${hit.target}. This will raise Run-time error '13': Type mismatch.`,
@@ -1786,6 +1872,9 @@ const CONVERSION_TARGETS: Readonly<Record<string, 'numeric' | 'boolean' | 'date'
 	// The math functions read a number the same way (issue #242): Abs("abc")
 	// and Hex("abc") raise 13, and Oct("8") runs.
 	abs: 'numeric', sqr: 'numeric', int: 'numeric', fix: 'numeric', round: 'numeric', hex: 'numeric', oct: 'numeric',
+	// Str("abc"), Str("") and Str("True") raise 13, and Str("&H10") runs
+	// (issue #332, measured in Excel 16.0).
+	str: 'numeric',
 	exp: 'numeric', log: 'numeric', sin: 'numeric', cos: 'numeric', tan: 'numeric', atn: 'numeric',
 	year: 'date', month: 'date', day: 'date', weekday: 'date', hour: 'date', minute: 'date', second: 'date',
 	dateadd: 'date', datepart: 'date', datediff: 'date',
@@ -1804,6 +1893,15 @@ const CONVERTED_SLOTS: Readonly<Record<string, readonly number[]>> = {
 };
 
 /**
+ * Number arguments a String local converts into (issue #332, measured in
+ * Excel 16.0): `Chr(s)`, `Space(s)`, `String(s, "a")`, `Left("abc", s)` and
+ * the count of `DateAdd` raise 13 when s holds "x" or "".
+ */
+const NUMBER_SLOTS: Readonly<Record<string, readonly number[]>> = {
+	chr: [0], chrw: [0], space: [0], string: [0], left: [1], right: [1], dateadd: [1],
+};
+
+/**
  * The functions that read a number as a Date serial, which runs from
  * -657434 (January 1, 100) to 2958465 (December 31, 9999): Year(2958466) and
  * Day(-657435) raise 13, Year(2958465.9) and Year(-657434.9) run (issue #218,
@@ -1819,6 +1917,7 @@ function runtimeConversionValueHits(
 	span: Span,
 	sourceNames: SourceNameScope,
 	knownStrings: ReadonlyMap<string, string> = new Map(),
+	knownNumbers: ReadonlyMap<string, number> = new Map(),
 ): RuntimeConversionValueHit[] {
 	const toks = statementTokens(source, span);
 	if (isDeclarationLikeStatement(toks)) {
@@ -1827,7 +1926,8 @@ function runtimeConversionValueHits(
 	const hits: RuntimeConversionValueHit[] = [];
 	for (let i = 0; i < toks.length - 2; i++) {
 		const name = tokenName(toks[i]);
-		const target = name ? CONVERSION_TARGETS[name.toLowerCase()] : undefined;
+		const numberSlots = name ? NUMBER_SLOTS[name.toLowerCase()] : undefined;
+		const target = name ? CONVERSION_TARGETS[name.toLowerCase()] ?? (numberSlots ? 'numeric' : undefined) : undefined;
 		if (!name || !target) {
 			continue;
 		}
@@ -1846,12 +1946,16 @@ function runtimeConversionValueHits(
 		if (split.slots.some((slot) => namedArgumentSlot(slot))) {
 			continue;
 		}
-		for (const index of CONVERTED_SLOTS[name.toLowerCase()] ?? [0]) {
+		const converted = CONVERSION_TARGETS[name.toLowerCase()] ? CONVERTED_SLOTS[name.toLowerCase()] ?? [0] : [];
+		const slots = [...converted.map((index) => ({ index, target, heldOnly: false })), ...(numberSlots ?? []).map((index) => ({ index, target: 'numeric' as const, heldOnly: true }))];
+		for (const { index, target, heldOnly } of slots) {
 			const slot = (split.slots[index] ?? []).filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
 			const at = split.spans[index] ?? (slot.length > 0 ? { start: span.start + slot[0].start, end: span.start + slot[slot.length - 1].end } : undefined);
 			const displayName = qualified ? `VBA.${name}` : name;
 			const held = slot.length === 1 && slot[0].kind === 'identifier' ? knownStrings.get(slot[0].rawText.toLowerCase()) : undefined;
-			if (slot.length === 1 && (slot[0].kind === 'stringLiteral' || held !== undefined) && at) {
+			// A number slot of Chr, Space or Left is judged on a String local
+			// only: a literal there is argument-type-mismatch's (issue #332).
+			if (slot.length === 1 && ((slot[0].kind === 'stringLiteral' && !heldOnly) || held !== undefined) && at) {
 				const value = held ?? stringLiteralValue(slot[0].rawText);
 				const lower = name.toLowerCase();
 				const invalid = target === 'date'
@@ -1874,11 +1978,13 @@ function runtimeConversionValueHits(
 				}
 				continue;
 			}
-			const serial = DATE_SERIAL_READERS.has(name.toLowerCase()) ? signedNumericLiteral(slot) : undefined;
+			// A number local known here reads the same way (issue #332).
+			const heldNumber = slot.length === 1 && slot[0].kind === 'identifier' ? knownNumbers.get(slot[0].rawText.toLowerCase()) : undefined;
+			const serial = DATE_SERIAL_READERS.has(name.toLowerCase()) && !heldOnly ? signedNumericLiteral(slot) ?? heldNumber : undefined;
 			if (serial !== undefined && at && (serial >= 2958466 || serial <= -657435)) {
 				hits.push({
 					displayName,
-					name: String(serial),
+					name: heldNumber !== undefined && signedNumericLiteral(slot) === undefined ? `${slot[0].rawText}, which holds ${serial} here,` : String(serial),
 					target: 'a Date, whose serial numbers run from -657434 (January 1, 100) to 2958465 (December 31, 9999)',
 					span: at,
 				});
