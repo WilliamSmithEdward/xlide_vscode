@@ -34,6 +34,7 @@ import {
 import { buildModuleSymbols } from '../symbols/buildModuleSymbols';
 import {
 	ModuleSymbolKind,
+	type ModuleSymbols,
 	VbaProcedureSignature,
 	VbaProjectClassMembers,
 	VbaSymbol,
@@ -154,6 +155,32 @@ export function resolveIdentifierCompletions(
 	offset: number,
 	ctx: IdentifierCompletionContext = {},
 ): IdentifierCompletion[] {
+	return createIdentifierCompletionResolver(source, ctx)(offset);
+}
+
+/**
+ * Resolves several positions against one source/context snapshot. Symbol
+ * construction is lazy and shared only for this request, never across edits.
+ */
+export function createIdentifierCompletionResolver(
+	source: string,
+	ctx: IdentifierCompletionContext = {},
+): (offset: number) => IdentifierCompletion[] {
+	let symbols: ModuleSymbols | undefined;
+	const getSymbols = (): ModuleSymbols => symbols ??= buildModuleSymbols(
+		ctx.moduleName ?? 'Module',
+		ctx.moduleKind ?? 'standard',
+		source,
+	);
+	return (offset) => identifierCompletionsAt(source, offset, ctx, getSymbols);
+}
+
+function identifierCompletionsAt(
+	source: string,
+	offset: number,
+	ctx: IdentifierCompletionContext,
+	getSymbols: () => ModuleSymbols,
+): IdentifierCompletion[] {
 	const tokens = completionCursorContext(source, offset).significantTokens;
 
 	// Identify the partial identifier being typed (if any) and the token that
@@ -214,7 +241,7 @@ export function resolveIdentifierCompletions(
 		}
 	}
 
-	addInScopeSymbols(source, offset, ctx, add);
+	addInScopeSymbols(offset, getSymbols, add);
 
 	for (const name of ctx.codeNames ?? []) {
 		add(name, 'codeName', `${codeNameDisplayType(name, ctx)} object`);
@@ -287,18 +314,13 @@ type AddFn = (
 /** Adds in-scope declared symbols (params/locals of the enclosing procedure plus
  *  module-level declarations) for the module being edited. */
 function addInScopeSymbols(
-	source: string,
 	offset: number,
-	ctx: IdentifierCompletionContext,
+	getSymbols: () => ModuleSymbols,
 	add: AddFn,
 ): void {
 	let mod;
 	try {
-		mod = buildModuleSymbols(
-			ctx.moduleName ?? 'Module',
-			ctx.moduleKind ?? 'standard',
-			source,
-		);
+		mod = getSymbols();
 	} catch {
 		return;
 	}
