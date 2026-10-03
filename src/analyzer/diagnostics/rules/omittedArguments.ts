@@ -24,7 +24,7 @@ import type { BodyNode, LeafStatementNode, ModuleNode, ParameterNode, ProcedureN
 import { isLeafStatement } from '../../parser/nodes';
 import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { VbaSymbol } from '../../symbols/symbolModel';
-import type { PushFn } from '../analysisContext';
+import { procedureSymbolFor, type PushFn } from '../analysisContext';
 import type { DiagnosticRuleName } from '../ruleMetadata';
 import { type CallArguments, extractCall, isNamedSlot } from '../callExtraction';
 import { isInvalidNumericString } from '../stringConversion';
@@ -44,9 +44,11 @@ import {
 	activeModuleMembers,
 	blockFooterLineSpan,
 	blockHeaderLineSpan,
+	forEachStatementWithHeaders,
 	matchParenFrom,
 	rawExpressionTokens,
 	statementAndBranchSpans,
+	statementTokens,
 	statementTokensAfterLeadingLabel,
 	tokenName,
 	tokenText,
@@ -56,7 +58,7 @@ import { type FixedArrayBound, localFixedArrays, moduleOptionBase } from './arra
 import { isBareOrVbaQualifiedIntrinsicCall } from './shared';
 
 /** What an omitted or passed parameter holds in the callee. */
-type OmittedValue = { kind: 'missing' } | { kind: 'nothing' } | { kind: 'number'; value: number } | { kind: 'string'; value: string };
+type OmittedValue = { kind: 'missing' } | { kind: 'nothing' } | { kind: 'unallocated' } | { kind: 'number'; value: number } | { kind: 'string'; value: string };
 
 /** The callee's first use of an omitted parameter, when that use raises. */
 interface RaisingUse {
@@ -124,6 +126,27 @@ export function checkOmittedArgumentReads(
 	return (member) => {
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
 		let valuesAt: ReturnType<typeof knownLocalLiteralValuesAt> | undefined;
+		// A dynamic array local is unallocated where a statement first names
+		// it (issue #449).
+		const declared = new Map((procedureSymbolFor(symbols, member)?.children ?? [])
+			.filter((child) => child.kind === 'localVariable' && child.visibility !== 'Static' && !child.isAutoInstantiated)
+			.map((child) => [child.name.toLowerCase(), child]));
+		let firstNamed: Map<string, number> | undefined;
+		const namedFirstHere = (lower: string, at: number): boolean => {
+			if (!firstNamed) {
+				const found = new Map<string, number>();
+				firstNamed = found;
+				forEachStatementWithHeaders(source, member.body, (node) => {
+					for (const tok of statementTokens(source, node.span)) {
+						const name = tokenName(tok)?.toLowerCase();
+						if (name && !found.has(name)) {
+							found.set(name, node.span.start);
+						}
+					}
+				}, activity);
+			}
+			return firstNamed.get(lower) === at;
+		};
 		return (stmt) => {
 			// A literal the call passes, or a local whose value is known here.
 			const argumentValue = (slot: readonly VbaToken[]): OmittedValue | undefined => {
@@ -135,7 +158,15 @@ export function checkOmittedArgumentReads(
 				if (literal || toks.length !== 1 || toks[0].kind !== 'identifier') {
 					return literal;
 				}
-				const known = (valuesAt ??= knownLocalLiteralValuesAt(source, member, symbols, activity))(stmt).get(toks[0].rawText.toLowerCase());
+				const lower = toks[0].rawText.toLowerCase();
+				const local = declared.get(lower);
+				if (local && namedFirstHere(lower, stmt.span.start) && !member.modifiers.some((word) => word.toLowerCase() === 'static')) {
+					// A never-set object passed is nothingPassedToMemberRead's (#343).
+					if (local.isArray && local.arrayBounds === undefined) {
+						return { kind: 'unallocated' };
+					}
+				}
+				const known = (valuesAt ??= knownLocalLiteralValuesAt(source, member, symbols, activity))(stmt).get(lower);
 				return known?.kind === 'number' ? { kind: 'number', value: Number(known.value) }
 					: known?.kind === 'string' ? { kind: 'string', value: String(known.value) }
 						: undefined;
@@ -209,10 +240,15 @@ function suppliedParameters(proc: ProcedureNode, call: CallArguments, valueOf: (
 		const param = named
 			? params.find((candidate) => candidate.name.toLowerCase() === slot[0].rawText.replace(/^\[|\]$/g, '').toLowerCase())
 			: params[k];
-		if (!param || param.paramArray || param.isArray || slot.length === 0) {
+		if (!param || param.paramArray || slot.length === 0) {
 			return;
 		}
 		const passed = valueOf(named ? slot.slice(2) : slot);
+		// An array parameter takes only an array: one never allocated is
+		// followed in (issue #449).
+		if (param.isArray !== (passed?.kind === 'unallocated')) {
+			return;
+		}
 		const value = passed && heldAs(passed, parameterType(param));
 		if (value) {
 			const rounded = passed.kind === 'number' && value.kind === 'number' && passed.value !== value.value ? passed.value : undefined;
@@ -230,6 +266,9 @@ const INTEGER_RANGES: Readonly<Record<string, readonly [number, number]>> = {
 
 /** A passed value as a parameter of this type holds it, or undefined where the call itself would fail or it is not known. */
 function heldAs(value: OmittedValue, type: string): OmittedValue | undefined {
+	if (value.kind === 'unallocated') {
+		return value;
+	}
 	if (value.kind === 'nothing') {
 		return type === 'variant' || !isKnownScalarType(type) ? value : undefined;
 	}
@@ -369,7 +408,8 @@ function report(source: string, proc: ProcedureNode, omitted: Omitted, use: Rais
 		return;
 	}
 	const value = omitted.value;
-	const holds = !value || value.kind === 'missing' ? 'Missing' : value.kind === 'nothing' ? 'Nothing' : value.kind === 'string' ? JSON.stringify(value.value) : String(value.value);
+	const holds = !value || value.kind === 'missing' ? 'Missing' : value.kind === 'nothing' ? 'Nothing'
+		: value.kind === 'unallocated' ? 'an array never allocated' : value.kind === 'string' ? JSON.stringify(value.value) : String(value.value);
 	if (omitted.supplied) {
 		const passes = omitted.rounded === undefined ? `${holds} to '${name}'` : `${omitted.rounded} to '${name}', which holds ${holds}`;
 		push(use.rule, `This call passes ${passes}, and '${proc.name}' ${use.does} (${where}). This will raise Run-time error ${use.error}.`, omitted.span);
@@ -553,6 +593,18 @@ class CalleeReader {
 		const next = toks[last + 1];
 		const nextText = tokenText(next);
 		const span = { start: spanStart + toks[first].start, end: spanStart + toks[last].end };
+		if (value.kind === 'unallocated') {
+			// `a(1)`, `UBound(a)` or `LBound(a)` on an array never allocated
+			// (issue #449, measured in Excel 16.0).
+			// ReDim allocates it, and Erase of an unallocated array runs.
+			if (['redim', 'erase'].includes(tokenText(toks[0]))) {
+				return undefined;
+			}
+			const bound = prev?.rawText === '(' && ['ubound', 'lbound'].includes(tokenText(toks[first - 2])) && toks[first - 3]?.rawText !== '.';
+			return nextText === '(' || bound
+				? { rule: 'unallocatedDynamicArrayAccess', does: `uses it in ${quote(this.operationText(toks, assignmentIndex(toks), spanStart))}`, error: "'9': Subscript out of range", span }
+				: undefined;
+		}
 		if (value.kind === 'nothing') {
 			// `c.Count` or `c(1)` on Nothing (issue #449, measured in Excel 16.0).
 			return nextText === '(' || nextText === '.' || nextText === '!'

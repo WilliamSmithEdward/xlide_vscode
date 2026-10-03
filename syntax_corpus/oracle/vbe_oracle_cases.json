@@ -98529,6 +98529,105 @@
       "source": "Option Explicit\r\nPrivate Function AR(p0() As String) As Long\r\n    AR = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim c As New Collection, b As Boolean, d As Double, dt As Date, s As String, n As Long, a() As String, v As Variant\r\n    ReDim a(1)\r\n    Main = AR(a)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue449d_01_runtime",
+      "description": "Issue #449 an unallocated array passed by name, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function FC(c As Collection) As Long\r\n    FC = c.Count\r\nEnd Function\r\nPrivate Function FV(ByVal c As Collection) As Long\r\n    FV = c.Count\r\nEnd Function\r\nPrivate Function FA(a() As Long) As Long\r\n    FA = UBound(a)\r\nEnd Function\r\nPrivate Function FE(a() As Long) As Long\r\n    FE = a(0)\r\nEnd Function\r\nPrivate Function FN(c As Collection) As Boolean\r\n    FN = c Is Nothing\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim c As Collection\r\n    Main = FC(c)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue449d_02_runtime",
+      "description": "Issue #449 an unallocated array passed by name, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function FC(c As Collection) As Long\r\n    FC = c.Count\r\nEnd Function\r\nPrivate Function FV(ByVal c As Collection) As Long\r\n    FV = c.Count\r\nEnd Function\r\nPrivate Function FA(a() As Long) As Long\r\n    FA = UBound(a)\r\nEnd Function\r\nPrivate Function FE(a() As Long) As Long\r\n    FE = a(0)\r\nEnd Function\r\nPrivate Function FN(c As Collection) As Boolean\r\n    FN = c Is Nothing\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim c As Collection\r\n    Main = FV(c)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue449d_03_runtime",
+      "description": "Issue #449 an unallocated array passed by name, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function FC(c As Collection) As Long\r\n    FC = c.Count\r\nEnd Function\r\nPrivate Function FV(ByVal c As Collection) As Long\r\n    FV = c.Count\r\nEnd Function\r\nPrivate Function FA(a() As Long) As Long\r\n    FA = UBound(a)\r\nEnd Function\r\nPrivate Function FE(a() As Long) As Long\r\n    FE = a(0)\r\nEnd Function\r\nPrivate Function FN(c As Collection) As Boolean\r\n    FN = c Is Nothing\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim a() As Long\r\n    Main = FA(a)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue449d_04_runtime",
+      "description": "Issue #449 an unallocated array passed by name, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function FC(c As Collection) As Long\r\n    FC = c.Count\r\nEnd Function\r\nPrivate Function FV(ByVal c As Collection) As Long\r\n    FV = c.Count\r\nEnd Function\r\nPrivate Function FA(a() As Long) As Long\r\n    FA = UBound(a)\r\nEnd Function\r\nPrivate Function FE(a() As Long) As Long\r\n    FE = a(0)\r\nEnd Function\r\nPrivate Function FN(c As Collection) As Boolean\r\n    FN = c Is Nothing\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim a() As Long\r\n    Main = FE(a)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue449d_05_runtime",
+      "description": "Issue #449 an unallocated array passed by name, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> True.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function FC(c As Collection) As Long\r\n    FC = c.Count\r\nEnd Function\r\nPrivate Function FV(ByVal c As Collection) As Long\r\n    FV = c.Count\r\nEnd Function\r\nPrivate Function FA(a() As Long) As Long\r\n    FA = UBound(a)\r\nEnd Function\r\nPrivate Function FE(a() As Long) As Long\r\n    FE = a(0)\r\nEnd Function\r\nPrivate Function FN(c As Collection) As Boolean\r\n    FN = c Is Nothing\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim c As Collection\r\n    Main = FN(c)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue449d_06_runtime",
+      "description": "Issue #449 an unallocated array passed by name, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function FC(c As Collection) As Long\r\n    FC = c.Count\r\nEnd Function\r\nPrivate Function FV(ByVal c As Collection) As Long\r\n    FV = c.Count\r\nEnd Function\r\nPrivate Function FA(a() As Long) As Long\r\n    FA = UBound(a)\r\nEnd Function\r\nPrivate Function FE(a() As Long) As Long\r\n    FE = a(0)\r\nEnd Function\r\nPrivate Function FN(c As Collection) As Boolean\r\n    FN = c Is Nothing\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    Main = FC(c)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue449d_07_runtime",
+      "description": "Issue #449 an unallocated array passed by name, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function FC(c As Collection) As Long\r\n    FC = c.Count\r\nEnd Function\r\nPrivate Function FV(ByVal c As Collection) As Long\r\n    FV = c.Count\r\nEnd Function\r\nPrivate Function FA(a() As Long) As Long\r\n    FA = UBound(a)\r\nEnd Function\r\nPrivate Function FE(a() As Long) As Long\r\n    FE = a(0)\r\nEnd Function\r\nPrivate Function FN(c As Collection) As Boolean\r\n    FN = c Is Nothing\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim c As Collection\r\n    Set c = New Collection\r\n    Main = FC(c)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue449d_08_runtime",
+      "description": "Issue #449 an unallocated array passed by name, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function FC(c As Collection) As Long\r\n    FC = c.Count\r\nEnd Function\r\nPrivate Function FV(ByVal c As Collection) As Long\r\n    FV = c.Count\r\nEnd Function\r\nPrivate Function FA(a() As Long) As Long\r\n    FA = UBound(a)\r\nEnd Function\r\nPrivate Function FE(a() As Long) As Long\r\n    FE = a(0)\r\nEnd Function\r\nPrivate Function FN(c As Collection) As Boolean\r\n    FN = c Is Nothing\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim a() As Long\r\n    ReDim a(2)\r\n    Main = FA(a)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue449d_09_runtime",
+      "description": "Issue #449 an unallocated array passed by name, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function FC(c As Collection) As Long\r\n    FC = c.Count\r\nEnd Function\r\nPrivate Function FV(ByVal c As Collection) As Long\r\n    FV = c.Count\r\nEnd Function\r\nPrivate Function FA(a() As Long) As Long\r\n    FA = UBound(a)\r\nEnd Function\r\nPrivate Function FE(a() As Long) As Long\r\n    FE = a(0)\r\nEnd Function\r\nPrivate Function FN(c As Collection) As Boolean\r\n    FN = c Is Nothing\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim a(2) As Long\r\n    Main = FA(a)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
