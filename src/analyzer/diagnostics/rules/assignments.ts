@@ -36,6 +36,8 @@ import { heldObjectsAt } from '../heldObjects';
 import { resolveRuntimeFunction } from '../../runtime/vbaRuntime';
 import type {
 	VbaProcedureSignature,
+	VbaProjectClassMember,
+	VbaProjectClassMembers,
 	VbaSymbol,
 } from '../../symbols/symbolModel';
 import {
@@ -1702,6 +1704,25 @@ export function checkSetAssignments(
 	push: PushFn,
 	activity?: ConditionalActivityTracker,
 ): ProcedureStatementVisitor {
+	// Form metadata is stable within this rule invocation; query only the names
+	// actually used, retaining the first matching control and missing results.
+	let formResolved = false;
+	let currentForm: VbaProjectClassMembers | undefined;
+	let controls: Map<string, VbaProjectClassMember | undefined> | undefined;
+	function formControl(lower: string): VbaProjectClassMember | undefined {
+		if (!memberCtx.meProjectType) { return undefined; }
+		if (!formResolved) {
+			const formName = memberCtx.meProjectType.toLowerCase();
+			currentForm = memberCtx.projectClassMembers?.find((type) => type.kind === 'userform' && type.name.toLowerCase() === formName);
+			formResolved = true;
+		}
+		if (!currentForm) { return undefined; }
+		controls ??= new Map();
+		if (!controls.has(lower)) {
+			controls.set(lower, currentForm.members.find((member) => member.name.toLowerCase() === lower && /^MSForms\./i.test(member.returns ?? '')));
+		}
+		return controls.get(lower);
+	}
 	const moduleSignatures = buildModuleTypeSignatures(symbols);
 	let moduleDeclaredNames: ReadonlySet<string> | undefined;
 	return (member) => {
@@ -1754,8 +1775,7 @@ export function checkSetAssignments(
 				(procedureDeclaredNames ??= new Set((procSym?.children ?? []).map((symbol) => symbol.name.toLowerCase()))).has(lowerTarget)
 				|| (moduleDeclaredNames ??= new Set((symbols.root.children ?? []).map((symbol) => symbol.name.toLowerCase()))).has(lowerTarget)
 			);
-			const form = declaredHere || !memberCtx.meProjectType ? undefined : (memberCtx.projectClassMembers ?? []).find((type) => type.kind === 'userform' && type.name.toLowerCase() === memberCtx.meProjectType!.toLowerCase());
-			const control = form?.members.find((member) => member.name.toLowerCase() === lowerTarget && /^MSForms\./i.test(member.returns ?? ''));
+			const control = declaredHere ? undefined : formControl(lowerTarget);
 			if (control) {
 				push(
 					'setRequiresObject',
@@ -1772,9 +1792,8 @@ export function checkSetAssignments(
 			// this form (issue #315, measured in Excel 16.0: 13).
 			const controlClass = /^(?:msforms\.)?(textbox|label|listbox|combobox|checkbox|optionbutton|togglebutton|commandbutton|frame|multipage|tabstrip|scrollbar|spinbutton|image)$/i.exec(expected?.trim() ?? '')?.[1]?.toLowerCase();
 			const valueName = target.valueTokens.filter((tok) => tok.kind !== 'comment');
-			const meForm = !controlClass || !memberCtx.meProjectType ? undefined : (memberCtx.projectClassMembers ?? []).find((type) => type.kind === 'userform' && type.name.toLowerCase() === memberCtx.meProjectType!.toLowerCase());
-			const valueControl = meForm && valueName.length === 1 && tokenName(valueName[0]) && !env.has(tokenName(valueName[0])!.toLowerCase())
-				? meForm.members.find((member) => member.name.toLowerCase() === tokenName(valueName[0])!.toLowerCase() && /^MSForms\./i.test(member.returns ?? ''))
+			const valueControl = controlClass && valueName.length === 1 && tokenName(valueName[0]) && !env.has(tokenName(valueName[0])!.toLowerCase())
+				? formControl(tokenName(valueName[0])!.toLowerCase())
 				: undefined;
 			const valueClass = valueControl?.returns?.slice('MSForms.'.length).toLowerCase();
 			if (valueControl && valueClass && valueClass !== controlClass) {
