@@ -1089,7 +1089,7 @@ describe('analyzeModule - realtime incomplete-expression recovery (Priority 3 cl
 	});
 
 	it('leaves an incomplete string to the lexer without a control-flow cascade', () => {
-		const src = 'Sub T()\n' + '    x = "abc\n' + '    y = 2\n' + 'End Sub\n';
+		const src = 'Sub T()\n' + '    x = "abc _\n' + '    y = 2\n' + 'End Sub\n';
 		expectNoCascade(src);
 		expect(byCode(analyzeModule(src), 'invalid-expression-syntax')).toHaveLength(0);
 		expect(byCode(analyzeModule(src), 'unterminated-string')).toHaveLength(1);
