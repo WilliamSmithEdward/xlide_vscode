@@ -139,7 +139,7 @@ import { checkStrayCharacters } from './rules/strayTokens';
 import { checkDirectiveForms } from './rules/directiveForms';
 import { checkMalformedLines } from './rules/malformedLines';
 import { checkParentheses } from './rules/parentheses';
-import { checkMissingLibraryReference } from './rules/missingReference';
+import { checkMissingLibraryReference, checkMissingScriptingReference } from './rules/missingReference';
 import { getExcelObjectModel } from '../host/excelObjectModel';
 import {
 	checkDeclarePtrSafeForWin64,
@@ -948,6 +948,14 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 			ctx.symbols,
 			ctx.memberCtx,
 			ctx.activity,
+			push,
+		),
+	},
+	{
+		name: 'missingScriptingReference',
+		run: (ctx, push) => checkMissingScriptingReference(
+			ctx.source, ctx.opts.referencedLibraries,
+			new Set([...(ctx.memberCtx.projectClassMembers ?? []).map((type) => type.name), ...(ctx.symbols.root.children ?? []).map((symbol) => symbol.name)].map((name) => name.toLowerCase())),
 			push,
 		),
 	},

@@ -166,6 +166,8 @@ export interface ProjectAnalysisWorker {
         host?: string;
         /** Host tokens for the libraries the project references, if any. */
         referencedHosts?: readonly string[];
+        /** The names of the libraries the project references, when known. */
+        referencedLibraries?: readonly string[];
         /** The host type the module's designer makes it, when the engine read one. */
         designerClass?: string;
         /** The workbook's sheets as saved, when the container is a workbook. */
@@ -491,6 +493,9 @@ async function runProjectAnalysis(
         // A project that references another application is analyzed against
         // both object models, exactly as the editor's own diagnostics are.
         const referencedHosts = referencedHostTokens(hostTokenForFileName(filePath), references);
+        // Every project references VBA itself, so an empty list means the
+        // references were not read, and the rules that need them stay quiet.
+        const referencedLibraries = references.length > 0 ? references.map((reference) => reference.name) : undefined;
         const openSources = openModuleSourceMapForProject(filePath);
         for (const mod of modules) {
             mod.source = openSources.get(mod.name.toLowerCase()) ?? mod.source;
@@ -607,6 +612,7 @@ async function runProjectAnalysis(
                                 designerClass: mod.designerClass,
                                 host: hostTokenForFileName(filePath),
                                 referencedHosts,
+                                referencedLibraries,
                                 workbookSheets,
                             }),
                         );
@@ -652,6 +658,7 @@ async function runProjectAnalysis(
                         ...projectOptions,
                         host: hostTokenForFileName(filePath),
                         referencedHosts,
+                        referencedLibraries,
                         workbookSheets,
                     }),
                 );

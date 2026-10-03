@@ -86,6 +86,8 @@ export type AnalysisWorkerRequest =
 		 * early-bound is analyzed against it.
 		 */
 		referencedHosts?: readonly string[];
+		/** The names of the libraries the project references, when known. */
+		referencedLibraries?: readonly string[];
 		/**
 		 * Designer-declared members of the analyzed module, overriding whatever
 		 * the seed carried. A host whose designer state changes between seeds

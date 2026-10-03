@@ -118,7 +118,14 @@ export function checkDictionaryState(
 			forget,
 			touches: (stmt) => {
 				const toks = statementTokensAfterLeadingLabel(source, stmt.span).filter((tok) => tok.kind !== 'comment');
-				return tokenText(toks[0]) === 'with' && (toks.length === 2 || createsDictionary(toks.slice(1))) ? new Set<string>() : namesIn(source, stmt.span);
+				if (tokenText(toks[0]) === 'with' && (toks.length === 2 || createsDictionary(toks.slice(1)))) {
+					return new Set<string>();
+				}
+				// `For Each x In d` reads d, and changes only x (issue #349).
+				if (tokenText(toks[0]) === 'for' && tokenText(toks[1]) === 'each' && tokenText(toks[3]) === 'in' && toks.length === 5 && tokenName(toks[2])) {
+					return new Set([tokenName(toks[2])!.toLowerCase()]);
+				}
+				return namesIn(source, stmt.span);
 			},
 			enter: (node) => {
 				if (node.kind !== 'WithBlock') {
@@ -313,12 +320,19 @@ function checkStatement(base: Span, toks: readonly VbaToken[], states: Map<strin
 		}
 		const member = toks[i + 1]?.rawText === '.' ? tokenText(toks[i + 2]) : '';
 		if ((member === 'keys' || member === 'items') && toks[i + 3]?.rawText === '(' && toks[i + 4]?.rawText === ')' && toks[i + 5]?.rawText === '(') {
+			// `d.Items()(-1)`: no Keys or Items array has a negative index (issue #349).
 			const close = matchParenFrom(toks, i + 5);
-			const index = close === i + 7 && toks[i + 6].kind === 'integerLiteral' && /^\d+$/.test(toks[i + 6].rawText) ? Number(toks[i + 6].rawText) : undefined;
-			if (index !== undefined && index >= read.keys.length) {
+			const negative = toks[i + 6]?.rawText === '-';
+			const digits = toks[i + (negative ? 7 : 6)];
+			const index = close === i + (negative ? 8 : 7) && digits?.kind === 'integerLiteral' && /^\d+$/.test(digits.rawText) ? Number(digits.rawText) * (negative ? -1 : 1) : undefined;
+			if (index !== undefined && (index < 0 || index >= read.keys.length)) {
 				const held = read.keys.length === 0 ? 'holds no keys' : `holds ${read.keys.length} key${read.keys.length === 1 ? '' : 's'}, indexed 0 to ${read.keys.length - 1}`;
-				push('collectionIndexOutOfRange', `Dictionary '${toks[i].rawText}' ${held} here; ${index} is outside that. This will raise Run-time error '9': Subscript out of range.`, at(toks[i + 6], toks[i + 6]));
+				push('collectionIndexOutOfRange', `Dictionary '${toks[i].rawText}' ${held} here; ${index} is outside that. This will raise Run-time error '9': Subscript out of range.`, at(toks[i + 6], digits));
 			}
+			continue;
+		}
+		// `UBound(d.Keys)`: the arrays read the Dictionary and change nothing.
+		if (member === 'keys' || member === 'items') {
 			continue;
 		}
 		if (member === 'count' || member === 'exists') {

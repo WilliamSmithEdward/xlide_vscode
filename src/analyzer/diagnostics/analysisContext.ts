@@ -279,6 +279,12 @@ export interface AnalyzeModuleOptions {
 	 */
 	referencedHosts?: readonly string[];
 	/**
+	 * The names of every library the project references, as its dir stream
+	 * records them (`Scripting`, `MSForms`). Undefined where the project's
+	 * references are not known, which keeps the rules that read it silent.
+	 */
+	referencedLibraries?: readonly string[];
+	/**
 	 * Conditional-compilation constants for deterministic branch filtering. Branches
 	 * that remain unknown are still analyzed; only proven-inactive code is skipped.
 	 */
