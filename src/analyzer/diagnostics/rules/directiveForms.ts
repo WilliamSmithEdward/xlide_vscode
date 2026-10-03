@@ -17,6 +17,7 @@ import {
 } from '../../conditional/conditionalCompilation';
 import type { PushFn } from '../analysisContext';
 import { tokenizeCached } from '../../lexer/tokenize';
+import { firstTokenAtOrAfter } from '../../lexer/tokenHelpers';
 
 export function checkDirectiveForms(
 	source: string,
@@ -67,11 +68,8 @@ export function checkDirectiveForms(
 	for (const directive of directives) {
 		const lineEnd = lineEndAfter(source, directive.span.end);
 		let colon = -1;
-		for (let i = 0; i < tokens.length; i++) {
+		for (let i = firstTokenAtOrAfter(tokens, directive.span.end); i < tokens.length; i++) {
 			const tok = tokens[i];
-			if (tok.start < directive.span.end) {
-				continue;
-			}
 			if (tok.start >= lineEnd) {
 				break;
 			}
