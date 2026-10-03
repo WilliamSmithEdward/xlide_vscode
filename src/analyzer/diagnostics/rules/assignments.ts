@@ -315,6 +315,16 @@ export function checkAssignmentTypes(
 	// Resolve it only when array folding needs it; zero is a cached result too.
 	let optionBase: number | undefined;
 	const optionBaseFor = (): number => optionBase ??= moduleOptionBase(mod, activity);
+	// Null-choice shadowing checks only direct module names, not the broader
+	// local/project runtime scope. At most three names are queried per pass.
+	let choiceModuleNames: Map<string, boolean> | undefined;
+	const choiceModuleNameDeclared = (lower: string): boolean => {
+		choiceModuleNames ??= new Map();
+		if (!choiceModuleNames.has(lower)) {
+			choiceModuleNames.set(lower, (symbols.root.children ?? []).some((child) => child.name.toLowerCase() === lower));
+		}
+		return choiceModuleNames.get(lower)!;
+	};
 	const moduleSignatures = buildModuleTypeSignatures(symbols);
 	// Enum assignment compatibility is a name query, not a full symbol scan
 	// per assignment. Keep this index within the current rule pass.
@@ -686,7 +696,7 @@ export function checkAssignmentTypes(
 				resolveExpressionType,
 				resolveQualifiedExpressionType,
 			);
-			const nullCall = nullFromChoice(assignment.valueTokens, symbols);
+			const nullCall = nullFromChoice(assignment.valueTokens, choiceModuleNameDeclared);
 			if (nullCall && isKnownScalarType(normalizeType(expected) ?? '')) {
 				push(
 					'assignmentTypeMismatch',
@@ -768,7 +778,7 @@ export function checkAssignmentTypes(
  */
 function nullFromChoice(
 	valueTokens: readonly VbaToken[],
-	symbols: ReturnType<typeof buildModuleSymbols>,
+	moduleNameDeclared: (lower: string) => boolean,
 ): { why: string; first: VbaToken; last: VbaToken } | undefined {
 	const toks = valueTokens.filter((tok) => tok.kind !== 'comment');
 	const start = tokenText(toks[0]) === 'vba' && toks[1]?.rawText === '.' ? 2 : 0;
@@ -776,7 +786,7 @@ function nullFromChoice(
 	if ((fn !== 'choose' && fn !== 'switch' && fn !== 'iif') || toks[start + 1]?.rawText !== '(' || matchParenFrom(toks, start + 1) !== toks.length - 1) {
 		return undefined;
 	}
-	if (start === 0 && (symbols.root.children ?? []).some((child) => child.name.toLowerCase() === fn)) {
+	if (start === 0 && moduleNameDeclared(fn)) {
 		return undefined;
 	}
 	const args = splitTopLevelTokenGroups(toks, start + 2, ',', toks.length - 1);
