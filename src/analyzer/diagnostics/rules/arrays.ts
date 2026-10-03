@@ -2096,9 +2096,13 @@ export function redimShapesAt(
 		seen = shapes;
 	};
 	const forget = (names: Iterable<string>): void => {
+		let copied = false;
 		for (const lower of names) {
 			if (shapes.has(lower)) {
-				changed();
+				if (!copied) {
+					changed();
+					copied = true;
+				}
 				shapes.delete(lower);
 			}
 		}
