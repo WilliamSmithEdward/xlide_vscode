@@ -1061,6 +1061,7 @@ export function checkUnallocatedDynamicArrayAccess(
 	push: PushFn,
 ): void {
 	const unsetFunctions = arrayFunctionsNeverSet(source, mod, activity);
+	const erasedByCall = arraysErasedByCalls(source, mod, activity);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
@@ -1098,7 +1099,7 @@ export function checkUnallocatedDynamicArrayAccess(
 		const unreachable = unreachableStatementsIn(source, member, symbols, activity);
 		walk(source, member.body, (node) => isInactiveNode(activity, node) || unreachable.has(node), {
 			onStatement: (stmt) =>
-				checkUnallocatedDynamicArrayAccessStatement(source, stmt, arrays, state, report),
+				checkUnallocatedDynamicArrayAccessStatement(source, stmt, arrays, state, report, erasedByCall),
 			onBlock: (node) => {
 				// The header runs as the block is entered: `For i = 0 To
 				// UBound(a)`, `Do While i <= UBound(a)`, `Select Case UBound(a)`
@@ -1140,12 +1141,80 @@ export function checkUnallocatedDynamicArrayAccess(
 	}
 }
 
+/** Statement heads after which a procedure may end before its last line. */
+const ERASE_LEAVING_HEADS: ReadonlySet<string> = new Set(['exit', 'goto', 'gosub', 'return', 'end', 'resume', 'on', 'stop', 'error']);
+
+/**
+ * The names a statement's calls pass to an array parameter the callee ends
+ * by erasing: the callee names the parameter only at its top level, the
+ * last of those is `Erase p`, and nothing in it may leave early (issue
+ * #449, measured in Excel 16.0: `Free a` then `UBound(a)` raises 9).
+ */
+function arraysErasedByCalls(source: string, mod: ModuleNode, activity: ConditionalActivityTracker | undefined): (toks: readonly VbaToken[]) => ReadonlySet<string> {
+	const erasing = new Map<string, Set<number>>();
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure' || (member.procKind !== 'Sub' && member.procKind !== 'Function')) {
+			continue;
+		}
+		let leaves = false;
+		forEachStatement(member.body, (stmt) => {
+			for (const span of statementAndBranchSpansOf(stmt)) {
+				const toks = statementTokens(source, span).filter((tok) => tok.kind !== 'comment' && tok.kind !== 'integerLiteral');
+				const head = tokenText(toks[0]);
+				leaves ||= ERASE_LEAVING_HEADS.has(head) || (head === 'err' && tokenText(toks[2]) === 'raise');
+			}
+		}, activity);
+		if (leaves) {
+			continue;
+		}
+		for (const [index, param] of member.params.entries()) {
+			if (!param.isArray || param.byVal) {
+				continue;
+			}
+			const lower = param.name.toLowerCase();
+			const named = (node: BodyNode): boolean => statementTokens(source, node.span).some((tok) => tokenName(tok)?.toLowerCase() === lower);
+			const top = member.body.filter((node) => !isInactiveNode(activity, node) && named(node));
+			const last = top[top.length - 1];
+			const nested = member.body.some((node) => !isLeafStatement(node) && named(node));
+			const lastToks = last && isLeafStatement(last) ? statementTokens(source, last.span).filter((tok) => tok.kind !== 'comment') : [];
+			if (!nested && lastToks.length === 2 && tokenText(lastToks[0]) === 'erase' && tokenName(lastToks[1])?.toLowerCase() === lower
+				&& !(last.kind === 'Statement' && last.singleLineIfBranches)) {
+				const set = erasing.get(member.name.toLowerCase()) ?? new Set<number>();
+				set.add(index);
+				erasing.set(member.name.toLowerCase(), set);
+			}
+		}
+	}
+	return (toks) => {
+		const out = new Set<string>();
+		if (erasing.size === 0) {
+			return out;
+		}
+		const call = tokenText(toks[0]) === 'call' ? 1 : 0;
+		const indexes = erasing.get(tokenName(toks[call])?.toLowerCase() ?? '');
+		if (!indexes || toks[call + 1]?.rawText === '=' || toks[call + 1]?.rawText === '.') {
+			return out;
+		}
+		const parens = toks[call + 1]?.rawText === '(' && matchParenFrom(toks, call + 1) === toks.length - 1;
+		const args = parens ? splitTopLevelTokenGroups(toks.slice(call + 2, toks.length - 1), ',') : splitTopLevelTokenGroups(toks.slice(call + 1), ',');
+		for (const index of indexes) {
+			const arg = args[index];
+			const name = arg?.length === 1 ? tokenName(arg[0])?.toLowerCase() : undefined;
+			if (name) {
+				out.add(name);
+			}
+		}
+		return out;
+	};
+}
+
 function checkUnallocatedDynamicArrayAccessStatement(
 	source: string,
 	stmt: LeafStatementNode,
 	arrays: ReadonlyMap<string, DynamicArrayDeclaration>,
 	state: Map<string, DynamicArrayAllocationState>,
 	push: PushFn,
+	erasedByCall: (toks: readonly VbaToken[]) => ReadonlySet<string> = () => new Set(),
 ): void {
 	const redimmed = redimStatementTargets(source, stmt.span);
 	if (redimmed.length > 0) {
@@ -1215,8 +1284,13 @@ function checkUnallocatedDynamicArrayAccessStatement(
 		const from = value.length === 1 ? tokenName(value[0])?.toLowerCase() : undefined;
 		state.set(assignmentLower, from && arrays.has(from) ? state.get(from) ?? 'unknown' : dynamicArrayCall(value) ? 'allocated' : 'unknown');
 	}
+	// `Free a`, whose callee ends by erasing its parameter, leaves a
+	// unallocated (issue #449, measured in Excel 16.0).
+	const erasedThere = passedWhole.size > 0 ? erasedByCall(statementTokens(source, stmt.span).filter((tok) => tok.kind !== 'comment')) : new Set<string>();
 	for (const lower of passedWhole.keys()) {
-		if (state.get(lower) === 'unallocated') {
+		if (erasedThere.has(lower) && arrays.get(lower)?.variant !== true) {
+			state.set(lower, 'unallocated');
+		} else if (state.get(lower) === 'unallocated') {
 			state.set(lower, 'unknown');
 		}
 	}

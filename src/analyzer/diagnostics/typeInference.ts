@@ -12,6 +12,7 @@ import { untouchedModuleVariablesIn } from './moduleState';
 import type { VbaToken } from '../lexer/tokenKinds';
 import type { HostMember, HostObjectModel } from '../host/excelObjectModel';
 import { IDENT_RE, matchParenFrom, splitTopLevelTokenGroups } from '../lexer/tokenHelpers';
+import { parseModule } from '../parser/parseModule';
 import { HOST_DEFAULT_MEMBERS } from '../host/hostDefaultMembers';
 import {
 	bankersRound,
@@ -64,7 +65,7 @@ import {
 	memberTakesOwnArguments,
 } from '../completion/memberAccess';
 import { procedureSymbolFor, type PushFn } from './analysisContext';
-import { EMPTY_COLLECTION, identityAssignment, OBJECT_NOTHING, straightLineAssignments, straightLineDeadBranches, straightLineExit, straightLineUnreachable, type ReachingAssignments } from './straightLineValues';
+import { EMPTY_COLLECTION, identityAssignment, OBJECT_NOTHING, setCallEffects, straightLineAssignments, straightLineDeadBranches, straightLineExit, straightLineUnreachable, type CallEffects, type ReachingAssignments } from './straightLineValues';
 import { isInvalidBooleanString, isInvalidDateString, isInvalidNumericString, numericStringVerdict } from './stringConversion';
 import {
 	callableAcceptsZeroArguments,
@@ -3831,7 +3832,7 @@ export function knownLocalLiteralValuesAt(
 	// The same start as unreachableStatementsIn, so the two share one walk.
 	const reaching = locals.size === 0 && moduleVariables.size === 0
 		? new Map()
-		: straightLineAssignments(source, proc.body, activity, walkStart(symbols, proc, locals));
+		: straightLineAssignments(source, proc.body, activity, walkStartWithEffects(source, symbols, proc, locals, activity));
 	// Statements in a run share one reaching map, so they share one result.
 	const results = new Map<ReachingAssignments, ReadonlyMap<string, KnownLocalValue>>();
 	// A block's opening line, given as a statement of its own, sees what
@@ -4090,7 +4091,7 @@ export function unreachableStatementsIn(
 		return kept.dead;
 	}
 	// Walked even with no value known: `GoTo Done` leaves whatever the locals hold.
-	const dead = straightLineUnreachable(source, proc.body, activity, walkStart(symbols, proc, literalValueLocals(proc, symbols)));
+	const dead = straightLineUnreachable(source, proc.body, activity, walkStartWithEffects(source, symbols, proc, literalValueLocals(proc, symbols), activity));
 	UNREACHABLE.set(proc, { activity, dead });
 	return dead;
 }
@@ -4102,7 +4103,7 @@ export function deadBranchSpansIn(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	activity: ConditionalActivityTracker | undefined,
 ): readonly Span[] {
-	return straightLineDeadBranches(source, proc.body, activity, walkStart(symbols, proc, literalValueLocals(proc, symbols)));
+	return straightLineDeadBranches(source, proc.body, activity, walkStartWithEffects(source, symbols, proc, literalValueLocals(proc, symbols), activity));
 }
 
 const UNREACHABLE = new WeakMap<ProcedureNode, { activity: ConditionalActivityTracker | undefined; dead: ReadonlySet<BodyNode> }>();
@@ -4127,6 +4128,136 @@ function walkStart(
 }
 
 const WALK_STARTS = new WeakMap<ProcedureNode, ReachingAssignments>();
+
+/**
+ * Whether a statement that may leave the procedure early still runs: a
+ * path that leaves returns what it held then, which the end state does not
+ * show. One the walk found never runs may stay.
+ */
+function mayLeaveEarly(
+	source: string,
+	body: readonly BodyNode[],
+	activity: ConditionalActivityTracker | undefined,
+	dead: ReadonlySet<BodyNode>,
+	deadSpans: readonly Span[],
+): boolean {
+	const neverRuns = (span: Span): boolean => deadSpans.some((deadSpan) => span.start >= deadSpan.start && span.end <= deadSpan.end);
+	return body.some((node) => {
+		if (activity?.isInactive(node.span) || dead.has(node)) {
+			return false;
+		}
+		if (isLeafStatement(node)) {
+			return statementAndBranchSpans(node).some((span) => {
+				const toks = statementTokens(source, span);
+				const head = tokenText(toks[firstExecutableTokenIndex(toks)]);
+				return !neverRuns(span) && (RESULT_LEAVING_HEADS.has(head) || (head === 'err' && tokenText(toks[firstExecutableTokenIndex(toks) + 2]) === 'raise'));
+			});
+		}
+		return 'body' in node && Array.isArray(node.body) && mayLeaveEarly(source, node.body as BodyNode[], activity, dead, deadSpans);
+	});
+}
+
+/**
+ * What the module's calls leave in the names they pass ByRef (issue #449,
+ * measured in Excel 16.0): `ZeroN n`, where ZeroN's body runs through to
+ * `n = 0`, leaves the caller's n 0. A parameter ByVal, an array, one the
+ * callee may leave early or assign on one path only, and an argument in
+ * parentheses of its own, which passes a copy, leave nothing known.
+ */
+function callEffectsFor(source: string, symbols: ReturnType<typeof buildModuleSymbols>, activity: ConditionalActivityTracker | undefined): CallEffects {
+	const kept = CALL_EFFECT_READERS.get(symbols);
+	if (kept && kept.source === source && kept.activity === activity) {
+		return kept.effects;
+	}
+	let procedures: Map<string, ProcedureNode | null> | undefined;
+	const procedureNamed = (lower: string): ProcedureNode | undefined => {
+		if (!procedures) {
+			procedures = new Map();
+			for (const member of parseModule(source).members) {
+				if (member.kind === 'Procedure' && !activity?.isInactive(member.span) && (member.procKind === 'Sub' || member.procKind === 'Function')) {
+					const key = member.name.toLowerCase();
+					procedures.set(key, procedures.has(key) ? null : member);
+				}
+			}
+		}
+		return procedures.get(lower) ?? undefined;
+	};
+	const left = new Map<string, readonly VbaToken[] | undefined>();
+	const leftIn = (proc: ProcedureNode, index: number): readonly VbaToken[] | undefined => {
+		const key = `${proc.name.toLowerCase()}|${index}`;
+		if (!left.has(key)) {
+			const param = proc.params[index];
+			let value: readonly VbaToken[] | undefined;
+			if (param && !param.byVal && !param.paramArray && !param.isArray && !proc.modifiers.some((word) => word.toLowerCase() === 'static')) {
+				// From a start of its own, which no effects ride: a callee
+				// that calls itself is not followed into.
+				const initial = new Map(walkStart(symbols, proc, literalValueLocals(proc, symbols)));
+				initial.delete(param.name.toLowerCase());
+				const { exit, dead, deadSpans } = straightLineExit(source, proc.body, activity, initial);
+				const held = exit && !mayLeaveEarly(source, proc.body, activity, dead, deadSpans) ? exit.get(param.name.toLowerCase()) : undefined;
+				value = held && held !== OBJECT_NOTHING && held !== EMPTY_COLLECTION && held.every((tok) => tokenName(tok) === undefined || ['true', 'false'].includes(tokenText(tok))) ? held : undefined;
+			}
+			left.set(key, value);
+		}
+		return left.get(key);
+	};
+	const effects: CallEffects = (toks) => {
+		const out = new Map<string, readonly VbaToken[]>();
+		const apply = (proc: ProcedureNode | undefined, args: readonly (readonly VbaToken[])[]): void => {
+			if (!proc) {
+				return;
+			}
+			for (const [index, arg] of args.entries()) {
+				const parts = arg.filter((tok) => tok.kind !== 'comment');
+				if (parts.some((tok) => tok.rawText === ':=')) {
+					return;
+				}
+				const name = parts.length === 1 ? tokenName(parts[0])?.toLowerCase() : undefined;
+				const value = name ? leftIn(proc, index) : undefined;
+				if (name && value) {
+					out.set(name, value);
+				}
+			}
+		};
+		const first = firstExecutableTokenIndex(toks);
+		const head = tokenText(toks[first]);
+		if (head === 'call' && tokenName(toks[first + 1]) && toks[first + 2]?.rawText === '(') {
+			const close = matchParenFrom([...toks], first + 2);
+			apply(procedureNamed(tokenName(toks[first + 1])!.toLowerCase()), close > first + 3 ? splitTopLevelTokenGroups([...toks], first + 3, ',', close) : []);
+		} else if (tokenName(toks[first]) && toks[first + 1]?.rawText !== '=' && toks[first + 1]?.rawText !== '.' && toks[first + 1]?.rawText !== '(') {
+			apply(procedureNamed(tokenName(toks[first])!.toLowerCase()), toks.length > first + 1 ? splitTopLevelTokenGroups([...toks], first + 1, ',', toks.length) : []);
+		}
+		for (let i = first + 1; i + 1 < toks.length; i++) {
+			const name = tokenName(toks[i])?.toLowerCase();
+			if (!name || toks[i + 1].rawText !== '(' || toks[i - 1]?.rawText === '.' || (head === 'call' && i === first + 1)) {
+				continue;
+			}
+			const proc = procedureNamed(name);
+			if (proc?.procKind === 'Function') {
+				const close = matchParenFrom([...toks], i + 1);
+				apply(proc, close > i + 2 ? splitTopLevelTokenGroups([...toks], i + 2, ',', close) : []);
+			}
+		}
+		return out;
+	};
+	CALL_EFFECT_READERS.set(symbols, { source, activity, effects });
+	return effects;
+}
+
+const CALL_EFFECT_READERS = new WeakMap<object, { source: string; activity: ConditionalActivityTracker | undefined; effects: CallEffects }>();
+
+/** A procedure's start, with the effects of the module's calls riding its walks. */
+function walkStartWithEffects(
+	source: string,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	proc: ProcedureNode,
+	locals: ReadonlyMap<string, 'number' | 'string' | undefined>,
+	activity: ConditionalActivityTracker | undefined,
+): ReachingAssignments {
+	const start = walkStart(symbols, proc, locals);
+	setCallEffects(start, callEffectsFor(source, symbols, activity));
+	return start;
+}
 
 /** Statement heads after which a Function may end before its last line. */
 const RESULT_LEAVING_HEADS: ReadonlySet<string> = new Set(['exit', 'goto', 'gosub', 'return', 'resume', 'on', 'stop', 'error', 'end']);
@@ -4203,23 +4334,7 @@ function runFunctionFor(
 	if (!exit) {
 		return undefined;
 	}
-	// A path that leaves early returns what it held then, which the end
-	// state does not show; only one that never runs may stay.
-	const neverRuns = (span: Span): boolean => deadSpans.some((deadSpan) => span.start >= deadSpan.start && span.end <= deadSpan.end);
-	const leaves = (body: readonly BodyNode[]): boolean => body.some((node) => {
-		if (activity?.isInactive(node.span) || dead.has(node)) {
-			return false;
-		}
-		if (isLeafStatement(node)) {
-			return statementAndBranchSpans(node).some((span) => {
-				const toks = statementTokens(source, span);
-				const head = tokenText(toks[firstExecutableTokenIndex(toks)]);
-				return !neverRuns(span) && (RESULT_LEAVING_HEADS.has(head) || (head === 'err' && tokenText(toks[firstExecutableTokenIndex(toks) + 2]) === 'raise'));
-			});
-		}
-		return 'body' in node && Array.isArray(node.body) && leaves(node.body as BodyNode[]);
-	});
-	const value = leaves(proc.body) ? undefined : exit.get(lower);
+	const value = mayLeaveEarly(source, proc.body, activity, dead, deadSpans) ? undefined : exit.get(lower);
 	if (!value || value === OBJECT_NOTHING || value === EMPTY_COLLECTION || !value.some((tok) => tokenName(tok) !== undefined)) {
 		return value;
 	}

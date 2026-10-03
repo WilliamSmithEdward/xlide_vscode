@@ -80,6 +80,23 @@ const READ_ONLY_INTRINSICS: ReadonlySet<string> = new Set(['lbound', 'ubound', '
  * the procedure starts: each local's declared default, so `x = 1 / x` reads
  * the 0 x starts with (issue #259).
  */
+/** What the calls in a statement leave in the names they pass ByRef, by lowercased name. */
+export type CallEffects = (toks: readonly VbaToken[]) => ReadonlyMap<string, readonly VbaToken[]>;
+
+const CALL_EFFECTS = new WeakMap<ReachingAssignments, CallEffects>();
+
+/**
+ * Has walks from `start` apply `effects` at each statement (issue #449):
+ * `ZeroN n`, where ZeroN sets its ByRef parameter to 0, leaves n 0. A start
+ * is one procedure's, so its walks share the effects and the cache.
+ */
+export function setCallEffects(start: ReachingAssignments, effects: CallEffects): void {
+	CALL_EFFECTS.set(start, effects);
+}
+
+/** The effects of the walk running now; set while a walk runs. */
+let walkCallEffects: CallEffects | undefined;
+
 export function straightLineAssignments(
 	source: string,
 	body: readonly BodyNode[],
@@ -163,7 +180,9 @@ function cachedWalk(
 	const outer = walkArrays;
 	const outerProcedures = walkProcedures;
 	const outerElements = walkElements;
+	const outerEffects = walkCallEffects;
 	walkArrays = localArrayNames(body, activity);
+	walkCallEffects = CALL_EFFECTS.get(initial);
 	let exit: ReachingAssignments;
 	walkProcedures = moduleProcedureNames(source);
 	walkElements = /\)\s*=\s*null\b/i.test(text);
@@ -173,6 +192,7 @@ function cachedWalk(
 		walkArrays = outer;
 		walkProcedures = outerProcedures;
 		walkElements = outerElements;
+		walkCallEffects = outerEffects;
 	}
 	const walk: CachedWalk = { source, activity, result: out, dead, deadSpans, exit: exit === UNREACHED ? undefined : exit };
 	byStart.set(key, walk);
@@ -670,6 +690,15 @@ function afterStatement(source: string, span: Span, before: ReachingAssignments)
 		return next;
 	}
 	let after = without(before, passedWhole(source, toks, span.start));
+	// A name passed ByRef holds what the callee leaves in it (issue #449).
+	const effects = walkCallEffects?.(toks);
+	if (effects && effects.size > 0) {
+		const next = new Map(after);
+		for (const [lower, value] of effects) {
+			next.set(lower, value);
+		}
+		after = next;
+	}
 	const bare = bareAssignmentTarget(source, span);
 	if (bare && !identityAssignment(bare.name, bare.valueTokens)) {
 		const next = new Map(after);
