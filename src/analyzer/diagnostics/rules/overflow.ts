@@ -44,6 +44,7 @@ import { bankersRound, bodyMayLeaveLoop, isBareOrVbaQualifiedIntrinsicCall, name
 import { functionResultNamed, knownFunctionResults } from '../functionResults';
 import { checkEachCounterPass, loopCountersAt } from '../loopCounters';
 import { blockHeaderLeaves, isLoopBlock, selectArms } from '../blockHeaders';
+import { numericStringVerdict, valPrefixValue } from '../stringConversion';
 import { fieldChain, moduleTypes, variableRoot, variableSymbolIn, type ModuleTypes } from '../typeFields';
 import {
 	buildModuleTypeSignatures,
@@ -270,22 +271,20 @@ function numberInString(text: string): Typed | 'overflow' | undefined {
 	const radix = /^([-+]?)(&[Hh][0-9A-Fa-f]+|&[Oo]?[0-7]+)$/.exec(trimmed);
 	const value = radix ? parseVbaIntegerLiteral(radix[2]) : undefined;
 	if (value === undefined) {
-		return undefined;
+		// A parenthesized or trailing sign, `"(5)"` and `"5-"`, is -5 in
+		// every locale (issue #703, measured in Excel 16.0).
+		const verdict = numericStringVerdict(trimmed);
+		return verdict.kind === 'number' && verdict.value !== undefined ? { value: verdict.value, type: 'double' } : undefined;
 	}
 	return { value: radix![1] === '-' ? -value : value, type: 'double' };
 }
 
-/**
- * What `Val` reads from a string: a number with an optional fraction and
- * exponent, always with `.` as the decimal point. Only a string that is that
- * number and nothing else is judged, since Val also skips blanks inside one.
- */
+/** What `Val` reads from a string, the same in every locale (issue #703). */
 function valOfString(text: string): Typed | 'overflow' | undefined {
-	const match = /^\s*([-+]?(?:\d+\.?\d*|\.\d+)(?:[eEdD][-+]?\d+)?)\s*$/.exec(text);
-	if (!match) {
+	const value = valPrefixValue(text);
+	if (value === undefined) {
 		return undefined;
 	}
-	const value = Number(match[1].replace(/[dD]/, 'E'));
 	return Number.isFinite(value) ? { value, type: 'double' } : 'overflow';
 }
 

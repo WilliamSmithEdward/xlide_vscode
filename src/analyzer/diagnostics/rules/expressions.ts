@@ -1375,7 +1375,7 @@ function divisionByZeroDivisors(
 			continue;
 		}
 		const divisor = zeroDivisorToken(source, span, toks, i + 1, constants)
-			?? fractionalDivisorRoundingToZero(toks, i + 1, operator, fractionOf);
+			?? fractionalDivisorRoundingToZero(toks, i + 1, operator, fractionOf, constants);
 		if (!divisor) {
 			continue;
 		}
@@ -1427,6 +1427,7 @@ function fractionalDivisorRoundingToZero(
 	start: number,
 	operator: string,
 	fractionOf?: (lower: string) => number | undefined,
+	constants?: IntegerConstantLookup,
 ): VbaToken[] | undefined {
 	if (operator === '/') {
 		return undefined;
@@ -1435,6 +1436,13 @@ function fractionalDivisorRoundingToZero(
 	const held = name && fractionOf && isDivisorAtomBoundary(toks[start + 1]) ? fractionOf(name) : undefined;
 	if (held !== undefined) {
 		return held !== 0 && Math.abs(held) <= 0.5 ? [toks[start]] : undefined;
+	}
+	// `10 \ Val("0.4")`: a call the folder reads to a fraction (issue #703).
+	if (name && toks[start + 1]?.rawText === '(' && toks[start - 1]?.rawText !== '.' && constants) {
+		const end = matchParenFrom(toks, start + 1);
+		const call = end > start ? toks.slice(start, end + 1) : [];
+		const value = call.length > 0 && isDivisorAtomBoundary(toks[end + 1]) ? evaluateIntegerConstantExpression(call.map((tok) => tok.rawText).join(' '), constants) : undefined;
+		return value !== undefined && value !== 0 && Math.abs(value) <= 0.5 ? call : undefined;
 	}
 	let index = start;
 	const group: VbaToken[] = [];

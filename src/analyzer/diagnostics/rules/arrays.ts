@@ -14,6 +14,7 @@ import {
 	type IntegerConstantLookup,
 } from '../../constants/integerConstantExpression';
 import type { HostObjectModel } from '../../host/excelObjectModel';
+import { numericStringReadings } from '../stringConversion';
 import { tokenize } from '../../lexer/tokenize';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type {
@@ -2648,6 +2649,24 @@ function redimTargetNamesInBody(
 }
 
 /** Whether `value` is outside `dim`, with the words for the message when it is. */
+/** The whole numbers a conversion of a string literal gives under each decimal point: CInt("3.5") is 4 or 35. */
+const WHOLE_STRING_CONVERSIONS: Readonly<Record<string, readonly [number, number]>> = {
+	cint: [-32768, 32767],
+	clng: [-2147483648, 2147483647],
+	cbyte: [0, 255],
+};
+
+function wholeConversionReadings(slot: readonly VbaToken[]): [number, number] | undefined {
+	const toks = slot.filter((tok) => tok.kind !== 'comment');
+	const at = tokenText(toks[0]) === 'vba' && toks[1]?.rawText === '.' ? 2 : 0;
+	const range = WHOLE_STRING_CONVERSIONS[tokenText(toks[at])];
+	if (!range || toks.length !== at + 4 || toks[at + 1].rawText !== '(' || toks[at + 2].kind !== 'stringLiteral' || toks[at + 3].rawText !== ')') {
+		return undefined;
+	}
+	const readings = numericStringReadings(stringLiteralValue(toks[at + 2].rawText))?.map((value) => bankersRound(value));
+	return readings && readings.every((value) => value >= range[0] && value <= range[1]) ? [readings[0], readings[1]] : undefined;
+}
+
 function subscriptDetail(value: number, dim: ArrayDimensionBound, index: number, dims: number): string | undefined {
 	if (value >= dim.lower && value <= dim.upper) {
 		return undefined;
@@ -2998,9 +3017,18 @@ export function subscriptViolation(
 		const text = slot.map((tok) => tok.rawText).join(' ');
 		const known = lookup ? evaluateIntegerConstantExpression(text, lookup) : undefined;
 		const detail = known === undefined ? undefined : subscriptDetail(known, dim, index, decl.dims.length);
-		return detail
-			? { span: slotSpan, message: `Subscript ${text} is ${known} here, which for array '${decl.name}'${from} ${detail}. ${error}` }
-			: undefined;
+		if (detail) {
+			return { span: slotSpan, message: `Subscript ${text} is ${known} here, which for array '${decl.name}'${from} ${detail}. ${error}` };
+		}
+		// `a(CInt("3.5"))`: 4 where "." is the decimal point, 35 where it
+		// groups thousands, and out of bounds either way (issue #703).
+		const readings = known === undefined ? wholeConversionReadings(slot) : undefined;
+		const details = readings?.map((value) => subscriptDetail(value, dim, index, decl.dims.length));
+		if (readings && details?.every((one) => one !== undefined)) {
+			const why = details[0] === details[1] ? details[0] : 'is outside its bounds';
+			return { span: slotSpan, message: `Subscript ${text} is ${readings[0]} where "." is the decimal point and ${readings[1]} where "," is, and either for array '${decl.name}'${from} ${why}. ${error}` };
+		}
+		return undefined;
 	}
 	// `a(i)` inside `For i = 0 To 3`: the counter's first and last passes.
 	const atomValue = (atom: { kind: string; name: string; dimension: number }): number | undefined => {
