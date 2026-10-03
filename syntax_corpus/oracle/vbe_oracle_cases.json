@@ -92352,6 +92352,127 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim i As Integer\r\n    i = TakeI(Rows.Count \\ 64)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Function TakeI(ByVal i As Integer) As Integer\r\n    TakeI = i\r\nEnd Function\r\nPrivate Function TakeL(ByVal i As Long) As Long\r\n    TakeL = i\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue324b_01_runtime",
+      "description": "Issue #324 an operator on Null passed to a typed parameter, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 94.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = TakeL(1 + Null)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Function TakeL(ByVal n As Long) As Long\r\n    TakeL = 1\r\nEnd Function\r\nPrivate Function TakeS(ByVal s As String) As Long\r\n    TakeS = 1\r\nEnd Function\r\nPrivate Function TakeV(ByVal v As Variant) As Long\r\n    TakeV = 1\r\nEnd Function\r\nPrivate Function TakeR(n As Long) As Long\r\n    TakeR = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue324b_02_runtime",
+      "description": "Issue #324 an operator on Null passed to a typed parameter, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 94.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = TakeL(Null * 2)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Function TakeL(ByVal n As Long) As Long\r\n    TakeL = 1\r\nEnd Function\r\nPrivate Function TakeS(ByVal s As String) As Long\r\n    TakeS = 1\r\nEnd Function\r\nPrivate Function TakeV(ByVal v As Variant) As Long\r\n    TakeV = 1\r\nEnd Function\r\nPrivate Function TakeR(n As Long) As Long\r\n    TakeR = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue324b_03_runtime",
+      "description": "Issue #324 an operator on Null passed to a typed parameter, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 94.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = TakeS(\"a\" + Null)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Function TakeL(ByVal n As Long) As Long\r\n    TakeL = 1\r\nEnd Function\r\nPrivate Function TakeS(ByVal s As String) As Long\r\n    TakeS = 1\r\nEnd Function\r\nPrivate Function TakeV(ByVal v As Variant) As Long\r\n    TakeV = 1\r\nEnd Function\r\nPrivate Function TakeR(n As Long) As Long\r\n    TakeR = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue324b_04_runtime",
+      "description": "Issue #324 an operator on Null passed to a typed parameter, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = TakeV(1 + Null)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Function TakeL(ByVal n As Long) As Long\r\n    TakeL = 1\r\nEnd Function\r\nPrivate Function TakeS(ByVal s As String) As Long\r\n    TakeS = 1\r\nEnd Function\r\nPrivate Function TakeV(ByVal v As Variant) As Long\r\n    TakeV = 1\r\nEnd Function\r\nPrivate Function TakeR(n As Long) As Long\r\n    TakeR = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue324b_05_runtime",
+      "description": "Issue #324 an operator on Null passed to a typed parameter, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = TakeS(\"a\" & Null)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Function TakeL(ByVal n As Long) As Long\r\n    TakeL = 1\r\nEnd Function\r\nPrivate Function TakeS(ByVal s As String) As Long\r\n    TakeS = 1\r\nEnd Function\r\nPrivate Function TakeV(ByVal v As Variant) As Long\r\n    TakeV = 1\r\nEnd Function\r\nPrivate Function TakeR(n As Long) As Long\r\n    TakeR = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue324b_06_runtime",
+      "description": "Issue #324 an operator on Null passed to a typed parameter, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 94.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = TakeL(-Null)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Function TakeL(ByVal n As Long) As Long\r\n    TakeL = 1\r\nEnd Function\r\nPrivate Function TakeS(ByVal s As String) As Long\r\n    TakeS = 1\r\nEnd Function\r\nPrivate Function TakeV(ByVal v As Variant) As Long\r\n    TakeV = 1\r\nEnd Function\r\nPrivate Function TakeR(n As Long) As Long\r\n    TakeR = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue324b_07_runtime",
+      "description": "Issue #324 an operator on Null passed to a typed parameter, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 94.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = TakeL(Null And 1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Function TakeL(ByVal n As Long) As Long\r\n    TakeL = 1\r\nEnd Function\r\nPrivate Function TakeS(ByVal s As String) As Long\r\n    TakeS = 1\r\nEnd Function\r\nPrivate Function TakeV(ByVal v As Variant) As Long\r\n    TakeV = 1\r\nEnd Function\r\nPrivate Function TakeR(n As Long) As Long\r\n    TakeR = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue324b_08_runtime",
+      "description": "Issue #324 an operator on Null passed to a typed parameter, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = TakeL(Null And 0)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Function TakeL(ByVal n As Long) As Long\r\n    TakeL = 1\r\nEnd Function\r\nPrivate Function TakeS(ByVal s As String) As Long\r\n    TakeS = 1\r\nEnd Function\r\nPrivate Function TakeV(ByVal v As Variant) As Long\r\n    TakeV = 1\r\nEnd Function\r\nPrivate Function TakeR(n As Long) As Long\r\n    TakeR = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue324b_09_runtime",
+      "description": "Issue #324 an operator on Null passed to a typed parameter, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 94.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = TakeR(1 + Null)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Function TakeL(ByVal n As Long) As Long\r\n    TakeL = 1\r\nEnd Function\r\nPrivate Function TakeS(ByVal s As String) As Long\r\n    TakeS = 1\r\nEnd Function\r\nPrivate Function TakeV(ByVal v As Variant) As Long\r\n    TakeV = 1\r\nEnd Function\r\nPrivate Function TakeR(n As Long) As Long\r\n    TakeR = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue324b_10_runtime",
+      "description": "Issue #324 an operator on Null passed to a typed parameter, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 94.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant\r\n    v = Null\r\n    Main = TakeL(v + 1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Function TakeL(ByVal n As Long) As Long\r\n    TakeL = 1\r\nEnd Function\r\nPrivate Function TakeS(ByVal s As String) As Long\r\n    TakeS = 1\r\nEnd Function\r\nPrivate Function TakeV(ByVal v As Variant) As Long\r\n    TakeV = 1\r\nEnd Function\r\nPrivate Function TakeR(n As Long) As Long\r\n    TakeR = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue324b_11_runtime",
+      "description": "Issue #324 an operator on Null passed to a typed parameter, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 94.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = TakeL(Abs(Null))\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Function TakeL(ByVal n As Long) As Long\r\n    TakeL = 1\r\nEnd Function\r\nPrivate Function TakeS(ByVal s As String) As Long\r\n    TakeS = 1\r\nEnd Function\r\nPrivate Function TakeV(ByVal v As Variant) As Long\r\n    TakeV = 1\r\nEnd Function\r\nPrivate Function TakeR(n As Long) As Long\r\n    TakeR = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }

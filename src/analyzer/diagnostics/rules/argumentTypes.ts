@@ -30,7 +30,8 @@ import {
 	validateArgumentTypes,
 	validateArgumentTypesForSignature,
 } from '../typeInference';
-import { statementAndBranchSpans, type ProcedureStatementVisitor } from '../walker';
+import { statementAndBranchSpans, tokenText, type ProcedureStatementVisitor } from '../walker';
+import { straightLineAssignments } from '../straightLineValues';
 
 /**
  * Rule: when both a callable parameter type and an argument type are known, flag
@@ -58,8 +59,20 @@ export function checkArgumentTypes(
 			sourceBindingTypeResolvers(symbols, procSym, projectVisibleSymbols);
 		// What a local holds at the statement (issue #246).
 		const heldAt = heldObjectsAt(source, member, symbols, activity);
+		const variantLocals = new Set((procSym?.children ?? [])
+			.filter((child) => child.kind === 'localVariable' && child.visibility !== 'Static' && !child.isArray && (!child.asType || child.asType.toLowerCase() === 'variant'))
+			.map((child) => child.name.toLowerCase()));
+		let reaching: ReturnType<typeof straightLineAssignments> | undefined;
 		return (stmt) => {
 			const heldClassOf = (lower: string): string | undefined => heldAt(stmt).classes.get(lower);
+			// A Variant local a straight line has just given Null (issue #324).
+			const heldNull = (lower: string): boolean => {
+				if (!variantLocals.has(lower)) {
+					return false;
+				}
+				const held = (reaching ??= straightLineAssignments(source, member.body, activity)).get(stmt)?.get(lower)?.filter((tok) => tok.kind !== 'comment');
+				return held?.length === 1 && tokenText(held[0]) === 'null';
+			};
 			// `Call Two(Nothing, 1)` is found both as an expression call and as
 			// the statement's call; report each argument once (issue #223).
 			const reported = new Set<string>();
@@ -82,6 +95,7 @@ export function checkArgumentTypes(
 					resolveExpressionType,
 					resolveQualifiedExpressionType,
 					heldClassOf,
+					heldNull,
 				);
 			}
 			for (const memberCall of memberExpressionCalls(
@@ -101,6 +115,7 @@ export function checkArgumentTypes(
 					resolveExpressionType,
 					resolveQualifiedExpressionType,
 					heldClassOf,
+					heldNull,
 				);
 			}
 			for (const memberCall of memberStatementCalls(
@@ -120,6 +135,7 @@ export function checkArgumentTypes(
 					resolveExpressionType,
 					resolveQualifiedExpressionType,
 					heldClassOf,
+					heldNull,
 				);
 			}
 			// A single-line If's branch is a statement call too: `If x Then Sl Nothing` (issue #254).
@@ -137,6 +153,7 @@ export function checkArgumentTypes(
 						resolveExpressionType,
 						resolveQualifiedExpressionType,
 						heldClassOf,
+						heldNull,
 					);
 				}
 			}
