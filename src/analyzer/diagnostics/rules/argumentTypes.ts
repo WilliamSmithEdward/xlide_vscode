@@ -63,7 +63,7 @@ export function checkArgumentTypes(
 			sourceBindingTypeResolvers(symbols, procSym, projectVisibleSymbols);
 		// What a local holds at the statement (issue #246), and a Variant still
 		// holding Empty, a number or a String there (issue #410).
-		const heldAt = heldObjectsAt(source, member, symbols, activity);
+		let heldAt: ReturnType<typeof heldObjectsAt> | undefined;
 		const variantLocals = new Set((procSym?.children ?? [])
 			.filter((child) => child.kind === 'localVariable' && child.visibility !== 'Static' && !child.isArray && (!child.asType || child.asType.toLowerCase() === 'variant'))
 			.map((child) => child.name.toLowerCase()));
@@ -93,7 +93,7 @@ export function checkArgumentTypes(
 			return firstNamed.get(lower) === at;
 		};
 		return (stmt) => {
-			const heldClassOf = (lower: string): string | undefined => heldAt(stmt).classes.get(lower)
+			const heldClassOf = (lower: string): string | undefined => (heldAt ??= heldObjectsAt(source, member, symbols, activity))(stmt).classes.get(lower)
 				?? (normalizeType(env.get(lower)) === 'variant'
 					&& (['empty', 'number', 'string'].includes(valuesAt(stmt).get(lower)?.kind ?? '') || namedFirstAt(lower, stmt.span.start)) ? VALUE_HELD : undefined);
 			// A Variant local a straight line has just given Null (issue #324).
