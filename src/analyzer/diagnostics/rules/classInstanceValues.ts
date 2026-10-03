@@ -17,6 +17,7 @@
 // reading of it. A field assigned through it, `Set c.M = ...`, is not
 // judged.
 
+import { topLevelEqualsIndex } from '../../lexer/tokenHelpers';
 import type { MemberCompletionContext } from '../../completion/memberAccess';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import type { VbaToken } from '../../lexer/tokenKinds';
@@ -165,19 +166,4 @@ function checkStatement(span: Span, toks: readonly VbaToken[], instances: Readon
 
 function isObjectType(member: VbaProjectClassMember, type: string): boolean {
 	return normalizeType(member.returns) === type;
-}
-
-function topLevelEqualsIndex(toks: readonly VbaToken[]): number {
-	let depth = 0;
-	for (let i = 0; i < toks.length; i++) {
-		const raw = toks[i].rawText;
-		if (raw === '(') {
-			depth++;
-		} else if (raw === ')') {
-			depth--;
-		} else if (raw === '=' && depth === 0) {
-			return i;
-		}
-	}
-	return -1;
 }

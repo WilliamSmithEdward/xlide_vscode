@@ -429,7 +429,7 @@ function checkCollectionItems(
 			}
 			// `c(1).Member` or `c.Item(1).Member`.
 			const open = toks[i + 1]?.rawText === '(' ? i + 1 : toks[i + 1]?.rawText === '.' && tokenText(toks[i + 2]) === 'item' && toks[i + 3]?.rawText === '(' ? i + 3 : -1;
-			const close = open >= 0 ? matchParen(toks, open) : -1;
+			const close = open >= 0 ? matchParenFrom(toks, open) : -1;
 			if (close < 0 || toks[close + 1]?.rawText !== '.' || !tokenName(toks[close + 2])) {
 				continue;
 			}
@@ -485,17 +485,6 @@ function checkCollectionItems(
 			push('assignmentObjectTypeMismatch', `For Each Sets each item of '${loop.sourceExpression!.trim()}' into '${loop.controlVariable}', a ${expected}, and item ${position + 1} is a ${held[position]}. This will raise Run-time error '13': Type mismatch.`, loop.sourceExpressionSpan);
 		}
 	});
-}
-
-function matchParen(toks: readonly VbaToken[], open: number): number {
-	let depth = 0;
-	for (let i = open; i < toks.length; i++) {
-		depth += toks[i].rawText === '(' ? 1 : toks[i].rawText === ')' ? -1 : 0;
-		if (depth === 0) {
-			return i;
-		}
-	}
-	return -1;
 }
 
 /** Every For Each loop in a body, nested ones included. */

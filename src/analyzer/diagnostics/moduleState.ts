@@ -12,6 +12,7 @@
 // variable needs only its own module; a Public one needs every module of the
 // project, which the project index supplies as `projectWrittenNames`.
 
+import { topLevelEqualsIndex } from '../lexer/tokenHelpers';
 import { tokenizeCached } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
 import type { ProcedureNode } from '../parser/nodes';
@@ -113,7 +114,7 @@ function markWrites(segment: readonly VbaToken[], procedures: ReadonlySet<string
 		markAll(0, toks.length);
 		return;
 	}
-	const equals = topLevelEquals(toks);
+	const equals = topLevelEqualsIndex(toks);
 	const assignment = equals > 0 && !COMPARING_HEADS.has(head);
 	if (assignment) {
 		markAll(0, equals);
@@ -163,21 +164,6 @@ function calleeOf(toks: readonly VbaToken[], at: number): string | undefined {
 		}
 	}
 	return undefined;
-}
-
-function topLevelEquals(toks: readonly VbaToken[]): number {
-	let depth = 0;
-	for (let i = 0; i < toks.length; i++) {
-		const raw = toks[i].rawText;
-		if (raw === '(') {
-			depth++;
-		} else if (raw === ')') {
-			depth--;
-		} else if (raw === '=' && depth === 0) {
-			return i;
-		}
-	}
-	return -1;
 }
 
 const PROJECT_WRITES = new WeakMap<ModuleSymbols, ReadonlySet<string>>();

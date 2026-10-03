@@ -1821,7 +1821,7 @@ export function byRefVariableTypeMismatch(
 		if (variantVariable) {
 			return { name, actual: declaredType?.asType ?? 'Variant', span };
 		}
-	} else if (toks.length >= 4 && toks[1].rawText === '(' && toks[toks.length - 1].rawText === ')' && closesAt(toks, 1) === toks.length - 1) {
+	} else if (toks.length >= 4 && toks[1].rawText === '(' && toks[toks.length - 1].rawText === ')' && matchParenFrom(toks, 1) === toks.length - 1) {
 		// An element of an array variable passes ByRef as the variable itself
 		// does: `Take a(1)` with `Dim a(1) As Variant` for `n As Long` is
 		// "ByRef argument type mismatch" (issue #216, measured in Excel 16.0).
@@ -1891,18 +1891,6 @@ function byRefExact(type: string | undefined): boolean {
 function sameByRefType(actual: string | undefined, expected: string | undefined): boolean {
 	const widen = (type: string | undefined): string | undefined => (type === 'longptr' ? 'longlong' : type);
 	return widen(actual) === widen(expected);
-}
-
-/** The index of the `)` that closes the `(` at `open`, or -1. */
-function closesAt(toks: readonly VbaToken[], open: number): number {
-	let depth = 0;
-	for (let i = open; i < toks.length; i++) {
-		depth += toks[i].rawText === '(' ? 1 : toks[i].rawText === ')' ? -1 : 0;
-		if (depth === 0) {
-			return i;
-		}
-	}
-	return -1;
 }
 
 export function isKnownByRefExactType(type: string | undefined): boolean {
