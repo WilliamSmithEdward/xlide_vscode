@@ -98297,6 +98297,183 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim r As Range, n As Long\r\n    Set r = Cells\r\n    n = r.Cells.Count\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue645_01_runtime",
+      "description": "Issue #645 a Function needing an argument read bare, and VBA functions past a parameterless project Function, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 7.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function F(ByVal x As Variant) As Long\r\n    F = 7\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = F(1)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue645_02_runtime",
+      "description": "Issue #645 a Function needing an argument read bare, and VBA functions past a parameterless project Function, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 8.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function G(Optional ByVal x As Variant) As Long\r\n    G = 8\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = G\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue645_03_runtime",
+      "description": "Issue #645 a Function needing an argument read bare, and VBA functions past a parameterless project Function, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function G(Optional ByVal x As Variant) As Long\r\n    G = 8\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = G + 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue645_04_runtime",
+      "description": "Issue #645 a Function needing an argument read bare, and VBA functions past a parameterless project Function, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> a.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function Left() As Long\r\n    Left = 7\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Left(\"abc\", 1)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue645_05_runtime",
+      "description": "Issue #645 a Function needing an argument read bare, and VBA functions past a parameterless project Function, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 7.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function Left() As Long\r\n    Left = 7\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Left\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue645_06_runtime",
+      "description": "Issue #645 a Function needing an argument read bare, and VBA functions past a parameterless project Function, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> a.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function Left() As Long\r\n    Left = 7\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Left$(\"abc\", 1)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue645_07_runtime",
+      "description": "Issue #645 a Function needing an argument read bare, and VBA functions past a parameterless project Function, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 3.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function Left() As Long\r\n    Left = 7\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = InStr(\"abc\", \"c\")\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue645_08_runtime",
+      "description": "Issue #645 a Function needing an argument read bare, and VBA functions past a parameterless project Function, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function F(ByVal x As Variant) As Long\r\n    F = 7\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim F As Long\r\n    F = 2\r\n    Main = F\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue645_09_runtime",
+      "description": "Issue #645 a Function needing an argument read bare, and VBA functions past a parameterless project Function, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 7.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Module2.Run2\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate Function H(ByVal x As Variant) As Long\r\n    H = 7\r\nEnd Function\r\nPublic Function Run2() As Long\r\n    Run2 = H(1)\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue645_10_runtime",
+      "description": "Issue #645 a Function needing an argument read bare, and VBA functions past a parameterless project Function, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 3.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function K(ByVal x As Long) As Long\r\n    K = x\r\n    If x > 0 Then K = K + 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = K(2)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue645_11_runtime",
+      "description": "Issue #645 a Function needing an argument read bare, and VBA functions past a parameterless project Function, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> a.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function Left() As Long\r\n    Left = 7\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Left(\"abc\", 1)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue645_12_runtime",
+      "description": "Issue #645 a Function needing an argument read bare, and VBA functions past a parameterless project Function, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function InStr() As Long\r\n    InStr = 7\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = InStr(\"abc\", \"b\")\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue645_13_runtime",
+      "description": "Issue #645 a Function needing an argument read bare, and VBA functions past a parameterless project Function, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> -1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function StrComp() As Long\r\n    StrComp = 7\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = StrComp(\"a\", \"b\")\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue645_14_runtime",
+      "description": "Issue #645 a Function needing an argument read bare, and VBA functions past a parameterless project Function, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 3.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function InStrB() As Long\r\n    InStrB = 7\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = InStrB(\"abc\", \"b\")\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue645_15_runtime",
+      "description": "Issue #645 a Function needing an argument read bare, and VBA functions past a parameterless project Function, case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 3.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function InStr() As Long\r\n    InStr = 7\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = InStr(1, \"abc\", \"c\")\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
