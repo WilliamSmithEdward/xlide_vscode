@@ -2380,7 +2380,7 @@ function filterShape(args: readonly (readonly VbaToken[])[], name: string, optio
 	}
 	const kept: string[] = [];
 	for (const text of texts) {
-		const holds = textCompare ? caselessIndexOf(text, match, 0) : text.indexOf(match);
+		const holds = textCompare ? caselessSearch(text, match)?.(0) : text.indexOf(match);
 		if (holds === undefined) {
 			return undefined;
 		}
@@ -2535,11 +2535,15 @@ function elementAt(toks: readonly VbaToken[], open: number, close: number, shape
 function splitParts(text: string, delimiter: string, limit: number, textCompare: boolean): string[] | undefined {
 	const parts: string[] = [];
 	let from = 0;
+	// A limit of one returns the original text without comparing a delimiter.
+	const search = textCompare && limit !== 1
+		? caselessSearch(text, delimiter)
+		: (from: number) => text.indexOf(delimiter, from);
+	if (!search) {
+		return undefined;
+	}
 	while (limit === -1 || parts.length < limit - 1) {
-		const at = textCompare ? caselessIndexOf(text, delimiter, from) : text.indexOf(delimiter, from);
-		if (at === undefined) {
-			return undefined;
-		}
+		const at = search(from);
 		if (at < 0) {
 			break;
 		}
@@ -2550,12 +2554,14 @@ function splitParts(text: string, delimiter: string, limit: number, textCompare:
 	return parts;
 }
 
-/** Where vbTextCompare finds `needle`, for ASCII text only, whose case folding is certain. */
-function caselessIndexOf(text: string, needle: string, from: number): number | undefined {
+/** Prepare a vbTextCompare search for ASCII text, whose case folding is certain. */
+function caselessSearch(text: string, needle: string): ((from: number) => number) | undefined {
 	if (/[^\x00-\x7f]/.test(text + needle)) {
 		return undefined;
 	}
-	return text.toLowerCase().indexOf(needle.toLowerCase(), from);
+	const foldedText = text.toLowerCase();
+	const foldedNeedle = needle.toLowerCase();
+	return (from) => foldedText.indexOf(foldedNeedle, from);
 }
 
 /** A string literal, or a name `strings` knows, as an argument. */
