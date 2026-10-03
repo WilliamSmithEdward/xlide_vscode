@@ -116,7 +116,7 @@ export function checkObjectDefaultValues(
 		// An Object holding a Collection, `Set x = New Collection` with x As
 		// Object, is late bound: its value read raises 450 when it runs, and
 		// a Let to it 438 (issue #415, measured in Excel 16.0).
-		const lateBound = [...env].filter(([, type]) => normalizeType(type) === 'object').map(([lower]) => lower);
+		const lateBound = new Set([...env].filter(([, type]) => normalizeType(type) === 'object').map(([lower]) => lower));
 		let heldAt: ((node: BodyNode) => HeldObjects) | undefined;
 		const holdsCollection = (stmt: BodyNode, lower: string): boolean =>
 			(heldAt ??= heldObjectsAt(source, proc, symbols, activity))(stmt).classes.get(lower)?.toLowerCase() === 'collection';
@@ -124,16 +124,17 @@ export function checkObjectDefaultValues(
 		// rules (issues #415 and #438). An Object holding one is read late.
 		const host = memberCtx.model?.hostName ?? 'Excel';
 		const readsByType = host === 'Excel' ? EXCEL_DEFAULT_READS : host === 'Word' ? WORD_DEFAULT_READS : new Set<string>();
-		const hostDefaults = [...env].filter(([lower, type]) => lower !== proc.name.toLowerCase()
-			&& (readsByType.has(normalizeType(type) ?? '') || (readsByType.size > 0 && normalizeType(type) === 'object')));
+		const hostDefaults = new Map([...env].filter(([lower, type]) => lower !== proc.name.toLowerCase()
+			&& (readsByType.has(normalizeType(type) ?? '') || (readsByType.size > 0 && normalizeType(type) === 'object')))
+			.map(([lower, type]) => [lower, normalizeType(type)!]));
 		return (stmt) => {
-			if (lateBound.length > 0) {
+			if (lateBound.size > 0) {
 				checkHeldCollections(source, stmt, lateBound, (lower) => holdsCollection(stmt, lower), push);
 			}
-			if (hostDefaults.length > 0) {
+			if (hostDefaults.size > 0) {
 				const held = (lower: string): string | undefined => (heldAt ??= heldObjectsAt(source, proc, symbols, activity))(stmt).classes.get(lower)?.toLowerCase();
 				for (const span of statementAndBranchSpans(stmt)) {
-					for (const hit of hostDefaultReads(source, span, new Map(hostDefaults.map(([lower, type]) => [lower, normalizeType(type)!])), held)) {
+					for (const hit of hostDefaultReads(source, span, hostDefaults, held)) {
 						push(hit.rule, hit.message, { start: span.start + hit.tok.start, end: span.start + hit.tok.end });
 					}
 				}
@@ -313,21 +314,21 @@ function hostDefaultReads(
 function checkHeldCollections(
 	source: string,
 	stmt: LeafStatementNode,
-	lateBound: readonly string[],
+	lateBound: ReadonlySet<string>,
 	holds: (lower: string) => boolean,
 	push: PushFn,
 ): void {
 	const toks = statementTokens(source, stmt.span).filter((tok) => tok.kind !== 'comment');
-	if (!toks.some((tok) => lateBound.includes(tokenName(tok)?.toLowerCase() ?? '')) || tokenText(toks[0]) === 'set') {
+	if (!toks.some((tok) => lateBound.has(tokenName(tok)?.toLowerCase() ?? '')) || tokenText(toks[0]) === 'set') {
 		return;
 	}
 	const at = (tok: VbaToken): Span => ({ start: stmt.span.start + tok.start, end: stmt.span.start + tok.end });
 	const target = bareAssignmentTarget(source, stmt.span);
-	if (target && lateBound.includes(target.name.toLowerCase()) && holds(target.name.toLowerCase())) {
+	if (target && lateBound.has(target.name.toLowerCase()) && holds(target.name.toLowerCase())) {
 		push('objectDefaultValue', `'${target.name}' holds a Collection, whose default member Item needs an index, so a Let cannot reach it. This will raise Run-time error '438': Object doesn't support this property or method.`, target.span);
 		return;
 	}
-	const isLateBound = (name: string): boolean => lateBound.includes(name.toLowerCase());
+	const isLateBound = (name: string): boolean => lateBound.has(name.toLowerCase());
 	const reads = [
 		...valueReads(source, stmt.span, stmt.kind === 'Statement' && stmt.singleLineIfBranches !== undefined, () => false, () => false).map((read) => read.tok),
 		...noDefaultReads(toks, ['if', 'elseif'].includes(tokenText(toks[0])), isLateBound).filter((tok) => toks[toks.indexOf(tok) + 1]?.rawText !== '('),
