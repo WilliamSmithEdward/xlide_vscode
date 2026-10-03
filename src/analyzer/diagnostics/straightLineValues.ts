@@ -27,7 +27,8 @@ import { parseVbaIntegerLiteral } from '../constants/integerConstantExpression';
 import { leavesTheList, trackedLocalsNamedWhole } from './dataflow';
 import { isLoopBlock, selectArms } from './blockHeaders';
 import { conditionValue, ifConditionTokens, type ConditionFacts } from './conditionValue';
-import { splitTopLevelTokenGroups } from '../lexer/tokenHelpers';
+import { matchParenFrom, splitTopLevelTokenGroups } from '../lexer/tokenHelpers';
+import { resolveRuntimeFunction } from '../runtime/vbaRuntime';
 import { calleeKeepsArgument } from './calleeArguments';
 import {
 	bareAssignmentTarget,
@@ -151,12 +152,15 @@ function cachedWalk(
 	const deadSpans: Span[] = [];
 	// The walk is synchronous, so its arrays can sit beside it for passedWhole.
 	const outer = walkArrays;
+	const outerProcedures = walkProcedures;
 	walkArrays = localArrayNames(body, activity);
 	let exit: ReachingAssignments;
+	walkProcedures = moduleProcedureNames(source);
 	try {
 		exit = walkList(source, body, initial, activity, { out, dead, deadSpans, raiseLeaves: !/\bon\s+error\s+resume\s+next\b/i.test(text), referenced: referencedLabels(source, body, activity) });
 	} finally {
 		walkArrays = outer;
+		walkProcedures = outerProcedures;
 	}
 	const walk: CachedWalk = { source, activity, result: out, dead, deadSpans, exit: exit === UNREACHED ? undefined : exit };
 	byStart.set(key, walk);
@@ -876,7 +880,16 @@ function localArrayNames(body: readonly BodyNode[], activity: ConditionalActivit
 }
 
 function passedWhole(source: string, toks: readonly VbaToken[], spanStart: number): Iterable<string> {
-	return trackedLocalsNamedWhole(toks, spanStart, () => true, READ_ONLY_INTRINSICS, walkArrays, calleeKeepsArgument(source)).keys();
+	const hits = trackedLocalsNamedWhole(toks, spanStart, () => true, READ_ONLY_INTRINSICS, walkArrays, calleeKeepsArgument(source));
+	// A VBA library function assigns none of its arguments: `Left$("abc", n)`
+	// leaves n as it was (issue #565).
+	for (const [lower, at] of hits) {
+		const index = toks.findIndex((tok) => spanStart + tok.start === at);
+		if (index >= 0 && libraryFunctionArgument(toks, index)) {
+			hits.delete(lower);
+		}
+	}
+	return hits.keys();
 }
 
 /**
@@ -897,6 +910,44 @@ function writtenNames(toks: readonly VbaToken[]): Set<string> {
 		}
 	}
 	return names;
+}
+
+/** The procedures the module being walked declares, by lowercased name; set while a walk runs. */
+let walkProcedures: ReadonlySet<string> = new Set();
+
+/** The Subs, Functions, Properties and Declares a module's source declares: one of them hides a VBA function. */
+function moduleProcedureNames(source: string): ReadonlySet<string> {
+	// One module is walked many times in a row; keeping only the last spares
+	// a cache that grows with every edit.
+	if (lastProcedures?.source !== source) {
+		lastProcedures = {
+			source,
+			names: new Set([...source.matchAll(/^[ \t]*(?:(?:Public|Private|Friend|Static|Global)[ \t]+)*(?:Sub|Function|Property[ \t]+(?:Get|Let|Set)|Declare(?:[ \t]+PtrSafe)?[ \t]+(?:Sub|Function))[ \t]+([A-Za-z_]\w*)/gim)].map((match) => match[1].toLowerCase())),
+		};
+	}
+	return lastProcedures.names;
+}
+
+let lastProcedures: { source: string; names: ReadonlySet<string> } | undefined;
+
+/** Whether the name at `at` stands in the parentheses of a VBA library function's call. */
+function libraryFunctionArgument(toks: readonly VbaToken[], at: number): boolean {
+	let depth = 0;
+	for (let j = at - 1; j > 0; j--) {
+		if (toks[j].rawText === ')') {
+			depth++;
+		} else if (toks[j].rawText === '(' && depth-- === 0) {
+			// `Left$(` lexes as Left and a `$`.
+			const callAt = toks[j - 1]?.rawText === '$' ? j - 2 : j - 1;
+			const callee = tokenName(toks[callAt])?.toLowerCase();
+			const qualified = toks[callAt - 1]?.rawText === '.';
+			if (!callee || (qualified && tokenText(toks[callAt - 2]) !== 'vba') || (!qualified && walkProcedures.has(callee))) {
+				return false;
+			}
+			return (resolveRuntimeFunction(callee) ?? resolveRuntimeFunction(`${callee}$`))?.kind === 'function';
+		}
+	}
+	return false;
 }
 
 function mentionedNames(toks: readonly VbaToken[]): Set<string> {
@@ -926,7 +977,57 @@ function factsFrom(current: ReachingAssignments): ConditionFacts {
 	return {
 		value: (lower) => literalOf(current.get(lower)),
 		isNothing: (lower) => (current.get(lower) === OBJECT_NOTHING ? true : current.get(lower) === EMPTY_COLLECTION ? false : undefined),
+		range: (lower) => datePartRange(current.get(lower)),
 	};
+}
+
+/** What VBA's date-part functions return: Second(Now) is 0 to 59. */
+const DATE_PART_RANGES: Readonly<Record<string, readonly [number, number]>> = {
+	second: [0, 59], minute: [0, 59], hour: [0, 23], day: [1, 31], month: [1, 12], weekday: [1, 7],
+};
+
+/**
+ * The range a value lies in where it is a date part plus or minus whole
+ * numbers: `Second(Now) + 1000` is 1000 to 1059 (issue #565, measured in
+ * Excel 16.0: `If b > 5000` is then False on every run).
+ */
+function datePartRange(value: readonly VbaToken[] | undefined): readonly [number, number] | undefined {
+	const toks = (value ?? []).filter((tok) => tok.kind !== 'comment');
+	let range: [number, number] | undefined;
+	let sign = 1;
+	for (let i = 0; i < toks.length;) {
+		const word = tokenText(toks[i]);
+		let part: readonly [number, number] | undefined;
+		if (toks[i].kind === 'integerLiteral') {
+			const n = parseVbaIntegerLiteral(toks[i].rawText);
+			if (n === undefined) {
+				return undefined;
+			}
+			part = [n, n];
+			i++;
+		} else if (DATE_PART_RANGES[word] && toks[i + 1]?.rawText === '(' && toks[i - 1]?.rawText !== '.') {
+			const close = matchParenFrom([...toks], i + 1);
+			if (close < 0) {
+				return undefined;
+			}
+			part = DATE_PART_RANGES[word];
+			i = close + 1;
+		} else {
+			return undefined;
+		}
+		const next: [number, number] = sign > 0 ? [part[0], part[1]] : [-part[1], -part[0]];
+		range = range ? [range[0] + next[0], range[1] + next[1]] : next;
+		if (i >= toks.length) {
+			break;
+		}
+		if (toks[i].rawText !== '+' && toks[i].rawText !== '-') {
+			return undefined;
+		}
+		sign = toks[i].rawText === '+' ? 1 : -1;
+		i++;
+	}
+	// A lone number is a literal, which the value holds exactly.
+	return range && toks.some((tok) => DATE_PART_RANGES[tokenText(tok)]) ? range : undefined;
 }
 
 /** A value's tokens as one number or string literal, a sign allowed. */

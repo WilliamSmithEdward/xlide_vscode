@@ -3548,6 +3548,8 @@ class StatementValues implements ReadonlyMap<string, KnownLocalValue> {
 		private readonly assignments: ReachingAssignments,
 		/** The value an assignment gives a name, undefined for none, 'whole' for the procedure-wide one. */
 		private readonly derive: (lower: string, value: readonly VbaToken[]) => KnownLocalValue | undefined | 'whole',
+		/** Whether a name no assignment reaches keeps its procedure-wide value. */
+		private readonly keepsWhole: (lower: string) => boolean = () => true,
 	) {}
 
 	get(lower: string): KnownLocalValue | undefined {
@@ -3558,7 +3560,7 @@ class StatementValues implements ReadonlyMap<string, KnownLocalValue> {
 			return this.known.get(lower);
 		}
 		const value = this.assignments.get(lower);
-		const derived = value ? this.derive(lower, value) : 'whole';
+		const derived = value ? this.derive(lower, value) : this.keepsWhole(lower) ? 'whole' : undefined;
 		const out = derived === 'whole' ? this.whole.get(lower) : derived;
 		this.known.set(lower, out);
 		return out;
@@ -3595,6 +3597,11 @@ class StatementValues implements ReadonlyMap<string, KnownLocalValue> {
 	private all(): Map<string, KnownLocalValue> {
 		if (!this.full) {
 			const full = new Map(this.whole);
+			for (const lower of this.whole.keys()) {
+				if (!this.assignments.has(lower) && !this.keepsWhole(lower)) {
+					full.delete(lower);
+				}
+			}
 			for (const [lower, value] of this.assignments) {
 				const derived = this.derive(lower, value);
 				if (derived === 'whole') {
@@ -3744,7 +3751,11 @@ export function knownLocalLiteralValuesAt(
 		}
 		let result = results.get(assignments);
 		if (!result) {
-			result = new StatementValues(whole, assignments, derive);
+			// A typed local starts the walk with its default, so one it no
+			// longer holds may have kept that default on some path: with
+			// `If b > 5000 Then a = 4` undecided, a is 0 or 4 after it, not
+			// the 4 it holds wherever it is assigned (issue #565).
+			result = new StatementValues(whole, assignments, derive, (lower) => locals.get(lower) === undefined || whole.get(lower)?.origin !== 'literal');
 			results.set(assignments, result);
 		}
 		if (moduleVariables.size === 0) {
