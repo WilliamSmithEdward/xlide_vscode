@@ -97,5 +97,9 @@ describe('oracle cases with a comment after every line (issue #249)', () => {
 		}
 		expect(corpus.cases.length).toBeGreaterThan(2000);
 		expect(differences).toEqual([]);
-	}, 120_000);
+		// Two analyses of every oracle case: about 30 s alone here with 8,600
+		// cases, and 115 s on a CI runner beside the suite on 2026-10-03, which
+		// the old 120 s limit then failed. The oracle grows with every measured
+		// issue, so the limit leaves room, as oracleWrappedInIf's does.
+	}, 240_000);
 });
