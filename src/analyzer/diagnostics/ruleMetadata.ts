@@ -1130,6 +1130,18 @@ export const DIAGNOSTIC_RULES = {
 		allowSeverityDowngrade: true,
 		confidence: 'high',
 	},
+	lateBoundObjectState: {
+		code: 'late-bound-object-state',
+		title: 'Late-bound object used before it is opened',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: false,
+		diagnosticKind: 'deterministic-runtime-error',
+		source: 'XLIDE',
+		specReference: 'ADODB error 3704: Operation is not allowed when the object is closed (issue #477, Excel 16.0)',
+		allowSeverityDowngrade: true,
+		confidence: 'high',
+	},
 	fileRecordZero: {
 		code: 'file-record-zero',
 		title: 'Record number 0',
