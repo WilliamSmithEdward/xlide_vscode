@@ -26,6 +26,7 @@
 
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import { tokenizeCached } from '../../lexer/tokenize';
+import { firstTokenAtOrAfter } from '../../lexer/tokenHelpers';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type { EnumNode, ModuleNode, ProcedureNode, Span, VariableGroupNode } from '../../parser/nodes';
 import type { PushFn } from '../analysisContext';
@@ -65,15 +66,16 @@ export function checkMalformedLines(
 	push: PushFn,
 ): void {
 	const procedures = mod.members.filter((m): m is ProcedureNode => m.kind === 'Procedure');
-	const firstNamed = procedures.find((p) => p.name !== '');
+	const namedProcedures = procedures.filter((p) => p.name !== '');
+	const firstNamed = namedProcedures[0];
 	const place = (offset: number): Place => {
-		if (procedures.some((p) => p.name !== '' && offset > p.span.start && offset < p.span.end)) {
+		if (insideMember(namedProcedures, offset)) {
 			return 'procedure';
 		}
 		return !firstNamed || offset < firstNamed.span.start ? 'top' : 'after';
 	};
 	const enums = mod.members.filter((m): m is EnumNode => m.kind === 'Enum');
-	const inEnum = (offset: number): boolean => enums.some((e) => offset > e.span.start && offset < e.span.end);
+	const inEnum = (offset: number): boolean => insideMember(enums, offset);
 	const active = (span: Span): boolean => !activity?.isInactive(span);
 	const toks = tokenizeCached(source);
 
@@ -114,6 +116,21 @@ export function checkMalformedLines(
 			checkEnumLines(source, member, activity, push);
 		}
 	}
+}
+
+/** Members are source-ordered and non-overlapping; their boundary tokens are outside. */
+function insideMember(members: readonly { span: Span }[], offset: number): boolean {
+	let lo = 0;
+	let hi = members.length;
+	while (lo < hi) {
+		const mid = lo + Math.floor((hi - lo) / 2);
+		if (members[mid].span.start < offset) {
+			lo = mid + 1;
+		} else {
+			hi = mid;
+		}
+	}
+	return lo > 0 && offset < members[lo - 1].span.end;
 }
 
 /**
@@ -275,8 +292,8 @@ function checkProcedureHeader(
 	place: (offset: number) => Place,
 	push: PushFn,
 ): void {
-	let i = toks.findIndex((tok) => tok.start >= proc.span.start);
-	if (i < 0) {
+	let i = firstTokenAtOrAfter(toks, proc.span.start);
+	if (i === toks.length) {
 		return;
 	}
 	const header: VbaToken[] = [];
