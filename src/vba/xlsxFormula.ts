@@ -8,6 +8,10 @@
 // stored once, for its first cell, and shifted for every other one. Each of
 // these forms was checked against Excel 16 storing it.
 
+import { columnToIndex, indexToColumn, MAX_ROW, MAX_COLUMN } from './excelAddress';
+// Preserve the existing formula-module API for workbook consumers.
+export { columnToIndex, indexToColumn, MAX_ROW, MAX_COLUMN };
+
 import {
 	ETA_FUNCTIONS,
 	FUNCTION_SIGNATURES,
@@ -15,10 +19,6 @@ import {
 	REFERENCE_FUNCTIONS,
 	RESERVED_FUNCTIONS,
 } from './xlsxFunctionNames';
-
-/** The last row and column of a worksheet: XFD1048576. */
-export const MAX_ROW = 1048576;
-export const MAX_COLUMN = 16384;
 
 /** Excel's own limit on the length of a formula. */
 const MAX_FORMULA_LENGTH = 8192;
@@ -33,27 +33,6 @@ export interface FormulaContext {
 	names: ReadonlySet<string>;
 	/** Each table's columns, by table name. */
 	tables: ReadonlyMap<string, ReadonlySet<string>>;
-}
-
-// ------------------------------------------------------------ A1 conversions
-
-export function columnToIndex(letters: string): number {
-	let n = 0;
-	for (const ch of letters.toUpperCase()) {
-		n = n * 26 + (ch.charCodeAt(0) - 64);
-	}
-	return n;
-}
-
-export function indexToColumn(index: number): string {
-	let n = index;
-	let out = '';
-	while (n > 0) {
-		const rem = (n - 1) % 26;
-		out = String.fromCharCode(65 + rem) + out;
-		n = Math.floor((n - 1) / 26);
-	}
-	return out;
 }
 
 // ----------------------------------------------------------------- tokens

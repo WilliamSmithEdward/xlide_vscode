@@ -4,6 +4,7 @@
 // unallocated dynamic-array access, Erase targets, and LBound/UBound argument
 // checks.
 
+import { columnToIndex as columnNumber } from '../../../vba/excelAddress';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import {
 	bankersRound,
@@ -2623,14 +2624,6 @@ function literalElementValue(group: readonly VbaToken[]): string | number | unde
 		return stringLiteralValue(toks[0].rawText);
 	}
 	return signedIntegerArgument(toks);
-}
-
-function columnNumber(letters: string): number {
-	let n = 0;
-	for (const ch of letters.toUpperCase()) {
-		n = n * 26 + (ch.charCodeAt(0) - 64);
-	}
-	return n;
 }
 
 /** Names that are ReDim targets anywhere in the body (defensive exclusion). */

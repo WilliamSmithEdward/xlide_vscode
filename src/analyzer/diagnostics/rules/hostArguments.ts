@@ -57,6 +57,7 @@
 //      Boolean, Date), `s = Range("A1:B2").Value`, `Range("A1:B2") = 5`,
 //      `< 5`, `+ 1`, `& "x"` -> 13. A single-cell address runs.
 
+import { columnToIndex as columnNumber, MAX_ROW as EXCEL_MAX_ROW, MAX_COLUMN as EXCEL_MAX_COLUMN } from '../../../vba/excelAddress';
 import { parseVbaIntegerLiteral } from '../../constants/integerConstantExpression';
 import type { HostObjectModel } from '../../host/excelObjectModel';
 import {
@@ -93,8 +94,6 @@ import {
 import { worksheetFunctionRefusal } from './worksheetFunctionArguments';
 import { WORD_BUILTIN_STYLES } from '../../host/wordBuiltinStyles';
 
-const EXCEL_MAX_ROW = 1048576;
-const EXCEL_MAX_COLUMN = 16384;
 /**
  * Range members whose arguments are a cell address, a row and column, an
  * offset or a size, not an index into the range they return. Each has its
@@ -2197,14 +2196,6 @@ function parseA1Address(text: string): A1Area | undefined {
 		}
 	}
 	return undefined;
-}
-
-function columnNumber(letters: string): number {
-	let n = 0;
-	for (const ch of letters.toUpperCase()) {
-		n = n * 26 + (ch.charCodeAt(0) - 64);
-	}
-	return n;
 }
 
 /** The whole-number value of an argument that is a literal, optionally negated. */
