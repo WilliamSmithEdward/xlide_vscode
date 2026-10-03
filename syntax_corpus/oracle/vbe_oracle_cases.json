@@ -96379,6 +96379,164 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As String\r\n    x = Split(Range(\"C1\").Address, \"$\")(1)\r\n    Main = x\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue639_01_runtime",
+      "description": "Issue #639 a Type or Enum sharing its name with a value, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Enum Zq\r\n    ZqA = 1\r\nEnd Enum\r\nPrivate Function Zq() As Long\r\n    Zq = 2\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Zq\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue639_02_runtime",
+      "description": "Issue #639 a Type or Enum sharing its name with a value, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 215990594.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Enum Zq\r\n    ZqA = 1\r\nEnd Enum\r\nPrivate Declare PtrSafe Function Zq Lib \"kernel32\" Alias \"GetTickCount\" () As Long\r\nFunction Main() As Variant\r\n    Main = 1 + Zq\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue639_03_runtime",
+      "description": "Issue #639 a Type or Enum sharing its name with a value, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type Zq\r\n    v As Long\r\nEnd Type\r\nFunction Main() As Variant\r\n    Main = Zq\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Zq As Long\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue639_04_runtime",
+      "description": "Issue #639 a Type or Enum sharing its name with a value, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 3.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type Zq\r\n    v As Long\r\nEnd Type\r\nFunction Main() As Variant\r\n    Main = Zq\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Const Zq As Long = 3\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue639_05_runtime",
+      "description": "Issue #639 a Type or Enum sharing its name with a value, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type Zq\r\n    v As Long\r\nEnd Type\r\nFunction Main() As Variant\r\n    Zq = 5\r\n    Main = Zq\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Zq As Long\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue639_06_runtime",
+      "description": "Issue #639 a Type or Enum sharing its name with a value, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Type Zq\r\n    v As Long\r\nEnd Type\r\nPrivate Zq As Long\r\nFunction Main() As Variant\r\n    Main = Zq\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue639_07_runtime",
+      "description": "Issue #639 a Type or Enum sharing its name with a value, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Type Zq\r\n    v As Long\r\nEnd Type\r\nPrivate Function Zq() As Long\r\n    Zq = 2\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Zq\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue639_08_runtime",
+      "description": "Issue #639 a Type or Enum sharing its name with a value, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Enum Zq\r\n    ZqA = 1\r\nEnd Enum\r\nPrivate Zq As Long\r\nFunction Main() As Variant\r\n    Main = Zq.ZqA\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue639_09_runtime",
+      "description": "Issue #639 a Type or Enum sharing its name with a value, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Enum Zq\r\n    ZqA = 1\r\nEnd Enum\r\nFunction Main() As Variant\r\n    Main = Zq.ZqA + ZqA\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue639_10_runtime",
+      "description": "Issue #639 a Type or Enum sharing its name with a value, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type Zq\r\n    v As Long\r\nEnd Type\r\nFunction Main() As Variant\r\n    Dim t As Zq\r\n    t.v = 1\r\n    Main = t.v\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Zq As Long\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

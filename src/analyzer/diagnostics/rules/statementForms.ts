@@ -55,7 +55,13 @@ export function checkStatementForms(
 		.filter((type) => type.kind === 'standardModule' && type.name.toLowerCase() !== symbols.moduleName.toLowerCase())
 		.map((type) => type.name.toLowerCase()));
 	const ownNames = new Set((symbols.root.children ?? []).map((symbol) => symbol.name.toLowerCase()));
-	const ownEnums = new Set((symbols.root.children ?? []).filter((symbol) => symbol.kind === 'enum').map((symbol) => symbol.name.toLowerCase()));
+	// An Enum of the module, unless a Function, Property Get or Declare of
+	// the module shares its name: that one is read, and runs (issue #639,
+	// measured in Excel 16.0). A variable or a Sub of the name does not.
+	const ownValues = new Set((symbols.root.children ?? [])
+		.filter((symbol) => symbol.kind === 'function' || symbol.kind === 'propertyGet' || symbol.kind === 'declare')
+		.map((symbol) => symbol.name.toLowerCase()));
+	const ownEnums = new Set((symbols.root.children ?? []).filter((symbol) => symbol.kind === 'enum' && !ownValues.has(symbol.name.toLowerCase())).map((symbol) => symbol.name.toLowerCase()));
 	// Subs of this module, and of the project's standard modules, by name;
 	// a name that is also a Function or a module-level variable anywhere is
 	// not judged.
@@ -66,7 +72,8 @@ export function checkStatementForms(
 		// A Declare Sub returns nothing either (issue #254).
 		if (symbol.kind === 'sub' || (symbol.kind === 'declare' && symbol.declareKind === 'Sub')) {
 			subs.add(lower);
-		} else {
+		} else if (symbol.kind !== 'type') {
+			// A Type of the name gives the Sub no value either (issue #639).
 			notSubs.add(lower);
 		}
 	}
@@ -166,7 +173,9 @@ export function checkStatementForms(
 					}
 					// `Main = E` reads an Enum type as a value (issue #436, measured
 					// in Excel 16.0).
-					if (target && i === eq + 1 && toks.length === eq + 2 && ownEnums.has(nameLower) && !locals.has(nameLower)) {
+					// So does TypeName(E) (issue #639).
+					const typeNameArgument = tokenText(toks[i - 2]) === 'typename' && toks[i - 1]?.rawText === '(' && toks[i + 1]?.rawText === ')';
+					if (((target && i === eq + 1 && toks.length === eq + 2) || typeNameArgument) && ownEnums.has(nameLower) && !locals.has(nameLower)) {
 						push('malformedStatement', `'${name}' names an Enum type, which has no value; name one of its members, as in ${name}.Member. This is a VBE compile error: Expected variable or procedure, not enum type.`, at(i));
 						continue;
 					}
