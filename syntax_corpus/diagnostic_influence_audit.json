@@ -976,7 +976,15 @@
         "issue415d_02_runtime",
         "issue415d_03_runtime",
         "issue438_01_runtime",
-        "issue438_02_runtime"
+        "issue438_02_runtime",
+        "issue457c_01_runtime",
+        "issue457c_03_runtime",
+        "issue457c_04_runtime",
+        "issue457c_06_runtime",
+        "issue457c_07_runtime",
+        "issue457c_09_runtime",
+        "issue457c_10_runtime",
+        "issue457c_12_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
