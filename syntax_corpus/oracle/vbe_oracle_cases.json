@@ -94541,6 +94541,127 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Dim a As Long, n As Long, s As String\r\n    If Len(s) = 0 Then Exit Function\r\n    n = 10 \\ a\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue575_01_runtime",
+      "description": "Issue #575 nested one-line If guards and guards inside loops, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Dim c As Collection\r\n    If Not c Is Nothing Then If c.Count > 0 Then c.Remove 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue575_02_runtime",
+      "description": "Issue #575 nested one-line If guards and guards inside loops, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Dim c As Collection\r\n    If c Is Nothing Then Main = 0 Else If c.Count > 0 Then c.Remove 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue575_03_runtime",
+      "description": "Issue #575 nested one-line If guards and guards inside loops, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Dim c As Collection\r\n    If c Is Nothing Then If c.Count > 0 Then c.Remove 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue575_04_runtime",
+      "description": "Issue #575 nested one-line If guards and guards inside loops, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Dim c As Collection\r\n    If Not c Is Nothing Then If c.Count > 0 Then Main = 2\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue575_05_runtime",
+      "description": "Issue #575 nested one-line If guards and guards inside loops, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Dim c As Collection, a As Long, i As Long\r\n    For i = 1 To 1\r\n        If a > 1 Then c.Add a\r\n    Next\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue575_06_runtime",
+      "description": "Issue #575 nested one-line If guards and guards inside loops, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Dim c As Collection, a As Long, i As Long\r\n    For i = 1 To 1\r\n        If a > 1 Then\r\n            c.Add a\r\n        End If\r\n    Next\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue575_07_runtime",
+      "description": "Issue #575 nested one-line If guards and guards inside loops, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Dim c As Collection, a As Long, i As Long\r\n    a = 0\r\n    Do While i < 1\r\n        i = i + 1\r\n        If a > 1 Then\r\n            c.Add a\r\n        End If\r\n    Loop\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue575_08_runtime",
+      "description": "Issue #575 nested one-line If guards and guards inside loops, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Dim c As Collection, a As Long, i As Long\r\n    a = 2\r\n    For i = 1 To 1\r\n        If a > 1 Then c.Add a\r\n    Next\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue575_09_runtime",
+      "description": "Issue #575 nested one-line If guards and guards inside loops, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Dim c As Collection, a As Long, i As Long\r\n    For i = 1 To 3\r\n        a = a + 1\r\n        If a > 1 Then c.Add a\r\n    Next\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue575_10_runtime",
+      "description": "Issue #575 nested one-line If guards and guards inside loops, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Dim c As Collection, a As Long, b As Long, i As Long\r\n    For i = 1 To 3\r\n        If a > 1 Then b = 5\r\n        If b > 1 Then c.Add b\r\n    Next\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue575_11_runtime",
+      "description": "Issue #575 nested one-line If guards and guards inside loops, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Dim c As Collection, a As Long, b As Long, i As Long\r\n    For i = 1 To 3\r\n        If b > 1 Then c.Add b\r\n        If i = 2 Then b = 5\r\n    Next\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }

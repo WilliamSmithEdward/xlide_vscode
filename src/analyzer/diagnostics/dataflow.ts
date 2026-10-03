@@ -813,12 +813,42 @@ export function trackedLocalsNamedWhole(
 	if (toks.length < 2) {
 		return out;
 	}
+	// A one-line If: its condition is an expression, and each arm after Then
+	// or Else a statement of its own (issue #575).
+	const thenAt = singleLineIfThen(toks);
+	if (thenAt !== undefined) {
+		const merge = (part: readonly VbaToken[]): void => {
+			for (const [lower, at] of trackedLocalsNamedWhole(part, spanStart, isTracked, readOnlyIntrinsics, arrays)) {
+				if (!out.has(lower) || out.get(lower)! > at) {
+					out.set(lower, at);
+				}
+			}
+		};
+		merge(toks.slice(0, thenAt));
+		let depth = 0;
+		let armStart = thenAt + 1;
+		for (let i = armStart; i <= toks.length; i++) {
+			const raw = toks[i]?.rawText;
+			if (raw === '(' || raw === '[') {
+				depth++;
+			} else if (raw === ')' || raw === ']') {
+				depth--;
+			} else if (i === toks.length || (depth === 0 && tokenWord(toks[i]) === 'else')) {
+				merge(toks.slice(armStart, i));
+				armStart = i + 1;
+			}
+		}
+		return out;
+	}
 	// A bare mention at the top level is an argument only in a call statement:
 	// `Foo x`, `Call Foo(x)`, `obj.Method x`, or `.Method x` inside With. In
 	// `Set a = b`, `Dim a As T`, or `If a Is Nothing` it is not.
+	// Nor in a control statement's own words: `If a > 1 Then c.Add 5` passes
+	// no a, and its Then arm is a statement of its own (issue #575).
 	const head = tokenWord(toks[0]) === 'call' ? 1 : 0;
 	const isCallStatement =
 		(tokenName(toks[head]) !== undefined || toks[head]?.rawText === '.') &&
+		!(head === 0 && CONTROL_WORDS.has(tokenWord(toks[0]))) &&
 		!hasTopLevelAssignment(toks);
 	let depth = 0;
 	// What each open parenthesis follows: a subscript of one of `arrays`
@@ -945,6 +975,29 @@ function matchingClose(toks: readonly VbaToken[], open: number): number {
 	}
 	return toks.length;
 }
+
+/** The index of a one-line If's top-level Then, when an arm follows it. */
+function singleLineIfThen(toks: readonly VbaToken[]): number | undefined {
+	const head = tokenWord(toks[0]);
+	if (head !== 'if' && head !== 'elseif') {
+		return undefined;
+	}
+	let depth = 0;
+	for (let i = 1; i < toks.length; i++) {
+		const raw = toks[i].rawText;
+		if (raw === '(' || raw === '[') {
+			depth++;
+		} else if (raw === ')' || raw === ']') {
+			depth--;
+		} else if (depth === 0 && tokenWord(toks[i]) === 'then') {
+			return i + 1 < toks.length && toks[i + 1].kind !== 'comment' ? i : undefined;
+		}
+	}
+	return undefined;
+}
+
+/** Statement words that read a condition or a value, and open no call. */
+const CONTROL_WORDS: ReadonlySet<string> = new Set(['if', 'elseif', 'else', 'while', 'do', 'loop', 'select', 'case']);
 
 /** True when a top-level '=' makes the statement an assignment, not a call. */
 function hasTopLevelAssignment(toks: readonly VbaToken[]): boolean {
