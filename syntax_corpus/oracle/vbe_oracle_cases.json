@@ -92781,6 +92781,116 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim s As String, b As Boolean\r\n    s = \"True\"\r\n    b = True\r\n    Main = s & b\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue420_05_runtime",
+      "description": "Issue #420 Erase on a Variant array, and Join, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Variant\r\n    a = Split(\"x,y\", \",\")\r\n    Erase a\r\n    Main = UBound(a)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue420_06_runtime",
+      "description": "Issue #420 Erase on a Variant array, and Join, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Variant\r\n    a = Array(10, 20, 30)\r\n    Erase a\r\n    Main = LBound(a)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue420_07_runtime",
+      "description": "Issue #420 Erase on a Variant array, and Join, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> True.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Variant\r\n    a = Array(10, 20, 30)\r\n    Erase a\r\n    Main = IsArray(a)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue420_08_runtime",
+      "description": "Issue #420 Erase on a Variant array, and Join, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Variant\r\n    a = Array(10, 20, 30)\r\n    Erase a\r\n    a = Array(1)\r\n    Main = UBound(a)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue420_09_runtime",
+      "description": "Issue #420 Erase on a Variant array, and Join, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a() As Long\r\n    ReDim a(0 To 2)\r\n    Main = Join(a, \",\")\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue420_10_runtime",
+      "description": "Issue #420 Erase on a Variant array, and Join, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a() As Long: ReDim a(0 To 2): Main = Join(a, \",\")\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue420_11_runtime",
+      "description": "Issue #420 Erase on a Variant array, and Join, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a() As String\r\n    ReDim a(1 To 2, 1 To 2)\r\n    Main = Join(a, \",\")\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue420_12_runtime",
+      "description": "Issue #420 Erase on a Variant array, and Join, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> ,,.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a() As Variant\r\n    ReDim a(0 To 2)\r\n    Main = Join(a, \",\")\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue420_13_runtime",
+      "description": "Issue #420 Erase on a Variant array, and Join, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> ,,.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a() As String\r\n    ReDim a(0 To 2)\r\n    Main = Join(a, \",\")\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue420_14_runtime",
+      "description": "Issue #420 Erase on a Variant array, and Join, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: run ->.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a() As Long\r\n    Main = Join(a, \",\")\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

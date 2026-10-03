@@ -1068,18 +1068,19 @@ export function checkUnallocatedDynamicArrayAccess(
 			checkUnsetArrayResults(source, member, symbols, unsetFunctions, activity, push);
 		}
 		const arrays = localDynamicArrayDeclarationsForBody(member.body, activity);
-		if (arrays.size === 0) {
-			continue;
-		}
 		const state = new Map<string, DynamicArrayAllocationState>();
 		for (const lower of arrays.keys()) {
 			state.set(lower, 'unallocated');
 		}
 		// A Variant that takes a copy of one: `v = a` with a unallocated
 		// leaves v an array with no storage (issue #342, measured in Excel 16.0).
+		// So does one given Array or Split and then erased (issue #420).
 		for (const [lower, decl] of variantArrayCopies(source, member.body, arrays, activity)) {
 			arrays.set(lower, decl);
 			state.set(lower, 'unknown');
+		}
+		if (arrays.size === 0) {
+			continue;
 		}
 		// The GoTo-following walk runs the body until its labels settle,
 		// and reports on its last run (issue #271).
@@ -1159,8 +1160,11 @@ function checkUnallocatedDynamicArrayAccessStatement(
 	if (erased.size > 0) {
 		for (const lower of erased) {
 			if (arrays.has(lower)) {
-				// An erased Variant may hold a fixed array, which Erase clears and keeps.
-				state.set(lower, arrays.get(lower)!.variant ? 'unknown' : 'unallocated');
+				// An erased Variant may hold a fixed array, which Erase clears and
+				// keeps; one known to hold a dynamic array, from Array, Split, ReDim
+				// or a copy, is left with none (issue #420, measured in Excel 16.0).
+				const variant = arrays.get(lower)!.variant;
+				state.set(lower, variant && state.get(lower) !== 'allocated' ? 'unknown' : 'unallocated');
 			}
 		}
 		return;
@@ -1206,7 +1210,7 @@ function checkUnallocatedDynamicArrayAccessStatement(
 		// `a = b` copies b's storage, or its lack of it (issue #342).
 		const value = assignment!.valueTokens.filter((tok) => tok.kind !== 'comment');
 		const from = value.length === 1 ? tokenName(value[0])?.toLowerCase() : undefined;
-		state.set(assignmentLower, from && arrays.has(from) ? state.get(from) ?? 'unknown' : 'unknown');
+		state.set(assignmentLower, from && arrays.has(from) ? state.get(from) ?? 'unknown' : dynamicArrayCall(value) ? 'allocated' : 'unknown');
 	}
 	for (const lower of passedWhole.keys()) {
 		if (state.get(lower) === 'unallocated') {
@@ -1280,11 +1284,18 @@ function variantArrayCopies(
 		const bare = bareAssignmentTarget(source, stmt.span);
 		const value = bare?.valueTokens.filter((tok) => tok.kind !== 'comment') ?? [];
 		const lower = bare?.name.toLowerCase() ?? '';
-		if (variants.has(lower) && value.length === 1 && arrays.has(tokenName(value[0])?.toLowerCase() ?? '')) {
+		if (variants.has(lower) && ((value.length === 1 && arrays.has(tokenName(value[0])?.toLowerCase() ?? '')) || dynamicArrayCall(value))) {
 			out.set(lower, variants.get(lower)!);
 		}
 	}, activity);
 	return out;
+}
+
+/** `Array(1, 2)` or `Split(s, ",")`, whole: a dynamic array (issue #420). */
+function dynamicArrayCall(value: readonly VbaToken[]): boolean {
+	const at = tokenText(value[0]) === 'vba' && value[1]?.rawText === '.' ? 2 : 0;
+	const name = tokenText(value[at]);
+	return (name === 'array' || name === 'split') && value[at + 1]?.rawText === '(' && matchParenFrom(value, at + 1) === value.length - 1;
 }
 
 function unallocatedDynamicArrayIndexAccesses(
