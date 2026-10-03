@@ -127,6 +127,12 @@ interface KnownClass {
 	readOnly?: ReadonlySet<string>;
 	/** Properties with a Let and no Get: reading one raises 450. */
 	writeOnly?: ReadonlySet<string>;
+	/** Properties with only a Set: reading one raises 450 too (issue #414). */
+	setOnly?: ReadonlySet<string>;
+	/** Subs: assigning one raises 450, reading one with arguments 451 (issue #414). */
+	subs?: ReadonlySet<string>;
+	/** Fields of a scalar type, by lowercased name: a member of one raises 424 (issue #414). */
+	scalarFields?: ReadonlyMap<string, string>;
 	/** Set from a variable that may still be Nothing: 91 before 438. */
 	mayBeNothing?: boolean;
 	/** The parameters of each method, by lowercased name, where they are known (issue #485). */
@@ -564,6 +570,11 @@ function knownClassNamed(name: string | undefined, memberCtx: MemberCompletionCo
 		members: new Set(projectType.members.map((m) => m.name.toLowerCase())),
 		readOnly: new Set(properties.filter((m) => !m.letAccessor && !m.setAccessor).map((m) => m.name.toLowerCase())),
 		writeOnly: new Set(projectType.members.filter((m) => m.kind === 'property' && m.letAccessor && m.signature === undefined).map((m) => m.name.toLowerCase())),
+		setOnly: new Set(projectType.members.filter((m) => m.kind === 'property' && m.setAccessor && !m.letAccessor && m.signature === undefined).map((m) => m.name.toLowerCase())),
+		subs: new Set(projectType.members.filter((m) => m.kind === 'method' && m.sub).map((m) => m.name.toLowerCase())),
+		scalarFields: new Map(projectType.members
+			.filter((m) => m.kind === 'property' && m.signature === undefined && !m.letAccessor && !m.setAccessor && m.returns !== undefined && SCALAR_FIELD_TYPES.has(m.returns.toLowerCase()))
+			.map((m) => [m.name.toLowerCase(), m.returns!])),
 	};
 }
 
@@ -634,6 +645,30 @@ function checkStatement(
 				push('runtimeMemberNotFound', `'${receiver}' holds a ${known.display} here, which has no member '${memberName}'. This will raise Run-time error '438': Object doesn't support this property or method${nothing}.`, at);
 				continue;
 			}
+			// A Sub assigned, `o.M = 5`, raises 450, and one read with
+			// arguments, `x = o.M(1)`, 451 (issue #414, measured in Excel 16.0).
+			const statementHead = tokenText(toks[0]);
+			const target = toks[i + 3]?.rawText === '=' && (i === 0 || (i === 1 && (statementHead === 'set' || statementHead === 'let')));
+			if (known.subs?.has(lower)) {
+				if (target) {
+					push('runtimeMemberNotFound', `'${receiver}' holds a ${known.display} here, whose '${memberName}' is a Sub, which takes no assignment. This will raise Run-time error '450': Wrong number of arguments or invalid property assignment${nothing}.`, at);
+					continue;
+				}
+				if (i > 0 && toks[i + 3]?.rawText === '(' && statementHead !== 'call') {
+					push('runtimeMemberNotFound', `'${receiver}' holds a ${known.display} here, whose '${memberName}' is a Sub, which gives no value to read. This will raise Run-time error '451': Property let procedure not defined and property get procedure did not return an object${nothing}.`, at);
+					continue;
+				}
+			}
+			// `o.S.Add 1` with S a String field (issue #414).
+			const scalarType = known.scalarFields?.get(lower);
+			if (scalarType && toks[i + 3]?.rawText === '.' && tokenName(toks[i + 4])) {
+				push('variantValueMisuse', `'${receiver}' holds a ${known.display} here, whose '${memberName}' is a ${scalarType}, which has no members. This will raise Run-time error '424': Object required${nothing}.`, at);
+				continue;
+			}
+			if (!target && known.setOnly?.has(lower) && !(i > 0 && toks[i - 1]?.rawText === '.')) {
+				push('runtimeMemberNotFound', `'${receiver}' holds a ${known.display} here, whose '${memberName}' has a Property Set and no Property Get, so it has no value to read. This will raise Run-time error '450': Wrong number of arguments or invalid property assignment${nothing}.`, at);
+				continue;
+			}
 			// The arguments the member refuses (issue #485, measured in Excel 16.0).
 			const params = known.params?.get(lower);
 			const refusal = params ? argumentRefusal(toks, i, params, memberName, known.display === 'Collection' && lower === 'count') : undefined;
@@ -658,6 +693,9 @@ function checkStatement(
 		}
 	}
 }
+
+/** The scalar types a field may be declared as, whose value has no members. */
+const SCALAR_FIELD_TYPES: ReadonlySet<string> = new Set(['string', 'long', 'integer', 'double', 'single', 'boolean', 'date', 'currency', 'byte', 'longlong']);
 
 /** Collection's members, its hidden enumerator included. */
 const COLLECTION_SURFACE: ReadonlySet<string> = new Set([...COLLECTION_MEMBERS, '_newenum']);
