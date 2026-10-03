@@ -98,17 +98,19 @@ export function loopCountersAt(
 		return cached.result;
 	}
 	const out = new Map<LeafStatementNode, CountersAt>();
-	const visit = (nodes: readonly BodyNode[]): void => {
+	const visit = (nodes: readonly BodyNode[], inLoop: boolean): void => {
 		for (let k = 0; k < nodes.length; k++) {
 			const node = nodes[k];
 			if (isInactiveNode(activity, node) || !('body' in node) || !Array.isArray(node.body)) {
 				continue;
 			}
 			const loopBody = node.body as BodyNode[];
+			// A loop inside another may start on a later pass of the outer one.
+			const zeroAtStart = inLoop ? undefined : (lower: string): boolean => startsAtZero(source, body, node.span.start, lower);
 			const found = node.kind === 'ForBlock'
 				? forCounter(source, node.span, node.each, node.controlVariable, loopBody, activity)
 				: node.kind === 'DoBlock' || node.kind === 'WhileBlock'
-					? steppedCounter(source, node.span, nodes[k - 1], loopBody, activity)
+					? steppedCounter(source, node.span, nodes[k - 1], loopBody, activity, zeroAtStart)
 					: undefined;
 			if (found) {
 				const counter: LoopCounter = { ...found.counter, loopNode: node };
@@ -119,10 +121,10 @@ export function loopCountersAt(
 					out.set(leaf, counters);
 				}
 			}
-			visit(loopBody);
+			visit(loopBody, inLoop || node.kind === 'ForBlock' || node.kind === 'DoBlock' || node.kind === 'WhileBlock');
 		}
 	};
-	visit(body);
+	visit(body, false);
 	if (out.size === 0) {
 		// Most procedures have no counter, and the walk that says so costs
 		// less than remembering it: a WeakMap entry per procedure body cost
@@ -184,7 +186,8 @@ function forCounter(
 /**
  * `i = <bound>` just before `Do While i <= <bound>` (or `<`, or `Do Until i >`
  * or `>=`, or `While`), with `i = i + 1` the loop's last statement and no
- * other write to i in it.
+ * other write to i in it. Without that assignment, a numeric local nothing
+ * touches before the loop starts at 0 (issue #350).
  */
 function steppedCounter(
 	source: string,
@@ -192,19 +195,21 @@ function steppedCounter(
 	before: BodyNode | undefined,
 	body: readonly BodyNode[],
 	activity: ConditionalActivityTracker | undefined,
+	zeroAtStart?: (lower: string) => boolean,
 ): { counter: Omit<LoopCounter, 'loopNode'>; body: readonly BodyNode[] } | undefined {
-	if (!before || !isLeafStatement(before)) {
-		return undefined;
-	}
-	const init = bareAssignmentTarget(source, before.span);
-	if (!init) {
-		return undefined;
-	}
-	const lower = init.name.toLowerCase();
 	const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, span)).filter((tok) => tok.kind !== 'comment');
 	let i = tokenText(header[0]) === 'do' ? 1 : tokenText(header[0]) === 'while' ? 0 : -1;
 	const test = tokenText(header[i]);
-	if (i < 0 || (test !== 'while' && test !== 'until') || tokenName(header[i + 1])?.toLowerCase() !== lower) {
+	const tested = tokenName(header[i + 1]);
+	if (i < 0 || (test !== 'while' && test !== 'until') || !tested) {
+		return undefined;
+	}
+	const lower = tested.toLowerCase();
+	const assigned = before && isLeafStatement(before) ? bareAssignmentTarget(source, before.span) : undefined;
+	const init = assigned?.name.toLowerCase() === lower
+		? { name: assigned.name, first: counterValue(assigned.valueTokens) }
+		: zeroAtStart?.(lower) ? { name: tested, first: { offset: 0 } } : undefined;
+	if (!init) {
 		return undefined;
 	}
 	i += 2;
@@ -228,7 +233,7 @@ function steppedCounter(
 	}
 	const rest = passes.slice(0, -1);
 	const written = namesWrittenIn(source, rest, activity);
-	const first = counterValue(init.valueTokens);
+	const first = init.first;
 	const limit = readable(counterValue(header.slice(next)), written);
 	if (written.has(lower) || !first || first.atom || !limit) {
 		return undefined;
@@ -237,6 +242,52 @@ function steppedCounter(
 		counter: { name: init.name, first, last: { atom: limit.atom, offset: limit.offset + shift }, step: 1, loop: 'Do' },
 		body: rest,
 	};
+}
+
+const ZERO_START_TYPES: ReadonlySet<string> = new Set(['byte', 'integer', 'long', 'longlong', 'currency', 'single', 'double', 'variant']);
+const ZERO_START_SUFFIXES: ReadonlyMap<string, string> = new Map([['%', 'integer'], ['&', 'long'], ['^', 'longlong'], ['@', 'currency'], ['!', 'single'], ['#', 'double']]);
+
+/**
+ * Whether `lower` is a numeric local the procedure declares with Dim and
+ * no text before `loopStart` mentions but its declaration, in a body that
+ * holds no GoTo, GoSub or Resume to run the loop again: it is 0 as the loop
+ * starts (issue #350).
+ */
+function startsAtZero(source: string, body: readonly BodyNode[], loopStart: number, lower: string): boolean {
+	if (body.length === 0) {
+		return false;
+	}
+	let declared = false;
+	// The text before the loop, its declarations blanked.
+	let before = source.slice(body[0].span.start, loopStart);
+	const visit = (nodes: readonly BodyNode[]): void => {
+		for (const node of nodes) {
+			if (node.kind === 'VariableGroup') {
+				const decl = node.declarations.find((d) => d.name.toLowerCase() === lower);
+				// A Variant starts Empty, which compares and indexes as 0.
+				const type = decl?.asType?.toLowerCase() ?? (decl?.typeSuffix ? ZERO_START_SUFFIXES.get(decl.typeSuffix) : 'variant');
+				if (decl) {
+					declared = !node.isConst && node.modifier.toLowerCase() === 'dim' && !decl.isArray && type !== undefined && ZERO_START_TYPES.has(type);
+				}
+				if (node.span.end <= loopStart) {
+					const from = node.span.start - body[0].span.start;
+					const to = node.span.end - body[0].span.start;
+					before = before.slice(0, from) + ' '.repeat(to - from) + before.slice(to);
+				}
+			} else if ('body' in node && Array.isArray(node.body)) {
+				visit(node.body as BodyNode[]);
+			}
+		}
+	};
+	visit(body);
+	if (!declared) {
+		return false;
+	}
+	const whole = source.slice(body[0].span.start, body[body.length - 1].span.end).toLowerCase();
+	if (mentions(whole, 'goto') || mentions(whole, 'resume') || mentions(whole, 'gosub')) {
+		return false;
+	}
+	return !mentions(before.toLowerCase(), lower);
 }
 
 /** `i = i + 1`. */
