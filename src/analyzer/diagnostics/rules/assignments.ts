@@ -289,7 +289,8 @@ export function checkAssignmentTypes(
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
-	const isDocumentModule = documentModuleNameLookup(memberCtx);
+	const isDocumentModule = projectTypeNameLookup(memberCtx, 'document', false);
+	const isFormOwner = projectTypeNameLookup(memberCtx, 'userform', true);
 	// Declared-type facts are stable within this rule invocation. Value and
 	// object-state facts below still depend on the individual statement.
 	const objectTypes = new Map<string, {
@@ -769,6 +770,7 @@ export function checkAssignmentTypes(
 			activity,
 			push,
 			projectDeclaresCollection,
+			isFormOwner,
 			resolveExpressionType,
 			resolveQualifiedExpressionType,
 			symbols,
@@ -988,23 +990,27 @@ function arrayOnlyVariantFunctions(
 	return out;
 }
 
-/** Query document names without repeating project scans, preserving early matches. */
-function documentModuleNameLookup(memberCtx: MemberCompletionContext): (name: string) => boolean {
+/** Query one project kind without repeating scans, preserving early matches. */
+function projectTypeNameLookup(
+	memberCtx: MemberCompletionContext,
+	kind: VbaProjectClassMembers['kind'],
+	caseSensitive: boolean,
+): (name: string) => boolean {
 	let names: Set<string> | undefined;
 	let nextIndex = 0;
 	return (name) => {
 		names ??= new Set();
-		const lower = name.toLowerCase();
-		if (names.has(lower)) { return true; }
+		const query = caseSensitive ? name : name.toLowerCase();
+		if (names.has(query)) { return true; }
 		const surfaces = memberCtx.projectClassMembers ?? [];
 		// Metadata is stable within this rule pass. Resume after the last examined
 		// surface; a successful query need not inspect the remaining project.
 		while (nextIndex < surfaces.length) {
 			const type = surfaces[nextIndex++];
-			if (type.kind !== 'document') { continue; }
-			const declared = type.name.toLowerCase();
+			if (type.kind !== kind) { continue; }
+			const declared = caseSensitive ? type.name : type.name.toLowerCase();
 			names.add(declared);
-			if (declared === lower) { return true; }
+			if (declared === query) { return true; }
 		}
 		return false;
 	};
@@ -1484,6 +1490,7 @@ function checkMemberAssignmentTypes(
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 	projectDeclaresCollection: () => boolean,
+	isFormOwner: (name: string) => boolean,
 	resolveExpressionType?: SourceDeclaredTypeResolver,
 	resolveQualifiedExpressionType?: SourceQualifiedDeclaredTypeResolver,
 	symbols?: ReturnType<typeof buildModuleSymbols>,
@@ -1572,7 +1579,7 @@ function checkMemberAssignmentTypes(
 		// #226, measured in Excel 16.0: "Invalid use of property").
 		if (assignment.usesSet && !assignment.withArguments && target && target.writable === undefined
 			&& /^MSForms\./i.test(target.returns ?? '')
-			&& (memberCtx.projectClassMembers ?? []).some((type) => type.kind === 'userform' && type.name === target.owner)) {
+			&& isFormOwner(target.owner)) {
 			push(
 				'setRequiresObject',
 				`'${assignment.label}' is a control on the form ${target.owner}, which no Set can replace. This is a VBE compile error: Invalid use of property.`,
@@ -1756,7 +1763,7 @@ export function checkSetAssignments(
 	push: PushFn,
 	activity?: ConditionalActivityTracker,
 ): ProcedureStatementVisitor {
-	const isDocumentModule = documentModuleNameLookup(memberCtx);
+	const isDocumentModule = projectTypeNameLookup(memberCtx, 'document', false);
 	// Form metadata is stable within this rule invocation; query only the names
 	// actually used, retaining the first matching control and missing results.
 	let formResolved = false;
