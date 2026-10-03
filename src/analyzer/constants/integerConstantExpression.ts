@@ -123,6 +123,8 @@ class IntegerConstantExpressionParser {
 	private readonly tokens: VbaToken[];
 	private index = 0;
 	private depth = 0;
+	/** Inside a call's arguments, where True and False pass as -1 and 0. */
+	private inArguments = 0;
 
 	constructor(
 		raw: string,
@@ -257,6 +259,13 @@ class IntegerConstantExpressionParser {
 			this.index++;
 			return parseVbaIntegerLiteral(token.rawText);
 		}
+		// True is -1 as a number, False 0: `F(False)` (issue #562). Only there:
+		// a Byte Const of True holds 255.
+		const word = token.rawText.toLowerCase();
+		if (this.inArguments > 0 && (word === 'true' || word === 'false') && this.tokens[this.index - 1]?.rawText !== '.') {
+			this.index++;
+			return word === 'true' ? -1 : 0;
+		}
 		const qualified = this.qualifiedName();
 		if (qualified) {
 			return this.constants.get(qualified.toLowerCase());
@@ -272,6 +281,20 @@ class IntegerConstantExpressionParser {
 			if (this.tokens[this.index]?.rawText === '(' && this.tokens[this.index + 1]?.rawText === ')') {
 				this.index += 2;
 				return this.constants.get(`${name.toLowerCase()}()`);
+			}
+			// `F(-1)`: a call with whole-number arguments is `f(-1)` to a lookup (issue #562).
+			if (this.tokens[this.index]?.rawText === '(' && this.tokens[this.index - 2]?.rawText !== '.') {
+				this.index++;
+				this.inArguments++;
+				const args: Array<number | undefined> = [this.expression()];
+				while (this.accept(',')) {
+					args.push(this.expression());
+				}
+				this.inArguments--;
+				if (!this.accept(')') || args.some((arg) => arg === undefined)) {
+					return undefined;
+				}
+				return this.constants.get(`${name.toLowerCase()}(${args.join(',')})`);
 			}
 			return this.constants.get(name.toLowerCase());
 		}

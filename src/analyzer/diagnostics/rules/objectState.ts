@@ -30,6 +30,7 @@ import { builtinNameBefore, resolveExhaustiveMemberSurface, ONE_VALUE_BUILTINS }
 import {
 	declaredTypeForSourceBinding,
 	defTypeOf,
+	functionResultFor,
 	isKnownObjectAssignmentType,
 	sourceIdentifierBinding,
 	isKnownScalarType,
@@ -42,6 +43,7 @@ import {
 	unreachableStatementsIn,
 } from '../typeInference';
 import { conditionValue } from '../conditionValue';
+import { OBJECT_NOTHING } from '../straightLineValues';
 import { splitTopLevelTokenGroups } from '../../lexer/tokenHelpers';
 import {
 	activeModuleMembers,
@@ -52,6 +54,7 @@ import {
 	isInactiveNode,
 	localsNamedWhole,
 	matchParenFrom,
+	rawExpressionTokens,
 	setAssignmentTarget,
 	statementAndBranchSpans,
 	statementTokens,
@@ -167,14 +170,23 @@ export function checkObjectVariableNotSet(
 	push: PushFn,
 ): void {
 	const nothingFunctions = functionsReturningNothing(source, mod, memberCtx, activity);
+	const objectFunctions = new Map(activeModuleMembers(mod, activity)
+		.filter((member): member is ProcedureNode => member.kind === 'Procedure' && member.procKind === 'Function' && member.params.length > 0
+			&& !nothingFunctions.has(member.name.toLowerCase()) && !!member.returnType && !/\(\s*\)\s*$/.test(member.returnType)
+			&& isKnownObjectAssignmentType(member.returnType, memberCtx))
+		.map((member) => [member.name.toLowerCase(), member]));
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
-		if (nothingFunctions.size > 0) {
+		if (nothingFunctions.size > 0 || objectFunctions.size > 0) {
 			forEachStatement(member.body, (stmt) => {
 				for (const span of statementAndBranchSpans(stmt)) {
-					for (const hit of nothingResultMemberAccess(source, statementTokens(source, span), nothingFunctions)) {
+					const toks = statementTokens(source, span);
+					for (const hit of nothingResultMemberAccess(source, toks, nothingFunctions)) {
+						push('objectVariableNotSet', hit.message, { start: span.start + hit.start, end: span.start + hit.end });
+					}
+					for (const hit of nothingCallMemberAccess(source, toks, objectFunctions, symbols, activity)) {
 						push('objectVariableNotSet', hit.message, { start: span.start + hit.start, end: span.start + hit.end });
 					}
 				}
@@ -281,6 +293,53 @@ function nothingResultMemberAccess(
 			start: toks[i].start,
 			end: toks[end].end,
 			message: `Function '${fn.name}' ${setsNothing ? 'sets its result to Nothing' : 'never sets its result, so it returns Nothing'}, and '.${toks[end + 2].rawText}' has no object to reach. This will raise Run-time error '91': Object variable or With block variable not set.`,
+		});
+	}
+	return out;
+}
+
+/**
+ * `MaybeColl(False).Count`: an object Function of the module called with
+ * literal arguments, which leave its result Nothing (issue #562). Offsets
+ * are the statement's.
+ */
+function nothingCallMemberAccess(
+	source: string,
+	toks: readonly VbaToken[],
+	functions: ReadonlyMap<string, ProcedureNode>,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	activity: ConditionalActivityTracker | undefined,
+): Array<{ start: number; end: number; message: string }> {
+	const out: Array<{ start: number; end: number; message: string }> = [];
+	for (let i = 0; i + 1 < toks.length; i++) {
+		const fn = functions.get(tokenName(toks[i])?.toLowerCase() ?? '');
+		if (!fn || toks[i - 1]?.rawText === '.' || toks[i - 1]?.rawText === '!' || toks[i + 1].rawText !== '(') {
+			continue;
+		}
+		const close = matchParenFrom(toks, i + 1);
+		if (close < 0 || toks[close + 1]?.rawText !== '.' || !tokenName(toks[close + 2])) {
+			continue;
+		}
+		const args = splitTopLevelTokenGroups(toks, i + 2, ',', close);
+		const literal = (arg: readonly VbaToken[]): boolean => {
+			const parts = arg.filter((tok) => tok.kind !== 'comment');
+			const atom = parts[0]?.rawText === '-' ? parts.slice(1) : parts;
+			return atom.length === 1 && (atom[0].kind === 'integerLiteral' || atom[0].kind === 'floatLiteral' || (parts.length === 1 && (atom[0].kind === 'stringLiteral' || ['true', 'false'].includes(tokenText(atom[0])))));
+		};
+		if (close === i + 2 || !args.every(literal)) {
+			continue;
+		}
+		const result = functionResultFor(source, fn, symbols, activity, args.map((arg) => {
+			const word = tokenText(arg[0]);
+			return word === 'true' || word === 'false' ? rawExpressionTokens(word === 'true' ? '-1' : '0') : arg;
+		}), true);
+		if (result !== OBJECT_NOTHING) {
+			continue;
+		}
+		out.push({
+			start: toks[i].start,
+			end: toks[close].end,
+			message: `Function '${fn.name}' returns Nothing for these arguments, and '.${toks[close + 2].rawText}' has no object to reach. This will raise Run-time error '91': Object variable or With block variable not set.`,
 		});
 	}
 	return out;
