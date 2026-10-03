@@ -7,12 +7,51 @@ import { analyzeModule } from '../../src/analyzer';
 import { byCode, spanText } from '../helpers/diagnostics';
 
 describe('analyzeModule - unterminated string', () => {
-	it('flags a string with no closing quote', () => {
-		const src = 'Sub T()\n    MsgBox "hello\nEnd Sub\n';
+	// Issue #681, measured in Excel 16.0: the VBE closes a string left open at
+	// the end of its line, unless the line ends like a continuation.
+	it('flags an open string whose line ends with a continuation', () => {
+		const src = 'Sub T()\n    MsgBox "hello _\nEnd Sub\n';
 		const hits = byCode(analyzeModule(src), 'unterminated-string');
 		expect(hits.length).toBe(1);
-		expect(spanText(src, hits[0])).toBe('"hello');
+		expect(spanText(src, hits[0])).toBe('"hello _');
 		expect(hits[0].severity).toBe('error');
+		expect(hits[0].message).toContain('Syntax error');
+	});
+
+	it.each([
+		['  _', 'Main = "abc  _'],
+		['a tab', 'Main = "abc\t_'],
+		['a blank after the underscore', 'Main = "abc _ '],
+		['an open string after a closed one', 'Main = "abc" & "x _'],
+		['nothing but the continuation', 'Main = " _'],
+	])('flags %s', (_label, line) => {
+		expect(byCode(analyzeModule(`Function Main()\n    ${line}\nEnd Function\n`), 'unterminated-string')).toHaveLength(1);
+	});
+
+	it.each([
+		'Main = "abc',
+		'Main = "ab" & "cd',
+		'Main = "abc \' not a comment',
+		'Dim s As String: s = "x": Main = s & "y',
+		'If True Then Main = "abc',
+		'Main = "a""b',
+		'Main = "abc" & "',
+		'Main = "abc_',
+		'Main = "abc __',
+		'Main = "a _b',
+		'Main = "_',
+	])('leaves %s alone, which the VBE closes', (line) => {
+		expect(byCode(analyzeModule(`Function Main()\n    ${line}\nEnd Function\n`), 'unterminated-string')).toHaveLength(0);
+	});
+
+	it('leaves a Const left open alone', () => {
+		expect(byCode(analyzeModule('Private Const K As String = "abc\nFunction Main()\n    Main = K\nEnd Function\n'), 'unterminated-string')).toHaveLength(0);
+	});
+
+	it('reports a string that swallowed a parenthesis as unbalanced', () => {
+		const diagnostics = analyzeModule('Function Main()\n    Main = Len("abc\nEnd Function\n');
+		expect(byCode(diagnostics, 'unterminated-string')).toHaveLength(0);
+		expect(byCode(diagnostics, 'unbalanced-parens')).toHaveLength(1);
 	});
 
 	it('accepts a properly closed string, including doubled-quote escapes', () => {
@@ -21,20 +60,20 @@ describe('analyzeModule - unterminated string', () => {
 	});
 
 	it('treats a trailing escaped pair without a real close as unterminated', () => {
-		const src = 'Sub T()\n    x = "ab""\nEnd Sub\n';
+		const src = 'Sub T()\n    x = "ab"" _\nEnd Sub\n';
 		expect(byCode(analyzeModule(src), 'unterminated-string')).toHaveLength(1);
 	});
 
 	// Corpus RT_003 (excel_vba_realtime_analysis_test_corpus.md): an unterminated
 	// string while typing stays a single local diagnostic and clears once closed.
 	it('reports an unterminated string while typing, then clears when the quote is closed', () => {
-		const opening = 'Sub T()\n    Debug.Print "\nEnd Sub\n';
-		const partial = 'Sub T()\n    Debug.Print "hello\nEnd Sub\n';
-		const closed = 'Sub T()\n    Debug.Print "hello"\nEnd Sub\n';
+		const opening = 'Sub T()\n    Debug.Print " _\nEnd Sub\n';
+		const partial = 'Sub T()\n    Debug.Print "hello _\nEnd Sub\n';
+		const closed = 'Sub T()\n    Debug.Print "hello" _\n        & "x"\nEnd Sub\n';
 		expect(byCode(analyzeModule(opening), 'unterminated-string')).toHaveLength(1);
 		const partialHits = byCode(analyzeModule(partial), 'unterminated-string');
 		expect(partialHits).toHaveLength(1);
-		expect(spanText(partial, partialHits[0])).toBe('"hello');
+		expect(spanText(partial, partialHits[0])).toBe('"hello _');
 		expect(byCode(analyzeModule(closed), 'unterminated-string')).toHaveLength(0);
 	});
 });

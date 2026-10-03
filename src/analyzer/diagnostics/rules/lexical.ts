@@ -17,13 +17,23 @@ function countQuotes(text: string): number {
 	return n;
 }
 
-/** Rule: a string literal with an odd number of quotes is never closed. */
+/** A blank, an underscore and nothing but blanks after it: what the VBE reads as a line continuation. */
+const CONTINUATION_AT_END = /[ \t]_[ \t]*$/;
+
+/**
+ * Rule: a string left open at the end of its line, when that line ends like
+ * a line continuation. The VBE closes any other open string at the end of
+ * its line, so `Main = "abc` compiles and gives "abc" (issue #681, measured
+ * in Excel 16.0); one that swallowed a needed `)` is unbalanced-parens. But
+ * `Main = "abc _` is a Syntax error, and so is `"abc _ `, while `"abc_`,
+ * `"abc __` and `"a _b` compile.
+ */
 export function checkUnterminatedStrings(source: string, push: PushFn): void {
 	for (const tok of tokenizeCached(source)) {
-		if (tok.kind === 'stringLiteral' && countQuotes(tok.rawText) % 2 === 1) {
+		if (tok.kind === 'stringLiteral' && countQuotes(tok.rawText) % 2 === 1 && CONTINUATION_AT_END.test(tok.rawText)) {
 			push(
 				'unterminatedString',
-				'Unterminated string literal.',
+				"Unterminated string literal: its line ends with ' _', which the VBE reads as a line continuation. This is a VBE compile error: Syntax error.",
 				{ start: tok.start, end: tok.end },
 			);
 		}

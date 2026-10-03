@@ -15,7 +15,7 @@
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "diagnosticKind": "compile-error",
-      "notes": "Project-backed unknown-call uses ProjectIndex.visibleProcedureNames(moduleName), so only same-module procedures and exported standard-module procedures are treated as bare callable names. Private procedures in other modules and object-module members do not suppress the diagnostic. Not in an inactive #If branch, which the VBE does not lex (issue #234, Excel 16.0)."
+      "notes": "Project-backed unknown-call uses ProjectIndex.visibleProcedureNames(moduleName), so only same-module procedures and exported standard-module procedures are treated as bare callable names. Private procedures in other modules and object-module members do not suppress the diagnostic. Not in an inactive #If branch, which the VBE does not lex (issue #234, Excel 16.0). The VBE closes a string left open at the end of its line, so only one whose line ends like a continuation (a blank, `_`, then blanks) is the error, a Syntax error (issue #681, Excel 16.0, 23 cases)."
     },
     {
       "code": "invalid-line-continuation",

@@ -36,7 +36,7 @@ describe('inactive #If branches are not parsed (issue #234)', () => {
 	});
 
 	it('still reports an unclosed string in an active branch', () => {
-		expect(byCode(analyzeModule(`Option Explicit\n${MAIN}#If True Then\nasdf "qwer\n#End If\n`), 'unterminated-string')).toHaveLength(1);
+		expect(byCode(analyzeModule(`Option Explicit\n${MAIN}#If True Then\nasdf "qwer _\n#End If\n`), 'unterminated-string')).toHaveLength(1);
 	});
 });
 
