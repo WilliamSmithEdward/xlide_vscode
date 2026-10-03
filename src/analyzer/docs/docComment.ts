@@ -93,14 +93,43 @@ function firstTagMatch(body: string, tag: string): DocTagMatch | undefined {
 	return { attrs: match.attrs.replace(/\/\s*$/, ''), body: match.body };
 }
 
-const ATTRIBUTE_RE = /([A-Za-z_][A-Za-z0-9_-]*)\s*=\s*"([^"]*)"/;
+interface DocAttribute {
+	name: string;
+	value: string;
+	/** Raw value coordinates relative to the attribute string. */
+	start: number;
+	length: number;
+}
+
+/** Advances over attribute names without retrying every suffix of an unknown word. */
+function* docAttributes(raw: string): Generator<DocAttribute, void> {
+	const names = /[A-Za-z_][A-Za-z0-9_-]*/g;
+	const valueOpening = /\s*=\s*"/y;
+	let name: RegExpExecArray | null;
+	while ((name = names.exec(raw)) !== null) {
+		valueOpening.lastIndex = names.lastIndex;
+		if (!valueOpening.exec(raw)) {
+			continue;
+		}
+		const start = valueOpening.lastIndex;
+		const end = raw.indexOf('"', start);
+		if (end < 0) {
+			return;
+		}
+		names.lastIndex = end + 1;
+		yield {
+			name: name[0].toLowerCase(),
+			value: decodeEntities(raw.slice(start, end)).trim(),
+			start,
+			length: end - start,
+		};
+	}
+}
 
 function attrsOf(raw: string): Map<string, string> {
 	const out = new Map<string, string>();
-	const re = new RegExp(ATTRIBUTE_RE.source, 'g');
-	let m: RegExpExecArray | null;
-	while ((m = re.exec(raw)) !== null) {
-		out.set(m[1].toLowerCase(), decodeEntities(m[2]).trim());
+	for (const attr of docAttributes(raw)) {
+		out.set(attr.name, attr.value);
 	}
 	return out;
 }
@@ -449,8 +478,6 @@ export interface DocTagOccurrence {
 	end?: number;
 }
 
-const OPENING_TAG_RE = /<(summary|param|returns|remarks|example|signature)\b([^>]*?)(\/?)>/;
-
 /**
  * The vocabulary tags of a `'''` block in document order, or undefined when
  * it has none: a block of plain text is a note, which the parser reads as a
@@ -487,11 +514,17 @@ export function scanDocTags(lines: readonly DocBlockLine[]): DocTagOccurrence[] 
 	};
 	const lower = body.toLowerCase();
 	const tags: DocTagOccurrence[] = [];
-	const opening = new RegExp(OPENING_TAG_RE.source, 'gi');
+	const opening = new RegExp(HAS_TAG_RE.source, 'gi');
 	let m: RegExpExecArray | null;
 	while ((m = opening.exec(body)) !== null) {
 		const tag = m[1].toLowerCase();
-		const openEnd = m.index + m[0].length;
+		const angle = body.indexOf('>', opening.lastIndex);
+		if (angle < 0) {
+			break;
+		}
+		const openEnd = angle + 1;
+		const selfClosing = body[angle - 1] === '/';
+		opening.lastIndex = openEnd;
 		const occurrence: DocTagOccurrence = {
 			tag,
 			open: { start: toSource(m.index), end: toSource(openEnd) },
@@ -500,13 +533,12 @@ export function scanDocTags(lines: readonly DocBlockLine[]): DocTagOccurrence[] 
 		// Read the attributes as attrsOf does: the last of a repeated name wins.
 		const attrs = new Map<string, { value: string; start: number; length: number }>();
 		const attrsStart = m.index + 1 + tag.length;
-		const attrRe = new RegExp(ATTRIBUTE_RE.source, 'g');
-		let attr: RegExpExecArray | null;
-		while ((attr = attrRe.exec(m[2])) !== null) {
-			attrs.set(attr[1].toLowerCase(), {
-				value: decodeEntities(attr[2]).trim(),
-				start: attrsStart + attr.index + attr[0].indexOf('"') + 1,
-				length: attr[2].length,
+		const rawAttrs = body.slice(attrsStart, selfClosing ? angle - 1 : angle);
+		for (const attr of docAttributes(rawAttrs)) {
+			attrs.set(attr.name, {
+				value: attr.value,
+				start: attrsStart + attr.start,
+				length: attr.length,
 			});
 		}
 		const name = attrs.get('name');
@@ -515,7 +547,7 @@ export function scanDocTags(lines: readonly DocBlockLine[]): DocTagOccurrence[] 
 			occurrence.nameSpan = { start: toSource(name.start), end: toSource(name.start + name.length) };
 		}
 		occurrence.hasHints = ['type', 'unit', 'value'].some((key) => !!attrs.get(key)?.value);
-		if (m[3] === '/') {
+		if (selfClosing) {
 			occurrence.text = '';
 			occurrence.end = occurrence.open.end;
 		} else {
