@@ -29,13 +29,31 @@ const CONTINUATION_AT_END = /[ \t]_[ \t]*$/;
  * `"abc __` and `"a _b` compile.
  */
 export function checkUnterminatedStrings(source: string, push: PushFn): void {
-	for (const tok of tokenizeCached(source)) {
-		if (tok.kind === 'stringLiteral' && countQuotes(tok.rawText) % 2 === 1 && CONTINUATION_AT_END.test(tok.rawText)) {
-			push(
-				'unterminatedString',
-				"Unterminated string literal: its line ends with ' _', which the VBE reads as a line continuation. This is a VBE compile error: Syntax error.",
-				{ start: tok.start, end: tok.end },
-			);
+	const toks = tokenizeCached(source);
+	let previous: (typeof toks)[number] | undefined;
+	for (const tok of toks) {
+		if (tok.kind === 'stringLiteral' && countQuotes(tok.rawText) % 2 === 1) {
+			// One that opens a statement stands alone once closed, `"` or `"abc`
+			// on a line of its own, after `:` or a label, or after Then: no
+			// statement (issue #740, measured in Excel 16.0).
+			const opensStatement = previous === undefined || previous.kind === 'newline' || previous.rawText === ':'
+				|| (previous.kind === 'keyword' && ['then', 'else'].includes(previous.rawText.toLowerCase()));
+			if (CONTINUATION_AT_END.test(tok.rawText)) {
+				push(
+					'unterminatedString',
+					"Unterminated string literal: its line ends with ' _', which the VBE reads as a line continuation. This is a VBE compile error: Syntax error.",
+					{ start: tok.start, end: tok.end },
+				);
+			} else if (opensStatement) {
+				push(
+					'unterminatedString',
+					'Unterminated string literal: closed at the end of its line, it stands alone where a statement goes. This is a VBE compile error: Syntax error.',
+					{ start: tok.start, end: tok.end },
+				);
+			}
+		}
+		if (tok.kind !== 'comment') {
+			previous = tok;
 		}
 	}
 }

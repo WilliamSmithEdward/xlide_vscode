@@ -44,6 +44,28 @@ describe('analyzeModule - unterminated string', () => {
 		expect(byCode(analyzeModule(`Function Main()\n    ${line}\nEnd Function\n`), 'unterminated-string')).toHaveLength(0);
 	});
 
+	// Issue #740, measured in Excel 16.0: closed at the end of its line, a
+	// string that opens a statement stands alone, which is no statement.
+	it.each([
+		['an open quote alone', '"'],
+		['an open string alone', '"abc'],
+		['one after a colon', 'Main = 2: "abc'],
+		['one after a label', 'L1: "abc'],
+		['one after Then', 'If True Then "abc'],
+	])('flags %s', (_label, line) => {
+		const hits = byCode(analyzeModule(`Function Main()\n    Main = 1\n    ${line}\nEnd Function\n`), 'unterminated-string');
+		expect(hits, line).toHaveLength(1);
+		expect(hits[0].message).toContain('Syntax error');
+	});
+
+	it('flags one alone in an Enum', () => {
+		expect(byCode(analyzeModule('Private Enum E\n    eA\n    "\nEnd Enum\n'), 'unterminated-string')).toHaveLength(1);
+	});
+
+	it.each(['Debug.Print "', 'Main = "'])('leaves %s alone, which the VBE closes', (line) => {
+		expect(byCode(analyzeModule(`Function Main()\n    Main = 1\n    ${line}\nEnd Function\n`), 'unterminated-string')).toHaveLength(0);
+	});
+
 	it('leaves a Const left open alone', () => {
 		expect(byCode(analyzeModule('Private Const K As String = "abc\nFunction Main()\n    Main = K\nEnd Function\n'), 'unterminated-string')).toHaveLength(0);
 	});
