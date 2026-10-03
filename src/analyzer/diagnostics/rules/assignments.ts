@@ -1702,10 +1702,12 @@ export function checkSetAssignments(
 	activity?: ConditionalActivityTracker,
 ): ProcedureStatementVisitor {
 	const moduleSignatures = buildModuleTypeSignatures(symbols);
+	let moduleDeclaredNames: ReadonlySet<string> | undefined;
 	return (member) => {
 		const env = typeEnvironmentFor(symbols, member);
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
 		const procSym = procedureSymbolFor(symbols, member);
+		let procedureDeclaredNames: ReadonlySet<string> | undefined;
 		const { resolveExpressionType, resolveQualifiedExpressionType } =
 			sourceBindingTypeResolvers(symbols, procSym, projectVisibleSymbols);
 		// What an Object or Variant local holds at a statement (issue #246).
@@ -1744,7 +1746,13 @@ export function checkSetAssignments(
 			// `Set Answer = Nothing` inside the form: a control is no
 			// variable to Set (issue #315, measured in Excel 16.0).
 			const lowerTarget = target.name.toLowerCase();
-			const declaredHere = [...(procSym?.children ?? []), ...(symbols.root.children ?? [])].some((symbol) => symbol.name.toLowerCase() === lowerTarget);
+			// Only a form context needs this exact direct-declaration shadow check.
+			// Keep it local to this invocation: project names and enum members
+			// in the broader runtime shadow scope do not count as declarations here.
+			const declaredHere = !!memberCtx.meProjectType && (
+				(procedureDeclaredNames ??= new Set((procSym?.children ?? []).map((symbol) => symbol.name.toLowerCase()))).has(lowerTarget)
+				|| (moduleDeclaredNames ??= new Set((symbols.root.children ?? []).map((symbol) => symbol.name.toLowerCase()))).has(lowerTarget)
+			);
 			const form = declaredHere || !memberCtx.meProjectType ? undefined : (memberCtx.projectClassMembers ?? []).find((type) => type.kind === 'userform' && type.name.toLowerCase() === memberCtx.meProjectType!.toLowerCase());
 			const control = form?.members.find((member) => member.name.toLowerCase() === lowerTarget && /^MSForms\./i.test(member.returns ?? ''));
 			if (control) {
