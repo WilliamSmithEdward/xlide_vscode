@@ -92957,6 +92957,177 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim s As String, i As Long\r\n    s = \"abc\"\r\n    For i = 1 To 4\r\n        Debug.Print Mid(s, i, 1)\r\n    Next\r\n    Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue445b_01_compile",
+      "description": "Issue #445 a ParamArray used where the VBE refuses it, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = F()\r\nEnd Function\r\nPrivate Function F(ParamArray p() As Variant) As Variant\r\n    F = G(p)\r\n    If IsEmpty(F) Then F = 1\r\nEnd Function\r\nPrivate Function G(a As Variant) As Long\r\n    G = 1\r\nEnd Function\r\nPrivate Function GV(ByVal a As Variant) As Long\r\n    GV = 1\r\nEnd Function\r\nPrivate Function H(b() As Variant) As Long\r\n    H = 1\r\nEnd Function\r\nPrivate Function K(ParamArray q() As Variant) As Long\r\n    K = 1\r\nEnd Function\r\nPrivate Sub S(a As Variant)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue445b_02_compile",
+      "description": "Issue #445 a ParamArray used where the VBE refuses it, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = F()\r\nEnd Function\r\nPrivate Function F(ParamArray p() As Variant) As Variant\r\n    F = GV(p)\r\n    If IsEmpty(F) Then F = 1\r\nEnd Function\r\nPrivate Function G(a As Variant) As Long\r\n    G = 1\r\nEnd Function\r\nPrivate Function GV(ByVal a As Variant) As Long\r\n    GV = 1\r\nEnd Function\r\nPrivate Function H(b() As Variant) As Long\r\n    H = 1\r\nEnd Function\r\nPrivate Function K(ParamArray q() As Variant) As Long\r\n    K = 1\r\nEnd Function\r\nPrivate Sub S(a As Variant)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue445b_03_compile",
+      "description": "Issue #445 a ParamArray used where the VBE refuses it, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = F()\r\nEnd Function\r\nPrivate Function F(ParamArray p() As Variant) As Variant\r\n    ReDim p(3)\r\n    If IsEmpty(F) Then F = 1\r\nEnd Function\r\nPrivate Function G(a As Variant) As Long\r\n    G = 1\r\nEnd Function\r\nPrivate Function GV(ByVal a As Variant) As Long\r\n    GV = 1\r\nEnd Function\r\nPrivate Function H(b() As Variant) As Long\r\n    H = 1\r\nEnd Function\r\nPrivate Function K(ParamArray q() As Variant) As Long\r\n    K = 1\r\nEnd Function\r\nPrivate Sub S(a As Variant)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue445b_04_compile",
+      "description": "Issue #445 a ParamArray used where the VBE refuses it, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = F()\r\nEnd Function\r\nPrivate Function F(ParamArray p() As Variant) As Variant\r\n    Erase p\r\n    If IsEmpty(F) Then F = 1\r\nEnd Function\r\nPrivate Function G(a As Variant) As Long\r\n    G = 1\r\nEnd Function\r\nPrivate Function GV(ByVal a As Variant) As Long\r\n    GV = 1\r\nEnd Function\r\nPrivate Function H(b() As Variant) As Long\r\n    H = 1\r\nEnd Function\r\nPrivate Function K(ParamArray q() As Variant) As Long\r\n    K = 1\r\nEnd Function\r\nPrivate Sub S(a As Variant)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue445b_05_compile",
+      "description": "Issue #445 a ParamArray used where the VBE refuses it, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = F()\r\nEnd Function\r\nPrivate Function F(ParamArray p() As Variant) As Variant\r\n    Set p = Nothing\r\n    If IsEmpty(F) Then F = 1\r\nEnd Function\r\nPrivate Function G(a As Variant) As Long\r\n    G = 1\r\nEnd Function\r\nPrivate Function GV(ByVal a As Variant) As Long\r\n    GV = 1\r\nEnd Function\r\nPrivate Function H(b() As Variant) As Long\r\n    H = 1\r\nEnd Function\r\nPrivate Function K(ParamArray q() As Variant) As Long\r\n    K = 1\r\nEnd Function\r\nPrivate Sub S(a As Variant)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue445b_06_compile",
+      "description": "Issue #445 a ParamArray used where the VBE refuses it, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = F()\r\nEnd Function\r\nPrivate Function F(ParamArray p() As Variant) As Variant\r\n    F = H(p)\r\n    If IsEmpty(F) Then F = 1\r\nEnd Function\r\nPrivate Function G(a As Variant) As Long\r\n    G = 1\r\nEnd Function\r\nPrivate Function GV(ByVal a As Variant) As Long\r\n    GV = 1\r\nEnd Function\r\nPrivate Function H(b() As Variant) As Long\r\n    H = 1\r\nEnd Function\r\nPrivate Function K(ParamArray q() As Variant) As Long\r\n    K = 1\r\nEnd Function\r\nPrivate Sub S(a As Variant)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue445b_07_compile",
+      "description": "Issue #445 a ParamArray used where the VBE refuses it, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = F()\r\nEnd Function\r\nPrivate Function F(ParamArray p() As Variant) As Variant\r\n    F = K(p)\r\n    If IsEmpty(F) Then F = 1\r\nEnd Function\r\nPrivate Function G(a As Variant) As Long\r\n    G = 1\r\nEnd Function\r\nPrivate Function GV(ByVal a As Variant) As Long\r\n    GV = 1\r\nEnd Function\r\nPrivate Function H(b() As Variant) As Long\r\n    H = 1\r\nEnd Function\r\nPrivate Function K(ParamArray q() As Variant) As Long\r\n    K = 1\r\nEnd Function\r\nPrivate Sub S(a As Variant)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue445b_08_compile",
+      "description": "Issue #445 a ParamArray used where the VBE refuses it, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = F()\r\nEnd Function\r\nPrivate Function F(ParamArray p() As Variant) As Variant\r\n    p = Array(1)\r\n    If IsEmpty(F) Then F = 1\r\nEnd Function\r\nPrivate Function G(a As Variant) As Long\r\n    G = 1\r\nEnd Function\r\nPrivate Function GV(ByVal a As Variant) As Long\r\n    GV = 1\r\nEnd Function\r\nPrivate Function H(b() As Variant) As Long\r\n    H = 1\r\nEnd Function\r\nPrivate Function K(ParamArray q() As Variant) As Long\r\n    K = 1\r\nEnd Function\r\nPrivate Sub S(a As Variant)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue445b_09_compile",
+      "description": "Issue #445 a ParamArray used where the VBE refuses it, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = F()\r\nEnd Function\r\nPrivate Function F(ParamArray p() As Variant) As Variant\r\n    F = UBound(p)\r\n    If IsEmpty(F) Then F = 1\r\nEnd Function\r\nPrivate Function G(a As Variant) As Long\r\n    G = 1\r\nEnd Function\r\nPrivate Function GV(ByVal a As Variant) As Long\r\n    GV = 1\r\nEnd Function\r\nPrivate Function H(b() As Variant) As Long\r\n    H = 1\r\nEnd Function\r\nPrivate Function K(ParamArray q() As Variant) As Long\r\n    K = 1\r\nEnd Function\r\nPrivate Sub S(a As Variant)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue445b_10_compile",
+      "description": "Issue #445 a ParamArray used where the VBE refuses it, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = F()\r\nEnd Function\r\nPrivate Function F(ParamArray p() As Variant) As Variant\r\n    Call S(p)\r\n    If IsEmpty(F) Then F = 1\r\nEnd Function\r\nPrivate Function G(a As Variant) As Long\r\n    G = 1\r\nEnd Function\r\nPrivate Function GV(ByVal a As Variant) As Long\r\n    GV = 1\r\nEnd Function\r\nPrivate Function H(b() As Variant) As Long\r\n    H = 1\r\nEnd Function\r\nPrivate Function K(ParamArray q() As Variant) As Long\r\n    K = 1\r\nEnd Function\r\nPrivate Sub S(a As Variant)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue445b_11_compile",
+      "description": "Issue #445 a ParamArray used where the VBE refuses it, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = F()\r\nEnd Function\r\nPrivate Function F(ParamArray p() As Variant) As Variant\r\n    S p\r\n    If IsEmpty(F) Then F = 1\r\nEnd Function\r\nPrivate Function G(a As Variant) As Long\r\n    G = 1\r\nEnd Function\r\nPrivate Function GV(ByVal a As Variant) As Long\r\n    GV = 1\r\nEnd Function\r\nPrivate Function H(b() As Variant) As Long\r\n    H = 1\r\nEnd Function\r\nPrivate Function K(ParamArray q() As Variant) As Long\r\n    K = 1\r\nEnd Function\r\nPrivate Sub S(a As Variant)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue445b_12_compile",
+      "description": "Issue #445 a ParamArray used where the VBE refuses it, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = F()\r\nEnd Function\r\nPrivate Function F(ParamArray p() As Variant) As Variant\r\n    F = G((p))\r\n    If IsEmpty(F) Then F = 1\r\nEnd Function\r\nPrivate Function G(a As Variant) As Long\r\n    G = 1\r\nEnd Function\r\nPrivate Function GV(ByVal a As Variant) As Long\r\n    GV = 1\r\nEnd Function\r\nPrivate Function H(b() As Variant) As Long\r\n    H = 1\r\nEnd Function\r\nPrivate Function K(ParamArray q() As Variant) As Long\r\n    K = 1\r\nEnd Function\r\nPrivate Sub S(a As Variant)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue445b_13_compile",
+      "description": "Issue #445 a ParamArray used where the VBE refuses it, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = F()\r\nEnd Function\r\nPrivate Function F(ParamArray p) As Variant\r\n    F = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue445b_14_compile",
+      "description": "Issue #445 a ParamArray used where the VBE refuses it, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Cnt(ByRef values() As Variant) As Long\r\n    Cnt = UBound(values) - LBound(values) + 1\r\nEnd Function\r\nFunction Outer(ParamArray p() As Variant) As Long\r\n    Outer = Cnt(p)\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Outer(1, 2, 3)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue445b_15_compile",
+      "description": "Issue #445 a ParamArray used where the VBE refuses it, case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Cnt(values() As Variant) As Long\r\n    Cnt = UBound(values) - LBound(values) + 1\r\nEnd Function\r\nFunction Outer(ParamArray p() As Variant) As Long\r\n    Outer = Cnt(p)\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Outer(1, 2)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue445b_16_compile",
+      "description": "Issue #445 a ParamArray used where the VBE refuses it, case 16, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Cnt(ByRef v As Variant) As Long\r\n    Cnt = UBound(v) - LBound(v) + 1\r\nEnd Function\r\nFunction Outer(ParamArray p() As Variant) As Long\r\n    Outer = Cnt(p)\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Outer(1, 2)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue445b_17_runtime",
+      "description": "Issue #445 a ParamArray used where the VBE refuses it, case 17, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Cnt(ByVal v As Variant) As Long\r\n    Cnt = UBound(v) - LBound(v) + 1\r\nEnd Function\r\nFunction Outer(ParamArray p() As Variant) As Long\r\n    Outer = Cnt(p)\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Outer(1, 2)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

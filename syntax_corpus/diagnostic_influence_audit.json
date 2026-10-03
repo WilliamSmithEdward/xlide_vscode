@@ -7175,7 +7175,8 @@
         "issue417_62_compile",
         "issue417_68_compile",
         "issue417_196_compile",
-        "issue417_199_compile"
+        "issue417_199_compile",
+        "issue445b_05_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -7521,6 +7522,29 @@
         "issue417_183_compile",
         "issue417_197_compile",
         "issue417_198_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": ""
+    },
+    {
+      "code": "invalid-paramarray-use",
+      "status": "vbe-oracle-verified",
+      "diagnosticKind": "compile-error",
+      "sourceOfTruth": "Excel/VBE compile oracle, 64-bit: Type mismatch",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue445b_01_compile",
+        "issue445b_03_compile",
+        "issue445b_04_compile",
+        "issue445b_06_compile",
+        "issue445b_10_compile",
+        "issue445b_11_compile",
+        "issue445b_12_compile",
+        "issue445b_13_compile",
+        "issue445b_14_compile",
+        "issue445b_15_compile",
+        "issue445b_16_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],

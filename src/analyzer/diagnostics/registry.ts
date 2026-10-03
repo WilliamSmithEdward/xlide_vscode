@@ -118,6 +118,8 @@ import { checkErrorValues } from './rules/errorValues';
 import { checkAccessData } from './rules/accessData';
 import { checkByNameCalls } from './rules/byNameCalls';
 import { checkModuleMemberForms } from './rules/moduleMembers';
+import { checkParamArrayUse } from './rules/paramArrayUse';
+import { callableTypeSignaturesFor } from './typeInference';
 import { checkVariantValueMisuse } from './rules/variantValues';
 import { checkRuntimeMemberNotFound } from './rules/lateBoundMembers';
 import { checkConditionValues } from './rules/conditionValues';
@@ -968,6 +970,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 			/^[ \t]*Option[ \t]+Explicit\b/im.test(ctx.source),
 			push,
 		),
+	},
+	{
+		name: 'invalidParamArrayUse',
+		procedureStatements: (ctx, push) => checkParamArrayUse(ctx.source, callableTypeSignaturesFor(ctx.symbols, ctx.opts.projectProcedures), push),
 	},
 	{
 		name: 'nonCallableCallStatement',
