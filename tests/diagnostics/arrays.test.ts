@@ -3,6 +3,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { analyzeModule } from '../../src/analyzer';
+import { analyzeVbaModuleSource } from '../../src/vbaModuleAnalysis';
 
 import { byCode, expectDiagnostic, expectDiagnostics, spanText } from '../helpers/diagnostics';
 import { analyzeProjectModule } from './helpers';
@@ -738,7 +739,7 @@ describe('analyzeModule - unallocated dynamic array access', () => {
 		expect(byCode(analyzeModule(src), 'unallocated-dynamic-array-access')).toHaveLength(0);
 	});
 
-	it('falls back to conservative flow when On Error is present', () => {
+	it('reports nothing that On Error Resume Next handles', () => {
 		const src =
 			'Public Sub T(ByVal flag As Boolean)\n' +
 			'    Dim values() As Long\n' +
@@ -750,7 +751,8 @@ describe('analyzeModule - unallocated dynamic array access', () => {
 			'    End If\n' +
 			'End Sub\n';
 
-		expect(byCode(analyzeModule(src), 'unallocated-dynamic-array-access')).toHaveLength(0);
+		const { diagnostics } = analyzeVbaModuleSource({ source: src, moduleName: 'Module1', moduleType: 'standard' });
+		expect(diagnostics.filter((diag) => diag.code === 'unallocated-dynamic-array-access')).toHaveLength(0);
 	});
 
 	it('enters a loop body that never allocates the array: the first pass raises (issue #237)', () => {

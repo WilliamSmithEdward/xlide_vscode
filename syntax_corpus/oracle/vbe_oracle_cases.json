@@ -101687,6 +101687,138 @@
       "source": "Option Explicit\r\nPrivate mn As Long\r\nPrivate mc As Collection\r\nPublic pn As Long\r\nPrivate Sub Nop()\r\nEnd Sub\r\nPrivate Sub Log(ByVal t As String)\r\n    Debug.Print t\r\nEnd Sub\r\nPrivate Function Twice(ByVal x As Long) As Long\r\n    Twice = x * 2\r\nEnd Function\r\nPrivate Sub SetMn()\r\n    mn = 1\r\nEnd Sub\r\nPrivate Sub Indirect()\r\n    SetMn\r\nEnd Sub\r\nPrivate Sub Outer()\r\n    Nop\r\n    Log \"y\"\r\nEnd Sub\r\nPrivate Sub Fill(ByRef x As Long)\r\n    x = 2\r\nEnd Sub\r\nPrivate Sub Calls()\r\n    Application.Calculate\r\nEnd Sub\r\nPrivate Sub SetMc()\r\n    Set mc = New Collection\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Dim arr(0 To 3) As Long, r As Long\r\n    Set mc = Nothing\r\n    Main = mc Is Nothing\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "onErrorBlocks_01_runtime",
+      "description": "Blocks in a procedure whose only unstructured statements are On Error ones, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, n As Long, i As Long, d As Long, s As String, x As Double\r\n    On Error GoTo 0\r\n    If Main = 0 Then\r\n        n = c.Count\r\n    End If\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "onErrorBlocks_02_runtime",
+      "description": "Blocks in a procedure whose only unstructured statements are On Error ones, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, n As Long, i As Long, d As Long, s As String, x As Double\r\n    If True Then\r\n        On Error Resume Next\r\n        On Error GoTo 0\r\n        n = c.Count\r\n    End If\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "onErrorBlocks_03_runtime",
+      "description": "Blocks in a procedure whose only unstructured statements are On Error ones, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, n As Long, i As Long, d As Long, s As String, x As Double\r\n    If True Then\r\n        On Error Resume Next\r\n        If True Then\r\n            On Error GoTo 0\r\n        End If\r\n        n = c.Count\r\n    End If\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "onErrorBlocks_04_runtime",
+      "description": "Blocks in a procedure whose only unstructured statements are On Error ones, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, n As Long, i As Long, d As Long, s As String, x As Double\r\n    If True Then\r\n        s = \"xyz\"\r\n        On Error Resume Next\r\n        If Len(s) > 1 Then\r\n            On Error GoTo 0\r\n        End If\r\n        n = c.Count\r\n    End If\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "onErrorBlocks_05_runtime",
+      "description": "Blocks in a procedure whose only unstructured statements are On Error ones, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, n As Long, i As Long, d As Long, s As String, x As Double\r\n    On Error Resume Next\r\n    For i = 1 To 2\r\n        n = c.Count\r\n    Next\r\n    On Error GoTo 0\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "onErrorBlocks_06_runtime",
+      "description": "Blocks in a procedure whose only unstructured statements are On Error ones, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, n As Long, i As Long, d As Long, s As String, x As Double\r\n    On Error GoTo 0\r\n    For i = 1 To 2\r\n        n = c.Count\r\n    Next\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "onErrorBlocks_07_runtime",
+      "description": "Blocks in a procedure whose only unstructured statements are On Error ones, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, n As Long, i As Long, d As Long, s As String, x As Double\r\n    On Error Resume Next\r\n    If True Then\r\n        Set c = New Collection\r\n    End If\r\n    On Error GoTo 0\r\n    n = c.Count\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "onErrorBlocks_08_runtime",
+      "description": "Blocks in a procedure whose only unstructured statements are On Error ones, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, n As Long, i As Long, d As Long, s As String, x As Double\r\n    d = 0\r\n    On Error GoTo 0\r\n    If Main = 0 Then\r\n        x = 1 / d\r\n    End If\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "onErrorBlocks_09_runtime",
+      "description": "Blocks in a procedure whose only unstructured statements are On Error ones, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, n As Long, i As Long, d As Long, s As String, x As Double\r\n    On Error Resume Next\r\n    d = 0\r\n    If Main = 0 Then\r\n        x = 1 / d\r\n    End If\r\n    On Error GoTo 0\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "onErrorBlocks_10_runtime",
+      "description": "Blocks in a procedure whose only unstructured statements are On Error ones, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, n As Long, i As Long, d As Long, s As String, x As Double\r\n    On Error Resume Next\r\n    With c\r\n        n = .Count\r\n    End With\r\n    On Error GoTo 0\r\n    Set c = New Collection\r\n    n = c.Count\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "onErrorBlocks_11_runtime",
+      "description": "Blocks in a procedure whose only unstructured statements are On Error ones, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, n As Long, i As Long, d As Long, s As String, x As Double\r\n    On Error Resume Next\r\n    Set c = Nothing\r\n    Do While i < 2\r\n        i = i + 1\r\n        n = c.Count\r\n    Loop\r\n    On Error GoTo 0\r\n    n = 1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "onErrorBlocks_12_runtime",
+      "description": "Blocks in a procedure whose only unstructured statements are On Error ones, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, n As Long, i As Long, d As Long, s As String, x As Double\r\n    On Error GoTo -1\r\n    Select Case Main\r\n        Case 0\r\n            n = c.Count\r\n    End Select\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }

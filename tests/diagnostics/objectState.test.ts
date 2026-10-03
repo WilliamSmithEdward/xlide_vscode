@@ -3,6 +3,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { analyzeModule } from '../../src/analyzer';
+import { analyzeVbaModuleSource } from '../../src/vbaModuleAnalysis';
 
 import { byCode, expectDiagnostic, expectDiagnostics, spanText } from '../helpers/diagnostics';
 import { analyzeProjectModule } from './helpers';
@@ -355,7 +356,7 @@ describe('analyzeModule - object variable not set', () => {
 		expect(byCode(analyzeModule(src), 'object-variable-not-set')).toHaveLength(0);
 	});
 
-	it('falls back to conservative flow when On Error is present', () => {
+	it('reports nothing that On Error Resume Next handles', () => {
 		const src =
 			'Public Sub T()\n' +
 			'    Dim obj As Object\n' +
@@ -367,7 +368,33 @@ describe('analyzeModule - object variable not set', () => {
 			'    End If\n' +
 			'End Sub\n';
 
-		expect(byCode(analyzeModule(src), 'object-variable-not-set')).toHaveLength(0);
+		const { diagnostics } = analyzeVbaModuleSource({ source: src, moduleName: 'Module1', moduleType: 'standard' });
+		expect(diagnostics.filter((diag) => diag.code === 'object-variable-not-set')).toHaveLength(0);
+	});
+
+	// A procedure whose only unstructured statements are On Error ones runs in
+	// order, so its blocks are entered: a block after On Error GoTo 0 is
+	// checked, measured in Excel 16.0.
+	it('enters blocks where On Error is the only unstructured statement', () => {
+		const errors = (body: string): string[] => analyzeVbaModuleSource({
+			source: `Option Explicit\nFunction Main() As Variant\n    Dim c As Collection, n As Long, s As String\n    ${body}\nEnd Function\n`,
+			moduleName: 'Module1',
+			moduleType: 'standard',
+		}).diagnostics.filter((diag) => diag.severity === 'error').map((diag) => diag.code);
+		for (const body of [
+			'On Error GoTo 0\n    If Main = 0 Then\n        n = c.Count\n    End If',
+			'If True Then\n        On Error Resume Next\n        On Error GoTo 0\n        n = c.Count\n    End If',
+			'If True Then\n        s = "xyz"\n        On Error Resume Next\n        If Len(s) > 1 Then\n            On Error GoTo 0\n        End If\n        n = c.Count\n    End If',
+			'On Error GoTo 0\n    For n = 1 To 2\n        s = c.Item(1)\n    Next',
+		]) {
+			expect(errors(body), body).toEqual(['object-variable-not-set']);
+		}
+		for (const body of [
+			'On Error Resume Next\n    If Main = 0 Then\n        n = c.Count\n    End If\n    On Error GoTo 0',
+			'On Error Resume Next\n    If True Then\n        Set c = New Collection\n    End If\n    On Error GoTo 0\n    n = c.Count',
+		]) {
+			expect(errors(body), body).toEqual([]);
+		}
 	});
 
 	// A GoTo is followed (issue #271): every way into the Then arm has obj
