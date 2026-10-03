@@ -18,6 +18,7 @@ import {
 import type { PushFn } from '../analysisContext';
 import { tokenizeCached } from '../../lexer/tokenize';
 import { firstTokenAtOrAfter } from '../../lexer/tokenHelpers';
+import { lineEndAtOrAfter } from '../../../vbaSourceScan';
 
 export function checkDirectiveForms(
 	source: string,
@@ -66,7 +67,7 @@ export function checkDirectiveForms(
 	// the directive's own physical line.
 	const tokens = tokenizeCached(source);
 	for (const directive of directives) {
-		const lineEnd = lineEndAfter(source, directive.span.end);
+		const lineEnd = lineEndAtOrAfter(source, directive.span.end);
 		let colon = -1;
 		for (let i = firstTokenAtOrAfter(tokens, directive.span.end); i < tokens.length; i++) {
 			const tok = tokens[i];
@@ -97,13 +98,4 @@ export function checkDirectiveForms(
 			directive.span,
 		);
 	}
-}
-
-function lineEndAfter(source: string, from: number): number {
-	for (let i = from; i < source.length; i++) {
-		if (source[i] === '\r' || source[i] === '\n') {
-			return i;
-		}
-	}
-	return source.length;
 }

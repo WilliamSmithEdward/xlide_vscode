@@ -140,9 +140,9 @@ function checkStatement(
 			continue;
 		}
 		const named = facts ? facts.nextNamed[i + 1] : firstNamedArgument(toks, i + 1, close);
-		if (named < close && (facts
-			? facts.depths[named] === facts.depths[i] + 1
-			: depthAt(toks, named, i + 1) === 0)) {
+		// Without facts there is only one opening paren, so its contents
+		// cannot contain a deeper group before this matching close.
+		if (named < close && (!facts || facts.depths[named] === facts.depths[i] + 1)) {
 			syntax('A named argument cannot stand inside parentheses', at(toks[named]));
 		}
 		if (toks[close + 1]?.rawText === '.') {
@@ -195,19 +195,6 @@ function firstNamedArgument(toks: readonly VbaToken[], from: number, to: number)
 	for (let i = from; i < to; i++) { if (toks[i].rawText === ':=') { return i; } }
 	return to;
 }
-/** The paren depth at `index` within `toks`. */
-function depthAt(toks: readonly VbaToken[], index: number, from: number): number {
-	let depth = 0;
-	for (let i = from; i < index; i++) {
-		if (toks[i].rawText === '(') {
-			depth++;
-		} else if (toks[i].rawText === ')') {
-			depth--;
-		}
-	}
-	return depth;
-}
-
 function article(type: string): string {
 	return /^[aeiou]/i.test(normalizeType(type) ?? type) ? 'an' : 'a';
 }
