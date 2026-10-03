@@ -59,6 +59,39 @@ export function checkObjectDefaultValues(
 	push: PushFn,
 	activity?: ConditionalActivityTracker,
 ): ProcedureStatementVisitor {
+	// Facts belong to this invocation, so a later project metadata update is read anew.
+	const projectClasses = new Map<string, VbaProjectClassMembers | undefined>();
+	const classForType = (type: string | undefined): VbaProjectClassMembers | undefined => {
+		const lower = type?.trim().split('.').pop()?.toLowerCase();
+		if (!lower) {
+			return undefined;
+		}
+		if (!projectClasses.has(lower)) {
+			// Preserve the first class, including an incomplete surface that
+			// prevents a later same-name class from proving absence.
+			const found = (memberCtx.projectClassMembers ?? []).find((candidate) => candidate.kind === 'class' && candidate.name.toLowerCase() === lower);
+			projectClasses.set(lower, found?.exhaustive === true ? found : undefined);
+		}
+		return projectClasses.get(lower);
+	};
+	const defaultReads = new Map<VbaProjectClassMembers, { hasDefault: boolean; problem: string | undefined }>();
+	const defaultFactsFor = (cls: VbaProjectClassMembers): { hasDefault: boolean; problem: string | undefined } => {
+		let facts = defaultReads.get(cls);
+		if (!facts) {
+			const member = cls.members.find((candidate) => candidate.defaultMember);
+			facts = { hasDefault: member !== undefined, problem: defaultReadProblem(member) };
+			defaultReads.set(cls, facts);
+		}
+		return facts;
+	};
+	const hasDefault = (cls: VbaProjectClassMembers): boolean => defaultFactsFor(cls).hasDefault;
+	const enumerators = new Map<VbaProjectClassMembers, VbaProjectClassMember | undefined>();
+	const enumeratorFor = (cls: VbaProjectClassMembers): VbaProjectClassMember | undefined => {
+		if (!enumerators.has(cls)) {
+			enumerators.set(cls, cls.members.find((member) => dispatchId(member) === -4));
+		}
+		return enumerators.get(cls);
+	};
 	const moduleAutoInstanced = new Set<string>();
 	const moduleNames = new Set((symbols.root.children ?? []).map((child) => child.name.toLowerCase()));
 	for (const child of symbols.root.children ?? []) {
@@ -111,8 +144,8 @@ export function checkObjectDefaultValues(
 		};
 		const isCollection = (lower: string): boolean => lower !== proc.name.toLowerCase() && normalizeType(env.get(lower)) === 'collection';
 		const classOf = (lower: string): VbaProjectClassMembers | undefined =>
-			lower === proc.name.toLowerCase() || arrays.has(lower) ? undefined : projectClass(env.get(lower), memberCtx);
-		checkForEachEnumerators(proc.body, classOf, push);
+			lower === proc.name.toLowerCase() || arrays.has(lower) ? undefined : classForType(env.get(lower));
+		checkForEachEnumerators(proc.body, classOf, enumeratorFor, push);
 		// An Object holding a Collection, `Set x = New Collection` with x As
 		// Object, is late bound: its value read raises 450 when it runs, and
 		// a Let to it 438 (issue #415, measured in Excel 16.0).
@@ -171,13 +204,13 @@ export function checkObjectDefaultValues(
 						);
 					}
 				}
-				for (const hit of indexedWithoutDefault(statementTokens(source, span), classOf)) {
+				for (const hit of indexedWithoutDefault(statementTokens(source, span), classOf, hasDefault)) {
 					push('objectDefaultValue', hit.message, { start: span.start + hit.tok.start, end: span.start + hit.tok.end });
 				}
 				for (const read of valueReads(source, span, stmt.kind === 'Statement' && stmt.singleLineIfBranches !== undefined && span === stmt.span, isObjectVariable, isTypedValue)) {
 					const lower = tokenName(read.tok)!.toLowerCase();
 					const cls = classOf(lower);
-					const wrongWay = cls && !read.operator && !read.intoTypedValue ? defaultReadProblem(cls) : undefined;
+					const wrongWay = cls && !read.operator && !read.intoTypedValue ? defaultFactsFor(cls).problem : undefined;
 					if (wrongWay) {
 						push('objectDefaultValue', `'${read.tok.rawText}' is ${article(cls!.name)} ${cls!.name}, ${wrongWay}`, { start: span.start + read.tok.start, end: span.start + read.tok.end });
 						continue;
@@ -565,13 +598,6 @@ function newObjectLetIntoVariantPart(
 	return { type: value[1].rawText, span: { start: span.start + value[0].start, end: span.start + value[1].end } };
 }
 
-/** A project class's members, when the list is complete. */
-function projectClass(type: string | undefined, memberCtx: MemberCompletionContext): VbaProjectClassMembers | undefined {
-	const lower = type?.trim().split('.').pop()?.toLowerCase();
-	const found = lower ? (memberCtx.projectClassMembers ?? []).find((candidate) => candidate.kind === 'class' && candidate.name.toLowerCase() === lower) : undefined;
-	return found?.exhaustive === true ? found : undefined;
-}
-
 /** The DISPID a member's attribute gives it: 0 for the default, -4 for the enumerator. */
 function dispatchId(member: VbaProjectClassMember): number | undefined {
 	const attr = (member.attributes ?? []).find((candidate) => /^vb_(var)?usermemid$/i.test(candidate.name));
@@ -581,8 +607,7 @@ function dispatchId(member: VbaProjectClassMember): number | undefined {
 }
 
 /** Why reading a class's default member with no argument fails, or undefined. */
-function defaultReadProblem(cls: VbaProjectClassMembers): string | undefined {
-	const member = cls.members.find((candidate) => candidate.defaultMember);
+function defaultReadProblem(member: VbaProjectClassMember | undefined): string | undefined {
 	if (!member) {
 		return undefined;
 	}
@@ -601,12 +626,13 @@ function defaultReadProblem(cls: VbaProjectClassMembers): string | undefined {
 function indexedWithoutDefault(
 	toks: readonly VbaToken[],
 	classOf: (lower: string) => VbaProjectClassMembers | undefined,
+	hasDefault: (cls: VbaProjectClassMembers) => boolean,
 ): Array<{ tok: VbaToken; message: string }> {
 	const out: Array<{ tok: VbaToken; message: string }> = [];
 	for (let i = 0; i + 1 < toks.length; i++) {
 		const lower = tokenName(toks[i])?.toLowerCase();
 		const cls = lower && toks[i + 1].rawText === '(' && toks[i - 1]?.rawText !== '.' ? classOf(lower) : undefined;
-		if (cls && !cls.members.some((member) => member.defaultMember)) {
+		if (cls && !hasDefault(cls)) {
 			out.push({ tok: toks[i], message: `'${toks[i].rawText}' is ${article(cls.name)} ${cls.name}, which has no default member to take an index. This will raise Run-time error '438': Object doesn't support this property or method.` });
 		}
 	}
@@ -617,13 +643,14 @@ function indexedWithoutDefault(
 function checkForEachEnumerators(
 	body: readonly BodyNode[],
 	classOf: (lower: string) => VbaProjectClassMembers | undefined,
+	enumeratorFor: (cls: VbaProjectClassMembers) => VbaProjectClassMember | undefined,
 	push: PushFn,
 ): void {
 	for (const node of body) {
 		if (node.kind === 'ForBlock' && node.each && node.sourceExpressionSpan) {
 			const over = node.sourceExpression?.trim() ?? '';
 			const cls = /^[\p{L}_][\p{L}\p{N}_]*$/u.test(over) ? classOf(over.toLowerCase()) : undefined;
-			const enumerator = cls?.members.find((member) => dispatchId(member) === -4);
+			const enumerator = cls ? enumeratorFor(cls) : undefined;
 			const returns = normalizeType(enumerator?.returns);
 			if (cls && !enumerator) {
 				push('objectDefaultValue', `'${over}' is ${article(cls.name)} ${cls.name}, which has no member marked VB_UserMemId = -4 for For Each to ask for its elements. This will raise Run-time error '438': Object doesn't support this property or method.`, node.sourceExpressionSpan);
@@ -632,7 +659,7 @@ function checkForEachEnumerators(
 			}
 		}
 		if ('body' in node && Array.isArray(node.body)) {
-			checkForEachEnumerators(node.body as BodyNode[], classOf, push);
+			checkForEachEnumerators(node.body as BodyNode[], classOf, enumeratorFor, push);
 		}
 	}
 }
