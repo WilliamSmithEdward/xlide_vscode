@@ -57,6 +57,15 @@ export function checkRefusedDeclarations(
 	checkPrivateTypesInPublicSignatures(source, mod, moduleKind, activity, push);
 	const typeNames = new Map<string, Span>();
 	const enumNames = new Map<string, Span>();
+	// Two Enums or two Types of one name: Ambiguous name detected (issue
+	// #639, measured in Excel 16.0).
+	const repeatedName = (seen: Map<string, Span>, name: string, span: Span, kinds: string): void => {
+		if (seen.has(name.toLowerCase())) {
+			push('typeEnumNameConflict', `Two ${kinds} in this module are both named '${name}'. This is a VBE compile error: Ambiguous name detected.`, span);
+		} else {
+			seen.set(name.toLowerCase(), span);
+		}
+	};
 	for (const member of activeModuleMembers(mod, activity)) {
 		switch (member.kind) {
 			case 'Procedure':
@@ -142,7 +151,7 @@ export function checkRefusedDeclarations(
 						member.nameSpan ?? member.span,
 					);
 				}
-				enumNames.set(member.name.toLowerCase(), member.nameSpan ?? member.span);
+				repeatedName(enumNames, member.name, member.nameSpan ?? member.span, 'Enums');
 				break;
 			case 'Type':
 				for (const field of member.fields) {
@@ -158,7 +167,7 @@ export function checkRefusedDeclarations(
 						);
 					}
 				}
-				typeNames.set(member.name.toLowerCase(), member.nameSpan ?? member.span);
+				repeatedName(typeNames, member.name, member.nameSpan ?? member.span, 'Types');
 				break;
 			default:
 				break;

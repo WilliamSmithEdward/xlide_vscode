@@ -26,7 +26,10 @@ import { procedureSymbolFor, type PushFn } from '../analysisContext';
 import { isKnownScalarType, normalizeType, sourceIdentifierBinding } from '../typeInference';
 import { statementAndBranchSpans, statementTokensAfterLeadingLabel, tokenName, tokenText, type ProcedureStatementVisitor } from '../walker';
 
-const COMPARING_HEADS: ReadonlySet<string> = new Set(['if', 'elseif', 'do', 'loop', 'while', 'select', 'case', 'for']);
+/** The kinds of symbol a bare name reads as a value. */
+const VALUE_KINDS: ReadonlySet<string> = new Set(['moduleVariable', 'constant', 'function', 'propertyGet', 'declare']);
+
+const COMPARING_HEADS: ReadonlySet<string> =new Set(['if', 'elseif', 'do', 'loop', 'while', 'select', 'case', 'for']);
 
 /** The symbols named `lower` that a standard module declares, Public or by default. */
 function moduleMember(moduleName: string, lower: string, symbols: ReturnType<typeof buildModuleSymbols>, visible: readonly VbaSymbol[]): VbaSymbol[] {
@@ -142,10 +145,21 @@ export function checkModuleMemberForms(
 			if (!explicit || assignAt < 0) {
 				return;
 			}
-			for (const index of [0, assignAt + 1]) {
+			// `TypeName(M)` reads M as a value too (issue #639).
+			const typeNameArguments = toks.flatMap((_, k) => (tokenText(toks[k - 2]) === 'typename' && toks[k - 1]?.rawText === '(' && toks[k + 1]?.rawText === ')' ? [k] : []));
+			for (const index of [0, assignAt + 1, ...typeNameArguments]) {
 				const tok = toks[index];
 				const name = tokenName(tok);
-				if (!name || (index === 0 && assignAt !== 1) || (index > 0 && toks.length !== assignAt + 2)) {
+				const asArgument = typeNameArguments.includes(index);
+				if (!name || (!asArgument && ((index === 0 && assignAt !== 1) || (index > 0 && toks.length !== assignAt + 2)))) {
+					continue;
+				}
+				// A variable, Const or Function of the name elsewhere in the
+				// project is what the name reads: `Public Zq As Long` in Module2
+				// beside a Private Type Zq here runs (issue #639, measured in
+				// Excel 16.0).
+				const lower = name.toLowerCase();
+				if (visible.some((sym) => sym.name.toLowerCase() === lower && VALUE_KINDS.has(sym.kind) && sym.visibility !== 'Private' && sym.moduleName.toLowerCase() !== symbols.moduleName.toLowerCase())) {
 					continue;
 				}
 				const found = sourceIdentifierBinding(symbols, procSym, projectVisibleSymbols, name, index === 0 ? 'assignmentTarget' : 'expression');
