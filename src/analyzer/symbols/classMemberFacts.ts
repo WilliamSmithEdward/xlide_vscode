@@ -12,6 +12,7 @@
 // rule that reads these facts follows the instance's own uses.
 
 import { tokenizeCached } from '../lexer/tokenize';
+import { firstTokenAtOrAfter } from '../lexer/tokenHelpers';
 import type { VbaToken } from '../lexer/tokenKinds';
 import type { VbaSymbol } from './symbolModel';
 
@@ -37,6 +38,19 @@ export function classMemberValues(source: string, children: readonly VbaSymbol[]
 	const out = new Map<string, ClassMemberValue>();
 	const toks = tokenizeCached(source).filter((tok) => tok.kind !== 'comment');
 	const word = (tok: VbaToken | undefined): string => (tok?.rawText ?? '').toLowerCase();
+	// Only the earliest/latest mention is needed to decide whether a name
+	// occurs outside its declaration. Build that index once, not per field.
+	const mentionsByName = new Map<string, { first: number; last: number }>();
+	for (const tok of toks) {
+		if (tok.kind !== 'identifier') { continue; }
+		const lower = word(tok);
+		const mentions = mentionsByName.get(lower);
+		if (mentions) {
+			mentions.last = tok.start;
+		} else {
+			mentionsByName.set(lower, { first: tok.start, last: tok.start });
+		}
+	}
 	for (const symbol of children) {
 		const lower = symbol.name.toLowerCase();
 		const type = normalizeType(symbol.asType);
@@ -46,7 +60,8 @@ export function classMemberValues(source: string, children: readonly VbaSymbol[]
 			}
 			// Any mention past the declaration, Me.M and a ByRef pass included,
 			// may assign it.
-			const named = toks.some((tok) => tok.kind === 'identifier' && word(tok) === lower && (tok.start < symbol.fullSpan.start || tok.start >= symbol.fullSpan.end));
+			const mentions = mentionsByName.get(lower);
+			const named = mentions !== undefined && (mentions.first < symbol.fullSpan.start || mentions.last >= symbol.fullSpan.end);
 			if (named) {
 				continue;
 			}
@@ -64,7 +79,12 @@ export function classMemberValues(source: string, children: readonly VbaSymbol[]
 			continue;
 		}
 		// The body's statements, the header line left out.
-		const body = toks.filter((tok) => tok.start > symbol.nameSpan.end && tok.end <= symbol.fullSpan.end);
+		const body: VbaToken[] = [];
+		for (let i = firstTokenAtOrAfter(toks, symbol.nameSpan.end + 1); i < toks.length; i++) {
+			const tok = toks[i];
+			if (tok.start > symbol.fullSpan.end) { break; }
+			if (tok.end <= symbol.fullSpan.end) { body.push(tok); }
+		}
 		const headerEnd = body.findIndex((tok) => tok.kind === 'newline');
 		const statements = splitStatements(body.slice(headerEnd + 1));
 		// The last statement is End Function or End Property.

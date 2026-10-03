@@ -153,6 +153,21 @@ function deriveStatementTokens(
 	return out;
 }
 
+/** Lower bound in a source-ordered token stream; returns length past the last token. */
+export function firstTokenAtOrAfter(tokens: readonly VbaToken[], offset: number): number {
+	let lo = 0;
+	let hi = tokens.length;
+	while (lo < hi) {
+		const mid = lo + Math.floor((hi - lo) / 2);
+		if (tokens[mid].start < offset) {
+			lo = mid + 1;
+		} else {
+			hi = mid;
+		}
+	}
+	return lo;
+}
+
 /** Identifier-like name of a token (unwraps bracketed identifiers). */
 export function tokenName(token: VbaToken | undefined): string | undefined {
 	if (!token) {

@@ -3078,18 +3078,12 @@ export function normalizeType(type: string | undefined): string | undefined {
 		.toLowerCase();
 }
 
+const NUMERIC_TYPES: ReadonlySet<string> = new Set([
+	'byte', 'integer', 'long', 'longlong', 'longptr', 'single', 'double', 'currency', 'decimal',
+]);
+
 export function isNumericType(type: string): boolean {
-	return new Set([
-		'byte',
-		'integer',
-		'long',
-		'longlong',
-		'longptr',
-		'single',
-		'double',
-		'currency',
-		'decimal',
-	]).has(type);
+	return NUMERIC_TYPES.has(type);
 }
 
 export function isKnownScalarType(type: string): boolean {
@@ -3819,6 +3813,16 @@ class PickedValues<T> implements ReadonlyMap<string, T> {
 	}
 }
 
+type LocalValuesAt = (stmt: BodyNode | undefined) => ReadonlyMap<string, KnownLocalValue>;
+
+// Rules share one immutable view of a procedure's values. Symbols own the
+// cache so a changed module/project context cannot reuse the old analysis.
+const LOCAL_VALUES_AT = new WeakMap<ReturnType<typeof buildModuleSymbols>, WeakMap<ProcedureNode, {
+	source: string;
+	activity: ConditionalActivityTracker | undefined;
+	valuesAt: LocalValuesAt;
+}>>();
+
 /**
  * {@link knownLocalLiteralValues} at each statement (issue #180). Where the
  * last assignment to reach a statement in a straight line is a literal, the
@@ -3831,7 +3835,23 @@ export function knownLocalLiteralValuesAt(
 	proc: ProcedureNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	activity: ConditionalActivityTracker | undefined,
-): (stmt: BodyNode | undefined) => ReadonlyMap<string, KnownLocalValue> {
+): LocalValuesAt {
+	const cache = perProcedureCache(LOCAL_VALUES_AT, symbols);
+	const cached = cache.get(proc);
+	if (cached && cached.source === source && cached.activity === activity) {
+		return cached.valuesAt;
+	}
+	const valuesAt = buildKnownLocalLiteralValuesAt(source, proc, symbols, activity);
+	cache.set(proc, { source, activity, valuesAt });
+	return valuesAt;
+}
+
+function buildKnownLocalLiteralValuesAt(
+	source: string,
+	proc: ProcedureNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	activity: ConditionalActivityTracker | undefined,
+): LocalValuesAt {
 	const whole = knownLocalLiteralValues(source, proc, symbols, activity);
 	const locals = literalValueLocals(proc, symbols);
 	const moduleVariables = followedModuleVariables(proc, symbols);
