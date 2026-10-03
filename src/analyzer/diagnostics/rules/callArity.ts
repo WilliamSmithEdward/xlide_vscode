@@ -262,6 +262,7 @@ function validateCallableArity(
 	push: PushFn,
 ): void {
 	const lower = call.lookupKey ?? call.name.toLowerCase();
+	const check = (signature: CallableTypeSignature, report: PushFn): void => validateArity(source, signature, call, report);
 	if (!call.qualifier && bareCallableSourceShadowed(call.name, sourceNames)) {
 		return;
 	}
@@ -270,7 +271,7 @@ function validateCallableArity(
 		: sameModuleSignatures.get(call.name.toLowerCase());
 	if (candidates) {
 		if (candidates.length === 1) {
-			validateArity(source, candidates[0], call, push);
+			check(candidates[0], push);
 			return;
 		}
 		// Several same-module signatures share the name. Since XLIDE cannot say
@@ -281,7 +282,7 @@ function validateCallableArity(
 		// (github.com/WilliamSmithEdward/xlide_vscode/issues/58).
 		const rejections = candidates.map((signature) => {
 			const hits: Parameters<PushFn>[] = [];
-			validateArity(source, signature, call, (...args) => { hits.push(args); });
+			check(signature, (...args) => { hits.push(args); });
 			return hits;
 		});
 		if (rejections.every((hits) => hits.length > 0)) {
@@ -291,7 +292,7 @@ function validateCallableArity(
 	}
 	const projectSignature = projectSignatures.get(lower);
 	if (projectSignature) {
-		validateArity(source, projectSignature, call, push);
+		check(projectSignature, push);
 		return;
 	}
 	if (!call.qualifier) {

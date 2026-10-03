@@ -201,6 +201,7 @@ export function callableTypeSignatureFromSymbol(symbol: VbaSymbol): CallableType
 			byRef: isByRefProcedureParam(p),
 		})),
 		returnType: symbol.asType,
+		...(symbol.kind === 'function' || symbol.kind === 'propertyGet' ? { valued: true } : {}),
 	};
 }
 
@@ -250,6 +251,7 @@ export function uniqueProjectTypeSignatures(
 				byRef: isByRefProcedureParam(p),
 			})),
 			returnType: candidate.returnType,
+			...(candidate.kind === 'function' ? { valued: true } : {}),
 		});
 	}
 	UNIQUE_PROJECT_TYPE_SIGNATURES.set(projectProcedures, out);
@@ -1193,10 +1195,15 @@ export function memberExpressionCalls(
 		) {
 			continue;
 		}
-		const signature = parseRuntimeDisplaySignature(member.name, member.signature);
-		if (isPropertyResultIndexing(member, signature, inner)) {
+		const parsed = parseRuntimeDisplaySignature(member.name, member.signature);
+		if (isPropertyResultIndexing(member, parsed, inner)) {
 			continue;
 		}
+		// A Function of a project class gives a value, and `k.Items(1)` may
+		// index it (issue #609).
+		const signature = member.kind === 'method' && !member.sub && (member.definitions?.length ?? 0) > 0
+			? { ...parsed, valued: true, returnType: member.returns ?? parsed.returnType }
+			: parsed;
 		const split = inner.length === 0 ? emptyArgSplit() : splitArgSlots(inner, span.start);
 		out.push({
 			signature,

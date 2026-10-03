@@ -493,7 +493,11 @@
         "issue304_07_compile",
         "issue304_08_compile",
         "issue304_09_compile",
-        "issue304_10_compile"
+        "issue304_10_compile",
+        "issue609_09_compile",
+        "issue609_10_compile",
+        "issue609_11_compile",
+        "issue609_14_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
