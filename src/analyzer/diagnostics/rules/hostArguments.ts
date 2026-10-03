@@ -454,7 +454,8 @@ function checkSheetFacts(span: Span, toks: readonly VbaToken[], facts: SheetFact
 	const at = (from: number, to: number): Span => ({ start: span.start + toks[from].start, end: span.start + toks[to].end });
 	for (let i = 0; i + 1 < toks.length; i++) {
 		const word = tokenText(toks[i]);
-		if ((word === 'intersect' || word === 'union') && toks[i + 1].rawText === '(' && toks[i - 1]?.rawText !== '.') {
+		const owner = rangeMethodOwner(toks, i);
+		if ((word === 'intersect' || word === 'union') && toks[i + 1].rawText === '(' && owner) {
 			const close = matchParenFrom(toks, i + 1);
 			const args = close > i + 2 ? splitTopLevelTokenGroups(toks, i + 2, ',', close) : [];
 			const areas = args.map((arg) => sheetLiteralRange(arg));
@@ -462,8 +463,10 @@ function checkSheetFacts(span: Span, toks: readonly VbaToken[], facts: SheetFact
 				continue;
 			}
 			const [a, b] = areas as Array<{ sheet: string; area: A1Area }>;
-			if (word === 'union' && a.sheet !== b.sheet && facts?.distinct.has([a.sheet, b.sheet].sort().join('|'))) {
-				push('hostArgumentOutOfRange', `Union takes ranges of one sheet, and '${a.sheet}' and '${b.sheet}' are different sheets. This will raise Run-time error '1004': Method 'Union' of object '_Global' failed.`, at(i, close));
+			// Intersect raises it too (issue #680, measured in Excel 16.0).
+			if (a.sheet !== b.sheet && facts?.distinct.has([a.sheet, b.sheet].sort().join('|'))) {
+				const method = word === 'union' ? 'Union' : 'Intersect';
+				push('hostArgumentOutOfRange', `${method} takes ranges of one sheet, and '${a.sheet}' and '${b.sheet}' are different sheets. This will raise Run-time error '1004': Method '${method}' of object '${owner}' failed.`, at(i, close));
 			} else if (word === 'intersect' && a.sheet === b.sheet && toks[close + 1]?.rawText === '.' && !overlaps(a.area, b.area)) {
 				push('hostArgumentOutOfRange', `${toks.slice(i + 2, close).map((tok) => tok.rawText).join('')} do not meet, so Intersect is Nothing and has no '.${toks[close + 2]?.rawText ?? ''}'. This will raise Run-time error '91': Object variable or With block variable not set.`, at(i, close));
 			}
@@ -504,6 +507,45 @@ function checkSheetFacts(span: Span, toks: readonly VbaToken[], facts: SheetFact
 			k = close + 1;
 		}
 	}
+}
+
+/**
+ * The object an Intersect or Union at `i` is a method of, as Excel names it
+ * in its errors: `_Global` for the bare name, `_Application` after
+ * `Application.` or `Excel.Application.`. Undefined after any other dot.
+ */
+export function rangeMethodOwner(toks: readonly VbaToken[], i: number): string | undefined {
+	if (toks[i - 1]?.rawText !== '.') {
+		return '_Global';
+	}
+	if (tokenText(toks[i - 2]) !== 'application') {
+		return undefined;
+	}
+	const qualified = toks[i - 3]?.rawText === '.';
+	return !qualified || (tokenText(toks[i - 4]) === 'excel' && toks[i - 5]?.rawText !== '.') ? '_Application' : undefined;
+}
+
+/**
+ * Whether a Set's value is an Intersect of two literal ranges of one sheet
+ * that share no cell, which is Nothing: `Intersect(ws.Range("A1"),
+ * ws.Range("C3"))`, through Application too (issue #680, measured in
+ * Excel 16.0).
+ */
+export function literalIntersectIsNothing(value: readonly VbaToken[]): boolean {
+	const toks = value.filter((tok) => tok.kind !== 'comment' && tok.kind !== 'newline');
+	const i = toks.findIndex((tok) => tokenText(tok) === 'intersect');
+	if (i < 0 || toks[i + 1]?.rawText !== '(' || rangeMethodOwner(toks, i) === undefined
+		|| toks.slice(0, i).some((tok) => tok.rawText !== '.' && !['application', 'excel'].includes(tokenText(tok)))
+		|| matchParenFrom(toks, i + 1) !== toks.length - 1) {
+		return false;
+	}
+	const args = splitTopLevelTokenGroups(toks, i + 2, ',', toks.length - 1);
+	const areas = args.map((arg) => sheetLiteralRange(arg));
+	if (args.length !== 2 || areas.some((area) => !area)) {
+		return false;
+	}
+	const [a, b] = areas as Array<{ sheet: string; area: A1Area }>;
+	return a.sheet === b.sheet && !overlaps(a.area, b.area);
 }
 
 /** `w2.Range("A1:B2")` or `Range("A1")`: the sheet variable (or "" for none) and the area. */

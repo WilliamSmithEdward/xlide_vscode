@@ -48,6 +48,7 @@ import {
 import { conditionValue } from '../conditionValue';
 import { OBJECT_NOTHING } from '../straightLineValues';
 import { splitTopLevelTokenGroups } from '../../lexer/tokenHelpers';
+import { literalIntersectIsNothing, rangeMethodOwner } from './hostArguments';
 import {
 	activeModuleMembers,
 	blockHeaderLineSpan,
@@ -360,6 +361,8 @@ interface ModuleObjectFacts {
 	 * `c.Count`. Passed Nothing, the procedure raises 91 there.
 	 */
 	memberFirst: ReadonlyMap<string, ReadonlyMap<number, string>>;
+	/** Of `intersect` and `union`, the ones that are Excel's here: no procedure of the project takes the name. */
+	excelRangeMethods: ReadonlySet<string>;
 }
 
 const MODULE_OBJECT_FACTS = new WeakMap<ModuleNode, { source: string; activity: ConditionalActivityTracker | undefined; memberCtx: MemberCompletionContext; facts: ModuleObjectFacts }>();
@@ -392,7 +395,23 @@ function moduleObjectFacts(
 			memberFirst.set(member.name.toLowerCase(), reads);
 		}
 	}
-	const facts = { nothingFunctions: functionsReturningNothing(source, mod, memberCtx, activity), memberFirst };
+	const excelRangeMethods = new Set<string>();
+	if ((memberCtx.model?.hostName ?? 'Excel') === 'Excel') {
+		const own = new Set(activeModuleMembers(mod, activity).filter((member) => member.kind === 'Procedure').map((member) => member.name.toLowerCase()));
+		for (const surface of memberCtx.projectClassMembers ?? []) {
+			if (surface.kind === 'standardModule') {
+				for (const member of surface.members) {
+					own.add(member.name.toLowerCase());
+				}
+			}
+		}
+		for (const name of ['intersect', 'union']) {
+			if (!own.has(name)) {
+				excelRangeMethods.add(name);
+			}
+		}
+	}
+	const facts = { nothingFunctions: functionsReturningNothing(source, mod, memberCtx, activity), memberFirst, excelRangeMethods };
 	MODULE_OBJECT_FACTS.set(mod, { source, activity, memberCtx, facts });
 	return facts;
 }
@@ -1071,11 +1090,26 @@ function checkObjectVariableNotSetStatement(
 			);
 		}
 	}
+	// Excel's Union takes no Nothing, first argument or any other (issue
+	// #680, measured in Excel 16.0).
+	if (facts.excelRangeMethods.has('union')) {
+		for (const span of branches) {
+			for (const hit of nothingPassedToUnion(statementTokens(source, span), locals, state)) {
+				if (!guardedAt(hit.name.toLowerCase(), span.start + hit.start)) {
+					push(
+						'objectVariableNotSet',
+						`Object variable '${hit.name}' is Nothing, and Union takes no Nothing. This will raise Run-time error '5': Invalid procedure call or argument.`,
+						{ start: span.start + hit.start, end: span.start + hit.end },
+					);
+				}
+			}
+		}
+	}
 	const target = setAssignmentTarget(source, stmt.span);
 	if (target) {
 		const lower = target.name.toLowerCase();
 		if (locals.has(lower)) {
-			state.set(lower, setValueState(target, locals.get(lower)!, locals, state, facts.nothingFunctions));
+			state.set(lower, setValueState(target, locals.get(lower)!, locals, state, facts));
 			return;
 		}
 	}
@@ -1106,17 +1140,19 @@ function checkObjectVariableNotSetStatement(
 
 /**
  * What a Set leaves in its target: Nothing from `Nothing`, from a local
- * still Nothing, or from a Function of the module that returns Nothing
- * (issue #343); a local's own state from a local; otherwise an object.
+ * still Nothing, from a Function of the module that returns Nothing
+ * (issue #343), or from an Intersect of literal ranges that do not meet
+ * (issue #680); a local's own state from a local; otherwise an object.
  */
 function setValueState(
 	target: { valueTokens: readonly VbaToken[] },
 	into: LocalObjectVariable,
 	locals: ReadonlyMap<string, LocalObjectVariable>,
 	state: ReadonlyMap<string, ObjectVariableState>,
-	nothingFunctions: ReadonlyMap<string, ProcedureNode>,
+	facts: ModuleObjectFacts,
 ): ObjectVariableState {
-	if (setAssignmentValueIsNothing(target)) {
+	if (setAssignmentValueIsNothing(target)
+		|| (facts.excelRangeMethods.has('intersect') && literalIntersectIsNothing(target.valueTokens))) {
 		return 'unset';
 	}
 	const toks = target.valueTokens.filter((tok) => tok.kind !== 'comment' && tok.kind !== 'newline');
@@ -1129,7 +1165,7 @@ function setValueState(
 		const copied = state.get(lower) ?? 'unknown';
 		return copied === 'unset' && lateBound(into.asType) && !lateBound(local.asType) ? 'unknown' : copied;
 	}
-	const fn = nothingFunctions.get(lower);
+	const fn = facts.nothingFunctions.get(lower);
 	const called = toks.length === 1 ? fn?.params.length === 0 : toks[1]?.rawText === '(' && matchParenFrom(toks, 1) === toks.length - 1;
 	return fn && called ? 'unset' : 'set';
 }
@@ -1537,6 +1573,30 @@ function unsetWithObjectReceiver(
 		&& statementTokensAfterLeadingLabel(source, child.span).some((tok, i, line) => tok.rawText === '.' && tokenName(line[i + 1]) !== undefined
 			&& (i === 0 || (line[i - 1].kind !== 'identifier' && line[i - 1].kind !== 'bracketedIdentifier' && line[i - 1].rawText !== ')' && line[i - 1].rawText !== ']' && tokenText(line[i - 1]) !== 'me'))));
 	return reached ? found : undefined;
+}
+
+/** The locals still Nothing passed whole to Excel's Union: `Union(n, c)`, `Application.Union(c, n)`. */
+function nothingPassedToUnion(
+	toks: readonly VbaToken[],
+	locals: ReadonlyMap<string, LocalObjectVariable>,
+	state: ReadonlyMap<string, ObjectVariableState>,
+): { name: string; start: number; end: number }[] {
+	const out: { name: string; start: number; end: number }[] = [];
+	for (let i = 0; i + 1 < toks.length; i++) {
+		if (tokenText(toks[i]) !== 'union' || toks[i + 1].rawText !== '(' || rangeMethodOwner(toks, i) === undefined) {
+			continue;
+		}
+		const close = matchParenFrom(toks, i + 1);
+		for (const arg of close > i + 2 ? splitTopLevelTokenGroups(toks, i + 2, ',', close) : []) {
+			const named = arg.filter((tok) => tok.kind !== 'comment');
+			const lower = named.length === 1 ? tokenName(named[0])?.toLowerCase() : undefined;
+			const local = lower ? locals.get(lower) : undefined;
+			if (local && !local.letOnly && !local.variant && state.get(lower!) === 'unset') {
+				out.push({ name: named[0].rawText, start: named[0].start, end: named[0].end });
+			}
+		}
+	}
+	return out;
 }
 
 function setAssignmentValueIsNothing(
