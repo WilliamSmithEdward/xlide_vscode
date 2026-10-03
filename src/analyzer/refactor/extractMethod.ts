@@ -1,7 +1,7 @@
 import { parseModule } from '../parser/parseModule';
 import type { BodyNode, ModuleNode, ProcedureNode, Span, VariableDeclNode, VariableGroupNode } from '../parser/nodes';
 import { classifyReferenceKinds } from '../references/referenceKinds';
-import { detectEol, findIdentifierOccurrences, leadingWhitespace, lineStartAt, wholeLineSpan } from '../../vbaSourceScan';
+import { detectEol, findIdentifierOccurrencesForNames, leadingWhitespace, lineStartAt, wholeLineSpan, type VbaIdentifierOccurrence } from '../../vbaSourceScan';
 import { refactor, refuse, type VbaRefactorResult, type VbaTextEdit } from './refactorTypes';
 import { procedureContainingSpan, walkBody } from './shared';
 
@@ -188,22 +188,28 @@ function classifyLocals(source: string, procedure: ProcedureNode, block: Span): 
 
 	const out: LocalUse[] = [];
 	const names = new Set([...declarations.keys(), ...parameters.keys()]);
+	const foundByName = findIdentifierOccurrencesForNames(source, [...names]);
+	const selected = new Map<string, {
+		occurrences: VbaIdentifierOccurrence[];
+		inside: VbaIdentifierOccurrence[];
+	}>();
 	for (const lower of names) {
+		const declaration = declarations.get(lower);
+		const occurrences = (foundByName.get(lower) ?? [])
+			.filter((occ) => occ.offset >= procedure.span.start && occ.offset <= procedure.span.end)
+			.filter((occ) => !declaration || !within(occ.offset, declaration.group.span));
+		const inside = occurrences.filter((occ) => within(occ.offset, block));
+		if (inside.length > 0) { selected.set(lower, { occurrences, inside }); }
+	}
+	// Reference classification itself scans the token stream: batch all touched
+	// locals rather than repeating it for every declared name.
+	const kinds = classifyReferenceKinds(source, [...selected.values()]
+		.flatMap(({ occurrences }) => occurrences.map((occ) => occ.offset)));
+	for (const [lower, { occurrences, inside }] of selected) {
 		const declaration = declarations.get(lower);
 		const parameter = parameters.get(lower);
 		const display = declaration?.decl.name ?? parameter?.name ?? lower;
 
-		const occurrences = findIdentifierOccurrences(source, display)
-			.filter((occ) => occ.offset >= procedure.span.start && occ.offset <= procedure.span.end)
-			.filter((occ) => !declaration || !within(occ.offset, declaration.group.span));
-		if (occurrences.length === 0) {
-			continue;
-		}
-		const kinds = classifyReferenceKinds(source, occurrences.map((occ) => occ.offset));
-		const inside = occurrences.filter((occ) => within(occ.offset, block));
-		if (inside.length === 0) {
-			continue;
-		}
 		out.push({
 			name: display,
 			...(declaration ? { declaration } : {}),

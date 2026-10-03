@@ -331,16 +331,33 @@ export function findIdentifierOccurrences(
     source: string,
     name: string,
 ): VbaIdentifierOccurrence[] {
+    return findIdentifierOccurrencesForNames(source, [name]).get(name.toLowerCase()) ?? [];
+}
+
+/** Finds several names in one source sweep, keyed by their lowercase spelling. */
+export function findIdentifierOccurrencesForNames(
+    source: string,
+    names: readonly string[],
+): Map<string, VbaIdentifierOccurrence[]> {
+    const out = new Map<string, VbaIdentifierOccurrence[]>();
+    for (const name of names) { out.set(name.toLowerCase(), []); }
+    if (out.size === 0) { return out; }
+    // Keep the common single-name path a direct string comparison, avoiding
+    // a map lookup for every unrelated identifier in references/rename.
+    const singleName = out.size === 1 ? out.keys().next().value : undefined;
+    const singleMatches = singleName !== undefined ? out.get(singleName) : undefined;
     const { lines, starts } = strippedSource(source);
-    const lower = name.toLowerCase();
-    const out: VbaIdentifierOccurrence[] = [];
     for (let i = 0; i < lines.length; i++) {
         const stripped = lines[i];
         VBA_IDENTIFIER_WORD_RE.lastIndex = 0;
         let m: RegExpExecArray | null;
         while ((m = VBA_IDENTIFIER_WORD_RE.exec(stripped)) !== null) {
-            if (m[0].toLowerCase() === lower) {
-                out.push({
+            const lower = m[0].toLowerCase();
+            const matches = singleName !== undefined
+                ? (lower === singleName ? singleMatches : undefined)
+                : out.get(lower);
+            if (matches) {
+                matches.push({
                     line: i,
                     column: m.index,
                     offset: (starts[i] ?? 0) + m.index,
