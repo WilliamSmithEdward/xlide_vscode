@@ -48,6 +48,7 @@ import { numericStringVerdict, valPrefixValue } from '../stringConversion';
 import { fieldChain, moduleTypes, variableRoot, variableSymbolIn, type ModuleTypes } from '../typeFields';
 import {
 	buildModuleTypeSignatures,
+	defTypeOf,
 	knownLocalLiteralValuesAt,
 	type KnownLocalValue,
 	normalizeType,
@@ -1736,8 +1737,9 @@ export function checkOverflow(
 		const groups: VariableGroupNode[] = [];
 		forEachVariableGroup(member.body, (group) => { groups.push(group); }, activity);
 		checkConstDeclarations(source, groups, constants, activity, push);
-		// `t.i = t.i + 1`: a numeric member of a Type value as the target (issue #253).
-		const memberTarget = types.size === 0 ? undefined : (span: Span): AssignmentTarget | undefined => memberAssignmentTarget(source, span, symbols, member, types);
+		// `t.i = t.i + 1`: a numeric member of a Type value as the target, and
+		// `v(2) = 40000` an element of an array in any module (issues #253, #685).
+		const memberTarget = (span: Span): AssignmentTarget | undefined => memberAssignmentTarget(source, span, symbols, member, types);
 		checkProcedureBody(source, member, env, names, justAssigned, activity, push, memberTarget, (node) => {
 			at = node;
 		});
@@ -2397,10 +2399,13 @@ function memberAssignmentTarget(
 	const at = tokenText(toks[first]) === 'let' ? first + 1 : first;
 	const lower = tokenName(toks[at])?.toLowerCase();
 	const variable = lower ? variableSymbolIn(symbols, proc, lower) : undefined;
-	if (variable?.isArray && toks[at + 1]?.rawText === '(') {
+	// `ReDim a(2)` with nothing declaring a declares it (issue #685).
+	const redimmed = !variable && lower && toks[at + 1]?.rawText === '(' ? implicitReDimType(source, proc, symbols, lower) : undefined;
+	if ((variable?.isArray || redimmed) && toks[at + 1]?.rawText === '(') {
 		const close = matchParenFrom(toks, at + 1);
+		const asType = variable ? variable.asType?.replace(/\(\s*\)\s*$/, '') : redimmed!.asType;
 		return close > 0 && toks[close + 1]?.rawText === '='
-			? { name: toks[at].rawText, valueTokens: toks.slice(close + 2), asType: variable.asType?.replace(/\(\s*\)\s*$/, ''), element: true }
+			? { name: toks[at].rawText, valueTokens: toks.slice(close + 2), asType, element: true }
 			: undefined;
 	}
 	const root = variableRoot(toks, at, variable, types);
@@ -2410,6 +2415,39 @@ function memberAssignmentTarget(
 		return undefined;
 	}
 	return { name: step.path ?? step.display, valueTokens: toks.slice(end + 2), asType: step.field.typeName, element: step.field.isArray };
+}
+
+/**
+ * The element type of an array a ReDim in the procedure declares, nothing
+ * else declaring it: `ReDim a(2) As Integer`, or `ReDim a(2)` under
+ * `DefInt A-Z` (issue #685, measured in Excel 16.0). Undefined when no
+ * ReDim declares the name.
+ */
+function implicitReDimType(source: string, proc: ProcedureNode, symbols: ReturnType<typeof buildModuleSymbols>, lower: string): { asType?: string } | undefined {
+	const text = source.slice(proc.span.start, proc.span.end);
+	for (const match of text.matchAll(/^[ \t]*(?:\d+[ \t]+)?ReDim[ \t]+(?:Preserve[ \t]+)?([^'\r\n]*)/gim)) {
+		let depth = 0;
+		let from = 0;
+		const items: string[] = [];
+		for (let i = 0; i <= match[1].length; i++) {
+			const ch = match[1][i];
+			if (ch === '(') {
+				depth++;
+			} else if (ch === ')') {
+				depth--;
+			} else if ((ch === ',' && depth === 0) || i === match[1].length) {
+				items.push(match[1].slice(from, i));
+				from = i + 1;
+			}
+		}
+		for (const item of items) {
+			const parts = /^\s*([A-Za-z]\w*)\s*\(.*\)\s*(?:As\s+([A-Za-z]\w*))?\s*$/i.exec(item);
+			if (parts?.[1].toLowerCase() === lower) {
+				return { asType: parts[2] ?? defTypeOf(symbols, parts[1]) };
+			}
+		}
+	}
+	return undefined;
 }
 
 /** The value a bare assignment provably stores, when the rule can tell. */

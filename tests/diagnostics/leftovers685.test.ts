@@ -204,3 +204,110 @@ describe('a Rows.Count an Integer cannot hold (#411)', () => {
 		expect(errors('With ActiveSheet.Range("A1:C3")\n        Main = TakeI(.Columns.Count)\n    End With', TAKEI)).toEqual([]);
 	});
 });
+
+describe('a For bound from Len of a local (#346)', () => {
+	const D = 'Dim arr(0 To 3) As Long, i As Long, n As Long';
+	it('reads the length the local holds', () => {
+		expect(errors(`${D}, s As String\n    s = "abcde"\n    n = Len(s)\n    For i = 0 To n - 1\n        arr(i) = 1\n    Next`)).toEqual(['array-subscript-out-of-bounds']);
+		expect(errors(`${D}, s As String\n    s = "abcd"\n    n = Len(s)\n    For i = 0 To n - 1\n        arr(i) = 1\n    Next`)).toEqual([]);
+		expect(errors(`${D}\n    n = Len("abcde")\n    Main = arr(n)`)).toEqual(['array-subscript-out-of-bounds']);
+		expect(errors(`${D}, s As String\n    s = "ab"\n    n = LenB(s)\n    Main = arr(n)`)).toEqual(['array-subscript-out-of-bounds']);
+		expect(errors(`${D}, b(7) As Long\n    n = UBound(b)\n    Main = arr(n)`)).toEqual(['array-subscript-out-of-bounds']);
+	});
+
+	it('gives a Long its size, whatever string it was given', () => {
+		expect(errors(`${D}, k As Long\n    k = "123456"\n    n = Len(k)\n    Main = arr(n - 1)`)).toEqual([]);
+	});
+});
+
+describe('DefType with no Option Explicit (#285)', () => {
+	const errorsIn = (src: string): string[] => analyzeModule(src).filter((diag) => diag.severity === 'error').map((diag) => diag.code);
+	it('makes an assigned name an Object, Nothing until a Set', () => {
+		expect(errorsIn('DefObj A-Z\nFunction Main() As Variant\n    o = 5\n    Main = 1\nEnd Function\n')).toEqual(['object-variable-not-set']);
+		expect(errorsIn('DefObj A-Z\nDim o As Long\nFunction Main() As Variant\n    o = 5\n    Main = o\nEnd Function\n')).toEqual([]);
+	});
+
+	it('types the elements of an array a ReDim declares', () => {
+		expect(errorsIn('DefInt A-Z\nFunction Main() As Variant\n    ReDim a(2)\n    a(0) = 40000\n    Main = 1\nEnd Function\n')).toEqual(['arithmetic-overflow']);
+		expect(errorsIn('Function Main() As Variant\n    ReDim a(1), b(2) As Integer\n    b(0) = 40000\n    Main = 1\nEnd Function\n')).toEqual(['arithmetic-overflow']);
+		expect(errorsIn('DefLng A-Z\nFunction Main() As Variant\n    ReDim a(2)\n    a(0) = 40000\n    Main = a(0)\nEnd Function\n')).toEqual([]);
+		expect(errorsIn('Function Main() As Variant\n    ReDim a(2)\n    a(0) = 40000\n    Main = a(0)\nEnd Function\n')).toEqual([]);
+	});
+
+	it('checks an element of a declared array in a module with no Type', () => {
+		expect(errors('Dim a(2) As Integer\n    a(0) = 40000')).toEqual(['arithmetic-overflow']);
+		expect(errors('Dim a(2) As Byte\n    a(1) = 300')).toEqual(['arithmetic-overflow']);
+		expect(errors('Dim a(2) As Integer\n    a(1) = 32767\n    Main = a(1)')).toEqual([]);
+	});
+});
+
+describe('ActiveSheet into a Collection (#410)', () => {
+	const O = 'Dim o As Object\n    Set o = ActiveSheet\n    ';
+	const take = (name: string, param: string): string => `Private Function ${name}(${param}) As Long\n    ${name} = 1\nEnd Function\n`;
+	it('is refused by a Collection, a Range or a Workbook', () => {
+		expect(errors(`${O}Main = TakeC(o)`, take('TakeC', 'c As Collection'))).toEqual(['argument-type-mismatch']);
+		expect(errors('Main = TakeC(ActiveSheet)', take('TakeC', 'c As Collection'))).toEqual(['argument-type-mismatch']);
+		expect(errors(`${O}Main = TakeR(o)`, take('TakeR', 'r As Range'))).toEqual(['argument-type-mismatch']);
+		expect(errors(`${O}Dim c As Collection\n    Set c = o\n    Main = 1`)).toEqual(['assignment-object-type-mismatch']);
+	});
+
+	it('goes into a Worksheet, an Object or a Variant', () => {
+		expect(errors(`${O}Main = TakeW(o)`, take('TakeW', 'w As Worksheet'))).toEqual([]);
+		expect(errors('Main = TakeW(ActiveSheet)', take('TakeW', 'w As Worksheet'))).toEqual([]);
+		expect(errors(`${O}Main = TakeO(o)`, take('TakeO', 'c As Object'))).toEqual([]);
+		expect(errors(`${O}Main = TakeV(o)`, take('TakeV', 'v As Variant'))).toEqual([]);
+	});
+});
+
+describe('what a callee does to a Collection or Dictionary (#449)', () => {
+	const C = 'Dim c As Collection\n    Set c = New Collection\n    ';
+	const D = 'Dim d As Object\n    Set d = CreateObject("Scripting.Dictionary")\n    ';
+	const sub = (name: string, param: string, ...lines: string[]): string => `Private Sub ${name}(${param})\n${lines.map((line) => `    ${line}\n`).join('')}End Sub\n`;
+	it('replays the Adds and Removes it makes', () => {
+		expect(errors(`${C}c.Add 1\n    R1 c\n    Main = c(1)`, sub('R1', 'ByVal p As Collection', 'p.Remove 1'))).toEqual(['collection-index-out-of-range']);
+		expect(errors(`${C}c.Add 1\n    Call R1(c)\n    Main = c(1)`, sub('R1', 'ByVal p As Collection', 'Dim k As Long', 'p.Remove 1'))).toEqual(['collection-index-out-of-range']);
+		expect(errors(`${D}AddK d\n    d.Add "k", 2`, sub('AddK', 'ByVal p As Object', 'p.Add "k", 1'))).toEqual(['collection-key-in-use']);
+		expect(errors(`${C}AddC c\n    c.Add 2, "k"`, sub('AddC', 'ByVal p As Collection', 'p.Add Item:=1, Key:="k"'))).toEqual(['collection-key-in-use']);
+	});
+
+	it('keeps what the replay leaves', () => {
+		expect(errors(`${C}c.Add 1\n    c.Add 2\n    R1 c\n    Main = c(1)`, sub('R1', 'ByVal p As Collection', 'p.Remove 1'))).toEqual([]);
+		expect(errors(`${D}d.Add "k", 1\n    RemK d\n    d.Add "k", 2`, sub('RemK', 'ByVal p As Object', 'p.Remove "k"'))).toEqual([]);
+		expect(errors(`${D}d.Add "k", 1\n    Clr d\n    d.Add "k", 2`, sub('Clr', 'ByVal p As Object', 'p.RemoveAll'))).toEqual([]);
+	});
+
+	it('forgets an object a callee may reach another way', () => {
+		const src = `Option Explicit\nDim md As Object\nFunction Main() As Variant\n    Set md = CreateObject("Scripting.Dictionary")\n    md.Add "k", 1\n    Fill md\n    md.Add "k", 2\nEnd Function\n${sub('Fill', 'ByVal p As Object', 'md.Remove "k"')}`;
+		expect(analyzeModule(src).filter((diag) => diag.severity === 'error')).toEqual([]);
+		expect(errors(`${C}c.Add 1\n    R2 c\n    Main = c(1)`, sub('R2', 'ByVal p As Collection', 'If p.Count > 0 Then p.Remove 1'))).toEqual([]);
+	});
+});
+
+describe('a host object read as a value (#415)', () => {
+	const read = (body: string): string[] => errors(`Dim v As Variant\n    ${body}`);
+	it('reads one with no default member as 438', () => {
+		expect(read('v = ActiveWorkbook')).toEqual(['object-default-value']);
+		expect(read('v = CStr(ActiveSheet)')).toEqual(['object-default-value']);
+		expect(read('v = Range("A1").Font & ""')).toEqual(['object-default-value']);
+		expect(read('Dim o As Object\n    Set o = Range("A1").Interior\n    v = o')).toEqual(['object-default-value']);
+	});
+
+	it('reads Names, Sheets, Hyperlinks and a Dictionary by their Item', () => {
+		expect(read('v = ActiveWorkbook.Names')).toEqual(['object-default-value']);
+		expect(read('v = ActiveWorkbook.Names & ""')).toEqual(['object-default-value']);
+		expect(read('v = ActiveWorkbook.Worksheets')).toEqual(['object-default-value']);
+		expect(read('v = CStr(ActiveWorkbook.Worksheets)')).toEqual(['collection-operand']);
+		expect(read('v = CStr(ActiveSheet.Hyperlinks)')).toEqual(['object-default-value']);
+		expect(read('Dim o As Object\n    Set o = ActiveWorkbook.Names\n    v = o & ""')).toEqual(['object-default-value']);
+		expect(read('Dim d As Object\n    Set d = CreateObject("Scripting.Dictionary")\n    v = d')).toEqual(['object-default-value']);
+	});
+
+	it('leaves an object with a value alone', () => {
+		expect(read('v = Range("A1")')).toEqual([]);
+		expect(read('v = ActiveSheet.Range("A1")')).toEqual([]);
+		expect(read('v = ActiveWorkbook.Worksheets(1).Name')).toEqual([]);
+		expect(read('Dim o As Object\n    Set o = Range("A1")\n    v = o')).toEqual([]);
+		expect(read('v = CStr(Range("A1"))')).toEqual([]);
+		expect(read('Dim o As Object\n    Set o = ActiveSheet\n    v = o.Name & ""')).toEqual([]);
+	});
+});

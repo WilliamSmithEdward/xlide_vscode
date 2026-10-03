@@ -1465,6 +1465,17 @@ function localObjectVariablesFor(
 		}
 		out.set(child.name.toLowerCase(), { name: child.name, asType });
 	}
+	// `DefObj A-Z` then `o = 5` with nothing declaring o: an Object local,
+	// Nothing until a Set (issue #685, measured in Excel 16.0).
+	const implicit = symbols.implicitLocals?.get(proc.span.start);
+	if (implicit) {
+		const env = typeEnvironmentFor(symbols, proc);
+		for (const lower of implicit) {
+			if (!out.has(lower) && normalizeType(env.get(lower)) === 'object') {
+				out.set(lower, { name: lower, asType: 'Object' });
+			}
+		}
+	}
 	// A Variant is followed only where the procedure sets it to Nothing.
 	const text = source.slice(proc.span.start, proc.span.end);
 	for (const child of procSym?.children ?? []) {

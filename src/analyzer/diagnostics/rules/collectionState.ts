@@ -38,6 +38,7 @@ import { isLeafStatement } from '../../parser/nodes';
 import { jumpTargetLabelDeclaration } from '../../flow/procedureLabels';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
 import { counterText, loopCountersAt, numericCounterPasses, type LoopCounter } from '../loopCounters';
+import { calleeMemberCalls, type CalleeMemberCalls } from '../calleeArguments';
 import { isKnownScalarType, knownLocalLiteralValuesAt, normalizeType, procedureIntegerConstantLookup, stringLiteralValue, unreachableStatementsIn, withKnownLocals } from '../typeInference';
 import {
 	activeModuleMembers,
@@ -110,6 +111,7 @@ export function checkCollectionState(
 	hostModel?: HostObjectModel,
 ): void {
 	const moduleConstants = collectModuleLiteralIntegerConstants(mod, activity, resolveRawIntegerConstants(projectIntegerConstants ?? new Map(), new Map()));
+	const calleeCalls = calleeMemberCalls(source);
 	const optionBase = moduleOptionBase(mod, activity);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
@@ -216,6 +218,22 @@ export function checkCollectionState(
 				const value = local ? held?.get(local) : undefined;
 				return literalKeyText(arg) ?? (value?.kind === 'string' && !value.contentMutated ? value.value as string : undefined);
 			};
+			// `R1 c` where R1 only adds to or removes from its parameter: c
+			// changes as those calls change it (issue #685).
+			const replays = replayedCalls(toks, states, calleeCalls);
+			if (replays) {
+				for (const [lower, calls] of replays) {
+					for (const call of calls) {
+						let raised = false;
+						checkStatement(node.span, call, states, () => { raised = true; }, isEmpty, indexOf, optionBase, lookup, scalarLocal, keyOf);
+						if (raised || !states.has(lower)) {
+							forgetCollection(states, lower);
+							break;
+						}
+					}
+				}
+				return;
+			}
 			checkStatement(node.span, toks, states, push, isEmpty, indexOf, optionBase, lookup, scalarLocal, keyOf);
 		};
 		const leaves = new Map<BodyNode, { after: Map<string, CollectionContents>; aliases: string[] }>();
@@ -297,6 +315,25 @@ export function checkCollectionState(
 			},
 		});
 	}
+}
+
+/**
+ * The member calls a call statement's callee makes on the tracked objects
+ * passed to it, when each tracked name the statement mentions is one of
+ * them, passed whole. Undefined otherwise, and the statement is judged as
+ * any other (issue #685).
+ */
+export function replayedCalls(
+	toks: readonly VbaToken[],
+	states: ReadonlyMap<string, unknown>,
+	calleeCalls: CalleeMemberCalls,
+): ReadonlyMap<string, readonly (readonly VbaToken[])[]> | undefined {
+	const mentioned = toks.filter((tok, i) => states.has(tokenName(tok)?.toLowerCase() ?? '') && toks[i - 1]?.rawText !== '.');
+	if (mentioned.length === 0) {
+		return undefined;
+	}
+	const replays = calleeCalls(toks);
+	return mentioned.every((tok) => replays.has(tokenName(tok)!.toLowerCase())) ? replays : undefined;
 }
 
 /** A With block's subject: a name, or the tokens of an element, `c ( 1 )`. */

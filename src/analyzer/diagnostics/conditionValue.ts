@@ -79,6 +79,13 @@ export function conditionValue(toks: readonly VbaToken[], facts: ConditionFacts)
 	return truth(value);
 }
 
+/** The number `toks` evaluates to where the facts make it plain: `Len(s)` with s known (issue #685). */
+export function numberValue(toks: readonly VbaToken[], facts: ConditionFacts): number | undefined {
+	const parser = new ConditionParser(toks.filter((tok) => tok.kind !== 'comment'), facts);
+	const value = parser.orExpr();
+	return parser.done() && typeof value === 'number' ? value : undefined;
+}
+
 /** The tokens between `If` (or `ElseIf`) and `Then` in a statement or header. */
 export function ifConditionTokens(toks: readonly VbaToken[]): VbaToken[] | undefined {
 	const head = tokenText(toks[0]);
@@ -384,8 +391,13 @@ class ConditionParser {
 		if ((word === 'len' || word === 'lenb') && this.toks[this.index]?.rawText === '(' && this.toks[this.index + 2]?.rawText === ')') {
 			const arg = this.toks[this.index + 1];
 			this.index += 3;
-			const value = arg.kind === 'stringLiteral' ? stringLiteralValue(arg.rawText) : this.facts.value(tokenName(arg)?.toLowerCase() ?? '');
-			return typeof value === 'string' ? value.length * (word === 'lenb' ? 2 : 1) : undefined;
+			const lower = tokenName(arg)?.toLowerCase() ?? '';
+			// Len of a Long is its size, 4, whatever string it was given (issue #685).
+			const type = arg.kind === 'stringLiteral' ? undefined : this.facts.typeOf?.(lower);
+			const value = arg.kind === 'stringLiteral' ? stringLiteralValue(arg.rawText) : this.facts.value(lower);
+			return typeof value === 'string' && (type === undefined || type === 'string' || type === 'variant')
+				? value.length * (word === 'lenb' ? 2 : 1)
+				: undefined;
 		}
 		// LCase, UCase, InStr, StrComp and Replace of known strings (issue #686).
 		if (STRING_CALLS.has(word)) {

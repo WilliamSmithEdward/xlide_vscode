@@ -32,12 +32,12 @@ import type { VbaToken } from '../../lexer/tokenKinds';
 import type { MemberCompletionContext } from '../../completion/memberAccess';
 import type { BodyNode, LeafStatementNode, ProcedureNode, Span } from '../../parser/nodes';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
-import { heldObjectsAt, type HeldObjects } from '../heldObjects';
+import { ACTIVE_SHEET_HELD, heldObjectsAt, type HeldObjects } from '../heldObjects';
 import { parseVbaIntegerLiteral } from '../../constants/integerConstantExpression';
 import type { VbaProjectClassMember, VbaProjectClassMembers } from '../../symbols/symbolModel';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
-import { daoWholeValueError, isKnownObjectAssignmentType, isKnownScalarType, normalizeType, objectLetAssignmentVerdict, objectValueNeedsIndex, typeEnvironmentFor, typeFieldDeclaredType } from '../typeInference';
+import { daoWholeValueError, inferMemberExpressionType, isKnownObjectAssignmentType, isKnownScalarType, normalizeType, objectLetAssignmentVerdict, objectValueNeedsIndex, typeEnvironmentFor, typeFieldDeclaredType } from '../typeInference';
 import {
 	bareAssignmentTarget,
 	firstExecutableTokenIndex,
@@ -150,9 +150,11 @@ export function checkObjectDefaultValues(
 		// Object, is late bound: its value read raises 450 when it runs, and
 		// a Let to it 438 (issue #415, measured in Excel 16.0).
 		const lateBound = new Set([...env].filter(([, type]) => normalizeType(type) === 'object').map(([lower]) => lower));
+		// An Object holding any other host object, `Set o = Range("A1").Font`,
+		// reads as that object does, late (issue #685).
 		let heldAt: ((node: BodyNode) => HeldObjects) | undefined;
-		const holdsCollection = (stmt: BodyNode, lower: string): boolean =>
-			(heldAt ??= heldObjectsAt(source, proc, symbols, activity))(stmt).classes.get(lower)?.toLowerCase() === 'collection';
+		const heldOf = (stmt: BodyNode, lower: string): string | undefined => (heldAt ??= heldObjectsAt(source, proc, symbols, activity,
+			(value, offset) => hostChainType(source, value, offset, memberCtx, (name) => env.has(name) || moduleNames.has(name))))(stmt).classes.get(lower);
 		// Excel's Application and Names, and Word's Document, by their own
 		// rules (issues #415 and #438). An Object holding one is read late.
 		const host = memberCtx.model?.hostName ?? 'Excel';
@@ -162,10 +164,10 @@ export function checkObjectDefaultValues(
 			.map(([lower, type]) => [lower, normalizeType(type)!]));
 		return (stmt) => {
 			if (lateBound.size > 0) {
-				checkHeldCollections(source, stmt, lateBound, (lower) => holdsCollection(stmt, lower), push);
+				checkHeldObjects(source, stmt, lateBound, (lower) => heldOf(stmt, lower), memberCtx, push);
 			}
 			if (hostDefaults.size > 0) {
-				const held = (lower: string): string | undefined => (heldAt ??= heldObjectsAt(source, proc, symbols, activity))(stmt).classes.get(lower)?.toLowerCase();
+				const held = (lower: string): string | undefined => heldOf(stmt, lower)?.toLowerCase();
 				for (const span of statementAndBranchSpans(stmt)) {
 					for (const hit of hostDefaultReads(source, span, hostDefaults, held)) {
 						push(hit.rule, hit.message, { start: span.start + hit.tok.start, end: span.start + hit.tok.end });
@@ -184,6 +186,9 @@ export function checkObjectDefaultValues(
 				push('objectDefaultValue', `'${hit.rawText}' is ${article(type)} ${type}, which has no default member, so it has no value to read here. This will raise Run-time error '438': Object doesn't support this property or method${nothing}.`, { start: stmt.span.start + hit.start, end: stmt.span.start + hit.end });
 			}
 			for (const span of statementAndBranchSpans(stmt)) {
+				for (const hit of hostChainReads(source, span, memberCtx, (lower) => env.has(lower) || moduleNames.has(lower), isObjectVariable)) {
+					push(hit.rule, hit.message, { start: span.start + hit.start, end: span.start + hit.end });
+				}
 				for (const hit of collectionArguments(statementTokens(source, span), isCollection, moduleNames)) {
 					const at = { start: span.start + hit.start, end: span.start + hit.end };
 					if (hit.compiles) {
@@ -343,12 +348,50 @@ function hostDefaultReads(
 	return out;
 }
 
-/** `x + 1`, `If x Then`, `CStr(x)` and `x = 5` on an Object local that holds a Collection here. */
-function checkHeldCollections(
+/**
+ * What reading an Object as a value raises when it holds this class: a
+ * Collection, Sheets, a Dictionary or Hyperlinks need an index or key, 450;
+ * Names its argument, 449; a type with no default member, 438 (issues #415
+ * and #685, measured in Excel 16.0). Undefined where the class is not
+ * judged here: Application and Document have rules of their own.
+ */
+function heldValueError(held: string, memberCtx: MemberCompletionContext): { what: string; error: string } | undefined {
+	const key = hostTypeKey(held);
+	const needsIndex = "This will raise Run-time error '450': Wrong number of arguments or invalid property assignment.";
+	switch (key) {
+		case 'collection':
+			return { what: 'a Collection, whose default member Item needs an index', error: needsIndex };
+		case 'sheets':
+			return { what: 'a Sheets collection, whose default member Item needs an index', error: needsIndex };
+		case 'scripting.dictionary':
+			return { what: 'a Dictionary, whose default member Item needs a key', error: needsIndex };
+		case 'names':
+			return { what: 'a Names collection, whose default member Item needs its argument', error: "This will raise Run-time error '449': Argument not optional." };
+		case 'worksheet or chart':
+			return { what: 'a Worksheet or a Chart, neither of which has a default member', error: "This will raise Run-time error '438': Object doesn't support this property or method." };
+		case undefined:
+		case 'application':
+		case 'document':
+			return undefined;
+	}
+	// A class of the project has rules of its own (issue #256).
+	const name = held.split('.').pop()!.toLowerCase();
+	if ((memberCtx.projectClassMembers ?? []).some((cls) => cls.name.toLowerCase() === name)) {
+		return undefined;
+	}
+	const verdict = objectLetAssignmentVerdict(held, memberCtx);
+	return verdict === 'noDefault' ? { what: `${article(held)} ${held}, which has no default member`, error: "This will raise Run-time error '438': Object doesn't support this property or method." }
+		: verdict === 'argument' ? { what: `${article(held)} ${held}, whose default member Item needs an index`, error: needsIndex }
+			: undefined;
+}
+
+/** `x + 1`, `If x Then`, `CStr(x)` and `x = 5` on an Object local that holds a Collection or a host object here. */
+function checkHeldObjects(
 	source: string,
 	stmt: LeafStatementNode,
 	lateBound: ReadonlySet<string>,
-	holds: (lower: string) => boolean,
+	heldOf: (lower: string) => string | undefined,
+	memberCtx: MemberCompletionContext,
 	push: PushFn,
 ): void {
 	const toks = statementTokens(source, stmt.span).filter((tok) => tok.kind !== 'comment');
@@ -357,7 +400,7 @@ function checkHeldCollections(
 	}
 	const at = (tok: VbaToken): Span => ({ start: stmt.span.start + tok.start, end: stmt.span.start + tok.end });
 	const target = bareAssignmentTarget(source, stmt.span);
-	if (target && lateBound.has(target.name.toLowerCase()) && holds(target.name.toLowerCase())) {
+	if (target && lateBound.has(target.name.toLowerCase()) && heldOf(target.name.toLowerCase())?.toLowerCase() === 'collection') {
 		push('objectDefaultValue', `'${target.name}' holds a Collection, whose default member Item needs an index, so a Let cannot reach it. This will raise Run-time error '438': Object doesn't support this property or method.`, target.span);
 		return;
 	}
@@ -368,8 +411,10 @@ function checkHeldCollections(
 	];
 	for (const tok of reads) {
 		const lower = tokenName(tok)?.toLowerCase();
-		if (lower && isLateBound(lower) && holds(lower)) {
-			push('objectDefaultValue', `'${tok.rawText}' holds a Collection, whose default member Item needs an index, so it has no value to read here. This will raise Run-time error '450': Wrong number of arguments or invalid property assignment.`, at(tok));
+		const held = lower && isLateBound(lower) ? heldOf(lower) : undefined;
+		const problem = held ? heldValueError(held, memberCtx) : undefined;
+		if (problem) {
+			push('objectDefaultValue', `'${tok.rawText}' holds ${problem.what}, so it has no value to read here. ${problem.error}`, at(tok));
 		}
 	}
 }
@@ -519,6 +564,118 @@ function valueReads(
 			&& ((tok.kind === 'operator' && SCALAR_OPERATORS.has(tok.rawText)) || tokenText(tok) === 'mod');
 		if (isOperator(toks[i + 1]) || isOperator(previous)) {
 			out.push({ tok: toks[i], operator: true });
+		}
+	}
+	return out;
+}
+
+/**
+ * The host type an Excel expression of globals and members gives:
+ * `ActiveWorkbook.Names` a Names, `Range("A1").Font` a Font, and
+ * ActiveSheet a Worksheet or a Chart. Undefined for anything the source
+ * declares, or the model does not type.
+ */
+function hostChainType(
+	source: string,
+	chain: readonly VbaToken[],
+	offset: number,
+	memberCtx: MemberCompletionContext,
+	declared: (lower: string) => boolean,
+): string | undefined {
+	const head = tokenName(chain[0])?.toLowerCase();
+	if (!head || declared(head) || (memberCtx.model?.hostName ?? 'Excel') !== 'Excel') {
+		return undefined;
+	}
+	if (chain.length === 1) {
+		return head === 'activesheet' ? ACTIVE_SHEET_HELD : head === 'activeworkbook' || head === 'thisworkbook' ? 'Workbook' : undefined;
+	}
+	return chain.some((tok) => tok.rawText === '.') ? inferMemberExpressionType(source, [...chain], offset, memberCtx)?.type : undefined;
+}
+
+/** A host type's lowercased name, Excel's prefix off; the Worksheets property gives a Sheets object (issue #404). */
+function hostTypeKey(type: string | undefined): string | undefined {
+	return normalizeType(type)?.replace(/^excel\./, '').replace(/^worksheets$/, 'sheets');
+}
+
+/**
+ * A host object read whole as a value, `v = ActiveWorkbook.Names`,
+ * `CStr(Range("A1").Font)` or `ActiveWorkbook & ""` (issue #685, measured
+ * in Excel 16.0): the expression's type, from the host's model, decides.
+ * One with no default member raises 438. Names, whose Item needs its
+ * argument, raises 449 read whole and does not compile with `&` or in a
+ * built-in (Type mismatch); Sheets raises 450 and does not compile there
+ * (Argument not optional). ActiveSheet is a Worksheet or a Chart, and
+ * neither has a default member.
+ */
+function hostChainReads(
+	source: string,
+	span: Span,
+	memberCtx: MemberCompletionContext,
+	declared: (lower: string) => boolean,
+	isObjectVariable: (name: string) => boolean,
+): Array<{ start: number; end: number; rule: 'objectDefaultValue' | 'collectionOperand'; message: string }> {
+	const toks = statementTokens(source, span).filter((tok) => tok.kind !== 'comment');
+	const first = firstExecutableTokenIndex(toks);
+	if (tokenText(toks[first]) === 'set' || (memberCtx.model?.hostName ?? 'Excel') !== 'Excel') {
+		return [];
+	}
+	const target = bareAssignmentTarget(source, span);
+	const eq = target && !isObjectVariable(target.name) ? toks.findIndex((tok) => tok.rawText === '=') : -1;
+	const out: Array<{ start: number; end: number; rule: 'objectDefaultValue' | 'collectionOperand'; message: string }> = [];
+	for (let i = eq < 0 ? first : eq + 1; i < toks.length; i++) {
+		if (!tokenName(toks[i]) || toks[i - 1]?.rawText === '.' || toks[i - 1]?.rawText === '!') {
+			continue;
+		}
+		// The chain from here: names, `.member` and `(arguments)`.
+		let end = i;
+		while (end + 1 < toks.length) {
+			if (toks[end + 1].rawText === '(') {
+				const close = matchParenFrom(toks, end + 1);
+				if (close < 0) {
+					break;
+				}
+				end = close;
+			} else if (toks[end + 1].rawText === '.' && tokenName(toks[end + 2])) {
+				end += 2;
+			} else {
+				break;
+			}
+		}
+		const chain = toks.slice(i, end + 1);
+		const start = i;
+		const before = toks[start - 1];
+		const after = toks[end + 1];
+		const whole = start === eq + 1 && eq >= 0 && end === toks.length - 1;
+		const joined = before?.rawText === '&' || after?.rawText === '&';
+		const builtin = before?.rawText === '(' && after?.rawText === ')' && tokenText(toks[start - 2]) === 'cstr' && toks[start - 3]?.rawText !== '.';
+		// Not read whole here, its parts may be: `CStr(ActiveWorkbook)`.
+		if (!whole && !joined && !builtin) {
+			continue;
+		}
+		const type = hostChainType(source, chain, span.start, memberCtx, declared);
+		const normalized = hostTypeKey(type);
+		if (!type || !normalized) {
+			continue;
+		}
+		i = end;
+		const shown = chain.map((tok) => tok.rawText).join('');
+		const at = { start: chain[0].start, end: chain[chain.length - 1].end };
+		// Through ActiveSheet, an Object, the rest is bound late: what would
+		// not compile raises when it runs.
+		const late = tokenText(chain[0]) === 'activesheet' && chain.length > 1;
+		const verdict = normalized === 'worksheet or chart' ? 'noDefault' : normalized === 'sheets' ? 'argument' : objectLetAssignmentVerdict(type, memberCtx);
+		if (verdict === 'noDefault') {
+			const what = normalized === 'worksheet or chart' ? 'a Worksheet or a Chart, neither of which has' : `${article(type)} ${type}, which has`;
+			out.push({ ...at, rule: 'objectDefaultValue', message: `'${shown}' is ${what} no default member, so it has no value to read here. This will raise Run-time error '438': Object doesn't support this property or method.` });
+		} else if (normalized === 'names') {
+			out.push(whole || late
+				? { ...at, rule: 'objectDefaultValue', message: `'${shown}' is a Names collection, whose default member Item needs its argument, so it has no value to read here. This will raise Run-time error '449': Argument not optional.` }
+				: { ...at, rule: 'objectDefaultValue', message: `'${shown}' is a Names collection, whose default member Item needs its argument, so it has no value to take here. This is a VBE compile error: Type mismatch.` });
+		} else if (verdict === 'argument' && (normalized === 'sheets' || late)) {
+			const what = normalized === 'sheets' ? 'a Sheets collection' : `${article(type)} ${type}`;
+			out.push(whole || late
+				? { ...at, rule: 'objectDefaultValue', message: `'${shown}' is ${what}, whose default member Item needs an index, so it has no value to read here. This will raise Run-time error '450': Wrong number of arguments or invalid property assignment.` }
+				: { ...at, rule: 'collectionOperand', message: `'${shown}' is ${what}, whose default member Item needs an index, so it has no value to take here. This is a VBE compile error: Argument not optional.` });
 		}
 	}
 	return out;

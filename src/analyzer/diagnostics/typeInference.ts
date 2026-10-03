@@ -1745,6 +1745,15 @@ function objectValueArgumentProblem(
 			return { rule: 'argumentTypeMismatch', what: holding.label, reason: `${reason} This will raise Run-time error '13': Type mismatch.`, tokens: toks };
 		}
 	}
+	// `TakeC(ActiveSheet)` into a Collection, as the Object holding it (issue #685).
+	if (!declaredName && toks.length === 1 && tokenText(toks[0]) === 'activesheet' && !isDeclared(toks[0].rawText)
+		&& resolveHostGlobal('ActiveSheet', memberCtx.model) !== undefined && expectedType !== 'object' && isKnownObjectAssignmentType(expected, memberCtx)) {
+		const sheet = { type: 'Worksheet or Chart', label: `'${toks[0].rawText}', a Worksheet or a Chart`, span: { start: toks[0].start, end: toks[0].end } };
+		const reason = objectAssignmentIncompatibilityReason(expected, sheet, memberCtx);
+		if (reason) {
+			return { rule: 'argumentTypeMismatch', what: sheet.label, reason: `${reason} This will raise Run-time error '13': Type mismatch.`, tokens: toks };
+		}
+	}
 	// `TakeW(Worksheets)` into a parameter As Worksheets (issue #404).
 	const sheets = !declaredName && sourceNames ? sheetsFromCollectionProperty(toks, expected, sourceNames, memberCtx) : undefined;
 	if (sheets) {
@@ -4733,7 +4742,11 @@ export function objectAssignmentIncompatibilityReason(
 		// A Scripting object CreateObject made is no Collection, sheet or class
 		// of the project: 13 (issue #685, measured in Excel 16.0).
 		const scripting = /^scripting\.(\w+)$/.exec(actualType);
-		return scripting && expected.key !== actualType && expected.key !== scripting[1] ? `This object type is not compatible with ${expected.display}.` : undefined;
+		if (scripting) {
+			return expected.key !== actualType && expected.key !== scripting[1] ? `This object type is not compatible with ${expected.display}.` : undefined;
+		}
+		// ActiveSheet, a Worksheet or a Chart: anything else refuses it (issue #685).
+		return actualType === 'worksheet or chart' && !/(^|\.)(worksheet|chart)$/.test(expected.key) ? `This object type is not compatible with ${expected.display}.` : undefined;
 	}
 	if (actualObject.kind === 'generic' && actualObject.key === 'object') {
 		return undefined;

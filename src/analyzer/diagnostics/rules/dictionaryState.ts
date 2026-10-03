@@ -37,7 +37,8 @@ import {
 	tokenName,
 	tokenText,
 } from '../walker';
-import { withReceiver } from './collectionState';
+import { replayedCalls, withReceiver } from './collectionState';
+import { calleeMemberCalls } from '../calleeArguments';
 import { namesIn } from './shared';
 
 /** The name a `With CreateObject("Scripting.Dictionary")` block's Dictionary is followed under. */
@@ -58,6 +59,7 @@ export function checkDictionaryState(
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
+	const calleeCalls = calleeMemberCalls(source);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
@@ -100,6 +102,22 @@ export function checkDictionaryState(
 				forget(namesIn(source, node.span));
 				if (createsDictionary(value)) {
 					states.set(lower, { keys: [] });
+				}
+				return;
+			}
+			// `AddK d` where AddK only adds to or removes from its parameter:
+			// d's keys change as those calls change them (issue #685).
+			const replays = replayedCalls(toks, states, calleeCalls);
+			if (replays) {
+				for (const [lower, calls] of replays) {
+					for (const call of calls) {
+						let raised = false;
+						checkStatement(node.span, call, states, () => { raised = true; });
+						if (raised || !states.has(lower)) {
+							states.delete(lower);
+							break;
+						}
+					}
 				}
 				return;
 			}
