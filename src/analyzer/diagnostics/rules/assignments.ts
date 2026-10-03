@@ -309,6 +309,10 @@ export function checkAssignmentTypes(
 		}
 		return facts;
 	};
+	// Base depends on this module/activity pass, not on a procedure or value.
+	// Resolve it only when array folding needs it; zero is a cached result too.
+	let optionBase: number | undefined;
+	const optionBaseFor = (): number => optionBase ??= moduleOptionBase(mod, activity);
 	const moduleSignatures = buildModuleTypeSignatures(symbols);
 	// Enum assignment compatibility is a name query, not a full symbol scan
 	// per assignment. Keep this index within the current rule pass.
@@ -342,7 +346,7 @@ export function checkAssignmentTypes(
 			if (local?.kind !== 'localVariable' || local.visibility === 'Static' || local.isArray || (type !== undefined && type !== 'variant')) {
 				return undefined;
 			}
-			const shape = (shapesAt ??= knownArrayShapesAt(source, symbols, procedure, activity, moduleOptionBase(mod, activity)))(stmt).get(lower);
+			const shape = (shapesAt ??= knownArrayShapesAt(source, symbols, procedure, activity, optionBaseFor()))(stmt).get(lower);
 			if (shape) {
 				return { element: shape.origin === 'Split(...)' ? 'string' : 'variant', text: `'${name}', which holds an array from ${shape.origin}` };
 			}
@@ -448,8 +452,8 @@ export function checkAssignmentTypes(
 			if (written.has(tokenName(value[0])?.toLowerCase() ?? '')) {
 				return undefined;
 			}
-			const shapes = (shapesAt ??= knownArrayShapesAt(source, symbols, procedure, activity, moduleOptionBase(mod, activity)))(stmt);
-			const element = elementOperandStartingAt(value, 0, shapes, moduleOptionBase(mod, activity));
+			const shapes = (shapesAt ??= knownArrayShapesAt(source, symbols, procedure, activity, optionBaseFor()))(stmt);
+			const element = elementOperandStartingAt(value, 0, shapes, optionBaseFor());
 			return element && element.last === value.length - 1 && typeof element.value === 'string'
 				? { type: 'String', label: `${label} ${JSON.stringify(element.value)}`, span: valueSpan, stringValue: element.value }
 				: undefined;
