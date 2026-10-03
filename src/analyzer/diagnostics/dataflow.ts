@@ -17,6 +17,7 @@ import type { BodyNode, IfBlockNode, LeafStatementNode, Span } from '../parser/n
 import { isLeafStatement } from '../parser/nodes';
 import { blockHeaderLeaves, isLoopBlock, selectArms } from './blockHeaders';
 import { ifConditionTokens } from './conditionValue';
+import type { CalleeKeepsArgument } from './calleeArguments';
 
 const NO_NAMES: ReadonlySet<string> = new Set();
 
@@ -806,6 +807,7 @@ export function trackedLocalsNamedWhole(
 	isTracked: (lowerName: string) => boolean,
 	readOnlyIntrinsics: ReadonlySet<string>,
 	arrays: ReadonlySet<string> = new Set(),
+	keeps?: CalleeKeepsArgument,
 ): Map<string, number> {
 	const out = new Map<string, number>();
 	if (toks.length < 2) {
@@ -856,9 +858,92 @@ export function trackedLocalsNamedWhole(
 		if (prev === '(' && readOnlyIntrinsics.has(tokenName(toks[i - 2])?.toLowerCase() ?? '')) {
 			continue;
 		}
+		// `SetN (n)` and `F a, (n)`: parentheses of their own pass a copy
+		// (issue #449, measured in Excel 16.0).
+		if (prev === '(' && next?.rawText === ')' && groupingParen(toks, i - 1, head, isCallStatement)) {
+			continue;
+		}
+		if (keeps && isCallStatement && calleeKeeps(toks, i, head, keeps)) {
+			continue;
+		}
 		out.set(lower, spanStart + toks[i].start);
 	}
 	return out;
+}
+
+/**
+ * Whether the parenthesis at `open` groups an argument rather than opening a
+ * call's list: after a comma or another parenthesis, or after the callee of a
+ * call statement written without Call, where VBA reads `F (n)` and `F(n)`
+ * alike as F given (n).
+ */
+function groupingParen(toks: readonly VbaToken[], open: number, head: number, isCallStatement: boolean): boolean {
+	const before = toks[open - 1]?.rawText;
+	if (before === ',' || before === '(') {
+		return true;
+	}
+	const after = toks[matchingClose(toks, open) + 1];
+	return isCallStatement && head === 0 && open === calleeEnd(toks, 0) + 1 && (after === undefined || after.rawText === ',' || after.kind === 'comment');
+}
+
+/** The index of the last name in a call statement's callee chain: `Foo`, `obj.Method`. */
+function calleeEnd(toks: readonly VbaToken[], head: number): number {
+	let i = head;
+	while (toks[i + 1]?.rawText === '.' && tokenName(toks[i + 2]) !== undefined) {
+		i += 2;
+	}
+	return i;
+}
+
+/**
+ * Whether the module's own procedure called by the statement keeps the
+ * argument at `i`: `Touch c`, `Call InitV(c)`, `Touch arg:=c` (issue #449).
+ * Only a bare callee is asked, never a member of an object.
+ */
+function calleeKeeps(toks: readonly VbaToken[], i: number, head: number, keeps: CalleeKeepsArgument): boolean {
+	const callee = tokenName(toks[head]);
+	if (!callee || toks[head + 1]?.rawText === '.') {
+		return false;
+	}
+	const explicit = head === 1;
+	// The argument list: after the callee, or inside `Call Foo(...)`.
+	let from = head + 1;
+	let to = toks.length;
+	if (explicit) {
+		if (toks[head + 1]?.rawText !== '(') {
+			return false;
+		}
+		from = head + 2;
+		to = matchingClose(toks, head + 1);
+	}
+	if (i < from || i >= to) {
+		return false;
+	}
+	let depth = 0;
+	let index = 0;
+	for (let k = from; k < i; k++) {
+		const raw = toks[k].rawText;
+		depth += raw === '(' ? 1 : raw === ')' ? -1 : 0;
+		if (raw === ',' && depth === 0) {
+			index++;
+		}
+	}
+	if (depth !== 0) {
+		return false;
+	}
+	const named = toks[i - 1]?.rawText === ':=' ? tokenName(toks[i - 2]) : undefined;
+	return keeps(callee, index, named);
+}
+
+function matchingClose(toks: readonly VbaToken[], open: number): number {
+	let depth = 0;
+	for (let k = open; k < toks.length; k++) {
+		depth += toks[k].rawText === '(' ? 1 : toks[k].rawText === ')' ? -1 : 0;
+		if (depth === 0) {
+			return k;
+		}
+	}
+	return toks.length;
 }
 
 /** True when a top-level '=' makes the statement an assignment, not a call. */

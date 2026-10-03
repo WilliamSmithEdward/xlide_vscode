@@ -3353,9 +3353,10 @@ export function knownLocalLiteralValues(
 			}
 			const prev = toks[i - 1];
 			const next = toks[i + 1];
-			const opensSlot = prev?.rawText === '(' || prev?.rawText === ',' || (!inValue && (prev === undefined || prev.kind === 'identifier' || prev.kind === 'keyword'));
+			// `SetN n:=n` passes n too, by name (issue #449).
+			const opensSlot = prev?.rawText === '(' || prev?.rawText === ',' || prev?.rawText === ':=' || (!inValue && (prev === undefined || prev.kind === 'identifier' || prev.kind === 'keyword'));
 			const closesSlot = next === undefined || next.rawText === ')' || next.rawText === ',' || next.rawText === ':' || next.kind === 'comment';
-			if (opensSlot && closesSlot && !(prev?.kind === 'operator') && !(next?.kind === 'operator') && !(inValue && libraryFunctionArgument(toks, i))) {
+			if (opensSlot && closesSlot && !(prev?.kind === 'operator' && prev.rawText !== ':=') && !(next?.kind === 'operator') && !(inValue && libraryFunctionArgument(toks, i))) {
 				mutate(name);
 			}
 		}

@@ -28,6 +28,7 @@ import { leavesTheList, trackedLocalsNamedWhole } from './dataflow';
 import { isLoopBlock, selectArms } from './blockHeaders';
 import { conditionValue, ifConditionTokens, type ConditionFacts } from './conditionValue';
 import { splitTopLevelTokenGroups } from '../lexer/tokenHelpers';
+import { calleeKeepsArgument } from './calleeArguments';
 import {
 	bareAssignmentTarget,
 	blockFooterLineSpan,
@@ -570,7 +571,7 @@ function loopBodyMayLeaveOrWrite(source: string, body: readonly BodyNode[], lowe
 				return true;
 			}
 			const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span));
-			if ([...passedWhole(header, node.span.start)].includes(lower)) {
+			if ([...passedWhole(source, header, node.span.start)].includes(lower)) {
 				return true;
 			}
 			if ('body' in node && Array.isArray(node.body) && loopBodyMayLeaveOrWrite(source, node.body as BodyNode[], lower, activity)) {
@@ -590,7 +591,7 @@ function loopBodyMayLeaveOrWrite(source: string, body: readonly BodyNode[], lowe
 			if (WRITING_HEADS.has(head) && mentionedNames(toks).has(lower)) {
 				return true;
 			}
-			if (bareAssignmentTarget(source, span)?.name.toLowerCase() === lower || [...passedWhole(toks, span.start)].includes(lower)) {
+			if (bareAssignmentTarget(source, span)?.name.toLowerCase() === lower || [...passedWhole(source, toks, span.start)].includes(lower)) {
 				return true;
 			}
 		}
@@ -621,7 +622,7 @@ function afterStatement(source: string, span: Span, before: ReachingAssignments)
 		next.set(object.name, object.value);
 		return next;
 	}
-	let after = without(before, passedWhole(toks, span.start));
+	let after = without(before, passedWhole(source, toks, span.start));
 	const bare = bareAssignmentTarget(source, span);
 	if (bare) {
 		const next = new Map(after);
@@ -646,7 +647,7 @@ function touchedInBlock(
 		names.add(block.controlVariable.toLowerCase());
 	}
 	for (const span of [blockHeaderLineSpan(source, block.span), blockFooterLineSpan(source, block.span)]) {
-		for (const lower of passedWhole(statementTokensAfterLeadingLabel(source, span), span.start)) {
+		for (const lower of passedWhole(source, statementTokensAfterLeadingLabel(source, span), span.start)) {
 			names.add(lower);
 		}
 	}
@@ -676,7 +677,7 @@ function touchedInBlock(
 			if ('body' in node && Array.isArray(node.body)) {
 				if (node.kind === 'IfBlock') {
 					for (const branch of node.branches) {
-						for (const lower of passedWhole(statementTokensAfterLeadingLabel(source, branch.headerSpan), branch.headerSpan.start)) {
+						for (const lower of passedWhole(source, statementTokensAfterLeadingLabel(source, branch.headerSpan), branch.headerSpan.start)) {
 							names.add(lower);
 						}
 					}
@@ -701,7 +702,7 @@ function touchedBy(source: string, stmts: readonly LeafStatementNode[]): Set<str
 			if (head === 'gosub') {
 				return 'all';
 			}
-			const changed = WRITING_HEADS.has(head) ? mentionedNames(toks) : passedWhole(toks, span.start);
+			const changed = WRITING_HEADS.has(head) ? mentionedNames(toks) : passedWhole(source, toks, span.start);
 			for (const lower of changed) {
 				names.add(lower);
 			}
@@ -766,8 +767,8 @@ function localArrayNames(body: readonly BodyNode[], activity: ConditionalActivit
 	return out;
 }
 
-function passedWhole(toks: readonly VbaToken[], spanStart: number): Iterable<string> {
-	return trackedLocalsNamedWhole(toks, spanStart, () => true, READ_ONLY_INTRINSICS, walkArrays).keys();
+function passedWhole(source: string, toks: readonly VbaToken[], spanStart: number): Iterable<string> {
+	return trackedLocalsNamedWhole(toks, spanStart, () => true, READ_ONLY_INTRINSICS, walkArrays, calleeKeepsArgument(source)).keys();
 }
 
 function mentionedNames(toks: readonly VbaToken[]): Set<string> {

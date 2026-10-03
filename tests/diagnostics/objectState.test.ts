@@ -155,6 +155,7 @@ describe('analyzeModule - object variable not set', () => {
 		const src =
 			'Private moduleObj As Object\n' +
 			'Private Sub Initialize(ByRef target As Object)\n' +
+			'    Set target = New Collection\n' +
 			'End Sub\n' +
 			'Private Sub Setup()\n' +
 			'    Set moduleObj = New Collection\n' +
