@@ -129,15 +129,18 @@ function attachMemberAttributes(
 	symbols: VbaSymbol[],
 	attributes: readonly VbaSymbolAttribute[],
 ): void {
+	if (attributes.length === 0) { return; }
+	const byName = new Map<string, VbaSymbol[]>();
+	for (const symbol of symbols) {
+		const lower = symbol.name.toLowerCase();
+		const matches = byName.get(lower);
+		if (matches) { matches.push(symbol); }
+		else { byName.set(lower, [symbol]); }
+	}
 	for (const attr of attributes) {
-		if (!attr.targetName) {
-			continue;
-		}
-		const lowerTarget = attr.targetName.toLowerCase();
-		for (const symbol of symbols) {
-			if (symbol.name.toLowerCase() !== lowerTarget) {
-				continue;
-			}
+		if (!attr.targetName) { continue; }
+		// Every accessor/duplicate receives the attribute, in source order.
+		for (const symbol of byName.get(attr.targetName.toLowerCase()) ?? []) {
 			symbol.attributes = [...(symbol.attributes ?? []), attr];
 		}
 	}
@@ -546,13 +549,20 @@ export function buildModuleSymbols(
  */
 function moduleImplicitLocals(source: string, module: ModuleNode, rootChildren: readonly VbaSymbol[]): Map<number, Set<string>> {
 	const moduleNames = new Set(rootChildren.map((symbol) => symbol.name.toLowerCase()));
+	const byNameStart = new Map<number, VbaSymbol>();
+	for (const symbol of rootChildren) {
+		// Preserve the first-match contract of the previous Array.find.
+		if (!byNameStart.has(symbol.nameSpan.start)) {
+			byNameStart.set(symbol.nameSpan.start, symbol);
+		}
+	}
 	const out = new Map<number, Set<string>>();
 	for (const member of module.members) {
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
 		const declared = new Set([member.name, ...member.params.map((param) => param.name)].map((name) => name.toLowerCase()));
-		const symbol = rootChildren.find((child) => child.nameSpan.start === (member.nameSpan ?? member.span).start);
+		const symbol = byNameStart.get((member.nameSpan ?? member.span).start);
 		for (const child of symbol?.children ?? []) {
 			declared.add(child.name.toLowerCase());
 		}
