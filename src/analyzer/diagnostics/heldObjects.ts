@@ -32,6 +32,9 @@ interface State {
 
 const NOTHING_HELD: HeldObjects = { classes: new Map(), items: new Map() };
 
+/** The class recorded for ActiveSheet, which may be a Worksheet or a Chart. */
+export const ACTIVE_SHEET_HELD = 'Worksheet or Chart';
+
 /** The item class recorded for a number or string a Collection holds: no object. */
 export const HELD_VALUE = '(value)';
 
@@ -51,6 +54,11 @@ function hostObjectHeld(value: readonly VbaToken[], declared: ReadonlySet<string
 	}
 	if (last === 'names' && (value.length === 1 ? !declared.has('names') : value[value.length - 2]?.rawText === '.')) {
 		return 'Names';
+	}
+	// Excel's ActiveSheet, whichever kind of sheet it is: a Collection
+	// parameter refuses it with 13 (issue #685).
+	if (value.length === 1 && last === 'activesheet' && !declared.has(last)) {
+		return ACTIVE_SHEET_HELD;
 	}
 	return undefined;
 }
@@ -83,6 +91,8 @@ export function heldObjectsAt(
 	proc: ProcedureNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	activity: ConditionalActivityTracker | undefined,
+	/** The class of any other value a Set gives, `Set o = Range("A1").Font`, where the caller can tell (issue #685). */
+	classOfValue?: (value: readonly VbaToken[], offset: number) => string | undefined,
 ): (node: BodyNode) => HeldObjects {
 	const seen = new Map<BodyNode, HeldObjects>();
 	const state: State = { classes: new Map(), items: new Map() };
@@ -128,7 +138,8 @@ export function heldObjectsAt(
 			const value = toks.slice(toks.findIndex((tok) => tok.rawText === '=') + 1);
 			const from = value.length === 1 ? tokenName(value[0])?.toLowerCase() : undefined;
 			const created = value.length === 2 && tokenText(value[0]) === 'new' ? tokenName(value[1]) : undefined;
-			const held = created ?? (from ? state.classes.get(from) : undefined) ?? hostObjectHeld(value, declared) ?? createdByProgId(value, declared);
+			const held = created ?? (from ? state.classes.get(from) : undefined) ?? hostObjectHeld(value, declared) ?? createdByProgId(value, declared)
+				?? classOfValue?.(value, node.span.start);
 			// The value's own holder may now change it unseen.
 			forget([lower, ...namesIn(source, node.span)].filter((name) => name !== from || !held));
 			if (from && held) {

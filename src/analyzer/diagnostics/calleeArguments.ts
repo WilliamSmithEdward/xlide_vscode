@@ -12,7 +12,8 @@ import { parseModule } from '../parser/parseModule';
 import { resolveRuntimeFunction } from '../runtime/vbaRuntime';
 import type { BodyNode, ProcedureNode } from '../parser/nodes';
 import { isLeafStatement } from '../parser/nodes';
-import { statementAndBranchSpans, statementTokensAfterLeadingLabel, tokenName, tokenText } from './walker';
+import { splitTopLevelTokenGroups } from '../lexer/tokenHelpers';
+import { matchParenFrom, statementAndBranchSpans, statementTokensAfterLeadingLabel, tokenName, tokenText } from './walker';
 
 /** Whether the module's own procedure `callee` leaves an argument in slot `index`, or named `named`, as it was. */
 export type CalleeKeepsArgument = (callee: string, index: number, named?: string) => boolean;
@@ -158,5 +159,116 @@ export function calleeKeepsArgument(source: string): CalleeKeepsArgument {
 			answers.set(key, keeps);
 		}
 		return keeps;
+	};
+}
+
+/**
+ * The member calls a call statement makes on each object passed to it whole,
+ * as statements on the caller's own name: `R1 c` with `R1(ByVal p)` doing
+ * `p.Remove 1` is `c.Remove 1` (issue #685, measured in Excel 16.0). A name
+ * is absent when the callee may do anything else with it.
+ */
+export type CalleeMemberCalls = (toks: readonly VbaToken[]) => ReadonlyMap<string, readonly (readonly VbaToken[])[]>;
+
+/** Members whose calls a callee's replay keeps: the ones that add and remove. */
+const REPLAYED_MEMBERS: ReadonlySet<string> = new Set(['add', 'remove', 'removeall']);
+
+/** Statement heads after which a later statement may not run. */
+const LEAVING_HEADS: ReadonlySet<string> = new Set(['exit', 'goto', 'gosub', 'on', 'resume', 'end', 'stop', 'return', 'error']);
+
+/** Statement heads that declare and run nothing. */
+const DECLARING_HEADS: ReadonlySet<string> = new Set(['dim', 'const', 'static']);
+
+const MEMBER_CALLS = new WeakMap<ProcedureNode, Map<string, readonly (readonly VbaToken[])[] | null>>();
+
+/**
+ * Every statement of a callee that names the parameter, when each is an Add
+ * or Remove on it with literal arguments, and the callee is one straight
+ * line with nothing that leaves early. Undefined otherwise.
+ */
+function memberCallsOn(source: string, proc: ProcedureNode, lower: string): readonly (readonly VbaToken[])[] | undefined {
+	let cache = MEMBER_CALLS.get(proc);
+	if (!cache) {
+		cache = new Map();
+		MEMBER_CALLS.set(proc, cache);
+	}
+	const cached = cache.get(lower);
+	if (cached !== undefined) {
+		return cached ?? undefined;
+	}
+	const calls: (readonly VbaToken[])[] = [];
+	let known = true;
+	for (const node of proc.body) {
+		if (node.kind === 'VariableGroup' && !new RegExp(`\\b${lower}\\b`, 'i').test(source.slice(node.span.start, node.span.end))) {
+			continue; // a Dim or Const that runs nothing
+		}
+		if (!isLeafStatement(node) || (node.kind === 'Statement' && node.singleLineIfBranches)) {
+			known = false;
+			break;
+		}
+		const toks = statementTokensAfterLeadingLabel(source, node.span).filter((tok) => tok.kind !== 'comment');
+		if (LEAVING_HEADS.has(tokenText(toks[0]))) {
+			known = false;
+			break;
+		}
+		// Anything else may reach the object another way, a module variable
+		// holding it: only declarations are let pass.
+		if (!toks.some((tok) => tokenName(tok)?.toLowerCase() === lower)) {
+			if (DECLARING_HEADS.has(tokenText(toks[0]))) {
+				continue;
+			}
+			known = false;
+			break;
+		}
+		const at = tokenText(toks[0]) === 'call' ? 1 : 0;
+		const literalsOnly = toks.slice(at + 3).every((tok, i, rest) => tok.kind !== 'identifier' && tok.kind !== 'keyword'
+			|| rest[i + 1]?.rawText === ':=');
+		if (tokenName(toks[at])?.toLowerCase() !== lower || toks[at + 1]?.rawText !== '.' || !REPLAYED_MEMBERS.has(tokenText(toks[at + 2])) || !literalsOnly) {
+			known = false;
+			break;
+		}
+		calls.push(toks.slice(at));
+	}
+	cache.set(lower, known ? calls : null);
+	return known ? calls : undefined;
+}
+
+/** The member calls of the module's own callees (issue #685). */
+export function calleeMemberCalls(source: string): CalleeMemberCalls {
+	return (toks) => {
+		const out = new Map<string, readonly (readonly VbaToken[])[]>();
+		const at = tokenText(toks[0]) === 'call' ? 1 : 0;
+		const name = tokenName(toks[at]);
+		const proc = name && toks[at + 1]?.rawText !== '.' ? procedureNamed(source, name.toLowerCase()) : undefined;
+		if (!proc) {
+			return out;
+		}
+		let args: VbaToken[][];
+		if (at === 1) {
+			if (toks[2]?.rawText !== '(' || matchParenFrom(toks, 2) !== toks.length - 1) {
+				return out;
+			}
+			args = splitTopLevelTokenGroups(toks, 3, ',', toks.length - 1);
+		} else {
+			// `R1 (c)` passes c's value, not c.
+			if (toks[1]?.rawText === '(' || toks[1]?.rawText === '=') {
+				return out;
+			}
+			args = splitTopLevelTokenGroups(toks, 1, ',');
+		}
+		const passed = args.map((arg) => (arg.length === 1 ? tokenName(arg[0])?.toLowerCase() : undefined));
+		args.forEach((arg, k) => {
+			const param = proc.params[k];
+			// One object passed twice may change through either parameter.
+			if (arg.length !== 1 || arg[0].kind !== 'identifier' || !param || param.paramArray || passed.indexOf(passed[k]) !== passed.lastIndexOf(passed[k])) {
+				return;
+			}
+			const lower = param.name.toLowerCase();
+			const calls = memberCallsOn(source, proc, lower);
+			if (calls) {
+				out.set(arg[0].rawText.toLowerCase(), calls.map((stmt) => stmt.map((tok) => (tokenName(tok)?.toLowerCase() === lower ? { ...tok, rawText: arg[0].rawText } : tok))));
+			}
+		});
+		return out;
 	};
 }

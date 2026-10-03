@@ -27,7 +27,7 @@ import { bankersRound, evaluateIntegerConstantExpression, parseVbaIntegerLiteral
 import { dateLiteralSerial } from '../constants/dateLiteral';
 import { leavesTheList, trackedLocalsNamedWhole } from './dataflow';
 import { isLoopBlock, selectArms } from './blockHeaders';
-import { conditionValue, ifConditionTokens, type ConditionFacts } from './conditionValue';
+import { conditionValue, ifConditionTokens, numberValue, type ConditionFacts } from './conditionValue';
 import { matchParenFrom, splitTopLevelTokenGroups } from '../lexer/tokenHelpers';
 import { resolveRuntimeFunction } from '../runtime/vbaRuntime';
 import { calleeKeepsArgument } from './calleeArguments';
@@ -759,6 +759,19 @@ function knownSum(value: readonly VbaToken[], before: ReachingAssignments): read
 }
 
 /**
+ * A built-in call the walk can work out, as the tokens of its whole-number
+ * result: `n = Len(s)` with s at "abcde" is `5` (issue #685). Not into a
+ * String, which would hold the number's text.
+ */
+function knownCall(source: string, value: readonly VbaToken[], before: ReachingAssignments, target: string): readonly VbaToken[] | undefined {
+	if (!value.some((tok, i) => tokenName(tok) !== undefined && value[i + 1]?.rawText === '(') || walkDeclared?.type(target) === 'string') {
+		return undefined;
+	}
+	const result = numberValue(value, factsFrom(before, source));
+	return result !== undefined && Number.isInteger(result) && result >= -2147483648 && result <= 2147483647 ? rawExpressionTokens(String(result)) : undefined;
+}
+
+/**
  * The label key a statement jumps to when it is `GoTo L`, or a one-line If
  * whose only branch is `GoTo L`. Undefined for anything else.
  */
@@ -837,7 +850,9 @@ function afterStatement(source: string, span: Span, before: ReachingAssignments)
 		// later change to a leaves d as it was (issue #346).
 		const copied = value.length === 1 ? tokenName(value[0])?.toLowerCase() : undefined;
 		// `b = b + 1` with b known: the sum, a whole number (issue #614).
-		const computed = copied === undefined && value.some((tok) => tokenName(tok) !== undefined) ? knownSum(value, before) : undefined;
+		const computed = copied === undefined && value.some((tok) => tokenName(tok) !== undefined)
+			? knownSum(value, before) ?? knownCall(source, value, before, bare.name.toLowerCase())
+			: undefined;
 		next.set(bare.name.toLowerCase(), copied !== undefined && before.has(copied) ? before.get(copied)! : computed ?? value);
 		after = next;
 	}
