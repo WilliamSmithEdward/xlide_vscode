@@ -4106,6 +4106,20 @@ export function deadBranchSpansIn(
 	return straightLineDeadBranches(source, proc.body, activity, walkStartWithEffects(source, symbols, proc, literalValueLocals(proc, symbols), activity));
 }
 
+/**
+ * The straight-line walk from what holds as the procedure starts: each
+ * local's default, and `Dim c As New Collection` empty (issue #614). The
+ * same walk the value rules share, so it costs nothing more.
+ */
+export function defaultedStraightLine(
+	source: string,
+	proc: ProcedureNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	activity: ConditionalActivityTracker | undefined,
+): ReadonlyMap<BodyNode, ReachingAssignments> {
+	return straightLineAssignments(source, proc.body, activity, walkStart(symbols, proc, literalValueLocals(proc, symbols)));
+}
+
 const UNREACHABLE = new WeakMap<ProcedureNode, { activity: ConditionalActivityTracker | undefined; dead: ReadonlySet<BodyNode> }>();
 
 /**

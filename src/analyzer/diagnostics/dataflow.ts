@@ -75,6 +75,16 @@ export function walkStraightLineBody(
 	}
 }
 
+/** `If cond Then GoTo L`, with no Else and nothing after the GoTo. */
+function singleLineGoToOnly(source: string, leaf: LeafStatementNode, next: BodyNode | undefined): boolean {
+	const branches = leaf.kind === 'Statement' ? leaf.singleLineIfBranches : undefined;
+	if (branches?.length !== 1 || (next && isSingleLineIfTail(next))) {
+		return false;
+	}
+	const then = tokensAfterLabel(source, branches[0]);
+	return then.length === 2 && tokenWord(then[0]) === 'goto';
+}
+
 /** The most runs the GoTo-following walk takes to settle its labels. */
 const MAX_JUMP_PASSES = 6;
 
@@ -193,9 +203,12 @@ function walkFollowingJumps(
 					const toks = statementTokensAfterLabel(source, leaf);
 					const head = tokenWord(toks[0]);
 					// A single-line If starts with If, so only a plain GoTo, Exit,
-					// Resume, Return, End or Err.Raise ends the path here.
+					// Resume, Return, End or Err.Raise ends the path here. A
+					// one-line If whose only branch is `GoTo L` changes nothing
+					// on the way, and arrives with what holds (issue #614).
+					const onlyGoTo = head === 'if' && singleLineGoToOnly(source, leaf, list[i + 1]);
 					for (const ref of statementLabelReferences(source, leaf.span)) {
-						arrive(ref.key, ref.statementKind === 'goto' && head === 'goto' ? snapshotState() : unknownState);
+						arrive(ref.key, ref.statementKind === 'goto' && (head === 'goto' || onlyGoTo) ? snapshotState() : unknownState);
 					}
 					if (leavesTheList(source, leaf.span)) {
 						reachable = false;

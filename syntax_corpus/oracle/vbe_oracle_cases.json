@@ -101302,6 +101302,215 @@
       "source": "Option Explicit\r\nPrivate Function TakeL(ByVal p As Long) As Long\r\n    TakeL = p\r\nEnd Function\r\nPrivate Function TakeV(p As Variant) As Variant\r\n    TakeV = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v\r\n    Range(\"A1\").Formula = \"=1/0\"\r\n    v = Range(\"B1\").Value\r\n    Main = v + 1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue614_01_runtime",
+      "description": "Issue #614 values kept through a self-increment, an empty Count and a label forward GoTos reach, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, s As String, arr(0 To 3) As Long, c As Collection\r\n    a = 1\r\n    b = b + 1\r\n    Main = 10 / (a - b)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue614_02_runtime",
+      "description": "Issue #614 values kept through a self-increment, an empty Count and a label forward GoTos reach, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, s As String, arr(0 To 3) As Long, c As Collection\r\n    b = b + 1\r\n    b = b - 1\r\n    Main = 10 \\ b\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue614_03_runtime",
+      "description": "Issue #614 values kept through a self-increment, an empty Count and a label forward GoTos reach, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, s As String, arr(0 To 3) As Long, c As Collection\r\n    b = 5\r\n    b = b + 1\r\n    Main = arr(b)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue614_04_runtime",
+      "description": "Issue #614 values kept through a self-increment, an empty Count and a label forward GoTos reach, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, s As String, arr(0 To 3) As Long, c As Collection\r\n    b = b + 4\r\n    Main = arr(b)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue614_05_runtime",
+      "description": "Issue #614 values kept through a self-increment, an empty Count and a label forward GoTos reach, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, s As String, arr(0 To 3) As Long, c As Collection\r\n    a = a + 1\r\n    a = a + -1\r\n    Main = Mid(s, a)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue614_06_runtime",
+      "description": "Issue #614 values kept through a self-increment, an empty Count and a label forward GoTos reach, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, s As String, arr(0 To 3) As Long, c As Collection\r\n    Set c = New Collection\r\n    Main = 10 \\ c.Count\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue614_07_runtime",
+      "description": "Issue #614 values kept through a self-increment, an empty Count and a label forward GoTos reach, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, s As String, arr(0 To 3) As Long, c As Collection\r\n    Set c = New Collection\r\n    Main = 10 / c.Count\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue614_08_runtime",
+      "description": "Issue #614 values kept through a self-increment, an empty Count and a label forward GoTos reach, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, s As String, arr(0 To 3) As Long, c As Collection\r\n    Dim d As New Collection\r\n    Main = 10 \\ d.Count\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue614_09_runtime",
+      "description": "Issue #614 values kept through a self-increment, an empty Count and a label forward GoTos reach, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, s As String, arr(0 To 3) As Long, c As Collection\r\n    a = 1\r\n    If a > -1 Then GoTo Skip1\r\n    a = a + 1\r\nSkip1:\r\n    Main = c.Count\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue614_10_runtime",
+      "description": "Issue #614 values kept through a self-increment, an empty Count and a label forward GoTos reach, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, s As String, arr(0 To 3) As Long, c As Collection\r\n    Set c = Nothing\r\n    If b <> 1 Then GoTo Skip1\r\n    b = 1\r\nSkip1:\r\n    Main = c(b)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue614_11_runtime",
+      "description": "Issue #614 values kept through a self-increment, an empty Count and a label forward GoTos reach, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, s As String, arr(0 To 3) As Long, c As Collection\r\n    b = 9\r\n    If a = 1 Then GoTo Skip1\r\n    a = 2\r\nSkip1:\r\n    Main = arr(b)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue614_12_runtime",
+      "description": "Issue #614 values kept through a self-increment, an empty Count and a label forward GoTos reach, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, s As String, arr(0 To 3) As Long, c As Collection\r\n    b = 9\r\n    If Second(Now) > 70 Then GoTo Skip1\r\n    a = 2\r\nSkip1:\r\n    Main = arr(b)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue614_13_runtime",
+      "description": "Issue #614 values kept through a self-increment, an empty Count and a label forward GoTos reach, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, s As String, arr(0 To 3) As Long, c As Collection\r\n    b = 2\r\n    b = b + 1\r\n    Main = arr(b)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue614_14_runtime",
+      "description": "Issue #614 values kept through a self-increment, an empty Count and a label forward GoTos reach, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> -10.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, s As String, arr(0 To 3) As Long, c As Collection\r\n    a = 1\r\n    b = b + 2\r\n    Main = 10 / (a - b)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue614_15_runtime",
+      "description": "Issue #614 values kept through a self-increment, an empty Count and a label forward GoTos reach, case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 10.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, s As String, arr(0 To 3) As Long, c As Collection\r\n    Set c = New Collection\r\n    c.Add 1\r\n    Main = 10 \\ c.Count\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue614_16_runtime",
+      "description": "Issue #614 values kept through a self-increment, an empty Count and a label forward GoTos reach, case 16, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, s As String, arr(0 To 3) As Long, c As Collection\r\n    b = 9\r\n    If a = 1 Then GoTo Skip1\r\n    b = 2\r\nSkip1:\r\n    Main = arr(b)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue614_17_runtime",
+      "description": "Issue #614 values kept through a self-increment, an empty Count and a label forward GoTos reach, case 17, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, s As String, arr(0 To 3) As Long, c As Collection\r\n    b = 2\r\n    If a = 0 Then GoTo Skip1\r\n    b = 9\r\nSkip1:\r\n    Main = arr(b)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue614_18_runtime",
+      "description": "Issue #614 values kept through a self-increment, an empty Count and a label forward GoTos reach, case 18, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, s As String, arr(0 To 3) As Long, c As Collection\r\n    Set c = New Collection\r\n    If a = 0 Then GoTo Skip1\r\n    Set c = Nothing\r\nSkip1:\r\n    Main = c.Count\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue614_19_runtime",
+      "description": "Issue #614 values kept through a self-increment, an empty Count and a label forward GoTos reach, case 19, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, s As String, arr(0 To 3) As Long, c As Collection\r\n    b = 9\r\n    If a = 1 Then GoTo Skip1\r\n    a = 2\r\nSkip1:\r\n    b = 1\r\n    Main = arr(b)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

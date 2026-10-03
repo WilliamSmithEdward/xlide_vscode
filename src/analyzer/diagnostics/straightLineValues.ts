@@ -23,7 +23,7 @@ import type { ConditionalActivityTracker } from '../conditional/conditionalCompi
 import type { BodyNode, IfBlockNode, LeafStatementNode, Span } from '../parser/nodes';
 import { isLeafStatement } from '../parser/nodes';
 import { jumpTargetLabelDeclaration, statementLabelDeclaration, statementLabelReferences } from '../flow/procedureLabels';
-import { parseVbaIntegerLiteral } from '../constants/integerConstantExpression';
+import { evaluateIntegerConstantExpression, parseVbaIntegerLiteral } from '../constants/integerConstantExpression';
 import { leavesTheList, trackedLocalsNamedWhole } from './dataflow';
 import { isLoopBlock, selectArms } from './blockHeaders';
 import { conditionValue, ifConditionTokens, type ConditionFacts } from './conditionValue';
@@ -217,8 +217,8 @@ interface WalkOut {
 	deadSpans: Span[];
 	/** Whether Err.Raise leaves the list: not when the procedure resumes past errors. */
 	raiseLeaves: boolean;
-	/** The keys of the labels some GoTo, GoSub, Resume or On ... GoTo names. */
-	referenced: ReadonlySet<string>;
+	/** How many times a GoTo, GoSub, Resume or On ... GoTo names each label, by key. */
+	referenced: ReadonlyMap<string, number>;
 }
 
 /** The end of a statement list no path reaches. */
@@ -243,16 +243,30 @@ function walkList(
 	caseResets = false,
 ): ReachingAssignments {
 	let current = entry;
+	// What holds at each forward `GoTo L` of this list, plain or the whole
+	// branch of a one-line If, by the label's key (issue #614).
+	const jumps = new Map<string, ReachingAssignments[]>();
 	for (let i = 0; i < list.length; i++) {
 		const node = list[i];
 		if (isInactiveNode(activity, node) || node.kind === 'VariableGroup' || node.kind === 'ConditionalDirective') {
 			continue;
 		}
 		// A label a jump may reach starts over; one nothing names, as when
-		// `On Error GoTo EH` is commented out, leaves dead code dead (issue #421).
+		// `On Error GoTo EH` is commented out, leaves dead code dead (issue
+		// #421). One only forward GoTos of this list reach holds what every
+		// way in agrees on (issue #614).
 		const label = isLeafStatement(node) ? statementLabelDeclaration(source, node.span) : undefined;
 		if (label && (current !== UNREACHED || walk.referenced.has(label.key))) {
-			current = NONE;
+			const ways = jumps.get(label.key) ?? [];
+			current = ways.length > 0 && ways.length === walk.referenced.get(label.key)
+				? agreed(current === UNREACHED ? ways : [current, ...ways])
+				: NONE;
+		}
+		if (current !== UNREACHED && isLeafStatement(node)) {
+			const target = forwardGoTo(source, node, list[i + 1]);
+			if (target !== undefined) {
+				jumps.set(target, [...(jumps.get(target) ?? []), current]);
+			}
 		}
 		if (current === UNREACHED) {
 			// After a guard that always leaves: nothing here runs (issue #273).
@@ -593,8 +607,8 @@ function loopRunsNoPass(source: string, node: BodyNode, entry: ReachingAssignmen
 }
 
 /** The keys of every label a statement of the body jumps to or resumes at. */
-function referencedLabels(source: string, body: readonly BodyNode[], activity: ConditionalActivityTracker | undefined): Set<string> {
-	const out = new Set<string>();
+function referencedLabels(source: string, body: readonly BodyNode[], activity: ConditionalActivityTracker | undefined): Map<string, number> {
+	const out = new Map<string, number>();
 	const visit = (list: readonly BodyNode[]): void => {
 		for (const node of list) {
 			if (isInactiveNode(activity, node)) {
@@ -602,7 +616,7 @@ function referencedLabels(source: string, body: readonly BodyNode[], activity: C
 			}
 			if (isLeafStatement(node)) {
 				for (const ref of statementLabelReferences(source, node.span)) {
-					out.add(ref.key);
+					out.set(ref.key, (out.get(ref.key) ?? 0) + 1);
 				}
 			} else if ('body' in node && Array.isArray(node.body)) {
 				visit(node.body as BodyNode[]);
@@ -665,6 +679,58 @@ function loopBodyMayLeaveOrWrite(source: string, body: readonly BodyNode[], lowe
 	return false;
 }
 
+/**
+ * An expression of whole numbers and names that hold them here, as the
+ * tokens of its value, or undefined: `b + 1` with b at 5 is `6`. Kept to
+ * the Long range.
+ */
+function knownSum(value: readonly VbaToken[], before: ReachingAssignments): readonly VbaToken[] | undefined {
+	const result = evaluateIntegerConstantExpression(value.map((tok) => tok.rawText).join(' '), {
+		get: (lower) => {
+			const held = literalOf(before.get(lower));
+			return typeof held === 'number' ? held : undefined;
+		},
+	});
+	return result !== undefined && Number.isInteger(result) && result >= -2147483648 && result <= 2147483647 ? rawExpressionTokens(String(result)) : undefined;
+}
+
+/**
+ * The label key a statement jumps to when it is `GoTo L`, or a one-line If
+ * whose only branch is `GoTo L`. Undefined for anything else.
+ */
+function forwardGoTo(source: string, node: LeafStatementNode, next: BodyNode | undefined): string | undefined {
+	const refs = statementLabelReferences(source, node.span);
+	if (refs.length !== 1) {
+		return undefined;
+	}
+	const branches = node.kind === 'Statement' ? node.singleLineIfBranches : undefined;
+	if (branches) {
+		const then = branches.length === 1 ? statementTokensAfterLeadingLabel(source, branches[0]).filter((tok) => tok.kind !== 'comment') : [];
+		const tail = next && isLeafStatement(next) && next.singleLineIfTail;
+		return !tail && then.length === 2 && tokenText(then[0]) === 'goto' ? refs[0].key : undefined;
+	}
+	const toks = statementTokensAfterLeadingLabel(source, node.span).filter((tok) => tok.kind !== 'comment');
+	return toks.length === 2 && tokenText(toks[0]) === 'goto' ? refs[0].key : undefined;
+}
+
+/** What every one of the states holds alike. */
+function agreed(states: readonly ReachingAssignments[]): ReachingAssignments {
+	if (states.length === 0) {
+		return NONE;
+	}
+	const text = (value: readonly VbaToken[]): string => value.map((tok) => tok.rawText).join(' ');
+	const out = new Map<string, readonly VbaToken[]>();
+	for (const [key, value] of states[0]) {
+		if (states.every((state) => {
+			const other = state.get(key);
+			return other === value || (other !== undefined && value !== OBJECT_NOTHING && value !== EMPTY_COLLECTION && other !== OBJECT_NOTHING && other !== EMPTY_COLLECTION && text(other) === text(value));
+		})) {
+			out.set(key, value);
+		}
+	}
+	return out;
+}
+
 /** What holds after one plain statement runs. */
 function afterStatement(source: string, span: Span, before: ReachingAssignments): ReachingAssignments {
 	const toks = statementTokensAfterLeadingLabel(source, span);
@@ -706,7 +772,9 @@ function afterStatement(source: string, span: Span, before: ReachingAssignments)
 		// `d = a` copies what a holds here: `a = 0: d = a` leaves d 0, and a
 		// later change to a leaves d as it was (issue #346).
 		const copied = value.length === 1 ? tokenName(value[0])?.toLowerCase() : undefined;
-		next.set(bare.name.toLowerCase(), copied !== undefined && before.has(copied) ? before.get(copied)! : value);
+		// `b = b + 1` with b known: the sum, a whole number (issue #614).
+		const computed = copied === undefined && value.some((tok) => tokenName(tok) !== undefined) ? knownSum(value, before) : undefined;
+		next.set(bare.name.toLowerCase(), copied !== undefined && before.has(copied) ? before.get(copied)! : computed ?? value);
 		after = next;
 	}
 	const element = walkElements ? elementAssignment(toks, before) : undefined;
