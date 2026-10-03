@@ -19,6 +19,7 @@ import {
 	splitTopLevelTokenGroups,
 } from '../../lexer/tokenHelpers';
 import type { VbaToken } from '../../lexer/tokenKinds';
+import { MAX_EXPRESSION_DEPTH } from '../../parser/expressionLimits';
 import type {
 	BodyNode,
 	LeafStatementNode,
@@ -2034,7 +2035,7 @@ const STRCONV_CASES: Readonly<Record<string, number>> = { vbuppercase: 1, vblowe
  * a Date literal as a month or day name, and TypeName; a Range's Address;
  * Application.Name and PathSeparator. `Hex(9)` is "9", which converts.
  */
-function fixedTextPart(part: readonly VbaToken[], known: (lower: string) => KnownLocalValue | undefined, env: ReadonlyMap<string, string>, sourceNames: SourceNameScope): SpelledText | undefined {
+function fixedTextPart(part: readonly VbaToken[], known: (lower: string) => KnownLocalValue | undefined, env: ReadonlyMap<string, string>, sourceNames: SourceNameScope, nesting: number): SpelledText | undefined {
 	const exact = (text: string): SpelledText => ({ text, standIn: false });
 	const named = (text: string, what: string): SpelledText => ({ text, standIn: false, named: what });
 	const first = tokenText(part[0]);
@@ -2101,7 +2102,7 @@ function fixedTextPart(part: readonly VbaToken[], known: (lower: string) => Know
 			return args.length === 2 && n !== undefined && n <= 1000 && fill !== '' ? exact(fill[0].repeat(n)) : undefined;
 		}
 		case 'strconv': {
-			const subject = args.length === 2 ? spelledText(args[0], known, env, sourceNames) : undefined;
+			const subject = args.length === 2 ? spelledText(args[0], known, env, sourceNames, false, nesting + 1) : undefined;
 			const kind = args[1]?.length === 1 ? (whole(1) ?? STRCONV_CASES[tokenText(args[1][0])]) : undefined;
 			if (!subject || subject.standIn || subject.named !== undefined) {
 				return undefined;
@@ -2129,7 +2130,14 @@ function spelledText(
 	env: ReadonlyMap<string, string>,
 	sourceNames: SourceNameScope,
 	whole = false,
+	nesting = 0,
 ): SpelledText | undefined {
+	// Recover conservatively on unfinished or deeply nested editor input, as
+	// the expression parser and other recursive folders do. Siblings share
+	// the current depth; only descending into a call argument consumes it.
+	if (nesting >= MAX_EXPRESSION_DEPTH) {
+		return undefined;
+	}
 	let text = '';
 	let standIn = false;
 	const parts = splitTopLevelTokenGroups(toks, 0, '&');
@@ -2141,7 +2149,7 @@ function spelledText(
 		return undefined;
 	}
 	for (const part of parts) {
-		const spelled = spelledPart(unwrapOuterParens(part), known, env, sourceNames);
+		const spelled = spelledPart(unwrapOuterParens(part), known, env, sourceNames, nesting);
 		if (!spelled) {
 			return undefined;
 		}
@@ -2161,6 +2169,7 @@ function spelledPart(
 	known: (lower: string) => KnownLocalValue | undefined,
 	env: ReadonlyMap<string, string>,
 	sourceNames: SourceNameScope,
+	nesting: number,
 ): SpelledText | undefined {
 	const exact = (text: string): SpelledText => ({ text, standIn: false });
 	if (part.length === 2 && part[0].rawText === '-' && /^\d+[%&]?$/.test(part[1].rawText)) {
@@ -2201,7 +2210,7 @@ function spelledPart(
 		}
 		return undefined;
 	}
-	const fixed = fixedTextPart(part, known, env, sourceNames);
+	const fixed = fixedTextPart(part, known, env, sourceNames, nesting);
 	if (fixed) {
 		return fixed;
 	}
@@ -2212,7 +2221,7 @@ function spelledPart(
 		return undefined;
 	}
 	const args = splitTopLevelTokenGroups(part, open + 1, ',', part.length - 1);
-	const subject = spelledText(args[0], known, env, sourceNames);
+	const subject = spelledText(args[0], known, env, sourceNames, false, nesting + 1);
 	// Only CStr passes a Date written as text on: Left of it depends on the locale.
 	if (!subject || ((subject.standIn || subject.named !== undefined) && fn !== 'cstr')) {
 		return undefined;

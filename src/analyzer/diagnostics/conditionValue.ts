@@ -11,6 +11,7 @@
 // Not, And and Or over those. Anything else is undefined.
 
 import type { VbaToken } from '../lexer/tokenKinds';
+import { MAX_EXPRESSION_DEPTH } from '../parser/expressionLimits';
 import { matchParenFrom, splitTopLevelTokenGroups, tokenName, tokenWord as tokenText } from '../lexer/tokenHelpers';
 import type { ModuleCompare } from './knownStringCalls';
 import { isInvalidDateString, numericStringVerdict, valPrefixValue } from './stringConversion';
@@ -119,7 +120,17 @@ function truth(value: Value): boolean | undefined {
 class ConditionParser {
 	private index = 0;
 
-	constructor(private readonly toks: readonly VbaToken[], private readonly facts: ConditionFacts) {}
+	constructor(private readonly toks: readonly VbaToken[], private readonly facts: ConditionFacts, private nesting = 0) {}
+
+	/** Share the recovery budget across calls, parentheses and prefix operators. */
+	private descend<T>(read: () => T): T | undefined {
+		if (this.nesting + 1 >= MAX_EXPRESSION_DEPTH) {
+			this.index = this.toks.length + 1;
+			return undefined;
+		}
+		this.nesting++;
+		try { return read(); } finally { this.nesting--; }
+	}
 
 	done(): boolean {
 		return this.index >= this.toks.length;
@@ -130,6 +141,7 @@ class ConditionParser {
 	}
 
 	orExpr(): Value {
+		if (this.nesting >= MAX_EXPRESSION_DEPTH) { return undefined; }
 		let value = this.andExpr();
 		while (this.word() === 'or') {
 			this.index++;
@@ -156,7 +168,7 @@ class ConditionParser {
 	private notExpr(): Value {
 		if (this.word() === 'not') {
 			this.index++;
-			const value = truth(this.notExpr());
+			const value = truth(this.descend(() => this.notExpr()));
 			return value === undefined ? undefined : !value;
 		}
 		return this.comparison();
@@ -235,6 +247,7 @@ class ConditionParser {
 
 	/** `&` joins strings, and whole numbers and Booleans as VBA spells them: `"a" & k` (issue #691). */
 	concat(): Operand {
+		if (this.nesting >= MAX_EXPRESSION_DEPTH) { return undefined; }
 		let value = this.sum();
 		while (this.toks[this.index]?.rawText === '&') {
 			this.index++;
@@ -283,7 +296,7 @@ class ConditionParser {
 	private unary(): Operand {
 		if (this.toks[this.index]?.rawText === '-') {
 			this.index++;
-			const value = this.unary();
+			const value = this.descend(() => this.unary());
 			return typeof value === 'number' ? -value + 0 : undefined;
 		}
 		return this.power();
@@ -309,7 +322,7 @@ class ConditionParser {
 		}
 		if (tok.rawText === '(') {
 			this.index++;
-			const value = this.orExpr();
+			const value = this.descend(() => this.orExpr());
 			if (this.toks[this.index]?.rawText !== ')') {
 				this.index = this.toks.length + 1;
 				return undefined;
@@ -587,7 +600,7 @@ class ConditionParser {
 				if (groups.length !== 3) {
 					return undefined;
 				}
-				const parser = new ConditionParser(groups[0], this.facts);
+				const parser = new ConditionParser(groups[0], this.facts, this.nesting + 1);
 				const condition = truth(parser.orExpr());
 				return condition === undefined || !parser.done() ? undefined : value(condition ? 1 : 2);
 			}
@@ -609,7 +622,7 @@ class ConditionParser {
 		if (word === 'vbbinarycompare' || word === 'vbtextcompare') {
 			return word === 'vbtextcompare' ? 1 : 0;
 		}
-		const parser = new ConditionParser(toks, this.facts);
+		const parser = new ConditionParser(toks, this.facts, this.nesting + 1);
 		const value = parser.concat();
 		return parser.done() && typeof value !== 'object' ? value : undefined;
 	}
