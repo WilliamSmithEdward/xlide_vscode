@@ -1303,6 +1303,10 @@ function returnIsNotExpected(
 	let executable = 0;
 	let raises = false;
 	forEachStatement(proc.body, (stmt) => {
+		if (raises) {
+			return;
+		}
+
 		const text = source.slice(stmt.span.start, stmt.span.end).trim();
 		if (!text || text.startsWith("'") || /^(Dim|Const|Static|ReDim)\b/i.test(text)) {
 			return;
