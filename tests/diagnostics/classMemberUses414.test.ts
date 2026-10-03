@@ -80,3 +80,32 @@ describe('a class member used as its declaration allows', () => {
 		expect(found(members, 'Main = c.Self.F.Count')).toEqual(['argument-count']);
 	});
 });
+
+describe('a Let into a class Function or a Set-only property (issue #414)', () => {
+	const VARIANT_FN = 'Public Function M() As Variant\n    M = 1\nEnd Function';
+	it('reports a Let into a Function returning a Variant or a Collection', () => {
+		expect(found(VARIANT_FN, 'c.M = 5')).toEqual(['variant-value-misuse']);
+		expect(found(VARIANT_FN, 'With c\n        .M = 1\n    End With')).toEqual(['variant-value-misuse']);
+		expect(found('Public Function M()\n    M = 1\nEnd Function', 'c.M = 5')).toEqual(['variant-value-misuse']);
+		expect(found('Public Function M() As Collection\n    Set M = New Collection\nEnd Function', 'c.M = 5')).toEqual(['argument-count']);
+		expect(found(VARIANT_FN, 'c.M(1) = 2')).toEqual(['variant-value-misuse']);
+	});
+
+	it('stays quiet where the Function may return an object, or takes a parameter', () => {
+		expect(found('Public Function M() As Variant\n    Set M = New Collection\nEnd Function', 'c.M = 5')).toEqual([]);
+		expect(found('Public Function M(Optional ByVal i As Long) As Variant\n    M = 1\nEnd Function', 'c.M = 5')).toEqual([]);
+	});
+
+	it('reports a Let into a Property Set with no Let, indexed or not', () => {
+		const SET_ONLY = 'Public Property Set M(ByVal v As Object)\nEnd Property';
+		expect(found(SET_ONLY, 'c.M(1) = 2')).toEqual(['invalid-property-use']);
+		expect(found(SET_ONLY, 'c.M = 5')).toEqual(['set-required']);
+		expect(found(SET_ONLY, 'Set c.M = New Collection')).toEqual([]);
+	});
+
+	it('stays quiet on a read, a Let property and a Function returning Object', () => {
+		expect(found(VARIANT_FN, 'Main = c.M')).toEqual([]);
+		expect(found('Public Property Let M(ByVal v As Variant)\nEnd Property', 'c.M = 5')).toEqual([]);
+		expect(found('Public Function M() As Object\n    Set M = Nothing\nEnd Function', 'c.M = 5')).toEqual([]);
+	});
+});

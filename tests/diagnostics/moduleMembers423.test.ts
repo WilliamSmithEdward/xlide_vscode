@@ -47,6 +47,7 @@ describe("a standard module's member used against its kind (issue #423)", () => 
 		expect(errors('Module2.M = 9', 'Public Function M() As Variant\nEnd Function')).toEqual([]);
 		expect(errors('Module2.M = 9', 'Public M As Long')).toEqual([]);
 		expect(errors('Dim Module2 As New Class1\n    Module2.M = 9', SUB, 'Public M As Long')).toEqual([]);
-		expect(errors('Dim c As New Class1\n    c.M = 9', 'Public Sub Other()\nEnd Sub', 'Public Function M() As Variant\nEnd Function')).toEqual([]);
+		// It compiles, and raises 424 when it runs: M returns Empty (issue #414).
+		expect(errors('Dim c As New Class1\n    c.M = 9', 'Public Sub Other()\nEnd Sub', 'Public Function M() As Variant\nEnd Function')).toEqual(['variant-value-misuse']);
 	});
 });

@@ -167,6 +167,8 @@ export interface MemberCompletion {
 	setAccessor?: boolean;
 	/** How many parameters a project property's Let declares, the value's included (issue #414). */
 	letParamCount?: number;
+	/** What a project class member is known to hold or return: Nothing, Empty or a value (issue #414). */
+	knownValue?: 'nothing' | 'empty' | 'scalar';
 	/** Exported attribute lines attached to this member. */
 	attributes?: readonly VbaSymbolAttribute[];
 }
@@ -646,6 +648,7 @@ function completionFromSurfaceMember(
 		sub: mem.sub,
 		setAccessor: mem.setAccessor,
 		...(letParamsOf(mem) !== undefined ? { letParamCount: letParamsOf(mem) } : {}),
+		...((mem as { knownValue?: MemberCompletion['knownValue'] }).knownValue ? { knownValue: (mem as { knownValue?: MemberCompletion['knownValue'] }).knownValue } : {}),
 		attributes: mem.attributes,
 	};
 }
