@@ -37,12 +37,15 @@ import {
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type { BodyNode, LeafStatementNode, ModuleNode, ProcedureNode, Span } from '../../parser/nodes';
 import { isLeafStatement } from '../../parser/nodes';
+import { splitTopLevelTokenGroups } from '../../lexer/tokenHelpers';
 import type { PushFn } from '../analysisContext';
 import { straightLineUnreachable } from '../straightLineValues';
 import {
 	activeModuleMembers,
 	bareAssignmentTarget,
+	blockHeaderLineSpan,
 	firstExecutableTokenIndex,
+	matchParenFrom,
 	statementAndBranchSpans,
 	statementTokens,
 	statementTokensAfterLeadingLabel,
@@ -63,7 +66,10 @@ export function checkHandlerFlow(
 	mod: ModuleNode,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	className?: string,
 ): void {
+	// `New Class1` inside Class1 makes another of this class (issue #613).
+	const ownClass = className?.toLowerCase();
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
@@ -77,9 +83,30 @@ export function checkHandlerFlow(
 		for (const body of bodyLists(member.body)) {
 			checkFallThroughIntoTargets(source, member, body === member.body ? entries : topLevelEntries(source, body, activity), references, push);
 		}
-		checkRecursiveProperty(source, member, entries, push);
+		checkRecursiveProperty(source, member, entries, ownClass, push);
 	}
-	checkUnboundedRecursion(source, mod, activity, push);
+	checkUnboundedRecursion(source, mod, activity, ownClass, push);
+}
+
+/**
+ * The names a statement at the top of a body makes another way to this
+ * object, or to a new one of its class that does the same: `Set o = Me`,
+ * `Set o = New Class1` (issue #613). Me is always one.
+ */
+function noteSelfAlias(toks: readonly VbaToken[], selves: Set<string>, ownClass: string | undefined): void {
+	const words = toks.filter((tok) => tok.kind !== 'comment');
+	const name = tokenText(words[0]) === 'set' && words[2]?.rawText === '=' ? tokenName(words[1])?.toLowerCase() : undefined;
+	if (!name) {
+		return;
+	}
+	const value = words.slice(3);
+	const self = (value.length === 1 && selves.has(tokenText(value[0])))
+		|| (ownClass !== undefined && value.length === 2 && tokenText(value[0]) === 'new' && tokenText(value[1]) === ownClass);
+	if (self) {
+		selves.add(name);
+	} else {
+		selves.delete(name);
+	}
 }
 
 /** A procedure's body, and every body a block in it holds: each If arm alone. */
@@ -389,23 +416,55 @@ function checkRecursiveProperty(
 	source: string,
 	proc: ProcedureNode,
 	entries: readonly TopLevelEntry[],
+	ownClass: string | undefined,
 	push: PushFn,
 ): void {
 	if (proc.procKind !== 'PropertyGet' && proc.procKind !== 'PropertyLet' && proc.procKind !== 'PropertySet') {
 		return;
 	}
 	const lower = proc.name.toLowerCase();
+	// Me, and a local set to it (issue #613).
+	const selves = new Set(['me']);
+	// The statements that run once each: the top level, and the body of a
+	// `With Me` there, whose `.Value` is Me's (issue #613).
+	const leaves: Array<{ leaf: LeafStatementNode; within: boolean }> = [];
 	for (const entry of entries) {
-		if (!entry.leaf) {
+		if (entry.leaf) {
+			leaves.push({ leaf: entry.leaf, within: false });
 			continue;
 		}
-		const toks = statementTokensAfterLeadingLabel(source, entry.leaf.span);
+		if (entry.node.kind === 'WithBlock') {
+			const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, entry.node.span)).filter((tok) => tok.kind !== 'comment');
+			if (header.length === 2 && selves.has(tokenText(header[1]))) {
+				for (const child of entry.node.body) {
+					if (isLeafStatement(child) && !(child.kind === 'Statement' && child.singleLineIfBranches)) {
+						leaves.push({ leaf: child, within: true });
+					}
+				}
+			}
+		}
+	}
+	for (const { leaf, within } of leaves) {
+		const own = statementTokensAfterLeadingLabel(source, leaf.span);
+		if (!within) {
+			noteSelfAlias(own, selves, ownClass);
+		}
+		// Inside `With Me`, a leading dot is Me's.
+		const toks = within && own[0]?.rawText === '.' ? [{ ...own[0], kind: 'identifier' as const, rawText: 'Me', end: own[0].start }, ...own]
+			: within ? own.flatMap((tok, i) => (tok.rawText === '.' && i > 0 && !['identifier', 'bracketedIdentifier'].includes(own[i - 1].kind) && own[i - 1].rawText !== ')'
+				? [{ ...tok, kind: 'identifier' as const, rawText: 'Me', end: tok.start }, tok] : [tok]))
+			: own;
+		const entry = { leaf };
 		if (proc.procKind === 'PropertyGet') {
 			// `Name = Me.Name`: the bare Name is the return variable, `Me.Name`
-			// the property, which is this procedure.
+			// the property, which is this procedure. `Me.Name = 7` assigns,
+			// and calls the Let (issue #613).
 			for (let i = 0; i + 2 < toks.length; i++) {
-				if (tokenText(toks[i]) === 'me' && toks[i + 1].rawText === '.' && tokenName(toks[i + 2])?.toLowerCase() === lower
-					&& !(proc.params.length > 0) && toks[i + 3]?.rawText !== '(') {
+				const assigned = toks[i + 3]?.rawText === '=' && (i === 0 || ['then', 'else', 'set', ':'].includes(tokenText(toks[i - 1]) || toks[i - 1].rawText));
+				// `Item = Me.Item(i)`: the same arguments again (issue #613).
+				const sameArguments = proc.params.length > 0 && toks[i + 3]?.rawText === '(' && sameArgumentsAt(toks, i + 3, proc);
+				if (selves.has(tokenText(toks[i])) && toks[i + 1].rawText === '.' && tokenName(toks[i + 2])?.toLowerCase() === lower && !assigned
+					&& ((proc.params.length === 0 && toks[i + 3]?.rawText !== '(') || sameArguments)) {
 					push(
 						'recursivePropertyAccessor',
 						`Property Get '${proc.name}' reads 'Me.${proc.name}', which is itself: the call never returns. This will raise Run-time error '28': Out of stack space.`,
@@ -429,7 +488,7 @@ function checkRecursiveProperty(
 		// property assigned through Me is this procedure (issue #338).
 		const meAt = tokenText(toks[0]) === 'set' ? 1 : 0;
 		const setForm = meAt === 1;
-		if (tokenText(toks[meAt]) === 'me' && toks[meAt + 1]?.rawText === '.' && tokenName(toks[meAt + 2])?.toLowerCase() === lower
+		if (selves.has(tokenText(toks[meAt])) && toks[meAt + 1]?.rawText === '.' && tokenName(toks[meAt + 2])?.toLowerCase() === lower
 			&& toks[meAt + 3]?.rawText === '=' && setForm === (proc.procKind === 'PropertySet') && proc.params.length === 1) {
 			push(
 				'recursivePropertyAccessor',
@@ -480,6 +539,7 @@ function checkUnboundedRecursion(
 	source: string,
 	mod: ModuleNode,
 	activity: ConditionalActivityTracker | undefined,
+	ownClass: string | undefined,
 	push: PushFn,
 ): void {
 	const procedures = new Map<string, ProcedureNode>();
@@ -490,7 +550,7 @@ function checkUnboundedRecursion(
 	}
 	const firstCalls = new Map<string, FirstCall>();
 	for (const [lower, proc] of procedures) {
-		const call = firstUnconditionalCall(source, proc, procedures, activity);
+		const call = firstUnconditionalCall(source, proc, procedures, activity, ownClass);
 		if (call) {
 			firstCalls.set(lower, call);
 		}
@@ -523,7 +583,9 @@ function firstUnconditionalCall(
 	proc: ProcedureNode,
 	procedures: ReadonlyMap<string, ProcedureNode>,
 	activity: ConditionalActivityTracker | undefined,
+	ownClass?: string,
 ): FirstCall | undefined {
+	const selves = new Set(['me']);
 	for (const entry of topLevelEntries(source, proc.body, activity)) {
 		if (entry.node.kind === 'VariableGroup') {
 			continue;
@@ -542,7 +604,8 @@ function firstUnconditionalCall(
 		if (tokenText(toks[0]) === 'if') {
 			continue; // a single-line If runs its call on some paths only
 		}
-		const call = procedureCallIn(toks, procedures);
+		noteSelfAlias(toks, selves, ownClass);
+		const call = procedureCallIn(toks, procedures, selves);
 		if (call) {
 			return { callee: call.callee, span: absoluteRange(entry.leaf.span, call.first, call.last) };
 		}
@@ -560,7 +623,23 @@ function firstUnconditionalCall(
 function procedureCallIn(
 	toks: readonly VbaToken[],
 	procedures: ReadonlyMap<string, ProcedureNode>,
+	selves: ReadonlySet<string> = new Set(['me']),
 ): { callee: string; first: VbaToken; last: VbaToken } | undefined {
+	// `CallByName Me, "Go", VbMethod` calls Go (issue #613, measured in Excel
+	// 16.0).
+	const byName = toks.findIndex((tok, i) => tokenText(tok) === 'callbyname' && toks[i - 1]?.rawText !== '.');
+	if (byName >= 0) {
+		const open = toks[byName + 1]?.rawText === '(' ? byName + 1 : -1;
+		const close = open > 0 ? matchParenFrom([...toks], open) : toks.length;
+		const args = splitTopLevelTokenGroups([...toks], open > 0 ? open + 1 : byName + 1, ',', close);
+		const target = args[1]?.length === 1 && args[1][0].kind === 'stringLiteral' ? args[1][0].rawText.slice(1, -1).toLowerCase() : undefined;
+		const callee = target ? procedures.get(target) : undefined;
+		const callType = args[2]?.map((tok) => tokenText(tok)).join('');
+		if (args.length === 3 && args[0].length === 1 && selves.has(tokenText(args[0][0])) && callee && (callType === 'vbmethod' || callType === '1')
+			&& !callee.modifiers.some((modifier) => modifier.toLowerCase() === 'private') && callee.params.length === 0) {
+			return { callee: target!, first: toks[byName], last: args[1][0] };
+		}
+	}
 	const head = tokenText(toks[0]) === 'call' ? 1 : 0;
 	const headName = tokenName(toks[head])?.toLowerCase();
 	const headProc = headName ? procedures.get(headName) : undefined;
@@ -574,7 +653,7 @@ function procedureCallIn(
 	for (let i = 2; i < toks.length; i++) {
 		const lower = tokenName(toks[i])?.toLowerCase();
 		const callee = lower ? procedures.get(lower) : undefined;
-		if (callee && toks[i - 1].rawText === '.' && tokenText(toks[i - 2]) === 'me' && toks[i - 3]?.rawText !== '.'
+		if (callee && toks[i - 1].rawText === '.' && selves.has(tokenText(toks[i - 2])) && toks[i - 3]?.rawText !== '.'
 			&& !callee.modifiers.some((modifier) => modifier.toLowerCase() === 'private')
 			&& (callee.params.length === 0 || toks[i + 1]?.rawText === '(')) {
 			return { callee: lower!, first: toks[i - 2], last: toks[i] };
@@ -595,6 +674,13 @@ function procedureCallIn(
 		return { callee: lower!, first: toks[i], last: toks[i] };
 	}
 	return undefined;
+}
+
+/** Whether the argument list opening at `open` passes the procedure's own parameters, in order. */
+function sameArgumentsAt(toks: readonly VbaToken[], open: number, proc: ProcedureNode): boolean {
+	const close = matchParenFrom([...toks], open);
+	const args = close > open + 1 ? splitTopLevelTokenGroups([...toks], open + 1, ',', close) : [];
+	return args.length === proc.params.length && args.every((arg, k) => arg.length === 1 && tokenName(arg[0])?.toLowerCase() === proc.params[k].name.toLowerCase());
 }
 
 function absoluteRange(base: Span, first: VbaToken, last: VbaToken): Span {

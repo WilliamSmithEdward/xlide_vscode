@@ -7131,7 +7131,11 @@
         "issue117_e_runtime",
         "issue338_01_runtime",
         "issue338_02_runtime",
-        "issue338_03_runtime"
+        "issue338_03_runtime",
+        "issue613_02_runtime",
+        "issue613_03_runtime",
+        "issue613_04_runtime",
+        "issue613_05_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -7679,7 +7683,9 @@
         "issue240_39_runtime",
         "issue338_04_runtime",
         "issue338_05_runtime",
-        "issue338_06_runtime"
+        "issue338_06_runtime",
+        "issue613_06_runtime",
+        "issue613_07_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
