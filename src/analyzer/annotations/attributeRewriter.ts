@@ -105,183 +105,161 @@ export function applyAttributeAnnotations(
 	return { text: text.toString(), changes, skipped };
 }
 
+interface ModuleLine {
+	text: string;
+	next?: ModuleLine;
+}
+
 class ModuleText {
-	private readonly lines: string[];
+	private readonly first: ModuleLine;
 	private readonly eol: string;
+	private indexed = false;
+	private readonly procedures = new Map<string, ModuleLine[]>();
+	private readonly variables = new Map<string, ModuleLine>();
+	private readonly continuationEnds = new WeakMap<ModuleLine, ModuleLine>();
+	private readonly ownedAttributes = new WeakMap<ModuleLine, Map<string, ModuleLine>>();
 
 	constructor(source: string) {
 		this.eol = source.includes('\r\n') ? '\r\n' : '\n';
-		this.lines = source.replace(/\r\n/g, '\n').split('\n');
+		const lines = source.replace(/\r\n/g, '\n').split('\n');
+		let next: ModuleLine | undefined;
+		for (let i = lines.length - 1; i >= 0; i--) { next = { text: lines[i], next }; }
+		this.first = next!;
 	}
 
 	toString(): string {
-		return this.lines.join(this.eol);
+		const lines: string[] = [];
+		for (let line: ModuleLine | undefined = this.first; line; line = line.next) { lines.push(line.text); }
+		return lines.join(this.eol);
 	}
 
-	/** One past the last line of the header: the preamble and its attributes. */
-	private headerEnd(): number {
-		let end = 0;
-		for (let at = 0; at < this.lines.length; at += 1) {
-			if (HEADER_PREAMBLE.test(this.lines[at])) {
-				end = at + 1;
-				continue;
-			}
-			if (end > 0) {
-				break;
-			}
+	/** The final header line: the preamble and its attributes. */
+	private headerEnd(): ModuleLine | undefined {
+		let end: ModuleLine | undefined;
+		for (let line: ModuleLine | undefined = this.first; line; line = line.next) {
+			if (HEADER_PREAMBLE.test(line.text)) { end = line; continue; }
+			if (end) { break; }
 		}
 		return end;
 	}
 
-	private moduleAttributeIndex(attribute: string): number {
+	private moduleAttribute(attribute: string): ModuleLine | undefined {
 		const end = this.headerEnd();
-		for (let at = 0; at < end; at += 1) {
-			const match = MODULE_ATTRIBUTE.exec(this.lines[at]);
-			if (match && match[1].toLowerCase() === attribute.toLowerCase()) {
-				return at;
-			}
+		if (!end) { return undefined; }
+		for (let line: ModuleLine | undefined = this.first; line; line = line.next) {
+			const match = MODULE_ATTRIBUTE.exec(line.text);
+			if (match && match[1].toLowerCase() === attribute.toLowerCase()) { return line; }
+			if (line === end) { break; }
 		}
-		return -1;
+		return undefined;
 	}
 
-	setModule(
-		attribute: string,
-		value: string,
-		changes: AttributeChange[],
-		skipped: string[],
-		canInsert: boolean,
-	): void {
-		const at = this.moduleAttributeIndex(attribute);
-		if (at >= 0) {
-			const was = MODULE_ATTRIBUTE.exec(this.lines[at])![2];
+	setModule(attribute: string, value: string, changes: AttributeChange[], skipped: string[], canInsert: boolean): void {
+		const line = this.moduleAttribute(attribute);
+		if (line) {
+			const was = MODULE_ATTRIBUTE.exec(line.text)![2];
 			if (was !== value) {
-				this.lines[at] = `Attribute ${attribute} = ${value}`;
+				line.text = 'Attribute '+attribute+' = '+value;
 				changes.push({ target: 'module', attribute, from: was, to: value });
 			}
 			return;
 		}
 		if (!canInsert) {
-			// A standard module's header has no VB_PredeclaredId or VB_Exposed
-			// line, and the editor gives those meaning only on a class.
-			skipped.push(`${attribute} is not an attribute this kind of module carries.`);
+			skipped.push(attribute+' is not an attribute this kind of module carries.');
 			return;
 		}
 		const end = this.headerEnd();
-		if (end === 0) {
-			skipped.push(`the module has no header to put ${attribute} in.`);
+		if (!end) {
+			skipped.push('the module has no header to put '+attribute+' in.');
 			return;
 		}
-		this.lines.splice(end, 0, `Attribute ${attribute} = ${value}`);
+		end.next = { text: 'Attribute '+attribute+' = '+value, next: end.next };
 		changes.push({ target: 'module', attribute, to: value });
 	}
 
-	/** The last line of the nth header named `name`, or -1. */
-	private headerIndex(name: string, occurrence: number): number {
-		let seen = 0;
-		for (let at = this.headerEnd(); at < this.lines.length; at += 1) {
-			const match = PROCEDURE_HEADER.exec(this.lines[at]);
-			if (!match || match[1].toLowerCase() !== name.toLowerCase()) {
-				continue;
-			}
-			if (seen++ !== occurrence) {
-				continue;
-			}
-			// The attributes follow the header's LAST line, which is the last
-			// one ending in a continuation.
-			let last = at;
-			while (last < this.lines.length - 1 && this.lines[last].trimEnd().endsWith('_')) {
-				last += 1;
-			}
-			return last;
-		}
-		return -1;
-	}
-
-	private variableIndex(name: string): number {
+	/** Line references survive inserted attributes; target lookup is built once. */
+	private indexTargets(): void {
+		if (this.indexed) { return; }
+		this.indexed = true;
+		let declarations = true;
 		const end = this.headerEnd();
-		for (let at = end; at < this.lines.length; at += 1) {
-			if (PROCEDURE_HEADER.test(this.lines[at])) {
-				// Past the declarations section; a module-level variable is not
-				// down here.
-				return -1;
-			}
-			const match = VARIABLE_DECLARATION.exec(this.lines[at]);
-			if (match && match[1].toLowerCase() === name.toLowerCase()) {
-				return at;
+		for (let line = end ? end.next : this.first; line; line = line.next) {
+			const header = PROCEDURE_HEADER.exec(line.text);
+			if (header) {
+				declarations = false;
+				const key = header[1].toLowerCase();
+				const list = this.procedures.get(key) ?? [];
+				list.push(this.continuedHeaderEnd(line));
+				this.procedures.set(key, list);
+			} else if (declarations) {
+				const variable = VARIABLE_DECLARATION.exec(line.text);
+				if (variable && !this.variables.has(variable[1].toLowerCase())) { this.variables.set(variable[1].toLowerCase(), line); }
 			}
 		}
-		return -1;
 	}
 
-	setMember(
-		annotation: Annotation,
-		attribute: string,
-		value: string,
-		changes: AttributeChange[],
-		skipped: string[],
-	): void {
+	private continuedHeaderEnd(line: ModuleLine): ModuleLine {
+		let last = line;
+		const continued: ModuleLine[] = [];
+		while (last.next && last.text.trimEnd().endsWith('_')) {
+			const cached = this.continuationEnds.get(last);
+			if (cached) { last = cached; break; }
+			continued.push(last);
+			last = last.next;
+		}
+		for (const one of continued) { this.continuationEnds.set(one, last); }
+		return last;
+	}
+
+	setMember(annotation: Annotation, attribute: string, value: string, changes: AttributeChange[], skipped: string[]): void {
+		this.indexTargets();
 		const owner = annotation.target!;
-		// The leg was counted when the annotation was read; deriving it from a
-		// line number here would be read against text this has already edited.
-		const header = this.headerIndex(owner, annotation.targetOccurrence ?? 0);
-		if (header < 0) {
-			skipped.push(
-				`no procedure named '${owner}' was found for ${spelledAnnotation(annotation.kind)}.`,
-			);
+		// A property's Get/Let/Set occurrence was counted before any insertions.
+		const header = this.procedures.get(owner.toLowerCase())?.[annotation.targetOccurrence ?? 0];
+		if (!header) {
+			skipped.push("no procedure named '"+owner+"' was found for "+spelledAnnotation(annotation.kind)+'.');
 			return;
 		}
 		this.setOwned(header, owner, attribute, value, changes);
 	}
 
-	setVariable(
-		annotation: Annotation,
-		value: string,
-		changes: AttributeChange[],
-		skipped: string[],
-	): void {
+	setVariable(annotation: Annotation, value: string, changes: AttributeChange[], skipped: string[]): void {
+		this.indexTargets();
 		const owner = annotation.target!;
-		const at = this.variableIndex(owner);
-		if (at < 0) {
-			skipped.push(`no module-level variable named '${owner}' was found for '@VariableDescription.`);
+		const line = this.variables.get(owner.toLowerCase());
+		if (!line) {
+			skipped.push("no module-level variable named '"+owner+"' was found for '@VariableDescription.");
 			return;
 		}
-		this.setOwned(at, owner, 'VB_VarDescription', value, changes);
+		this.setOwned(line, owner, 'VB_VarDescription', value, changes);
 	}
 
-	private setOwned(
-		after: number,
-		owner: string,
-		attribute: string,
-		value: string,
-		changes: AttributeChange[],
-	): void {
-		const at = this.ownedIndex(after, owner, attribute);
-		const line = `Attribute ${owner}.${attribute} = ${value}`;
-		if (at >= 0) {
-			const was = this.lines[at].slice(this.lines[at].indexOf('=') + 1).trim();
+	private setOwned(after: ModuleLine, owner: string, attribute: string, value: string, changes: AttributeChange[]): void {
+		let attributes = this.ownedAttributes.get(after);
+		if (!attributes) {
+			attributes = new Map();
+			for (let line = after.next; line; line = line.next) {
+				const match = OWNED_ATTRIBUTE.exec(line.text);
+				if (!match) { break; }
+				const key = match[1].toLowerCase()+'.'+match[2].toLowerCase();
+				if (!attributes.has(key)) { attributes.set(key, line); }
+			}
+			this.ownedAttributes.set(after, attributes);
+		}
+		const key = owner.toLowerCase()+'.'+attribute.toLowerCase();
+		const existing = attributes.get(key);
+		const text = 'Attribute '+owner+'.'+attribute+' = '+value;
+		if (existing) {
+			const was = existing.text.slice(existing.text.indexOf('=') + 1).trim();
 			if (was !== value) {
-				this.lines[at] = line;
+				existing.text = text;
 				changes.push({ target: owner, attribute, from: was, to: value });
 			}
 			return;
 		}
-		this.lines.splice(after + 1, 0, line);
+		const line = { text, next: after.next };
+		after.next = line;
+		attributes.set(key, line);
 		changes.push({ target: owner, attribute, to: value });
-	}
-
-	/** An existing `Attribute Owner.Name = ...` in the run below a header. */
-	private ownedIndex(after: number, owner: string, attribute: string): number {
-		for (let at = after + 1; at < this.lines.length; at += 1) {
-			const match = OWNED_ATTRIBUTE.exec(this.lines[at]);
-			if (!match) {
-				// The attribute run ends at the first line that is not one.
-				return -1;
-			}
-			if (match[1].toLowerCase() === owner.toLowerCase()
-				&& match[2].toLowerCase() === attribute.toLowerCase()) {
-				return at;
-			}
-		}
-		return -1;
 	}
 }
