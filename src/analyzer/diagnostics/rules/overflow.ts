@@ -308,8 +308,10 @@ const BINARY_ON_NUMBERS: ReadonlySet<string> = new Set(['+', '-', '*', '/', '\\'
 /** The operators a String beside a number converts under in a Const (issue #494). */
 const ARITHMETIC_BESIDE: ReadonlySet<string> = new Set(['+', '-', '*', '/']);
 
-/** The logical operators, lowest precedence first. */
-const LOGICAL_OPERATORS = ['imp', 'eqv', 'xor', 'or', 'and'] as const;
+/** Logical precedence; equal precedence splits at the last operator. */
+const LOGICAL_PRECEDENCE: ReadonlyMap<string, number> = new Map([
+	['imp', 0], ['eqv', 1], ['xor', 2], ['or', 3], ['and', 4],
+]);
 
 /** What TypedFolder.logical answers for an expression with no logical operator. */
 const NOT_LOGICAL = Symbol('not logical');
@@ -358,48 +360,53 @@ class TypedFolder {
 	 * (issue #367, measured in Excel 16.0) and error 6 at run time (#323).
 	 */
 	private logical(): Folded | typeof NOT_LOGICAL {
-		for (const word of LOGICAL_OPERATORS) {
-			let depth = 0;
-			let at = -1;
-			this.toks.forEach((tok, i) => {
-				depth += tok.rawText === '(' ? 1 : tok.rawText === ')' ? -1 : 0;
-				if (depth === 0 && i > 0 && tok.kind === 'keyword' && tokenText(tok) === word) {
-					at = i;
-				}
-			});
-			if (at < 0) {
-				continue;
+		let depth = 0;
+		let at = -1;
+		let precedence = Infinity;
+		let word = '';
+		// Locate the last top-level operator of the lowest precedence in one
+		// pass, including the common arithmetic-only case with no operator.
+		for (let i = 0; i < this.toks.length; i++) {
+			const tok = this.toks[i];
+			depth += tok.rawText === '(' ? 1 : tok.rawText === ')' ? -1 : 0;
+			if (depth !== 0 || i === 0 || tok.kind !== 'keyword') { continue; }
+			const lower = tokenText(tok);
+			const rank = LOGICAL_PRECEDENCE.get(lower);
+			if (rank !== undefined && rank <= precedence) {
+				at = i;
+				precedence = rank;
+				word = lower;
 			}
-			const left = this.stringOperand(this.toks.slice(0, at)) ?? new TypedFolder(this.toks.slice(0, at), this.base, this.names, this.divisionByZero).fold();
-			if (left === undefined || isOverflow(left)) {
-				return left;
-			}
-			const right = this.stringOperand(this.toks.slice(at + 1)) ?? new TypedFolder(this.toks.slice(at + 1), this.base, this.names, this.divisionByZero).fold();
-			if (right === undefined || isOverflow(right)) {
-				return right;
-			}
-			if (left.type === 'longlong' || right.type === 'longlong') {
-				return undefined;
-			}
-			const span = this.span(0, this.toks.length - 1);
-			const operands = [left, right].map((operand) => bankersRound(operand.value));
-			const outside = [left, right].find((_, k) => !inRange(operands[k], 'long'));
-			if (outside) {
-				return { overflow: true, span, detail: `${describe(outside)} is outside the Long range that ${this.toks[at].rawText} converts its operands to` };
-			}
-			const [a, b] = operands;
-			const value = word === 'and' ? a & b : word === 'or' ? a | b : word === 'xor' ? a ^ b : word === 'eqv' ? ~(a ^ b) : ~a | b;
-			const small = (operand: Typed): boolean => operand.type === 'byte' || operand.type === 'integer';
-			const type: NumericType = left.type === 'byte' && right.type === 'byte' ? 'byte' : small(left) && small(right) ? 'integer' : 'long';
-			const kept = type === 'byte' ? value & 0xff : value;
-			return {
-				value: kept,
-				type,
-				...(left.constant && right.constant ? { constant: true } : {}),
-				...(left.boolean && right.boolean ? { boolean: true } : {}),
-			};
 		}
-		return NOT_LOGICAL;
+		if (at < 0) { return NOT_LOGICAL; }
+		const left = this.stringOperand(this.toks.slice(0, at)) ?? new TypedFolder(this.toks.slice(0, at), this.base, this.names, this.divisionByZero).fold();
+		if (left === undefined || isOverflow(left)) {
+			return left;
+		}
+		const right = this.stringOperand(this.toks.slice(at + 1)) ?? new TypedFolder(this.toks.slice(at + 1), this.base, this.names, this.divisionByZero).fold();
+		if (right === undefined || isOverflow(right)) {
+			return right;
+		}
+		if (left.type === 'longlong' || right.type === 'longlong') {
+			return undefined;
+		}
+		const span = this.span(0, this.toks.length - 1);
+		const operands = [left, right].map((operand) => bankersRound(operand.value));
+		const outside = [left, right].find((_, k) => !inRange(operands[k], 'long'));
+		if (outside) {
+			return { overflow: true, span, detail: `${describe(outside)} is outside the Long range that ${this.toks[at].rawText} converts its operands to` };
+		}
+		const [a, b] = operands;
+		const value = word === 'and' ? a & b : word === 'or' ? a | b : word === 'xor' ? a ^ b : word === 'eqv' ? ~(a ^ b) : ~a | b;
+		const small = (operand: Typed): boolean => operand.type === 'byte' || operand.type === 'integer';
+		const type: NumericType = left.type === 'byte' && right.type === 'byte' ? 'byte' : small(left) && small(right) ? 'integer' : 'long';
+		const kept = type === 'byte' ? value & 0xff : value;
+		return {
+			value: kept,
+			type,
+			...(left.constant && right.constant ? { constant: true } : {}),
+			...(left.boolean && right.boolean ? { boolean: true } : {}),
+		};
 	}
 
 	/**
