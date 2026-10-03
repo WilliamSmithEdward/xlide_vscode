@@ -23,7 +23,8 @@ import type { ConditionalActivityTracker } from '../conditional/conditionalCompi
 import type { BodyNode, IfBlockNode, LeafStatementNode, Span } from '../parser/nodes';
 import { isLeafStatement } from '../parser/nodes';
 import { jumpTargetLabelDeclaration, statementLabelDeclaration, statementLabelReferences } from '../flow/procedureLabels';
-import { evaluateIntegerConstantExpression, parseVbaIntegerLiteral } from '../constants/integerConstantExpression';
+import { bankersRound, evaluateIntegerConstantExpression, parseVbaIntegerLiteral } from '../constants/integerConstantExpression';
+import { dateLiteralSerial } from '../constants/dateLiteral';
 import { leavesTheList, trackedLocalsNamedWhole } from './dataflow';
 import { isLoopBlock, selectArms } from './blockHeaders';
 import { conditionValue, ifConditionTokens, type ConditionFacts } from './conditionValue';
@@ -67,6 +68,8 @@ export function elementKey(lower: string, index: number): string {
  */
 export const OBJECT_NOTHING: readonly VbaToken[] = rawExpressionTokens('Nothing');
 export const EMPTY_COLLECTION: readonly VbaToken[] = rawExpressionTokens('New Collection');
+/** What a Variant local holds before anything assigns it (issue #691). */
+export const VARIANT_EMPTY: readonly VbaToken[] = rawExpressionTokens('Empty');
 
 /** Statement heads that write every name they mention. */
 const WRITING_HEADS: ReadonlySet<string> = new Set(['set', 'redim', 'erase', 'input', 'get', 'line', 'lset', 'rset', 'mid', 'mid$']);
@@ -97,6 +100,26 @@ export function setCallEffects(start: ReachingAssignments, effects: CallEffects)
 
 /** The effects of the walk running now; set while a walk runs. */
 let walkCallEffects: CallEffects | undefined;
+
+/** What a procedure's declarations say of its locals, for the guards (issue #691). */
+export interface DeclaredFacts {
+	/** The declared type, lowercased: "long", "variant", "long()" for an array. */
+	type(lower: string): string | undefined;
+	/** A fixed one-dimension array's bounds. */
+	bounds(lower: string): readonly [number, number] | undefined;
+	/** The value of a Const or Enum member of the module: `mB` (issue #691). */
+	constant(lower: string): number | undefined;
+}
+
+const DECLARED_FACTS = new WeakMap<ReachingAssignments, DeclaredFacts>();
+
+/** Has walks from `start` know what the declarations say. */
+export function setDeclaredFacts(start: ReachingAssignments, facts: DeclaredFacts): void {
+	DECLARED_FACTS.set(start, facts);
+}
+
+/** The declarations of the walk running now; set while a walk runs. */
+let walkDeclared: DeclaredFacts | undefined;
 
 export function straightLineAssignments(
 	source: string,
@@ -182,10 +205,12 @@ function cachedWalk(
 	const outerProcedures = walkProcedures;
 	const outerElements = walkElements;
 	const outerEffects = walkCallEffects;
+	const outerDeclared = walkDeclared;
 	const outerCollections = walkCollections;
 	walkCollections = localCollectionNames(body, activity);
 	walkArrays = localArrayNames(body, activity);
 	walkCallEffects = CALL_EFFECTS.get(initial);
+	walkDeclared = DECLARED_FACTS.get(initial);
 	let exit: ReachingAssignments;
 	walkProcedures = moduleProcedureNames(source);
 	walkElements = /\)\s*=\s*null\b/i.test(text);
@@ -196,6 +221,7 @@ function cachedWalk(
 		walkProcedures = outerProcedures;
 		walkElements = outerElements;
 		walkCallEffects = outerEffects;
+		walkDeclared = outerDeclared;
 		walkCollections = outerCollections;
 	}
 	const walk: CachedWalk = { source, activity, result: out, dead, deadSpans, exit: exit === UNREACHED ? undefined : exit };
@@ -1263,16 +1289,71 @@ function without(map: ReachingAssignments, names: Iterable<string>): ReachingAss
 
 /** The numbers and strings the reaching assignments give their names, for a condition. */
 function factsFrom(current: ReachingAssignments, source: string): ConditionFacts {
+	const declared = walkDeclared;
 	return {
-		value: (lower) => literalOf(current.get(lower)),
+		value: (lower) => heldValue(current, lower, declared),
 		isNothing: (lower) => (current.get(lower) === OBJECT_NOTHING ? true : current.get(lower) === EMPTY_COLLECTION ? false : undefined),
 		range: (lower) => datePartRange(current.get(lower)),
 		compare: moduleCompare(source),
 		isNull: (lower) => {
+			if (current.get(lower) === VARIANT_EMPTY) {
+				return false;
+			}
 			const value = current.get(lower)?.filter((tok) => tok.kind !== 'comment');
 			return value?.length === 1 && tokenText(value[0]) === 'null' ? true : undefined;
 		},
+		typeOf: (lower) => declared?.type(lower),
+		bounds: (lower) => declared?.bounds(lower),
+		isEmpty: (lower) => (current.get(lower) === VARIANT_EMPTY ? true : heldValue(current, lower, declared) !== undefined ? false : undefined),
+		count: (lower) => (current.get(lower) === EMPTY_COLLECTION ? 0 : undefined),
 	};
+}
+
+/** The declared types a fraction is kept whole in, half to even: `n As Long = 2.5` holds 2. */
+const WHOLE_TYPES: ReadonlySet<string> = new Set(['byte', 'integer', 'long', 'longlong', 'longptr', 'boolean']);
+
+/**
+ * The number or string a name holds where the walk knows it (issue #691):
+ * a literal, as its declared type stores it, a date as its serial, or a
+ * Const or Enum member of the module, `m = mA` and the bare `mB`. A
+ * fraction or a date into a type the walk does not know is not followed.
+ */
+function heldValue(current: ReachingAssignments, lower: string, declared: DeclaredFacts | undefined): number | string | undefined {
+	const toks = current.get(lower);
+	const literal = literalOf(toks);
+	if (literal !== undefined) {
+		return literal;
+	}
+	if (!toks) {
+		return declared?.constant(lower);
+	}
+	const value = toks.filter((tok) => tok.kind !== 'comment');
+	if (value.length !== 1) {
+		return undefined;
+	}
+	const tok = value[0];
+	if (tok.kind === 'identifier') {
+		return toks === VARIANT_EMPTY ? undefined : declared?.constant(tokenName(tok)?.toLowerCase() ?? '');
+	}
+	const type = declared?.type(lower);
+	const number = tok.kind === 'floatLiteral' ? Number(tok.rawText.replace(/[!#@]$/, '').replace(/[dD]/, 'e'))
+		: tok.kind === 'dateLiteral' ? dateLiteralSerial(tok.rawText) : undefined;
+	if (number === undefined || !Number.isFinite(number) || type === undefined) {
+		return undefined;
+	}
+	if (WHOLE_TYPES.has(type)) {
+		return bankersRound(number) + 0;
+	}
+	// A Single compares with a literal in ways this does not follow
+	// (`f = 0.1` is True for f As Single = 0.1, measured), so only a value
+	// a Single holds exactly is used; a Currency only one of four places.
+	if (type === 'single') {
+		return Math.fround(number) === number ? number : undefined;
+	}
+	if (type === 'currency') {
+		return Number.isInteger(number * 10000) ? number : undefined;
+	}
+	return type === 'double' || type === 'date' || type === 'variant' ? number : undefined;
 }
 
 /** What VBA's date-part functions return: Second(Now) is 0 to 59. */

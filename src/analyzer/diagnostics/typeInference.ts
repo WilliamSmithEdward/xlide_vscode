@@ -65,7 +65,7 @@ import {
 	memberTakesOwnArguments,
 } from '../completion/memberAccess';
 import { procedureSymbolFor, type PushFn } from './analysisContext';
-import { EMPTY_COLLECTION, identityAssignment, OBJECT_NOTHING, setCallEffects, straightLineAssignments, straightLineDeadBranches, straightLineExit, straightLineUnreachable, type CallEffects, type ReachingAssignments } from './straightLineValues';
+import { EMPTY_COLLECTION, identityAssignment, OBJECT_NOTHING, setCallEffects, VARIANT_EMPTY, setDeclaredFacts, straightLineAssignments, straightLineDeadBranches, straightLineExit, straightLineUnreachable, type CallEffects, type DeclaredFacts, type ReachingAssignments } from './straightLineValues';
 import { isInvalidBooleanString, isInvalidDateString, isInvalidNumericString, numericStringVerdict } from './stringConversion';
 import {
 	callableAcceptsZeroArguments,
@@ -79,6 +79,7 @@ import {
 } from './callExtraction';
 import {
 	collectBodyLiteralIntegerConstants,
+	collectModuleLiteralIntegerConstants,
 	externalIntegerConstantValue,
 	numericExternalConstantValue,
 } from './constExpr';
@@ -3672,7 +3673,10 @@ class StatementValues implements ReadonlyMap<string, KnownLocalValue> {
 		if (this.known.has(lower)) {
 			return this.known.get(lower);
 		}
-		const value = this.assignments.get(lower);
+		// A Variant's starting Empty is for the guards (issue #691): these
+		// values keep reading what the procedure as a whole says of it.
+		const raw = this.assignments.get(lower);
+		const value = raw === VARIANT_EMPTY ? undefined : raw;
 		const derived = value ? this.derive(lower, value) : this.keepsWhole(lower) ? 'whole' : undefined;
 		const out = derived === 'whole' ? this.whole.get(lower) : derived;
 		this.known.set(lower, out);
@@ -3711,11 +3715,14 @@ class StatementValues implements ReadonlyMap<string, KnownLocalValue> {
 		if (!this.full) {
 			const full = new Map(this.whole);
 			for (const lower of this.whole.keys()) {
-				if (!this.assignments.has(lower) && !this.keepsWhole(lower)) {
+				if ((!this.assignments.has(lower) || this.assignments.get(lower) === VARIANT_EMPTY) && !this.keepsWhole(lower)) {
 					full.delete(lower);
 				}
 			}
 			for (const [lower, value] of this.assignments) {
+				if (value === VARIANT_EMPTY) {
+					continue;
+				}
 				const derived = this.derive(lower, value);
 				if (derived === 'whole') {
 					continue;
@@ -4176,6 +4183,23 @@ function declaredDefaults(locals: ReadonlyMap<string, 'number' | 'string' | unde
 	return defaults;
 }
 
+
+/**
+ * Each Variant local, `As Variant` or with no type and no DefType for its
+ * letter, holds Empty until assigned: `If Not IsEmpty(v) Then` never runs
+ * its arm (issue #691).
+ */
+function variantStarts(symbols: ReturnType<typeof buildModuleSymbols>, proc: ProcedureNode): Map<string, readonly VbaToken[]> {
+	const out = new Map<string, readonly VbaToken[]>();
+	for (const child of procedureSymbolFor(symbols, proc)?.children ?? []) {
+		if (child.kind === 'localVariable' && !child.isArray && child.visibility !== 'Static'
+			&& (normalizeType(child.asType) ?? defTypeOf(symbols, child.name)?.toLowerCase() ?? 'variant') === 'variant') {
+			out.set(child.name.toLowerCase(), VARIANT_EMPTY);
+		}
+	}
+	return out;
+}
+
 /**
  * The statements of a procedure that never run, because a guard whose
  * value the straight-line walk knows decides against them (issue #273).
@@ -4242,7 +4266,7 @@ function walkStart(
 	const cache = perProcedureCache(WALK_STARTS, symbols);
 	let start = cache.get(proc);
 	if (!start) {
-		start = new Map([...conditionConstants(symbols, proc), ...declaredDefaults(locals), ...objectStarts(symbols, proc)]);
+		start = new Map([...conditionConstants(symbols, proc), ...declaredDefaults(locals), ...variantStarts(symbols, proc), ...objectStarts(symbols, proc)]);
 		cache.set(proc, start);
 	}
 	return start;
@@ -4377,7 +4401,44 @@ function walkStartWithEffects(
 ): ReachingAssignments {
 	const start = walkStart(symbols, proc, locals);
 	setCallEffects(start, callEffectsFor(source, symbols, activity));
+	setDeclaredFacts(start, declaredFactsFor(source, symbols, proc));
 	return start;
+}
+
+/** A bare upper bound's lower bound: 1 under Option Base 1, else 0. */
+const OPTION_BASE_ONE = /^[ \t]*Option[ \t]+Base[ \t]+1\b/im;
+
+/**
+ * What the declarations say of each local, for the guards (issue #691):
+ * its declared type ("long", "long()" for an array), and a fixed
+ * one-dimension array's bounds.
+ */
+function declaredFactsFor(source: string, symbols: ReturnType<typeof buildModuleSymbols>, proc: ProcedureNode): DeclaredFacts {
+	const types = new Map<string, string>();
+	const bounds = new Map<string, readonly [number, number]>();
+	let base: number | undefined;
+	for (const child of procedureSymbolFor(symbols, proc)?.children ?? []) {
+		if (child.kind !== 'localVariable' || child.visibility === 'Static' || child.fixedLength !== undefined) {
+			continue;
+		}
+		const lower = child.name.toLowerCase();
+		const type = normalizeType(child.asType) ?? defTypeOf(symbols, child.name)?.toLowerCase() ?? 'variant';
+		types.set(lower, child.isArray ? `${type}()` : type);
+		const fixed = child.isArray ? /^\s*(?:(-?\d+)\s+To\s+)?(-?\d+)\s*$/i.exec(child.arrayBounds ?? '') : null;
+		if (fixed) {
+			const lowerBound = fixed[1] !== undefined ? Number(fixed[1]) : (base ??= OPTION_BASE_ONE.test(source) ? 1 : 0);
+			bounds.set(lower, [lowerBound, Number(fixed[2])]);
+		}
+	}
+	// The module's Consts and Enum members, which a local or parameter of the same name hides.
+	let constants: ReadonlyMap<string, number | undefined> | undefined;
+	const params = new Set(proc.params.map((param) => param.name.toLowerCase()));
+	return {
+		type: (lower) => types.get(lower),
+		bounds: (lower) => bounds.get(lower),
+		constant: (lower) => (types.has(lower) || params.has(lower) ? undefined
+			: (constants ??= collectModuleLiteralIntegerConstants(parseModule(source), undefined)).get(lower)),
+	};
 }
 
 /** Statement heads after which a Function may end before its last line. */
