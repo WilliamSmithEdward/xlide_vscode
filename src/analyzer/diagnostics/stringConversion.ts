@@ -85,6 +85,59 @@ export function numericStringVerdict(text: string): NumericStringVerdict {
 	return Number.isFinite(value) ? { kind: 'number', value: negative ? -value : value } : { kind: 'number' };
 }
 
+/**
+ * What Val reads from a string, the same in every locale (issue #703,
+ * measured in Excel 16.0): blanks, tabs and line feeds anywhere are dropped,
+ * then the number at the start is read with "." as the decimal point and an
+ * optional E or D exponent, up to the first character that cannot continue
+ * it. No number there is 0: Val("abc"), Val("0,5") is 0, Val("1,000") 1,
+ * Val("1 2 3") 123. Undefined for a hex or octal string past what a plain
+ * positive literal holds, which this does not follow.
+ */
+export function valPrefixValue(text: string): number | undefined {
+	const compact = text.replace(/[ \t\n]/g, '');
+	const radix = /^&([Hh])([0-9A-Fa-f]{1,4})(?![0-9A-Fa-f])|^&[Oo]?([0-7]{1,5})(?![0-7])/.exec(compact);
+	if (radix) {
+		const value = radix[2] !== undefined ? parseInt(radix[2], 16) : parseInt(radix[3], 8);
+		return value < 0x8000 ? value : undefined;
+	}
+	if (compact.startsWith('&')) {
+		return undefined;
+	}
+	const number = /^([-+]?)(\d+\.?\d*|\.\d+)?/.exec(compact)!;
+	if (number[2] === undefined) {
+		return 0;
+	}
+	const exponent = /^[eEdD][-+]?\d+/.exec(compact.slice(number[0].length));
+	const value = Number(`${number[1]}${number[2]}${exponent ? exponent[0].replace(/[dD]/, 'e') : ''}`);
+	return value === 0 ? 0 : value;
+}
+
+/**
+ * The values a string of digits and separators has where "." is the
+ * decimal point and "," groups thousands, and where it is the other way
+ * round: "3.5" is 3.5 and 35 (issue #703). Undefined when either reading
+ * fails, or for any other spelling.
+ */
+export function numericStringReadings(text: string): [number, number] | undefined {
+	const trimmed = text.replace(BLANK_EDGES, '');
+	const match = /^([-+]?)(\d[\d.,]*)$/.exec(trimmed);
+	if (!match) {
+		return undefined;
+	}
+	const read = (decimal: string, group: string): number | undefined => {
+		const digits = match[2].split(group).join('');
+		if (digits.split(decimal).length > 2) {
+			return undefined;
+		}
+		const value = Number(digits.replace(decimal, '.'));
+		return Number.isFinite(value) ? (match[1] === '-' ? -value : value) : undefined;
+	};
+	const dot = read('.', ',');
+	const comma = read(',', '.');
+	return dot === undefined || comma === undefined ? undefined : [dot, comma];
+}
+
 /** Whether no locale converts the string to a number. */
 export function isInvalidNumericString(text: string): boolean {
 	return numericStringVerdict(text).kind === 'invalid';

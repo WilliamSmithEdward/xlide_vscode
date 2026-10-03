@@ -14,6 +14,12 @@
 import { tokenize } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
 import { tokenName } from '../lexer/tokenHelpers';
+import { numericStringVerdict, valPrefixValue } from '../diagnostics/stringConversion';
+
+/** The text of a string literal token: its quotes off, a doubled quote one. */
+function stringLiteralText(raw: string): string {
+	return raw.slice(1, raw.endsWith('"') && raw.length > 1 ? -1 : undefined).replace(/""/g, '"');
+}
 
 /** Lookup of integer constant values by lowercased (possibly qualified) name. */
 export interface IntegerConstantLookup {
@@ -311,6 +317,16 @@ class IntegerConstantExpressionParser {
 	 */
 	private roundingCall(): number | undefined | typeof NOT_A_CALL {
 		const word = tokenName(this.current())?.toLowerCase();
+		// `Val("0,5")` is 0 in every locale (issue #703).
+		if (word === 'val' && this.tokens[this.index + 1]?.rawText === '(' && this.tokens[this.index + 2]?.kind === 'stringLiteral'
+			&& this.tokens[this.index + 3]?.rawText === ')' && this.tokens[this.index - 1]?.rawText !== '.') {
+			const value = valPrefixValue(stringLiteralText(this.tokens[this.index + 2].rawText));
+			if (value !== undefined) {
+				this.index += 4;
+				return value;
+			}
+			return NOT_A_CALL;
+		}
 		const range = word ? ROUNDING_CALLS.get(word) : undefined;
 		if (!range || this.tokens[this.index + 1]?.rawText !== '(' || this.tokens[this.index - 1]?.rawText === '.') {
 			return NOT_A_CALL;
@@ -321,7 +337,13 @@ class IntegerConstantExpressionParser {
 		const negative = this.accept('-');
 		const tok = this.current();
 		let value: number | undefined;
-		if (tok?.kind === 'floatLiteral' && this.tokens[this.index + 1]?.rawText === ')') {
+		if (tok?.kind === 'stringLiteral' && !negative && this.tokens[this.index + 1]?.rawText === ')') {
+			// `CInt("(5)")`, `CLng("&H0")`: a string every locale reads alike
+			// (issue #703, measured in Excel 16.0).
+			this.index++;
+			const verdict = numericStringVerdict(stringLiteralText(tok.rawText));
+			value = verdict.kind === 'number' ? verdict.value : undefined;
+		} else if (tok?.kind === 'floatLiteral' && this.tokens[this.index + 1]?.rawText === ')') {
 			this.index++;
 			const read = Number(tok.rawText.replace(/[!#@]$/, ''));
 			value = Number.isFinite(read) ? (negative ? -read : read) : undefined;
