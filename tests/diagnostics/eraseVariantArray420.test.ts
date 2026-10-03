@@ -20,9 +20,16 @@ describe('Erase on a Variant holding Array or Split (issue #420)', () => {
 		expect(errors('Dim a As Variant\n    a = Split("x,y", ",")\n    Erase a\n    Main = UBound(a)')).toEqual(['unallocated-dynamic-array-access']);
 	});
 
-	it('stays quiet once the Variant holds an array again, or holds one Erase keeps', () => {
+	it('stays quiet once the Variant holds an array again', () => {
 		expect(errors('Dim a As Variant\n    a = Array(10, 20, 30)\n    Erase a\n    a = Array(1)\n    Main = UBound(a)')).toEqual([]);
 		expect(errors('Dim a As Variant\n    a = Array(10, 20, 30)\n    Erase a\n    Main = IsArray(a)')).toEqual([]);
-		expect(errors('Dim f(1 To 3) As Long, a As Variant\n    a = f\n    Erase a\n    Main = UBound(a)')).toEqual([]);
+		expect(errors('Dim f(1 To 3) As Long, a As Variant\n    a = f\n    Main = UBound(a)')).toEqual([]);
+	});
+
+	// A Variant's copy of a fixed array is a dynamic array, which Erase
+	// empties, whatever the bounds (issue #685, measured in Excel 16.0).
+	it('empties a Variant that copied a fixed array', () => {
+		expect(errors('Dim f(1 To 3) As Long, a As Variant\n    a = f\n    Erase a\n    Main = UBound(a)')).toEqual(['unallocated-dynamic-array-access']);
+		expect(errors('Dim f(1) As Long, a As Variant\n    a = f\n    Erase a\n    Main = a(0)')).toEqual(['unallocated-dynamic-array-access']);
 	});
 });

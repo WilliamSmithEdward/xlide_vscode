@@ -1001,7 +1001,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'invalidParamArrayUse',
-		procedureStatements: (ctx, push) => checkParamArrayUse(ctx.source, callableTypeSignaturesFor(ctx.symbols, ctx.opts.projectProcedures), push),
+		procedureStatements: (ctx, push) => checkParamArrayUse(ctx.source, callableTypeSignaturesFor(ctx.symbols, ctx.opts.projectProcedures), push, ctx.symbols, ctx.memberCtx),
 	},
 	{
 		name: 'nonCallableCallStatement',

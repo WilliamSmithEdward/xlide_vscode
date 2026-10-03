@@ -297,6 +297,8 @@ type NameLookup = ((lower: string) => Typed | undefined) & {
 	declares?: (lower: string) => boolean;
 	/** A local that holds a whole sheet's Cells: `Set r = Cells` (issue #278). */
 	wholeSheetCells?: (lower: string) => boolean;
+	/** The innermost With's subject as a chain: `With ActiveSheet.Range("A1:A5")` (issue #685). */
+	withSubject?: () => readonly ChainSegment[] | undefined;
 };
 
 /** The operators that read both sides as numbers: arithmetic and comparison. */
@@ -312,6 +314,9 @@ const ARITHMETIC_BESIDE: ReadonlySet<string> = new Set(['+', '-', '*', '/']);
 const LOGICAL_PRECEDENCE: ReadonlyMap<string, number> = new Map([
 	['imp', 0], ['eqv', 1], ['xor', 2], ['or', 3], ['and', 4],
 ]);
+
+/** A `Null` operand of a logical operator, told apart by identity (issue #685). */
+const NULL_OPERAND: Typed = { value: 0, type: 'long' };
 
 /** What TypedFolder.logical answers for an expression with no logical operator. */
 const NOT_LOGICAL = Symbol('not logical');
@@ -385,20 +390,34 @@ class TypedFolder {
 			const incoming = operators[i];
 			const to = incoming?.at ?? this.toks.length;
 			const operand = this.toks.slice(from, to);
-			const folded = this.stringOperand(operand) ?? new TypedFolder(operand, this.base, this.names, this.divisionByZero, this.nesting).fold();
+			// A Null operand makes the result Null, but the other is still
+			// converted to a Long: `Null And 1E10` overflows (issue #685).
+			const isNull = operand.length === 1 && tokenText(operand[0]) === 'null';
+			const folded = isNull ? NULL_OPERAND : this.stringOperand(operand) ?? new TypedFolder(operand, this.base, this.names, this.divisionByZero, this.nesting).fold();
 			if (folded === undefined || isOverflow(folded)) { return folded; }
 			values.push({ value: folded, from, to: to - 1 });
 			while (pending.length > 0 && (!incoming || pending[pending.length - 1].rank >= incoming.rank)) {
 				const op = pending.pop()!;
 				const right = values.pop()!;
 				const left = values.pop()!;
-				const combined = this.logicalValue(left.value, right.value, op.word, op.at, left.from, right.to);
+				const combined = left.value === NULL_OPERAND || right.value === NULL_OPERAND
+					? this.nullLogical(left.value, right.value, op.at, left.from, right.to)
+					: this.logicalValue(left.value, right.value, op.word, op.at, left.from, right.to);
 				if (combined === undefined || isOverflow(combined)) { return combined; }
 				values.push({ value: combined, from: left.from, to: right.to });
 			}
 			if (incoming) { pending.push(incoming); from = incoming.at + 1; }
 		}
 		return values[0].value;
+	}
+
+	/** A logical operator with a Null side: the other side past the Long range overflows; otherwise the result is not followed. */
+	private nullLogical(left: Typed, right: Typed, at: number, from: number, to: number): Folded {
+		const other = left === NULL_OPERAND ? right : left;
+		if (other === NULL_OPERAND || other.type === 'longlong' || inRange(bankersRound(other.value), 'long')) {
+			return undefined;
+		}
+		return { overflow: true, span: this.span(from, to), detail: `${describe(other)} is outside the Long range that ${this.toks[at].rawText} converts its operands to` };
 	}
 
 	private logicalValue(left: Typed, right: Typed, word: string, at: number, from: number, to: number): Folded {
@@ -607,7 +626,7 @@ class TypedFolder {
 		}
 		// A With member at an operand's start: `.Rows.Count` (issue #411).
 		const leading = this.index === 0 || ['(', ',', '='].includes(this.toks[this.index - 1].rawText) || this.toks[this.index - 1].kind === 'operator' || this.toks[this.index - 1].kind === 'keyword';
-		if (tok.rawText === '.' && leading && this.names(WITH_SHEET) !== undefined) {
+		if (tok.rawText === '.' && leading && (this.names(WITH_SHEET) !== undefined || this.names.withSubject?.() !== undefined)) {
 			return this.sheetSize(true);
 		}
 		const name = tokenName(tok);
@@ -735,8 +754,11 @@ class TypedFolder {
 	 * other chain.
 	 */
 	private sheetSize(withSubject = false): Folded {
-		// `.Rows.Count` inside `With ActiveSheet` reads the With's sheet (issue #411).
-		const segments: Array<{ name: string; args?: VbaToken[][] }> = withSubject ? [{ name: WITH_SHEET }] : [];
+		// `.Rows.Count` inside `With ActiveSheet` reads the With's sheet (issue
+		// #411), and inside `With ActiveSheet.Range("A1:A40000")` its range
+		// (issue #685).
+		const subject = withSubject && this.names(WITH_SHEET) === undefined ? this.names.withSubject?.() : undefined;
+		const segments: Array<{ name: string; args?: VbaToken[][] }> = !withSubject ? [] : subject ? [...subject] : [{ name: WITH_SHEET }];
 		let i = withSubject ? this.index + 1 : this.index;
 		for (;;) {
 			const name = tokenName(this.toks[i]);
@@ -1744,7 +1766,42 @@ function checkByValArguments(
 		return;
 	}
 	const own = new Set([proc.name, ...proc.params.map((param) => param.name), ...(procedureSymbolFor(symbols, proc)?.children ?? []).map((child) => child.name)].map((name) => name.toLowerCase()));
+	// The With each statement sits in, innermost: `TakeI(.Rows.Count)` inside
+	// `With ActiveSheet` (issue #685).
+	const withOf = new Map<BodyNode, { sheet: boolean; subject: readonly ChainSegment[] | undefined }>();
+	const walk = (body: readonly BodyNode[], within: { sheet: boolean; subject: readonly ChainSegment[] | undefined } | undefined): void => {
+		for (const node of body) {
+			if (within) {
+				withOf.set(node, within);
+			}
+			let inner = within;
+			if (node.kind === 'WithBlock') {
+				const header = blockHeaderStatements(source, node).before;
+				const toks = header ? statementTokens(source, header.span).filter((tok) => tok.kind !== 'comment') : [];
+				const segments = tokenText(toks[0]) === 'with' && !toks[1]?.rawText.startsWith('.') ? chainSegments(toks.slice(1)) : undefined;
+				inner = { sheet: segments !== undefined && segments.length > 0 && namesSheet(segments, names), subject: segments };
+			}
+			if (node.kind === 'IfBlock') {
+				for (const branch of node.branches) {
+					walk(branch.body, inner);
+				}
+			} else if ('body' in node && Array.isArray(node.body)) {
+				walk(node.body as BodyNode[], inner);
+			}
+		}
+	};
+	walk(proc.body, undefined);
+	const namesAt = (stmt: BodyNode): NameLookup => {
+		const within = withOf.get(stmt);
+		return !within ? names : Object.assign(
+			(lower: string): Typed | undefined => (lower === WITH_SHEET ? (within.sheet ? { value: 0, type: 'long' as const } : undefined) : names(lower)),
+			names.declares ? { declares: names.declares } : {},
+			names.wholeSheetCells ? { wholeSheetCells: names.wholeSheetCells } : {},
+			{ withSubject: () => within.subject },
+		);
+	};
 	forEachStatement(proc.body, (stmt) => {
+		const stmtNames = namesAt(stmt);
 		for (const span of statementAndBranchSpans(stmt)) {
 			const toks = statementTokens(source, span).filter((tok) => tok.kind !== 'comment');
 			for (let i = 0; i < toks.length; i++) {
@@ -1763,18 +1820,22 @@ function checkByValArguments(
 				const args = close < 0 ? [] : splitTopLevelTokenGroups(toks, parenthesized ? i + 2 : i + 1, ',', close);
 				args.forEach((arg, k) => {
 					const param = signature.params[k];
-					const type = param && param.byRef === false && !param.isArray && !param.paramArray ? numericTypeOf(param.type) : undefined;
 					const value = arg.filter((tok) => tok.kind !== 'comment');
+					// ByRef takes an expression, not a variable, as a temporary of
+					// the parameter's type: `TakeIR(Rows.Count)` overflows too (issue
+					// #685, measured in Excel 16.0). A variable is ByRef-mismatch's.
+					const expression = !(value.length === 1 && tokenName(value[0]) !== undefined);
+					const type = param && (param.byRef === false || expression) && !param.isArray && !param.paramArray ? numericTypeOf(param.type) : undefined;
 					if (!type || value.length === 0 || value.some((tok) => tok.rawText === ':=') || literalTyped(value[value.length - 1]) && value.length <= 2) {
 						return;
 					}
-					const folded = new TypedFolder(value, span.start, names).fold();
+					const folded = new TypedFolder(value, span.start, stmtNames).fold();
 					if (!folded || isOverflow(folded)) {
 						return;
 					}
 					const kept = storedValue(folded, type);
 					if (!inRange(kept.value, type, kept.exact)) {
-						push('arithmeticOverflow', `Argument '${param.name}' of '${signature.name}' is ByVal ${RANGES[type].label}, and ${value.map((tok) => tok.rawText).join('')} is ${showNumber(kept.value)}, outside its range ${rangeText(type)}. This will raise Run-time error '6': Overflow.`, {
+						push('arithmeticOverflow', `Argument '${param.name}' of '${signature.name}' is ${param.byRef === false ? 'ByVal' : 'ByRef'} ${RANGES[type].label}, and ${value.map((tok) => tok.rawText).join('')} is ${showNumber(kept.value)}, outside its range ${rangeText(type)}. This will raise Run-time error '6': Overflow.`, {
 							start: span.start + value[0].start,
 							end: span.start + value[value.length - 1].end,
 						});
@@ -2147,15 +2208,25 @@ function checkProcedureBody(
 	memberTarget?: (span: Span) => AssignmentTarget | undefined,
 	reached: (node: BodyNode | undefined) => void = () => undefined,
 ): void {
-	// Whether each enclosing With names a sheet, innermost last (issue #411).
+	// Whether each enclosing With names a sheet, innermost last (issue #411),
+	// and its subject's chain (issue #685).
 	const withSheets: boolean[] = [];
+	const withSubjects: Array<readonly ChainSegment[] | undefined> = [];
 	const names: NameLookup = Object.assign(
 		(lower: string): Typed | undefined => (lower === WITH_SHEET
 			? (withSheets[withSheets.length - 1] ? { value: 0, type: 'long' as const } : undefined)
 			: outerNames(lower)),
 		outerNames.declares ? { declares: outerNames.declares } : {},
 		outerNames.wholeSheetCells ? { wholeSheetCells: outerNames.wholeSheetCells } : {},
+		{ withSubject: () => withSubjects[withSubjects.length - 1] },
 	);
+	const withSubjectOf = (node: BodyNode): readonly ChainSegment[] | undefined => {
+		const header = blockHeaderStatements(source, node).before;
+		const toks = header ? statementTokens(source, header.span).filter((tok) => tok.kind !== 'comment') : [];
+		const segments = tokenText(toks[0]) === 'with' ? chainSegments(toks.slice(1)) : undefined;
+		// Only a chain from the sheet or Application: a leading `.` would read an outer With.
+		return segments && segments.length > 0 && !toks[1]?.rawText.startsWith('.') ? segments : undefined;
+	};
 	const withNamesSheet = (node: BodyNode): boolean => {
 		const header = blockHeaderStatements(source, node).before;
 		const toks = header ? statementTokens(source, header.span).filter((tok) => tok.kind !== 'comment') : [];
@@ -2224,8 +2295,10 @@ function checkProcedureBody(
 					}
 				} else if (node.kind === 'WithBlock') {
 					withSheets.push(withNamesSheet(node));
+					withSubjects.push(withSubjectOf(node));
 					visit(node.body as BodyNode[], loopTouched);
 					withSheets.pop();
+					withSubjects.pop();
 				} else {
 					visit(node.body as BodyNode[], isLoopBlock(node) ? new Set([...loopTouched, ...touched]) : loopTouched);
 				}

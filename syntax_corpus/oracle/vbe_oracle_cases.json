@@ -105867,6 +105867,717 @@
       ],
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue685_01_runtime",
+      "description": "Issue #685 a leftover collected in #685, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, r(3) As Long\r\n    a = 4.4\r\n    Main = r(a)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue685_02_runtime",
+      "description": "Issue #685 a leftover collected in #685, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, r(3) As Long\r\n    a = 3.4\r\n    Main = r(a)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue685_03_runtime",
+      "description": "Issue #685 a leftover collected in #685, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, r(3) As Long\r\n    a = 3.5\r\n    Main = r(a)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue685_04_runtime",
+      "description": "Issue #685 a leftover collected in #685, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Double, r(3) As Long\r\n    a = 3.4\r\n    Main = r(a)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue685_05_runtime",
+      "description": "Issue #685 a leftover collected in #685, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Null And 1E10\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue685_06_runtime",
+      "description": "Issue #685 a leftover collected in #685, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Null Or 1E10\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue685_07_runtime",
+      "description": "Issue #685 a leftover collected in #685, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1E10 And Null\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue685_08_runtime",
+      "description": "Issue #685 a leftover collected in #685, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> True.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = IsNull(Null And 5)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue685_09_runtime",
+      "description": "Issue #685 a leftover collected in #685, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> True.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = IsNull(Null Or Null)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue685_10_runtime",
+      "description": "Issue #685 a leftover collected in #685, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim s As String\r\n    s = \"a,b\"\r\n    Main = Split(s, \"\")(1)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue685_11_runtime",
+      "description": "Issue #685 a leftover collected in #685, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> a,b.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim s As String\r\n    s = \"a,b\"\r\n    Main = Split(s, \"\")(0)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue685_12_runtime",
+      "description": "Issue #685 a leftover collected in #685, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: run ->.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Split(\"\", \"\")(0)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue685_13_runtime",
+      "description": "Issue #685 a leftover collected in #685, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Static t As String\r\n    t = \"a\"\r\n    Main = Split(t, \",\")(1)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue685b_01_runtime",
+      "description": "Issue #685 a leftover collected there, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim f(1 To 3) As Long, a As Variant\r\n    a = f\r\n    Erase a\r\n    Main = UBound(a)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue685b_02_runtime",
+      "description": "Issue #685 a leftover collected there, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim f(1) As Long, a As Variant\r\n    a = f\r\n    Erase a\r\n    Main = a(0)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue685b_03_runtime",
+      "description": "Issue #685 a leftover collected there, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 3.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim f(1 To 3) As Long, a As Variant\r\n    a = f\r\n    Main = UBound(a)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue685b_04_runtime",
+      "description": "Issue #685 a leftover collected there, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Arr(5)\r\nEnd Function\r\nPrivate Function Arr() As Variant\r\n    Arr = Array(10, 20)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue685b_05_runtime",
+      "description": "Issue #685 a leftover collected there, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Arr(1, 2)\r\nEnd Function\r\nPrivate Function Arr() As Variant\r\n    Arr = Array(10, 20)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue685b_06_runtime",
+      "description": "Issue #685 a leftover collected there, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 20.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Arr(1)\r\nEnd Function\r\nPrivate Function Arr() As Variant\r\n    Arr = Array(10, 20)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue685b_07_runtime",
+      "description": "Issue #685 a leftover collected there, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim arr(0 To 3) As Long, i As Long, n As Long\r\n    n = 4\r\n    For i = 0 To n\r\n        n = 3\r\n        arr(i) = 1\r\n    Next\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue685b_08_runtime",
+      "description": "Issue #685 a leftover collected there, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim arr(0 To 3) As Long, i As Long, n As Long\r\n    n = 3\r\n    For i = 0 To n\r\n        n = 9\r\n        arr(i) = 1\r\n    Next\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue685b_09_runtime",
+      "description": "Issue #685 a leftover collected there, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim arr(0 To 3) As Long, i As Long, n As Long\r\n    n = 5\r\n    For i = 0 To n Step 2\r\n        arr(i) = 1\r\n    Next\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue685b_10_runtime",
+      "description": "Issue #685 a leftover collected there, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim arr(0 To 3) As Long, i As Long, n As Long\r\n    n = 3\r\n    For i = 0 To n Step 2\r\n        arr(i) = 1\r\n    Next\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue685b_11_runtime",
+      "description": "Issue #685 a leftover collected there, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection\r\n    TouchC c\r\n    Main = c.Count\r\nEnd Function\r\nPrivate Sub TouchC(ByRef p As Collection)\r\n    Debug.Print TypeName(p)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue685b_12_runtime",
+      "description": "Issue #685 a leftover collected there, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection\r\n    TouchC c\r\n    Main = c.Count\r\nEnd Function\r\nPrivate Sub TouchC(ByRef p As Collection)\r\n    Set p = New Collection\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue685d_01_runtime",
+      "description": "Issue #685 a leftover collected there, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim i As Integer\r\n    With ActiveSheet.Range(\"A1:A40000\")\r\n        i = .Rows.Count\r\n    End With\r\n    Main = i\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue685d_02_runtime",
+      "description": "Issue #685 a leftover collected there, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 400.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim i As Integer\r\n    With ActiveSheet.Range(\"A1:A400\")\r\n        i = .Rows.Count\r\n    End With\r\n    Main = i\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue685d_03_runtime",
+      "description": "Issue #685 a leftover collected there, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = TakeIR(Rows.Count)\r\nEnd Function\r\nPrivate Function TakeIR(i As Integer) As Long\r\n    TakeIR = i\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue685d_04_runtime",
+      "description": "Issue #685 a leftover collected there, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 10485.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = TakeIR(Rows.Count \\ 100)\r\nEnd Function\r\nPrivate Function TakeIR(i As Integer) As Long\r\n    TakeIR = i\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue685d_05_runtime",
+      "description": "Issue #685 a leftover collected there, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1048576.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = TakeL(Rows.Count)\r\nEnd Function\r\nPrivate Function TakeL(i As Long) As Long\r\n    TakeL = i\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue685d_06_runtime",
+      "description": "Issue #685 a leftover collected there, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    With ActiveSheet\r\n        Main = TakeI(.Rows.Count)\r\n    End With\r\nEnd Function\r\nPrivate Function TakeI(ByVal i As Integer) As Long\r\n    TakeI = i\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue685d_07_runtime",
+      "description": "Issue #685 a leftover collected there, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    With ActiveSheet.Range(\"A1:A40000\")\r\n        Main = TakeI(.Rows.Count)\r\n    End With\r\nEnd Function\r\nPrivate Function TakeI(ByVal i As Integer) As Long\r\n    TakeI = i\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue685d_08_runtime",
+      "description": "Issue #685 a leftover collected there, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 3.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    With ActiveSheet.Range(\"A1:C3\")\r\n        Main = TakeI(.Columns.Count)\r\n    End With\r\nEnd Function\r\nPrivate Function TakeI(ByVal i As Integer) As Long\r\n    TakeI = i\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue685e_01_runtime",
+      "description": "Issue #685 a leftover collected there, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim re As Object\r\n    Set re = CreateObject(\"VBScript.RegExp\")\r\n    re.Global = True\r\n    re.Pattern = \"^x\"\r\n    re.MultiLine = False\r\n    Main = re.Execute(\"x\" & vbLf & \"x\")(1).Value\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue685e_02_runtime",
+      "description": "Issue #685 a leftover collected there, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> x.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim re As Object\r\n    Set re = CreateObject(\"VBScript.RegExp\")\r\n    re.Global = True\r\n    re.Pattern = \"^x\"\r\n    re.MultiLine = True\r\n    Main = re.Execute(\"x\" & vbLf & \"x\")(1).Value\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue685e_03_runtime",
+      "description": "Issue #685 a leftover collected there, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 62.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim fso As Object, ts As Object, p As String\r\n    p = Environ(\"TEMP\") & \"\\xlide685e.txt\"\r\n    Set fso = CreateObject(\"Scripting.FileSystemObject\")\r\n    Set ts = fso.CreateTextFile(p, True)\r\n    ts.Close\r\n    Set ts = fso.OpenTextFile(p)\r\n    Main = ts.ReadAll\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue685e_04_runtime",
+      "description": "Issue #685 a leftover collected there, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> a.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim fso As Object, ts As Object, p As String\r\n    p = Environ(\"TEMP\") & \"\\xlide685e.txt\"\r\n    Set fso = CreateObject(\"Scripting.FileSystemObject\")\r\n    Set ts = fso.CreateTextFile(p, True)\r\n    ts.WriteLine \"a\"\r\n    ts.Close\r\n    Set ts = fso.OpenTextFile(p)\r\n    Main = ts.ReadAll\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue685e_05_runtime",
+      "description": "Issue #685 a leftover collected there, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 3704.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim rs As Object\r\n    Set rs = CreateObject(\"ADODB.Recordset\")\r\n    rs.Fields.Append \"a\", 3\r\n    rs.Open\r\n    rs.Close\r\n    rs.Close\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue685e_06_runtime",
+      "description": "Issue #685 a leftover collected there, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim rs As Object\r\n    Set rs = CreateObject(\"ADODB.Recordset\")\r\n    rs.Fields.Append \"a\", 3\r\n    rs.Open\r\n    rs.Close\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue685e_07_runtime",
+      "description": "Issue #685 a leftover collected there, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 3704.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim rs As Object\r\n    Set rs = CreateObject(\"ADODB.Recordset\")\r\n    rs.Fields.Append \"a\", 3\r\n    rs.Open\r\n    rs.Close\r\n    Main = rs.EOF\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue685e_08_runtime",
+      "description": "Issue #685 a leftover collected there, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"MSXML2.DOMDocument.6.0\")\r\n    d.LoadXML \"<a><b id='1'/></a>\"\r\n    Main = d.SelectSingleNode(\"//b[@id='2']\").nodeName\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue685e_09_runtime",
+      "description": "Issue #685 a leftover collected there, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> b.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"MSXML2.DOMDocument.6.0\")\r\n    d.LoadXML \"<a><b id='1'/></a>\"\r\n    Main = d.SelectSingleNode(\"//b[@id='1']\").nodeName\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue685e_10_runtime",
+      "description": "Issue #685 a leftover collected there, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"MSXML2.DOMDocument.6.0\")\r\n    d.LoadXML \"<a><b/><b/></a>\"\r\n    Main = d.SelectSingleNode(\"//b[3]\").nodeName\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue685e_11_runtime",
+      "description": "Issue #685 a leftover collected there, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> b.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"MSXML2.DOMDocument.6.0\")\r\n    d.LoadXML \"<a><b/><b/></a>\"\r\n    Main = d.SelectSingleNode(\"//b[2]\").nodeName\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue685e_12_runtime",
+      "description": "Issue #685 a leftover collected there, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"MSXML2.DOMDocument.6.0\")\r\n    d.LoadXML \"<a><b/><b/></a>\"\r\n    Main = d.SelectSingleNode(\"/a/b[3]\").nodeName\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue685e_13_runtime",
+      "description": "Issue #685 a leftover collected there, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> b.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"MSXML2.DOMDocument.6.0\")\r\n    d.LoadXML \"<a><c><b/></c><c><b/><b/></c></a>\"\r\n    Main = d.SelectSingleNode(\"//b[2]\").nodeName\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue685f_01_runtime",
+      "description": "Issue #685 a leftover collected there, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As Object\r\n    Set o = CreateObject(\"Scripting.Dictionary\")\r\n    Main = TakeC(o)\r\nEnd Function\r\nPrivate Function TakeC(c As Collection) As Long\r\n    TakeC = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue685f_02_runtime",
+      "description": "Issue #685 a leftover collected there, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As Object\r\n    Set o = CreateObject(\"Scripting.Dictionary\")\r\n    Main = TakeO(o)\r\nEnd Function\r\nPrivate Function TakeO(c As Object) As Long\r\n    TakeO = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue685f_03_runtime",
+      "description": "Issue #685 a leftover collected there, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As Object\r\n    Set o = CreateObject(\"Scripting.Dictionary\")\r\n    Main = TakeV(o)\r\nEnd Function\r\nPrivate Function TakeV(c As Variant) As Long\r\n    TakeV = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue685f_04_runtime",
+      "description": "Issue #685 a leftover collected there, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As Object\r\n    Set o = CreateObject(\"Scripting.Dictionary\")\r\n    Dim c As Collection\r\n    Set c = o\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue685g_01_runtime",
+      "description": "Issue #685 a leftover collected there, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 449.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As Object\r\n    Set o = New K1\r\n    Main = o.Idx\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Get Opt(Optional ByVal i As Long = 2) As Long\r\n    Opt = i\r\nEnd Property\r\nPublic Function Need(ByVal i As Long) As Long\r\n    Need = i\r\nEnd Function\r\nPublic Property Get O() As Collection\r\n    Set O = New Collection\r\nEnd Property\r\nPublic Property Set O(ByVal c As Collection)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue685g_02_runtime",
+      "description": "Issue #685 a leftover collected there, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 3.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As Object\r\n    Set o = New K1\r\n    Main = o.Idx(3)\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Get Opt(Optional ByVal i As Long = 2) As Long\r\n    Opt = i\r\nEnd Property\r\nPublic Function Need(ByVal i As Long) As Long\r\n    Need = i\r\nEnd Function\r\nPublic Property Get O() As Collection\r\n    Set O = New Collection\r\nEnd Property\r\nPublic Property Set O(ByVal c As Collection)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue685g_03_runtime",
+      "description": "Issue #685 a leftover collected there, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As Object\r\n    Set o = New K1\r\n    Main = o.Opt\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Get Opt(Optional ByVal i As Long = 2) As Long\r\n    Opt = i\r\nEnd Property\r\nPublic Function Need(ByVal i As Long) As Long\r\n    Need = i\r\nEnd Function\r\nPublic Property Get O() As Collection\r\n    Set O = New Collection\r\nEnd Property\r\nPublic Property Set O(ByVal c As Collection)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue685g_04_runtime",
+      "description": "Issue #685 a leftover collected there, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 449.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As Object\r\n    Set o = New K1\r\n    Main = o.Need\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Get Opt(Optional ByVal i As Long = 2) As Long\r\n    Opt = i\r\nEnd Property\r\nPublic Function Need(ByVal i As Long) As Long\r\n    Need = i\r\nEnd Function\r\nPublic Property Get O() As Collection\r\n    Set O = New Collection\r\nEnd Property\r\nPublic Property Set O(ByVal c As Collection)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue685g_05_runtime",
+      "description": "Issue #685 a leftover collected there, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 4.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As Object\r\n    Set o = New K1\r\n    Main = o.Need(4)\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Get Opt(Optional ByVal i As Long = 2) As Long\r\n    Opt = i\r\nEnd Property\r\nPublic Function Need(ByVal i As Long) As Long\r\n    Need = i\r\nEnd Function\r\nPublic Property Get O() As Collection\r\n    Set O = New Collection\r\nEnd Property\r\nPublic Property Set O(ByVal c As Collection)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue685g_06_runtime",
+      "description": "Issue #685 a leftover collected there, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As Object\r\n    Set o = New K1\r\n    o.O = New Collection\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Get Opt(Optional ByVal i As Long = 2) As Long\r\n    Opt = i\r\nEnd Property\r\nPublic Function Need(ByVal i As Long) As Long\r\n    Need = i\r\nEnd Function\r\nPublic Property Get O() As Collection\r\n    Set O = New Collection\r\nEnd Property\r\nPublic Property Set O(ByVal c As Collection)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue685g_07_runtime",
+      "description": "Issue #685 a leftover collected there, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As Object\r\n    Set o = New K1\r\n    Set o.O = New Collection\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Get Opt(Optional ByVal i As Long = 2) As Long\r\n    Opt = i\r\nEnd Property\r\nPublic Function Need(ByVal i As Long) As Long\r\n    Need = i\r\nEnd Function\r\nPublic Property Get O() As Collection\r\n    Set O = New Collection\r\nEnd Property\r\nPublic Property Set O(ByVal c As Collection)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

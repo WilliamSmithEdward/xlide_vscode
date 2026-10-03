@@ -37,6 +37,12 @@ import { stringLiteralValue } from '../typeInference';
 import { activeModuleMembers, matchParenFrom, setAssignmentTarget, statementTokensAfterLeadingLabel, tokenName, tokenText } from '../walker';
 import { splitTopLevelTokenGroups } from '../../lexer/tokenHelpers';
 import { namesIn } from './shared';
+import { foldStringExpression } from '../knownStringCalls';
+
+/** The text constants an Execute subject is built with (issue #685). */
+const SUBJECT_CONSTANTS: Readonly<Record<string, string>> = {
+	vbcr: String.fromCharCode(13), vblf: String.fromCharCode(10), vbcrlf: String.fromCharCode(13, 10), vbnewline: String.fromCharCode(13, 10), vbtab: String.fromCharCode(9),
+};
 
 type LateObject =
 	| { kind: 'regexp'; pattern: string | undefined; flags: { global?: boolean; ignorecase?: boolean; multiline?: boolean } }
@@ -44,7 +50,7 @@ type LateObject =
 	| { kind: 'fso'; files: Record<string, FileFact> }
 	/** `empty`: opened to read a file the procedure left empty. `file`: the path it writes. */
 	| { kind: 'textstream'; mode: 'read' | 'write'; closed: boolean; empty?: boolean; file?: string }
-	| { kind: 'recordset' }
+	| { kind: 'recordset'; open?: boolean; closed?: boolean }
 	/** The document element, or null for a document with none: new, or loaded from malformed XML. */
 	| { kind: 'domdoc'; root: XmlElement | null };
 
@@ -54,6 +60,8 @@ type FileFact = 'empty' | 'full' | 'absent';
 interface XmlElement {
 	name: string;
 	children: XmlElement[];
+	/** Each attribute's value as written; undefined where it holds an entity reference. */
+	attributes?: Readonly<Record<string, string | undefined>>;
 }
 
 const REGEXP_MEMBERS: ReadonlySet<string> = new Set(['pattern', 'global', 'ignorecase', 'multiline', 'test', 'execute', 'replace']);
@@ -139,7 +147,13 @@ export function checkLateBoundObjects(
 				const value = toks.slice(eq + 1);
 				const created = createdObject(value, states);
 				checkMembers(node.span, toks.slice(eq + 1), states, push);
-				forget(namesIn(source, node.span));
+				// `Set ts = fso.CreateTextFile(p)` reads fso, which stays followed
+				// with what the call did to its files (issue #685).
+				const named = namesIn(source, node.span);
+				if (created?.kind === 'textstream') {
+					named.delete(tokenName(value[0])?.toLowerCase() ?? '');
+				}
+				forget(named);
 				if (created) {
 					states.set(lower, created);
 				}
@@ -188,11 +202,20 @@ function createdObject(value: readonly VbaToken[], states: ReadonlyMap<string, L
 		return undefined;
 	}
 	const file = pathKey(splitTopLevelTokenGroups(value, 4, ',', value.length - 1)[0]);
+	// A stream to write leaves the file empty until something is written:
+	// `Set ts = fso.CreateTextFile(p): ts.Close`, then reading p raises 62
+	// (issue #685, measured in Excel 16.0). Append keeps what it held.
 	if (method === 'createtextfile') {
+		if (file !== undefined) {
+			fso.files[file] = 'empty';
+		}
 		return { kind: 'textstream', mode: 'write', closed: false, file };
 	}
 	if (method === 'opentextfile') {
 		const mode = ioMode(value, 3);
+		if (mode === 2 && file !== undefined) {
+			fso.files[file] = 'empty';
+		}
 		return mode === 'none' || mode === 1 ? { kind: 'textstream', mode: 'read', closed: false, empty: file !== undefined && fso.files[file] === 'empty' }
 			: mode === 2 || mode === 8 ? { kind: 'textstream', mode: 'write', closed: false, file }
 			: undefined;
@@ -276,10 +299,15 @@ function checkMembers(base: Span, toks: readonly VbaToken[], states: Map<string,
 			continue;
 		}
 		if (state.kind === 'recordset') {
+			// Open, then Close, leaves it closed again: a second Close raises
+			// 3704 too (issue #685, measured in Excel 16.0).
 			if (memberName === 'open') {
-				ended.add(lower!);
-			} else if (CLOSED_RECORDSET.has(memberName)) {
-				push('lateBoundObjectState', `'${toks[i].rawText}' was never opened, so ${memberTok.rawText} has no records to work on. This will raise Run-time error '3704': Operation is not allowed when the object is closed.`, at(memberTok));
+				state.open = true;
+			} else if (state.open && memberName === 'close') {
+				state.open = false;
+				state.closed = true;
+			} else if (!state.open && CLOSED_RECORDSET.has(memberName)) {
+				push('lateBoundObjectState', `'${toks[i].rawText}' ${state.closed ? 'was closed above' : 'was never opened'}, so ${memberTok.rawText} has no records to work on. This will raise Run-time error '3704': Operation is not allowed when the object is closed.`, at(memberTok));
 			}
 			continue;
 		}
@@ -314,8 +342,13 @@ function checkMembers(base: Span, toks: readonly VbaToken[], states: Map<string,
 			}
 			const close = matchParenFrom(toks, i + 3);
 			const args = splitTopLevelTokenGroups(toks, i + 4, ',', close);
-			if (memberName === 'execute' && state.pattern !== undefined && args.length === 1 && args[0].length === 1 && args[0][0].kind === 'stringLiteral') {
-				const hit = matchIndexFault(state.pattern, state.flags, stringLiteralValue(args[0][0].rawText), toks, close);
+			// The subject as a literal, or literals and vbCr, vbLf, vbCrLf and
+			// vbTab joined by &: `"x" & vbLf & "x"` (issue #685).
+			const subject = memberName === 'execute' && args.length === 1
+				? foldStringExpression(args[0], { nameValue: (tok) => SUBJECT_CONSTANTS[tokenText(tok)], integerValue: () => undefined })
+				: undefined;
+			if (memberName === 'execute' && state.pattern !== undefined && subject !== undefined && !(state.flags.multiline && subject.includes('\r'))) {
+				const hit = matchIndexFault(state.pattern, state.flags, subject, toks, close);
 				if (hit) {
 					push('collectionIndexOutOfRange', hit.message, at(toks[hit.at]));
 				}
@@ -360,7 +393,7 @@ function matchIndexFault(
 		}
 	}
 	if (index.value >= matches.length) {
-		return { at: close + 2, message: `The pattern finds ${matches.length === 0 ? 'no match' : `${matches.length} match${matches.length === 1 ? '' : 'es'}`} in "${subject}", so match ${index.value} is past them. This will raise Run-time error '5': Invalid procedure call or argument.` };
+		return { at: close + 2, message: `The pattern finds ${matches.length === 0 ? 'no match' : `${matches.length} match${matches.length === 1 ? '' : 'es'}`} in ${JSON.stringify(subject)}, so match ${index.value} is past them. This will raise Run-time error '5': Invalid procedure call or argument.` };
 	}
 	const after = index.end + 1;
 	if (toks[after]?.rawText === '.' && tokenText(toks[after + 1]) === 'submatches') {
@@ -504,25 +537,70 @@ function checkDocument(
 	}
 }
 
-/** Whether an element is on `//name`, `/a/b` or `a/b`: undefined for any other path. Names match as written. */
+/**
+ * Whether an element is on `//name`, `/a/b` or `a/b`, each step with an
+ * optional `[n]` or `[@attr='value']` predicate: `//b[3]`, the third b of
+ * some parent, and `//b[@id='2']` (issue #685, measured in Excel 16.0 with
+ * MSXML 6). Undefined for any other path. Names match as written.
+ */
 function pathFinds(root: XmlElement, path: string): boolean | undefined {
 	const name = '[A-Za-z_][\\w.-]*';
-	if (new RegExp(`^//${name}$`).test(path)) {
-		const wanted = path.slice(2);
-		const visit = (element: XmlElement): boolean => element.name === wanted || element.children.some(visit);
-		return visit(root);
-	}
-	if (!new RegExp(`^/?${name}(/${name})*$`).test(path)) {
+	const step = `${name}(?:\\[(?:\\d+|@${name}\\s*=\\s*(?:'[^']*'|"[^"]*"))\\])?`;
+	const descendant = new RegExp(`^//${step}$`).test(path);
+	if (!descendant && !new RegExp(`^/?${step}(/${step})*$`).test(path)) {
 		return undefined;
 	}
-	const steps = path.replace(/^\//, '').split('/');
-	let level: readonly XmlElement[] = [root];
-	for (const step of steps) {
-		const found = level.filter((element) => element.name === step);
+	// What a step keeps of one parent's children: undefined where an attribute it reads is not known.
+	const take = (siblings: readonly XmlElement[], text: string): XmlElement[] | undefined => {
+		const parts = /^([^[]+)(?:\[(?:(\d+)|@([^=\s]+)\s*=\s*(?:'([^']*)'|"([^"]*)"))\])?$/.exec(text)!;
+		const named = siblings.filter((element) => element.name === parts[1]);
+		if (parts[2] !== undefined) {
+			const at = named[Number(parts[2]) - 1];
+			return at ? [at] : [];
+		}
+		if (parts[3] === undefined) {
+			return named;
+		}
+		const wanted = parts[4] ?? parts[5];
+		if (named.some((element) => element.attributes === undefined || (parts[3] in element.attributes && element.attributes[parts[3]] === undefined))) {
+			return undefined;
+		}
+		return named.filter((element) => element.attributes![parts[3]] === wanted);
+	};
+	if (descendant) {
+		// Every parent's children, the document's own (the root) included.
+		const groups: XmlElement[][] = [[root]];
+		const gather = (element: XmlElement): void => {
+			groups.push(element.children);
+			element.children.forEach(gather);
+		};
+		gather(root);
+		let unknown = false;
+		for (const group of groups) {
+			const kept = take(group, path.slice(2));
+			if (kept === undefined) {
+				unknown = true;
+			} else if (kept.length > 0) {
+				return true;
+			}
+		}
+		return unknown ? undefined : false;
+	}
+	const steps = path.replace(/^\//, '').match(new RegExp(step, 'g'))!;
+	let level: readonly XmlElement[][] = [[root]];
+	for (const text of steps) {
+		const found: XmlElement[] = [];
+		for (const group of level) {
+			const kept = take(group, text);
+			if (kept === undefined) {
+				return undefined;
+			}
+			found.push(...kept);
+		}
 		if (found.length === 0) {
 			return false;
 		}
-		level = found.flatMap((element) => element.children);
+		level = found.map((element) => element.children);
 	}
 	return true;
 }
@@ -582,12 +660,13 @@ export function parseXml(text: string): XmlElement | null | undefined {
 			return null;
 		}
 		const seen = new Set<string>();
+		const attributes: Record<string, string | undefined> = {};
 		for (;;) {
 			const before = i;
 			space();
 			if (text.startsWith('/>', i)) {
 				i += 2;
-				return { name: tag, children: [] };
+				return { name: tag, children: [], attributes };
 			}
 			if (text[i] === '>') {
 				i++;
@@ -612,6 +691,8 @@ export function parseXml(text: string): XmlElement | null | undefined {
 			if (close < 0 || text.slice(i + 1, close).includes('<') || !entitiesOk(text.slice(i + 1, close))) {
 				return null;
 			}
+			const raw = text.slice(i + 1, close);
+			attributes[attr] = raw.includes('&') ? undefined : raw;
 			i = close + 1;
 		}
 		const children: XmlElement[] = [];
@@ -629,7 +710,7 @@ export function parseXml(text: string): XmlElement | null | undefined {
 					return null;
 				}
 				i++;
-				return { name: tag, children };
+				return { name: tag, children, attributes };
 			}
 			if (text.startsWith('<!--', i)) {
 				const close = text.indexOf('-->', i + 4);
