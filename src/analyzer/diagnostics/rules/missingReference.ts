@@ -88,6 +88,52 @@ export function librariesNamedIn(source: string): Set<string> {
 	return out;
 }
 
+/** The Scripting library's types a module names unqualified, which no default reference brings. */
+const SCRIPTING_TYPES: ReadonlySet<string> = new Set(['dictionary', 'filesystemobject', 'textstream']);
+
+/**
+ * Module rule: an early-bound Scripting type in a project whose references
+ * are known and do not include the Scripting Runtime. `Dim d As
+ * Scripting.Dictionary` and `Dim d As New Dictionary` then do not compile,
+ * "User-defined type not defined" (issue #349, measured in Excel 16.0).
+ * Silent when the references are not known, and for a name the project
+ * declares itself. Reported once per module, as a missing library is.
+ */
+export function checkMissingScriptingReference(
+	source: string,
+	referencedLibraries: readonly string[] | undefined,
+	projectTypes: ReadonlySet<string>,
+	push: PushFn,
+): void {
+	if (referencedLibraries === undefined || referencedLibraries.some((name) => name.toLowerCase() === 'scripting')) {
+		return;
+	}
+	const toks = tokenizeCached(source).filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
+	for (let i = 0; i + 1 < toks.length; i++) {
+		const word = toks[i].rawText.toLowerCase();
+		if (word !== 'as' && word !== 'new') {
+			continue;
+		}
+		let at = i + 1;
+		if (word === 'as' && toks[at]?.rawText.toLowerCase() === 'new') {
+			at++;
+		}
+		const qualified = toks[at]?.rawText.toLowerCase() === 'scripting' && toks[at + 1]?.rawText === '.' && tokenName(toks[at + 2]) !== undefined;
+		const name = qualified ? tokenName(toks[at + 2])! : tokenName(toks[at]);
+		const lower = name?.toLowerCase();
+		if (!name || !lower || (!qualified && (!SCRIPTING_TYPES.has(lower) || projectTypes.has(lower) || toks[at + 1]?.rawText === '.'))) {
+			continue;
+		}
+		push(
+			'missingLibraryReference',
+			`'${name}' is the Scripting Runtime's, which this project does not reference. Add a reference to Microsoft Scripting Runtime, or bind late: `
+			+ `Dim x As Object: Set x = CreateObject("Scripting.${name}"). This is a VBE compile error: User-defined type not defined.`,
+			{ start: toks[at].start, end: (qualified ? toks[at + 2] : toks[at]).end },
+		);
+		return;
+	}
+}
+
 /**
  * Module rule: a type or constant qualified with an Office library the
  * project does not reference.

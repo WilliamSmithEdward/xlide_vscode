@@ -174,6 +174,7 @@ export class AnalysisWorkerState {
 			// does a reference, which brings another application's types in.
 			request.host ?? '',
 			(request.referencedHosts ?? []).join('+'),
+			request.referencedLibraries === undefined ? '' : `refs:${request.referencedLibraries.join('+')}`,
 			// Editing the designer changes diagnostics without changing a line
 			// of code, so incremental reuse has to see the control list.
 			JSON.stringify(implicitMembers ?? null),
@@ -190,6 +191,7 @@ export class AnalysisWorkerState {
 			moduleType: request.moduleType,
 			host: request.host,
 			referencedHosts: request.referencedHosts,
+			referencedLibraries: request.referencedLibraries,
 			designerClass: request.designerClass,
 			workbookSheets: request.workbookSheets,
 			moduleKind: request.moduleKind as ModuleSymbolKind | undefined,

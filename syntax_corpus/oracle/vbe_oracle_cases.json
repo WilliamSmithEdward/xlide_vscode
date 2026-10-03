@@ -97901,6 +97901,105 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim fso As Object, ts As Object, p As String\r\n    Set fso = CreateObject(\"Scripting.FileSystemObject\")\r\n    p = Environ(\"TEMP\") & \"\\xlide477d.txt\"\r\n    If fso.FileExists(p) Then fso.DeleteFile p\r\n    fso.CreateTextFile(p, True).Close\r\n    Set ts = fso.OpenTextFile(p, 1)\r\n    ts.SkipLine\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue349c_01_runtime",
+      "description": "Issue #349 Dictionary state through Keys, For Each and a negative index, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 32811.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object, x As Variant\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    d.CompareMode = 1\r\n    d.Remove \"A\"\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue349c_02_runtime",
+      "description": "Issue #349 Dictionary state through Keys, For Each and a negative index, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object, x As Variant\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    d.CompareMode = 1\r\n    Main = d.Keys()(0)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue349c_03_runtime",
+      "description": "Issue #349 Dictionary state through Keys, For Each and a negative index, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 32811.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object, x As Variant\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    Main = UBound(d.Keys)\r\n    d.Remove \"A\"\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue349c_04_runtime",
+      "description": "Issue #349 Dictionary state through Keys, For Each and a negative index, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 32811.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object, x As Variant\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    For Each x In d\r\n    Next\r\n    d.Remove \"A\"\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue349c_05_runtime",
+      "description": "Issue #349 Dictionary state through Keys, For Each and a negative index, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object, x As Variant\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    d.Add \"a\", 1\r\n    Main = d.Items()(-1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue349c_06_runtime",
+      "description": "Issue #349 Dictionary state through Keys, For Each and a negative index, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object, x As Variant\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    Main = d(\"a\")\r\n    Main = d.Items()(-1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue349c_07_runtime",
+      "description": "Issue #349 Dictionary state through Keys, For Each and a negative index, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object, x As Variant\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    Set d = Nothing\r\n    Main = d(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue349c_08_runtime",
+      "description": "Issue #349 Dictionary state through Keys, For Each and a negative index, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> a.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object, x As Variant\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    d.Add \"a\", 1\r\n    Main = d.Keys()(0)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue349c_09_runtime",
+      "description": "Issue #349 Dictionary state through Keys, For Each and a negative index, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object, x As Variant\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    d.Add \"a\", 1\r\n    For Each x In d\r\n    Next\r\n    d.Remove \"a\"\r\n    Main = d.Count\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
