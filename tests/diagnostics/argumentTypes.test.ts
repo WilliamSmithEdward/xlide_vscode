@@ -366,11 +366,21 @@ describe('analyzeModule - argument type validation', () => {
 		const src =
 			'Public Function InvoiceTotal(ByVal Subtotal As Currency) As Currency\n' +
 			'End Function\n' +
+			'Public Sub TestInvoiceTotal(ByVal label As String)\n' +
+			'    total = InvoiceTotal(label)\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'argument-type-mismatch')).toHaveLength(0);
+	});
+
+	it('warns on a String local still "" passed by value to a number (issue #558, measured in Excel 16.0)', () => {
+		const src =
+			'Public Function InvoiceTotal(ByVal Subtotal As Currency) As Currency\n' +
+			'End Function\n' +
 			'Public Sub TestInvoiceTotal()\n' +
 			'    Dim label As String\n' +
 			'    total = InvoiceTotal(label)\n' +
 			'End Sub\n';
-		expect(byCode(analyzeModule(src), 'argument-type-mismatch')).toHaveLength(0);
+		expect(byCode(analyzeModule(src), 'argument-type-mismatch')).toHaveLength(1);
 	});
 
 	it('flags known scalar variable type mismatches for ByRef parameters', () => {

@@ -885,10 +885,27 @@ export function checkStringArithmeticOperands(
 		// reported; a header with neither is not read.
 		const knowsStrings = [...known.values()].some((value) => value.kind === 'string');
 		const mayHoldString = (span: Span): boolean => knowsStrings || source.slice(span.start, span.end).includes('"');
+		let forReaching: ReturnType<typeof straightLineAssignments> | undefined;
 		const visitBlocks = (body: readonly BodyNode[]): void => {
 			for (const node of body) {
 				if (activity?.isInactive(node.span) || unreachable.has(node) || !('body' in node) || !Array.isArray(node.body)) {
 					continue;
+				}
+				// `For i = 1 To v` with v a Variant the straight line just set to
+				// Null: a bound must be a number (issue #332, measured: 94).
+				if (node.kind === 'ForBlock' && !node.each) {
+					const header = blockHeaderLineSpan(source, node.span);
+					const headToks = statementTokens(source, header).filter((tok) => tok.kind !== 'comment');
+					const to = headToks.findIndex((tok) => tokenText(tok) === 'to');
+					const step = headToks.findIndex((tok) => tokenText(tok) === 'step');
+					const eq = headToks.findIndex((tok) => tok.rawText === '=');
+					for (const [from, until] of [[eq + 1, to], [to + 1, step > 0 ? step : headToks.length], [step + 1, step > 0 ? headToks.length : -1]]) {
+						const lower = until - from === 1 && from > 0 ? tokenName(headToks[from])?.toLowerCase() : undefined;
+						const held = lower ? (forReaching ??= straightLineAssignments(source, member.body, activity)).get(node)?.get(lower)?.filter((tok) => tok.kind !== 'comment') : undefined;
+						if (held?.length === 1 && tokenText(held[0]) === 'null') {
+							push('variantValueMisuse', `'${headToks[from].rawText}' holds Null here, and For needs a number for its bounds. This will raise Run-time error '94': Invalid use of Null.`, absoluteSpan(header, headToks[from]));
+						}
+					}
 				}
 				// The opening line sees what reaches the block: `x = "abc"` then
 				// `While x`, though the body assigns x again (issue #424).

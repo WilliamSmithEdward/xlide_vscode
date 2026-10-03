@@ -43,10 +43,19 @@ import {
 	tokenText,
 } from './walker';
 
-/** The value tokens of each local's reaching assignment, by lowercased name. */
+/**
+ * The value tokens of each local's reaching assignment, by lowercased name,
+ * and of a local array's element by `elementKey`: `a(0) = Null` is under
+ * "a(0)".
+ */
 export type ReachingAssignments = ReadonlyMap<string, readonly VbaToken[]>;
 
 const NONE: ReachingAssignments = new Map();
+
+/** The key a local array's element is held under: "a(0)". */
+export function elementKey(lower: string, index: number): string {
+	return `${lower}(${index})`;
+}
 
 /**
  * What the walk knows an object local holds, by identity: Nothing, from
@@ -153,14 +162,17 @@ function cachedWalk(
 	// The walk is synchronous, so its arrays can sit beside it for passedWhole.
 	const outer = walkArrays;
 	const outerProcedures = walkProcedures;
+	const outerElements = walkElements;
 	walkArrays = localArrayNames(body, activity);
 	let exit: ReachingAssignments;
 	walkProcedures = moduleProcedureNames(source);
+	walkElements = /\)\s*=\s*null\b/i.test(text);
 	try {
 		exit = walkList(source, body, initial, activity, { out, dead, deadSpans, raiseLeaves: !/\bon\s+error\s+resume\s+next\b/i.test(text), referenced: referencedLabels(source, body, activity) });
 	} finally {
 		walkArrays = outer;
 		walkProcedures = outerProcedures;
+		walkElements = outerElements;
 	}
 	const walk: CachedWalk = { source, activity, result: out, dead, deadSpans, exit: exit === UNREACHED ? undefined : exit };
 	byStart.set(key, walk);
@@ -646,6 +658,7 @@ function afterStatement(source: string, span: Span, before: ReachingAssignments)
 		return value === OBJECT_NOTHING || value === EMPTY_COLLECTION;
 	});
 	before = without(before, known);
+	before = without(before, [...mentionedNames(toks)].map(elementsOf));
 	if (WRITING_HEADS.has(head) && !(head === 'line' && tokenText(toks[1]) !== 'input')) {
 		const after = without(before, writtenNames(toks));
 		const object = head === 'set' ? setObjectValue(toks) : undefined;
@@ -667,7 +680,55 @@ function afterStatement(source: string, span: Span, before: ReachingAssignments)
 		next.set(bare.name.toLowerCase(), copied !== undefined && before.has(copied) ? before.get(copied)! : value);
 		after = next;
 	}
+	const element = walkElements ? elementAssignment(toks, before) : undefined;
+	if (element) {
+		const next = new Map(after);
+		next.set(element.key, element.value);
+		after = next;
+	}
 	return after;
+}
+
+/**
+ * `a(0) = Null` on an array the procedure declares, the index a whole
+ * number or a local the walk knows holds one: the element's key and its
+ * value (issue #332). Null is the one value a rule reads from an element.
+ */
+function elementAssignment(toks: readonly VbaToken[], before: ReachingAssignments): { key: string; value: readonly VbaToken[] } | undefined {
+	const lower = tokenName(toks[0])?.toLowerCase();
+	if (!lower || !walkArrays.has(lower) || toks[1]?.rawText !== '(') {
+		return undefined;
+	}
+	let close = -1;
+	for (let i = 2, depth = 1; i < toks.length; i++) {
+		depth += toks[i].rawText === '(' ? 1 : toks[i].rawText === ')' ? -1 : 0;
+		if (depth === 0) {
+			close = i;
+			break;
+		}
+	}
+	if (close < 0 || toks[close + 1]?.rawText !== '=') {
+		return undefined;
+	}
+	const index = knownIndex(toks.slice(2, close), before);
+	const value = toks.slice(close + 2).filter((tok) => tok.kind !== 'comment');
+	return index === undefined || value.length !== 1 || tokenText(value[0]) !== 'null' ? undefined : { key: elementKey(lower, index), value };
+}
+
+/** A subscript's value: a whole-number literal, or a local holding one here. */
+export function knownIndex(subscript: readonly VbaToken[], held: ReachingAssignments): number | undefined {
+	const toks = subscript.filter((tok) => tok.kind !== 'comment');
+	if (toks.length !== 1) {
+		return undefined;
+	}
+	const lower = tokenName(toks[0])?.toLowerCase();
+	const value = lower !== undefined ? literalOf(held.get(lower)) : literalOf(toks);
+	return typeof value === 'number' ? value : undefined;
+}
+
+/** The marker `without` reads as every element of the array: "a(". */
+function elementsOf(lower: string): string {
+	return `${lower}(`;
 }
 
 /** Every name a block may change, header and footer lines included, or 'all'. */
@@ -799,6 +860,9 @@ function touchedBy(source: string, stmts: readonly LeafStatementNode[]): Set<str
 			for (const lower of changed) {
 				names.add(lower);
 			}
+			for (const lower of mentionedNames(toks)) {
+				names.add(elementsOf(lower));
+			}
 			const bare = bareAssignmentTarget(source, span);
 			if (bare && !identityAssignment(bare.name, bare.valueTokens)) {
 				names.add(bare.name.toLowerCase());
@@ -851,6 +915,13 @@ function setObjectValue(toks: readonly VbaToken[]): { name: string; value: reado
 
 /** The arrays the procedure being walked declares, by lowercased name; set while a walk runs. */
 let walkArrays: ReadonlySet<string> = new Set();
+
+/**
+ * Whether the body being walked sets an element to Null, so the walk keeps
+ * element keys: elsewhere `without` need not look for them, which would cost
+ * a pass over every local at each statement (issue #322).
+ */
+let walkElements = false;
 
 /** The names a procedure's Dim statements declare as arrays: their subscripts pass nothing. */
 function localArrayNames(body: readonly BodyNode[], activity: ConditionalActivityTracker | undefined): Set<string> {
@@ -961,12 +1032,26 @@ function mentionedNames(toks: readonly VbaToken[]): Set<string> {
 	return names;
 }
 
+/**
+ * The map less each name. A name drops its array's elements too, and a
+ * name ending "(" drops only the elements: "a(" drops "a(0)".
+ */
 function without(map: ReachingAssignments, names: Iterable<string>): ReachingAssignments {
 	let next: Map<string, readonly VbaToken[]> | undefined;
+	const elements = walkElements ? [...map.keys()].filter((key) => key.endsWith(')')) : [];
 	for (const lower of names) {
 		if ((next ?? map).has(lower)) {
 			next ??= new Map(map);
 			next.delete(lower);
+		}
+		if (elements.length > 0) {
+			const prefix = lower.endsWith('(') ? lower : elementsOf(lower);
+			for (const key of elements) {
+				if (key.startsWith(prefix) && (next ?? map).has(key)) {
+					next ??= new Map(map);
+					next.delete(key);
+				}
+			}
 		}
 	}
 	return next ?? map;
