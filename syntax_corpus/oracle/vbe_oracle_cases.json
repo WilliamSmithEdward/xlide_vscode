@@ -100417,6 +100417,374 @@
       "source": "Option Explicit\r\nPrivate Sub Init(x As Variant)\r\n    Set x = New Collection\r\nEnd Sub\r\nPrivate Function Make() As Object\r\n    Set Make = New Collection\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v, c As New Collection\r\n    c.Add 5\r\n    For Each v In c\r\n        Main = v + 1\r\n    Next\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue613_01_runtime",
+      "description": "Issue #613 a class member calling itself through Me, With Me, an alias, a new instance or CallByName, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 7.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Class1\r\n    Set c = New Class1\r\n    Main = c.Value\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate m As Long\r\nPublic Property Let Value(ByVal v As Long)\r\n    m = v\r\nEnd Property\r\nPublic Property Get Value() As Long\r\n    If m = 0 Then Me.Value = 7\r\n    Value = m\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue613_02_runtime",
+      "description": "Issue #613 a class member calling itself through Me, With Me, an alias, a new instance or CallByName, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 28.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Class1\r\n    Set c = New Class1\r\n    Main = c.Item(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get Item(ByVal i As Long) As Long\r\n    Item = Me.Item(i)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue613_03_runtime",
+      "description": "Issue #613 a class member calling itself through Me, With Me, an alias, a new instance or CallByName, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 28.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Class1\r\n    Set c = New Class1\r\n    Main = c.Value\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get Value() As Long\r\n    With Me\r\n        Value = .Value\r\n    End With\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue613_04_runtime",
+      "description": "Issue #613 a class member calling itself through Me, With Me, an alias, a new instance or CallByName, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 28.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Class1\r\n    Set c = New Class1\r\n    c.Value = 1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Let Value(ByVal v As Long)\r\n    With Me\r\n        .Value = v\r\n    End With\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue613_05_runtime",
+      "description": "Issue #613 a class member calling itself through Me, With Me, an alias, a new instance or CallByName, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 28.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Class1\r\n    Set c = New Class1\r\n    c.Value = 1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Let Value(ByVal v As Long)\r\n    Dim o As Class1\r\n    Set o = Me\r\n    o.Value = v\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue613_06_runtime",
+      "description": "Issue #613 a class member calling itself through Me, With Me, an alias, a new instance or CallByName, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 28.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Class1\r\n    Set c = New Class1\r\n    Main = c.Twice\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Twice() As Long\r\n    Dim o As Class1\r\n    Set o = New Class1\r\n    Twice = o.Twice\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue613_07_runtime",
+      "description": "Issue #613 a class member calling itself through Me, With Me, an alias, a new instance or CallByName, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 28.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Class1\r\n    Set c = New Class1\r\n    c.Go\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Sub Go()\r\n    CallByName Me, \"Go\", VbMethod\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue613_08_runtime",
+      "description": "Issue #613 a class member calling itself through Me, With Me, an alias, a new instance or CallByName, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Class1\r\n    Set c = New Class1\r\n    Main = c.Item(3)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get Item(ByVal i As Long) As Long\r\n    If i > 0 Then Item = Me.Item(i - 1)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue613_09_runtime",
+      "description": "Issue #613 a class member calling itself through Me, With Me, an alias, a new instance or CallByName, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Class1\r\n    Set c = New Class1\r\n    c.Go\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate busy As Boolean\r\nPublic Sub Go()\r\n    If busy Then Exit Sub\r\n    busy = True\r\n    Me.Go\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue613_10_runtime",
+      "description": "Issue #613 a class member calling itself through Me, With Me, an alias, a new instance or CallByName, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Class1\r\n    Set c = New Class1\r\n    c.Go\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Sub Go()\r\n    Static n As Long\r\n    n = n + 1\r\n    If n < 3 Then Me.Go\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue613_11_runtime",
+      "description": "Issue #613 a class member calling itself through Me, With Me, an alias, a new instance or CallByName, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Class1\r\n    Set c = New Class1\r\n    c.Go\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Sub Go()\r\n    If False Then Me.Go\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue613_12_runtime",
+      "description": "Issue #613 a class member calling itself through Me, With Me, an alias, a new instance or CallByName, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Class1\r\n    Set c = New Class1\r\n    c.Value = 1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate m As Long\r\nPublic Property Get Value() As Long\r\n    Value = m\r\nEnd Property\r\nPublic Property Let Value(ByVal v As Long)\r\n    m = v + Me.Value\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue613_13_runtime",
+      "description": "Issue #613 a class member calling itself through Me, With Me, an alias, a new instance or CallByName, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Class1\r\n    Set c = New Class1\r\n    c.Value = 1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate m As Collection\r\nPublic Property Get Items() As Collection\r\n    Set Items = m\r\nEnd Property\r\nPublic Property Set Items(ByVal v As Collection)\r\n    Set m = v\r\nEnd Property\r\nPublic Property Let Value(ByVal v As Long)\r\n    Set Me.Items = New Collection\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue613_14_runtime",
+      "description": "Issue #613 a class member calling itself through Me, With Me, an alias, a new instance or CallByName, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Class1\r\n    Set c = New Class1\r\n    Main = c.Twice\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Twice() As Long\r\n    Dim o As Class1\r\n    Set o = New Class1\r\n    Twice = 2\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue613_15_runtime",
+      "description": "Issue #613 a class member calling itself through Me, With Me, an alias, a new instance or CallByName, case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Class1\r\n    Set c = New Class1\r\n    c.Go\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Sub Go()\r\n    CallByName Me, \"Stop2\", VbMethod\r\nEnd Sub\r\nPublic Sub Stop2()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue613_16_runtime",
+      "description": "Issue #613 a class member calling itself through Me, With Me, an alias, a new instance or CallByName, case 16, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Class1\r\n    Set c = New Class1\r\n    Main = c.Twice(2)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get Item(ByVal i As Long) As Long\r\n    Item = i\r\nEnd Property\r\nPublic Property Get Twice(ByVal i As Long) As Long\r\n    Twice = Me.Item(i)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

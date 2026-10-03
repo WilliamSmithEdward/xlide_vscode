@@ -402,7 +402,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'handlerFlow',
-		run: (ctx, push) => checkHandlerFlow(ctx.source, ctx.mod, ctx.activity, push),
+		run: (ctx, push) => checkHandlerFlow(ctx.source, ctx.mod, ctx.activity, push, ctx.moduleKind === 'class' ? ctx.opts.moduleName : undefined),
 	},
 	{
 		name: 'fileStatements',
