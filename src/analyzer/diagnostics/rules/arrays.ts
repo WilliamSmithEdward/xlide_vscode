@@ -2727,6 +2727,9 @@ function fixedArraySubscriptViolations(
 			continue;
 		}
 		const decl = fixed.has(lower) && !excluded.has(lower) ? fixed.get(lower) : undefined;
+		if (!decl && (!counters || counters.size === 0)) {
+			continue;
+		}
 		const close = matchParenFrom(toks, i + 1);
 		if (close <= i + 1) {
 			continue;
