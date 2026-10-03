@@ -2042,6 +2042,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.3.1.5 ParamArray; VBE "Expected: identifier" (issue #213, Excel 16.0)',
 		confidence: 'high',
 	},
+	invalidParamArrayUse: {
+		code: 'invalid-paramarray-use',
+		title: 'A ParamArray resized, erased or passed ByRef',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'VBE "Invalid ParamArray use": ReDim, Erase, or a ByRef argument of a ParamArray, and one declared with no parentheses (issue #445, Excel 16.0)',
+		confidence: 'high',
+	},
 	udtValueMismatch: {
 		code: 'udt-value-mismatch',
 		title: 'User-defined type used as a single value',

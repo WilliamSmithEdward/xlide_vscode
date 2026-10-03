@@ -527,7 +527,9 @@ class CalleeReader {
 		passed: number,
 		skipped: ReadonlySet<number>,
 	): RaisingUse | ParamArrayRead | undefined {
-		if (toks[at + 1]?.rawText !== '(') {
+		// `ReDim p(3)` reads nothing: it is a compile error of its own,
+		// "Invalid ParamArray use" (issue #445).
+		if (toks[at + 1]?.rawText !== '(' || tokenText(toks[0]) === 'redim') {
 			return undefined;
 		}
 		const close = matchParenFrom(toks, at + 1);
