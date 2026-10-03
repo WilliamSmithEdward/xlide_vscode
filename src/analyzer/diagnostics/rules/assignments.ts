@@ -327,6 +327,16 @@ export function checkAssignmentTypes(
 		const shapes = declarationShapeEnvironmentFor(symbols, member);
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
 		const procSym = procedureSymbolFor(symbols, member);
+		// These value helpers inspect the same direct child declaration. Preserve
+		// first-match semantics, but share queried names (and misses) per procedure.
+		let localSymbols: Map<string, VbaSymbol | undefined> | undefined;
+		const localSymbolNamed = (lower: string): VbaSymbol | undefined => {
+			localSymbols ??= new Map();
+			if (!localSymbols.has(lower)) {
+				localSymbols.set(lower, procSym?.children?.find((child) => child.name.toLowerCase() === lower));
+			}
+			return localSymbols.get(lower);
+		};
 		const { resolveExpressionType, resolveQualifiedExpressionType } =
 			sourceBindingTypeResolvers(symbols, procSym, projectVisibleSymbols);
 		// What a Variant holds at a statement, and how often each name is
@@ -339,7 +349,7 @@ export function checkAssignmentTypes(
 		let written: ReadonlySet<string> | undefined;
 		const arrayValueAt = (stmt: LeafStatementNode, name: string): ArrayValue | undefined => {
 			const lower = name.toLowerCase();
-			const local = procSym?.children?.find((child) => child.name.toLowerCase() === lower);
+			const local = localSymbolNamed(lower);
 			const type = normalizeType(local?.asType);
 			if (local?.kind !== 'localVariable' || local.visibility === 'Static' || local.isArray || (type !== undefined && type !== 'variant')) {
 				return undefined;
@@ -374,7 +384,7 @@ export function checkAssignmentTypes(
 				return undefined;
 			}
 			const lower = name.toLowerCase();
-			const local = procSym?.children?.find((child) => child.name.toLowerCase() === lower);
+			const local = localSymbolNamed(lower);
 			const type = normalizeType(local?.asType);
 			if (local?.kind !== 'localVariable' || local.visibility === 'Static' || local.isArray || (type !== undefined && type !== 'variant')) {
 				return undefined;
@@ -429,7 +439,7 @@ export function checkAssignmentTypes(
 				// A `String * 3` local named nowhere else holds three Chr(0),
 				// which convert to no number, Boolean or date (issue #451,
 				// measured in Excel 16.0).
-				const local = lower ? procSym?.children?.find((child) => child.name.toLowerCase() === lower) : undefined;
+				const local = lower ? localSymbolNamed(lower) : undefined;
 				const length = local?.kind === 'localVariable' && local.visibility !== 'Static' && !local.isArray && /^\d+$/.test(local.fixedLength ?? '') ? Number(local.fixedLength) : undefined;
 				if (length !== undefined && length >= 1 && (mentions ??= nameMentions(source, procedure, activity)).get(lower!) === 1) {
 					return { type: 'String', label: `'${value[0].rawText}', a String * ${length} never assigned, which holds ${length} Chr(0)`, span: valueSpan, stringValue: '\u0000'.repeat(length) };
