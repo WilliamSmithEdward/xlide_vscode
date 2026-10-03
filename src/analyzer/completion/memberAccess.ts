@@ -59,6 +59,7 @@ import {
 	type VbaProjectClassMembers,
 	type VbaSymbolAttribute,
 } from '../symbols/symbolModel';
+import type { FormControlInfo } from '../symbols/projectIndex';
 
 /** Project/module facts the resolver needs that come from outside the source. */
 export interface MemberCompletionContext {
@@ -79,7 +80,7 @@ export interface MemberCompletionContext {
 	 * controls. Carries the type, so `RegionPick.` can offer ComboBox members
 	 * rather than only escaping the undeclared-variable finding.
 	 */
-	implicitMembers?: readonly { name: string; type: string }[];
+	implicitMembers?: readonly FormControlInfo[];
 	/**
 	 * True/default lets generic Object/Variant receivers narrow from preceding
 	 * simple Set assignments. Hard diagnostics disable this because VBA still

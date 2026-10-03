@@ -20,6 +20,7 @@ import type {
 	VbaSymbol,
 } from '../symbols/symbolModel';
 import { isProcedureKind } from '../symbols/symbolModel';
+import type { FormControlInfo } from '../symbols/projectIndex';
 import type { SheetChanges, WorkbookSheetInfo } from '../symbols/sheetChanges';
 import type { ProcedureNode } from '../parser/nodes';
 import { getExcelObjectModel, type HostObjectModel } from '../host/excelObjectModel';
@@ -179,7 +180,7 @@ export interface AnalyzeModuleOptions {
 	 * Carries the type as well as the name so a member lookup can resolve it,
 	 * rather than only silencing the finding.
 	 */
-	implicitMembers?: readonly { name: string; type: string }[];
+	implicitMembers?: readonly FormControlInfo[];
 	/**
 	 * The host type of the class the module's DESIGNER makes it, when the host
 	 * can say: `VB.Form`, `VB.MDIForm`, `VB.UserControl`, `VB.PropertyPage`.
@@ -253,6 +254,13 @@ export interface AnalyzeModuleOptions {
 	 * a Public variable is never taken as unchanged.
 	 */
 	projectWrittenNames?: ReadonlySet<string>;
+	/**
+	 * How many modules of the project mention each lowercased name (from
+	 * ProjectIndex.nameMentions). A form's list or MultiPage that only its
+	 * own module names is judged from the designer's contents (issue #315).
+	 * When omitted, it is not.
+	 */
+	projectNameMentions?: ReadonlyMap<string, number>;
 	/**
 	 * The sheets of the workbook the project lives in, as saved, in tab order
 	 * (issue #229). `ThisWorkbook.Sheets("name")` and `(index)` are checked

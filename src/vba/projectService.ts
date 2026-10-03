@@ -12,7 +12,8 @@ import { evictOldest } from '../util/boundedMap';
 import { Cfb } from './cfb';
 import { decodeCodePage, encodeCodePage } from './codePages';
 import { parseFormPackage, writeFormPackage, walkPackages as walkOformsPackages, controlKindOfSite as oformsControlKind } from './oforms/formPackage';
-import { siteName as oformsSiteName } from './oforms/formStream';
+import { siteId as oformsSiteId, siteName as oformsSiteName, type SiteModel as OformsSite } from './oforms/formStream';
+import { parsePageBookkeeping } from './oforms/pageBookkeeping';
 import { printFormMarkup as printOformsMarkup, parseFormMarkup as parseOformsMarkup, applyFormMarkup as applyOformsMarkup } from './oforms/markup';
 import { formatPointsShortest } from './oforms/bytes';
 import { composeNewForm } from './oforms/newForm';
@@ -149,7 +150,7 @@ export interface ModuleEntry {
 	 * "not known", never "none". `eventClass` is the class a member's events
 	 * come from where that is not its `type` (an Access report's sections).
 	 */
-	implicitMembers?: { name: string; type: string; array?: boolean; eventClass?: string }[];
+	implicitMembers?: { name: string; type: string; array?: boolean; eventClass?: string; pages?: readonly string[]; listStartsEmpty?: boolean }[];
 	/**
 	 * The class a designer makes the module, where that is not an
 	 * MSForms.UserForm: a VB6 designer's own (`VB.Form`, `VB.MDIForm`,
@@ -1231,16 +1232,31 @@ function moduleEntryWithDesigner(cfb: Cfb, project: VbaProject, module: VbaModul
 	// code-behind touching one was called undeclared.
 	try {
 		const pkg = parseFormPackage(cfb, designerPath(cfb, module.name), oformsCodec(project.codePage));
-		const controls: { name: string; type: string }[] = [];
+		const controls: { name: string; type: string; pages?: readonly string[]; listStartsEmpty?: boolean }[] = [];
 		// One entry per control: MSForms names are unique across the whole
 		// form, so a name already taken is the SAME control reached twice -
 		// a container arrives once with its record and again in the site
 		// sweep below, and listing it twice would be a duplicate member.
 		const named = new Set<string>();
-		const take = (name: string | undefined, type: string): void => {
+		const take = (name: string | undefined, type: string, facts: { pages?: readonly string[]; listStartsEmpty?: boolean } = {}): void => {
 			if (!name || named.has(name.toLowerCase())) { return; }
 			named.add(name.toLowerCase());
-			controls.push({ name, type });
+			controls.push({ name, type, ...facts });
+		};
+		// What the designer knows of a control's contents (issue #315): a
+		// MultiPage's pages, named in the order its x stream gives their
+		// site IDs, and whether a list has a RowSource to fill it.
+		const factsOf = (surface: typeof pkg, site: OformsSite, kind: string): { pages?: readonly string[]; listStartsEmpty?: boolean } => {
+			if (kind === 'ListBox' || kind === 'ComboBox') {
+				return { listStartsEmpty: !(site.strings.get('RowSource')?.text) };
+			}
+			const inside = kind === 'MultiPage' ? surface.containers.get(oformsSiteId(site)) : undefined;
+			if (!inside?.xRaw) {
+				return {};
+			}
+			const names = new Map(inside.form.sites.map((page) => [oformsSiteId(page), oformsSiteName(page)]));
+			const pages = parsePageBookkeeping(inside.xRaw).pageIds.map((id) => names.get(id));
+			return pages.every((page): page is string => !!page) ? { pages } : {};
 		};
 		walkOformsPackages(pkg, (surface) => {
 			for (const surfaceEntry of surface.entries) {
@@ -1249,7 +1265,8 @@ function moduleEntryWithDesigner(cfb: Cfb, project: VbaProject, module: VbaModul
 					surfaceEntry.kind === 'record' ? surfaceEntry.record : undefined,
 				);
 				take(oformsSiteName(surfaceEntry.site),
-					kind === 'ActiveX' ? 'ActiveX.Control' : `MSForms.${kind}`);
+					kind === 'ActiveX' ? 'ActiveX.Control' : `MSForms.${kind}`,
+					factsOf(surface, surfaceEntry.site, kind));
 			}
 			// Container controls are members too: the Frame, the MultiPage,
 			// and each Page answer to their names on the form. Most arrive
@@ -1258,7 +1275,7 @@ function moduleEntryWithDesigner(cfb: Cfb, project: VbaProject, module: VbaModul
 			for (const site of surface.form.sites) {
 				const kind = oformsControlKind(site);
 				if (kind !== 'Frame' && kind !== 'MultiPage' && kind !== 'Page') { continue; }
-				take(oformsSiteName(site), `MSForms.${kind}`);
+				take(oformsSiteName(site), `MSForms.${kind}`, factsOf(surface, site, kind));
 			}
 		});
 		entry.implicitMembers = controls;

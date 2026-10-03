@@ -47,6 +47,20 @@ import { writtenNamesIn } from '../diagnostics/moduleState';
 import { mergeOpenedFileNumbers, openedFileNumbersIn, type OpenedFileNumbers } from '../diagnostics/openedFileNumbers';
 import { hasAuthoritativeDesignerHeader, parseUserFormControls } from '../../vbaUserFormControls';
 
+/**
+ * A control on a UserForm, as the designer stores it: its name and type
+ * ("MSForms.ListBox"), and what the designer knows of its contents where
+ * the native reader got it (issue #315). Absent facts are unknown.
+ */
+export interface FormControlInfo {
+	name: string;
+	type: string;
+	/** A MultiPage's page names, in page order. */
+	pages?: readonly string[];
+	/** A ListBox or ComboBox with no RowSource: its list starts empty. */
+	listStartsEmpty?: boolean;
+}
+
 /** Source text + project role for one module fed into the index. */
 export interface ModuleInput {
 	moduleName: string;
@@ -60,7 +74,7 @@ export interface ModuleInput {
 	 * designer. When absent, a form's controls come from parsing its own
 	 * `.frm` header, which only standalone VB6-style exports carry.
 	 */
-	implicitMembers?: readonly { name: string; type: string }[];
+	implicitMembers?: readonly FormControlInfo[];
 	/**
 	 * Whether the module has a default instance (`Attribute VB_PredeclaredId =
 	 * True`), from a host that can read the attribute header. Absent leaves the
@@ -514,12 +528,27 @@ function stringLiteralWordsIn(source: string): ReadonlySet<string> {
 	return words;
 }
 
+/** The lowercased names one module mentions: its identifiers, and the identifier-shaped words of its strings. */
+function mentionedNamesIn(source: string): ReadonlySet<string> {
+	const names = new Set<string>();
+	for (const token of tokenizeCached(source)) {
+		if (token.kind === 'identifier') {
+			names.add(token.rawText.toLowerCase());
+		} else if (token.kind === 'stringLiteral') {
+			for (const word of identifierWords(token.rawText)) {
+				names.add(word);
+			}
+		}
+	}
+	return names;
+}
+
 /** A project-wide symbol index built from a set of module sources. */
 export class ProjectIndex {
 	private readonly modules = new Map<string, ModuleSymbols>();
 	private readonly moduleSources = new Map<string, string>();
 	/** Host-supplied designer members (a form's controls), per module name. */
-	private readonly moduleImplicitMembersByName = new Map<string, readonly { name: string; type: string }[]>();
+	private readonly moduleImplicitMembersByName = new Map<string, readonly FormControlInfo[]>();
 	/** Host-supplied default-instance answers, keyed by lowercased module name. */
 	private readonly modulePredeclaredIdByName = new Map<string, boolean>();
 	/** Host-supplied designer classes, keyed by lowercased module name. */
@@ -537,6 +566,7 @@ export class ProjectIndex {
 	private readonly moduleStringLiteralWords = new Map<string, ReadonlySet<string>>();
 	/** The names each module's code may write (issue #241), computed when first asked. */
 	private readonly moduleWrittenNames = new Map<string, ReadonlySet<string>>();
+	private readonly moduleMentionedNames = new Map<string, ReadonlySet<string>>();
 	/** Whole-project query memo for the current index revision. */
 	private readonly queryCache = new Map<string, unknown>();
 
@@ -558,6 +588,7 @@ export class ProjectIndex {
 		this.moduleSources.set(key, input.source);
 		this.moduleStringLiteralWords.set(key, stringLiteralWordsIn(input.source));
 		this.moduleWrittenNames.delete(key);
+		this.moduleMentionedNames.delete(key);
 		if (input.implicitMembers !== undefined) {
 			this.moduleImplicitMembersByName.set(key, input.implicitMembers);
 		} else {
@@ -583,6 +614,7 @@ export class ProjectIndex {
 		this.moduleSources.delete(key);
 		this.moduleStringLiteralWords.delete(key);
 		this.moduleWrittenNames.delete(key);
+		this.moduleMentionedNames.delete(key);
 		this.moduleImplicitMembersByName.delete(key);
 		this.modulePredeclaredIdByName.delete(key);
 		this.moduleDesignerClassByName.delete(key);
@@ -655,7 +687,7 @@ export class ProjectIndex {
 	 * project form's control tree in a binary designer blob, so for a
 	 * project-backed form with no host this answers nothing.
 	 */
-	moduleImplicitMembers(moduleName: string): readonly { name: string; type: string }[] {
+	moduleImplicitMembers(moduleName: string): readonly FormControlInfo[] {
 		const key = moduleName.toLowerCase();
 		const supplied = this.moduleImplicitMembersByName.get(key);
 		if (supplied !== undefined) {
@@ -764,6 +796,29 @@ export class ProjectIndex {
 				}
 			}
 			return words;
+		});
+	}
+
+	/**
+	 * How many modules mention each lowercased name, as an identifier or a
+	 * word inside a string (issue #315). A form's control that one module
+	 * alone names can be reached from nowhere else, short of the Controls
+	 * collection.
+	 */
+	nameMentions(): ReadonlyMap<string, number> {
+		return this.cached('nameMentions', () => {
+			const counts = new Map<string, number>();
+			for (const [key, source] of this.moduleSources) {
+				let moduleNames = this.moduleMentionedNames.get(key);
+				if (!moduleNames) {
+					moduleNames = mentionedNamesIn(source);
+					this.moduleMentionedNames.set(key, moduleNames);
+				}
+				for (const name of moduleNames) {
+					counts.set(name, (counts.get(name) ?? 0) + 1);
+				}
+			}
+			return counts;
 		});
 	}
 
