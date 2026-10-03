@@ -893,16 +893,19 @@ export function trackedLocalsNamedWhole(
 	// What each open parenthesis follows: a subscript of one of `arrays`
 	// passes nothing (issue #479: `a(i) = i` leaves i as it was).
 	const opened: Array<string | undefined> = [];
+	const openedAt: number[] = [];
 	for (let i = 1; i < toks.length; i++) {
 		const raw = toks[i].rawText;
 		if (raw === '(' || raw === '[') {
 			depth++;
 			opened.push(toks[i - 1]?.rawText === '.' || toks[i - 2]?.rawText === '.' ? undefined : tokenName(toks[i - 1])?.toLowerCase());
+			openedAt.push(i);
 			continue;
 		}
 		if (raw === ')' || raw === ']') {
 			depth--;
 			opened.pop();
+			openedAt.pop();
 			continue;
 		}
 		const lower = tokenName(toks[i])?.toLowerCase();
@@ -923,6 +926,29 @@ export function trackedLocalsNamedWhole(
 		}
 		if (tokenWord(next) === 'is') {
 			continue;
+		}
+		// Part of a larger expression, `a + 1`, is passed by value (issue #665,
+		// measured in Excel 16.0: `Cells(a + 1, 1)` leaves a as it was).
+		if (EXPRESSION_OPERATORS.has(tokenWord(next) || next?.rawText || '') || (i > 1 && EXPRESSION_OPERATORS.has(tokenWord(toks[i - 1]) || prev || ''))) {
+			continue;
+		}
+		// An argument of the module's own Function called inside an
+		// expression, `b = Twice(a)`, as a call statement's is (issue #665).
+		if (keeps && depth > 0 && enclosing !== undefined && (prev === '(' || prev === ',' || prev === ':=')) {
+			const open = openedAt[openedAt.length - 1];
+			let index = 0;
+			let inner = 0;
+			for (let k = open + 1; k < i; k++) {
+				const r = toks[k].rawText;
+				inner += r === '(' ? 1 : r === ')' ? -1 : 0;
+				if (inner === 0 && r === ',') {
+					index++;
+				}
+			}
+			const named = prev === ':=' ? tokenName(toks[i - 2]) : undefined;
+			if (keeps(enclosing, index, named)) {
+				continue;
+			}
 		}
 		if (prev === '(' && readOnlyIntrinsics.has(tokenName(toks[i - 2])?.toLowerCase() ?? '')) {
 			continue;
@@ -1037,6 +1063,9 @@ function singleLineIfThen(toks: readonly VbaToken[]): number | undefined {
 
 /** Statement words that read a condition or a value, and open no call. */
 const CONTROL_WORDS: ReadonlySet<string> = new Set(['if', 'elseif', 'else', 'while', 'do', 'loop', 'select', 'case']);
+
+/** Operators that make a name part of a larger expression, which passes by value. */
+const EXPRESSION_OPERATORS: ReadonlySet<string> = new Set(['+', '-', '*', '/', '\\', '^', '&', 'mod', 'and', 'or', 'xor', 'not', 'eqv', 'imp', 'like', '=', '<>', '<', '>', '<=', '>=']);
 
 /** True when a top-level '=' makes the statement an assignment, not a call. */
 function hasTopLevelAssignment(toks: readonly VbaToken[]): boolean {

@@ -1818,7 +1818,15 @@
         "issue618_04_runtime",
         "issue618_05_runtime",
         "issue618_11_runtime",
-        "onErrorBlocks_08_runtime"
+        "onErrorBlocks_08_runtime",
+        "issue665_01_runtime",
+        "issue665_03_runtime",
+        "issue665_05_runtime",
+        "issue665_07_runtime",
+        "issue665_09_runtime",
+        "issue665_11_runtime",
+        "issue665_13_runtime",
+        "issue665_15_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
