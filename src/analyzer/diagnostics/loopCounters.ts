@@ -259,7 +259,8 @@ function startsAtZero(source: string, body: readonly BodyNode[], loopStart: numb
 	}
 	let declared = false;
 	// The text before the loop, its declarations blanked.
-	let before = source.slice(body[0].span.start, loopStart);
+	const before = source.slice(body[0].span.start, loopStart);
+	const blanks: Array<[number, number]> = [];
 	const visit = (nodes: readonly BodyNode[]): void => {
 		for (const node of nodes) {
 			if (node.kind === 'VariableGroup') {
@@ -272,7 +273,7 @@ function startsAtZero(source: string, body: readonly BodyNode[], loopStart: numb
 				if (node.span.end <= loopStart) {
 					const from = node.span.start - body[0].span.start;
 					const to = node.span.end - body[0].span.start;
-					before = before.slice(0, from) + ' '.repeat(to - from) + before.slice(to);
+					blanks.push([from, to]);
 				}
 			} else if ('body' in node && Array.isArray(node.body)) {
 				visit(node.body as BodyNode[]);
@@ -287,7 +288,19 @@ function startsAtZero(source: string, body: readonly BodyNode[], loopStart: numb
 	if (mentions(whole, 'goto') || mentions(whole, 'resume') || mentions(whole, 'gosub')) {
 		return false;
 	}
-	return !mentions(before.toLowerCase(), lower);
+	// Build the masked prefix once instead of copying it for each declaration.
+	const parts: string[] = [];
+	let cursor = 0;
+	for (const [from, to] of blanks.sort((a, b) => a[0] - b[0])) {
+		if (to <= cursor) {
+			continue;
+		}
+		const start = Math.max(cursor, from);
+		parts.push(before.slice(cursor, start), ' '.repeat(to - start));
+		cursor = to;
+	}
+	parts.push(before.slice(cursor));
+	return !mentions(parts.join('').toLowerCase(), lower);
 }
 
 /** `i = i + 1`. */
