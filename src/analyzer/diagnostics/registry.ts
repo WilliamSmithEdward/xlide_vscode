@@ -128,6 +128,7 @@ import { checkClassInstanceValues } from './rules/classInstanceValues';
 import { checkConditionValues } from './rules/conditionValues';
 import { checkLockedArrays } from './rules/lockedArrays';
 import { checkDeletedObjects } from './rules/deletedObjects';
+import { checkDeletedSettings } from './rules/deletedSettings';
 import { checkLongLongNarrowing } from './rules/longLongNarrowing';
 import { checkAddressOfUse } from './rules/addressOfUse';
 import { checkObjectDefaultValues } from './rules/objectValues';
@@ -399,6 +400,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'deletedObjects',
 		run: (ctx, push) => checkDeletedObjects(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push),
+	},
+	{
+		name: 'deletedSettings',
+		run: (ctx, push) => checkDeletedSettings(ctx.source, ctx.mod, ctx.activity, push),
 	},
 	{
 		name: 'handlerFlow',

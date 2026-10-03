@@ -523,6 +523,20 @@ function runtimeStatementValueHits(
 			}
 		}
 	}
+	// SaveSetting with an empty AppName, Section or Key, and DeleteSetting
+	// with an empty AppName, raise 5 (issue #700, measured in Excel 16.0).
+	const settings = tokenText(first);
+	const settingNames = settings === 'savesetting' ? ['AppName', 'Section', 'Key'] : settings === 'deletesetting' ? ['AppName'] : [];
+	if (settingNames.length > 0 && !runtimeCallableSourceShadowed(settings === 'savesetting' ? 'SaveSetting' : 'DeleteSetting', sourceNames)) {
+		const open = toks[1]?.rawText === '(' ? 1 : -1;
+		const args = splitTopLevelTokenGroups(toks, open < 0 ? 1 : 2, ',', open < 0 ? toks.length : matchParenFrom(toks, open));
+		settingNames.forEach((name, k) => {
+			const arg = args[k]?.filter((tok) => tok.kind !== 'comment');
+			if (arg?.length === 1 && (arg[0].rawText === '""' || tokenText(arg[0]) === 'vbnullstring')) {
+				out.push({ message: `Argument '${name}' of '${settings === 'savesetting' ? 'SaveSetting' : 'DeleteSetting'}' is ${arg[0].rawText}; this will raise Run-time error '5': Invalid procedure call or argument.`, span: at(arg[0]) });
+			}
+		});
+	}
 	return out;
 }
 
@@ -1538,8 +1552,25 @@ function runtimeArgumentValueSpecs(name: string, host: string | undefined): read
 				{ canonicalName: 'MIRR', parameterName: 'FinanceRate', argumentIndex: 1, disallowed: [-1] },
 				{ canonicalName: 'MIRR', parameterName: 'ReinvestRate', argumentIndex: 2, disallowed: [-1] },
 			];
+		// Environ takes a variable's number from 1 to 255, past which it raises
+		// 5 and past an Integer 6, or a name, of which "" raises 5 (issue #700,
+		// measured in Excel 16.0).
 		case 'environ':
-			return [{ canonicalName: 'Environ', parameterName: 'Expression', argumentIndex: 0, minimum: 1, stringSuffix: true }];
+			return [
+				{ canonicalName: 'Environ', parameterName: 'Expression', argumentIndex: 0, minimum: 1, maximum: 255, overflowType: 'Integer', stringSuffix: true },
+				{ canonicalName: 'Environ', parameterName: 'Expression', argumentIndex: 0, emptyStringRaises: true, stringSuffix: true },
+			];
+		// Shell of "" and Dir with an attribute of 64 or more raise 5; GetSetting
+		// of an empty AppName or Section too (issue #700, measured in Excel 16.0).
+		case 'shell':
+			return [{ canonicalName: 'Shell', parameterName: 'PathName', argumentIndex: 0, emptyStringRaises: true }];
+		case 'dir':
+			return [{ canonicalName: 'Dir', parameterName: 'Attributes', argumentIndex: 1, minimum: 0, maximum: 63, stringSuffix: true }];
+		case 'getsetting':
+			return [
+				{ canonicalName: 'GetSetting', parameterName: 'AppName', argumentIndex: 0, emptyStringRaises: true },
+				{ canonicalName: 'GetSetting', parameterName: 'Section', argumentIndex: 1, emptyStringRaises: true },
+			];
 		case 'dateadd':
 			return [{ canonicalName: 'DateAdd', parameterName: 'Interval', argumentIndex: 0, allowedStrings: DATE_INTERVALS }];
 		// A first day of the week runs from 0 to 7 and a first week of the year
