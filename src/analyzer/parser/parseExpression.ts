@@ -25,6 +25,7 @@
 //   * The §5.6 expression grammar is now fully modeled; statements no longer fall
 //     back to raw for named/omitted arguments or bang access.
 
+import { MAX_EXPRESSION_DEPTH } from './expressionLimits';
 import { VbaToken } from '../lexer/tokenKinds';
 import { isIdentLike, relationalOperatorAt, tokenName, tokenWord } from '../lexer/tokenHelpers';
 import {
@@ -151,7 +152,6 @@ export function parseParenlessArguments(
 // Recursive-descent depth cap so pathological input (thousands of nested parens,
 // a long unary chain) cannot overflow the JS stack and break the documented
 // "Never throws" contract. Mirrors integerConstantExpression's MAX_RECURSION_DEPTH.
-const MAX_EXPRESSION_DEPTH = 256;
 
 class ExpressionParser {
 	readonly diagnostics: ParseDiagnostic[] = [];
