@@ -2325,7 +2325,11 @@
         "issue332r_08_runtime",
         "issue614_05_runtime",
         "issue664_06_runtime",
-        "issue664_07_runtime"
+        "issue664_07_runtime",
+        "issue673_05_runtime",
+        "issue673_06_runtime",
+        "issue673_07_runtime",
+        "issue673_08_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -5541,7 +5545,8 @@
         "issue278c_09_runtime",
         "issue332r_01_runtime",
         "issue332r_02_runtime",
-        "issue332r_10_runtime"
+        "issue332r_10_runtime",
+        "issue673_04_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],

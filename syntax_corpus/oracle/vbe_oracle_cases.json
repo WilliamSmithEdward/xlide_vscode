@@ -102409,6 +102409,116 @@
       "source": "Option Explicit\r\nPrivate Function Twice(ByVal x As Long) As Long\r\n    Twice = x * 2\r\nEnd Function\r\nPrivate Sub NopV(ByVal x As Long)\r\nEnd Sub\r\nPrivate Sub SetR(ByRef x As Long)\r\n    x = 5\r\nEnd Sub\r\nPrivate Function SetA(ByRef x As Long) As Long\r\n    x = 5\r\n    SetA = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, c As Collection, k As New Collection\r\n    a = 0\r\n    b = Twice(a) + SetA(a)\r\n    Main = 10 \\ a\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue673_01_runtime",
+      "description": "Issue #673 decided GoTos and whole-number locals given a fraction, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, n As Long, s As String, c As Collection\r\n    If False Then GoTo Skip385\r\n    s = \"abc\"\r\nSkip385:\r\n    If Len(s) > 1 Then GoTo Skip386\r\n    If c Is Nothing Then\r\n        n = 10 \\ a\r\n    End If\r\nSkip386:\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue673_02_runtime",
+      "description": "Issue #673 decided GoTos and whole-number locals given a fraction, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, n As Long, s As String, c As Collection\r\n    If b <> 1 Then GoTo Skip60\r\n    n = c.Count\r\nSkip60:\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue673_03_runtime",
+      "description": "Issue #673 decided GoTos and whole-number locals given a fraction, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, n As Long, s As String, c As Collection\r\n    If a > 2 Then GoTo Skip187\r\n    On Error Resume Next\r\nSkip187:\r\n    If True Then GoTo Skip188\r\n    On Error GoTo 0\r\nSkip188:\r\n    n = 10 \\ a\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue673_04_runtime",
+      "description": "Issue #673 decided GoTos and whole-number locals given a fraction, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, n As Long, s As String, c As Collection\r\n    s = \"abcdef\"\r\n    If b <> 0 Then GoTo Skip46\r\n    If Len(s) > 3 Then\r\n        b = 5\r\n    End If\r\nSkip46:\r\n    Main = CInt(b * 10000)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue673_05_runtime",
+      "description": "Issue #673 decided GoTos and whole-number locals given a fraction, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, n As Long, s As String, c As Collection\r\n    If b <> 0 Then GoTo Skip47\r\n    a = 0\r\nSkip47:\r\n    Main = Mid(\"abc\", a)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue673_06_runtime",
+      "description": "Issue #673 decided GoTos and whole-number locals given a fraction, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, n As Long, s As String, c As Collection\r\n    Dim i As Integer\r\n    i = 1.5\r\n    Main = StrComp(\"a\", \"b\", i)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue673_07_runtime",
+      "description": "Issue #673 decided GoTos and whole-number locals given a fraction, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, n As Long, s As String, c As Collection\r\n    n = -0.5\r\n    Main = WeekdayName(n)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue673_08_runtime",
+      "description": "Issue #673 decided GoTos and whole-number locals given a fraction, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, n As Long, s As String, c As Collection\r\n    n = 0.4\r\n    Main = Mid(\"abc\", n)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue673_09_runtime",
+      "description": "Issue #673 decided GoTos and whole-number locals given a fraction, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, n As Long, s As String, c As Collection\r\n    n = 2.5\r\n    Main = Round(n, 300)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue673_10_runtime",
+      "description": "Issue #673 decided GoTos and whole-number locals given a fraction, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> abc.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, n As Long, s As String, c As Collection\r\n    n = 0.6\r\n    Main = Mid(\"abc\", n)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

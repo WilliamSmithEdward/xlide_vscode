@@ -393,8 +393,9 @@ function onErrorResumeNextSuppressionRanges(
         // measured in Excel 16.0). The walk is run only where one could be dead.
         let dead: ReadonlySet<BodyNode> | undefined;
         const neverRuns = (node: BodyNode, nested: boolean, after: readonly BodyNode[]): boolean => {
+            // `If True Then GoTo L` before it can leave it dead too (issue #673).
             const mayBeDead = nested || after.some((earlier) => earlier.kind === 'Statement'
-                && ['goto', 'exit', 'end', 'resume', 'return'].includes(statementTokensAfterLeadingLabel(source, earlier.span)[0]?.rawText.toLowerCase() ?? ''));
+                && statementTokensAfterLeadingLabel(source, earlier.span).some((tok) => ['goto', 'exit', 'end', 'resume', 'return'].includes(tok.rawText.toLowerCase())));
             if (!mayBeDead) {
                 return false;
             }
