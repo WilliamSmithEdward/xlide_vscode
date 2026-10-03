@@ -105775,6 +105775,98 @@
       "source": "Option Explicit\r\nPrivate Enum Mode\r\n    mA\r\n    mB\r\nEnd Enum\r\nFunction Main() As Variant\r\n    Dim k As Long, d As Double, v As Variant, s As String, arr(3) As Long, c As New Collection\r\n    Dim x As Date, m As Mode, xl As Long, n As Long, f As Single, sg As Single, z As Long\r\n    k = 7: d = 2.5: x = #1/2/2000#: m = mA: xl = mA: n = 2.5: f = 0.1: sg = 2.5\r\n    Main = 1\r\n    If k Mod 2 = 0 Then\r\n        Main = 10 \\ z\r\n    End If\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue738_01_runtime",
+      "description": "Issue #738 an array of a project class ReDim.d, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 16.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a() As K1\r\n    ReDim a(1 To 16)\r\n    Main = UBound(a)\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Name As String\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue738_02_runtime",
+      "description": "Issue #738 an array of a project class ReDim.d, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 4.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a() As K1\r\n    ReDim a(1 To 2)\r\n    ReDim Preserve a(1 To 2 * UBound(a))\r\n    Main = UBound(a)\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Name As String\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue738_03_runtime",
+      "description": "Issue #738 an array of a project class ReDim.d, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> True.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(2) As K1\r\n    Main = (a(1) Is Nothing)\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Name As String\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue738_04_runtime",
+      "description": "Issue #738 an array of a project class ReDim.d, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim k As K1\r\n    Set k = New K1\r\n    Main = k(1)\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Name As String\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }

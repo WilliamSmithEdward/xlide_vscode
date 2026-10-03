@@ -68,13 +68,22 @@ export function checkObjectDefaultValues(
 	}
 	return (proc: ProcedureNode) => {
 		const env = typeEnvironmentFor(symbols, proc);
+		// An array of a class is no object of it: `ReDim a(1 To 16)` and
+		// `a(1)` on `Dim a() As K1` read no default member (issue #738).
+		const own = procedureSymbolFor(symbols, proc)?.children ?? [];
+		const ownNames = new Set([...own.map((child) => child.name.toLowerCase()), ...proc.params.map((param) => param.name.toLowerCase())]);
+		const arrays = new Set([
+			...own.filter((child) => child.isArray).map((child) => child.name.toLowerCase()),
+			...proc.params.filter((param) => param.isArray).map((param) => param.name.toLowerCase()),
+			...(symbols.root.children ?? []).filter((child) => child.isArray && !ownNames.has(child.name.toLowerCase())).map((child) => child.name.toLowerCase()),
+		]);
 		const verdicts = new Map<string, ReturnType<typeof objectLetAssignmentVerdict>>();
 		const verdictFor = (lower: string): ReturnType<typeof objectLetAssignmentVerdict> => {
 			let verdict = verdicts.get(lower);
 			if (verdict === undefined) {
 				// The procedure's own name is its return value only as a target;
 				// read, it is a recursive call.
-				const type = lower === proc.name.toLowerCase() ? undefined : env.get(lower);
+				const type = lower === proc.name.toLowerCase() || arrays.has(lower) ? undefined : env.get(lower);
 				verdict = type ? objectLetAssignmentVerdict(type, memberCtx) : 'unknown';
 				verdicts.set(lower, verdict);
 			}
@@ -101,12 +110,6 @@ export function checkObjectDefaultValues(
 			return type !== undefined && isKnownScalarType(type);
 		};
 		const isCollection = (lower: string): boolean => lower !== proc.name.toLowerCase() && normalizeType(env.get(lower)) === 'collection';
-		const arrays = new Set((procedureSymbolFor(symbols, proc)?.children ?? []).filter((child) => child.isArray).map((child) => child.name.toLowerCase()));
-		for (const child of symbols.root.children ?? []) {
-			if (child.isArray && !procedureSymbolFor(symbols, proc)?.children?.some((own) => own.name.toLowerCase() === child.name.toLowerCase())) {
-				arrays.add(child.name.toLowerCase());
-			}
-		}
 		const classOf = (lower: string): VbaProjectClassMembers | undefined =>
 			lower === proc.name.toLowerCase() || arrays.has(lower) ? undefined : projectClass(env.get(lower), memberCtx);
 		checkForEachEnumerators(proc.body, classOf, push);

@@ -7674,7 +7674,8 @@
         "issue417_187_runtime",
         "issue415d_05_runtime",
         "issue415d_07_runtime",
-        "issue415d_08_compile"
+        "issue415d_08_compile",
+        "issue738_04_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
