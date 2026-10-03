@@ -45,6 +45,7 @@ import { checkEachCounterPass, loopCountersAt } from '../loopCounters';
 import { blockHeaderLeaves, isLoopBlock, selectArms } from '../blockHeaders';
 import { fieldChain, moduleTypes, variableRoot, variableSymbolIn, type ModuleTypes } from '../typeFields';
 import {
+	buildModuleTypeSignatures,
 	knownLocalLiteralValues,
 	knownLocalLiteralValuesAt,
 	type KnownLocalValue,
@@ -59,6 +60,7 @@ import {
 	blockHeaderLineSpan,
 	blockHeaderStatements,
 	firstExecutableTokenIndex,
+	forEachStatement,
 	forEachVariableGroup,
 	matchParenFrom,
 	statementAndBranchSpans,
@@ -563,6 +565,11 @@ class TypedFolder {
 			const scaled = type === 'currency' ? currencyScaled(String(Math.abs(read.value))) : undefined;
 			return { value: read.value, type, constant: true, ...(scaled !== undefined ? { scaled: read.value < 0 ? -scaled : scaled } : {}) };
 		}
+		// A With member at an operand's start: `.Rows.Count` (issue #411).
+		const leading = this.index === 0 || ['(', ',', '='].includes(this.toks[this.index - 1].rawText) || this.toks[this.index - 1].kind === 'operator' || this.toks[this.index - 1].kind === 'keyword';
+		if (tok.rawText === '.' && leading && this.names(WITH_SHEET) !== undefined) {
+			return this.sheetSize(true);
+		}
 		const name = tokenName(tok);
 		if (!name) {
 			return undefined;
@@ -660,9 +667,10 @@ class TypedFolder {
 	 * literal address. A Long each. Undefined, and nothing consumed, for any
 	 * other chain.
 	 */
-	private sheetSize(): Folded {
-		const segments: Array<{ name: string; args?: VbaToken[][] }> = [];
-		let i = this.index;
+	private sheetSize(withSubject = false): Folded {
+		// `.Rows.Count` inside `With ActiveSheet` reads the With's sheet (issue #411).
+		const segments: Array<{ name: string; args?: VbaToken[][] }> = withSubject ? [{ name: WITH_SHEET }] : [];
+		let i = withSubject ? this.index + 1 : this.index;
 		for (;;) {
 			const name = tokenName(this.toks[i]);
 			if (!name) {
@@ -1307,6 +1315,40 @@ function constantLookup(
 const SHEET_ROWS = 1048576;
 const SHEET_COLUMNS = 16384;
 
+/** The lookup's name for the subject of the With a statement sits in, when that names a sheet. */
+const WITH_SHEET = '#with';
+
+/** The segments of a member chain written whole: `ActiveSheet`, `Worksheets(1)`, `ThisWorkbook.Worksheets(2)`. */
+function chainSegments(toks: readonly VbaToken[]): ChainSegment[] | undefined {
+	const segments: ChainSegment[] = [];
+	let i = 0;
+	while (i < toks.length) {
+		const name = tokenName(toks[i]);
+		if (!name) {
+			return undefined;
+		}
+		let end = i;
+		let args: VbaToken[][] | undefined;
+		if (toks[i + 1]?.rawText === '(') {
+			const close = matchParenFrom(toks, i + 1);
+			if (close < 0) {
+				return undefined;
+			}
+			args = splitTopLevelTokenGroups(toks, i + 2, ',', close);
+			end = close;
+		}
+		segments.push({ name: name.toLowerCase(), ...(args ? { args } : {}) });
+		if (end + 1 === toks.length) {
+			return segments;
+		}
+		if (toks[end + 1].rawText !== '.') {
+			return undefined;
+		}
+		i = end + 2;
+	}
+	return undefined;
+}
+
 interface ChainSegment { name: string; args?: VbaToken[][] }
 
 /**
@@ -1320,7 +1362,7 @@ function namesSheet(receiver: readonly ChainSegment[], names: NameLookup): boole
 		return true;
 	}
 	if (receiver.length === 1) {
-		return (!first.args && (first.name === 'activesheet' || first.name === 'application'))
+		return (!first.args && (first.name === 'activesheet' || first.name === 'application' || (first.name === WITH_SHEET && names(WITH_SHEET) !== undefined)))
 			|| (first.name === 'worksheets' && first.args?.length === 1)
 			|| (!first.args && names(`${first.name}.rows.count`) !== undefined);
 	}
@@ -1503,8 +1545,69 @@ export function checkOverflow(
 		// `t.i = t.i + 1`: a numeric member of a Type value as the target (issue #253).
 		const memberTarget = types.size === 0 ? undefined : (span: Span): AssignmentTarget | undefined => memberAssignmentTarget(source, span, symbols, member, types);
 		checkProcedureBody(source, member, env, names, justAssigned, activity, push, memberTarget);
+		checkByValArguments(source, member, symbols, names, activity, push);
 		checkAccumulatingLoops(source, member, env, names, knownLocalLiteralValuesAt(source, member, symbols, activity), activity, push);
 	}
+}
+
+/**
+ * An argument the folder can read, passed to a ByVal number parameter of a
+ * procedure of the module that cannot hold it: `TakeI(Rows.Count)` with
+ * `ByVal i As Integer` converts 1048576 and raises 6 (issue #411, measured
+ * in Excel 16.0). A lone literal is argument-type-mismatch's.
+ */
+function checkByValArguments(
+	source: string,
+	proc: ProcedureNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	names: NameLookup,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	const signatures = buildModuleTypeSignatures(symbols);
+	if (signatures.size === 0) {
+		return;
+	}
+	const own = new Set([proc.name, ...proc.params.map((param) => param.name), ...(procedureSymbolFor(symbols, proc)?.children ?? []).map((child) => child.name)].map((name) => name.toLowerCase()));
+	forEachStatement(proc.body, (stmt) => {
+		for (const span of statementAndBranchSpans(stmt)) {
+			const toks = statementTokens(source, span).filter((tok) => tok.kind !== 'comment');
+			for (let i = 0; i < toks.length; i++) {
+				const lower = tokenName(toks[i])?.toLowerCase();
+				const signature = lower && !own.has(lower) && toks[i - 1]?.rawText !== '.' ? signatures.get(lower) : undefined;
+				if (!signature) {
+					continue;
+				}
+				// `F(a, b)` in a value, `Call F(a, b)`, or the statement `F a, b`.
+				const parenthesized = toks[i + 1]?.rawText === '(';
+				const statementCall = i === 0 && !parenthesized && toks.length > 1 && toks[1].rawText !== '=';
+				if (!parenthesized && !statementCall) {
+					continue;
+				}
+				const close = parenthesized ? matchParenFrom(toks, i + 1) : toks.length;
+				const args = close < 0 ? [] : splitTopLevelTokenGroups(toks, parenthesized ? i + 2 : i + 1, ',', close);
+				args.forEach((arg, k) => {
+					const param = signature.params[k];
+					const type = param && param.byRef === false && !param.isArray && !param.paramArray ? numericTypeOf(param.type) : undefined;
+					const value = arg.filter((tok) => tok.kind !== 'comment');
+					if (!type || value.length === 0 || value.some((tok) => tok.rawText === ':=') || literalTyped(value[value.length - 1]) && value.length <= 2) {
+						return;
+					}
+					const folded = new TypedFolder(value, span.start, names).fold();
+					if (!folded || isOverflow(folded)) {
+						return;
+					}
+					const kept = storedValue(folded, type);
+					if (!inRange(kept.value, type, kept.exact)) {
+						push('arithmeticOverflow', `Argument '${param.name}' of '${signature.name}' is ByVal ${RANGES[type].label}, and ${value.map((tok) => tok.rawText).join('')} is ${showNumber(kept.value)}, outside its range ${rangeText(type)}. This will raise Run-time error '6': Overflow.`, {
+							start: span.start + value[0].start,
+							end: span.start + value[value.length - 1].end,
+						});
+					}
+				});
+			}
+		}
+	}, activity);
 }
 
 /** Statement heads after which a loop's pass may not run on. */
@@ -1862,12 +1965,26 @@ function checkProcedureBody(
 	source: string,
 	proc: ProcedureNode,
 	env: ReadonlyMap<string, string>,
-	names: NameLookup,
+	outerNames: NameLookup,
 	justAssigned: Map<string, Typed>,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 	memberTarget?: (span: Span) => AssignmentTarget | undefined,
 ): void {
+	// Whether each enclosing With names a sheet, innermost last (issue #411).
+	const withSheets: boolean[] = [];
+	const names: NameLookup = Object.assign(
+		(lower: string): Typed | undefined => (lower === WITH_SHEET
+			? (withSheets[withSheets.length - 1] ? { value: 0, type: 'long' as const } : undefined)
+			: outerNames(lower)),
+		outerNames.declares ? { declares: outerNames.declares } : {},
+	);
+	const withNamesSheet = (node: BodyNode): boolean => {
+		const header = blockHeaderStatements(source, node).before;
+		const toks = header ? statementTokens(source, header.span).filter((tok) => tok.kind !== 'comment') : [];
+		const segments = tokenText(toks[0]) === 'with' ? chainSegments(toks.slice(1)) : undefined;
+		return segments !== undefined && segments.length > 0 && namesSheet(segments, names);
+	};
 	// Every name a block mentions, its own lines included: `For i = ...` and
 	// `If Store(k, n) Then` change what they name as well (issue #237).
 	const touchedIn = (node: BodyNode): Set<string> => namesIn(source, node.span);
@@ -1927,6 +2044,10 @@ function checkProcedureBody(
 						restore();
 						visit(arm, loopTouched);
 					}
+				} else if (node.kind === 'WithBlock') {
+					withSheets.push(withNamesSheet(node));
+					visit(node.body as BodyNode[], loopTouched);
+					withSheets.pop();
 				} else {
 					visit(node.body as BodyNode[], isLoopBlock(node) ? new Set([...loopTouched, ...touched]) : loopTouched);
 				}

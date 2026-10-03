@@ -92242,6 +92242,116 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add 1\r\n    Range(\"A1\").Value = c(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue411b_01_runtime",
+      "description": "Issue #411 a row count inside With, or passed to a ByVal Integer, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim i As Integer\r\n    With ActiveSheet\r\n        i = .Rows.Count\r\n    End With\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Function TakeI(ByVal i As Integer) As Integer\r\n    TakeI = i\r\nEnd Function\r\nPrivate Function TakeL(ByVal i As Long) As Long\r\n    TakeL = i\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue411b_02_runtime",
+      "description": "Issue #411 a row count inside With, or passed to a ByVal Integer, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim i As Integer\r\n    With ActiveSheet: i = .Rows.Count: End With\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Function TakeI(ByVal i As Integer) As Integer\r\n    TakeI = i\r\nEnd Function\r\nPrivate Function TakeL(ByVal i As Long) As Long\r\n    TakeL = i\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue411b_03_runtime",
+      "description": "Issue #411 a row count inside With, or passed to a ByVal Integer, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim i As Integer, ws As Worksheet\r\n    Set ws = ActiveSheet\r\n    With ws\r\n        i = .Rows.Count\r\n    End With\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Function TakeI(ByVal i As Integer) As Integer\r\n    TakeI = i\r\nEnd Function\r\nPrivate Function TakeL(ByVal i As Long) As Long\r\n    TakeL = i\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue411b_04_runtime",
+      "description": "Issue #411 a row count inside With, or passed to a ByVal Integer, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim i As Long\r\n    With ActiveSheet\r\n        i = .Rows.Count\r\n    End With\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Function TakeI(ByVal i As Integer) As Integer\r\n    TakeI = i\r\nEnd Function\r\nPrivate Function TakeL(ByVal i As Long) As Long\r\n    TakeL = i\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue411b_05_runtime",
+      "description": "Issue #411 a row count inside With, or passed to a ByVal Integer, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim i As Integer\r\n    With ActiveSheet\r\n        i = .Columns.Count\r\n    End With\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Function TakeI(ByVal i As Integer) As Integer\r\n    TakeI = i\r\nEnd Function\r\nPrivate Function TakeL(ByVal i As Long) As Long\r\n    TakeL = i\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue411b_06_runtime",
+      "description": "Issue #411 a row count inside With, or passed to a ByVal Integer, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = TakeI(Rows.Count)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Function TakeI(ByVal i As Integer) As Integer\r\n    TakeI = i\r\nEnd Function\r\nPrivate Function TakeL(ByVal i As Long) As Long\r\n    TakeL = i\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue411b_07_runtime",
+      "description": "Issue #411 a row count inside With, or passed to a ByVal Integer, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = TakeI(ActiveSheet.Rows.Count)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Function TakeI(ByVal i As Integer) As Integer\r\n    TakeI = i\r\nEnd Function\r\nPrivate Function TakeL(ByVal i As Long) As Long\r\n    TakeL = i\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue411b_08_runtime",
+      "description": "Issue #411 a row count inside With, or passed to a ByVal Integer, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1048576.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = TakeL(Rows.Count)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Function TakeI(ByVal i As Integer) As Integer\r\n    TakeI = i\r\nEnd Function\r\nPrivate Function TakeL(ByVal i As Long) As Long\r\n    TakeL = i\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue411b_09_runtime",
+      "description": "Issue #411 a row count inside With, or passed to a ByVal Integer, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 16384.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = TakeI(Columns.Count)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Function TakeI(ByVal i As Integer) As Integer\r\n    TakeI = i\r\nEnd Function\r\nPrivate Function TakeL(ByVal i As Long) As Long\r\n    TakeL = i\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue411b_10_runtime",
+      "description": "Issue #411 a row count inside With, or passed to a ByVal Integer, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim i As Integer\r\n    i = TakeI(Rows.Count \\ 64)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Function TakeI(ByVal i As Integer) As Integer\r\n    TakeI = i\r\nEnd Function\r\nPrivate Function TakeL(ByVal i As Long) As Long\r\n    TakeL = i\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
