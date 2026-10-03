@@ -2,14 +2,10 @@
 // model soundly, so dataflow rules can fall back to the conservative
 // straight-line walk for such procedures.
 
-import { statementTokensCached, tokensWithoutLeadingLineNumber, tokenWord } from '../lexer/tokenHelpers';
-import type { BodyNode, ProcedureNode, Span } from '../parser/nodes';
+import type { BodyNode, ProcedureNode } from '../parser/nodes';
 import { isLeafStatement } from '../parser/nodes';
 import type { ConditionalActivityTracker } from '../conditional/conditionalCompilation';
-import {
-	collectProcedureLabelDeclarations,
-	collectProcedureLabelReferences,
-} from './procedureLabels';
+import { statementHasUnstructuredFlow } from './procedureLabels';
 
 /**
  * True when a procedure contains control flow that can skip or re-run
@@ -37,28 +33,12 @@ export function procedureHasUnstructuredFlow(
 	if (cached && cached.source === source && cached.activity === activity) {
 		return cached.result;
 	}
-	const result = computeProcedureHasUnstructuredFlow(source, procedure, activity);
+	const result = hasUnstructuredStatement(procedure.body, source, activity);
 	UNSTRUCTURED_FLOW_CACHE.set(procedure, { source, activity, result });
 	return result;
 }
 
-function computeProcedureHasUnstructuredFlow(
-	source: string,
-	procedure: ProcedureNode,
-	activity?: ConditionalActivityTracker,
-): boolean {
-	if (collectProcedureLabelReferences(source, procedure, activity).length > 0) {
-		return true;
-	}
-	if (collectProcedureLabelDeclarations(source, procedure, activity).length > 0) {
-		return true;
-	}
-	// `On Error Resume Next` / `On Error GoTo 0` / bare `Resume` / `Resume Next`
-	// carry no label, so the collectors above miss them - scan for them directly.
-	return hasOnErrorOrResumeStatement(procedure.body, source, activity);
-}
-
-function hasOnErrorOrResumeStatement(
+function hasUnstructuredStatement(
 	body: readonly BodyNode[],
 	source: string,
 	activity?: ConditionalActivityTracker,
@@ -68,26 +48,14 @@ function hasOnErrorOrResumeStatement(
 			continue;
 		}
 		if (isLeafStatement(node)) {
-			if (isOnErrorOrResume(source, node.span)) {
+			if (statementHasUnstructuredFlow(source, node.span)) {
 				return true;
 			}
 		} else if ('body' in node && Array.isArray(node.body)) {
-			if (hasOnErrorOrResumeStatement(node.body, source, activity)) {
+			if (hasUnstructuredStatement(node.body, source, activity)) {
 				return true;
 			}
 		}
 	}
 	return false;
-}
-
-function isOnErrorOrResume(source: string, span: Span): boolean {
-	const toks = tokensWithoutLeadingLineNumber(statementTokensCached(source, span));
-	if (toks.length === 0) {
-		return false;
-	}
-	const first = tokenWord(toks[0]);
-	if (first === 'resume') {
-		return true;
-	}
-	return first === 'on' && tokenWord(toks[1]) === 'error';
 }
