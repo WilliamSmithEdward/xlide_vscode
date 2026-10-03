@@ -7387,7 +7387,14 @@
         "issue416b_02_runtime",
         "issue416b_03_runtime",
         "issue416b_06_runtime",
-        "issue346b_03_runtime"
+        "issue346b_03_runtime",
+        "issue630_06_runtime",
+        "issue630_07_runtime",
+        "issue630_08_runtime",
+        "issue630_09_runtime",
+        "issue630_10_runtime",
+        "issue630_12_runtime",
+        "issue630_13_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
