@@ -13,8 +13,9 @@
 import type { VbaToken } from '../lexer/tokenKinds';
 import { matchParenFrom, splitTopLevelTokenGroups, tokenName, tokenWord as tokenText } from '../lexer/tokenHelpers';
 import type { ModuleCompare } from './knownStringCalls';
-import { numericStringVerdict } from './stringConversion';
-import { parseVbaIntegerLiteral } from '../constants/integerConstantExpression';
+import { isInvalidDateString, numericStringVerdict, valPrefixValue } from './stringConversion';
+import { dateLiteralSerial } from '../constants/dateLiteral';
+import { bankersRound, parseVbaIntegerLiteral } from '../constants/integerConstantExpression';
 /** A string literal's text, its doubled quotes undone. */
 function stringLiteralValue(raw: string): string {
 	return raw.replace(/^"/, '').replace(/"$/, '').replace(/""/g, '"');
@@ -35,7 +36,32 @@ export interface ConditionFacts {
 	 * under either is decided.
 	 */
 	compare?: ModuleCompare;
+	/** A local's declared type, lowercased: "long", "variant", "long()" (issue #691). */
+	typeOf?(lower: string): string | undefined;
+	/** A fixed one-dimension array's bounds (issue #691). */
+	bounds?(lower: string): readonly [number, number] | undefined;
+	/** Whether a Variant is known Empty (true) or known to hold a value (false) (issue #691). */
+	isEmpty?(lower: string): boolean | undefined;
+	/** The Count of a Collection known to hold this many (issue #691). */
+	count?(lower: string): number | undefined;
 }
+
+/** VarType's answer for each declared type (issue #691, measured in Excel 16.0). */
+const VAR_TYPES: Readonly<Record<string, number>> = {
+	integer: 2, long: 3, single: 4, double: 5, currency: 6, date: 7, string: 8, boolean: 11, byte: 17, longlong: 20,
+};
+
+/** TypeName's answer for each declared type. */
+const TYPE_NAMES: Readonly<Record<string, string>> = {
+	integer: 'Integer', long: 'Long', single: 'Single', double: 'Double', currency: 'Currency', date: 'Date',
+	string: 'String', boolean: 'Boolean', byte: 'Byte', longlong: 'LongLong',
+};
+
+/** The VbVarType constants a guard compares with. */
+const VB_CONSTANTS: Readonly<Record<string, number>> = {
+	vbempty: 0, vbnull: 1, vbinteger: 2, vblong: 3, vbsingle: 4, vbdouble: 5, vbcurrency: 6, vbdate: 7, vbstring: 8,
+	vbobject: 9, vberror: 10, vbboolean: 11, vbvariant: 12, vbdecimal: 14, vbbyte: 17, vblonglong: 20, vbarray: 8192,
+};
 
 /** What a name holds when only its range is known. */
 type Range = { range: readonly [number, number] };
@@ -130,7 +156,7 @@ class ConditionParser {
 	}
 
 	private comparison(): Value {
-		const left = this.sum();
+		const left = this.concat();
 		const op = this.toks[this.index]?.rawText;
 		if (this.word() === 'is' && tokenText(this.toks[this.index + 1]) === 'nothing') {
 			this.index += 2;
@@ -139,14 +165,14 @@ class ConditionParser {
 		// `s Like "b*"`, by the module's compare mode (issue #686).
 		if (this.word() === 'like') {
 			this.index++;
-			const pattern = this.sum();
+			const pattern = this.concat();
 			return typeof left === 'string' && typeof pattern === 'string' ? likeMatch(left, pattern, textCompare(this.facts.compare, left + pattern)) : undefined;
 		}
 		if (op !== '=' && op !== '<>' && op !== '<' && op !== '>' && op !== '<=' && op !== '>=') {
 			return typeof left === 'object' ? undefined : left;
 		}
 		this.index++;
-		const right = this.sum();
+		const right = this.concat();
 		// A range against a number: decided where every value in it agrees.
 		const [lo, hi] = rangeOf(left) ?? [];
 		const [rlo, rhi] = rangeOf(right) ?? [];
@@ -192,20 +218,78 @@ class ConditionParser {
 	 * operand that is not a known whole number make it undefined.
 	 */
 	private sum(): Operand {
-		let value = this.product();
+		let value = this.modulo();
 		for (let op = this.toks[this.index]?.rawText; op === '+' || op === '-'; op = this.toks[this.index]?.rawText) {
 			this.index++;
-			value = wholeArithmetic(value, this.product(), op);
+			value = wholeArithmetic(value, this.modulo(), op);
+		}
+		return value;
+	}
+
+	/** `&` joins strings, and whole numbers and Booleans as VBA spells them: `"a" & k` (issue #691). */
+	concat(): Operand {
+		let value = this.sum();
+		while (this.toks[this.index]?.rawText === '&') {
+			this.index++;
+			const right = this.sum();
+			const a = spelled(value);
+			const b = spelled(right);
+			value = a !== undefined && b !== undefined ? a + b : undefined;
+		}
+		return value;
+	}
+
+	private modulo(): Operand {
+		let value = this.integerDivision();
+		while (this.word() === 'mod') {
+			this.index++;
+			value = wholeArithmetic(value, this.integerDivision(), 'mod');
+		}
+		return value;
+	}
+
+	/** `k \ 2`: each side rounded half to even, then divided toward zero (issue #691). */
+	private integerDivision(): Operand {
+		let value = this.product();
+		while (this.toks[this.index]?.rawText === '\\') {
+			this.index++;
+			const right = this.product();
+			value = typeof value === 'number' && typeof right === 'number' && bankersRound(right) !== 0
+				? Math.trunc(bankersRound(value) / bankersRound(right)) + 0
+				: undefined;
 		}
 		return value;
 	}
 
 	private product(): Operand {
-		let value = this.operand();
-		for (let op = this.toks[this.index]?.rawText; op === '*' || this.word() === 'mod'; op = this.toks[this.index]?.rawText) {
-			const mod = this.word() === 'mod';
+		let value = this.unary();
+		for (let op = this.toks[this.index]?.rawText; op === '*' || op === '/'; op = this.toks[this.index]?.rawText) {
 			this.index++;
-			value = wholeArithmetic(value, this.operand(), mod ? 'mod' : '*');
+			const right = this.unary();
+			value = op === '*' ? wholeArithmetic(value, right, '*')
+				: typeof value === 'number' && typeof right === 'number' && right !== 0 ? value / right : undefined;
+		}
+		return value;
+	}
+
+	/** `-d`, binding looser than `^`: -2 ^ 2 is -4. */
+	private unary(): Operand {
+		if (this.toks[this.index]?.rawText === '-') {
+			this.index++;
+			const value = this.unary();
+			return typeof value === 'number' ? -value + 0 : undefined;
+		}
+		return this.power();
+	}
+
+	/** `k ^ 2` (issue #691). */
+	private power(): Operand {
+		let value = this.operand();
+		while (this.toks[this.index]?.rawText === '^') {
+			this.index++;
+			const right = this.operand();
+			const result = typeof value === 'number' && typeof right === 'number' ? value ** right : NaN;
+			value = Number.isFinite(result) ? result : undefined;
 		}
 		return value;
 	}
@@ -238,9 +322,35 @@ class ConditionParser {
 		if (tok.kind === 'stringLiteral') {
 			return stringLiteralValue(tok.rawText);
 		}
+		// `x > #1/1/2010#`: a date as its serial number (issue #691).
+		if (tok.kind === 'dateLiteral') {
+			return dateLiteralSerial(tok.rawText);
+		}
+		if (tok.kind === 'floatLiteral') {
+			const value = Number(tok.rawText.replace(/[!#@]$/, '').replace(/[dD]/, 'e'));
+			return Number.isFinite(value) ? value : undefined;
+		}
 		const word = tokenText(tok);
 		if (word === 'true' || word === 'false') {
 			return word === 'true';
+		}
+		if (this.facts.value(word) === undefined && VB_CONSTANTS[word] !== undefined && this.toks[this.index]?.rawText !== '(' && this.toks[this.index]?.rawText !== '.') {
+			return VB_CONSTANTS[word];
+		}
+		// Built-ins of known values (issue #691).
+		if (BUILTIN_CALLS.has(word) && this.toks[this.index]?.rawText === '(') {
+			const called = this.builtinCall(word);
+			if (called !== NOT_A_CALL) {
+				return called;
+			}
+		}
+		// `c.Count` of a Collection known to hold so many (issue #691).
+		if (this.toks[this.index]?.rawText === '.' && tokenText(this.toks[this.index + 1]) === 'count' && this.toks[this.index + 2]?.rawText !== '(' && this.toks[this.index + 2]?.rawText !== '.') {
+			const count = this.facts.count?.(tokenName(tok)?.toLowerCase() ?? '');
+			if (count !== undefined) {
+				this.index += 2;
+				return count;
+			}
 		}
 		// IsNull of a local a straight line set to Null, or to a number or a
 		// string (issue #664).
@@ -369,6 +479,117 @@ class ConditionParser {
 		return undefined;
 	}
 
+	/**
+	 * A built-in whose arguments are known (issue #691): Abs, Sgn, Int, Fix,
+	 * Round, Val, CStr and Len of values; IsEmpty, IsArray, TypeName,
+	 * VarType, UBound and LBound of a local whose declaration or value says;
+	 * IsDate of a string no locale reads as a date; IIf of a known condition.
+	 */
+	private builtinCall(word: string): Value | typeof NOT_A_CALL {
+		const open = this.index;
+		const close = matchParenFrom(this.toks, open);
+		if (close < 0 || this.toks[open - 2]?.rawText === '.') {
+			return NOT_A_CALL;
+		}
+		const groups = splitTopLevelTokenGroups(this.toks, open + 1, ',', close).map((group) => group.filter((tok) => tok.kind !== 'comment'));
+		// A one-token Len is read below, as it was.
+		if (word === 'len' && groups[0]?.length === 1) {
+			return NOT_A_CALL;
+		}
+		this.index = close + 1;
+		const name = (k: number): string | undefined => (groups[k]?.length === 1 && groups[k][0].kind === 'identifier' ? tokenName(groups[k][0])?.toLowerCase() : undefined);
+		const value = (k: number): Value => (groups[k] ? this.argumentValue(groups[k]) : undefined);
+		const number = (k: number): number | undefined => {
+			const v = value(k);
+			return typeof v === 'number' ? v : undefined;
+		};
+		const typed = (k: number): string | undefined => {
+			const lower = name(k);
+			return lower ? this.facts.typeOf?.(lower) : undefined;
+		};
+		const empty = (k: number): boolean | undefined => {
+			const lower = name(k);
+			const held = lower ? this.facts.isEmpty?.(lower) : undefined;
+			if (held !== undefined) {
+				return held;
+			}
+			const type = typed(k);
+			return type !== undefined && type !== 'variant' ? false : undefined;
+		};
+		const one = groups.length === 1;
+		switch (word) {
+			case 'abs': {
+				const n = number(0);
+				return one && n !== undefined ? Math.abs(n) : undefined;
+			}
+			case 'sgn': {
+				const n = number(0);
+				return one && n !== undefined ? Math.sign(n) + 0 : undefined;
+			}
+			case 'int':
+			case 'fix': {
+				const n = number(0);
+				return one && n !== undefined ? (word === 'int' ? Math.floor(n) : Math.trunc(n)) + 0 : undefined;
+			}
+			case 'round': {
+				const n = number(0);
+				return one && n !== undefined ? bankersRound(n) + 0 : undefined;
+			}
+			case 'val': {
+				const s = value(0);
+				return one && typeof s === 'string' ? valPrefixValue(s) : undefined;
+			}
+			case 'cstr':
+				return one ? spelled(value(0)) : undefined;
+			case 'len': {
+				const s = value(0);
+				return one && typeof s === 'string' ? s.length : undefined;
+			}
+			case 'isempty':
+				return one ? empty(0) : undefined;
+			case 'isarray': {
+				const type = typed(0);
+				return !one || type === undefined || type === 'variant' ? undefined : type.endsWith('()');
+			}
+			case 'isdate': {
+				const s = value(0);
+				return one && typeof s === 'string' && isInvalidDateString(s) ? false : undefined;
+			}
+			case 'typename':
+			case 'vartype': {
+				const type = typed(0);
+				if (!one || type === undefined) {
+					return undefined;
+				}
+				const base = type.replace(/\(\)$/, '');
+				const array = type.endsWith('()');
+				if (base === 'variant') {
+					return !array && empty(0) === true ? (word === 'typename' ? 'Empty' : 0) : array && word === 'vartype' ? 8204 : undefined;
+				}
+				if (word === 'typename') {
+					return TYPE_NAMES[base] === undefined ? undefined : `${TYPE_NAMES[base]}${array ? '()' : ''}`;
+				}
+				return VAR_TYPES[base] === undefined ? undefined : VAR_TYPES[base] + (array ? 8192 : 0);
+			}
+			case 'iif': {
+				if (groups.length !== 3) {
+					return undefined;
+				}
+				const parser = new ConditionParser(groups[0], this.facts);
+				const condition = truth(parser.orExpr());
+				return condition === undefined || !parser.done() ? undefined : value(condition ? 1 : 2);
+			}
+			case 'ubound':
+			case 'lbound': {
+				const lower = name(0);
+				const bounds = lower ? this.facts.bounds?.(lower) : undefined;
+				const dimension = groups.length === 2 ? number(1) : 1;
+				return bounds && dimension === 1 && groups.length <= 2 ? bounds[word === 'ubound' ? 1 : 0] : undefined;
+			}
+		}
+		return undefined;
+	}
+
 	/** An argument's value: a condition operand, and vbBinaryCompare or vbTextCompare as 0 or 1. */
 	private argumentValue(arg: readonly VbaToken[]): Value {
 		const toks = arg.filter((tok) => tok.kind !== 'comment');
@@ -377,9 +598,25 @@ class ConditionParser {
 			return word === 'vbtextcompare' ? 1 : 0;
 		}
 		const parser = new ConditionParser(toks, this.facts);
-		const value = parser.sum();
+		const value = parser.concat();
 		return parser.done() && typeof value !== 'object' ? value : undefined;
 	}
+}
+
+/** The built-ins a condition reads of known values (issue #691). */
+const BUILTIN_CALLS: ReadonlySet<string> = new Set([
+	'abs', 'sgn', 'int', 'fix', 'round', 'val', 'cstr', 'len', 'isempty', 'isarray', 'isdate', 'typename', 'vartype', 'iif', 'ubound', 'lbound',
+]);
+
+/** A value as `&` and CStr spell it: whole numbers, Booleans and strings; undefined for a fraction, which the locale spells. */
+function spelled(value: Operand): string | undefined {
+	if (typeof value === 'string') {
+		return value;
+	}
+	if (typeof value === 'boolean') {
+		return value ? 'True' : 'False';
+	}
+	return typeof value === 'number' && Number.isInteger(value) ? String(value) : undefined;
 }
 
 /** The string functions a condition reads of known strings (issue #686). */
