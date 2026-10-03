@@ -20,6 +20,8 @@
 // A finding about a tag points at the tag; one about something the block
 // leaves out points at the declaration.
 
+import { firstTokenAtOrAfter } from '../../lexer/tokenHelpers';
+
 import type {
 	DeclareNode,
 	EventNode,
@@ -372,13 +374,11 @@ class DocBlock {
 	}
 
 	private lineAt(offset: number): DocBlockLine {
-		let found = this.lines[0];
-		for (const line of this.lines) {
-			if (line.start <= offset) {
-				found = line;
-			}
+		let index = firstTokenAtOrAfter(this.lines, offset);
+		if (index === this.lines.length || this.lines[index].start > offset) {
+			index -= 1;
 		}
-		return found;
+		return this.lines[Math.max(0, index)];
 	}
 
 	private lineEnd(line: DocBlockLine): number {
