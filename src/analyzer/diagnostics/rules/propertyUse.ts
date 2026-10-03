@@ -180,6 +180,10 @@ function memberMisuse(member: MemberCompletion, use: MemberUse): { rule: Diagnos
 	const params = parameterCounts(member.signature);
 	const type = normalizeType(member.returns ?? member.declaredType);
 	const scalar = type !== undefined && type !== 'variant' && isKnownScalarType(type);
+	// `c.M = 9` with M a Function returning Long (issue #423).
+	if (member.kind === 'method' && scalar && use.target && !use.indexed) {
+		return { rule: 'assignmentToProcedureName', message: `is a Function returning ${capitalized(type!)}, and a call cannot be assigned to. This is a VBE compile error: Function call on left-hand side of assignment must return Variant or Object.` };
+	}
 	if (member.kind === 'property' && member.signature === undefined && (member.letAccessor || member.setAccessor)) {
 		if (use.after === '.') {
 			return { rule: 'invalidPropertyUse', message: `has ${member.letAccessor ? 'a Property Let' : 'a Property Set'} and no Property Get, so it has no value to take a member of. This is a VBE compile error: Invalid use of property.` };

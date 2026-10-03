@@ -117,6 +117,7 @@ import { checkExcelSessionState } from './rules/excelSessionState';
 import { checkErrorValues } from './rules/errorValues';
 import { checkAccessData } from './rules/accessData';
 import { checkByNameCalls } from './rules/byNameCalls';
+import { checkModuleMemberForms } from './rules/moduleMembers';
 import { checkVariantValueMisuse } from './rules/variantValues';
 import { checkRuntimeMemberNotFound } from './rules/lateBoundMembers';
 import { checkConditionValues } from './rules/conditionValues';
@@ -956,6 +957,17 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'memberNotFound',
 		procedureStatements: (ctx, push) => checkMemberNotFound(ctx.source, ctx.memberCtx, push),
+	},
+	{
+		name: 'moduleMemberForms',
+		procedureStatements: (ctx, push) => checkModuleMemberForms(
+			ctx.source,
+			ctx.symbols,
+			ctx.memberCtx,
+			ctx.opts.projectVisibleSymbols,
+			/^[ \t]*Option[ \t]+Explicit\b/im.test(ctx.source),
+			push,
+		),
 	},
 	{
 		name: 'nonCallableCallStatement',
