@@ -732,6 +732,28 @@ function bodyCanLeaveLoop(
 }
 
 /**
+ * The Then and Else arms of a single-line If, as offsets. A nested one-line If
+ * sits inside the outer Then arm, and an Else belongs to the innermost If still
+ * open: in `If A Then If B Then X Else Y`, Y is B's (issue #575).
+ */
+function singleLineIfArms(toks: readonly VbaToken[], thenIndex: number, span: Span): { thenArm: Span; elseArm?: Span } {
+	const start = span.start + toks[thenIndex].end;
+	let open = 0;
+	for (let i = thenIndex + 1; i < toks.length; i++) {
+		const word = tokenText(toks[i]);
+		if (word === 'if') {
+			open++;
+		} else if (word === 'else') {
+			if (open === 0) {
+				return { thenArm: { start, end: span.start + toks[i].start }, elseArm: { start: span.start + toks[i].end, end: span.end } };
+			}
+			open--;
+		}
+	}
+	return { thenArm: { start, end: span.end } };
+}
+
+/**
  * The tracked names a single-line If's condition guards: `Not d Is Nothing`
  * guards the Then arm, `d Is Nothing` the Else arm (issue #108: the block
  * form already read the guard, the one-line form did not).
@@ -794,17 +816,19 @@ function checkObjectVariableNotSetStatement(
 	// The arms of a single-line If and what its condition proves about them.
 	const branches = statementAndBranchSpans(stmt);
 	let guards = { thenArm: new Set<string>(), elseArm: new Set<string>() };
+	let arms: { thenArm: Span; elseArm?: Span } | undefined;
 	if (head === 'if' && branches.length > 1) {
 		const thenIndex = toks.findIndex((tok, index) => index > 0 && tokenText(tok) === 'then');
 		if (thenIndex > 0) {
 			guards = nothingGuardNames(toks.slice(1, thenIndex));
+			arms = singleLineIfArms(toks, thenIndex, stmt.span);
 		}
 	}
 	const guardedAt = (name: string, offset: number): boolean => {
 		const within = (span: Span | undefined): boolean =>
 			span !== undefined && offset >= span.start && offset < span.end;
-		return (guards.thenArm.has(name) && within(branches[1]))
-			|| (guards.elseArm.has(name) && within(branches[2]));
+		return (guards.thenArm.has(name) && within(arms?.thenArm))
+			|| (guards.elseArm.has(name) && within(arms?.elseArm));
 	};
 	// A bare `obj = value` is a Let through the object's default member
 	// (issue #107), which needs an object to reach: on a variable still

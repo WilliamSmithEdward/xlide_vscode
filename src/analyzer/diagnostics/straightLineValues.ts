@@ -327,7 +327,7 @@ function walkBlock(
 		next.set(none.counter.name, rawExpressionTokens(String(none.counter.value)));
 		return next;
 	}
-	const touched = touchedInBlock(source, node, activity);
+	const touched = loopTouched(source, node, entry, activity);
 	const after = withoutMentionedObjects(touched === 'all' ? NONE : without(entry, touched), source, node.span);
 	// An If arm, a Case or a With body runs once, from the state the block is
 	// entered with; a loop's body may run again with what it changed (issue
@@ -641,6 +641,7 @@ function touchedInBlock(
 	source: string,
 	block: BodyNode,
 	activity: ConditionalActivityTracker | undefined,
+	decided: (condition: readonly VbaToken[]) => boolean | undefined = () => undefined,
 ): Set<string> | 'all' {
 	const names = new Set<string>();
 	if (block.kind === 'ForBlock' && block.controlVariable) {
@@ -652,7 +653,8 @@ function touchedInBlock(
 		}
 	}
 	const visit = (list: readonly BodyNode[]): boolean => {
-		for (const node of list) {
+		for (let i = 0; i < list.length; i++) {
+			const node = list[i];
 			if (isInactiveNode(activity, node)) {
 				continue;
 			}
@@ -661,6 +663,21 @@ function touchedInBlock(
 				// what follows the block then runs with whatever that path held.
 				if (jumpTargetLabelDeclaration(source, node.span)) {
 					return true;
+				}
+				// A one-line If with no Else that is decided False changes
+				// only what its condition passes, and its tail never runs.
+				if (node.kind === 'Statement' && node.singleLineIfBranches) {
+					const toks = statementTokensAfterLeadingLabel(source, node.span);
+					const condition = ifConditionTokens(toks);
+					if (condition && !toks.some((tok) => tokenText(tok) === 'else') && decided(condition) === false) {
+						for (const lower of passedWhole(source, [toks[0], ...condition], node.span.start)) {
+							names.add(lower);
+						}
+						while (i + 1 < list.length && isLeafStatement(list[i + 1]) && (list[i + 1] as LeafStatementNode).singleLineIfTail) {
+							i++;
+						}
+						continue;
+					}
 				}
 				const touched = touchedBy(source, [node]);
 				if (touched === 'all') {
@@ -676,11 +693,25 @@ function touchedInBlock(
 			}
 			if ('body' in node && Array.isArray(node.body)) {
 				if (node.kind === 'IfBlock') {
+					// An arm decided against never runs; one decided for is the
+					// last that may (issue #575).
 					for (const branch of node.branches) {
 						for (const lower of passedWhole(source, statementTokensAfterLeadingLabel(source, branch.headerSpan), branch.headerSpan.start)) {
 							names.add(lower);
 						}
+						const condition = branch.branchKind === 'else' ? undefined : ifConditionTokens(statementTokensAfterLeadingLabel(source, branch.headerSpan));
+						const verdict = condition ? decided(condition) : undefined;
+						if (verdict === false) {
+							continue;
+						}
+						if (visit(branch.body)) {
+							return true;
+						}
+						if (verdict === true) {
+							break;
+						}
 					}
+					continue;
 				}
 				if (visit(node.body as BodyNode[])) {
 					return true;
@@ -690,6 +721,34 @@ function touchedInBlock(
 		return false;
 	};
 	return 'body' in block && visit(block.body as BodyNode[]) ? 'all' : names;
+}
+
+/**
+ * The names a block may change. In a loop, a name written only in an arm that
+ * what holds on every pass decides against keeps its value: with a = 0 and
+ * nothing else writing a, `If a > 1 Then c.Add a` never runs, so a stays 0
+ * (issue #575). The rounds start from nothing changed and add what the arms
+ * still live write, until a round adds nothing: every name left out is then
+ * written only where it never runs.
+ */
+function loopTouched(
+	source: string,
+	node: BodyNode,
+	entry: ReachingAssignments,
+	activity: ConditionalActivityTracker | undefined,
+): Set<string> | 'all' {
+	if (!isLoopBlock(node)) {
+		return touchedInBlock(source, node, activity);
+	}
+	let touched = new Set<string>();
+	for (;;) {
+		const facts = factsFrom(without(entry, touched));
+		const live = touchedInBlock(source, node, activity, (condition) => conditionValue(condition, facts));
+		if (live === 'all' || [...live].every((lower) => touched.has(lower))) {
+			return live === 'all' ? live : touched;
+		}
+		touched = new Set([...touched, ...live]);
+	}
 }
 
 /** Every name the statements may change, or 'all' for a GoSub. */
