@@ -98474,6 +98474,61 @@
       "source": "Option Explicit\r\nPrivate Function InStr() As Long\r\n    InStr = 7\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = InStr(1, \"abc\", \"c\")\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue647_01_runtime",
+      "description": "Issue #647 compile errors at a call to a project procedure, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function PA(ByVal p0 As Long, ParamArray p1() As Variant) As Long\r\n    PA = p0\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim c As New Collection, b As Boolean, d As Double, dt As Date, s As String, n As Long, a() As String, v As Variant\r\n    Main = PA(1, 2, 3)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue647_02_runtime",
+      "description": "Issue #647 compile errors at a call to a project procedure, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function SL(ByVal p0 As Long) As Long\r\n    SL = p0\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim c As New Collection, b As Boolean, d As Double, dt As Date, s As String, n As Long, a() As String, v As Variant\r\n    Main = SL(n)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue647_03_runtime",
+      "description": "Issue #647 compile errors at a call to a project procedure, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function OC(Optional ByVal p0 As Collection) As Long\r\n    OC = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim c As New Collection, b As Boolean, d As Double, dt As Date, s As String, n As Long, a() As String, v As Variant\r\n    Main = OC(c)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue647_04_runtime",
+      "description": "Issue #647 compile errors at a call to a project procedure, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function OC(Optional ByVal p0 As Collection) As Long\r\n    OC = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim c As New Collection, b As Boolean, d As Double, dt As Date, s As String, n As Long, a() As String, v As Variant\r\n    Main = OC()\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue647_05_runtime",
+      "description": "Issue #647 compile errors at a call to a project procedure, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function AR(p0() As String) As Long\r\n    AR = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim c As New Collection, b As Boolean, d As Double, dt As Date, s As String, n As Long, a() As String, v As Variant\r\n    ReDim a(1)\r\n    Main = AR(a)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

@@ -442,6 +442,22 @@ export function validateArity(
 		const paramNames = new Set(
 			params.map((p) => stripHeaderBrackets(p.name).toLowerCase()),
 		);
+		// A procedure with a ParamArray takes no named argument at all, its
+		// fixed parameters' names included: `PA(p0:=1)` (issue #647,
+		// measured in Excel 16.0).
+		const paramArray = params.find((p) => p.paramArray);
+		const firstName = named.length > 0 ? stripHeaderBrackets(named[0][0].rawText).toLowerCase() : undefined;
+		if (paramArray && firstName && paramNames.has(firstName) && firstName !== stripHeaderBrackets(paramArray.name).toLowerCase()) {
+			push(
+				'argumentCount',
+				`'${displayName}' has a ParamArray, '${stripHeaderBrackets(paramArray.name)}', so no argument to it may be named. This is a VBE compile error: Argument in ParamArray may not be named.`,
+				{
+					start: call.sliceStart + named[0][0].start,
+					end: call.sliceStart + named[0][0].end,
+				},
+			);
+			return;
+		}
 		const seen = new Set<string>();
 		for (const slot of named) {
 			const raw = stripHeaderBrackets(slot[0].rawText);

@@ -1593,6 +1593,33 @@ export const VALUE_HELD = '(value)';
  *  - Array(...) or Split(...) into a Long or String parameter: an array,
  *    which raises 13 when the call runs.
  */
+const ARITHMETIC_OPERATORS: ReadonlySet<string> = new Set(['+', '-', '*', '/', '\\', '^', 'mod']);
+
+/**
+ * Whether the tokens are an arithmetic expression of number literals and
+ * locals declared a scalar type, `b + 0` or `d * 2`, with no call, member
+ * or parenthesis in it: its value is a scalar (issue #647).
+ */
+export function arithmeticOfScalars(toks: readonly VbaToken[], env: ReadonlyMap<string, string>): boolean {
+	let operand = true;
+	let operators = 0;
+	for (const tok of toks) {
+		if (operand) {
+			const lower = tokenName(tok)?.toLowerCase();
+			const declared = lower !== undefined && tok.kind === 'identifier' ? normalizeType(env.get(lower)) : undefined;
+			if (tok.kind !== 'integerLiteral' && tok.kind !== 'floatLiteral' && !(declared && isKnownScalarType(declared))) {
+				return false;
+			}
+		} else if (!ARITHMETIC_OPERATORS.has(tokenText(tok) || tok.rawText)) {
+			return false;
+		} else {
+			operators++;
+		}
+		operand = !operand;
+	}
+	return !operand && operators > 0;
+}
+
 function objectValueArgumentProblem(
 	expected: string,
 	slot: readonly VbaToken[],
@@ -1616,6 +1643,14 @@ function objectValueArgumentProblem(
 		if (toks.length === 2 && tokenText(toks[0]) === 'new' && objectValueNeedsIndex(toks[1].rawText, memberCtx)) {
 			return { rule: 'argumentObjectTypeMismatch', what: `New ${toks[1].rawText}, whose default member Item needs an index`, reason: 'This is a VBE compile error: Argument not optional.', tokens: toks };
 		}
+		// A Collection variable passed by value is read for its value, the
+		// same way (issue #647, measured in Excel 16.0). ByRef it is
+		// byref-argument-type-mismatch's.
+		const passedName = toks.length === 1 ? tokenName(toks[0])?.toLowerCase() : undefined;
+		const passedType = passedName ? env.get(passedName) : undefined;
+		if (byValue && passedType && isDeclared(toks[0].rawText) && objectValueNeedsIndex(passedType, memberCtx)) {
+			return { rule: 'argumentObjectTypeMismatch', what: `'${toks[0].rawText}', declared ${passedType}, whose default member Item needs an index`, reason: 'This is a VBE compile error: Argument not optional.', tokens: toks };
+		}
 		const callee = tokenText(toks[0]);
 		if ((callee === 'array' || callee === 'split') && toks[1]?.rawText === '(' && matchParenFrom(toks, 1) === toks.length - 1
 			&& !runtimeCallableSourceShadowed(toks[0].rawText, sourceNames)) {
@@ -1628,7 +1663,9 @@ function objectValueArgumentProblem(
 	const atom = toks[0].rawText === '-' ? toks.slice(1) : toks;
 	const literal = atom.length === 1 && (['integerLiteral', 'floatLiteral', 'stringLiteral', 'dateLiteral'].includes(atom[0].kind)
 		|| (toks.length === 1 && ['true', 'false'].includes(tokenText(atom[0]))));
-	const scalarExpression = toks.length > 1 && !literal && actual !== undefined && isKnownScalarType(normalizeType(actual.type) ?? '');
+	// `b + 0` and `d + 0` with b a Boolean and d a Date too (issue #647).
+	const scalarExpression = toks.length > 1 && !literal
+		&& ((actual !== undefined && isKnownScalarType(normalizeType(actual.type) ?? '')) || arithmeticOfScalars(toks, env));
 	if ((literal || scalarExpression) && expectedType !== 'object' && isKnownObjectAssignmentType(expected, memberCtx)) {
 		return { rule: 'argumentObjectTypeMismatch', what: actual?.label ?? toks.map((tok) => tok.rawText).join(' '), reason: 'An object parameter takes an object. This is a VBE compile error: Type mismatch.', tokens: toks };
 	}
