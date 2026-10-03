@@ -3,6 +3,7 @@ import type { ModuleNode, ProcedureNode, Span } from '../parser/nodes';
 import { detectEol, lineStartAt } from '../../vbaSourceScan';
 import { refactor, refuse, type VbaRefactorResult } from './refactorTypes';
 import { escapeForRegExp, lookupModuleSource } from './shared';
+import { isRefactorObjectType } from './typeKinds';
 
 /**
  * Implement Interface: a stub for every member an `Implements` promises and
@@ -88,8 +89,6 @@ interface InterfaceMember {
 	signature: string;
 	/** The keyword that closes it: Sub, Function or Property. */
 	closer: string;
-	/** Whether a Property Get / Function returns an object, which needs `Set`. */
-	isPropertyGet: boolean;
 }
 
 /**
@@ -109,36 +108,28 @@ function publicMembersOf(source: string): InterfaceMember[] {
 				name: member.name,
 				signature: headerText(source, member),
 				closer: closerFor(member.procKind),
-				isPropertyGet: member.procKind === 'PropertyGet',
 			});
 			continue;
 		}
 		if (member.kind === 'VariableGroup' && /^public$/i.test(member.modifier) && !member.isConst) {
 			for (const decl of member.declarations) {
 				const type = decl.asType ?? 'Variant';
-				const isObject = !PRIMITIVES.has(type.toLowerCase());
+				const isObject = isRefactorObjectType(type);
 				out.push({
 					name: decl.name,
 					signature: `Property Get ${decl.name}() As ${type}`,
 					closer: 'Property',
-					isPropertyGet: true,
 				});
 				out.push({
 					name: decl.name,
 					signature: `Property ${isObject ? 'Set' : 'Let'} ${decl.name}(ByVal RHS As ${type})`,
 					closer: 'Property',
-					isPropertyGet: false,
 				});
 			}
 		}
 	}
 	return out;
 }
-
-const PRIMITIVES = new Set([
-	'byte', 'boolean', 'integer', 'long', 'longlong', 'longptr', 'currency',
-	'single', 'double', 'date', 'string', 'variant', 'decimal',
-]);
 
 /**
  * The member's header line as the interface wrote it, minus its access
