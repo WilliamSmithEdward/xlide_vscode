@@ -59,6 +59,7 @@ import {
 	type DeclaredValueShape,
 	incompatibilityReason,
 	objectHoldingDefault,
+	readOnlyHostDefault,
 	objectLetAssignmentVerdict,
 	inferArgumentType,
 	defTypeOf,
@@ -513,7 +514,8 @@ export function checkAssignmentTypes(
 				}
 				// A class whose default member is a Property Get with no Let:
 				// `c = 5` does not compile (issue #256, measured in Excel 16.0).
-				const readOnlyDefault = verdict === 'lets' ? readOnlyProjectDefault(expected, memberCtx) : undefined;
+				// So does a Word Document, whose Name takes none (issue #438).
+				const readOnlyDefault = verdict === 'lets' ? readOnlyProjectDefault(expected, memberCtx) ?? readOnlyHostDefault(expected, memberCtx) : undefined;
 				if (readOnlyDefault) {
 					push(
 						'readonlyMemberAssignment',

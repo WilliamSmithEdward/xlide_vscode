@@ -117,17 +117,20 @@ export function checkObjectDefaultValues(
 		let heldAt: ((node: BodyNode) => HeldObjects) | undefined;
 		const holdsCollection = (stmt: BodyNode, lower: string): boolean =>
 			(heldAt ??= heldObjectsAt(source, proc, symbols, activity))(stmt).classes.get(lower)?.toLowerCase() === 'collection';
-		// Excel's Application and Names, by their own rules (issue #415).
-		const excel = (memberCtx.model?.hostName ?? 'Excel') === 'Excel';
-		const excelDefaults = excel ? [...env].filter(([lower, type]) => lower !== proc.name.toLowerCase() && EXCEL_DEFAULT_READS.has(normalizeType(type) ?? '')) : [];
+		// Excel's Application and Names, and Word's Document, by their own
+		// rules (issues #415 and #438). An Object holding one is read late.
+		const host = memberCtx.model?.hostName ?? 'Excel';
+		const readsByType = host === 'Excel' ? EXCEL_DEFAULT_READS : host === 'Word' ? WORD_DEFAULT_READS : new Set<string>();
+		const hostDefaults = [...env].filter(([lower, type]) => lower !== proc.name.toLowerCase()
+			&& (readsByType.has(normalizeType(type) ?? '') || (readsByType.size > 0 && normalizeType(type) === 'object')));
 		return (stmt) => {
 			if (lateBound.length > 0) {
 				checkHeldCollections(source, stmt, lateBound, (lower) => holdsCollection(stmt, lower), push);
 			}
-			if (excelDefaults.length > 0) {
+			if (hostDefaults.length > 0) {
 				const held = (lower: string): string | undefined => (heldAt ??= heldObjectsAt(source, proc, symbols, activity))(stmt).classes.get(lower)?.toLowerCase();
 				for (const span of statementAndBranchSpans(stmt)) {
-					for (const hit of excelDefaultReads(source, span, new Map(excelDefaults.map(([lower, type]) => [lower, normalizeType(type)!])), held)) {
+					for (const hit of hostDefaultReads(source, span, new Map(hostDefaults.map(([lower, type]) => [lower, normalizeType(type)!])), held)) {
 						push(hit.rule, hit.message, { start: span.start + hit.tok.start, end: span.start + hit.tok.end });
 					}
 				}
@@ -217,10 +220,22 @@ export function checkObjectDefaultValues(
  * mismatch (issue #415, each measured in Excel 16.0).
  */
 const EXCEL_DEFAULT_READS: ReadonlySet<string> = new Set(['application', 'names']);
+/**
+ * Word's Document gives its Name, a file name, which is no number: set,
+ * `x + 1` and `If x Then` raise 13. Through an Object, `x(1)` raises 451 and
+ * `x = 5` 5861, "'Name' is a read only property" (issue #438, measured in
+ * Word 16.0). Typed, those two are compile errors found elsewhere.
+ */
+const WORD_DEFAULT_READS: ReadonlySet<string> = new Set(['document']);
+/** What each type with a String default gives as its value, for the message. */
+const NAME_DEFAULTS: Readonly<Record<string, { what: string; value: string }>> = {
+	application: { what: 'the Application', value: 'its Name, "Microsoft Excel"' },
+	document: { what: 'a Document', value: 'its Name, a file name' },
+};
 const ARITHMETIC: ReadonlySet<string> = new Set(['-', '*', '/', '\\', '^', 'mod']);
 const COMPARISONS: ReadonlySet<string> = new Set(['=', '<>', '<', '>', '<=', '>=', '+']);
 
-function excelDefaultReads(
+function hostDefaultReads(
 	source: string,
 	span: Span,
 	typed: ReadonlyMap<string, string>,
@@ -236,28 +251,46 @@ function excelDefaultReads(
 	const then = ['if', 'elseif'].includes(tokenText(toks[first])) ? toks.findIndex((tok) => tokenText(tok) === 'then') : -1;
 	const numeric = (tok: VbaToken | undefined): boolean => tok?.kind === 'integerLiteral' || tok?.kind === 'floatLiteral';
 	const out: Array<{ tok: VbaToken; rule: 'objectDefaultValue' | 'argumentCount' | 'assignmentTypeMismatch'; message: string }> = [];
+	// `x = 5` on an Object holding a Document (issue #438).
+	const targetLower = target?.name.toLowerCase();
+	if (targetLower && typed.get(targetLower) === 'object' && held(targetLower) === 'document' && toks[first]?.rawText !== '.') {
+		const tok = toks.find((candidate) => tokenName(candidate)?.toLowerCase() === targetLower)!;
+		return [{ tok, rule: 'objectDefaultValue', message: `'${tok.rawText}' holds a Document, whose default member Name no Let reaches. This will raise Run-time error '5861': 'Name' is a read only property.` }];
+	}
 	for (let i = first; i < toks.length; i++) {
 		const lower = tokenName(toks[i])?.toLowerCase();
-		const type = lower ? typed.get(lower) : undefined;
-		if (!type || i === eq - 1 || toks[i - 1]?.rawText === '.' || toks[i + 1]?.rawText === '.') {
+		const declared = lower ? typed.get(lower) : undefined;
+		if (!declared || i === eq - 1 || toks[i - 1]?.rawText === '.' || toks[i + 1]?.rawText === '.') {
+			continue;
+		}
+		// An Object is read as what it holds, late.
+		const late = declared === 'object';
+		const type = late ? held(lower!) : declared;
+		if (!type || !(type in NAME_DEFAULTS || (!late && type === 'names'))) {
 			continue;
 		}
 		const before = i - 1 === eq ? undefined : toks[i - 1];
 		const after = toks[i + 1];
 		const op = (tok: VbaToken | undefined): string => (tok ? tokenText(tok) || tok.rawText : '');
-		if (type === 'application') {
+		const named = NAME_DEFAULTS[type];
+		if (named) {
 			if (after?.rawText === '(') {
-				out.push({ tok: toks[i], rule: 'argumentCount', message: `'${toks[i].rawText}' is the Application, whose default member Name takes no argument. This is a VBE compile error: Wrong number of arguments or invalid property assignment.` });
+				// Typed, a Document's index is argument-count's from its type library.
+				if (late && type === 'document') {
+					out.push({ tok: toks[i], rule: 'objectDefaultValue', message: `'${toks[i].rawText}' holds a Document, whose default member Name takes no argument. This will raise Run-time error '451': Property let procedure not defined and property get procedure did not return an object.` });
+				} else if (!late && type === 'application') {
+					out.push({ tok: toks[i], rule: 'argumentCount', message: `'${toks[i].rawText}' is the Application, whose default member Name takes no argument. This is a VBE compile error: Wrong number of arguments or invalid property assignment.` });
+				}
 				continue;
 			}
-			if (held(lower!) !== 'application') {
+			if (held(lower!) !== type) {
 				continue;
 			}
 			const condition = then > 0 && i === first + 1 && i + 1 === then;
 			const arithmetic = ARITHMETIC.has(op(after)) || ARITHMETIC.has(op(before));
 			const numericCompare = (COMPARISONS.has(op(after)) && numeric(toks[i + 2])) || (COMPARISONS.has(op(before)) && before !== undefined && numeric(toks[i - 2]));
 			if (condition || arithmetic || numericCompare) {
-				out.push({ tok: toks[i], rule: 'assignmentTypeMismatch', message: `'${toks[i].rawText}' is the Application, whose value is its Name, "Microsoft Excel", which is not a number. This will raise Run-time error '13': Type mismatch.` });
+				out.push({ tok: toks[i], rule: 'assignmentTypeMismatch', message: `'${toks[i].rawText}' ${late ? 'holds' : 'is'} ${named.what}, whose value is ${named.value}, which is not a number. This will raise Run-time error '13': Type mismatch.` });
 			}
 			continue;
 		}

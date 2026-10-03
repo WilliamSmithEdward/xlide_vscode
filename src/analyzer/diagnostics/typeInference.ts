@@ -3209,6 +3209,43 @@ export function objectHoldingDefault(type: string | undefined, memberCtx: Member
 		: undefined;
 }
 
+/**
+ * A Word, PowerPoint or Access type whose default member is a property no
+ * Let reaches, as a Document's Name: `x = 5` does not compile, "Invalid use
+ * of property" (issue #438, measured in Word 16.0). One holding an object is
+ * {@link objectHoldingDefault}'s.
+ */
+export function readOnlyHostDefault(type: string | undefined, memberCtx: MemberCompletionContext): string | undefined {
+	const resolved = resolveHostAlias(type ?? '', memberCtx.model) ?? libraryObjectType(type) ?? type ?? '';
+	const found = HOST_DEFAULT_MEMBERS[resolved];
+	return found && found.kind === 'property' && found.required === 0 && !found.writable && !HOST_DEFAULT_MEMBERS[found.returns] ? found.name : undefined;
+}
+
+/**
+ * The default members a Word, PowerPoint or Access type reaches through,
+ * `Range.Text` for a Paragraph, when none of them takes an argument: then
+ * `x(1)` does not compile, "Wrong number of arguments or invalid property
+ * assignment" (issue #438, measured in Word 16.0).
+ */
+export function argumentlessHostDefault(type: string | undefined, memberCtx: MemberCompletionContext): string | undefined {
+	let key = resolveHostAlias(type ?? '', memberCtx.model) ?? libraryObjectType(type) ?? type ?? '';
+	const names: string[] = [];
+	for (let depth = 0; depth < 4; depth++) {
+		const found = HOST_DEFAULT_MEMBERS[key];
+		if (!found || found.kind !== 'property' || found.params > 0) {
+			return undefined;
+		}
+		names.push(found.name);
+		if (!HOST_DEFAULT_MEMBERS[found.returns]) {
+			// A Variant or an object it gives may still take an index.
+			const returns = normalizeType(found.returns);
+			return returns !== undefined && returns !== 'variant' && isKnownScalarType(returns) ? names.join('.') : undefined;
+		}
+		key = found.returns;
+	}
+	return undefined;
+}
+
 /** A host type's default member (DISPID 0, `_Default` in the model), if any. */
 function hostDefaultMember(qualified: string, memberCtx: MemberCompletionContext): HostMember | undefined {
 	return getHostMembers(qualified, memberCtx.model).find((member) => member.name === '_Default');

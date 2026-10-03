@@ -36,13 +36,18 @@ const NOTHING_HELD: HeldObjects = { classes: new Map(), items: new Map() };
 export const HELD_VALUE = '(value)';
 
 /**
- * `Set x = Application` and `Set x = ActiveWorkbook.Names`: the host's own
- * object, which is never Nothing (issue #415).
+ * `Set x = Application`, `Set x = ActiveWorkbook.Names` and, in Word,
+ * `Set x = ActiveDocument`: the host's own object, which is never Nothing
+ * (issues #415 and #438).
  */
 function hostObjectHeld(value: readonly VbaToken[], declared: ReadonlySet<string>): string | undefined {
 	const last = tokenText(value[value.length - 1]);
 	if (value.length === 1 && last === 'application' && !declared.has('application')) {
 		return 'Application';
+	}
+	// Word's own Document (issue #438).
+	if (value.length === 1 && (last === 'activedocument' || last === 'thisdocument') && !declared.has(last)) {
+		return 'Document';
 	}
 	if (last === 'names' && (value.length === 1 ? !declared.has('names') : value[value.length - 2]?.rawText === '.')) {
 		return 'Names';
