@@ -93936,6 +93936,72 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(3) As Long, s As Long, i As Long\r\n    s = 2\r\n    For i = s To 3\r\n        s = 9\r\n        a(i) = 1\r\n    Next\r\n    Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue560_01_runtime",
+      "description": "Issue #560 a Loop While or Until line read after the body, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection\r\n    Do\r\n        Set c = New Collection\r\n        c.Add 1\r\n    Loop While c.Count < 1\r\n    Main = c.Count\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue560_02_runtime",
+      "description": "Issue #560 a Loop While or Until line read after the body, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection\r\n    Do\r\n        Set c = New Collection\r\n    Loop Until c.Count = 0\r\n    Main = 1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue560_03_runtime",
+      "description": "Issue #560 a Loop While or Until line read after the body, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, i As Long\r\n    Do\r\n        i = i + 1\r\n    Loop While c.Count < 1\r\n    Main = i\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue560_04_runtime",
+      "description": "Issue #560 a Loop While or Until line read after the body, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 3.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, i As Long\r\n    Do\r\n        i = i + 1\r\n        If i > 2 Then Set c = New Collection\r\n    Loop Until c Is Nothing = False\r\n    Main = i\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue560_05_runtime",
+      "description": "Issue #560 a Loop While or Until line read after the body, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim r As Range\r\n    Do\r\n        Set r = Range(\"A1\")\r\n    Loop While r.Row > 1\r\n    Main = r.Row\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue560_06_runtime",
+      "description": "Issue #560 a Loop While or Until line read after the body, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim r As Range, i As Long\r\n    Do\r\n        i = i + 1\r\n    Loop Until r.Row = 1\r\n    Main = i\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }

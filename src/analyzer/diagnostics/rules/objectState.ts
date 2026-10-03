@@ -482,11 +482,15 @@ function walkObjectState(
 					checkObjectVariableNotSetStatement(source, before, locals, state, setAnywhere, memberCtx, report, lets, facts, elements);
 				}
 				// `Loop Until x` reads x after the body, with what it entered with
-				// when the body never names x (issue #424).
+				// when the body never names x (issue #424). Any local the line
+				// reads counts, `c` of `Loop While c.Count < 1` too (issue #560).
 				if (after && node.kind === 'DoBlock') {
 					const inBody = source.slice(before?.span.end ?? node.span.start, after.span.start).toLowerCase();
 					const afterToks = statementTokensAfterLeadingLabel(source, after.span);
-					const named = conditionOperands(afterToks).some((hit) => new RegExp(`\\b${afterToks[hit.index].rawText.toLowerCase()}\\b`).test(inBody));
+					const named = afterToks.some((tok) => {
+						const lower = tokenName(tok)?.toLowerCase();
+						return lower !== undefined && locals.has(lower) && new RegExp(`\\b${lower}\\b`).test(inBody);
+					});
 					if (!named) {
 						checkObjectVariableNotSetStatement(source, after, locals, state, setAnywhere, memberCtx, report, lets, facts);
 					}
