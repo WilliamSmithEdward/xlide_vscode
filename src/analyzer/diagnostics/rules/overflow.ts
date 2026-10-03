@@ -359,43 +359,54 @@ class TypedFolder {
 	}
 
 	/**
-	 * `a And b`, Or, Xor, Eqv and Imp, split at the last top-level one of the
-	 * lowest precedence. Each operand is converted to a Long first, so one
+	 * `a And b`, Or, Xor, Eqv and Imp follow VBA precedence and left
+	 * associativity. Each operand is converted to a Long first, so one
 	 * outside the Long range overflows: `1E10 And 1` is "Overflow" in a Const
 	 * (issue #367, measured in Excel 16.0) and error 6 at run time (#323).
 	 */
 	private logical(): Folded | typeof NOT_LOGICAL {
 		let depth = 0;
-		let at = -1;
-		let precedence = Infinity;
-		let word = '';
-		// Locate the last top-level operator of the lowest precedence in one
-		// pass, including the common arithmetic-only case with no operator.
+		let operators: { at: number; rank: number; word: string }[] | undefined;
 		for (let i = 0; i < this.toks.length; i++) {
 			const tok = this.toks[i];
 			depth += tok.rawText === '(' ? 1 : tok.rawText === ')' ? -1 : 0;
 			if (depth !== 0 || i === 0 || tok.kind !== 'keyword') { continue; }
-			const lower = tokenText(tok);
-			const rank = LOGICAL_PRECEDENCE.get(lower);
-			if (rank !== undefined && rank <= precedence) {
-				at = i;
-				precedence = rank;
-				word = lower;
+			const word = tokenText(tok);
+			const rank = LOGICAL_PRECEDENCE.get(word);
+			if (rank !== undefined) { (operators ??= []).push({ at: i, rank, word }); }
+		}
+		if (!operators) { return NOT_LOGICAL; }
+		// Consume disjoint operands from left to right. Reducing higher or equal
+		// precedence before the next operator preserves the recursive evaluator's
+		// left associativity and its first unknown/overflow result.
+		const values: { value: Typed; from: number; to: number }[] = [];
+		const pending: typeof operators = [];
+		let from = 0;
+		for (let i = 0; i <= operators.length; i++) {
+			const incoming = operators[i];
+			const to = incoming?.at ?? this.toks.length;
+			const operand = this.toks.slice(from, to);
+			const folded = this.stringOperand(operand) ?? new TypedFolder(operand, this.base, this.names, this.divisionByZero, this.nesting).fold();
+			if (folded === undefined || isOverflow(folded)) { return folded; }
+			values.push({ value: folded, from, to: to - 1 });
+			while (pending.length > 0 && (!incoming || pending[pending.length - 1].rank >= incoming.rank)) {
+				const op = pending.pop()!;
+				const right = values.pop()!;
+				const left = values.pop()!;
+				const combined = this.logicalValue(left.value, right.value, op.word, op.at, left.from, right.to);
+				if (combined === undefined || isOverflow(combined)) { return combined; }
+				values.push({ value: combined, from: left.from, to: right.to });
 			}
+			if (incoming) { pending.push(incoming); from = incoming.at + 1; }
 		}
-		if (at < 0) { return NOT_LOGICAL; }
-		const left = this.stringOperand(this.toks.slice(0, at)) ?? new TypedFolder(this.toks.slice(0, at), this.base, this.names, this.divisionByZero, this.nesting).fold();
-		if (left === undefined || isOverflow(left)) {
-			return left;
-		}
-		const right = this.stringOperand(this.toks.slice(at + 1)) ?? new TypedFolder(this.toks.slice(at + 1), this.base, this.names, this.divisionByZero, this.nesting).fold();
-		if (right === undefined || isOverflow(right)) {
-			return right;
-		}
+		return values[0].value;
+	}
+
+	private logicalValue(left: Typed, right: Typed, word: string, at: number, from: number, to: number): Folded {
 		if (left.type === 'longlong' || right.type === 'longlong') {
 			return undefined;
 		}
-		const span = this.span(0, this.toks.length - 1);
+		const span = this.span(from, to);
 		const operands = [left, right].map((operand) => bankersRound(operand.value));
 		const outside = [left, right].find((_, k) => !inRange(operands[k], 'long'));
 		if (outside) {
