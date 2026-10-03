@@ -998,6 +998,18 @@ export const DIAGNOSTIC_RULES = {
 		allowSeverityDowngrade: true,
 		confidence: 'high',
 	},
+	formulaStringUnparsed: {
+		code: 'formula-string-unparsed',
+		title: 'Formula String Excel cannot parse',
+		defaultSeverity: 'warning',
+		category: 'semantic',
+		vbeCompileEquivalent: false,
+		diagnosticKind: 'runtime-risk',
+		source: 'XLIDE',
+		specReference: 'Excel 1004 on a formula String with a parenthesis or string left open, or an operator last; a cell formatted as Text takes it (issue #276, Excel 16.0)',
+		allowSeverityDowngrade: true,
+		confidence: 'high',
+	},
 	sheetNameInvalid: {
 		code: 'sheet-name-invalid',
 		title: 'Sheet name Excel refuses',

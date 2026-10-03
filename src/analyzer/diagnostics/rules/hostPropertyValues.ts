@@ -161,6 +161,62 @@ function hostPropertyStringProblem(target: MemberCompletion, valueTokens: readon
 	return `${bare}.${target.name} takes ${takes}. This will raise Run-time error '${limit.error.number}': ${limit.error.text}.`;
 }
 
+/** The Range properties that read a String starting "=" as a formula. */
+const FORMULA_PROPERTIES: ReadonlySet<string> = new Set(['formula', 'formular1c1', 'formula2', 'formula2r1c1', 'formulalocal', 'formular1c1local', 'value', 'value2']);
+
+/**
+ * Why a formula String Excel cannot parse is one, or undefined: a
+ * parenthesis left open or closed twice, a string in it never closed, or an
+ * operator with nothing after it. `Range("A1").Formula = "=SUM(B1:B2"`
+ * raises 1004, except on a cell formatted as Text, which keeps it as text
+ * (issue #276, measured in Excel 16.0).
+ */
+export function formulaStringProblem(target: MemberCompletion, valueTokens: readonly VbaToken[]): string | undefined {
+	if (target.owner !== 'Excel.Range' || !FORMULA_PROPERTIES.has(target.name.toLowerCase())) {
+		return undefined;
+	}
+	const toks = valueTokens.filter((tok) => tok.kind !== 'comment');
+	if (toks.length !== 1 || toks[0].kind !== 'stringLiteral') {
+		return undefined;
+	}
+	const text = toks[0].rawText.slice(1, -1).replace(/""/g, '"');
+	if (!text.startsWith('=') || text.length < 2) {
+		return undefined;
+	}
+	let depth = 0;
+	let inString = false;
+	let why: string | undefined;
+	for (let i = 1; i < text.length && why === undefined; i++) {
+		const ch = text[i];
+		if (inString) {
+			if (ch === '"' && text[i + 1] === '"') {
+				i++;
+			} else if (ch === '"') {
+				inString = false;
+			}
+			continue;
+		}
+		if (ch === '"') {
+			inString = true;
+		} else if (ch === '(') {
+			depth++;
+		} else if (ch === ')' && --depth < 0) {
+			why = 'closes a parenthesis it never opened';
+		}
+	}
+	if (why === undefined && inString) {
+		why = 'opens a string it never closes';
+	} else if (why === undefined && depth > 0) {
+		why = 'leaves a parenthesis open';
+	} else if (why === undefined && /[+\-*/^&=<>,]\s*$/.test(text)) {
+		why = 'ends with an operator';
+	}
+	if (why === undefined) {
+		return undefined;
+	}
+	return `The formula ${toks[0].rawText} ${why}, so Excel cannot parse it. This will raise Run-time error '1004', unless the cell is formatted as Text, which keeps the String as text.`;
+}
+
 /**
  * The same, for a receiver that is one of several host types: `ActiveSheet`,
  * a Worksheet or a Chart, and `Sheets(1)`. Judged only when each type refuses
