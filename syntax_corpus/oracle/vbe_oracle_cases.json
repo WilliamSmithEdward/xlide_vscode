@@ -95917,6 +95917,171 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long, x As Application\r\n    Set x = Application\r\n    n = Len(x)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue565_01_runtime",
+      "description": "Issue #565 overflow after a branch that may not run, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long\r\n    b = Second(Now) + 1000\r\n    If b > 5000 Then a = 4\r\n    Main = CInt(a * 10000)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue565_02_runtime",
+      "description": "Issue #565 overflow after a branch that may not run, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long\r\n    b = Second(Now) + 1000\r\n    If b > 5000 Then a = 40000\r\n    Main = CInt(a)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue565_03_runtime",
+      "description": "Issue #565 overflow after a branch that may not run, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long\r\n    b = Second(Now) + 1000\r\n    Dim n As Integer\r\n    If b > 5000 Then a = 40000\r\n    n = a\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue565_04_runtime",
+      "description": "Issue #565 overflow after a branch that may not run, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long\r\n    b = 2\r\n    If b Mod 2 = 0 Then\r\n        b = -1\r\n    Else\r\n        a = 4\r\n    End If\r\n    Main = CInt(a * 10000)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue565_05_runtime",
+      "description": "Issue #565 overflow after a branch that may not run, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long\r\n    b = 2\r\n    If b = 2 Then\r\n        b = -1\r\n    Else\r\n        a = 4\r\n    End If\r\n    Main = CInt(a * 10000)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue565_06_runtime",
+      "description": "Issue #565 overflow after a branch that may not run, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim b As Long\r\n    Select Case b\r\n    Case 1\r\n        b = 4\r\n    End Select\r\n    Main = CInt(b * 10000)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue565_07_runtime",
+      "description": "Issue #565 overflow after a branch that may not run, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long\r\n    b = Second(Now) + 1000\r\n    If b > 5000 Then a = 1 Else a = 40000\r\n    Main = CInt(a)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue565_08_runtime",
+      "description": "Issue #565 overflow after a branch that may not run, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long\r\n    b = 1\r\n    Select Case b\r\n    Case 1\r\n        b = 4\r\n    Case Else\r\n        a = 1\r\n    End Select\r\n    Main = CInt(b * 10000)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue565_09_runtime",
+      "description": "Issue #565 overflow after a branch that may not run, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long\r\n    a = 4\r\n    Main = CInt(a * 10000)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue565_10_runtime",
+      "description": "Issue #565 overflow after a branch that may not run, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long\r\n    b = 2\r\n    If b = 2 Then a = 4\r\n    Main = CInt(a * 10000)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue565_11_runtime",
+      "description": "Issue #565 overflow after a branch that may not run, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 10.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, d As Long, b As Long\r\n    b = Second(Now) + 1000\r\n    d = 1\r\n    If b > 5000 Then d = 0\r\n    Main = 10 / d\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue565_12_runtime",
+      "description": "Issue #565 overflow after a branch that may not run, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long\r\n    b = Minute(Now) + 100\r\n    If b < 100 Then a = 1 Else a = 40000\r\n    Main = CInt(a)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue565_13_runtime",
+      "description": "Issue #565 overflow after a branch that may not run, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long\r\n    b = Hour(Now)\r\n    If b >= 0 Then a = 40000\r\n    Main = CInt(a)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue565_14_runtime",
+      "description": "Issue #565 overflow after a branch that may not run, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long\r\n    b = Month(Now) - 13\r\n    If b < 0 Then a = 40000 Else a = 1\r\n    Main = CInt(a)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue565_15_runtime",
+      "description": "Issue #565 overflow after a branch that may not run, case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long\r\n    b = Day(Now) + 1000\r\n    If b > 1031 Then a = 40000\r\n    Main = CInt(a)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

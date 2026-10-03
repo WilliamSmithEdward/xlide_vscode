@@ -5340,7 +5340,14 @@
         "issue624_36_runtime",
         "issue624_38_runtime",
         "issue624_39_runtime",
-        "issue624_40_runtime"
+        "issue624_40_runtime",
+        "issue565_07_runtime",
+        "issue565_08_runtime",
+        "issue565_09_runtime",
+        "issue565_10_runtime",
+        "issue565_12_runtime",
+        "issue565_13_runtime",
+        "issue565_14_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],

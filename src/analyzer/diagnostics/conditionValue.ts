@@ -24,7 +24,13 @@ export interface ConditionFacts {
 	value(lower: string): number | string | undefined;
 	/** Whether an object name is known Nothing (true) or known set (false). */
 	isNothing?(lower: string): boolean | undefined;
+	/** The whole numbers a name is known to lie between, both included: `Second(Now) + 1000` (issue #565). */
+	range?(lower: string): readonly [number, number] | undefined;
 }
+
+/** What a name holds when only its range is known. */
+type Range = { range: readonly [number, number] };
+type Operand = Value | { nothing: boolean | undefined } | Range;
 
 type Value = number | string | boolean | undefined;
 
@@ -115,17 +121,31 @@ class ConditionParser {
 	}
 
 	private comparison(): Value {
-		const left = this.operand();
+		const left = this.sum();
 		const op = this.toks[this.index]?.rawText;
 		if (this.word() === 'is' && tokenText(this.toks[this.index + 1]) === 'nothing') {
 			this.index += 2;
-			return typeof left === 'object' ? left.nothing : undefined;
+			return typeof left === 'object' && 'nothing' in left ? left.nothing : undefined;
 		}
 		if (op !== '=' && op !== '<>' && op !== '<' && op !== '>' && op !== '<=' && op !== '>=') {
 			return typeof left === 'object' ? undefined : left;
 		}
 		this.index++;
-		const right = this.operand();
+		const right = this.sum();
+		// A range against a number: decided where every value in it agrees.
+		const [lo, hi] = rangeOf(left) ?? [];
+		const [rlo, rhi] = rangeOf(right) ?? [];
+		if ((typeof left === 'object' && 'range' in left) || (typeof right === 'object' && 'range' in right)) {
+			if (lo === undefined || rlo === undefined) {
+				return undefined;
+			}
+			const corners = [compare(lo, rlo, op), compare(lo, rhi!, op), compare(hi!, rlo, op), compare(hi!, rhi!, op)];
+			// `=` and `<>` hold at an inner value the corners miss.
+			if ((op === '=' || op === '<>') && !(hi! < rlo || rhi! < lo) && !(lo === hi && rlo === rhi)) {
+				return undefined;
+			}
+			return corners.every((corner) => corner) ? true : corners.every((corner) => !corner) ? false : undefined;
+		}
 		if (typeof left === 'object' || typeof right === 'object' || left === undefined || right === undefined) {
 			return undefined;
 		}
@@ -144,8 +164,32 @@ class ConditionParser {
 		return undefined;
 	}
 
+	/**
+	 * Whole numbers joined by +, -, * or Mod: `b Mod 2 = 0` with b known
+	 * (issue #565). A result past the Long range, which may overflow, and any
+	 * operand that is not a known whole number make it undefined.
+	 */
+	private sum(): Operand {
+		let value = this.product();
+		for (let op = this.toks[this.index]?.rawText; op === '+' || op === '-'; op = this.toks[this.index]?.rawText) {
+			this.index++;
+			value = wholeArithmetic(value, this.product(), op);
+		}
+		return value;
+	}
+
+	private product(): Operand {
+		let value = this.operand();
+		for (let op = this.toks[this.index]?.rawText; op === '*' || this.word() === 'mod'; op = this.toks[this.index]?.rawText) {
+			const mod = this.word() === 'mod';
+			this.index++;
+			value = wholeArithmetic(value, this.operand(), mod ? 'mod' : '*');
+		}
+		return value;
+	}
+
 	/** A literal, a known name, an object name (for Is Nothing), IsNumeric(...), or a parenthesized condition. */
-	private operand(): Value | { nothing: boolean | undefined } {
+	private operand(): Operand {
 		const tok = this.toks[this.index];
 		if (!tok) {
 			return undefined;
@@ -204,8 +248,34 @@ class ConditionParser {
 		if (this.word() === 'is') {
 			return { nothing: this.facts.isNothing?.(lower) };
 		}
-		return this.facts.value(lower);
+		const known = this.facts.value(lower);
+		const range = known === undefined ? this.facts.range?.(lower) : undefined;
+		return range ? { range } : known;
 	}
+}
+
+/** The range an operand lies in: a number is a range of one. */
+function rangeOf(operand: Operand): readonly [number, number] | undefined {
+	return typeof operand === 'number' && Number.isInteger(operand) ? [operand, operand]
+		: typeof operand === 'object' && operand !== null && 'range' in operand ? operand.range
+		: undefined;
+}
+
+function wholeArithmetic(left: Operand, right: Operand, op: string): Value | Range {
+	// A range moves under + and -: `Second(Now) + 1000` lies in 1000 to 1059.
+	if ((op === '+' || op === '-') && ((typeof left === 'object' && 'range' in left) || (typeof right === 'object' && 'range' in right))) {
+		const a = rangeOf(left);
+		const b = rangeOf(right);
+		return a && b ? { range: op === '+' ? [a[0] + b[0], a[1] + b[1]] : [a[0] - b[1], a[1] - b[0]] } : undefined;
+	}
+	if (typeof left !== 'number' || typeof right !== 'number' || !Number.isInteger(left) || !Number.isInteger(right)) {
+		return undefined;
+	}
+	if (op === 'mod' && right === 0) {
+		return undefined;
+	}
+	const value = op === '+' ? left + right : op === '-' ? left - right : op === '*' ? left * right : left % right;
+	return Math.abs(value) <= 2147483647 ? value + 0 : undefined;
 }
 
 function compare(a: number, b: number, op: string): boolean {

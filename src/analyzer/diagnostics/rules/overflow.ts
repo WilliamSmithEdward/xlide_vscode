@@ -46,7 +46,6 @@ import { blockHeaderLeaves, isLoopBlock, selectArms } from '../blockHeaders';
 import { fieldChain, moduleTypes, variableRoot, variableSymbolIn, type ModuleTypes } from '../typeFields';
 import {
 	buildModuleTypeSignatures,
-	knownLocalLiteralValues,
 	knownLocalLiteralValuesAt,
 	type KnownLocalValue,
 	normalizeType,
@@ -1531,11 +1530,16 @@ export function checkOverflow(
 		const env: ReadonlyMap<string, string> = untyped.length === 0
 			? typeEnvironmentFor(symbols, member)
 			: new Map([...typeEnvironmentFor(symbols, member), ...untyped.map((child): [string, string] => [child.name.toLowerCase(), 'Variant'])]);
-		const known = knownLocalLiteralValues(source, member, symbols, activity);
+		// What each local holds as the statement being checked is reached: a
+		// value stored only in a branch that does not run is not there
+		// (issue #565).
+		const knownAt = knownLocalLiteralValuesAt(source, member, symbols, activity);
+		let at: BodyNode | undefined;
 		// Values a straight run of top-level statements has just stored:
 		// `i = 32767` followed by `i = i + 1`.
 		const justAssigned = new Map<string, Typed>();
 		const names: NameLookup = (lower) => {
+			const known = knownAt(at);
 			// `"s`: the number a String local known to hold one spells, for a
 			// conversion to read (issue #407).
 			if (lower.startsWith('"')) {
@@ -1581,9 +1585,12 @@ export function checkOverflow(
 		checkConstDeclarations(source, groups, constants, activity, push);
 		// `t.i = t.i + 1`: a numeric member of a Type value as the target (issue #253).
 		const memberTarget = types.size === 0 ? undefined : (span: Span): AssignmentTarget | undefined => memberAssignmentTarget(source, span, symbols, member, types);
-		checkProcedureBody(source, member, env, names, justAssigned, activity, push, memberTarget);
+		checkProcedureBody(source, member, env, names, justAssigned, activity, push, memberTarget, (node) => {
+			at = node;
+		});
+		at = undefined;
 		checkByValArguments(source, member, symbols, names, activity, push);
-		checkAccumulatingLoops(source, member, env, names, knownLocalLiteralValuesAt(source, member, symbols, activity), activity, push);
+		checkAccumulatingLoops(source, member, env, names, knownAt, activity, push);
 	}
 }
 
@@ -2007,6 +2014,7 @@ function checkProcedureBody(
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 	memberTarget?: (span: Span) => AssignmentTarget | undefined,
+	reached: (node: BodyNode | undefined) => void = () => undefined,
 ): void {
 	// Whether each enclosing With names a sheet, innermost last (issue #411).
 	const withSheets: boolean[] = [];
@@ -2049,6 +2057,7 @@ function checkProcedureBody(
 				// only what it never names is still known (issue #237).
 				const { before, after } = blockHeaderStatements(source, node);
 				if (before) {
+					reached(node);
 					checkStatement(source, before.span, env, names, push, memberTarget);
 				}
 				// Each If and ElseIf condition, from the state the block is
@@ -2091,6 +2100,8 @@ function checkProcedureBody(
 				restore();
 				forget(touched);
 				if (after) {
+					// A Loop line runs after the body, which may have changed it.
+					reached(undefined);
 					checkStatement(source, after.span, env, names, push, memberTarget);
 				}
 				continue;
@@ -2098,6 +2109,7 @@ function checkProcedureBody(
 			if (!isLeafStatement(node)) {
 				continue;
 			}
+			reached(node);
 			const spans = statementAndBranchSpans(node);
 			const straightLine = spans.length === 1 && !(node.kind === 'Statement' && node.singleLineIfBranches);
 			if (!straightLine) {
