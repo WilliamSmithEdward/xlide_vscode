@@ -38,6 +38,7 @@ import { splitArgSlots } from '../callExtraction';
 import { collectModuleLiteralIntegerConstants } from '../constExpr';
 import { walkBranchMergedBody, walkEnteringBlocks, walkStraightLineBody } from '../dataflow';
 import { isLeafStatement } from '../../parser/nodes';
+import { MAX_EXPRESSION_DEPTH } from '../../parser/expressionLimits';
 import { jumpTargetLabelDeclaration } from '../../flow/procedureLabels';
 import { straightLineAssignments, type ReachingAssignments } from '../straightLineValues';
 import { counterText, loopCountersAt, numericCounterPasses, type CounterValue, type CountersAt } from '../loopCounters';
@@ -2240,6 +2241,11 @@ function shapeTouches(source: string, stmt: LeafStatementNode): Set<string> {
  * (issue #260).
  */
 export function arrayValueShape(valueTokens: readonly VbaToken[], name: string, optionBase: number, strings?: StringValueOf, compare?: ModuleCompare): FixedArrayBound | undefined {
+	return arrayValueShapeAtDepth(valueTokens, name, optionBase, strings, compare, 0);
+}
+
+function arrayValueShapeAtDepth(valueTokens: readonly VbaToken[], name: string, optionBase: number, strings: StringValueOf | undefined, compare: ModuleCompare | undefined, nesting: number): FixedArrayBound | undefined {
+	if (nesting >= MAX_EXPRESSION_DEPTH) { return undefined; }
 	const toks = valueTokens.filter((tok) => tok.kind !== 'comment');
 	if (toks.length === 0) {
 		return undefined;
@@ -2260,7 +2266,7 @@ export function arrayValueShape(valueTokens: readonly VbaToken[], name: string, 
 		if (callee === 'array') {
 			const groups = inner.length === 0 ? [] : splitTopLevelTokenGroups(inner, ',');
 			const lower = vbaQualified ? 0 : optionBase;
-			const elements = groups.map((group) => arrayValueShape(group, name, optionBase, strings, compare));
+			const elements = groups.map((group) => arrayValueShapeAtDepth(group, name, optionBase, strings, compare, nesting + 1));
 			const values = groups.map((group) => literalElementValue(group));
 			return {
 				name,
@@ -2272,7 +2278,7 @@ export function arrayValueShape(valueTokens: readonly VbaToken[], name: string, 
 		}
 		const args = splitTopLevelTokenGroups(inner, ',');
 		if (callee === 'filter') {
-			return filterShape(args, name, optionBase, strings, compare);
+			return filterShape(args, name, optionBase, strings, compare, nesting);
 		}
 		if (args.length < 1 || args.length > 4) {
 			return undefined;
@@ -2386,11 +2392,11 @@ function transposeArgument(toks: readonly VbaToken[]): VbaToken[] | undefined {
  * says (measured in Excel 16.0, issue #260). An empty match keeps every
  * element.
  */
-function filterShape(args: readonly (readonly VbaToken[])[], name: string, optionBase: number, strings: StringValueOf | undefined, compare: ModuleCompare | undefined): FixedArrayBound | undefined {
+function filterShape(args: readonly (readonly VbaToken[])[], name: string, optionBase: number, strings: StringValueOf | undefined, compare: ModuleCompare | undefined, nesting: number): FixedArrayBound | undefined {
 	if (args.length < 2 || args.length > 4) {
 		return undefined;
 	}
-	const source = arrayValueShape(args[0], name, optionBase, strings, compare);
+	const source = arrayValueShapeAtDepth(args[0], name, optionBase, strings, compare, nesting + 1);
 	const match = stringArgument(args[1], strings);
 	const include = args.length >= 3 && args[2].length > 0 ? booleanArgument(args[2]) : true;
 	const textCompare = args.length === 4 ? compareArgument(args[3]) : defaultCompare(compare, match);
