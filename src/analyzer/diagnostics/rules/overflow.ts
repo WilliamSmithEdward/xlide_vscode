@@ -1167,6 +1167,12 @@ function storedValue(folded: Typed, target: NumericType): { value: number; exact
 		return { value: folded.value === 0 ? 0 : 255 };
 	}
 	const value = bankersRound(folded.value);
+	// A Date goes into a Byte through an Integer, keeping the low byte: -1
+	// stores 255 and 1000 stores 232; past the Integer range it overflows.
+	// CByte of one does not wrap (issue #624, measured in Excel 16.0).
+	if (folded.type === 'date' && target === 'byte' && value >= -32768 && value <= 32767) {
+		return { value: ((value % 256) + 256) % 256 };
+	}
 	return target === 'longlong' && folded.exact !== undefined ? { value, exact: folded.exact } : { value };
 }
 
@@ -1552,8 +1558,9 @@ export function checkOverflow(
 			}
 			// A Boolean is an Integer in arithmetic, True -1: `n - b` with n the
 			// largest Long and b True overflows (issue #331, measured in Excel 16.0).
+			// Kept a Boolean, as True is, so a Byte takes it as 255 (issue #624).
 			if (local?.kind === 'number' && normalizeType(env.get(lower)) === 'boolean') {
-				return { value: local.value as number, type: 'integer' };
+				return { value: local.value as number, type: 'integer', boolean: true };
 			}
 			if (!lower.includes('.')) {
 				// `b = F()` with F a Function of the module returning 300 (issue #448).

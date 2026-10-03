@@ -1164,8 +1164,10 @@ function checkUnallocatedDynamicArrayAccessStatement(
 				// An erased Variant may hold a fixed array, which Erase clears and
 				// keeps; one known to hold a dynamic array, from Array, Split, ReDim
 				// or a copy, is left with none (issue #420, measured in Excel 16.0).
+				// One a first Erase already emptied stays empty (issue #624).
 				const variant = arrays.get(lower)!.variant;
-				state.set(lower, variant && state.get(lower) !== 'allocated' ? 'unknown' : 'unallocated');
+				const before = state.get(lower);
+				state.set(lower, variant && before !== 'allocated' && before !== 'unallocated' ? 'unknown' : 'unallocated');
 			}
 		}
 		return;

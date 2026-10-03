@@ -934,7 +934,11 @@
         "issue285b_03_runtime",
         "issue285b_07_runtime",
         "issue329b_01_runtime",
-        "issue604_25_runtime"
+        "issue604_25_runtime",
+        "issue624_09_runtime",
+        "issue624_10_runtime",
+        "issue624_11_runtime",
+        "issue624_12_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -2516,7 +2520,11 @@
         "issue584_06_runtime",
         "issue449b_13_runtime",
         "issue420_05_runtime",
-        "issue420_06_runtime"
+        "issue420_06_runtime",
+        "issue624_14_runtime",
+        "issue624_15_runtime",
+        "issue624_16_runtime",
+        "issue624_17_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -5271,7 +5279,15 @@
         "issue329b_15_runtime",
         "issue329b_20_runtime",
         "issue329b_23_runtime",
-        "issue329b_24_runtime"
+        "issue329b_24_runtime",
+        "issue624_05_runtime",
+        "issue624_31_runtime",
+        "issue624_34_runtime",
+        "issue624_35_runtime",
+        "issue624_36_runtime",
+        "issue624_38_runtime",
+        "issue624_39_runtime",
+        "issue624_40_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
