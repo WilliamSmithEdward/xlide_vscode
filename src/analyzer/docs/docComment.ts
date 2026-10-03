@@ -45,17 +45,52 @@ function firstTag(body: string, tag: string): string | undefined {
 	return m?.body;
 }
 
-function firstTagMatch(body: string, tag: string): { attrs: string; body: string } | undefined {
-	// Accept both the paired form `<tag ...>...</tag>` and the self-closing form
-	// `<tag .../>` (empty body) so e.g. `<returns type="Long"/>` is not dropped.
-	const re = new RegExp(`<${tag}\\b([^>]*?)(?:/>|>([\\s\\S]*?)<\\/${tag}>)`, 'i');
-	const m = re.exec(body);
-	if (!m) {
+interface DocTagMatch {
+	attrs: string;
+	body: string;
+}
+
+/** The same lenient, non-overlapping matches as the paired/self-closing regex. */
+function* docTagMatches(body: string, tag: string): Generator<DocTagMatch, void> {
+	const opening = new RegExp(`<${tag}\\b`, 'gi');
+	let closing: RegExp | undefined;
+	let closingMissing = false;
+	while (opening.exec(body) !== null) {
+		const attrsStart = opening.lastIndex;
+		const angle = body.indexOf('>', attrsStart);
+		if (angle < 0) {
+			return;
+		}
+		// If this opening cannot match a pair, nested openings in its
+		// attributes share its ending and cannot match a pair either.
+		opening.lastIndex = angle + 1;
+		if (body[angle - 1] === '/') {
+			yield { attrs: body.slice(attrsStart, angle - 1), body: '' };
+			continue;
+		}
+		// Once a close is missing it stays missing. If there is one, consume
+		// the paired body before finding another opening, as the old regex did.
+		if (!closingMissing) {
+			closing ??= new RegExp(`</${tag}>`, 'gi');
+			closing.lastIndex = angle + 1;
+			const close = closing.exec(body);
+			if (close) {
+				yield { attrs: body.slice(attrsStart, angle), body: body.slice(angle + 1, close.index) };
+				opening.lastIndex = closing.lastIndex;
+			} else {
+				closingMissing = true;
+			}
+		}
+	}
+}
+
+function firstTagMatch(body: string, tag: string): DocTagMatch | undefined {
+	const match = docTagMatches(body, tag).next().value;
+	if (!match) {
 		return undefined;
 	}
-	// Strip a trailing slash left on the attribute text by a self-closing tag.
-	const attrs = (m[1] ?? '').replace(/\/\s*$/, '');
-	return { attrs, body: m[2] ?? '' };
+	// Preserve firstTagMatch's extra slash trimming; params use raw attributes.
+	return { attrs: match.attrs.replace(/\/\s*$/, ''), body: match.body };
 }
 
 const ATTRIBUTE_RE = /([A-Za-z_][A-Za-z0-9_-]*)\s*=\s*"([^"]*)"/;
@@ -73,15 +108,11 @@ function attrsOf(raw: string): Map<string, string> {
 /** Extracts every `<param name="...">...</param>` entry, in document order. */
 function extractParams(body: string): VbaDocParam[] {
 	const out: VbaDocParam[] = [];
-	// Accept both `<param ...>text</param>` and self-closing `<param .../>`
-	// (treated as empty text) so self-closing params are not silently dropped.
-	const re = /<param\b([^>]*?)(?:\/>|>([\s\S]*?)<\/param>)/gi;
-	let m: RegExpExecArray | null;
-	while ((m = re.exec(body)) !== null) {
-		const attrs = attrsOf(m[1]);
+	for (const match of docTagMatches(body, 'param')) {
+		const attrs = attrsOf(match.attrs);
 		const name = attrs.get('name') ?? '';
 		if (name) {
-			const param: VbaDocParam = { name, text: collapse(m[2] ?? '') };
+			const param: VbaDocParam = { name, text: collapse(match.body) };
 			const type = attrs.get('type');
 			const unit = attrs.get('unit');
 			const value = attrs.get('value');
