@@ -3,6 +3,7 @@ import type { ModuleNode, Span, VariableDeclNode, VariableGroupNode } from '../p
 import { detectEol, wholeLineSpan } from '../../vbaSourceScan';
 import { leadingDocLines } from '../docs/docComment';
 import { refactor, refuse, type VbaRefactorResult } from './refactorTypes';
+import { isRefactorObjectType } from './typeKinds';
 
 /**
  * Encapsulate Field: a public module variable becomes private behind a
@@ -24,17 +25,11 @@ import { refactor, refuse, type VbaRefactorResult } from './refactorTypes';
  * decides whether the generated code compiles at all.
  */
 
-/** Types that VBA assigns with `Set`. `Object` and `Variant` are not among them. */
-const NON_OBJECT_TYPES = new Set([
-	'byte', 'boolean', 'integer', 'long', 'longlong', 'longptr', 'currency',
-	'single', 'double', 'date', 'string', 'variant', 'decimal',
-]);
-
 export interface EncapsulateFieldInput {
 	source: string;
 	/** Offset of the caret, anywhere inside the variable's declared name. */
 	offset: number;
-	/** Types the project declares as classes, so `As Widget` assigns with Set. */
+	/** Accepted for caller compatibility; unknown non-primitive types already use Set. */
 	projectClassNames?: readonly string[];
 }
 
@@ -83,7 +78,7 @@ export function encapsulateField(input: EncapsulateFieldInput): VbaRefactorResul
 
 	const eol = detectEol(input.source);
 	const declaredType = typeOf(decl);
-	const isObject = isObjectType(declaredType, input.projectClassNames);
+	const isObject = isRefactorObjectType(declaredType);
 	const set = isObject ? 'Set ' : '';
 	// The variable's doc comment describes what callers read, and that is now
 	// the property: it moves above the Get, off the private field.
@@ -179,23 +174,4 @@ function asClause(decl: VariableDeclNode): string {
 
 function returnClause(declaredType: string): string {
 	return ` As ${declaredType}`;
-}
-
-function isObjectType(declaredType: string, projectClassNames: readonly string[] = []): boolean {
-	const lower = declaredType.toLowerCase();
-	if (NON_OBJECT_TYPES.has(lower)) {
-		return false;
-	}
-	if (lower === 'object' || lower.includes('.')) {
-		return true;
-	}
-	if (projectClassNames.some((name) => name.toLowerCase() === lower)) {
-		return true;
-	}
-	// An unknown name is a type the module names but this call cannot see -
-	// a class, an Enum, a UDT. Enums and UDTs are Let; a class is Set. Without
-	// the project there is no way to tell, so the safe read is the one that
-	// still compiles for the common case: a bare unknown name is a class.
-	return !/^(?:byte|boolean|integer|long|longlong|longptr|currency|single|double|date|string|variant|decimal)$/i
-		.test(lower);
 }
