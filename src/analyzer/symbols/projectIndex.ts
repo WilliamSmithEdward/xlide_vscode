@@ -44,6 +44,7 @@ import { tokenizeCached } from '../lexer/tokenize';
 import { identifierWords } from '../lexer/tokenHelpers';
 import { mergeSheetChanges, sheetChangesIn, type SheetChanges } from './sheetChanges';
 import { writtenNamesIn } from '../diagnostics/moduleState';
+import { mergeOpenedFileNumbers, openedFileNumbersIn, type OpenedFileNumbers } from '../diagnostics/openedFileNumbers';
 import { hasAuthoritativeDesignerHeader, parseUserFormControls } from '../../vbaUserFormControls';
 
 /** Source text + project role for one module fed into the index. */
@@ -821,6 +822,14 @@ export class ProjectIndex {
 	 */
 	sheetChanges(): SheetChanges {
 		return this.cached('sheetChanges', () => mergeSheetChanges([...this.moduleSources.values()].map(sheetChangesIn)));
+	}
+
+	/**
+	 * The file numbers the project's Open statements name, and whether one
+	 * names a number that is no literal (issue #419).
+	 */
+	openedFileNumbers(): OpenedFileNumbers {
+		return this.cached('openedFileNumbers', () => mergeOpenedFileNumbers([...this.moduleSources.values()].map(openedFileNumbersIn)));
 	}
 
 	/**

@@ -404,7 +404,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'fileStatements',
-		run: (ctx, push) => checkFileStatements(ctx.source, ctx.mod, ctx.activity, push),
+		run: (ctx, push) => checkFileStatements(ctx.source, ctx.mod, ctx.activity, push, ctx.opts.projectOpenedFileNumbers),
 	},
 	{
 		name: 'emptyFilePaths',
