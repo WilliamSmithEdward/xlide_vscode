@@ -5,6 +5,8 @@
 //   Function M() As Object that only sets it to Nothing    Nothing
 //   Public M As Variant, nothing in the class assigns it   Empty
 //   Property Get M() As Variant: M = 1, and nothing else   a scalar
+//   Function M() As Variant: M = 1, and nothing else       a scalar
+//   Function or Get As Variant that never assigns M        Empty
 //
 // Code outside the class can still assign a field through the instance; the
 // rule that reads these facts follows the instance's own uses.
@@ -75,7 +77,12 @@ export function classMemberValues(source: string, children: readonly VbaSymbol[]
 			}
 			continue;
 		}
-		if (symbol.kind === 'propertyGet' && (type === undefined || type === 'variant') && mentions.length === 1
+		// A Variant result nothing assigns is Empty (issue #414, measured).
+		if ((type === undefined || type === 'variant') && mentions.length === 0) {
+			out.set(lower, 'empty');
+			continue;
+		}
+		if ((type === undefined || type === 'variant') && mentions.length === 1
 			&& !inner.some((stmt) => FLOW_WORDS.has(word(stmt[0])))) {
 			const stmt = mentions[0];
 			const value = stmt.slice(2);

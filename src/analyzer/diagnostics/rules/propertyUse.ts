@@ -184,7 +184,25 @@ function memberMisuse(member: MemberCompletion, use: MemberUse): { rule: Diagnos
 	if (member.kind === 'method' && scalar && use.target && !use.indexed) {
 		return { rule: 'assignmentToProcedureName', message: `is a Function returning ${capitalized(type!)}, and a call cannot be assigned to. This is a VBE compile error: Function call on left-hand side of assignment must return Variant or Object.` };
 	}
+	// `c.M = 5` or `.M = 1` calls M and assigns to what it returns: a
+	// Variant holding a value raises 424, and a Collection, whose Item needs
+	// an index, does not compile (issue #414, measured in Excel 16.0).
+	// Known to return Empty or a value: one holding an object raises 438
+	// instead, and is left alone.
+	const holdsValue = member.knownValue === 'empty' || member.knownValue === 'scalar';
+	if (member.kind === 'method' && writes && !use.indexed && params.required === 0) {
+		if ((type === undefined || type === 'variant') && holdsValue) {
+			return { rule: 'variantValueMisuse', message: "is a Function, so the assignment calls it and assigns to the Variant it returns, which holds no object. This will raise Run-time error '424': Object required." };
+		}
+		if (type === 'collection') {
+			return { rule: 'argumentCount', message: 'is a Function returning a Collection, so the assignment reaches its default member Item, which needs an index. This is a VBE compile error: Argument not optional.' };
+		}
+	}
 	if (member.kind === 'property' && member.signature === undefined && (member.letAccessor || member.setAccessor)) {
+		// `c.M(1) = 2` with M a Property Set and no Let (issue #414).
+		if (use.target && use.indexed && member.setAccessor && !member.letAccessor) {
+			return { rule: 'invalidPropertyUse', message: 'has a Property Set and no Property Let, so a value cannot be assigned to it. This is a VBE compile error: Invalid use of property.' };
+		}
 		if (use.after === '.') {
 			return { rule: 'invalidPropertyUse', message: `has ${member.letAccessor ? 'a Property Let' : 'a Property Set'} and no Property Get, so it has no value to take a member of. This is a VBE compile error: Invalid use of property.` };
 		}

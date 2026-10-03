@@ -102050,6 +102050,167 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n0 As Variant, n2 As Variant\r\n    n0 = Null: n2 = Null\r\n    Main = Replace(n0, \"a\", \"b\")\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue414x_01_runtime",
+      "description": "Issue #414 a Let into a class Function or a Set-only property, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 424.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    c.M = 5\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function M() As Variant\r\n    M = 1\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue414x_02_runtime",
+      "description": "Issue #414 a Let into a class Function or a Set-only property, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 424.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    c.M = 5\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function M()\r\n    M = 1\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue414x_03_runtime",
+      "description": "Issue #414 a Let into a class Function or a Set-only property, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 424.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    With c\r\n        .M = 1\r\n    End With\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function M() As Variant\r\n    M = 1\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue414x_04_runtime",
+      "description": "Issue #414 a Let into a class Function or a Set-only property, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    Set c.M = New Collection\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Set M(ByVal v As Object)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue414x_05_runtime",
+      "description": "Issue #414 a Let into a class Function or a Set-only property, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    c.M = 5\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Let M(ByVal v As Variant)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue414x_06_runtime",
+      "description": "Issue #414 a Let into a class Function or a Set-only property, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    Main = c.M\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function M() As Variant\r\n    M = 1\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue414x_07_runtime",
+      "description": "Issue #414 a Let into a class Function or a Set-only property, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 424.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    c.M = 9\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function M() As Variant\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }
