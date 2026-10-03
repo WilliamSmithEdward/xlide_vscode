@@ -182,13 +182,14 @@ export function hostUnionPropertyValueProblem(owners: readonly string[], name: s
 }
 
 /** The message for a host property Let the host refuses, or undefined. */
-export function hostPropertyValueProblem(target: MemberCompletion, valueTokens: readonly VbaToken[]): string | undefined {
+export function hostPropertyValueProblem(target: MemberCompletion, valueTokens: readonly VbaToken[], known?: (tokens: readonly VbaToken[]) => number | undefined): string | undefined {
 	const stringProblem = hostPropertyStringProblem(target, valueTokens);
 	if (stringProblem) {
 		return stringProblem;
 	}
 	const limit = LIMITS.get(target.owner)?.get(target.name.toLowerCase());
-	const value = limit ? signedNumericLiteral(valueTokens) : undefined;
+	// A local known to hold a number counts too: `n = 500` then `Font.Size = n` (issue #346).
+	const value = limit ? signedNumericLiteral(valueTokens) ?? known?.(valueTokens) : undefined;
 	if (!limit || value === undefined || limit.allowed?.includes(value)) {
 		return undefined;
 	}

@@ -708,6 +708,7 @@ export function checkAssignmentTypes(
 			push,
 			resolveExpressionType,
 			resolveQualifiedExpressionType,
+			symbols,
 		);
 	}
 }
@@ -1396,9 +1397,18 @@ function checkMemberAssignmentTypes(
 	push: PushFn,
 	resolveExpressionType?: SourceDeclaredTypeResolver,
 	resolveQualifiedExpressionType?: SourceQualifiedDeclaredTypeResolver,
+	symbols?: ReturnType<typeof buildModuleSymbols>,
 ): void {
 	const projectClasses = (memberCtx.projectClassMembers?.length ?? 0) > 0;
-	const checkStatement = (span: Span): void => {
+	let valuesAt: ReturnType<typeof knownLocalLiteralValuesAt> | undefined;
+	const checkStatement = (span: Span, stmt: BodyNode): void => {
+		// A local known to hold a number, for a host property's limits (issue #346).
+		const known = (tokens: readonly VbaToken[]): number | undefined => {
+			const value = tokens.filter((tok) => tok.kind !== 'comment');
+			const lower = value.length === 1 ? tokenName(value[0])?.toLowerCase() : undefined;
+			const held = lower && symbols ? (valuesAt ??= knownLocalLiteralValuesAt(source, member, symbols, activity))(stmt).get(lower) : undefined;
+			return held?.kind === 'number' ? held.value as number : undefined;
+		};
 		const assignment = memberAssignmentTarget(source, span);
 		if (!assignment) {
 			return;
@@ -1434,7 +1444,7 @@ function checkMemberAssignmentTypes(
 		}
 		// `Range("A1").Font.Size = 500`: a value the host refuses (issue #204).
 		if (target && target.writable === undefined && !assignment.usesSet && !assignment.withArguments) {
-			const problem = hostPropertyValueProblem(target, assignment.valueTokens);
+			const problem = hostPropertyValueProblem(target, assignment.valueTokens, known);
 			const value = assignment.valueTokens.filter((tok) => tok.kind !== 'comment');
 			if (problem && value.length > 0) {
 				push('hostPropertyValueOutOfRange', problem, { start: span.start + value[0].start, end: span.start + value[value.length - 1].end });
@@ -1589,7 +1599,7 @@ function checkMemberAssignmentTypes(
 	// nothing, had `If w.Part`.
 	forEachStatement(member.body, (stmt) => {
 		for (const span of statementAndBranchSpans(stmt)) {
-			checkStatement(span);
+			checkStatement(span, stmt);
 		}
 	}, activity);
 }
