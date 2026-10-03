@@ -325,6 +325,11 @@ export function checkAssignmentTypes(
 		}
 		return choiceModuleNames.get(lower)!;
 	};
+	// The Collection.Count guard considers any project surface named Collection.
+	// Resolve this exact predicate only when queried, across the whole rule pass.
+	let projectCollection: boolean | undefined;
+	const projectDeclaresCollection = (): boolean => projectCollection ??=
+		(memberCtx.projectClassMembers ?? []).some((type) => type.name.toLowerCase() === 'collection');
 	const moduleSignatures = buildModuleTypeSignatures(symbols);
 	// Enum assignment compatibility is a name query, not a full symbol scan
 	// per assignment. Keep this index within the current rule pass.
@@ -762,6 +767,7 @@ export function checkAssignmentTypes(
 			memberCtx,
 			activity,
 			push,
+			projectDeclaresCollection,
 			resolveExpressionType,
 			resolveQualifiedExpressionType,
 			symbols,
@@ -1456,6 +1462,7 @@ function checkMemberAssignmentTypes(
 	memberCtx: MemberCompletionContext,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	projectDeclaresCollection: () => boolean,
 	resolveExpressionType?: SourceDeclaredTypeResolver,
 	resolveQualifiedExpressionType?: SourceQualifiedDeclaredTypeResolver,
 	symbols?: ReturnType<typeof buildModuleSymbols>,
@@ -1486,7 +1493,7 @@ function checkMemberAssignmentTypes(
 		// #305, measured in Excel 16.0).
 		const collectionCount = /^([A-Za-z]\w*)\.count$/i.exec(assignment.label);
 		if (collectionCount && !assignment.withArguments && normalizeType(env.get(collectionCount[1].toLowerCase())) === 'collection'
-			&& !(memberCtx.projectClassMembers ?? []).some((type) => type.name.toLowerCase() === 'collection')) {
+			&& !projectDeclaresCollection()) {
 			push(
 				'readonlyMemberAssignment',
 				`Cannot assign to '${assignment.label}': a Collection's Count is a Function returning Long. This is a VBE compile error: Function call on left-hand side of assignment must return Variant or Object.`,
