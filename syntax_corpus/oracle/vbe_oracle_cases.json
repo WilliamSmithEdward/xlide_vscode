@@ -101819,6 +101819,237 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, n As Long, i As Long, d As Long, s As String, x As Double\r\n    On Error GoTo -1\r\n    Select Case Main\r\n        Case 0\r\n            n = c.Count\r\n    End Select\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue664_01_runtime",
+      "description": "Issue #664 regressions from #654 and their neighbours, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a0 As Long\r\n    a0 = -0.5\r\n    Main = Round(a0, 256)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue664_02_runtime",
+      "description": "Issue #664 regressions from #654 and their neighbours, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a0 As Long\r\n    a0 = 2.5\r\n    Main = Round(a0, 40000)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue664_03_runtime",
+      "description": "Issue #664 regressions from #654 and their neighbours, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> None.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n0 As Variant, n1 As Variant, n2 As Variant\r\n    n0 = Null: n1 = 256: n2 = Null\r\n    Main = Mid(n0, n1, n2)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue664_04_runtime",
+      "description": "Issue #664 regressions from #654 and their neighbours, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Sub Callee(ByRef p0 As Byte, ByRef p1 As Long, ByRef p2 As Variant)\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Dim v0 As Boolean, a1 As Long, v2 As Variant\r\n    v0 = True\r\n    Call Callee((v0), a1, v2)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue664_05_runtime",
+      "description": "Issue #664 regressions from #654 and their neighbours, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant\r\n    v = Null\r\n    If IsNull(v) Then Main = 0 Else Main = CLng(v)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue664_06_runtime",
+      "description": "Issue #664 regressions from #654 and their neighbours, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Double\r\n    d = 2.5\r\n    Main = Round(d, 256)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue664_07_runtime",
+      "description": "Issue #664 regressions from #654 and their neighbours, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a0 As Long\r\n    a0 = 2\r\n    Main = Round(a0, -1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue664_08_runtime",
+      "description": "Issue #664 regressions from #654 and their neighbours, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 94.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n0 As Variant, n2 As Variant\r\n    n0 = \"abc\": n2 = Null\r\n    Main = Mid(n0, 1, n2)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue664_09_runtime",
+      "description": "Issue #664 regressions from #654 and their neighbours, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Sub Callee(ByRef p0 As Byte, ByRef p1 As Long, ByRef p2 As Variant)\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Dim v0 As Long, a1 As Long, v2 As Variant\r\n    v0 = 300\r\n    Call Callee((v0), a1, v2)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue664_10_runtime",
+      "description": "Issue #664 regressions from #654 and their neighbours, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 94.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant\r\n    v = Null\r\n    If Not IsNull(v) Then Main = 0 Else Main = CLng(v)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue664_11_runtime",
+      "description": "Issue #664 regressions from #654 and their neighbours, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 94.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant\r\n    v = Null\r\n    Main = CLng(v)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue664_12_runtime",
+      "description": "Issue #664 regressions from #654 and their neighbours, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 94.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n0 As Variant, n2 As Variant\r\n    n0 = Null: n2 = Null\r\n    Main = Left(n0, n2)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue664_13_runtime",
+      "description": "Issue #664 regressions from #654 and their neighbours, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 94.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n0 As Variant, n2 As Variant\r\n    n0 = Null: n2 = Null\r\n    Main = Right(n0, n2)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue664_14_runtime",
+      "description": "Issue #664 regressions from #654 and their neighbours, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> None.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n0 As Variant, n2 As Variant\r\n    n0 = Null: n2 = Null\r\n    Main = Mid(n0, 1, n2)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue664_15_runtime",
+      "description": "Issue #664 regressions from #654 and their neighbours, case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 94.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n0 As Variant, n2 As Variant\r\n    n0 = Null: n2 = Null\r\n    Main = Mid(n0, n2)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue664_16_runtime",
+      "description": "Issue #664 regressions from #654 and their neighbours, case 16, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> None.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n0 As Variant, n2 As Variant\r\n    n0 = Null: n2 = Null\r\n    Main = Mid(Null, 1, n2)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue664_17_runtime",
+      "description": "Issue #664 regressions from #654 and their neighbours, case 17, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> None.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n0 As Variant, n2 As Variant\r\n    n0 = Null: n2 = Null\r\n    Main = Left(Null, -1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue664_18_runtime",
+      "description": "Issue #664 regressions from #654 and their neighbours, case 18, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> None.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n0 As Variant, n2 As Variant\r\n    n0 = Null: n2 = Null\r\n    Main = Mid(n0, -1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue664_19_runtime",
+      "description": "Issue #664 regressions from #654 and their neighbours, case 19, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 94.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n0 As Variant, n2 As Variant\r\n    n0 = Null: n2 = Null\r\n    Main = Mid$(n0, 1, n2)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue664_20_runtime",
+      "description": "Issue #664 regressions from #654 and their neighbours, case 20, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> None.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n0 As Variant, n2 As Variant\r\n    n0 = Null: n2 = Null\r\n    Main = InStr(n0, n2)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue664_21_runtime",
+      "description": "Issue #664 regressions from #654 and their neighbours, case 21, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 94.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n0 As Variant, n2 As Variant\r\n    n0 = Null: n2 = Null\r\n    Main = Replace(n0, \"a\", \"b\")\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }

@@ -1513,7 +1513,12 @@ export function validateArgumentTypesForSignature(
 		const element = valueSlot.length === 4 && valueSlot[1].rawText === '(' && valueSlot[3].rawText === ')' ? tokenName(valueSlot[0]) : undefined;
 		const heldName = valueSlot.length === 1 ? tokenName(valueSlot[0])?.toLowerCase()
 			: element !== undefined ? `${element.toLowerCase()}(${valueSlot[2].rawText.toLowerCase()})` : undefined;
-		const heldNullHere = heldName !== undefined && heldNull?.(heldName) === true && [undefined, 'variant'].includes(normalizeType(actual?.type));
+		// Mid hands a Null string back without reading its Length: `Mid(n0,
+		// 1, n2)` with both Null runs (issue #664, measured in Excel 16.0).
+		const first = call.slots[0]?.filter((tok) => tok.kind !== 'comment' && tok.kind !== 'newline') ?? [];
+		const nullString = sig.name.toLowerCase() === 'mid' && param.name.toLowerCase() === 'length' && first.length === 1
+			&& (tokenText(first[0]) === 'null' || heldNull?.(tokenName(first[0])?.toLowerCase() ?? '') === true);
+		const heldNullHere = !nullString && heldName !== undefined && heldNull?.(heldName) === true && [undefined, 'variant'].includes(normalizeType(actual?.type));
 		if (heldNullHere) {
 			const last = valueSlot[valueSlot.length - 1];
 			const span = { start: call.sliceStart + valueSlot[0].start, end: call.sliceStart + last.end };
@@ -1538,7 +1543,10 @@ export function validateArgumentTypesForSignature(
 		const inParens = valueSlot.length === 3 && valueSlot[0].rawText === '(' && valueSlot[2].rawText === ')' ? tokenName(valueSlot[1])?.toLowerCase() : undefined;
 		const copiedName = (param.byRef === false || call.argumentsParenthesized === true) && heldName !== undefined ? heldName : inParens;
 		const ownProcedure = moduleSignatures.get(call.lookupKey ?? call.name.toLowerCase()) === sig;
-		const copied = ownProcedure && copiedName !== undefined && actual.numericValue === undefined && actual.floatValue === undefined && actual.stringValue === undefined
+		// A Boolean's True is no -1 here: into a Byte it is 255 (issue #664,
+		// measured in Excel 16.0, as #624 measured for a Let).
+		const boolean = copiedName !== undefined && normalizeType(env.get(copiedName)) === 'boolean';
+		const copied = ownProcedure && copiedName !== undefined && !boolean && actual.numericValue === undefined && actual.floatValue === undefined && actual.stringValue === undefined
 			? heldNumber?.(copiedName) : undefined;
 		const holder = inParens !== undefined && copiedName === inParens ? valueSlot[1].rawText : valueSlot[0].rawText;
 		if (typeof copied === 'number') {
