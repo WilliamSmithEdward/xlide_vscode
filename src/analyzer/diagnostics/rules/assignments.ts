@@ -915,6 +915,9 @@ function arrayOnlyVariantFunctions(
 		const lower = member.name.toLowerCase();
 		let onlyArrays = true;
 		forEachStatement(member.body, (stmt) => {
+			if (!onlyArrays) {
+				return;
+			}
 			for (const span of statementAndBranchSpans(stmt)) {
 				let toks = statementTokens(source, span);
 				// A one-line If's own span runs to its branches, which come next
@@ -925,6 +928,7 @@ function arrayOnlyVariantFunctions(
 					toks = then >= 0 ? toks.slice(0, then) : toks;
 					if (toks.some((tok) => tokenName(tok)?.toLowerCase() === lower)) {
 						onlyArrays = false;
+						return;
 					}
 					continue;
 				}
@@ -939,6 +943,7 @@ function arrayOnlyVariantFunctions(
 				const readsSelf = value.some((tok) => tokenName(tok)?.toLowerCase() === lower);
 				if (target?.name.toLowerCase() !== lower || !isArrayCall || readsSelf) {
 					onlyArrays = false;
+					return;
 				}
 			}
 		}, activity);
