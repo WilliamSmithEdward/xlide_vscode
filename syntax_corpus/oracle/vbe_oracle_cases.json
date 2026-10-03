@@ -103630,6 +103630,83 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim p As String, d As String, f As Integer\r\n    p = Environ(\"TEMP\") & \"\\xlide682_32.txt\"\r\n    d = Environ(\"TEMP\") & \"\\xlide682_d32\"\r\n    Clean p, d\r\n    Main = \"ok\"\r\n    f = FreeFile: Open p For Output As #f: Print #f, \"abc\": Close #f\r\n    FileCopy p, d & \".txt\"\r\n    Kill p\r\n    Kill d & \".txt\"\r\nEnd Function\r\nPrivate Sub Clean(ByVal p As String, ByVal d As String)\r\n    On Error Resume Next\r\n    Kill p: Kill p & \".new\": Kill p & \".n\": Kill p & \".c\": Kill p & \".x\": Kill p & \"2\"\r\n    Kill d & \"\\a.txt\": Kill d & \".txt\": RmDir d & \"\\sub\": RmDir d\r\nEnd Sub\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue683_01_runtime",
+      "description": "Issue #683 an object taken from a workbook before it closed, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 424.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim wb As Workbook, r As Range\r\n    Set wb = Workbooks.Add\r\n    Set r = wb.Sheets(1).Range(\"A1\")\r\n    wb.Close False\r\n    Main = r.Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue683_02_runtime",
+      "description": "Issue #683 an object taken from a workbook before it closed, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise -2147221080.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim wb As Workbook, ws As Worksheet\r\n    Set wb = Workbooks.Add\r\n    Set ws = wb.Sheets(1)\r\n    wb.Close False\r\n    Main = ws.Name\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue683_03_runtime",
+      "description": "Issue #683 an object taken from a workbook before it closed, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 424.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim wb As Workbook, r As Range\r\n    Set wb = Workbooks.Add\r\n    Set r = wb.Worksheets(1).Cells(1, 1)\r\n    wb.Close False\r\n    Main = r.Value\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue683_04_runtime",
+      "description": "Issue #683 an object taken from a workbook before it closed, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 424.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim wb As Workbook, ws As Worksheet, r As Range\r\n    Set wb = Workbooks.Add\r\n    Set ws = wb.Worksheets(1)\r\n    Set r = ws.Range(\"A1\")\r\n    wb.Close False\r\n    Main = r.Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue683_05_runtime",
+      "description": "Issue #683 an object taken from a workbook before it closed, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 424.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim wb As Workbook, r As Range\r\n    Set wb = Workbooks.Add\r\n    Set r = wb.ActiveSheet.Range(\"A1\")\r\n    wb.Close False\r\n    Main = r.Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue683_06_runtime",
+      "description": "Issue #683 an object taken from a workbook before it closed, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> False.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim wb As Workbook\r\n    Set wb = Workbooks.Add\r\n    wb.Close False\r\n    Main = (wb Is Nothing)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue683_07_runtime",
+      "description": "Issue #683 an object taken from a workbook before it closed, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> True.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim wb As Workbook\r\n    Set wb = Workbooks.Add\r\n    wb.Close False\r\n    Set wb = Workbooks.Add\r\n    Main = (Len(wb.Name) > 0)\r\n    wb.Close False\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
