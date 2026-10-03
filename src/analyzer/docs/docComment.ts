@@ -438,10 +438,20 @@ export function scanDocTags(lines: readonly DocBlockLine[]): DocTagOccurrence[] 
 		at += line.text.length + 1;
 	}
 	const toSource = (offset: number): number => {
-		let i = bodyStarts.length - 1;
-		while (i > 0 && bodyStarts[i] > offset) {
-			i -= 1;
+		// Tags and their closing/name spans need not arrive in offset order.
+		// Locate the last line starting at or before this offset without
+		// rescanning the whole block for every span.
+		let low = 0;
+		let high = bodyStarts.length;
+		while (low < high) {
+			const mid = low + Math.floor((high - low) / 2);
+			if (bodyStarts[mid] <= offset) {
+				low = mid + 1;
+			} else {
+				high = mid;
+			}
 		}
+		const i = Math.max(0, low - 1);
 		return lines[i].textStart + (offset - bodyStarts[i]);
 	};
 	const lower = body.toLowerCase();
