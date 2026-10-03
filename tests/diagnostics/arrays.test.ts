@@ -562,6 +562,7 @@ describe('analyzeModule - unallocated dynamic array access', () => {
 		const src =
 			'Private moduleValues() As Long\n' +
 			'Private Sub Fill(ByRef target() As Long)\n' +
+			'    ReDim target(0)\n' +
 			'End Sub\n' +
 			'Public Sub T(ByRef paramValues() As Long)\n' +
 			'    Static cached() As Long\n' +

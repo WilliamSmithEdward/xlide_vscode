@@ -90191,6 +90191,149 @@
       "source": "DefInt A-Z\r\nFunction Main() As Variant\r\n    n = 10\r\n    n = n * 4000\r\n    Main = n\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue449b_01_runtime",
+      "description": "Issue #449 a variable passed to a procedure that cannot change it, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Sub InitV(ByVal c As Collection)\r\n    Set c = New Collection\r\nEnd Sub\r\nPrivate Sub Init(c As Collection)\r\n    Set c = New Collection\r\nEnd Sub\r\nPrivate Sub Touch(c As Collection)\r\n    If c Is Nothing Then Exit Sub\r\nEnd Sub\r\nPrivate Sub SetN(n As Long)\r\n    n = 5\r\nEnd Sub\r\nPrivate Sub ReadN(n As Long)\r\n    Debug.Print n\r\nEnd Sub\r\nPrivate Sub PassOn(n As Long)\r\n    SetN n\r\nEnd Sub\r\nPrivate Sub Alloc(a() As Long)\r\n    ReDim a(3)\r\nEnd Sub\r\nPrivate Sub Look(a() As Long)\r\n    Debug.Print \"x\"\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Dim c As Collection\r\n    InitV c\r\n    Main = c.Count\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue449b_02_runtime",
+      "description": "Issue #449 a variable passed to a procedure that cannot change it, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Sub InitV(ByVal c As Collection)\r\n    Set c = New Collection\r\nEnd Sub\r\nPrivate Sub Init(c As Collection)\r\n    Set c = New Collection\r\nEnd Sub\r\nPrivate Sub Touch(c As Collection)\r\n    If c Is Nothing Then Exit Sub\r\nEnd Sub\r\nPrivate Sub SetN(n As Long)\r\n    n = 5\r\nEnd Sub\r\nPrivate Sub ReadN(n As Long)\r\n    Debug.Print n\r\nEnd Sub\r\nPrivate Sub PassOn(n As Long)\r\n    SetN n\r\nEnd Sub\r\nPrivate Sub Alloc(a() As Long)\r\n    ReDim a(3)\r\nEnd Sub\r\nPrivate Sub Look(a() As Long)\r\n    Debug.Print \"x\"\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Dim c As Collection\r\n    Touch c\r\n    Main = c.Count\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue449b_03_runtime",
+      "description": "Issue #449 a variable passed to a procedure that cannot change it, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Sub InitV(ByVal c As Collection)\r\n    Set c = New Collection\r\nEnd Sub\r\nPrivate Sub Init(c As Collection)\r\n    Set c = New Collection\r\nEnd Sub\r\nPrivate Sub Touch(c As Collection)\r\n    If c Is Nothing Then Exit Sub\r\nEnd Sub\r\nPrivate Sub SetN(n As Long)\r\n    n = 5\r\nEnd Sub\r\nPrivate Sub ReadN(n As Long)\r\n    Debug.Print n\r\nEnd Sub\r\nPrivate Sub PassOn(n As Long)\r\n    SetN n\r\nEnd Sub\r\nPrivate Sub Alloc(a() As Long)\r\n    ReDim a(3)\r\nEnd Sub\r\nPrivate Sub Look(a() As Long)\r\n    Debug.Print \"x\"\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Dim c As Collection\r\n    Init c\r\n    Main = c.Count\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue449b_04_runtime",
+      "description": "Issue #449 a variable passed to a procedure that cannot change it, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Sub InitV(ByVal c As Collection)\r\n    Set c = New Collection\r\nEnd Sub\r\nPrivate Sub Init(c As Collection)\r\n    Set c = New Collection\r\nEnd Sub\r\nPrivate Sub Touch(c As Collection)\r\n    If c Is Nothing Then Exit Sub\r\nEnd Sub\r\nPrivate Sub SetN(n As Long)\r\n    n = 5\r\nEnd Sub\r\nPrivate Sub ReadN(n As Long)\r\n    Debug.Print n\r\nEnd Sub\r\nPrivate Sub PassOn(n As Long)\r\n    SetN n\r\nEnd Sub\r\nPrivate Sub Alloc(a() As Long)\r\n    ReDim a(3)\r\nEnd Sub\r\nPrivate Sub Look(a() As Long)\r\n    Debug.Print \"x\"\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Dim c As Collection\r\n    Call Touch(c)\r\n    Main = c.Count\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue449b_05_runtime",
+      "description": "Issue #449 a variable passed to a procedure that cannot change it, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Sub InitV(ByVal c As Collection)\r\n    Set c = New Collection\r\nEnd Sub\r\nPrivate Sub Init(c As Collection)\r\n    Set c = New Collection\r\nEnd Sub\r\nPrivate Sub Touch(c As Collection)\r\n    If c Is Nothing Then Exit Sub\r\nEnd Sub\r\nPrivate Sub SetN(n As Long)\r\n    n = 5\r\nEnd Sub\r\nPrivate Sub ReadN(n As Long)\r\n    Debug.Print n\r\nEnd Sub\r\nPrivate Sub PassOn(n As Long)\r\n    SetN n\r\nEnd Sub\r\nPrivate Sub Alloc(a() As Long)\r\n    ReDim a(3)\r\nEnd Sub\r\nPrivate Sub Look(a() As Long)\r\n    Debug.Print \"x\"\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    SetN (n)\r\n    Main = 10 / n\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue449b_06_runtime",
+      "description": "Issue #449 a variable passed to a procedure that cannot change it, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Sub InitV(ByVal c As Collection)\r\n    Set c = New Collection\r\nEnd Sub\r\nPrivate Sub Init(c As Collection)\r\n    Set c = New Collection\r\nEnd Sub\r\nPrivate Sub Touch(c As Collection)\r\n    If c Is Nothing Then Exit Sub\r\nEnd Sub\r\nPrivate Sub SetN(n As Long)\r\n    n = 5\r\nEnd Sub\r\nPrivate Sub ReadN(n As Long)\r\n    Debug.Print n\r\nEnd Sub\r\nPrivate Sub PassOn(n As Long)\r\n    SetN n\r\nEnd Sub\r\nPrivate Sub Alloc(a() As Long)\r\n    ReDim a(3)\r\nEnd Sub\r\nPrivate Sub Look(a() As Long)\r\n    Debug.Print \"x\"\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    SetN n\r\n    Main = 10 / n\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue449b_07_runtime",
+      "description": "Issue #449 a variable passed to a procedure that cannot change it, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Sub InitV(ByVal c As Collection)\r\n    Set c = New Collection\r\nEnd Sub\r\nPrivate Sub Init(c As Collection)\r\n    Set c = New Collection\r\nEnd Sub\r\nPrivate Sub Touch(c As Collection)\r\n    If c Is Nothing Then Exit Sub\r\nEnd Sub\r\nPrivate Sub SetN(n As Long)\r\n    n = 5\r\nEnd Sub\r\nPrivate Sub ReadN(n As Long)\r\n    Debug.Print n\r\nEnd Sub\r\nPrivate Sub PassOn(n As Long)\r\n    SetN n\r\nEnd Sub\r\nPrivate Sub Alloc(a() As Long)\r\n    ReDim a(3)\r\nEnd Sub\r\nPrivate Sub Look(a() As Long)\r\n    Debug.Print \"x\"\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    ReadN n\r\n    Main = 10 / n\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue449b_08_runtime",
+      "description": "Issue #449 a variable passed to a procedure that cannot change it, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Sub InitV(ByVal c As Collection)\r\n    Set c = New Collection\r\nEnd Sub\r\nPrivate Sub Init(c As Collection)\r\n    Set c = New Collection\r\nEnd Sub\r\nPrivate Sub Touch(c As Collection)\r\n    If c Is Nothing Then Exit Sub\r\nEnd Sub\r\nPrivate Sub SetN(n As Long)\r\n    n = 5\r\nEnd Sub\r\nPrivate Sub ReadN(n As Long)\r\n    Debug.Print n\r\nEnd Sub\r\nPrivate Sub PassOn(n As Long)\r\n    SetN n\r\nEnd Sub\r\nPrivate Sub Alloc(a() As Long)\r\n    ReDim a(3)\r\nEnd Sub\r\nPrivate Sub Look(a() As Long)\r\n    Debug.Print \"x\"\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    PassOn n\r\n    Main = 10 / n\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue449b_09_runtime",
+      "description": "Issue #449 a variable passed to a procedure that cannot change it, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Sub InitV(ByVal c As Collection)\r\n    Set c = New Collection\r\nEnd Sub\r\nPrivate Sub Init(c As Collection)\r\n    Set c = New Collection\r\nEnd Sub\r\nPrivate Sub Touch(c As Collection)\r\n    If c Is Nothing Then Exit Sub\r\nEnd Sub\r\nPrivate Sub SetN(n As Long)\r\n    n = 5\r\nEnd Sub\r\nPrivate Sub ReadN(n As Long)\r\n    Debug.Print n\r\nEnd Sub\r\nPrivate Sub PassOn(n As Long)\r\n    SetN n\r\nEnd Sub\r\nPrivate Sub Alloc(a() As Long)\r\n    ReDim a(3)\r\nEnd Sub\r\nPrivate Sub Look(a() As Long)\r\n    Debug.Print \"x\"\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    Call SetN((n))\r\n    Main = 10 / n\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue449b_10_runtime",
+      "description": "Issue #449 a variable passed to a procedure that cannot change it, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Sub InitV(ByVal c As Collection)\r\n    Set c = New Collection\r\nEnd Sub\r\nPrivate Sub Init(c As Collection)\r\n    Set c = New Collection\r\nEnd Sub\r\nPrivate Sub Touch(c As Collection)\r\n    If c Is Nothing Then Exit Sub\r\nEnd Sub\r\nPrivate Sub SetN(n As Long)\r\n    n = 5\r\nEnd Sub\r\nPrivate Sub ReadN(n As Long)\r\n    Debug.Print n\r\nEnd Sub\r\nPrivate Sub PassOn(n As Long)\r\n    SetN n\r\nEnd Sub\r\nPrivate Sub Alloc(a() As Long)\r\n    ReDim a(3)\r\nEnd Sub\r\nPrivate Sub Look(a() As Long)\r\n    Debug.Print \"x\"\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    SetN n:=n\r\n    Main = 10 / n\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue449b_11_runtime",
+      "description": "Issue #449 a variable passed to a procedure that cannot change it, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Sub InitV(ByVal c As Collection)\r\n    Set c = New Collection\r\nEnd Sub\r\nPrivate Sub Init(c As Collection)\r\n    Set c = New Collection\r\nEnd Sub\r\nPrivate Sub Touch(c As Collection)\r\n    If c Is Nothing Then Exit Sub\r\nEnd Sub\r\nPrivate Sub SetN(n As Long)\r\n    n = 5\r\nEnd Sub\r\nPrivate Sub ReadN(n As Long)\r\n    Debug.Print n\r\nEnd Sub\r\nPrivate Sub PassOn(n As Long)\r\n    SetN n\r\nEnd Sub\r\nPrivate Sub Alloc(a() As Long)\r\n    ReDim a(3)\r\nEnd Sub\r\nPrivate Sub Look(a() As Long)\r\n    Debug.Print \"x\"\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    ReadN n:=n\r\n    Main = 10 / n\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue449b_12_runtime",
+      "description": "Issue #449 a variable passed to a procedure that cannot change it, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 3.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Sub InitV(ByVal c As Collection)\r\n    Set c = New Collection\r\nEnd Sub\r\nPrivate Sub Init(c As Collection)\r\n    Set c = New Collection\r\nEnd Sub\r\nPrivate Sub Touch(c As Collection)\r\n    If c Is Nothing Then Exit Sub\r\nEnd Sub\r\nPrivate Sub SetN(n As Long)\r\n    n = 5\r\nEnd Sub\r\nPrivate Sub ReadN(n As Long)\r\n    Debug.Print n\r\nEnd Sub\r\nPrivate Sub PassOn(n As Long)\r\n    SetN n\r\nEnd Sub\r\nPrivate Sub Alloc(a() As Long)\r\n    ReDim a(3)\r\nEnd Sub\r\nPrivate Sub Look(a() As Long)\r\n    Debug.Print \"x\"\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Dim a() As Long\r\n    Alloc a\r\n    Main = UBound(a)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue449b_13_runtime",
+      "description": "Issue #449 a variable passed to a procedure that cannot change it, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Sub InitV(ByVal c As Collection)\r\n    Set c = New Collection\r\nEnd Sub\r\nPrivate Sub Init(c As Collection)\r\n    Set c = New Collection\r\nEnd Sub\r\nPrivate Sub Touch(c As Collection)\r\n    If c Is Nothing Then Exit Sub\r\nEnd Sub\r\nPrivate Sub SetN(n As Long)\r\n    n = 5\r\nEnd Sub\r\nPrivate Sub ReadN(n As Long)\r\n    Debug.Print n\r\nEnd Sub\r\nPrivate Sub PassOn(n As Long)\r\n    SetN n\r\nEnd Sub\r\nPrivate Sub Alloc(a() As Long)\r\n    ReDim a(3)\r\nEnd Sub\r\nPrivate Sub Look(a() As Long)\r\n    Debug.Print \"x\"\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Dim a() As Long\r\n    Look a\r\n    Main = UBound(a)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }

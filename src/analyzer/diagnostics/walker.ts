@@ -31,6 +31,7 @@ import { blockHeaderStatements } from './blockHeaders';
 import { tokenWord as tokenText, tokenName, absoluteSpan, statementTokens as lexStatementTokens } from '../lexer/tokenHelpers';
 import { statementTokens } from './analysisContext';
 import { trackedLocalsNamedWhole } from './dataflow';
+import { calleeKeepsArgument } from './calleeArguments';
 
 export function isInactiveNode(
 	activity: ConditionalActivityTracker | undefined,
@@ -427,6 +428,10 @@ export function localsNamedWhole(
 		span.start,
 		(lower) => tracked.has(lower),
 		readOnlyIntrinsics,
+		undefined,
+		// A procedure of the module that cannot change the argument keeps
+		// what is known about it (issue #449).
+		calleeKeepsArgument(source),
 	);
 }
 
