@@ -52,6 +52,7 @@ import {
 	foldIntegerExpressionTokens,
 } from '../constExpr';
 import {
+	defaultedStraightLine,
 	bareCallableSourceShadowed,
 	callableSignatureFor,
 	callableTypeSignaturesFor,
@@ -103,7 +104,7 @@ import {
 	type ProcedureStatementVisitor,
 } from '../walker';
 import { functionIntegerResult, knownFunctionResults } from '../functionResults';
-import { straightLineAssignments } from '../straightLineValues';
+import { EMPTY_COLLECTION, straightLineAssignments } from '../straightLineValues';
 import { conditionValue } from '../conditionValue';
 
 /**
@@ -617,6 +618,8 @@ export function checkDivisionByZeroExpressions(
 		const counters = loopCountersAt(source, member.body, activity);
 		let passValues: ReadonlyMap<string, number> = new Map();
 		let heldNow: (lower: string) => readonly VbaToken[] | undefined = () => undefined;
+		let emptyCollectionNow: (lower: string) => boolean = () => false;
+		let defaulted: ReturnType<typeof defaultedStraightLine> | undefined;
 		const lookup: IntegerConstantLookup = {
 			get: (name) => {
 				const pass = passValues.get(name.toLowerCase());
@@ -643,6 +646,11 @@ export function checkDivisionByZeroExpressions(
 				const field = members.get(name.toLowerCase());
 				if (isKnownNumber(field) && Number.isInteger(field.number)) {
 					return field.number;
+				}
+				// `c.Count` of a Collection nothing has added to (issue #614,
+				// measured in Excel 16.0: `10 / c.Count` raises 11).
+				if (/^[a-z_][a-z0-9_]*[.]count$/i.test(name) && emptyCollectionNow(name.slice(0, -'.count'.length).toLowerCase())) {
+					return 0;
 				}
 				if (local?.kind === 'number' && Number.isInteger(local.value)) {
 					return local.value as number;
@@ -692,6 +700,7 @@ export function checkDivisionByZeroExpressions(
 			}
 			known = valuesAt(stmt);
 			heldNow = (lower) => (reaching ??= straightLineAssignments(source, member.body, activity)).get(stmt)?.get(lower)?.filter((t) => t.kind !== 'comment');
+			emptyCollectionNow = (lower) => (defaulted ??= defaultedStraightLine(source, member, symbols, activity)).get(stmt)?.get(lower) === EMPTY_COLLECTION;
 			// A single-line If's branch sees the members less what its condition names.
 			members = membersAt ? membersAt(stmt, stmt.span.end) : members;
 			checkEachCounterPass(source, stmt.span, counters.get(stmt), () => undefined, (values, report) => {
