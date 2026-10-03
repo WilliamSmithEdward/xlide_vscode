@@ -331,7 +331,7 @@ function checkHeldCollections(
 	const isLateBound = (name: string): boolean => lateBound.has(name.toLowerCase());
 	const reads = [
 		...valueReads(source, stmt.span, stmt.kind === 'Statement' && stmt.singleLineIfBranches !== undefined, () => false, () => false).map((read) => read.tok),
-		...noDefaultReads(toks, ['if', 'elseif'].includes(tokenText(toks[0])), isLateBound).filter((tok) => toks[toks.indexOf(tok) + 1]?.rawText !== '('),
+		...noDefaultReads(toks, ['if', 'elseif'].includes(tokenText(toks[0])), isLateBound, false),
 	];
 	for (const tok of reads) {
 		const lower = tokenName(tok)?.toLowerCase();
@@ -345,9 +345,9 @@ function checkHeldCollections(
  * Plain names read as a value where valueReads does not look: the whole
  * condition of an If or ElseIf, an index `x(1)` with no member after it, and
  * a whole argument of a built-in that reads one value. Offsets are the
- * statement's.
+ * statement's. Indexed reads can be excluded when judging the whole object.
  */
-function noDefaultReads(toks: readonly VbaToken[], ifHead: boolean, judged: (lower: string) => boolean): VbaToken[] {
+function noDefaultReads(toks: readonly VbaToken[], ifHead: boolean, judged: (lower: string) => boolean, includeIndexed = true): VbaToken[] {
 	const out: VbaToken[] = [];
 	const then = ifHead ? toks.findIndex((tok) => tokenText(tok) === 'then') : -1;
 	if (then === 2 && tokenName(toks[1]) && judged(tokenName(toks[1])!.toLowerCase())) {
@@ -358,7 +358,7 @@ function noDefaultReads(toks: readonly VbaToken[], ifHead: boolean, judged: (low
 		if (!name || !judged(name.toLowerCase()) || toks[i - 1]?.rawText === '.') {
 			continue;
 		}
-		const close = toks[i + 1]?.rawText === '(' ? matchParenFrom(toks, i + 1) : -1;
+		const close = includeIndexed && toks[i + 1]?.rawText === '(' ? matchParenFrom(toks, i + 1) : -1;
 		const indexed = close > i + 2 && toks[close + 1]?.rawText !== '.' && toks[close + 1]?.rawText !== '=';
 		const argument = toks[i + 1]?.rawText !== '(' && toks[i + 1]?.rawText !== '.' && ['(', ','].includes(toks[i - 1]?.rawText ?? '')
 			&& [')', ','].includes(toks[i + 1]?.rawText ?? '') && ONE_VALUE_BUILTINS.has(tokenText(toks[builtinNameBefore(toks, i)]));
@@ -475,8 +475,10 @@ function valueReads(
 	}
 	const then = ifHead ? toks.findIndex((tok) => tokenText(tok) === 'then') : -1;
 	const limit = then > 0 ? then : toks.length;
+	// Whole Let/Print values have no adjacent scalar operator. Each token
+	// below is visited once, so operator reads cannot duplicate earlier reads.
 	for (let i = first; i < limit; i++) {
-		if (i === eq - 1 || !plainName(i) || out.some((read) => read.tok === toks[i])) {
+		if (i === eq - 1 || !plainName(i)) {
 			continue;
 		}
 		const previous = i - 1 === eq ? undefined : toks[i - 1];
