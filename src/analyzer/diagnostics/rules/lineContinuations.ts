@@ -20,6 +20,7 @@
 // places are covered by tests/diagnostics/lineContinuations.test.ts.
 
 import { tokenizeCached } from '../../lexer/tokenize';
+import { firstTokenAtOrAfter } from '../../lexer/tokenHelpers';
 import type { Trivia } from '../../lexer/tokenKinds';
 import type { ModuleNode } from '../../parser/nodes';
 import type { PushFn } from '../analysisContext';
@@ -64,14 +65,14 @@ export function checkLineContinuationLimits(source: string, mod: ModuleNode, pus
 	for (const member of mod.members) {
 		if (member.kind === 'Enum') {
 			const headerEnd = lineEndAfter(source, member.nameSpan?.end ?? member.span.start);
-			for (const trivia of continuations) {
-				if (trivia.start > headerEnd && trivia.start < member.span.end) {
-					push(
-						'invalidLineContinuation',
-						`A line continuation is not allowed inside Enum '${member.name}': neither on a member line nor before End Enum ("Invalid inside Enum").`,
-						{ start: trivia.start, end: trivia.end },
-					);
-				}
+			for (let i = firstTokenAtOrAfter(continuations, headerEnd + 1); i < continuations.length; i++) {
+				const trivia = continuations[i];
+				if (trivia.start >= member.span.end) { break; }
+				push(
+					'invalidLineContinuation',
+					`A line continuation is not allowed inside Enum '${member.name}': neither on a member line nor before End Enum ("Invalid inside Enum").`,
+					{ start: trivia.start, end: trivia.end },
+				);
 			}
 		}
 	}

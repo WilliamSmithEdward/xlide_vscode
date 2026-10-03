@@ -154,7 +154,7 @@ function deriveStatementTokens(
 }
 
 /** Lower bound in a source-ordered token stream; returns length past the last token. */
-export function firstTokenAtOrAfter(tokens: readonly VbaToken[], offset: number): number {
+export function firstTokenAtOrAfter(tokens: readonly Pick<VbaToken, 'start'>[], offset: number): number {
 	let lo = 0;
 	let hi = tokens.length;
 	while (lo < hi) {
