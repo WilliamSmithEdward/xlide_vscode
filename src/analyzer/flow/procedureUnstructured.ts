@@ -20,13 +20,13 @@ import {
  * conservative straight-line dataflow (blanket demotion), preserving the no-FP
  * contract.
  */
-// Per-parse memo: the result is a pure function of (source, procedure, activity),
-// and within one analysis pass a given procedure node is always paired with the
-// same source/activity (and is a fresh node on the next parse), so keying on the
-// node matches the engine's per-pass WeakMap convention. Both dataflow rules that
-// gate on this share the cached boolean instead of each re-walking the body (up to
-// three walks per call).
-const UNSTRUCTURED_FLOW_CACHE = new WeakMap<ProcedureNode, boolean>();
+// Procedure nodes are reused by the parse cache. Reuse flow facts only while
+// the source and conditional activity that produced them remain the same.
+const UNSTRUCTURED_FLOW_CACHE = new WeakMap<ProcedureNode, {
+	source: string;
+	activity: ConditionalActivityTracker | undefined;
+	result: boolean;
+}>();
 
 export function procedureHasUnstructuredFlow(
 	source: string,
@@ -34,11 +34,11 @@ export function procedureHasUnstructuredFlow(
 	activity?: ConditionalActivityTracker,
 ): boolean {
 	const cached = UNSTRUCTURED_FLOW_CACHE.get(procedure);
-	if (cached !== undefined) {
-		return cached;
+	if (cached && cached.source === source && cached.activity === activity) {
+		return cached.result;
 	}
 	const result = computeProcedureHasUnstructuredFlow(source, procedure, activity);
-	UNSTRUCTURED_FLOW_CACHE.set(procedure, result);
+	UNSTRUCTURED_FLOW_CACHE.set(procedure, { source, activity, result });
 	return result;
 }
 

@@ -40,7 +40,11 @@ export interface TypeFieldInfo {
 /** Each Type the module declares, by lowercased name, to its fields by lowercased name. */
 export type ModuleTypes = ReadonlyMap<string, ReadonlyMap<string, TypeFieldInfo>>;
 
-const MODULE_TYPES = new WeakMap<ModuleNode, ModuleTypes>();
+const MODULE_TYPES = new WeakMap<ModuleNode, {
+	source: string;
+	activity: ConditionalActivityTracker | undefined;
+	result: ModuleTypes;
+}>();
 
 /** A declared type's name, lowercased, without the `Module1.` qualifier. */
 export function typeKey(asType: string | undefined): string | undefined {
@@ -50,8 +54,8 @@ export function typeKey(asType: string | undefined): string | undefined {
 
 export function moduleTypes(source: string, mod: ModuleNode, activity: ConditionalActivityTracker | undefined): ModuleTypes {
 	const cached = MODULE_TYPES.get(mod);
-	if (cached) {
-		return cached;
+	if (cached && cached.source === source && cached.activity === activity) {
+		return cached.result;
 	}
 	const out = new Map<string, Map<string, TypeFieldInfo>>();
 	let constants: IntegerConstantLookup | undefined;
@@ -79,7 +83,7 @@ export function moduleTypes(source: string, mod: ModuleNode, activity: Condition
 		}
 		out.set(member.name.toLowerCase(), fields);
 	}
-	MODULE_TYPES.set(mod, out);
+	MODULE_TYPES.set(mod, { source, activity, result: out });
 	return out;
 }
 

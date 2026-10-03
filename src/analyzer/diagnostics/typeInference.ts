@@ -4186,14 +4186,15 @@ export function unreachableStatementsIn(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	activity: ConditionalActivityTracker | undefined,
 ): ReadonlySet<BodyNode> {
-	// Seven rules ask for each procedure; a parse makes new nodes.
-	const kept = UNREACHABLE.get(proc);
-	if (kept && kept.activity === activity) {
+	// Seven rules share these facts within one symbol/analysis context.
+	const cache = perProcedureCache(UNREACHABLE, symbols);
+	const kept = cache.get(proc);
+	if (kept && kept.source === source && kept.activity === activity) {
 		return kept.dead;
 	}
 	// Walked even with no value known: `GoTo Done` leaves whatever the locals hold.
 	const dead = straightLineUnreachable(source, proc.body, activity, walkStartWithEffects(source, symbols, proc, literalValueLocals(proc, symbols), activity));
-	UNREACHABLE.set(proc, { activity, dead });
+	cache.set(proc, { source, activity, dead });
 	return dead;
 }
 
@@ -4221,7 +4222,11 @@ export function defaultedStraightLine(
 	return straightLineAssignments(source, proc.body, activity, walkStart(symbols, proc, literalValueLocals(proc, symbols)));
 }
 
-const UNREACHABLE = new WeakMap<ProcedureNode, { activity: ConditionalActivityTracker | undefined; dead: ReadonlySet<BodyNode> }>();
+const UNREACHABLE = new WeakMap<ReturnType<typeof buildModuleSymbols>, WeakMap<ProcedureNode, {
+	source: string;
+	activity: ConditionalActivityTracker | undefined;
+	dead: ReadonlySet<BodyNode>;
+}>>();
 
 /**
  * What holds as a procedure starts: its Consts' values, and each local's
@@ -4233,16 +4238,17 @@ function walkStart(
 	proc: ProcedureNode,
 	locals: ReadonlyMap<string, 'number' | 'string' | undefined>,
 ): ReachingAssignments {
-	// A parse makes new nodes, so a procedure node is one source's.
-	let start = WALK_STARTS.get(proc);
+	// The parsed procedure can be reused with a different active symbol set.
+	const cache = perProcedureCache(WALK_STARTS, symbols);
+	let start = cache.get(proc);
 	if (!start) {
 		start = new Map([...conditionConstants(symbols, proc), ...declaredDefaults(locals), ...objectStarts(symbols, proc)]);
-		WALK_STARTS.set(proc, start);
+		cache.set(proc, start);
 	}
 	return start;
 }
 
-const WALK_STARTS = new WeakMap<ProcedureNode, ReachingAssignments>();
+const WALK_STARTS = new WeakMap<ReturnType<typeof buildModuleSymbols>, WeakMap<ProcedureNode, ReachingAssignments>>();
 
 /**
  * Whether a statement that may leave the procedure early still runs: a
@@ -4396,12 +4402,13 @@ export function functionResultFor(
 	if (proc.procKind !== 'Function' || proc.modifiers.some((word) => word.toLowerCase() === 'static') || args.length > proc.params.length) {
 		return undefined;
 	}
-	// Each statement that names the call asks again; a parse makes new nodes.
+	// Calls share results only within the same source, symbols and active branch.
 	const key = `${objectResult}|${args.map((arg) => arg?.map((tok) => tok.rawText).join(' ') ?? '').join(',')}`;
-	let kept = CALL_RESULTS.get(proc);
-	if (!kept || kept.activity !== activity) {
-		kept = { activity, calls: new Map() };
-		CALL_RESULTS.set(proc, kept);
+	const cache = perProcedureCache(CALL_RESULTS, symbols);
+	let kept = cache.get(proc);
+	if (!kept || kept.source !== source || kept.activity !== activity) {
+		kept = { source, activity, calls: new Map() };
+		cache.set(proc, kept);
 	}
 	if (kept.calls.has(key)) {
 		return kept.calls.get(key);
@@ -4411,7 +4418,11 @@ export function functionResultFor(
 	return result;
 }
 
-const CALL_RESULTS = new WeakMap<ProcedureNode, { activity: ConditionalActivityTracker | undefined; calls: Map<string, readonly VbaToken[] | undefined> }>();
+const CALL_RESULTS = new WeakMap<ReturnType<typeof buildModuleSymbols>, WeakMap<ProcedureNode, {
+	source: string;
+	activity: ConditionalActivityTracker | undefined;
+	calls: Map<string, readonly VbaToken[] | undefined>;
+}>>();
 
 function runFunctionFor(
 	source: string,
