@@ -3,22 +3,29 @@
 // each case creating its own table; each compiles and raises every time.
 //
 // runtime-argument-value, on SQL in a string literal:
-//  - Execute of a SELECT raises 3065, RunSQL of one 2342.
+//  - Execute of a SELECT raises 3065, RunSQL of one 2342; a SELECT ... INTO
+//    makes a table and runs, and a TRANSFORM raises 3065 too (issue #611).
 //  - Execute of "", or of text whose first word is no SQL verb but which
 //    reads as SQL (`DELET FROM T1`), raises 3078: Execute takes it for the
 //    name of a query, and none has that name. OpenRecordset does the same.
 //  - A quote left open raises 3075 through Execute or OpenRecordset, and
-//    2342 through RunSQL. An INSERT with a parenthesis left open raises
-//    3134.
+//    2342 through RunSQL. A double-quoted string is a string too, and a '
+//    inside it is text. An INSERT with a parenthesis left open, or with
+//    neither VALUES nor SELECT, raises 3134; any other SQL with one left
+//    open raises 3075.
 //  - CreateQueryDef of SQL whose first word is no SQL verb raises 3129.
 //  - DLookup whose criteria end in a comparison with nothing after raises
-//    2342.
+//    2342. The other domain functions raise 3075 there, and every one does
+//    for criteria ending in AND or OR, or leaving a quote open (#611).
 //
 // host-argument-out-of-range, on a DAO.Recordset local followed in a straight line
 // from `Set rs = ....OpenRecordset(...)`:
-//  - writing a field, or Update, with no Edit or AddNew since raises 3020;
-//  - Edit or AddNew on a snapshot (dbOpenSnapshot) raises 3251;
-//  - any use after rs.Close raises 3420.
+//  - writing a field, or Update, with no Edit or AddNew since raises 3020; a
+//    Move ends an Edit, and `!Nm = x` inside `With rs` is rs's;
+//  - Edit, AddNew or Delete on a snapshot (dbOpenSnapshot), and Edit or
+//    AddNew on a forward-only one, raise 3251; on one opened dbReadOnly,
+//    3027;
+//  - any use after rs.Close raises 3420, through another name for it too.
 
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import { statementLabelDeclaration } from '../../flow/procedureLabels';
@@ -32,6 +39,7 @@ import { normalizeType, stringLiteralValue, typeEnvironmentFor } from '../typeIn
 import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import {
 	activeModuleMembers,
+	blockHeaderLineSpan,
 	forEachStatement,
 	matchParenFrom,
 	setAssignmentTarget,
@@ -47,6 +55,9 @@ import { namesIn } from './shared';
 const SQL_VERBS: ReadonlySet<string> = new Set(['select', 'insert', 'update', 'delete', 'create', 'alter', 'drop', 'transform', 'parameters', 'procedure']);
 
 const COMPARISON_AT_END = /(?:=|<>|<|>|\blike|\bin)\s*$/i;
+
+/** Access's domain aggregate functions, which read their criteria as SQL. */
+const DOMAIN_FUNCTIONS: ReadonlySet<string> = new Set(['dlookup', 'dcount', 'dsum', 'davg', 'dmin', 'dmax', 'dfirst', 'dlast', 'dstdev', 'dstdevp', 'dvar', 'dvarp']);
 
 export function checkAccessData(
 	source: string,
@@ -116,14 +127,28 @@ function checkSqlLiterals(span: Span, toks: readonly VbaToken[], isDatabase: (lo
 			push('runtimeArgumentValue', `${problem}.`, { start: span.start + arg[0].start, end: span.start + arg[0].end });
 		}
 	}
-	// `DLookup("Nm", "T1", "ID = ")`: criteria that end in a comparison.
+	// `DLookup("Nm", "T1", "ID = ")`: criteria that end in a comparison, in
+	// AND or OR, or leave a quote open.
 	for (let i = 0; i < toks.length; i++) {
-		if (tokenText(toks[i]) !== 'dlookup' || toks[i - 1]?.rawText === '.' || toks[i + 1]?.rawText !== '(') {
+		const name = tokenText(toks[i]);
+		if (!DOMAIN_FUNCTIONS.has(name) || toks[i - 1]?.rawText === '.' || toks[i + 1]?.rawText !== '(') {
 			continue;
 		}
 		const criteria = callArguments(toks, i)?.[2];
-		if (criteria?.length === 1 && criteria[0].kind === 'stringLiteral' && COMPARISON_AT_END.test(stringLiteralValue(criteria[0].rawText))) {
-			push('runtimeArgumentValue', `The criteria of DLookup end in a comparison with nothing to compare with. This will raise Run-time error '2342': A RunSQL action requires an argument consisting of an SQL statement.`, { start: span.start + criteria[0].start, end: span.start + criteria[0].end });
+		if (criteria?.length !== 1 || criteria[0].kind !== 'stringLiteral') {
+			continue;
+		}
+		const text = stringLiteralValue(criteria[0].rawText);
+		const at = { start: span.start + criteria[0].start, end: span.start + criteria[0].end };
+		const shown = toks[i].rawText;
+		if (COMPARISON_AT_END.test(text)) {
+			push('runtimeArgumentValue', name === 'dlookup'
+				? `The criteria of DLookup end in a comparison with nothing to compare with. This will raise Run-time error '2342': A RunSQL action requires an argument consisting of an SQL statement.`
+				: `The criteria of ${shown} end in a comparison with nothing to compare with. This will raise Run-time error '3075': Syntax error (missing operator) in query expression.`, at);
+		} else if (/\b(?:and|or|not)\s*$/i.test(text)) {
+			push('runtimeArgumentValue', `The criteria of ${shown} end in '${/(\w+)\s*$/.exec(text)![1]}' with nothing after it. This will raise Run-time error '3075': Syntax error (missing operator) in query expression.`, at);
+		} else if (openQuote(text)) {
+			push('runtimeArgumentValue', `The criteria of ${shown} leave a quote open. This will raise Run-time error '3075': Syntax error in string in query expression.`, at);
 		}
 	}
 }
@@ -150,45 +175,98 @@ function sqlProblem(kind: string, sql: string): string | undefined {
 	if (first && !SQL_VERBS.has(first) && readsAsSql) {
 		return `"${first}" starts no SQL statement, so the text is taken for the name of a table or query, and none has that name. This will raise Run-time error '3078': The Microsoft Access database engine cannot find the input table or query`;
 	}
-	if (kind === 'execute' && first === 'select') {
-		return `Execute runs an action query, and this is a SELECT. This will raise Run-time error '3065': Cannot execute a select query`;
-	}
+	// The SQL is parsed before Execute asks what kind it is: a SELECT with a
+	// parenthesis left open raises 3075, not 3065 (issue #611).
 	if (quotes) {
 		return `The SQL leaves a quote open. This will raise Run-time error '3075': Syntax error in string in query expression`;
 	}
-	if (kind === 'execute' && first === 'insert' && openParenthesis(sql)) {
-		return `The INSERT leaves a parenthesis open. This will raise Run-time error '3134': Syntax error in INSERT INTO statement`;
+	if (kind === 'execute' && first === 'insert' && (openParenthesis(sql) || !/^\s*insert\s+into\s+(?:\[[^\]]*\]|[^\s(]+)\s*(?:\([^)]*\)\s*)?(?:values|select)\b/i.test(sql))) {
+		return `The INSERT ${openParenthesis(sql) ? 'leaves a parenthesis open' : 'has neither VALUES nor a SELECT'}. This will raise Run-time error '3134': Syntax error in INSERT INTO statement`;
+	}
+	if (openParenthesis(sql)) {
+		return `The SQL leaves a parenthesis open. This will raise Run-time error '3075': Missing ), ], or Item in query expression`;
+	}
+	// SELECT ... INTO makes a table, an action query (issue #611).
+	if (kind === 'execute' && ((first === 'select' && !/\binto\b/i.test(outsideStrings(sql))) || first === 'transform')) {
+		return `Execute runs an action query, and this is a ${first === 'select' ? 'SELECT' : 'TRANSFORM'}. This will raise Run-time error '3065': Cannot execute a select query`;
 	}
 	return undefined;
 }
 
-/** Whether a single-quoted string of the SQL is left open: `''` inside one is a quote. */
-function openQuote(sql: string): boolean {
-	return (sql.replace(/''/g, '').match(/'/g)?.length ?? 0) % 2 === 1;
+/**
+ * The SQL with its strings blanked, and whether one is left open. A string
+ * is single- or double-quoted, its quote doubled inside it (issue #611:
+ * `"it's"` is one string).
+ */
+function scanStrings(sql: string): { outside: string; open: boolean } {
+	let outside = '';
+	let quote: string | undefined;
+	for (let i = 0; i < sql.length; i++) {
+		const ch = sql[i];
+		if (quote) {
+			if (ch === quote && sql[i + 1] === quote) {
+				i++;
+			} else if (ch === quote) {
+				quote = undefined;
+			}
+			outside += ' ';
+			continue;
+		}
+		if (ch === "'" || ch === '"') {
+			quote = ch;
+			outside += ' ';
+			continue;
+		}
+		outside += ch;
+	}
+	return { outside, open: quote !== undefined };
 }
 
-/** Whether a parenthesis outside quotes is left open. */
+/** Whether a string of the SQL is left open. */
+function openQuote(sql: string): boolean {
+	return scanStrings(sql).open;
+}
+
+/** The SQL outside its strings. */
+function outsideStrings(sql: string): string {
+	return scanStrings(sql).outside;
+}
+
+/** Whether a parenthesis outside strings is left open. */
 function openParenthesis(sql: string): boolean {
 	let depth = 0;
-	let quoted = false;
-	for (const ch of sql) {
-		if (ch === "'") {
-			quoted = !quoted;
-		} else if (!quoted && ch === '(') {
-			depth++;
-		} else if (!quoted && ch === ')') {
-			depth--;
-		}
+	for (const ch of outsideStrings(sql)) {
+		depth += ch === '(' ? 1 : ch === ')' ? -1 : 0;
 	}
 	return depth > 0;
+}
+
+/** A copy of the states, names that share one recordset sharing one copy. */
+function copyStates(states: ReadonlyMap<string, RecordsetState>): Map<string, RecordsetState> {
+	const copies = new Map<RecordsetState, RecordsetState>();
+	return new Map([...states].map(([lower, held]) => {
+		let copy = copies.get(held);
+		if (!copy) {
+			copy = { ...held };
+			copies.set(held, copy);
+		}
+		return [lower, copy];
+	}));
 }
 
 /** What a straight line of statements knows of a recordset local. */
 interface RecordsetState {
 	snapshot: boolean;
+	/** dbOpenForwardOnly: Edit and AddNew raise 3251. */
+	forwardOnly: boolean;
+	/** Opened dbReadOnly: Edit and AddNew raise 3027. */
+	readOnly: boolean;
 	editing: boolean;
 	closed: boolean;
 }
+
+/** The methods that move a recordset's current record, ending an Edit (issue #611). */
+const MOVES: ReadonlySet<string> = new Set(['movefirst', 'movelast', 'movenext', 'moveprevious', 'move', 'findfirst', 'findlast', 'findnext', 'findprevious', 'seek', 'requery']);
 
 function checkRecordsets(
 	source: string,
@@ -199,6 +277,7 @@ function checkRecordsets(
 	push: PushFn,
 ): void {
 	const state = new Map<string, RecordsetState>();
+	const withSubjects: Array<string | undefined> = [];
 	const forget = (names: Iterable<string>): void => {
 		for (const lower of names) {
 			state.delete(lower);
@@ -215,17 +294,35 @@ function checkRecordsets(
 			forget(namesIn(source, node.span));
 			return;
 		}
-		const toks = statementTokensAfterLeadingLabel(source, node.span).filter((tok) => tok.kind !== 'comment');
+		const own = statementTokensAfterLeadingLabel(source, node.span).filter((tok) => tok.kind !== 'comment');
+		// Inside `With rs`, `!Nm = x` and `.Edit` are rs's (issue #611).
+		const subject = withSubjects[withSubjects.length - 1];
+		const toks = subject && (own[0]?.rawText === '!' || own[0]?.rawText === '.') ? [{ ...own[0], kind: 'identifier' as const, rawText: subject, end: own[0].start }, ...own] : own;
 		const at = (from: number, to: number) => ({ start: node.span.start + toks[from].start, end: node.span.start + toks[to].end });
 		const set = setAssignmentTarget(source, node.span);
 		if (set) {
 			const lower = set.name.toLowerCase();
-			forget(namesIn(source, node.span));
 			const value = set.valueTokens.filter((tok) => tok.kind !== 'comment');
+			// `Set r2 = rs` is another name for the same recordset.
+			const alias = value.length === 1 ? tokenName(value[0])?.toLowerCase() : undefined;
+			const shared = alias ? state.get(alias) : undefined;
+			forget(namesIn(source, node.span));
 			const open = value.findIndex((tok, k) => tokenText(tok) === 'openrecordset' && value[k - 1]?.rawText === '.' && databaseAt(value, k - 2, isDatabase));
 			if (isRecordset(lower) && open > 0 && value[open + 1]?.rawText === '(' && matchParenFrom(value, open + 1) === value.length - 1) {
-				const type = callArguments(value, open)?.[1]?.map((tok) => tokenText(tok)).join('');
-				state.set(lower, { snapshot: type === 'dbopensnapshot' || type === '4', editing: false, closed: false });
+				const args = callArguments(value, open);
+				const type = args?.[1]?.map((tok) => tokenText(tok)).join('');
+				const options = args?.[2]?.map((tok) => tokenText(tok)).join('');
+				state.set(lower, {
+					snapshot: type === 'dbopensnapshot' || type === '4',
+					forwardOnly: type === 'dbopenforwardonly' || type === '8',
+					readOnly: options === 'dbreadonly' || options === '4',
+					editing: false,
+					closed: false,
+				});
+			}
+			if (isRecordset(lower) && shared) {
+				state.set(lower, shared);
+				state.set(alias!, shared);
 			}
 			return;
 		}
@@ -271,13 +368,27 @@ function checkRecordsets(
 			}
 			return;
 		}
-		if ((member === 'edit' || member === 'addnew') && toks.length === 3) {
-			if (held.snapshot) {
-				push('hostArgumentOutOfRange', `'${shown}' is a snapshot, which cannot be changed. This will raise Run-time error '3251': Operation is not supported for this type of object.`, at(2, 2));
+		if ((member === 'edit' || member === 'addnew' || member === 'delete') && toks.length === 3) {
+			if (held.snapshot || (held.forwardOnly && member !== 'delete')) {
+				push('hostArgumentOutOfRange', `'${shown}' is ${held.snapshot ? 'a snapshot' : 'forward-only'}, which cannot be changed. This will raise Run-time error '3251': Operation is not supported for this type of object.`, at(2, 2));
 				state.delete(lower!);
 				return;
 			}
-			held.editing = true;
+			if (held.readOnly && member !== 'delete') {
+				push('hostArgumentOutOfRange', `'${shown}' was opened dbReadOnly, which cannot be changed. This will raise Run-time error '3027': Cannot update. Database or object is read-only.`, at(2, 2));
+				state.delete(lower!);
+				return;
+			}
+			if (member !== 'delete') {
+				held.editing = true;
+			} else {
+				// Delete moves nothing, and what it leaves is not followed.
+				state.delete(lower!);
+			}
+			return;
+		}
+		if (member !== undefined && MOVES.has(member)) {
+			held.editing = false;
 			return;
 		}
 		if (member === 'close' && toks.length === 3) {
@@ -294,14 +405,38 @@ function checkRecordsets(
 		}
 	};
 	walkEnteringBlocks(source, body, (node) => activity?.isInactive(node.span) === true, visit, {
-		snapshot: () => new Map([...state].map(([lower, held]) => [lower, { ...held }])),
+		// One copy per recordset, so two names for it stay one.
+		snapshot: () => copyStates(state),
 		restore: (saved) => {
 			state.clear();
-			for (const [lower, held] of saved) {
-				state.set(lower, { ...held });
+			for (const [lower, held] of copyStates(saved)) {
+				state.set(lower, held);
 			}
 		},
 		forget,
-		touches: (stmt) => namesIn(source, stmt.span),
+		// `With rs` reads rs, and a body line reaching it by `!` or `.` names it.
+		touches: (stmt) => {
+			const toks = statementTokensAfterLeadingLabel(source, stmt.span).filter((tok) => tok.kind !== 'comment');
+			if (tokenText(toks[0]) === 'with' && toks.length === 2) {
+				return new Set<string>();
+			}
+			const names = namesIn(source, stmt.span);
+			const subject = withSubjects[withSubjects.length - 1];
+			return subject && (toks[0]?.rawText === '!' || toks[0]?.rawText === '.') ? new Set([...names, subject.toLowerCase()]) : names;
+		},
+		enter: (node) => {
+			if (node.kind !== 'WithBlock') {
+				return;
+			}
+			const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment');
+			const name = header.length === 2 ? tokenName(header[1]) : undefined;
+			withSubjects.push(name && state.has(name.toLowerCase()) ? name : undefined);
+		},
+		exit: (node) => {
+			if (node.kind === 'WithBlock') {
+				withSubjects.pop();
+			}
+		},
+		withBodyRunsThrough: true,
 	});
 }
