@@ -1402,12 +1402,20 @@ function checkMemberAssignmentTypes(
 	const projectClasses = (memberCtx.projectClassMembers?.length ?? 0) > 0;
 	let valuesAt: ReturnType<typeof knownLocalLiteralValuesAt> | undefined;
 	const checkStatement = (span: Span, stmt: BodyNode): void => {
-		// A local known to hold a number, for a host property's limits (issue #346).
+		// A local known to hold a number, for a host property's limits (issue
+		// #346). A Boolean holding True is no -1 there: Excel takes True where
+		// it refuses -1, and refuses False as it does 0 (issue #630, measured
+		// in Excel 16.0).
 		const known = (tokens: readonly VbaToken[]): number | undefined => {
 			const value = tokens.filter((tok) => tok.kind !== 'comment');
 			const lower = value.length === 1 ? tokenName(value[0])?.toLowerCase() : undefined;
 			const held = lower && symbols ? (valuesAt ??= knownLocalLiteralValuesAt(source, member, symbols, activity))(stmt).get(lower) : undefined;
-			return held?.kind === 'number' ? held.value as number : undefined;
+			if (held?.kind !== 'number') {
+				return undefined;
+			}
+			const boolean = (procedureSymbolFor(symbols!, member)?.children ?? [])
+				.some((child) => child.name.toLowerCase() === lower && child.asType?.toLowerCase() === 'boolean');
+			return boolean && held.value !== 0 ? undefined : held.value as number;
 		};
 		const assignment = memberAssignmentTarget(source, span);
 		if (!assignment) {
