@@ -403,16 +403,13 @@ function checkTypeCyclesAcrossModules(
 			if (!asType || !first || first.moduleName.toLowerCase() === own) {
 				continue;
 			}
-			const seen = new Set<string>();
+			// byName resolves each unambiguous name to one canonical surface.
+			// Mark it when queued so shared descendants enter only once.
+			const seen = new Set<VbaProjectClassMembers>([first]);
 			const queue: VbaProjectClassMembers[] = [first];
 			let cycle = false;
-			while (queue.length > 0 && !cycle) {
-				const surface = queue.shift()!;
-				const id = `${surface.moduleName}.${surface.name}`.toLowerCase();
-				if (seen.has(id)) {
-					continue;
-				}
-				seen.add(id);
+			for (let head = 0; head < queue.length && !cycle; head++) {
+				const surface = queue[head];
 				for (const fieldMember of surface.members) {
 					const typeName = fieldMember.returns?.toLowerCase();
 					if (!typeName) {
@@ -423,7 +420,8 @@ function checkTypeCyclesAcrossModules(
 						cycle = true;
 						break;
 					}
-					if (next && next.moduleName.toLowerCase() !== own) {
+					if (next && next.moduleName.toLowerCase() !== own && !seen.has(next)) {
+						seen.add(next);
 						queue.push(next);
 					}
 				}
