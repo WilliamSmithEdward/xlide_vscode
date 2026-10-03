@@ -5454,7 +5454,11 @@
         "issue414_26_compile",
         "issue417_74_compile",
         "issue417_75_compile",
-        "issue417_76_compile"
+        "issue417_76_compile",
+        "issue416b_07_runtime",
+        "issue416b_08_runtime",
+        "issue416b_09_runtime",
+        "issue416b_10_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -7294,7 +7298,11 @@
         "issue416_47_runtime",
         "issue416_48_runtime",
         "issue416_54_runtime",
-        "issue416_55_runtime"
+        "issue416_55_runtime",
+        "issue416b_01_runtime",
+        "issue416b_02_runtime",
+        "issue416b_03_runtime",
+        "issue416b_06_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],

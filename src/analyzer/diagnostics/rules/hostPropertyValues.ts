@@ -161,6 +161,26 @@ function hostPropertyStringProblem(target: MemberCompletion, valueTokens: readon
 	return `${bare}.${target.name} takes ${takes}. This will raise Run-time error '${limit.error.number}': ${limit.error.text}.`;
 }
 
+/**
+ * The same, for a receiver that is one of several host types: `ActiveSheet`,
+ * a Worksheet or a Chart, and `Sheets(1)`. Judged only when each type refuses
+ * the value the same way (issue #416), and told for the first.
+ */
+export function hostUnionPropertyValueProblem(owners: readonly string[], name: string, valueTokens: readonly VbaToken[]): string | undefined {
+	// Reached late-bound, a sheet's Visible refuses any String but a number
+	// with 1004, "True" too, where a typed Worksheet's raises 13 (measured in
+	// Excel 16.0 on 2026-10-02).
+	if (owners.length === 0 || !owners.every((owner) => owner === 'Excel.Worksheet' || owner === 'Excel.Chart') || name.toLowerCase() !== 'visible') {
+		return undefined;
+	}
+	const toks = valueTokens.filter((tok) => tok.kind !== 'comment');
+	if (toks.length !== 1 || toks[0].kind !== 'stringLiteral' || /\d/.test(toks[0].rawText)) {
+		return undefined;
+	}
+	const error = EXCEL_1004('Visible', 'Worksheet');
+	return `Visible, on a sheet reached late-bound, takes an xlSheetVisibility constant, and the String ${toks[0].rawText} is not one. This will raise Run-time error '${error.number}': ${error.text}.`;
+}
+
 /** The message for a host property Let the host refuses, or undefined. */
 export function hostPropertyValueProblem(target: MemberCompletion, valueTokens: readonly VbaToken[]): string | undefined {
 	const stringProblem = hostPropertyStringProblem(target, valueTokens);

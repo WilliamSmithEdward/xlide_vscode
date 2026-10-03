@@ -92121,6 +92121,127 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Double\r\n    d = 1E10\r\n    If d < 0 Then\r\n        Main = 1\r\n    ElseIf d And 1 Then\r\n        Main = 2\r\n    End If\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue416b_01_runtime",
+      "description": "Issue #416 Visible reached late-bound, and a Collection into a host property, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    ActiveSheet.Visible = \"abc\"\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue416b_02_runtime",
+      "description": "Issue #416 Visible reached late-bound, and a Collection into a host property, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Worksheets(1).Visible = \"abc\"\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue416b_03_runtime",
+      "description": "Issue #416 Visible reached late-bound, and a Collection into a host property, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    ActiveSheet.Visible = \"True\"\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue416b_04_runtime",
+      "description": "Issue #416 Visible reached late-bound, and a Collection into a host property, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    ActiveSheet.Visible = True\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue416b_05_runtime",
+      "description": "Issue #416 Visible reached late-bound, and a Collection into a host property, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Worksheets(1).Visible = xlSheetVisible\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue416b_06_runtime",
+      "description": "Issue #416 Visible reached late-bound, and a Collection into a host property, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Sheets(1).Visible = \"abc\"\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue416b_07_runtime",
+      "description": "Issue #416 Visible reached late-bound, and a Collection into a host property, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    Range(\"A1\").Font.Bold = c\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue416b_08_runtime",
+      "description": "Issue #416 Visible reached late-bound, and a Collection into a host property, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    Range(\"A1\").Value = c\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue416b_09_runtime",
+      "description": "Issue #416 Visible reached late-bound, and a Collection into a host property, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    Range(\"A1\").NumberFormat = c\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue416b_10_runtime",
+      "description": "Issue #416 Visible reached late-bound, and a Collection into a host property, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    ActiveWindow.Zoom = c\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue416b_11_runtime",
+      "description": "Issue #416 Visible reached late-bound, and a Collection into a host property, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add 1\r\n    Range(\"A1\").Value = c(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
