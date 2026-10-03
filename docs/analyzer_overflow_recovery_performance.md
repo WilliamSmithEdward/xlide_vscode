@@ -24,4 +24,4 @@ The nested intrinsic fixture improves about 67x. Ordinary controls range from ef
 
 Recovery regressions retain later Const and assignment overflow findings after excessive parentheses, conversions, intrinsics, and Not chains; a procedure case checks deeply nested unknown calls. Ordinary nested overflow spans remain unchanged. Existing numeric folding, intrinsic argument, logical precedence, and parser-depth tests pass. A comparison of 500 generated intrinsic, conversion, division, and logical expressions matches original diagnostic kinds, messages, and spans. The full suite passes: 567 files, 12,058 tests, 13 skipped.
 
-Long flat logical chains remain a separate performance candidate: an exploratory 3,000-operand And chain took about 274 ms in the isolated rule. Its recursive logical splitting is not changed here. Deeper structural folding outside the supported recovery limit intentionally remains unknown.
+Long flat logical chains are covered by the follow-up audit in analyzer_logical_chain_performance.md. Deeper structural folding outside the supported recovery limit intentionally remains unknown.

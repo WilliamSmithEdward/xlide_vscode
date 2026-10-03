@@ -38,6 +38,7 @@ function measure(name, run) {
 }
 function procedure(name, body) { return 'Sub '+name+'(ByVal x As Long)\nDim total As Long\n'+body+'\nEnd Sub'; }
 const fixtures=[
+ ...[100,1000,3000].map(count=>[count+'-operand-logical-chain','Private Const C = '+Array.from({length:count},()=> '1').join(' And ')]),
  ['100-consts/10-nested-sgn',Array.from({length:100},(_,i)=>'Private Const C'+i+' = '+'Sgn('.repeat(10)+'1'+')'.repeat(10)).join('\n')],
  ['300-procedures/arithmetic',Array.from({length:300},(_,i)=>procedure('P'+i,Array.from({length:12},(_,j)=>'total = x + '+j).join('\n'))).join('\n')],
  ['10000-statements/arithmetic',procedure('Main',Array.from({length:10000},(_,i)=>'total = x + '+i).join('\n'))],
