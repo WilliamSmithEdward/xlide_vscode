@@ -91,6 +91,7 @@ import {
 	type ProcedureStatementVisitor,
 } from '../walker';
 import { worksheetFunctionRefusal } from './worksheetFunctionArguments';
+import { WORD_BUILTIN_STYLES } from '../../host/wordBuiltinStyles';
 
 const EXCEL_MAX_ROW = 1048576;
 const EXCEL_MAX_COLUMN = 16384;
@@ -946,6 +947,20 @@ const ARGUMENT_LIMITS: ReadonlyArray<{
 		receivers: ['PowerPoint.Slide', 'PowerPoint.SlideRange'], member: 'moveto', parameter: 'ToPos', position: 0, runs: '1 or more',
 		refused: [{ to: 0 }], error: { number: '-2147188160', text: 'Integer out of range' },
 	},
+	// Issue #610, measured in PowerPoint 16.0: orientations 1 and 6 run, 0,
+	// -2 (mixed), 7 and 9 do not; a width or height of 0 runs.
+	{
+		receivers: ['PowerPoint.Shapes'], member: 'addtextbox', parameter: 'Orientation', position: 0, runs: '1 to 6, an msoTextOrientation constant',
+		refused: [{ to: 0 }, { from: 7 }], error: { number: '-2147024809', text: 'The specified value is out of range' },
+	},
+	{
+		receivers: ['PowerPoint.Shapes'], member: 'addshape', parameter: 'Width', position: 3, runs: '0 or more',
+		refused: [{ to: -1 }], error: { number: '-2147024809', text: 'The specified value is out of range' },
+	},
+	{
+		receivers: ['PowerPoint.Shapes'], member: 'addshape', parameter: 'Height', position: 4, runs: '0 or more',
+		refused: [{ to: -1 }], error: { number: '-2147024809', text: 'The specified value is out of range' },
+	},
 	{
 		receivers: ['Word.Tables'], member: 'add', parameter: 'NumRows', position: 1, runs: '1 to 32767',
 		refused: [{ to: 0 }, { from: 32768 }], error: { number: '5148', text: 'The number must be between 1 and 32767' },
@@ -984,7 +999,9 @@ function checkArgumentLimits(
  * Names Word refuses (issue #311, measured in Word 16.0): a bookmark name
  * that is empty, starts with a digit, or holds anything but letters, digits
  * and underscores (5828), and an empty style name (5167). A bookmark name
- * past 40 letters is shortened, not refused.
+ * past 40 letters is shortened, not refused. Issue #610 adds a style name of
+ * blanks (5167) and a built-in style's name in any case (5173), and an empty
+ * Variables name (-2147467259).
  */
 function checkWordNames(
 	span: Span,
@@ -1005,8 +1022,12 @@ function checkWordNames(
 		if (why) {
 			push('hostArgumentOutOfRange', `The bookmark name "${name}" ${why}: a bookmark name starts with a letter and holds letters, digits and _. This will raise Run-time error '5828': Bad bookmark name.`, argSpan(span, arg!));
 		}
-	} else if (callee.receiver === 'Word.Styles' && name === '') {
-		push('hostArgumentOutOfRange', `A style needs a name, and "" is none. This will raise Run-time error '5167': This is not a valid style name.`, argSpan(span, arg!));
+	} else if (callee.receiver === 'Word.Styles' && name.trim() === '') {
+		push('hostArgumentOutOfRange', `A style needs a name, and "${name}" is none. This will raise Run-time error '5167': This is not a valid style name.`, argSpan(span, arg!));
+	} else if (callee.receiver === 'Word.Styles' && WORD_BUILTIN_STYLES.has(name.toLowerCase())) {
+		push('hostArgumentOutOfRange', `"${name}" is the name of a built-in style, which a style the code adds cannot take, in any case. This will raise Run-time error '5173': This style name already exists or is reserved for a built-in style.`, argSpan(span, arg!));
+	} else if (callee.receiver === 'Word.Variables' && name === '') {
+		push('hostArgumentOutOfRange', `A document variable needs a name, and "" is none. This will raise Run-time error '-2147467259': Method 'Add' of object 'Variables' failed.`, argSpan(span, arg!));
 	}
 }
 
@@ -1319,7 +1340,9 @@ function firstExecutableTokenIndexOfMemberCall(toks: readonly VbaToken[], nameIn
 		}
 		j = k;
 	}
-	return j === firstExecutableTokenIndex(toks) ? nameIndex : -1;
+	// Inside a With, `.Add "a b", ...` starts at its leading dot (issue #610).
+	const first = firstExecutableTokenIndex(toks);
+	return j === first || (toks[j - 1]?.rawText === '.' && j - 1 === first) ? nameIndex : -1;
 }
 
 function isCollectionType(type: string, model: HostObjectModel | undefined): boolean {
