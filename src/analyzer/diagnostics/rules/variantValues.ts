@@ -20,6 +20,7 @@
 // the last assignment before the statement gives with nothing between able to
 // change it (issue #180).
 
+import { topLevelEqualsIndex } from '../../lexer/tokenHelpers';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type { BodyNode, ForBlockNode, ModuleNode } from '../../parser/nodes';
@@ -396,7 +397,7 @@ function arrayCallOperands(
 	// A single-line If's own line is its condition; each branch comes as a span of its own.
 	const condition = tokenText(toks[0]) === 'if';
 	const end = condition ? toks.findIndex((tok) => tokenText(tok) === 'then') : toks.length;
-	const assignment = condition ? -1 : topLevelEquals(toks);
+	const assignment = condition ? -1 : topLevelEqualsIndex(toks);
 	for (let i = 0; i < end - 1; i++) {
 		const name = tokenText(toks[i]);
 		if (!ARRAY_FUNCTIONS.has(name) || toks[i + 1].rawText !== '(' || !isBareOrVbaQualifiedIntrinsicCall(toks, i)) {
@@ -452,22 +453,6 @@ function lenCallAround(toks: readonly VbaToken[], first: number, last: number, s
 		return `${toks[callee - 2].rawText}.${toks[callee].rawText}`;
 	}
 	return runtimeCallableSourceShadowed(toks[callee].rawText, sourceNames) ? undefined : toks[callee].rawText;
-}
-
-/** The first `=` outside parentheses, which is the assignment's own; -1 when none. */
-function topLevelEquals(toks: readonly VbaToken[]): number {
-	let depth = 0;
-	for (let i = 0; i < toks.length; i++) {
-		const raw = toks[i].rawText;
-		if (raw === '(') {
-			depth++;
-		} else if (raw === ')') {
-			depth--;
-		} else if (raw === '=' && depth === 0) {
-			return i;
-		}
-	}
-	return -1;
 }
 
 /** Whether the offset is on a Dim, Static or Const line, which declares rather than uses. */

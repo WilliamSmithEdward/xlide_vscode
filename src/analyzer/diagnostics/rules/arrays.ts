@@ -73,6 +73,7 @@ import {
 	matchParenFrom,
 	pluralizeCount,
 	rawExpressionTokens,
+	statementAndBranchSpans,
 	statementTokens,
 	statementTokensAfterLeadingLabel,
 	tokenName,
@@ -1158,7 +1159,7 @@ function arraysErasedByCalls(source: string, mod: ModuleNode, activity: Conditio
 		}
 		let leaves = false;
 		forEachStatement(member.body, (stmt) => {
-			for (const span of statementAndBranchSpansOf(stmt)) {
+			for (const span of statementAndBranchSpans(stmt)) {
 				const toks = statementTokens(source, span).filter((tok) => tok.kind !== 'comment' && tok.kind !== 'integerLiteral');
 				const head = tokenText(toks[0]);
 				leaves ||= ERASE_LEAVING_HEADS.has(head) || (head === 'err' && tokenText(toks[2]) === 'raise');
@@ -1304,7 +1305,7 @@ function checkUnallocatedDynamicArrayAccessStatement(
 		}
 	}
 	// `If L > 0 Then tb = txt` gives the array storage on one path only.
-	for (const branch of statementAndBranchSpansOf(stmt).slice(1)) {
+	for (const branch of statementAndBranchSpans(stmt).slice(1)) {
 		const lower = bareAssignmentTarget(source, branch)?.name.toLowerCase();
 		if (lower && arrays.has(lower) && state.get(lower) === 'unallocated') {
 			state.set(lower, 'unknown');
@@ -1449,7 +1450,7 @@ function checkUnsetArrayResults(
 ): void {
 	const own = new Set([member.name.toLowerCase(), ...member.params.map((param) => param.name.toLowerCase()), ...(procedureSymbolFor(symbols, member)?.children ?? []).map((child) => child.name.toLowerCase())]);
 	forEachStatement(member.body, (stmt) => {
-		for (const span of statementAndBranchSpansOf(stmt)) {
+		for (const span of statementAndBranchSpans(stmt)) {
 			const toks = statementTokens(source, span);
 			for (let i = 0; i < toks.length - 2; i++) {
 				const bound = tokenText(toks[i]);
@@ -1537,7 +1538,7 @@ function dynamicArrayTouchesInStatement(
 	if (assignmentLower && arrays.has(assignmentLower)) {
 		out.add(assignmentLower);
 	}
-	for (const branch of statementAndBranchSpansOf(stmt).slice(1)) {
+	for (const branch of statementAndBranchSpans(stmt).slice(1)) {
 		const lower = bareAssignmentTarget(source, branch)?.name.toLowerCase();
 		if (lower && arrays.has(lower)) {
 			out.add(lower);
@@ -1911,7 +1912,7 @@ export function knownArrayShapes(
 		}
 	};
 	forEachStatement(body as BodyNode[], (stmt) => {
-		for (const span of statementAndBranchSpansOf(stmt)) {
+		for (const span of statementAndBranchSpans(stmt)) {
 			const toks = statementTokensAfterLeadingLabel(source, span);
 			const head = tokenText(toks[0]);
 			const bare = bareAssignmentTarget(source, span);
@@ -2204,11 +2205,6 @@ function shapeTouches(source: string, stmt: LeafStatementNode): Set<string> {
 	return out;
 }
 
-function statementAndBranchSpansOf(stmt: LeafStatementNode): Span[] {
-	const branches = stmt.kind === 'Statement' ? stmt.singleLineIfBranches : undefined;
-	return branches ? [stmt.span, ...branches] : [stmt.span];
-}
-
 /**
  * The bounds of the array `Array(...)`, `Split(...)`, `Filter(...)` or
  * `Range(...).Value` builds, or undefined. `strings` gives the String a name
@@ -2408,7 +2404,7 @@ function filterShape(args: readonly (readonly VbaToken[])[], name: string, optio
 export function elementsWrittenIn(source: string, proc: ProcedureNode, activity: ConditionalActivityTracker | undefined): Set<string> {
 	const out = new Set<string>();
 	forEachStatement(proc.body as BodyNode[], (stmt) => {
-		for (const span of statementAndBranchSpansOf(stmt)) {
+		for (const span of statementAndBranchSpans(stmt)) {
 			const toks = statementTokensAfterLeadingLabel(source, span).filter((tok) => tok.kind !== 'comment');
 			const head = tokenText(toks[0]);
 			if (ELEMENT_WRITING_HEADS.has(head)) {

@@ -305,3 +305,15 @@ export function splitTopLevelTokenGroups(
 	groups.push(current);
 	return groups;
 }
+
+/** First '=' outside parentheses, retaining raw-token assignment semantics. */
+export function topLevelEqualsIndex(tokens: readonly VbaToken[]): number {
+	let depth = 0;
+	for (let i = 0; i < tokens.length; i++) {
+		const raw = tokens[i].rawText;
+		if (raw === '(') { depth++; }
+		else if (raw === ')') { depth--; }
+		else if (raw === '=' && depth === 0) { return i; }
+	}
+	return -1;
+}
