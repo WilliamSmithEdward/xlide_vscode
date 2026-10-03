@@ -16,6 +16,7 @@ import {
 import type { HostObjectModel } from '../../host/excelObjectModel';
 import { tokenize } from '../../lexer/tokenize';
 import type { VbaToken } from '../../lexer/tokenKinds';
+import { topLevelEqualsIndex } from '../../lexer/tokenHelpers';
 import type {
 	BodyNode,
 	ModuleNode,
@@ -2417,7 +2418,7 @@ export function elementsWrittenIn(source: string, proc: ProcedureNode, activity:
 				}
 				continue;
 			}
-			const call = !toks.some((tok, k) => tok.rawText === '=' && tok.kind === 'operator' && topLevelAt(toks, k));
+			const call = topLevelEqualsIndex(toks) < 0;
 			for (let i = 0; i + 1 < toks.length; i++) {
 				const lower = tokenName(toks[i])?.toLowerCase();
 				if (!lower || toks[i + 1].rawText !== '(') {
@@ -2439,18 +2440,6 @@ export function elementsWrittenIn(source: string, proc: ProcedureNode, activity:
 }
 
 const ELEMENT_WRITING_HEADS: ReadonlySet<string> = new Set(['set', 'lset', 'rset', 'mid', 'mid$', 'input', 'get', 'line', 'redim', 'erase']);
-
-function topLevelAt(toks: readonly VbaToken[], index: number): boolean {
-	let depth = 0;
-	for (let k = 0; k < index; k++) {
-		if (toks[k].rawText === '(') {
-			depth++;
-		} else if (toks[k].rawText === ')') {
-			depth--;
-		}
-	}
-	return depth === 0;
-}
 
 /** An operand that reads one element of an array whose values are known. */
 export interface ElementOperand {
