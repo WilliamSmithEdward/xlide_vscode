@@ -408,7 +408,7 @@ export function checkAssignmentTypes(
 			// `"a" & "b"`, `Left("abc", 1)`, `o & 5` (issue #405). A Date written
 			// as text converts back to a Date, so that target is left alone.
 			const knownAt = (valuesAt ??= knownLocalLiteralValuesAt(source, procedure, symbols, activity))(stmt);
-			const spelled = spelledText(value, (lower) => knownAt.get(lower), env, sourceNames);
+			const spelled = spelledText(value, (lower) => knownAt.get(lower), env, sourceNames, true);
 			if (spelled) {
 				return spelled.standIn && normalizeType(expected) === 'date'
 					? undefined
@@ -2055,13 +2055,15 @@ function spelledText(
 	known: (lower: string) => KnownLocalValue | undefined,
 	env: ReadonlyMap<string, string>,
 	sourceNames: SourceNameScope,
+	whole = false,
 ): SpelledText | undefined {
 	let text = '';
 	let standIn = false;
 	const parts = splitTopLevelTokenGroups(toks, 0, '&');
 	// A number on its own is no text: only `&` makes one of it. `d = -657435`
-	// is a Long, which Overflow judges (issue #329).
-	const lone = parts.length === 1 ? unwrapOuterParens(parts[0]) : [];
+	// is a Long, which Overflow judges (issue #329). Inside `CStr(40000)` it
+	// is the text the function makes (issue #624).
+	const lone = whole && parts.length === 1 ? unwrapOuterParens(parts[0]) : [];
 	if (lone.length > 0 && lone.length <= 2 && lone[lone.length - 1].kind === 'integerLiteral' && (lone.length === 1 || lone[0].rawText === '-')) {
 		return undefined;
 	}
