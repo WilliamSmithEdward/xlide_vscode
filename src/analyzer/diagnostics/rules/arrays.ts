@@ -3173,8 +3173,10 @@ export function checkFixedArraySubscriptBounds(
 		// A module's fixed arrays keep their bounds, and its dynamic arrays
 		// that nothing ReDims have none (issue #241).
 		const moduleVariables = untouchedModuleVariablesIn(source, symbols, member);
+		// Local/parameter names hide every module array using the same scope.
+		let hidden: Set<string> | undefined;
 		const declared = new Map([
-			...[...(moduleFixed ??= moduleFixedArrayDeclarations(source, mod, activity, optionBase))].filter(([lower]) => !hiddenIn(symbols, member).has(lower)),
+			...[...(moduleFixed ??= moduleFixedArrayDeclarations(source, mod, activity, optionBase))].filter(([lower]) => !(hidden ??= hiddenIn(symbols, member)).has(lower)),
 			...localFixedArrayDeclarationsForBody(source, member.body, activity, optionBase),
 		]);
 		const unallocated = new Map([...moduleVariables].filter(([, variable]) => variable.isArray && variable.arrayBounds === undefined));
