@@ -829,7 +829,7 @@ function checkSpan(
 		}
 		if (host === 'Excel') {
 			checkExcelMethodArguments(span, toks, callee, stringOf, push);
-			checkExcelCallee(source, span, toks, callee, calleeSpan, env, arrays, valueOf, push, stringOf);
+			checkExcelCallee(source, span, toks, callee, calleeSpan, env, arrays, sourceNames, valueOf, push, stringOf);
 		} else if (host === 'Word') {
 			if (lower === 'range' && callee.receiver === 'Word.Document' && callee.openIndex > 0) {
 				const start = callee.args[0] ? valueOf(callee.args[0]) : undefined;
@@ -1356,6 +1356,7 @@ function checkExcelCallee(
 	calleeSpan: Span,
 	env: ReadonlyMap<string, string>,
 	arrays: ReadonlySet<string>,
+	sourceNames: ReadonlySet<string>,
 	valueOf: (arg: readonly VbaToken[]) => number | undefined,
 	push: PushFn,
 	stringOf: (arg: readonly VbaToken[]) => string | undefined = literalString,
@@ -1385,7 +1386,7 @@ function checkExcelCallee(
 	// is the checks below.
 	const oneStep = origin !== undefined && lower !== 'item';
 	if (callee.receiver === 'Excel.Range' && CHAIN_MEMBERS.has(lower) && !oneStep) {
-		const block = rangeChainReceiver(toks, callee.nameIndex - 1, valueOf);
+		const block = rangeChainReceiver(toks, callee.nameIndex - 1, valueOf, sourceNames);
 		const next = block ? chainStep(block, lower, callee.args, valueOf) : undefined;
 		if (block && next && offSheet(next)) {
 			const rows = next.rows === 1 ? `row ${next.row}` : `rows ${next.row} to ${next.row + next.rows - 1}`;
@@ -1797,6 +1798,7 @@ function rangeChainReceiver(
 	toks: readonly VbaToken[],
 	dotIndex: number,
 	valueOf: (arg: readonly VbaToken[]) => number | undefined,
+	sourceNames: ReadonlySet<string>,
 ): CellBlock | undefined {
 	if (toks[dotIndex]?.rawText !== '.') {
 		return undefined;
@@ -1804,7 +1806,7 @@ function rangeChainReceiver(
 	const last = toks[dotIndex - 1];
 	const word = tokenText(last);
 	if ((word === 'entirerow' || word === 'entirecolumn') && toks[dotIndex - 2]?.rawText === '.') {
-		const inner = rangeChainReceiver(toks, dotIndex - 2, valueOf);
+		const inner = rangeChainReceiver(toks, dotIndex - 2, valueOf, sourceNames);
 		if (!inner) {
 			return undefined;
 		}
@@ -1812,6 +1814,12 @@ function rangeChainReceiver(
 		return word === 'entirerow'
 			? { row: inner.row, column: 1, rows: inner.rows, width: EXCEL_MAX_COLUMN, text, mode: 'rows' }
 			: { row: 1, column: inner.column, rows: EXCEL_MAX_ROW, width: inner.width, text, mode: 'columns' };
+	}
+	// `Cells`, `Rows` and `Columns` of a sheet, without an index: the whole
+	// sheet (issue #628, measured in Excel 16.0).
+	if ((word === 'cells' || word === 'rows' || word === 'columns') && ofSheet(toks, dotIndex - 1, sourceNames)) {
+		const mode = word === 'rows' ? 'rows' : word === 'columns' ? 'columns' : undefined;
+		return { row: 1, column: 1, rows: EXCEL_MAX_ROW, width: EXCEL_MAX_COLUMN, text: last.rawText, ...(mode ? { mode } : {}) };
 	}
 	if (last?.rawText !== ')') {
 		return undefined;
@@ -1824,15 +1832,15 @@ function rangeChainReceiver(
 	}
 	if (name === 'range') {
 		// A Range on a range counts from that range: not followed.
-		if (toks[open - 2]?.rawText === '.' && rangeChainReceiver(toks, open - 2, valueOf)) {
+		if (toks[open - 2]?.rawText === '.' && rangeChainReceiver(toks, open - 2, valueOf, sourceNames)) {
 			return undefined;
 		}
-		const block = literalRangeReceiver(toks, dotIndex);
+		const block = literalRangeReceiver(toks, dotIndex) ?? wholeLinesAt(toks, open - 1);
 		return block ? { ...block } : undefined;
 	}
-	// `Cells(1, 2)`, `Rows(3)`, `Columns(2)` unqualified: a cell, a whole row
-	// or a whole column of the sheet (issue #308, measured in Excel 16.0).
-	if (toks[open - 2]?.rawText !== '.' && (name === 'cells' || name === 'rows' || name === 'columns')) {
+	// `Cells(1, 2)`, `Rows(3)`, `Columns(2)` of the sheet: a cell, a whole row
+	// or a whole column (issues #308 and #628, measured in Excel 16.0).
+	if (ofSheet(toks, open - 1, sourceNames) && (name === 'cells' || name === 'rows' || name === 'columns')) {
 		const args = close > open + 1 ? splitTopLevelTokenGroups(toks, open + 1, ',', close) : [];
 		const first = args[0] ? valueOf(args[0]) : undefined;
 		const text = toks.slice(open - 1, close + 1).map((tok) => tok.rawText).join('');
@@ -1844,15 +1852,16 @@ function rangeChainReceiver(
 		if (args.length !== 1 || first === undefined || first < 1) {
 			return undefined;
 		}
+		// Item on a row counts rows: `Rows(5).Item(2)` is row 6.
 		if (name === 'rows') {
-			return first <= EXCEL_MAX_ROW ? { row: first, column: 1, rows: 1, width: EXCEL_MAX_COLUMN, text } : undefined;
+			return first <= EXCEL_MAX_ROW ? { row: first, column: 1, rows: 1, width: EXCEL_MAX_COLUMN, text, mode: 'rows' } : undefined;
 		}
-		return name === 'columns' && first <= EXCEL_MAX_COLUMN ? { row: 1, column: first, rows: EXCEL_MAX_ROW, width: 1, text } : undefined;
+		return name === 'columns' && first <= EXCEL_MAX_COLUMN ? { row: 1, column: first, rows: EXCEL_MAX_ROW, width: 1, text, mode: 'columns' } : undefined;
 	}
 	if (!CHAIN_MEMBERS.has(name) || toks[open - 2]?.rawText !== '.') {
 		return undefined;
 	}
-	const inner = rangeChainReceiver(toks, open - 2, valueOf);
+	const inner = rangeChainReceiver(toks, open - 2, valueOf, sourceNames);
 	if (!inner) {
 		return undefined;
 	}
@@ -1862,6 +1871,46 @@ function rangeChainReceiver(
 		return undefined;
 	}
 	return { ...next, text: `${inner.text}.${toks.slice(open - 1, close + 1).map((tok) => tok.rawText).join('')}` };
+}
+
+/**
+ * Whether the member at `toks[at]` is the sheet's own: unqualified, or
+ * after `ActiveSheet`, `Worksheets(...)` or `Sheets(...)` (issue #628).
+ * Unqualified, a name the code declares is its own.
+ */
+function ofSheet(toks: readonly VbaToken[], at: number, sourceNames: ReadonlySet<string>): boolean {
+	if (toks[at - 1]?.rawText !== '.') {
+		return !sourceNames.has(tokenText(toks[at]));
+	}
+	const before = toks[at - 2];
+	if (tokenText(before) === 'activesheet') {
+		return true;
+	}
+	if (before?.rawText !== ')') {
+		return false;
+	}
+	const open = toks.findIndex((tok, k) => tok.rawText === '(' && matchParenFrom(toks, k) === at - 2);
+	const name = tokenText(toks[open - 1]);
+	return open >= 1 && (name === 'worksheets' || name === 'sheets');
+}
+
+/** `Range("5:6")` or `Range("C:D")` starting at `toks[at]`: whole rows or whole columns (issue #628). */
+function wholeLinesAt(toks: readonly VbaToken[], at: number): CellBlock | undefined {
+	if (tokenText(toks[at]) !== 'range' || toks[at + 1]?.rawText !== '(' || toks[at + 2]?.kind !== 'stringLiteral' || toks[at + 3]?.rawText !== ')') {
+		return undefined;
+	}
+	const text = stringLiteralValue(toks[at + 2].rawText);
+	const rows = /^\$?(\d+):\$?(\d+)$/.exec(text);
+	if (rows) {
+		const [top, bottom] = [Number(rows[1]), Number(rows[2])].sort((a, b) => a - b);
+		return top >= 1 && bottom <= EXCEL_MAX_ROW ? { row: top, column: 1, rows: bottom - top + 1, width: EXCEL_MAX_COLUMN, text: `Range("${text}")` } : undefined;
+	}
+	const columns = /^\$?([A-Za-z]{1,3}):\$?([A-Za-z]{1,3})$/.exec(text);
+	if (columns) {
+		const [left, right] = [columnNumber(columns[1]), columnNumber(columns[2])].sort((a, b) => a - b);
+		return right <= EXCEL_MAX_COLUMN ? { row: 1, column: left, rows: EXCEL_MAX_ROW, width: right - left + 1, text: `Range("${text}")` } : undefined;
+	}
+	return undefined;
 }
 
 /** One member applied to a block: the block it names, or undefined where an argument is not known. */
