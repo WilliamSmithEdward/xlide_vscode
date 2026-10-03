@@ -1897,6 +1897,13 @@ function checkProcedureBody(
 				if (before) {
 					checkStatement(source, before.span, env, names, push, memberTarget);
 				}
+				// Each If and ElseIf condition, from the state the block is
+				// entered with: `If d And 1 Then` (issue #407).
+				if (node.kind === 'IfBlock') {
+					for (const header of blockHeaderLeaves(source, node)) {
+						checkStatement(source, header.span, env, names, push, memberTarget);
+					}
+				}
 				const touched = touchedIn(node);
 				forget(loopTouched);
 				// Its own lines run first: `If Store(k, n) Then` changes n.
@@ -2087,6 +2094,19 @@ function checkStatement(
 			if (!bare.element) {
 				stored = { name: bare.name.toLowerCase(), value: { value: kept.value, type: target, ...(kept.exact !== undefined ? { exact: kept.exact } : {}) } };
 			}
+		}
+	}
+	// A condition is evaluated whole: `If d And 1 Then` with d past the Long
+	// range converts it for And and raises 6 (issue #407, measured in Excel
+	// 16.0), as `x = d And 1` does.
+	const doCondition = (head === 'do' || head === 'loop') && ['while', 'until'].includes(tokenText(toks[first + 1]));
+	const conditionFrom = head === 'if' || head === 'elseif' || head === 'while' ? first + 1 : doCondition ? first + 2 : -1;
+	if (conditionFrom > 0) {
+		const then = toks.findIndex((tok, k) => k >= conditionFrom && tokenText(tok) === 'then');
+		const condition = toks.slice(conditionFrom, then < 0 ? toks.length : then).filter((tok) => tok.kind !== 'comment');
+		const folded = condition.length > 0 ? new TypedFolder(condition, span.start, names).fold() : undefined;
+		if (isOverflow(folded)) {
+			report(folded);
 		}
 	}
 	// Every other part the statement evaluates on its own: a call's
