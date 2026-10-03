@@ -3,6 +3,8 @@ import type { VbaToken } from '../lexer/tokenKinds';
 import { identifierSpanEndingAt } from './cursorContext';
 import {
 	resolveIdentifierCompletions,
+	createIdentifierCompletionResolver,
+	type IdentifierCompletion,
 	type IdentifierCompletionContext,
 } from './identifierCompletion';
 import {
@@ -92,6 +94,7 @@ export function resolveCanonicalCaseEdits(
 	const safeEnd = Math.max(safeStart, Math.min(span.end, source.length));
 	const window = physicalLineWindow(source, safeStart, safeEnd);
 	const edits: CanonicalCaseEdit[] = [];
+	const identifiersAt = createIdentifierCompletionResolver(source, ctx.identifier);
 	for (const token of tokenize(source.slice(window.start, window.end))) {
 		const start = window.start + token.start;
 		const end = window.start + token.end;
@@ -106,7 +109,7 @@ export function resolveCanonicalCaseEdits(
 			continue;
 		}
 		const word = source.slice(start, end);
-		const canonical = canonicalTextForWord(source, end, word, token, ctx);
+		const canonical = canonicalTextForWord(source, end, word, token, ctx, identifiersAt);
 		if (canonical) {
 			edits.push({ start, end, text: canonical });
 		}
@@ -121,12 +124,13 @@ function canonicalTextForWord(
 	word: string,
 	token: VbaToken,
 	ctx: CanonicalCaseContext,
+	identifiersAt?: (offset: number) => IdentifierCompletion[],
 ): string | undefined {
 	const canonical =
 		token.canonicalText ??
 		canonicalFromTypeCompletion(source, offset, word, ctx.type) ??
 		canonicalFromMemberCompletion(source, offset, word, ctx.member) ??
-		canonicalFromIdentifierCompletion(source, offset, word, ctx.identifier);
+		canonicalFromIdentifierCompletion(source, offset, word, ctx.identifier, identifiersAt);
 	return canonical && canonical !== word ? canonical : undefined;
 }
 
@@ -191,8 +195,10 @@ function canonicalFromIdentifierCompletion(
 	offset: number,
 	word: string,
 	ctx: IdentifierCompletionContext = {},
+	identifiersAt?: (offset: number) => IdentifierCompletion[],
 ): string | undefined {
-	return resolveIdentifierCompletions(source, offset, ctx).find(
+	const completions = identifiersAt ? identifiersAt(offset) : resolveIdentifierCompletions(source, offset, ctx);
+	return completions.find(
 		(item) => item.name.toLowerCase() === word.toLowerCase(),
 	)?.name;
 }
