@@ -929,11 +929,12 @@ export function checkRedimPreserveDimensions(
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
+	let optionBase: number | undefined;
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
-		checkRedimPreserveDimensionsInBody(source, member.body, new Map(), activity, push, moduleOptionBase(mod, activity));
+		checkRedimPreserveDimensionsInBody(source, member.body, new Map(), activity, push, optionBase ??= moduleOptionBase(mod, activity));
 	}
 }
 
