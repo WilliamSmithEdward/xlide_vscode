@@ -2104,10 +2104,12 @@ export function redimShapesAt(
 		return out;
 	}
 	let shapes = new Map<string, FixedArrayBound>();
-	let seen: ReadonlyMap<string, FixedArrayBound> = shapes;
+	// Only output maps and branch snapshots need copying before mutation.
+	const retained = new WeakSet<Map<string, FixedArrayBound>>();
 	const changed = (): void => {
-		shapes = new Map(shapes);
-		seen = shapes;
+		if (retained.has(shapes)) {
+			shapes = new Map(shapes);
+		}
 	};
 	const forget = (names: Iterable<string>): void => {
 		for (const lower of names) {
@@ -2161,7 +2163,8 @@ export function redimShapesAt(
 		const toks = statementTokensAfterLeadingLabel(source, node.span);
 		// A ReDim's bounds are not subscripts: `ReDim Preserve a(5)` reads no a(5).
 		if (shapes.size > 0 && !toks.some((tok) => tokenText(tok) === 'redim')) {
-			out.set(node, seen);
+			retained.add(shapes);
+			out.set(node, shapes);
 		}
 		if (tokenText(toks[0]) === 'gosub') {
 			forget([...shapes.keys()]);
@@ -2190,10 +2193,13 @@ export function redimShapesAt(
 		}
 	};
 	walkEnteringBlocks(source, proc.body, (node) => isInactiveNode(activity, node), visit, {
-		snapshot: () => shapes,
+		snapshot: () => {
+			retained.add(shapes);
+			return shapes;
+		},
 		restore: (saved) => {
 			shapes = saved;
-			seen = saved;
+			retained.add(saved);
 		},
 		forget,
 		touches: (stmt) => shapeTouches(source, stmt),
