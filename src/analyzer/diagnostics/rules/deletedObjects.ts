@@ -8,9 +8,8 @@
 // an Unlisted ListObject 1004. `ws Is Nothing` still runs and gives False,
 // and a new `Set` ends what is known.
 //
-// Erase gives one more: a Variant that held an array holds an empty one
-// (9 on `v(0)`). The elements of an erased fixed array of objects are the
-// object rules'.
+// What Erase leaves in a Variant that held an array is the array rules'
+// (issue #420).
 //
 // Only a straight run of a procedure's statements is followed: a block that
 // names a variable ends what is known of it.
@@ -62,12 +61,8 @@ export function checkDeletedObjects(
 		const run = (body: readonly BodyNode[]): void => {
 			const ended = new Map<string, Ended>();
 			const rangesOf = new Map<string, string>();
-			const arrayVariants = new Set<string>();
-			const emptied = new Set<string>();
 			const forget = (lower: string): void => {
 				ended.delete(lower);
-				arrayVariants.delete(lower);
-				emptied.delete(lower);
 			};
 			for (const node of body) {
 				if (isInactiveNode(activity, node)) {
@@ -76,7 +71,7 @@ export function checkDeletedObjects(
 				if (!isLeafStatement(node)) {
 					// A block may change what it names; its own run starts afresh.
 					const text = source.slice(node.span.start, node.span.end).toLowerCase();
-					for (const lower of [...ended.keys(), ...arrayVariants, ...emptied, ...rangesOf.keys()]) {
+					for (const lower of [...ended.keys(), ...rangesOf.keys()]) {
 						if (new RegExp(`\\b${lower}\\b`).test(text)) {
 							forget(lower);
 							rangesOf.delete(lower);
@@ -93,23 +88,10 @@ export function checkDeletedObjects(
 				if (statementLabelDeclaration(source, node.span)) {
 					ended.clear();
 					rangesOf.clear();
-					arrayVariants.clear();
-					emptied.clear();
 				}
 				const toks = statementTokensAfterLeadingLabel(source, node.span).filter((tok) => tok.kind !== 'comment');
 				const line = source.slice(0, node.span.start).split('\n').length;
 				const head = tokenText(toks[0]);
-				// `ReDim a(1)` and `ReDim Preserve a(5)` allocate again what Erase
-				// emptied (issue #584, measured in Excel 16.0).
-				if (head === 'redim') {
-					for (const tok of toks.slice(1)) {
-						const lower = tokenName(tok)?.toLowerCase();
-						if (lower) {
-							forget(lower);
-						}
-					}
-					continue;
-				}
 				// `Set x = ...` gives x a new object.
 				if (head === 'set' && tokenName(toks[1]) && toks[2]?.rawText === '=') {
 					const target = toks[1].rawText.toLowerCase();
@@ -137,24 +119,12 @@ export function checkDeletedObjects(
 					}
 					continue;
 				}
-				if (head === 'erase') {
-					for (const tok of toks.slice(1)) {
-						const lower = tokenName(tok)?.toLowerCase();
-						if (lower && arrayVariants.has(lower)) {
-							emptied.add(lower);
-						}
-					}
-					continue;
-				}
-				report(toks, node.span.start, ended, emptied, push);
+				report(toks, node.span.start, ended, push);
 				// What the statement assigns or passes whole is no longer known.
 				const assigned = tokenName(toks[head === 'let' ? 1 : 0])?.toLowerCase();
 				const assignAt = head === 'let' ? 2 : 1;
 				if (assigned && toks[assignAt]?.rawText === '=') {
 					forget(assigned);
-					if (typeOf.get(assigned) === 'variant' && ['array', 'split'].includes(tokenText(toks[assignAt + 1])) && toks[assignAt + 2]?.rawText === '(') {
-						arrayVariants.add(assigned);
-					}
 				}
 				toks.forEach((tok, i) => {
 					const lower = tokenName(tok)?.toLowerCase();
@@ -168,7 +138,7 @@ export function checkDeletedObjects(
 	}
 }
 
-function report(toks: readonly VbaToken[], start: number, ended: Map<string, Ended>, emptied: Set<string>, push: PushFn): void {
+function report(toks: readonly VbaToken[], start: number, ended: Map<string, Ended>, push: PushFn): void {
 	toks.forEach((tok, i) => {
 		const lower = tokenName(tok)?.toLowerCase();
 		if (!lower || toks[i - 1]?.rawText === '.' || toks[i - 1]?.rawText === '!') {
@@ -181,12 +151,6 @@ function report(toks: readonly VbaToken[], start: number, ended: Map<string, End
 			const what = gone.how.startsWith('a range') ? `'${tok.rawText}' is ${gone.how}` : `'${tok.rawText}' was ${gone.how}`;
 			push('objectUsedAfterDelete', `${what}, so its ${name} is gone. This will raise Run-time error ${gone.error.replace('MEMBER', name)}.`, at);
 			ended.delete(lower);
-			return;
-		}
-		if (emptied.has(lower) && toks[i + 1]?.rawText === '(') {
-			push('unallocatedDynamicArrayAccess', `'${tok.rawText}' held an array that Erase emptied, so it has no element to read. This will raise Run-time error '9': Subscript out of range.`, at);
-			emptied.delete(lower);
-			return;
 		}
 	});
 }
