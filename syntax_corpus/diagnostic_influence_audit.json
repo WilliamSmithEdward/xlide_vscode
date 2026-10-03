@@ -7856,11 +7856,16 @@
         "issue294_04_runtime",
         "issue294_05_runtime",
         "issue294_06_runtime",
-        "issue584_13_runtime"
+        "issue584_13_runtime",
+        "issue683_01_runtime",
+        "issue683_02_runtime",
+        "issue683_03_runtime",
+        "issue683_04_runtime",
+        "issue683_05_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": ""
+      "notes": " A sheet or Range taken from a workbook before it closed is gone with it; a closed Word document and its Ranges raise 5825, a closed PowerPoint presentation, a deleted Slide and a Slide of a closed presentation -2147188720 (issue #683, Excel, Word and PowerPoint 16.0, 21 cases; the oracle holds the 7 Excel ones)."
     },
     {
       "code": "longlong-narrowing",
