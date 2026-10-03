@@ -33,6 +33,7 @@ import { bareCallStatementTarget } from '../../call/callContext';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import { parseVbaIntegerLiteral } from '../../constants/integerConstantExpression';
 import { jumpTargetLabelDeclaration } from '../../flow/procedureLabels';
+import { splitTopLevelTokenGroups } from '../../lexer/tokenHelpers';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type { BodyNode, LeafStatementNode, ModuleNode, Span } from '../../parser/nodes';
 import { isLeafStatement } from '../../parser/nodes';
@@ -45,6 +46,7 @@ import {
 	bareAssignmentTarget,
 	blockHeaderLineSpan,
 	forEachStatement,
+	matchParenFrom,
 	statementAndBranchSpans,
 	statementTokensAfterLeadingLabel,
 	tokenName,
@@ -81,10 +83,20 @@ const STATEMENT_MODES: Readonly<Record<string, readonly FileMode[]>> = {
 };
 
 /**
- * What is known about each file number key as the statements run, and under
- * `path:` keys the paths known to name an empty file.
+ * What a path is known to name (issue #682): an empty file, a file, nothing,
+ * an empty folder, or a folder something was made in.
  */
-type FileStates = Map<string, OpenFile | 'closed' | 'empty'>;
+type PathFact = 'empty' | 'file' | 'absent' | 'folder' | 'filled';
+
+/**
+ * What is known about each file number key as the statements run, and under
+ * `path:` keys what each path names.
+ */
+type FileStates = Map<string, OpenFile | 'closed' | PathFact>;
+
+function isOpen(state: OpenFile | 'closed' | PathFact | undefined): state is OpenFile {
+	return typeof state === 'object';
+}
 
 const FILE_STATEMENTS: ReadonlySet<string> = new Set([
 	'print', 'write', 'input', 'line', 'get', 'put', 'seek', 'close', 'lock', 'unlock', 'width',
@@ -114,6 +126,9 @@ export function checkFileStatements(
 			continue;
 		}
 		const states: FileStates = new Map();
+		// Under On Error Resume Next a statement that fails goes on to the
+		// next: nothing it would raise is reported (issue #682).
+		let resumeNext = false;
 		// Blocks are entered with the state they start with; a block may open,
 		// close or reopen anything it names (issue #237).
 		const visit = (node: BodyNode): void => {
@@ -122,6 +137,10 @@ export function checkFileStatements(
 			}
 			const toks = statementTokensAfterLeadingLabel(source, node.span);
 			if (toks.length === 0) {
+				return;
+			}
+			if (tokenText(toks[0]) === 'on' && tokenText(toks[1]) === 'error') {
+				resumeNext = tokenText(toks[2]) === 'resume';
 				return;
 			}
 			if (node.kind === 'Statement' && node.singleLineIfBranches) {
@@ -138,7 +157,10 @@ export function checkFileStatements(
 			if (jumpTargetLabelDeclaration(source, node.span) || tokenText(toks[0]) === 'gosub') {
 				states.clear();
 			}
-			if (checkOpenPathUse(node.span, toks, states, push)) {
+			if (!resumeNext) {
+				checkPathFunctions(node.span, toks, states, push);
+			}
+			if (checkOpenPathUse(node.span, toks, states, push, resumeNext)) {
 				return;
 			}
 			if (!isFileStatementHead(tokenText(toks[0])) && bareCallStatementTarget(source, node.span)) {
@@ -155,12 +177,13 @@ export function checkFileStatements(
 			// A path passed whole to a procedure may come back changed; a file
 			// statement only reads it.
 			if (!isFileStatementHead(tokenText(toks[0]))) {
-				const tracked = (name: string): boolean => states.has(`path:${name}`) || [...states.values()].some((state) => typeof state === 'object' && state.openPath === `path:${name}`);
+				const tracked = (name: string): boolean => [...states.keys()].some((key) => key.startsWith('path:') && pathKeyNames(key).has(name))
+					|| [...states.values()].some((state) => typeof state === 'object' && state.openPath !== undefined && pathKeyNames(state.openPath).has(name));
 				for (const lower of trackedLocalsNamedWhole(toks, node.span.start, tracked, READ_ONLY_INTRINSICS).keys()) {
 					forgetPath(states, `path:${lower}`);
 				}
 			}
-			checkStatement(node.span, toks, states, push);
+			checkStatement(node.span, toks, states, push, resumeNext);
 		};
 		walkEnteringBlocks(source, member.body, (node) => activity?.isInactive(node.span) === true, visit, {
 			snapshot: () => new Map(states),
@@ -176,12 +199,22 @@ export function checkFileStatements(
 				}
 				for (const key of keys) {
 					states.delete(key);
-					states.delete(`path:${key}`);
+					forgetPath(states, `path:${key}`);
 				}
 			},
 			touches: (stmt) => fileKeysTouchedBy(source, stmt),
-			// `Do Until EOF(f)` checks before its body reads.
-			enter: (node) => markChecked(states, statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span))),
+			enter: (node) => {
+				// `Do Until EOF(f)` checks before its body reads.
+				const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span));
+				markChecked(states, header);
+				// A condition may test the path: `If Len(Dir(p)) > 0 Then Kill p`.
+				forgetPathsNamedIn(states, header);
+				if (node.kind === 'IfBlock') {
+					for (const branch of node.branches) {
+						forgetPathsNamedIn(states, statementTokensAfterLeadingLabel(source, branch.headerSpan));
+					}
+				}
+			},
 		});
 	}
 }
@@ -242,7 +275,7 @@ function checkUnopenedNumbers(source: string, mod: ModuleNode, activity: Conditi
 	}
 }
 
-function checkStatement(base: Span, toks: readonly VbaToken[], states: FileStates, push: PushFn): void {
+function checkStatement(base: Span, toks: readonly VbaToken[], states: FileStates, push: PushFn, resumeNext: boolean): void {
 	const at = (tok: VbaToken): Span => ({ start: base.start + tok.start, end: base.start + tok.end });
 	const range = (first: VbaToken, last: VbaToken): Span => ({ start: base.start + first.start, end: base.start + last.end });
 	const head = tokenText(toks[0]);
@@ -282,15 +315,21 @@ function checkStatement(base: Span, toks: readonly VbaToken[], states: FileState
 			}
 		}
 		const empty = opened.path !== undefined && states.get(opened.path) === 'empty';
+		// For Input finds no file the procedure deleted; the other modes make one (issue #682).
+		if (opened.path !== undefined && opened.mode === 'input' && states.get(opened.path) === 'absent' && !resumeNext) {
+			const pathToks = toks.slice(1, toks.findIndex((tok) => tokenText(tok) === 'for'));
+			push('runtimeArgumentValue', `Open For Input finds no file at ${pathToks.map((tok) => tok.rawText).join(' ')}, which this procedure deleted or moved above. ${PATH_ERRORS.missing}`, range(toks[0], pathToks[pathToks.length - 1] ?? toks[0]));
+		}
 		if (opened.path !== undefined && opened.mode !== 'input') {
 			// Output empties it, and the other modes may write to it.
 			states.delete(opened.path);
+			madeIn(states, opened.path);
 		}
 		if (opened.key === undefined) {
 			return;
 		}
 		const previous = states.get(opened.key);
-		if (previous !== undefined && previous !== 'closed' && previous !== 'empty') {
+		if (isOpen(previous)) {
 			push('fileAlreadyOpen', `File number ${describeKey(opened.key)} is still open from the Open statement above; opening it again raises Run-time error '55': File already open. Close it first.`, at(toks[opened.numberIndex]));
 		}
 		states.set(opened.key, {
@@ -315,7 +354,7 @@ function checkStatement(base: Span, toks: readonly VbaToken[], states: FileState
 			// `Close` with no number, and `Reset`, close every open file: a
 			// later `Print #1` raises 52 in Excel (issue #146).
 			for (const [key, state] of [...states]) {
-				if (state !== 'closed' && state !== 'empty') {
+				if (isOpen(state)) {
 					closeFile(states, key);
 				}
 			}
@@ -356,7 +395,7 @@ function checkStatement(base: Span, toks: readonly VbaToken[], states: FileState
 	const statement = head === 'line' ? 'line input' : head;
 	// `Seek #f, 0` raises 63 whatever f is open for, and when nothing opened
 	// it (issue #262); Get and Put only reach the record in Binary and Random.
-	if (statement === 'seek' || ((statement === 'get' || statement === 'put') && state !== undefined && state !== 'empty' && (state.mode === 'binary' || state.mode === 'random'))) {
+	if (statement === 'seek' || ((statement === 'get' || statement === 'put') && isOpen(state) && (state.mode === 'binary' || state.mode === 'random'))) {
 		const comma = toks.findIndex((tok, index) => index > numberStart && tok.rawText === ',');
 		const record = comma > 0 ? recordBelowOne(toks, comma + 1) : undefined;
 		if (record && (statement === 'seek' || record.value === 0)) {
@@ -364,7 +403,7 @@ function checkStatement(base: Span, toks: readonly VbaToken[], states: FileState
 			return;
 		}
 	}
-	if (state === undefined || state === 'empty') {
+	if (!isOpen(state)) {
 		return;
 	}
 	const writes = statement === 'print' || statement === 'write';
@@ -401,11 +440,11 @@ function reportEmptyInputFunction(toks: readonly VbaToken[], states: FileStates,
 		const key = comma > 0 && numberTok ? fileNumberKey(numberTok) : undefined;
 		const state = key ? states.get(key) : undefined;
 		// `Input(1, #1)` reads an Input or Binary file only (issue #419).
-		if (key && state && state !== 'closed' && state !== 'empty' && state.mode !== 'input' && state.mode !== 'binary') {
+		if (key && isOpen(state) && state.mode !== 'input' && state.mode !== 'binary') {
 			push('fileModeMismatch', `'${toks[i].rawText}' reads file ${describeKey(key)}, opened For ${modeWord(state.mode)}. This will raise Run-time error '54': Bad file mode.`, at(toks[i]));
 			continue;
 		}
-		if (key && state && state !== 'closed' && state !== 'empty' && state.emptyUnchecked) {
+		if (key && isOpen(state) && state.emptyUnchecked) {
 			push('fileReadPastEnd', `'${toks[i].rawText}' reads file ${describeKey(key)}, which this procedure created empty and reopened For Input without checking EOF. This will raise Run-time error '62': Input past end of file.`, at(toks[i]));
 			states.set(key, { ...state, emptyUnchecked: false });
 		}
@@ -420,7 +459,7 @@ function markChecked(states: FileStates, toks: readonly VbaToken[]): void {
 		}
 		const key = fileNumberKey(toks[i + 2].rawText === '#' ? toks[i + 3] : toks[i + 2]);
 		const state = key ? states.get(key) : undefined;
-		if (key && state && state !== 'closed' && state !== 'empty' && state.emptyUnchecked) {
+		if (key && isOpen(state) && state.emptyUnchecked) {
 			states.set(key, { ...state, emptyUnchecked: false });
 		}
 	}
@@ -428,7 +467,7 @@ function markChecked(states: FileStates, toks: readonly VbaToken[]): void {
 		const numberTok = toks[1]?.rawText === '#' ? toks[2] : toks[1];
 		const key = numberTok ? fileNumberKey(numberTok) : undefined;
 		const state = key ? states.get(key) : undefined;
-		if (key && state && state !== 'closed' && state !== 'empty' && state.emptyUnchecked) {
+		if (key && isOpen(state) && state.emptyUnchecked) {
 			states.set(key, { ...state, emptyUnchecked: false });
 		}
 	}
@@ -437,12 +476,11 @@ function markChecked(states: FileStates, toks: readonly VbaToken[]): void {
 /** Closes a number; an Output file closed with nothing written leaves its path empty. */
 function closeFile(states: FileStates, key: string): void {
 	const state = states.get(key);
-	if (state && state !== 'closed' && state !== 'empty' && state.path !== undefined) {
-		if (state.mode === 'output' && state.written === false) {
-			states.set(state.path, 'empty');
-		} else {
-			states.delete(state.path);
-		}
+	if (isOpen(state) && state.path !== undefined) {
+		states.set(state.path, state.mode === 'output' && state.written === false ? 'empty' : 'file');
+	} else if (isOpen(state) && state.openPath !== undefined && state.mode !== 'input') {
+		// Append, Binary and Random made the file if it was not there.
+		states.set(state.openPath, 'file');
 	}
 	states.set(key, 'closed');
 }
@@ -462,11 +500,64 @@ function forgetPathsNamedIn(states: FileStates, toks: readonly VbaToken[]): void
 	}
 }
 
-/** A path key whose name may now hold another path: neither an empty file nor an open one is known by it. */
+/**
+ * A path the rule can follow, as a `path:` key: names and string literals
+ * joined by `&`, `p` or `d & "\a.txt"`. Not a literal with a wildcard, which
+ * Kill takes as a pattern.
+ */
+function pathKeyOf(toks: readonly VbaToken[]): string | undefined {
+	const operands = toks.filter((tok) => tok.kind !== 'comment');
+	if (operands.length % 2 === 0) {
+		return undefined;
+	}
+	const parts: string[] = [];
+	for (let k = 0; k < operands.length; k++) {
+		const tok = operands[k];
+		if (k % 2 === 1) {
+			if (tok.rawText !== '&') {
+				return undefined;
+			}
+			continue;
+		}
+		const name = tok.kind === 'identifier' ? tokenName(tok) : undefined;
+		const literal = tok.kind === 'stringLiteral' ? stringLiteralValue(tok.rawText) : undefined;
+		if (literal !== undefined && !/["*?]/.test(literal)) {
+			parts.push(`"${literal}"`);
+		} else if (name !== undefined) {
+			parts.push(name.toLowerCase());
+		} else {
+			return undefined;
+		}
+	}
+	return `path:${parts.join('&')}`;
+}
+
+/** The names a `path:` key is built from. */
+function pathKeyNames(key: string): Set<string> {
+	return new Set((key.slice('path:'.length).match(/"[^"]*"|[^&"]+/g) ?? []).filter((part) => !part.startsWith('"')));
+}
+
+/** The folder a path is directly in, when its last part is a literal `\name`: `d` for `d & "\a.txt"`. */
+function parentPathKey(key: string): string | undefined {
+	const joined = /^(path:.+)&"\\([^"\\]+)"$/.exec(key);
+	if (joined) {
+		return joined[1];
+	}
+	const literal = /^path:"(.+)\\[^"\\]+"$/.exec(key);
+	return literal ? `path:"${literal[1]}"` : undefined;
+}
+
+/**
+ * A path key whose name may now hold another path: neither an empty file nor
+ * an open one is known by it, nor by any path built from that name.
+ */
 function forgetPath(states: FileStates, path: string): void {
-	states.delete(path);
-	for (const [key, state] of states) {
-		if (typeof state === 'object' && state.openPath === path) {
+	const name = path.slice('path:'.length);
+	const named = (key: string): boolean => key === path || (/^[^"&]+$/.test(name) && key.startsWith('path:') && pathKeyNames(key).has(name));
+	for (const [key, state] of [...states]) {
+		if (named(key)) {
+			states.delete(key);
+		} else if (typeof state === 'object' && state.openPath !== undefined && named(state.openPath)) {
 			const rest = { ...state };
 			delete rest.openPath;
 			states.set(key, rest);
@@ -474,32 +565,128 @@ function forgetPath(states: FileStates, path: string): void {
 	}
 }
 
+/** A file or folder made at a path: what is known of the folder it is in. */
+function madeIn(states: FileStates, path: string): void {
+	const parent = parentPathKey(path);
+	if (parent && (states.get(parent) === 'folder' || states.get(parent) === 'filled')) {
+		states.set(parent, 'filled');
+	}
+}
+
+/** A file or folder gone from a path: the folder it was in may now be empty. */
+function goneFrom(states: FileStates, path: string): void {
+	const parent = parentPathKey(path);
+	if (parent) {
+		states.delete(parent);
+	}
+}
+
+/** The errors a statement on a path the procedure deleted or made raises (issue #682). */
+const PATH_ERRORS = {
+	missing: "This will raise Run-time error '53': File not found.",
+	exists: "This will raise Run-time error '58': File already exists.",
+	access: "This will raise Run-time error '75': Path/File access error.",
+	noFolder: "This will raise Run-time error '76': Path not found.",
+} as const;
+
 /**
  * `Kill p`, `FileCopy p, q` or `Name p As q` while p is open (FileCopy: open
  * in any mode but Input): Run-time error
- * 55, File already open (issue #419, measured in Excel 16.0). True when the
- * statement is one of these, which changes no file number.
+ * 55, File already open (issue #419, measured in Excel 16.0). And what these
+ * and MkDir and RmDir find where the procedure deleted or made something
+ * (issue #682, measured in Excel 16.0): Kill, FileCopy or Name of a file it
+ * deleted raises 53, Name onto a file it made 58, MkDir of a folder it made
+ * 75, RmDir of a folder it made something in 75 and of one it removed 76.
+ * Under On Error Resume Next nothing is reported, and a Kill or RmDir still
+ * leaves nothing there. True when the statement is one of these, which
+ * changes no file number.
  */
-function checkOpenPathUse(base: Span, toks: readonly VbaToken[], states: FileStates, push: PushFn): boolean {
+function checkOpenPathUse(base: Span, toks: readonly VbaToken[], states: FileStates, push: PushFn, resumeNext: boolean): boolean {
 	const head = tokenText(toks[0]);
-	if ((head !== 'kill' && head !== 'filecopy' && head !== 'name') || (head === 'name' && !toks.some((tok) => tokenText(tok) === 'as')) || ['=', '.', '('].includes(toks[1]?.rawText ?? '')) {
+	const pathStatement = head === 'kill' || head === 'filecopy' || head === 'name' || head === 'mkdir' || head === 'rmdir';
+	if (!pathStatement || (head === 'name' && !toks.some((tok) => tokenText(tok) === 'as')) || ['=', '.', '('].includes(toks[1]?.rawText ?? '')) {
 		return false;
 	}
 	const end = toks.findIndex((tok, k) => k > 0 && (tok.rawText === ',' || tokenText(tok) === 'as'));
 	const pathToks = toks.slice(1, end < 0 ? toks.length : end);
-	const path = pathToks.length !== 1 ? undefined
-		: pathToks[0].kind === 'stringLiteral' ? `path:"${stringLiteralValue(pathToks[0].rawText)}"`
-			: tokenName(pathToks[0]) !== undefined ? `path:${tokenName(pathToks[0])!.toLowerCase()}` : undefined;
+	const targetToks = end < 0 ? [] : toks.slice(end + 1);
+	const path = pathKeyOf(pathToks);
+	const target = pathKeyOf(targetToks);
+	const shown = (part: readonly VbaToken[]): string => part.map((tok) => tok.rawText).join(' ');
+	const span = (part: readonly VbaToken[]): Span => ({ start: base.start + toks[0].start, end: base.start + part[part.length - 1].end });
+	const word = { kill: 'Kill', filecopy: 'FileCopy', name: 'Name', mkdir: 'MkDir', rmdir: 'RmDir' }[head];
 	// FileCopy reads a file open For Input, and is refused one open in any other mode.
 	const open = path ? [...states].find(([, state]) => typeof state === 'object' && state.openPath === path && (head !== 'filecopy' || state.mode !== 'input')) : undefined;
-	if (open) {
-		const word = head === 'kill' ? 'Kill' : head === 'filecopy' ? 'FileCopy' : 'Name';
-		push('fileAlreadyOpen', `'${pathToks[0].rawText}' is the path of file ${describeKey(open[0])}, still open from the Open statement above; ${word} on an open file raises Run-time error '55': File already open. Close it first.`, { start: base.start + toks[0].start, end: base.start + pathToks[0].end });
+	if (open && head !== 'mkdir' && head !== 'rmdir') {
+		push('fileAlreadyOpen', `'${shown(pathToks)}' is the path of file ${describeKey(open[0])}, still open from the Open statement above; ${word} on an open file raises Run-time error '55': File already open. Close it first.`, span(pathToks));
 	}
-	if (path && head !== 'filecopy') {
+	const fact = path ? states.get(path) : undefined;
+	const targetFact = target ? states.get(target) : undefined;
+	let problem: string | undefined;
+	if ((head === 'kill' || head === 'filecopy' || head === 'name') && fact === 'absent') {
+		problem = `${word} finds no file at ${shown(pathToks)}, which this procedure deleted or moved above. ${PATH_ERRORS.missing}`;
+	} else if (head === 'name' && (targetFact === 'file' || targetFact === 'empty')) {
+		problem = `Name finds ${shown(targetToks)} already there, a file this procedure made above. ${PATH_ERRORS.exists}`;
+	} else if (head === 'mkdir' && (fact === 'folder' || fact === 'filled')) {
+		problem = `MkDir finds the folder ${shown(pathToks)} already there, made by this procedure above. ${PATH_ERRORS.access}`;
+	} else if (head === 'rmdir' && fact === 'filled') {
+		problem = `${shown(pathToks)} holds what this procedure made in it above, and RmDir removes only an empty folder. ${PATH_ERRORS.access}`;
+	} else if (head === 'rmdir' && fact === 'absent') {
+		problem = `RmDir finds no folder ${shown(pathToks)}, which this procedure removed above. ${PATH_ERRORS.noFolder}`;
+	}
+	if (problem && !open && !resumeNext) {
+		push('runtimeArgumentValue', problem, span(head === 'name' && problem.includes("'58'") ? targetToks : pathToks));
+	}
+	// What the statement leaves, when it runs or Resume Next goes past it.
+	if (!path) {
+		if (target) {
+			forgetPath(states, target);
+		}
+		return true;
+	}
+	// A Kill of an open file, or an RmDir of a full folder, leaves it there.
+	if ((head === 'kill' && !open) || (head === 'rmdir' && fact !== 'filled')) {
 		forgetPath(states, path);
+		states.set(path, 'absent');
+		goneFrom(states, path);
+	} else if (head === 'mkdir') {
+		states.set(path, fact === 'filled' ? 'filled' : 'folder');
+		madeIn(states, path);
+	} else if (head === 'name' || head === 'filecopy') {
+		// Under Resume Next it may not have run, so nothing is known of either path.
+		const ran = !resumeNext && !problem && !open;
+		if (head === 'name') {
+			forgetPath(states, path);
+			goneFrom(states, path);
+		}
+		if (target) {
+			forgetPath(states, target);
+		}
+		if (ran && target) {
+			if (head === 'name') {
+				states.set(path, 'absent');
+			}
+			states.set(target, fact === 'empty' ? 'empty' : 'file');
+			madeIn(states, target);
+		}
 	}
 	return true;
+}
+
+/** FileLen, GetAttr and FileDateTime of a file the procedure deleted raise 53 (issue #682). */
+function checkPathFunctions(base: Span, toks: readonly VbaToken[], states: FileStates, push: PushFn): void {
+	for (let i = 0; i + 1 < toks.length; i++) {
+		const name = tokenText(toks[i]);
+		if ((name !== 'filelen' && name !== 'getattr' && name !== 'filedatetime') || toks[i + 1].rawText !== '(' || toks[i - 1]?.rawText === '.') {
+			continue;
+		}
+		const close = matchParenFrom(toks, i + 1);
+		const pathToks = toks.slice(i + 2, close);
+		const path = close > i + 2 ? pathKeyOf(pathToks) : undefined;
+		if (path && states.get(path) === 'absent') {
+			push('runtimeArgumentValue', `${toks[i].rawText} finds no file at ${pathToks.map((tok) => tok.rawText).join(' ')}, which this procedure deleted or moved above. ${PATH_ERRORS.missing}`, { start: base.start + toks[i].start, end: base.start + toks[close].end });
+		}
+	}
 }
 
 /**
@@ -590,9 +777,7 @@ function parseOpen(toks: readonly VbaToken[]): ParsedOpen | undefined {
 		return undefined;
 	}
 	const pathToks = toks.slice(1, pathEnd);
-	const path = pathToks.length !== 1 ? undefined
-		: pathToks[0].kind === 'stringLiteral' ? `path:"${stringLiteralValue(pathToks[0].rawText)}"`
-			: tokenName(pathToks[0]) !== undefined ? `path:${tokenName(pathToks[0])!.toLowerCase()}` : undefined;
+	const path = pathKeyOf(pathToks);
 	// `Len = 0` after the number.
 	const lenAt = toks.findIndex((tok, k) => k > numberIndex && tokenText(tok) === 'len' && toks[k + 1]?.rawText === '=');
 	const lenTok = lenAt > 0 ? toks[lenAt + 2] : undefined;
@@ -675,9 +860,28 @@ function fileKeysTouchedBy(source: string, node: LeafStatementNode): Set<string>
 		}
 		if (opened?.path) {
 			out.add(opened.path.slice('path:'.length));
+			const parent = parentPathKey(opened.path);
+			if (parent) {
+				out.add(parent.slice('path:'.length));
+			}
 		}
 		if (head === 'reset' || (head === 'close' && fileNumberKeysIn(toks.slice(1)).length === 0)) {
 			out.add('*');
+		}
+	}
+	// Kill, FileCopy, Name, MkDir and RmDir change what their paths and the
+	// folders those are in name (issue #682).
+	if (['kill', 'filecopy', 'name', 'mkdir', 'rmdir'].includes(head)) {
+		for (const part of splitTopLevelTokenGroups(toks, 1, ',', toks.length).flatMap((group) => {
+			const as = group.findIndex((tok) => tokenText(tok) === 'as');
+			return as < 0 ? [group] : [group.slice(0, as), group.slice(as + 1)];
+		})) {
+			const path = pathKeyOf(part);
+			for (const key of path ? [path, parentPathKey(path)] : []) {
+				if (key) {
+					out.add(key.slice('path:'.length));
+				}
+			}
 		}
 	}
 	const target = bareAssignmentTarget(source, node.span);
