@@ -27,10 +27,13 @@ import {
 	sourceBindingTypeResolvers,
 	sourceNameScopeFor,
 	typeEnvironmentFor,
+	VALUE_HELD,
+	knownLocalLiteralValuesAt,
+	normalizeType,
 	validateArgumentTypes,
 	validateArgumentTypesForSignature,
 } from '../typeInference';
-import { statementAndBranchSpans, tokenText, type ProcedureStatementVisitor } from '../walker';
+import { forEachStatementWithHeaders, statementAndBranchSpans, statementTokens, tokenName, tokenText, type ProcedureStatementVisitor } from '../walker';
 import { straightLineAssignments } from '../straightLineValues';
 
 /**
@@ -57,14 +60,41 @@ export function checkArgumentTypes(
 		const procSym = procedureSymbolFor(symbols, member);
 		const { resolveExpressionType, resolveQualifiedExpressionType } =
 			sourceBindingTypeResolvers(symbols, procSym, projectVisibleSymbols);
-		// What a local holds at the statement (issue #246).
+		// What a local holds at the statement (issue #246), and a Variant still
+		// holding Empty, a number or a String there (issue #410).
 		const heldAt = heldObjectsAt(source, member, symbols, activity);
 		const variantLocals = new Set((procSym?.children ?? [])
 			.filter((child) => child.kind === 'localVariable' && child.visibility !== 'Static' && !child.isArray && (!child.asType || child.asType.toLowerCase() === 'variant'))
 			.map((child) => child.name.toLowerCase()));
 		let reaching: ReturnType<typeof straightLineAssignments> | undefined;
+		const valuesAt = knownLocalLiteralValuesAt(source, member, symbols, activity);
+		// Where each name is first named: a Variant local is Empty there,
+		// though the call may pass it ByRef. A parameter holds what the caller
+		// gave it, and a Static local what an earlier call left.
+		const plainLocals = new Set(member.modifiers.some((word) => word.toLowerCase() === 'static') ? [] : (procSym?.children ?? []).filter((child) => child.kind === 'localVariable' && child.visibility !== 'Static').map((child) => child.name.toLowerCase()));
+		let firstNamed: Map<string, number> | undefined;
+		const namedFirstAt = (lower: string, at: number): boolean => {
+			if (!plainLocals.has(lower)) {
+				return false;
+			}
+			if (!firstNamed) {
+				const found = new Map<string, number>();
+				firstNamed = found;
+				forEachStatementWithHeaders(source, member.body, (node) => {
+					for (const tok of statementTokens(source, node.span)) {
+						const name = tokenName(tok)?.toLowerCase();
+						if (name && !found.has(name)) {
+							found.set(name, node.span.start);
+						}
+					}
+				}, activity);
+			}
+			return firstNamed.get(lower) === at;
+		};
 		return (stmt) => {
-			const heldClassOf = (lower: string): string | undefined => heldAt(stmt).classes.get(lower);
+			const heldClassOf = (lower: string): string | undefined => heldAt(stmt).classes.get(lower)
+				?? (normalizeType(env.get(lower)) === 'variant'
+					&& (['empty', 'number', 'string'].includes(valuesAt(stmt).get(lower)?.kind ?? '') || namedFirstAt(lower, stmt.span.start)) ? VALUE_HELD : undefined);
 			// A Variant local a straight line has just given Null (issue #324).
 			const heldNull = (lower: string): boolean => {
 				if (!variantLocals.has(lower)) {

@@ -95322,6 +95322,374 @@
       "source": "Option Explicit\r\nPrivate m As Long\r\nPrivate Function GetMod() As Long\r\n    GetMod = m\r\nEnd Function\r\nPrivate Function Counter() As Long\r\n    Static n As Long\r\n    Counter = n\r\n    n = n + 1\r\nEnd Function\r\nPrivate Function GetPlus() As Long\r\n    GetPlus = m + 2\r\nEnd Function\r\nFunction Main() As Variant\r\n    m = 5\r\n    Main = 10 / GetMod()\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue410c_01_compile",
+      "description": "Issue #410 a value into a Collection parameter, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function Callee(ByRef p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Callee(True)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410c_02_compile",
+      "description": "Issue #410 a value into a Collection parameter, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function Callee(ByRef p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Callee(p:=True)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410c_03_compile",
+      "description": "Issue #410 a value into a Collection parameter, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function Callee(ByRef p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Callee(#1/2/2000#)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410c_04_compile",
+      "description": "Issue #410 a value into a Collection parameter, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function Callee(ByRef p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Callee(p:=#1/2/2000#)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410c_05_compile",
+      "description": "Issue #410 a value into a Collection parameter, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function Callee(ByRef p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v As Long\r\n    Main = Callee(v + 0)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410c_06_compile",
+      "description": "Issue #410 a value into a Collection parameter, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function Callee(ByRef p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v As Long\r\n    Main = Callee(p:=v + 0)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410c_07_compile",
+      "description": "Issue #410 a value into a Collection parameter, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function Callee(ByRef p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v As Long\r\n    Main = Callee(v)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410c_08_compile",
+      "description": "Issue #410 a value into a Collection parameter, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function Callee(ByRef p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v As Long\r\n    Main = Callee(p:=v)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410c_09_compile",
+      "description": "Issue #410 a value into a Collection parameter, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function Callee(ByRef p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v As String\r\n    Main = Callee(v)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410c_10_compile",
+      "description": "Issue #410 a value into a Collection parameter, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function Callee(ByRef p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v As String\r\n    Main = Callee(p:=v)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410c_11_compile",
+      "description": "Issue #410 a value into a Collection parameter, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function Callee(ByRef p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v As Currency\r\n    Main = Callee(v)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410c_12_compile",
+      "description": "Issue #410 a value into a Collection parameter, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function Callee(ByRef p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v As Currency\r\n    Main = Callee(p:=v)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410c_13_runtime",
+      "description": "Issue #410 a value into a Collection parameter, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function Callee(ByRef p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v As New Collection\r\n    Main = Callee(v)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue410c_14_runtime",
+      "description": "Issue #410 a value into a Collection parameter, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function Callee(ByRef p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v As New Collection\r\n    Main = Callee(p:=v)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue410c_15_compile",
+      "description": "Issue #410 a value into a Collection parameter, case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function Callee(ByRef p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Callee(-5)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410c_16_compile",
+      "description": "Issue #410 a value into a Collection parameter, case 16, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function Callee(ByRef p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Callee(p:=-5)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410c_17_compile",
+      "description": "Issue #410 a value into a Collection parameter, case 17, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function Callee(ByVal p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Callee(True)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410c_18_compile",
+      "description": "Issue #410 a value into a Collection parameter, case 18, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function Callee(ByVal p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Callee(p:=True)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410c_19_compile",
+      "description": "Issue #410 a value into a Collection parameter, case 19, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function Callee(ByVal p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Callee(#1/2/2000#)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410c_20_compile",
+      "description": "Issue #410 a value into a Collection parameter, case 20, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function Callee(ByVal p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Callee(p:=#1/2/2000#)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410c_21_compile",
+      "description": "Issue #410 a value into a Collection parameter, case 21, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function Callee(ByVal p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v As Long\r\n    Main = Callee(v + 0)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410c_22_compile",
+      "description": "Issue #410 a value into a Collection parameter, case 22, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function Callee(ByVal p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v As Long\r\n    Main = Callee(p:=v + 0)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410c_23_compile",
+      "description": "Issue #410 a value into a Collection parameter, case 23, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function Callee(ByVal p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v As Long\r\n    Main = Callee(v)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410c_24_compile",
+      "description": "Issue #410 a value into a Collection parameter, case 24, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function Callee(ByVal p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v As Long\r\n    Main = Callee(p:=v)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410c_25_compile",
+      "description": "Issue #410 a value into a Collection parameter, case 25, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function Callee(ByVal p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v As String\r\n    Main = Callee(v)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410c_26_compile",
+      "description": "Issue #410 a value into a Collection parameter, case 26, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function Callee(ByVal p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v As String\r\n    Main = Callee(p:=v)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410c_27_compile",
+      "description": "Issue #410 a value into a Collection parameter, case 27, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function Callee(ByVal p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v As Currency\r\n    Main = Callee(v)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410c_28_compile",
+      "description": "Issue #410 a value into a Collection parameter, case 28, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function Callee(ByVal p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v As Currency\r\n    Main = Callee(p:=v)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410c_29_runtime",
+      "description": "Issue #410 a value into a Collection parameter, case 29, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 424.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function Callee(ByVal p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v As Variant\r\n    Main = Callee(v)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue410c_30_runtime",
+      "description": "Issue #410 a value into a Collection parameter, case 30, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 424.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function Callee(ByVal p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v As Variant\r\n    Main = Callee(p:=v)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue410c_31_runtime",
+      "description": "Issue #410 a value into a Collection parameter, case 31, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 424.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function Callee(ByVal p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v As Variant\r\n    v = 5\r\n    Main = Callee(v)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue410c_32_runtime",
+      "description": "Issue #410 a value into a Collection parameter, case 32, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 424.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function Callee(ByVal p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v As Variant\r\n    v = 5\r\n    Main = Callee(p:=v)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue410c_33_runtime",
+      "description": "Issue #410 a value into a Collection parameter, case 33, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function Callee(ByVal p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v As New Collection\r\n    Main = Callee(v)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue410c_34_runtime",
+      "description": "Issue #410 a value into a Collection parameter, case 34, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function Callee(ByVal p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim v As New Collection\r\n    Main = Callee(p:=v)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue410c_35_compile",
+      "description": "Issue #410 a value into a Collection parameter, case 35, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function Callee(ByVal p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Callee(-5)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue410c_36_compile",
+      "description": "Issue #410 a value into a Collection parameter, case 36, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function Callee(ByVal p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Callee(p:=-5)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }
