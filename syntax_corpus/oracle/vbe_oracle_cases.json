@@ -93128,6 +93128,278 @@
       "source": "Option Explicit\r\nFunction Cnt(ByVal v As Variant) As Long\r\n    Cnt = UBound(v) - LBound(v) + 1\r\nEnd Function\r\nFunction Outer(ParamArray p() As Variant) As Long\r\n    Outer = Cnt(p)\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Outer(1, 2)\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue604_01_runtime",
+      "description": "Issue #604 DateSerial carrying the month first, and a String into a Type array field, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1999-12-01T00:00:00.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = DateSerial(100, 0, 1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue604_02_runtime",
+      "description": "Issue #604 DateSerial carrying the month first, and a String into a Type array field, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1999-12-01T00:00:00.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = DateSerial(100, -1200, 1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue604_03_runtime",
+      "description": "Issue #604 DateSerial carrying the month first, and a String into a Type array field, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1999-11-01T00:00:00.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = DateSerial(101, -13, 1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue604_04_runtime",
+      "description": "Issue #604 DateSerial carrying the month first, and a String into a Type array field, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1532-07-30T00:00:00.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = DateSerial(366, -10000, -1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue604_05_runtime",
+      "description": "Issue #604 DateSerial carrying the month first, and a String into a Type array field, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = DateSerial(9999, 13, 0)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue604_06_runtime",
+      "description": "Issue #604 DateSerial carrying the month first, and a String into a Type array field, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = DateSerial(10000, 1, 0)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue604_07_runtime",
+      "description": "Issue #604 DateSerial carrying the month first, and a String into a Type array field, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = DateSerial(99, 13, -1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue604_08_runtime",
+      "description": "Issue #604 DateSerial carrying the month first, and a String into a Type array field, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 9999-12-01T00:00:00.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = DateSerial(10000, 0, 1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue604_09_runtime",
+      "description": "Issue #604 DateSerial carrying the month first, and a String into a Type array field, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 9999-12-31T00:00:00.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = DateSerial(9999, 12, 31)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue604_10_runtime",
+      "description": "Issue #604 DateSerial carrying the month first, and a String into a Type array field, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = DateSerial(9999, 12, 32)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue604_11_runtime",
+      "description": "Issue #604 DateSerial carrying the month first, and a String into a Type array field, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = DateSerial(100, 1, 0)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue604_12_runtime",
+      "description": "Issue #604 DateSerial carrying the month first, and a String into a Type array field, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0100-01-01T00:00:00.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = DateSerial(100, 1, 1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue604_13_runtime",
+      "description": "Issue #604 DateSerial carrying the month first, and a String into a Type array field, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0100-01-01T00:00:00.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = DateSerial(-1900, 1, 1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue604_14_runtime",
+      "description": "Issue #604 DateSerial carrying the month first, and a String into a Type array field, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = DateSerial(-1901, 12, 31)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue604_15_runtime",
+      "description": "Issue #604 DateSerial carrying the month first, and a String into a Type array field, case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2000-01-01T00:00:00.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = DateSerial(0, 1, 1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue604_16_runtime",
+      "description": "Issue #604 DateSerial carrying the month first, and a String into a Type array field, case 16, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2029-12-31T00:00:00.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = DateSerial(29, 12, 31)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue604_17_runtime",
+      "description": "Issue #604 DateSerial carrying the month first, and a String into a Type array field, case 17, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1999-12-31T00:00:00.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = DateSerial(99, 12, 31)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue604_18_runtime",
+      "description": "Issue #604 DateSerial carrying the month first, and a String into a Type array field, case 18, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = DateSerial(-10000, 1, 1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue604_19_runtime",
+      "description": "Issue #604 DateSerial carrying the month first, and a String into a Type array field, case 19, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = DateSerial(9999, 13, 1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue604_20_runtime",
+      "description": "Issue #604 DateSerial carrying the month first, and a String into a Type array field, case 20, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2000-01-01T00:00:00.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = DateSerial(1, -11, 1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue604_21_compile",
+      "description": "Issue #604 DateSerial carrying the month first, and a String into a Type array field, case 21, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Type T\r\n    f() As Long\r\n    b() As Byte\r\nEnd Type\r\nFunction Main() As Variant\r\n    Dim t As T\r\n    t.f = \"abcdef\"\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue604_22_compile",
+      "description": "Issue #604 DateSerial carrying the month first, and a String into a Type array field, case 22, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Type T\r\n    f() As Long\r\n    b() As Byte\r\nEnd Type\r\nFunction Main() As Variant\r\n    Dim ts(1) As T\r\n    ts(0).f = \"abcdef\"\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue604_23_compile",
+      "description": "Issue #604 DateSerial carrying the month first, and a String into a Type array field, case 23, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Type T\r\n    f() As Long\r\n    b() As Byte\r\nEnd Type\r\nFunction Main() As Variant\r\n    Dim t As T\r\n    With t\r\n        .f = \"abcdef\"\r\n    End With\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue604_24_runtime",
+      "description": "Issue #604 DateSerial carrying the month first, and a String into a Type array field, case 24, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Type T\r\n    f() As Long\r\n    b() As Byte\r\nEnd Type\r\nFunction Main() As Variant\r\n    Dim t As T\r\n    t.b = \"abcdef\"\r\n    Main = UBound(t.b)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue604_25_runtime",
+      "description": "Issue #604 DateSerial carrying the month first, and a String into a Type array field, case 25, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Type T\r\n    f() As Long\r\n    b() As Byte\r\nEnd Type\r\nFunction Main() As Variant\r\n    Dim t As T\r\n    t.f = Split(\"a b\")\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }
