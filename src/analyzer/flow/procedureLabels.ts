@@ -10,6 +10,7 @@ import {
 	tokensWithoutLeadingLineNumber,
 	tokenWord,
 } from '../lexer/tokenHelpers';
+import { forEachStatement } from '../parser/statementWalk';
 import { parseModule } from '../parser/parseModule';
 import type {
 	BodyNode,
@@ -64,7 +65,7 @@ export function collectProcedureLabelDeclarations(
 	activity?: ConditionalActivityTracker,
 ): VbaProcedureLabel[] {
 	const labels: VbaProcedureLabel[] = [];
-	forEachProcedureStatement(procedure.body, (stmt) => {
+	forEachStatement(procedure.body, (stmt) => {
 		labels.push(...statementLabelDeclarations(source, stmt.span));
 	}, activity);
 	return labels;
@@ -76,7 +77,7 @@ export function collectProcedureLabelReferences(
 	activity?: ConditionalActivityTracker,
 ): VbaProcedureLabelReference[] {
 	const refs: VbaProcedureLabelReference[] = [];
-	forEachProcedureStatement(procedure.body, (stmt) => {
+	forEachStatement(procedure.body, (stmt) => {
 		refs.push(...statementLabelReferences(source, stmt.span));
 	}, activity);
 	return refs;
@@ -122,11 +123,15 @@ export function statementLabelReferences(
 	source: string,
 	span: Span,
 ): VbaProcedureLabelReference[] {
-	let toks = tokensWithoutLeadingLineNumber(statementTokensCached(source, span));
+	return labelReferencesIn(tokensWithoutLeadingLineNumber(statementTokensCached(source, span)), span);
+}
+
+function labelReferencesIn(tokens: readonly VbaToken[], span: Span, firstWord = tokenWord(tokens[0])): VbaProcedureLabelReference[] {
+	let toks = tokens;
 	if (toks.length === 0) {
 		return [];
 	}
-	if (tokenWord(toks[0]) === 'on') {
+	if (firstWord === 'on') {
 		// `On Local Error GoTo 0` is `On Error GoTo 0` (issue #98): drop the
 		// Local so the target reads the same way.
 		if (tokenWord(toks[1]) === 'local' && tokenWord(toks[2]) === 'error') {
@@ -136,7 +141,7 @@ export function statementLabelReferences(
 	}
 	const refs: VbaProcedureLabelReference[] = [];
 	for (let i = 0; i < toks.length; i++) {
-		const word = tokenWord(toks[i]);
+		const word = i === 0 ? firstWord : tokenWord(toks[i]);
 		if (word === 'goto' || word === 'gosub') {
 			if (word === 'goto' && isOnErrorGotoDisableAt(toks, i)) {
 				continue;
@@ -315,9 +320,15 @@ function moduleLabelTargets(source: string): ReadonlySet<string> {
  * reads the second word as a call.
  */
 export function statementLabelDeclarations(source: string, span: Span): VbaProcedureLabel[] {
-	const toks = statementTokensCached(source, span);
+	return labelDeclarationsIn(source, span, statementTokensCached(source, span));
+}
+
+function labelDeclarationsIn(source: string, span: Span, toks: readonly VbaToken[]): VbaProcedureLabel[] {
 	const first = toks[0];
 	if (!first) {
+		return [];
+	}
+	if (first.kind !== 'integerLiteral' && toks.length >= 2 && toks[1].rawText !== ':') {
 		return [];
 	}
 	const label = labelFromToken(first, span);
@@ -346,6 +357,16 @@ export function statementLabelDeclarations(source: string, span: Span): VbaProce
 		return [label];
 	}
 	return [];
+}
+
+/** One statement's existing label/error predicates, sharing one token lookup. */
+export function statementHasUnstructuredFlow(source: string, span: Span): boolean {
+	const tokens = statementTokensCached(source, span);
+	const significant = tokensWithoutLeadingLineNumber(tokens);
+	const first = tokenWord(significant[0]);
+	return first === 'resume' || (first === 'on' && tokenWord(significant[1]) === 'error') ||
+		labelDeclarationsIn(source, span, tokens).length > 0 ||
+		labelReferencesIn(significant, span, first).length > 0;
 }
 
 function onStatementLabelReferences(
@@ -476,22 +497,6 @@ function hasSourceColonAfterToken(source: string, span: Span, tok: VbaToken): bo
 	return source[i] === ':';
 }
 
-function forEachProcedureStatement(
-	body: BodyNode[],
-	visit: (stmt: LeafStatementNode) => void,
-	activity?: ConditionalActivityTracker,
-): void {
-	for (const node of body) {
-		if (activity?.isInactive(node.span)) {
-			continue;
-		}
-		if (isLeafStatement(node)) {
-			visit(node);
-		} else if ('body' in node && Array.isArray(node.body)) {
-			forEachProcedureStatement(node.body, visit, activity);
-		}
-	}
-}
 
 function offsetInSpan(offset: number, span: Span): boolean {
 	return offset >= span.start && offset <= span.end;

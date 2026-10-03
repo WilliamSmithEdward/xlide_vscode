@@ -50,23 +50,7 @@ export function activeModuleMembers(
 	return mod.members.filter((member) => !isInactiveNode(activity, member));
 }
 
-/** Walks every leaf statement (Assignment/Call/Statement) in a body, descending into nested blocks. */
-export function forEachStatement(
-	body: BodyNode[],
-	visit: (stmt: LeafStatementNode) => void,
-	activity?: ConditionalActivityTracker,
-): void {
-	for (const node of body) {
-		if (isInactiveNode(activity, node)) {
-			continue;
-		}
-		if (isLeafStatement(node)) {
-			visit(node);
-		} else if ('body' in node && Array.isArray(node.body)) {
-			forEachStatement(node.body, visit, activity);
-		}
-	}
-}
+export { forEachStatement } from '../parser/statementWalk';
 
 /**
  * {@link forEachStatement}, with each block's header line visited as a
