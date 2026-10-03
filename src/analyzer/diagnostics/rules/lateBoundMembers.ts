@@ -45,6 +45,7 @@ import {
 	tokenText,
 } from '../walker';
 import { matchParenFrom, splitTopLevelTokenGroups } from '../../lexer/tokenHelpers';
+import { vbscriptPatternError } from './lateBoundObjects';
 
 const COLLECTION_MEMBERS: ReadonlySet<string> = new Set(['add', 'count', 'item', 'remove']);
 
@@ -105,63 +106,17 @@ function oneLetterApart(a: string, b: string): boolean {
 /**
  * What VBScript's RegExp refuses in a pattern, with the error it raises
  * (issue #477, measured in Excel 16.0): an unclosed group (5020), an
- * unclosed class (5019), a quantifier with nothing before it (5018), and a
- * lookbehind, which VBScript lacks (5017).
+ * unclosed class (5019), a quantifier with nothing to repeat (5018), and
+ * any other fault, a lookbehind or a named group among them (5017).
  */
 function regExpPatternProblem(pattern: string): { error: string; text: string } | undefined {
-	let depth = 0;
-	let atomBefore = false;
-	for (let i = 0; i < pattern.length; i++) {
-		const c = pattern[i];
-		if (c === '\\') {
-			i++;
-			atomBefore = true;
-			continue;
-		}
-		if (c === '[') {
-			let j = i + 1;
-			if (pattern[j] === '^') {
-				j++;
-			}
-			if (pattern[j] === ']') {
-				j++;
-			}
-			while (j < pattern.length && pattern[j] !== ']') {
-				j += pattern[j] === '\\' ? 2 : 1;
-			}
-			if (j >= pattern.length) {
-				return { error: "'5019': Application-defined or object-defined error (VBScript: Expected ']' in regular expression)", text: 'an unclosed character class' };
-			}
-			i = j;
-			atomBefore = true;
-			continue;
-		}
-		if (c === '(') {
-			if (pattern.startsWith('(?<', i)) {
-				return { error: "'5017': Application-defined or object-defined error (VBScript: Syntax error in regular expression)", text: 'a lookbehind, which VBScript does not have' };
-			}
-			depth++;
-			atomBefore = false;
-			if (pattern.startsWith('(?:', i) || pattern.startsWith('(?=', i) || pattern.startsWith('(?!', i)) {
-				i += 2;
-			}
-			continue;
-		}
-		if (c === ')') {
-			depth--;
-			atomBefore = true;
-			continue;
-		}
-		if (c === '|') {
-			atomBefore = false;
-			continue;
-		}
-		if ((c === '*' || c === '+' || c === '?') && !atomBefore) {
-			return { error: "'5018': Application-defined or object-defined error (VBScript: Unexpected quantifier)", text: `a '${c}' with nothing before it to repeat` };
-		}
-		atomBefore = !(c === '^');
+	switch (vbscriptPatternError(pattern)) {
+		case 5020: return { error: "'5020': Application-defined or object-defined error (VBScript: Expected ')' in regular expression)", text: 'an unclosed group' };
+		case 5019: return { error: "'5019': Application-defined or object-defined error (VBScript: Expected ']' in regular expression)", text: 'an unclosed character class' };
+		case 5018: return { error: "'5018': Application-defined or object-defined error (VBScript: Unexpected quantifier)", text: 'a quantifier with nothing to repeat' };
+		case 5017: return { error: "'5017': Application-defined or object-defined error (VBScript: Syntax error in regular expression)", text: 'a form VBScript does not read, such as a lookbehind' };
+		default: return undefined;
 	}
-	return depth > 0 ? { error: "'5020': Application-defined or object-defined error (VBScript: Expected ')' in regular expression)", text: 'an unclosed group' } : undefined;
 }
 
 /** Names a late-bound local is known to hold: the class display name and its members. */
@@ -331,12 +286,6 @@ function checkProgIdObjects(base: number, toks: readonly VbaToken[], held: Reado
 				if (!/^\s*(true|false)\s*$/i.test(text) && !/\d/.test(text)) {
 					push('runtimeArgumentValue', `RegExp.${toks[2].rawText} takes True or False, and "${text}" is neither. This will raise Run-time error '13': Type mismatch.`, at(toks[4]));
 				}
-			}
-		} else if (known.display === 'FileSystemObject' && member === 'opentextfile' && toks[i + 3]?.rawText === '(') {
-			const close = matchParenFrom([...toks], i + 3);
-			const mode = close > i + 4 ? splitTopLevelTokenGroups([...toks], i + 4, ',', close)[1] : undefined;
-			if (mode?.length === 1 && mode[0].kind === 'integerLiteral' && ![1, 2, 8].includes(Number(mode[0].rawText))) {
-				push('runtimeArgumentValue', `OpenTextFile's IOMode is 1 (reading), 2 (writing) or 8 (appending), and ${mode[0].rawText} is none of them. This will raise Run-time error '5': Invalid procedure call or argument.`, at(mode[0]));
 			}
 		}
 	}

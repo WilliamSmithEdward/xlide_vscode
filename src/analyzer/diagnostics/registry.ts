@@ -116,6 +116,7 @@ import { checkDocumentNames } from './rules/documentNames';
 import { checkExcelSessionState } from './rules/excelSessionState';
 import { checkErrorValues } from './rules/errorValues';
 import { checkAccessData } from './rules/accessData';
+import { checkLateBoundObjects } from './rules/lateBoundObjects';
 import { checkByNameCalls } from './rules/byNameCalls';
 import { checkModuleMemberForms } from './rules/moduleMembers';
 import { checkParamArrayUse } from './rules/paramArrayUse';
@@ -467,6 +468,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'accessData',
 		run: (ctx, push) => checkAccessData(ctx.source, ctx.mod, ctx.symbols, ctx.opts.hostModel?.hostName, ctx.activity, push),
+	},
+	{
+		name: 'lateBoundObjectState',
+		run: (ctx, push) => checkLateBoundObjects(ctx.source, ctx.mod, ctx.activity, push),
 	},
 	{
 		name: 'variantValueMisuse',
