@@ -5205,7 +5205,15 @@
         "issue559_33_runtime",
         "issue285b_01_runtime",
         "issue285b_10_runtime",
-        "issue285b_12_runtime"
+        "issue285b_12_runtime",
+        "issue407b_01_runtime",
+        "issue407b_02_runtime",
+        "issue407b_03_runtime",
+        "issue407b_04_runtime",
+        "issue407b_05_runtime",
+        "issue407b_08_runtime",
+        "issue407b_09_runtime",
+        "issue407b_10_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
