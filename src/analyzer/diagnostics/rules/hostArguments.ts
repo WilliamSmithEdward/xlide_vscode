@@ -78,6 +78,7 @@ import { splitTopLevelTokenGroups } from '../../lexer/tokenHelpers';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { procedureSymbolFor, type AnalyzeModuleOptions, type PushFn } from '../analysisContext';
 import type { SheetChanges, WorkbookSheetInfo } from '../../symbols/sheetChanges';
+import { foldStringExpression } from '../knownStringCalls';
 import { checkEachCounterPass, loopCountersAt } from '../loopCounters';
 import { knownLocalLiteralValuesAt, normalizeType, stringLiteralValue, typeEnvironmentFor, type KnownLocalValue } from '../typeInference';
 import {
@@ -804,9 +805,17 @@ const DOCUMENT_EDITS: ReadonlySet<string> = new Set([
 
 /** A Word document the procedure just added, and the text it wrote into it, if any. */
 interface NewDocument {
-	/** The whole text the code set through Content.Text, or "" for an untouched document. */
-	text: string;
+	/**
+	 * The whole text the code set through Content.Text, "" for an untouched
+	 * document, undefined for text an expression gives that is not known.
+	 */
+	text: string | undefined;
 }
+
+/** The text constants a document's text is built with (issue #694). */
+const TEXT_CONSTANTS: Readonly<Record<string, string>> = {
+	vbcr: '\r', vblf: '\n', vbcrlf: '\r\n', vbnewline: '\r\n', vbtab: '\t',
+};
 
 /**
  * The documents each statement sees as new (issue #497, measured in Word
@@ -849,10 +858,14 @@ function newDocumentsAt(source: string, proc: ProcedureNode, activity: Condition
 				state.set(words[1], { text: '' });
 				continue;
 			}
-			// `d.Content.Text = "..."` writes the whole text.
+			// `d.Content.Text = "..."` writes the whole text, and so does an
+			// expression that does not read the document, its text known where
+			// every part is: `"One." & vbCr & "Two."` (issue #694).
 			const target = words[0];
-			if (state.has(target) && toks.length === 7 && words[1] === '.' && words[2] === 'content' && words[3] === '.' && words[4] === 'text' && words[5] === '=' && toks[6].kind === 'stringLiteral') {
-				state.set(target, { text: stringLiteralValue(toks[6].rawText) });
+			if (state.has(target) && toks.length > 6 && words[1] === '.' && words[2] === 'content' && words[3] === '.' && words[4] === 'text' && words[5] === '='
+				&& !toks.slice(6).some((tok) => tokenName(tok)?.toLowerCase() === target)) {
+				const text = foldStringExpression(toks.slice(6), { nameValue: (tok) => TEXT_CONSTANTS[tokenText(tok)], integerValue: () => undefined });
+				state.set(target, { text });
 				continue;
 			}
 			// Anything but a read through the document may change it, and so
@@ -873,22 +886,36 @@ function newDocumentsAt(source: string, proc: ProcedureNode, activity: Condition
 
 /** What a new document holds of each collection, counted from its text. */
 function newDocumentCount(document: NewDocument, member: string): number | undefined {
-	const characters = document.text.length + 1; // the final paragraph mark
+	// Text adds no table, field, bookmark, hyperlink, list, comment or
+	// section: Chr(12) is a page break, and a URL stays text (issue #694,
+	// measured in Word 16.0).
 	switch (member) {
 		case 'tables':
 		case 'fields':
 		case 'inlineshapes':
 		case 'bookmarks':
+		case 'hyperlinks':
+		case 'lists':
+		case 'comments':
 			return 0;
 		case 'sections':
-		case 'paragraphs':
 			return 1;
+	}
+	const text = document.text;
+	if (text === undefined) {
+		return undefined;
+	}
+	// vbCr, vbLf and vbCrLf each end a paragraph; Chr(11) breaks a line.
+	const breaks = (text.match(/\r\n|\r|\n/g) ?? []).length;
+	switch (member) {
+		case 'paragraphs':
+			return breaks + 1;
 		case 'sentences':
 			// Each sentence ends at a stop or at the paragraph's end.
-			return (document.text.match(/[.!?]/g) ?? []).length + 1;
+			return breaks === 0 ? (text.match(/[.!?]/g) ?? []).length + 1 : undefined;
 		case 'words':
 		case 'characters':
-			return characters;
+			return /\n/.test(text) ? undefined : text.length + 1; // the final paragraph mark
 	}
 	return undefined;
 }
@@ -911,11 +938,11 @@ function checkNewDocumentUses(
 		const close = matchParenFrom(toks, i + 3);
 		const args = close > i + 4 ? splitTopLevelTokenGroups(toks, i + 4, ',', close) : [];
 		const at = { start: span.start + toks[i + 2].start, end: span.start + toks[close].end };
-		const what = document.text ? `whose text the code set to ${document.text.length} character(s)` : 'which the code just added';
+		const what = document.text === undefined ? 'whose text the code set' : document.text ? `whose text the code set to ${document.text.length} character(s)` : 'which the code just added';
 		if (member === 'range' && args.length === 2) {
 			const end = valueOf(args[1]);
-			const characters = document.text.length + 1;
-			if (end !== undefined && end > characters) {
+			const characters = document.text === undefined || /\n/.test(document.text) ? undefined : document.text.length + 1;
+			if (end !== undefined && characters !== undefined && end > characters) {
 				push('hostArgumentOutOfRange', `'${toks[i].rawText}' is a new document ${what}, so it ends at position ${characters}, and Range ends at ${end}. This will raise Run-time error '4608': Value out of range.`, at);
 			}
 			continue;
