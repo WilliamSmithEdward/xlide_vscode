@@ -270,61 +270,74 @@ function checkConstantCyclesAcrossModules(
 	}
 	const modules = new Set([...owners.values()].filter((value): value is string => value !== undefined));
 
-	const reachesItself = (start: string): string | undefined => {
-		const seen = new Set<string>();
-		const walk = (raw: string, scope: string, via: string | undefined): string | undefined => {
-			const tokens = tokenize(raw).filter((tok) => tok.kind !== 'comment' && tok.kind !== 'newline');
-			for (let i = 0; i < tokens.length; i++) {
-				let name = tokenName(tokens[i]);
-				if (!name || tokens[i - 1]?.rawText === '.') {
-					continue;
-				}
-				let written = tokens[i].rawText;
-				let qualifier: string | undefined;
-				if (tokens[i + 1]?.rawText === '.' && modules.has(name.toLowerCase()) && tokenName(tokens[i + 2])) {
-					qualifier = name.toLowerCase();
-					name = tokenName(tokens[i + 2])!;
-					written = `${tokens[i].rawText}.${tokens[i + 2].rawText}`;
-					i += 2;
-				}
-				const lower = name.toLowerCase();
-				let target: [string, string] | undefined;
-				if (qualifier !== undefined) {
-					target = qualifier === own ? [own, lower] : external.has(`${qualifier}.${lower}`) ? [qualifier, lower] : undefined;
-				} else if (scope === own) {
-					target = declared.expressions.has(lower) ? [own, lower] : owners.get(lower) ? [owners.get(lower)!, lower] : undefined;
-				} else if (external.has(`${scope}.${lower}`)) {
-					target = [scope, lower];
-				} else if (declared.expressions.has(lower)) {
-					target = [own, lower];
-				} else if (owners.get(lower)) {
-					target = [owners.get(lower)!, lower];
-				}
-				if (!target) {
-					continue;
-				}
-				const [module, key] = target;
-				if (module === own && key === start && via !== undefined) {
-					return via;
-				}
-				const id = `${module}.${key}`;
-				if (seen.has(id)) {
-					continue;
-				}
-				seen.add(id);
-				const next = module === own ? declared.expressions.get(key) : external.get(`${module}.${key}`);
-				if (next === undefined || /^[-+]?\d+(\.\d+)?$/.test(next.trim())) {
-					continue;
-				}
-				const found = walk(next, module, via ?? (module === own ? undefined : written));
-				if (found) {
-					return found;
-				}
+	interface Dependency { module: string; key: string; written: string }
+	const prepared = new Map<string, Dependency[]>();
+	const dependencies = (raw: string, scope: string): Dependency[] => {
+		const cacheKey = scope + '\0' + raw;
+		const cached = prepared.get(cacheKey);
+		if (cached) { return cached; }
+		const out: Dependency[] = [];
+		const tokens = tokenize(raw).filter((tok) => tok.kind !== 'comment' && tok.kind !== 'newline');
+		for (let i = 0; i < tokens.length; i++) {
+			let name = tokenName(tokens[i]);
+			if (!name || tokens[i - 1]?.rawText === '.') {
+				continue;
 			}
-			return undefined;
-		};
+			let written = tokens[i].rawText;
+			let qualifier: string | undefined;
+			if (tokens[i + 1]?.rawText === '.' && modules.has(name.toLowerCase()) && tokenName(tokens[i + 2])) {
+				qualifier = name.toLowerCase();
+				name = tokenName(tokens[i + 2])!;
+				written = `${tokens[i].rawText}.${tokens[i + 2].rawText}`;
+				i += 2;
+			}
+			const lower = name.toLowerCase();
+			let target: [string, string] | undefined;
+			if (qualifier !== undefined) {
+				target = qualifier === own ? [own, lower] : external.has(`${qualifier}.${lower}`) ? [qualifier, lower] : undefined;
+			} else if (scope === own) {
+				target = declared.expressions.has(lower) ? [own, lower] : owners.get(lower) ? [owners.get(lower)!, lower] : undefined;
+			} else if (external.has(`${scope}.${lower}`)) {
+				target = [scope, lower];
+			} else if (declared.expressions.has(lower)) {
+				target = [own, lower];
+			} else if (owners.get(lower)) {
+				target = [owners.get(lower)!, lower];
+			}
+			if (!target) {
+				continue;
+			}
+			out.push({ module: target[0], key: target[1], written });
+		}
+		prepared.set(cacheKey, out);
+		return out;
+	};
+
+	const reachesItself = (start: string): string | undefined => {
 		const raw = declared.expressions.get(start);
-		return raw === undefined ? undefined : walk(raw, own, undefined);
+		if (raw === undefined) { return undefined; }
+		const seen = new Set<string>();
+		// Explicit DFS frames preserve reference order and the first foreign name
+		// without consuming the JavaScript call stack for long dependency chains.
+		const stack: Array<{ edges: Dependency[]; index: number; via: string | undefined }> = [
+			{ edges: dependencies(raw, own), index: 0, via: undefined },
+		];
+		while (stack.length > 0) {
+			const frame = stack[stack.length - 1];
+			if (frame.index === frame.edges.length) { stack.pop(); continue; }
+			const { module, key, written } = frame.edges[frame.index++];
+			if (module === own && key === start && frame.via !== undefined) { return frame.via; }
+			const id = module + '.' + key;
+			if (seen.has(id)) { continue; }
+			seen.add(id);
+			const next = module === own ? declared.expressions.get(key) : external.get(id);
+			if (next === undefined || /^[-+]?\d+(\.\d+)?$/.test(next.trim())) { continue; }
+			stack.push({
+				edges: dependencies(next, module), index: 0,
+				via: frame.via ?? (module === own ? undefined : written),
+			});
+		}
+		return undefined;
 	};
 
 	for (const member of activeModuleMembers(mod, activity)) {
