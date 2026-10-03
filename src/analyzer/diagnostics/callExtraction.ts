@@ -66,6 +66,26 @@ export interface CallableTypeSignature {
 	name: string;
 	params: CallableParamType[];
 	returnType?: string;
+	/** A Function or Property Get, which gives a value; absent where unknown. */
+	valued?: boolean;
+}
+
+/**
+ * `Arr(1)` with `Function Arr() As Variant`: a call that takes no argument,
+ * then an index into what it returns, when that is a Variant or an object.
+ * VBA compiles it and indexes the result, as a statement too, `Arr 1` and
+ * `Call Arr(1)` (issue #609, measured in Excel 16.0). A scalar or a typed
+ * array result refuses the argument at compile.
+ */
+export function callThenIndex(sig: CallableTypeSignature, call: CallArguments): boolean {
+	if (sig.valued !== true || sig.params.length > 0 || call.slots.length === 0) {
+		return false;
+	}
+	const type = sig.returnType?.trim().toLowerCase();
+	if (type === undefined || type === 'variant') {
+		return true;
+	}
+	return !/\(\s*\)$/.test(type) && !['string', 'boolean', 'date', 'byte', 'integer', 'long', 'longlong', 'longptr', 'single', 'double', 'currency', 'decimal'].includes(type.replace(/^vba\./, ''));
 }
 
 export interface InferredArgumentType {
@@ -362,6 +382,9 @@ export function validateArity(
 	call: CallArguments,
 	push: PushFn,
 ): void {
+	if (callThenIndex(sig, call)) {
+		return;
+	}
 	const displayName = callDisplayName(sig, call);
 	const params = sig.params;
 	let required = params.length;

@@ -93400,6 +93400,476 @@
       "source": "Option Explicit\r\nPrivate Type T\r\n    f() As Long\r\n    b() As Byte\r\nEnd Type\r\nFunction Main() As Variant\r\n    Dim t As T\r\n    t.f = Split(\"a b\")\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue609_01_runtime",
+      "description": "Issue #609 a parameterless Function called then indexed, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 20.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Function Arr() As Variant\r\n    Arr = Array(10, 20)\r\nEnd Function\r\nPrivate Function Coll() As Collection\r\n    Set Coll = New Collection\r\n    Coll.Add 5\r\nEnd Function\r\nPrivate Function Rng() As Range\r\n    Set Rng = ActiveSheet.Range(\"A1:B2\")\r\nEnd Function\r\nPrivate Function VObj() As Variant\r\n    Dim c As New Collection\r\n    c.Add 8\r\n    Set VObj = c\r\nEnd Function\r\nPrivate Function Untyped()\r\n    Untyped = Array(1, 2)\r\nEnd Function\r\nPrivate Function LArr() As Long()\r\n    Dim a(1) As Long\r\n    LArr = a\r\nEnd Function\r\nPrivate Function Txt() As String\r\n    Txt = \"abc\"\r\nEnd Function\r\nPrivate Function Num() As Long\r\n    Num = 3\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Arr(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Arr2() As Variant\r\n    Arr2 = Array(10, 20)\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Items() As Variant\r\n    Items = Array(10, 20)\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue609_02_runtime",
+      "description": "Issue #609 a parameterless Function called then indexed, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Function Arr() As Variant\r\n    Arr = Array(10, 20)\r\nEnd Function\r\nPrivate Function Coll() As Collection\r\n    Set Coll = New Collection\r\n    Coll.Add 5\r\nEnd Function\r\nPrivate Function Rng() As Range\r\n    Set Rng = ActiveSheet.Range(\"A1:B2\")\r\nEnd Function\r\nPrivate Function VObj() As Variant\r\n    Dim c As New Collection\r\n    c.Add 8\r\n    Set VObj = c\r\nEnd Function\r\nPrivate Function Untyped()\r\n    Untyped = Array(1, 2)\r\nEnd Function\r\nPrivate Function LArr() As Long()\r\n    Dim a(1) As Long\r\n    LArr = a\r\nEnd Function\r\nPrivate Function Txt() As String\r\n    Txt = \"abc\"\r\nEnd Function\r\nPrivate Function Num() As Long\r\n    Num = 3\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Coll(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Arr2() As Variant\r\n    Arr2 = Array(10, 20)\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Items() As Variant\r\n    Items = Array(10, 20)\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue609_03_runtime",
+      "description": "Issue #609 a parameterless Function called then indexed, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> $A$1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Function Arr() As Variant\r\n    Arr = Array(10, 20)\r\nEnd Function\r\nPrivate Function Coll() As Collection\r\n    Set Coll = New Collection\r\n    Coll.Add 5\r\nEnd Function\r\nPrivate Function Rng() As Range\r\n    Set Rng = ActiveSheet.Range(\"A1:B2\")\r\nEnd Function\r\nPrivate Function VObj() As Variant\r\n    Dim c As New Collection\r\n    c.Add 8\r\n    Set VObj = c\r\nEnd Function\r\nPrivate Function Untyped()\r\n    Untyped = Array(1, 2)\r\nEnd Function\r\nPrivate Function LArr() As Long()\r\n    Dim a(1) As Long\r\n    LArr = a\r\nEnd Function\r\nPrivate Function Txt() As String\r\n    Txt = \"abc\"\r\nEnd Function\r\nPrivate Function Num() As Long\r\n    Num = 3\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Rng(1).Address\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Arr2() As Variant\r\n    Arr2 = Array(10, 20)\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Items() As Variant\r\n    Items = Array(10, 20)\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue609_04_runtime",
+      "description": "Issue #609 a parameterless Function called then indexed, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 8.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Function Arr() As Variant\r\n    Arr = Array(10, 20)\r\nEnd Function\r\nPrivate Function Coll() As Collection\r\n    Set Coll = New Collection\r\n    Coll.Add 5\r\nEnd Function\r\nPrivate Function Rng() As Range\r\n    Set Rng = ActiveSheet.Range(\"A1:B2\")\r\nEnd Function\r\nPrivate Function VObj() As Variant\r\n    Dim c As New Collection\r\n    c.Add 8\r\n    Set VObj = c\r\nEnd Function\r\nPrivate Function Untyped()\r\n    Untyped = Array(1, 2)\r\nEnd Function\r\nPrivate Function LArr() As Long()\r\n    Dim a(1) As Long\r\n    LArr = a\r\nEnd Function\r\nPrivate Function Txt() As String\r\n    Txt = \"abc\"\r\nEnd Function\r\nPrivate Function Num() As Long\r\n    Num = 3\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = VObj(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Arr2() As Variant\r\n    Arr2 = Array(10, 20)\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Items() As Variant\r\n    Items = Array(10, 20)\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue609_05_runtime",
+      "description": "Issue #609 a parameterless Function called then indexed, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 20.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Function Arr() As Variant\r\n    Arr = Array(10, 20)\r\nEnd Function\r\nPrivate Function Coll() As Collection\r\n    Set Coll = New Collection\r\n    Coll.Add 5\r\nEnd Function\r\nPrivate Function Rng() As Range\r\n    Set Rng = ActiveSheet.Range(\"A1:B2\")\r\nEnd Function\r\nPrivate Function VObj() As Variant\r\n    Dim c As New Collection\r\n    c.Add 8\r\n    Set VObj = c\r\nEnd Function\r\nPrivate Function Untyped()\r\n    Untyped = Array(1, 2)\r\nEnd Function\r\nPrivate Function LArr() As Long()\r\n    Dim a(1) As Long\r\n    LArr = a\r\nEnd Function\r\nPrivate Function Txt() As String\r\n    Txt = \"abc\"\r\nEnd Function\r\nPrivate Function Num() As Long\r\n    Num = 3\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Module2.Arr2(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Arr2() As Variant\r\n    Arr2 = Array(10, 20)\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Items() As Variant\r\n    Items = Array(10, 20)\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue609_06_runtime",
+      "description": "Issue #609 a parameterless Function called then indexed, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 20.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Function Arr() As Variant\r\n    Arr = Array(10, 20)\r\nEnd Function\r\nPrivate Function Coll() As Collection\r\n    Set Coll = New Collection\r\n    Coll.Add 5\r\nEnd Function\r\nPrivate Function Rng() As Range\r\n    Set Rng = ActiveSheet.Range(\"A1:B2\")\r\nEnd Function\r\nPrivate Function VObj() As Variant\r\n    Dim c As New Collection\r\n    c.Add 8\r\n    Set VObj = c\r\nEnd Function\r\nPrivate Function Untyped()\r\n    Untyped = Array(1, 2)\r\nEnd Function\r\nPrivate Function LArr() As Long()\r\n    Dim a(1) As Long\r\n    LArr = a\r\nEnd Function\r\nPrivate Function Txt() As String\r\n    Txt = \"abc\"\r\nEnd Function\r\nPrivate Function Num() As Long\r\n    Num = 3\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim k As New K\r\n    Main = k.Items(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Arr2() As Variant\r\n    Arr2 = Array(10, 20)\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Items() As Variant\r\n    Items = Array(10, 20)\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue609_07_runtime",
+      "description": "Issue #609 a parameterless Function called then indexed, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Function Arr() As Variant\r\n    Arr = Array(10, 20)\r\nEnd Function\r\nPrivate Function Coll() As Collection\r\n    Set Coll = New Collection\r\n    Coll.Add 5\r\nEnd Function\r\nPrivate Function Rng() As Range\r\n    Set Rng = ActiveSheet.Range(\"A1:B2\")\r\nEnd Function\r\nPrivate Function VObj() As Variant\r\n    Dim c As New Collection\r\n    c.Add 8\r\n    Set VObj = c\r\nEnd Function\r\nPrivate Function Untyped()\r\n    Untyped = Array(1, 2)\r\nEnd Function\r\nPrivate Function LArr() As Long()\r\n    Dim a(1) As Long\r\n    LArr = a\r\nEnd Function\r\nPrivate Function Txt() As String\r\n    Txt = \"abc\"\r\nEnd Function\r\nPrivate Function Num() As Long\r\n    Num = 3\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Untyped(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Arr2() As Variant\r\n    Arr2 = Array(10, 20)\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Items() As Variant\r\n    Items = Array(10, 20)\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue609_08_runtime",
+      "description": "Issue #609 a parameterless Function called then indexed, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 20.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Function Arr() As Variant\r\n    Arr = Array(10, 20)\r\nEnd Function\r\nPrivate Function Coll() As Collection\r\n    Set Coll = New Collection\r\n    Coll.Add 5\r\nEnd Function\r\nPrivate Function Rng() As Range\r\n    Set Rng = ActiveSheet.Range(\"A1:B2\")\r\nEnd Function\r\nPrivate Function VObj() As Variant\r\n    Dim c As New Collection\r\n    c.Add 8\r\n    Set VObj = c\r\nEnd Function\r\nPrivate Function Untyped()\r\n    Untyped = Array(1, 2)\r\nEnd Function\r\nPrivate Function LArr() As Long()\r\n    Dim a(1) As Long\r\n    LArr = a\r\nEnd Function\r\nPrivate Function Txt() As String\r\n    Txt = \"abc\"\r\nEnd Function\r\nPrivate Function Num() As Long\r\n    Num = 3\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Arr()(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Arr2() As Variant\r\n    Arr2 = Array(10, 20)\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Items() As Variant\r\n    Items = Array(10, 20)\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue609_09_compile",
+      "description": "Issue #609 a parameterless Function called then indexed, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Function Arr() As Variant\r\n    Arr = Array(10, 20)\r\nEnd Function\r\nPrivate Function Coll() As Collection\r\n    Set Coll = New Collection\r\n    Coll.Add 5\r\nEnd Function\r\nPrivate Function Rng() As Range\r\n    Set Rng = ActiveSheet.Range(\"A1:B2\")\r\nEnd Function\r\nPrivate Function VObj() As Variant\r\n    Dim c As New Collection\r\n    c.Add 8\r\n    Set VObj = c\r\nEnd Function\r\nPrivate Function Untyped()\r\n    Untyped = Array(1, 2)\r\nEnd Function\r\nPrivate Function LArr() As Long()\r\n    Dim a(1) As Long\r\n    LArr = a\r\nEnd Function\r\nPrivate Function Txt() As String\r\n    Txt = \"abc\"\r\nEnd Function\r\nPrivate Function Num() As Long\r\n    Num = 3\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = LArr(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Arr2() As Variant\r\n    Arr2 = Array(10, 20)\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Items() As Variant\r\n    Items = Array(10, 20)\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue609_10_compile",
+      "description": "Issue #609 a parameterless Function called then indexed, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Function Arr() As Variant\r\n    Arr = Array(10, 20)\r\nEnd Function\r\nPrivate Function Coll() As Collection\r\n    Set Coll = New Collection\r\n    Coll.Add 5\r\nEnd Function\r\nPrivate Function Rng() As Range\r\n    Set Rng = ActiveSheet.Range(\"A1:B2\")\r\nEnd Function\r\nPrivate Function VObj() As Variant\r\n    Dim c As New Collection\r\n    c.Add 8\r\n    Set VObj = c\r\nEnd Function\r\nPrivate Function Untyped()\r\n    Untyped = Array(1, 2)\r\nEnd Function\r\nPrivate Function LArr() As Long()\r\n    Dim a(1) As Long\r\n    LArr = a\r\nEnd Function\r\nPrivate Function Txt() As String\r\n    Txt = \"abc\"\r\nEnd Function\r\nPrivate Function Num() As Long\r\n    Num = 3\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Txt(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Arr2() As Variant\r\n    Arr2 = Array(10, 20)\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Items() As Variant\r\n    Items = Array(10, 20)\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue609_11_compile",
+      "description": "Issue #609 a parameterless Function called then indexed, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Function Arr() As Variant\r\n    Arr = Array(10, 20)\r\nEnd Function\r\nPrivate Function Coll() As Collection\r\n    Set Coll = New Collection\r\n    Coll.Add 5\r\nEnd Function\r\nPrivate Function Rng() As Range\r\n    Set Rng = ActiveSheet.Range(\"A1:B2\")\r\nEnd Function\r\nPrivate Function VObj() As Variant\r\n    Dim c As New Collection\r\n    c.Add 8\r\n    Set VObj = c\r\nEnd Function\r\nPrivate Function Untyped()\r\n    Untyped = Array(1, 2)\r\nEnd Function\r\nPrivate Function LArr() As Long()\r\n    Dim a(1) As Long\r\n    LArr = a\r\nEnd Function\r\nPrivate Function Txt() As String\r\n    Txt = \"abc\"\r\nEnd Function\r\nPrivate Function Num() As Long\r\n    Num = 3\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Num(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Arr2() As Variant\r\n    Arr2 = Array(10, 20)\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Items() As Variant\r\n    Items = Array(10, 20)\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue609_12_compile",
+      "description": "Issue #609 a parameterless Function called then indexed, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Function Arr() As Variant\r\n    Arr = Array(10, 20)\r\nEnd Function\r\nPrivate Function Coll() As Collection\r\n    Set Coll = New Collection\r\n    Coll.Add 5\r\nEnd Function\r\nPrivate Function Rng() As Range\r\n    Set Rng = ActiveSheet.Range(\"A1:B2\")\r\nEnd Function\r\nPrivate Function VObj() As Variant\r\n    Dim c As New Collection\r\n    c.Add 8\r\n    Set VObj = c\r\nEnd Function\r\nPrivate Function Untyped()\r\n    Untyped = Array(1, 2)\r\nEnd Function\r\nPrivate Function LArr() As Long()\r\n    Dim a(1) As Long\r\n    LArr = a\r\nEnd Function\r\nPrivate Function Txt() As String\r\n    Txt = \"abc\"\r\nEnd Function\r\nPrivate Function Num() As Long\r\n    Num = 3\r\nEnd Function\r\nFunction Main() As Variant\r\n    Arr 1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Arr2() As Variant\r\n    Arr2 = Array(10, 20)\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Items() As Variant\r\n    Items = Array(10, 20)\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue609_13_runtime",
+      "description": "Issue #609 a parameterless Function called then indexed, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> None.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Function Arr() As Variant\r\n    Arr = Array(10, 20)\r\nEnd Function\r\nPrivate Function Coll() As Collection\r\n    Set Coll = New Collection\r\n    Coll.Add 5\r\nEnd Function\r\nPrivate Function Rng() As Range\r\n    Set Rng = ActiveSheet.Range(\"A1:B2\")\r\nEnd Function\r\nPrivate Function VObj() As Variant\r\n    Dim c As New Collection\r\n    c.Add 8\r\n    Set VObj = c\r\nEnd Function\r\nPrivate Function Untyped()\r\n    Untyped = Array(1, 2)\r\nEnd Function\r\nPrivate Function LArr() As Long()\r\n    Dim a(1) As Long\r\n    LArr = a\r\nEnd Function\r\nPrivate Function Txt() As String\r\n    Txt = \"abc\"\r\nEnd Function\r\nPrivate Function Num() As Long\r\n    Num = 3\r\nEnd Function\r\nFunction Main() As Variant\r\n    Arr 1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Arr2() As Variant\r\n    Arr2 = Array(10, 20)\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Items() As Variant\r\n    Items = Array(10, 20)\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue609_14_compile",
+      "description": "Issue #609 a parameterless Function called then indexed, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Function Arr() As Variant\r\n    Arr = Array(10, 20)\r\nEnd Function\r\nPrivate Function Coll() As Collection\r\n    Set Coll = New Collection\r\n    Coll.Add 5\r\nEnd Function\r\nPrivate Function Rng() As Range\r\n    Set Rng = ActiveSheet.Range(\"A1:B2\")\r\nEnd Function\r\nPrivate Function VObj() As Variant\r\n    Dim c As New Collection\r\n    c.Add 8\r\n    Set VObj = c\r\nEnd Function\r\nPrivate Function Untyped()\r\n    Untyped = Array(1, 2)\r\nEnd Function\r\nPrivate Function LArr() As Long()\r\n    Dim a(1) As Long\r\n    LArr = a\r\nEnd Function\r\nPrivate Function Txt() As String\r\n    Txt = \"abc\"\r\nEnd Function\r\nPrivate Function Num() As Long\r\n    Num = 3\r\nEnd Function\r\nFunction Main() As Variant\r\n    Txt 1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Arr2() As Variant\r\n    Arr2 = Array(10, 20)\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Items() As Variant\r\n    Items = Array(10, 20)\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue609_15_compile",
+      "description": "Issue #609 a parameterless Function called then indexed, case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Function Arr() As Variant\r\n    Arr = Array(10, 20)\r\nEnd Function\r\nPrivate Function Coll() As Collection\r\n    Set Coll = New Collection\r\n    Coll.Add 5\r\nEnd Function\r\nPrivate Function Rng() As Range\r\n    Set Rng = ActiveSheet.Range(\"A1:B2\")\r\nEnd Function\r\nPrivate Function VObj() As Variant\r\n    Dim c As New Collection\r\n    c.Add 8\r\n    Set VObj = c\r\nEnd Function\r\nPrivate Function Untyped()\r\n    Untyped = Array(1, 2)\r\nEnd Function\r\nPrivate Function LArr() As Long()\r\n    Dim a(1) As Long\r\n    LArr = a\r\nEnd Function\r\nPrivate Function Txt() As String\r\n    Txt = \"abc\"\r\nEnd Function\r\nPrivate Function Num() As Long\r\n    Num = 3\r\nEnd Function\r\nFunction Main() As Variant\r\n    Call Arr(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Arr2() As Variant\r\n    Arr2 = Array(10, 20)\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Items() As Variant\r\n    Items = Array(10, 20)\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue609_16_runtime",
+      "description": "Issue #609 a parameterless Function called then indexed, case 16, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Function Arr() As Variant\r\n    Arr = Array(10, 20)\r\nEnd Function\r\nPrivate Function Coll() As Collection\r\n    Set Coll = New Collection\r\n    Coll.Add 5\r\nEnd Function\r\nPrivate Function Rng() As Range\r\n    Set Rng = ActiveSheet.Range(\"A1:B2\")\r\nEnd Function\r\nPrivate Function VObj() As Variant\r\n    Dim c As New Collection\r\n    c.Add 8\r\n    Set VObj = c\r\nEnd Function\r\nPrivate Function Untyped()\r\n    Untyped = Array(1, 2)\r\nEnd Function\r\nPrivate Function LArr() As Long()\r\n    Dim a(1) As Long\r\n    LArr = a\r\nEnd Function\r\nPrivate Function Txt() As String\r\n    Txt = \"abc\"\r\nEnd Function\r\nPrivate Function Num() As Long\r\n    Num = 3\r\nEnd Function\r\nFunction Main() As Variant\r\n    Coll 1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Arr2() As Variant\r\n    Arr2 = Array(10, 20)\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Items() As Variant\r\n    Items = Array(10, 20)\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue609_17_runtime",
+      "description": "Issue #609 a parameterless Function called then indexed, case 17, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> None.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Function Arr() As Variant\r\n    Arr = Array(10, 20)\r\nEnd Function\r\nPrivate Function Coll() As Collection\r\n    Set Coll = New Collection\r\n    Coll.Add 5\r\nEnd Function\r\nPrivate Function Rng() As Range\r\n    Set Rng = ActiveSheet.Range(\"A1:B2\")\r\nEnd Function\r\nPrivate Function VObj() As Variant\r\n    Dim c As New Collection\r\n    c.Add 8\r\n    Set VObj = c\r\nEnd Function\r\nPrivate Function Untyped()\r\n    Untyped = Array(1, 2)\r\nEnd Function\r\nPrivate Function LArr() As Long()\r\n    Dim a(1) As Long\r\n    LArr = a\r\nEnd Function\r\nPrivate Function Txt() As String\r\n    Txt = \"abc\"\r\nEnd Function\r\nPrivate Function Num() As Long\r\n    Num = 3\r\nEnd Function\r\nFunction Main() As Variant\r\n    Arr (1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Arr2() As Variant\r\n    Arr2 = Array(10, 20)\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Items() As Variant\r\n    Items = Array(10, 20)\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
