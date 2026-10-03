@@ -529,10 +529,9 @@ function collectConditionalConstants(
 		if (directive.directiveKind !== 'Const' || !directive.name || !directive.nameSpan) {
 			continue;
 		}
-		const value = evaluateConditionalExpression(directive.valueRaw, {
-			...env,
-			projectConstants: Object.fromEntries(projectConstants),
-		});
+		// The index historically supplies a project table even when the caller
+		// did not, so an absent name is zero on this path.
+		const value = evaluateWithProjectConstants(directive.valueRaw, env, projectConstants, true);
 		if (value !== undefined) {
 			projectConstants.set(directive.name.toLowerCase(), value);
 		}
@@ -571,6 +570,7 @@ function evaluateWithProjectConstants(
 	expression: string | undefined,
 	env: ConditionalCompilationEnvironment,
 	projectConstants: ReadonlyMap<string, ConditionalValue>,
+	undefinedIsZero = env.projectConstants !== undefined,
 ): ConditionalValue | undefined {
 	if (!expression?.trim()) {
 		return undefined;
@@ -578,14 +578,17 @@ function evaluateWithProjectConstants(
 	// The module's own `#Const` values ride in `projectConstants` whether or
 	// not the caller supplied the project's; only the caller's presence says
 	// an absent name is provably undefined (issue #102).
-	const constants = conditionalCompilerConstants({ compilerConstants: env.compilerConstants });
-	for (const [name, value] of projectConstants) {
-		constants.set(name, value);
-	}
+	const compilerConstants = conditionalCompilerConstants({ compilerConstants: env.compilerConstants });
+	// The parser only needs lookup. Copying all preceding #Const values here
+	// for every directive makes a forward replay quadratic.
+	const constants = {
+		get: (name: string): ConditionalValue | undefined => projectConstants.has(name)
+			? projectConstants.get(name) : compilerConstants.get(name),
+	};
 	return new ConditionalExpressionParser(
 		directiveExpressionTokens(expression),
 		constants,
-		env.projectConstants !== undefined,
+		undefinedIsZero,
 	).parse();
 }
 
@@ -655,7 +658,7 @@ class ConditionalExpressionParser {
 
 	constructor(
 		private readonly tokens: readonly VbaToken[],
-		private readonly constants: ReadonlyMap<string, ConditionalValue>,
+		private readonly constants: Pick<ReadonlyMap<string, ConditionalValue>, 'get'>,
 		/**
 		 * Whether a name no constant defines evaluates as the VBE evaluates
 		 * it, to 0. Not to Empty: `UNDEFINED & "x" = "x"` is False where
