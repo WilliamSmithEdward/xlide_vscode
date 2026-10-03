@@ -31,3 +31,25 @@ describe('a name a DefType line types', () => {
 		expect(found('DefLng A-Z', 'Dim i\n    i = 40000\n    Main = i')).toEqual([]);
 	});
 });
+
+describe('a name assigned with no Dim and no Option Explicit', () => {
+	function implicit(defType: string, body: string): string[] {
+		const src = `${defType}\nFunction Main() As Variant\n    ${body}\nEnd Function\n`;
+		return analyzeModule(src).filter((diag) => diag.severity === 'error').map((diag) => diag.code);
+	}
+
+	it('is a local of the DefType type', () => {
+		expect(implicit('DefInt A-Z', 'i = 40000\n    Main = i')).toContain('arithmetic-overflow');
+		expect(implicit('DefInt A-Z', 'For i = 1 To 40000\n    Next')).toContain('for-counter-overflow');
+		expect(implicit('DefInt A-Z', 'n = 10\n    n = n * 4000\n    Main = n')).toContain('arithmetic-overflow');
+		expect(implicit('DefDate D', 'd = "abc"\n    Main = d')).toEqual(['assignment-type-mismatch']);
+	});
+
+	it('stays quiet where the value fits, the letter has no DefType, or the name is a host global', () => {
+		expect(implicit('DefInt A-Z', 'i = 1.5\n    Main = i')).toEqual([]);
+		expect(implicit('DefLng A-Z', 'i = 40000\n    Main = i')).toEqual([]);
+		expect(implicit('DefInt I', 'k = 40000\n    Main = k')).toEqual([]);
+		expect(implicit('DefInt A-Z', 'StatusBar = False\n    Main = 1')).toEqual([]);
+		expect(implicit('DefStr S', 's = 5\n    Main = s & "x"')).toEqual([]);
+	});
+});

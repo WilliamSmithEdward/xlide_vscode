@@ -90059,6 +90059,138 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w2 As Worksheet\r\n    Set w2 = Worksheets.Add\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\n    Main = w2.Name\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue285b_01_runtime",
+      "description": "Issue #285 a name assigned with no Dim under a DefType line, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "DefInt A-Z\r\nFunction Main() As Variant\r\n    i = 40000\r\n    Main = i\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue285b_02_runtime",
+      "description": "Issue #285 a name assigned with no Dim under a DefType line, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "DefInt A-Z\r\nFunction Main() As Variant\r\n    For i = 1 To 40000\r\n    Next\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue285b_03_runtime",
+      "description": "Issue #285 a name assigned with no Dim under a DefType line, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "DefInt A-Z\r\nFunction Main() As Variant\r\n    i = \"abc\"\r\n    Main = i\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue285b_04_runtime",
+      "description": "Issue #285 a name assigned with no Dim under a DefType line, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "DefInt A-Z\r\nFunction Main() As Variant\r\n    i = 1.5\r\n    Main = i\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue285b_05_runtime",
+      "description": "Issue #285 a name assigned with no Dim under a DefType line, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 40000.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "DefLng A-Z\r\nFunction Main() As Variant\r\n    i = 40000\r\n    Main = i\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue285b_06_runtime",
+      "description": "Issue #285 a name assigned with no Dim under a DefType line, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "DefInt A-Z\r\nFunction Main() As Variant\r\n    StatusBar = False\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue285b_07_runtime",
+      "description": "Issue #285 a name assigned with no Dim under a DefType line, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "DefDate D\r\nFunction Main() As Variant\r\n    d = \"abc\"\r\n    Main = d\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue285b_08_runtime",
+      "description": "Issue #285 a name assigned with no Dim under a DefType line, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 5x.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "DefStr S\r\nFunction Main() As Variant\r\n    s = 5\r\n    Main = s & \"x\"\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue285b_09_runtime",
+      "description": "Issue #285 a name assigned with no Dim under a DefType line, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 40000.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "DefInt I\r\nFunction Main() As Variant\r\n    k = 40000\r\n    Main = k\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue285b_10_runtime",
+      "description": "Issue #285 a name assigned with no Dim under a DefType line, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "DefByte B\r\nFunction Main() As Variant\r\n    b = 256\r\n    Main = b\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue285b_11_runtime",
+      "description": "Issue #285 a name assigned with no Dim under a DefType line, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 255.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "DefByte B\r\nFunction Main() As Variant\r\n    b = 255\r\n    Main = b\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue285b_12_runtime",
+      "description": "Issue #285 a name assigned with no Dim under a DefType line, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "DefInt A-Z\r\nFunction Main() As Variant\r\n    n = 10\r\n    n = n * 4000\r\n    Main = n\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }
