@@ -21,7 +21,7 @@ try {
             loader:'ts',resolveDir:join(root,'src/analyzer/docs'),
         }));
     }}] : [];
-    const result = await build({ plugins, stdin: { contents: 
+    const result = await build({ plugins, stdin: { contents:
         "export { scanDocTags } from './src/analyzer/docs/docComment';",
         resolveDir: root, loader: 'ts' }, bundle: true, platform: 'node', format: 'cjs', write: false });
     writeFileSync(bundle, result.outputFiles[0].contents);
