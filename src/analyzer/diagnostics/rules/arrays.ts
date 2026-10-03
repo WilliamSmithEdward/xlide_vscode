@@ -2800,7 +2800,12 @@ function elementSubscriptViolation(
 	return element ? shapeSubscriptViolation(span, toks, { ...element, name: `${shape.name}(${value})` }, close + 1, lookup) : undefined;
 }
 
-const RETURN_SHAPES = new WeakMap<ModuleNode, ReadonlyMap<string, FixedArrayBound>>();
+const RETURN_SHAPES = new WeakMap<ModuleNode, {
+	source: string;
+	activity: ConditionalActivityTracker | undefined;
+	optionBase: number;
+	result: ReadonlyMap<string, FixedArrayBound>;
+}>();
 
 /** Words that may leave a Function before its one return assignment runs. */
 const RETURN_SKIPPING_WORDS: ReadonlySet<string> = new Set(['exit', 'goto', 'gosub', 'return', 'resume', 'on', 'raise', 'error', 'stop']);
@@ -2818,13 +2823,13 @@ function functionReturnShapes(
 	activity: ConditionalActivityTracker | undefined,
 	optionBase: number,
 ): ReadonlyMap<string, FixedArrayBound> {
-	// Every procedure asks; a parse makes a new module, so the module is the key.
+	// Parse nodes survive analysis passes; facts also depend on the active branch.
 	const cached = RETURN_SHAPES.get(mod);
-	if (cached) {
-		return cached;
+	if (cached && cached.source === source && cached.activity === activity && cached.optionBase === optionBase) {
+		return cached.result;
 	}
 	const out = new Map<string, FixedArrayBound>();
-	RETURN_SHAPES.set(mod, out);
+	RETURN_SHAPES.set(mod, { source, activity, optionBase, result: out });
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure' || member.procKind !== 'Function') {
 			continue;

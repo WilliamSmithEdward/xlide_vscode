@@ -39,7 +39,11 @@ const SUFFIX_TYPES: Readonly<Record<string, string>> = { '%': 'integer', '&': 'l
 /** Statement heads after which a Function may return before a later assignment. */
 const LEAVING_HEADS: ReadonlySet<string> = new Set(['exit', 'goto', 'gosub', 'return', 'end', 'resume', 'on', 'stop', 'error']);
 
-const RESULTS = new WeakMap<ModuleNode, ReadonlyMap<string, FunctionResult>>();
+const RESULTS = new WeakMap<ModuleNode, {
+	source: string;
+	activity: ConditionalActivityTracker | undefined;
+	result: ReadonlyMap<string, FunctionResult>;
+}>();
 
 /** Each Function of the module whose result is known, by lowercased name. */
 export function knownFunctionResults(
@@ -47,9 +51,9 @@ export function knownFunctionResults(
 	mod: ModuleNode,
 	activity: ConditionalActivityTracker | undefined,
 ): ReadonlyMap<string, FunctionResult> {
-	let found = RESULTS.get(mod);
-	if (found) {
-		return found;
+	const cached = RESULTS.get(mod);
+	if (cached && cached.source === source && cached.activity === activity) {
+		return cached.result;
 	}
 	const procedures = new Map<string, ProcedureNode | null>();
 	for (const member of activeModuleMembers(mod, activity)) {
@@ -65,10 +69,9 @@ export function knownFunctionResults(
 			out.set(lower, result);
 		}
 	}
-	found = out;
-	RESULTS.set(mod, found);
-	CALLS.set(found, { source, procedures, activity });
-	return found;
+	RESULTS.set(mod, { source, activity, result: out });
+	CALLS.set(out, { source, procedures, activity });
+	return out;
 }
 
 /** What a results map needs to run one of its Functions for a call's arguments. */
