@@ -49,7 +49,7 @@ import {
 	tokenName,
 	tokenText,
 } from '../walker';
-import { isBareOrVbaQualifiedIntrinsicCall, nameMentions } from './shared';
+import { bodyMayLeaveLoop, isBareOrVbaQualifiedIntrinsicCall, nameMentions } from './shared';
 import { knownArrayShapesAt, moduleOptionBase, singleCellValue, type FixedArrayBound } from './arrays';
 import { straightLineAssignments } from '../straightLineValues';
 
@@ -111,11 +111,16 @@ export function checkVariantValueMisuse(
 		let procedureTokens: readonly VbaToken[] | undefined;
 		const emptyHere = (lower: string, offset: number): boolean => {
 			const local = procedureSymbolFor(symbols, member)?.children?.find((child) => child.name.toLowerCase() === lower);
-			if (local?.kind !== 'localVariable' || local.isArray || local.visibility === 'Static' || !isVariant(lower)) {
+			if (local?.kind !== 'localVariable' || local.isArray || !isVariant(lower)) {
 				return false;
 			}
 			if ((mentions ??= nameMentions(source, member, activity)).get(lower) === 1) {
 				return true;
+			}
+			// A Static keeps what an earlier call left; one no other statement
+			// names is Empty on every call (issue #612, measured in Excel 16.0).
+			if (local.visibility === 'Static') {
+				return false;
 			}
 			procedureTokens ??= statementTokens(source, member.span).map((tok) => ({ ...tok, start: tok.start + member.span.start, end: tok.end + member.span.start }));
 			if (procedureTokens.some((tok) => ['goto', 'gosub', 'resume'].includes(tokenText(tok)))) {
@@ -126,6 +131,74 @@ export function checkVariantValueMisuse(
 			return uses[0]?.start === offset;
 		};
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
+		// `If IsObject(v) Then`: v is an object in the arm that runs (issue
+		// #612). The arm's lines are not judged on v.
+		const guards: Array<{ lower: string; start: number; end: number }> = [];
+		const guardsIn = (condition: readonly VbaToken[], start: number, end: number): void => {
+			for (let i = 0; i + 3 < condition.length; i++) {
+				const lower = tokenName(condition[i + 2])?.toLowerCase();
+				if (tokenText(condition[i]) === 'isobject' && condition[i + 1].rawText === '(' && lower && condition[i + 3].rawText === ')' && tokenText(condition[i - 1]) !== 'not') {
+					guards.push({ lower, start, end });
+				}
+			}
+		};
+		const visitGuards = (body: readonly BodyNode[]): void => {
+			for (const node of body) {
+				if (node.kind === 'IfBlock') {
+					node.branches.forEach((branch, k) => {
+						const next = node.branches[k + 1]?.headerSpan.start ?? node.span.end;
+						guardsIn(statementTokens(source, branch.headerSpan), branch.headerSpan.end, next);
+						visitGuards(branch.body);
+					});
+					continue;
+				}
+				if (node.kind === 'Statement' && node.singleLineIfBranches) {
+					const toks = statementTokens(source, node.span);
+					const then = toks.findIndex((tok) => tokenText(tok) === 'then');
+					if (then > 0) {
+						guardsIn(toks.slice(0, then), node.singleLineIfBranches[0].start, node.singleLineIfBranches[0].end);
+					}
+				}
+				if ('body' in node && Array.isArray(node.body)) {
+					visitGuards(node.body as BodyNode[]);
+				}
+			}
+		};
+		visitGuards(member.body);
+		const guarded = (lower: string, offset: number): boolean => guards.some((guard) => guard.lower === lower && offset >= guard.start && offset < guard.end);
+		// Null or an error value a straight line has just put in v (issue #612).
+		const heldSpecial = (stmt: BodyNode, lower: string): string | undefined => {
+			const held = (reaching ??= straightLineAssignments(source, member.body, activity)).get(stmt)?.get(lower)?.filter((tok) => tok.kind !== 'comment');
+			if (!held || !isVariant(lower)) {
+				return undefined;
+			}
+			if (held.length === 1 && tokenText(held[0]) === 'null') {
+				return 'Null';
+			}
+			return tokenText(held[0]) === 'cverr' && held[1]?.rawText === '(' ? 'an error value from CVErr' : undefined;
+		};
+		// `For Each v In c` over a Collection leaves v Empty when it ends (issue
+		// #612, measured in Excel 16.0), until the next line that names v.
+		const afterEach: Array<{ lower: string; from: number; until: number }> = [];
+		const visitEach = (body: readonly BodyNode[]): void => {
+			body.forEach((node, k) => {
+				const lower = node.kind === 'ForBlock' && node.each ? node.controlVariable?.toLowerCase() : undefined;
+				const over = node.kind === 'ForBlock' ? node.sourceExpression?.trim().toLowerCase() : undefined;
+				if (lower && over && isVariant(lower) && ['collection', 'vba.collection'].includes(normalizeType(env.get(over)) ?? '') && !bodyMayLeaveLoop(source, (node as ForBlockNode).body)) {
+					const next = body.slice(k + 1).find((later) => new RegExp(`\\b${lower}\\b`, 'i').test(source.slice(later.span.start, later.span.end)));
+					afterEach.push({ lower, from: node.span.end, until: next ? next.span.end : member.span.end });
+				}
+				if (node.kind === 'IfBlock') {
+					for (const branch of node.branches) {
+						visitEach(branch.body);
+					}
+				} else if ('body' in node && Array.isArray(node.body)) {
+					visitEach(node.body as BodyNode[]);
+				}
+			});
+		};
+		visitEach(member.body);
+		const emptyAfterEach = (lower: string, offset: number): boolean => afterEach.some((each) => each.lower === lower && offset > each.from && offset < each.until);
 		// `With v` with v a number, a string or Empty, and a member access as
 		// the first statement inside (issue #325, measured in Excel 16.0: 424
 		// there; an empty With runs).
@@ -141,7 +214,8 @@ export function checkVariantValueMisuse(
 					const first = (node.body as BodyNode[]).find((child) => !isInactiveNode(activity, child) && isLeafStatement(child));
 					const memberFirst = first !== undefined && statementTokens(source, first.span)[0]?.rawText === '.';
 					if (lower && isVariant(lower) && memberFirst) {
-						const scalar = scalarsFor(valuesAt(node)).get(lower);
+						const scalar = scalarsFor(valuesAt(node)).get(lower) ?? cellScalarsAt(node).get(lower)
+							?? (emptyAfterEach(lower, header.start) ? 'Empty, as the For Each above left it' : undefined);
 						const at = { start: header.start + toks[1].start, end: header.start + toks[1].end };
 						if (scalar) {
 							push('variantValueMisuse', `'${toks[1].rawText}' holds ${scalar} here, not an object for With to reach members of. This will raise Run-time error '424': Object required.`, at);
@@ -190,7 +264,9 @@ export function checkVariantValueMisuse(
 				const toks = statementTokens(source, span);
 				for (let i = 0; i < toks.length; i++) {
 					const lower = toks[i - 1]?.rawText === '.' ? undefined : tokenName(toks[i])?.toLowerCase();
-					if (lower && (tokenText(toks[i + 1]) === 'is' || tokenText(toks[i - 1]) === 'is') && tokenText(toks[i - 1]) !== 'typeof' && emptyHere(lower, span.start + toks[i].start)) {
+					const besideIs = tokenText(toks[i + 1]) === 'is' || tokenText(toks[i - 1]) === 'is';
+					if (lower && besideIs && tokenText(toks[i - 1]) !== 'typeof' && !guarded(lower, span.start + toks[i].start)
+						&& (emptyHere(lower, span.start + toks[i].start) || emptyAfterEach(lower, span.start + toks[i].start))) {
 						push('variantValueMisuse', `'${toks[i].rawText}' is never assigned, so it is Empty here, not an object for Is to compare. This will raise Run-time error '424': Object required.`, { start: span.start + toks[i].start, end: span.start + toks[i].end });
 					}
 				}
@@ -228,15 +304,27 @@ export function checkVariantValueMisuse(
 						continue;
 					}
 					const at = { start: span.start + toks[i].start, end: span.start + toks[i].end };
+					// `If IsObject(v) Then` holds an object (issue #612).
+					if (guarded(lower, at.start)) {
+						continue;
+					}
+					const next = toks[i + 1];
+					// `v Is Nothing` on a number, a string, an array, Null or an
+					// error value (issues #325 and #612, measured: 424). `TypeOf v Is
+					// Collection` is False on any of them.
+					const isOperand = (tokenText(next) === 'is' && tokenText(toks[i - 1]) !== 'typeof') || (tokenText(toks[i - 1]) === 'is' && tokenText(toks[i - 2]) !== 'typeof');
+					const special = isOperand ? heldSpecial(stmt, lower) : undefined;
+					if (special) {
+						push('variantValueMisuse', `'${toks[i].rawText}' holds ${special} here, not an object for Is to compare. This will raise Run-time error '424': Object required.`, at);
+						continue;
+					}
 					const scalar = scalars.get(lower);
 					const array = arrays.get(lower);
 					if (!scalar && !array) {
 						continue;
 					}
-					const next = toks[i + 1];
-					// `v Is Nothing` on a number or a string (issue #325, measured: 424).
-					if (scalar && (tokenText(next) === 'is' || (tokenText(toks[i - 1]) === 'is' && tokenText(toks[i - 2]) !== 'typeof'))) {
-						push('variantValueMisuse', `'${toks[i].rawText}' holds ${scalar} here, not an object for Is to compare. This will raise Run-time error '424': Object required.`, at);
+					if (isOperand) {
+						push('variantValueMisuse', `'${toks[i].rawText}' holds ${scalar ?? `an array from ${array}`} here, not an object for Is to compare. This will raise Run-time error '424': Object required.`, at);
 						continue;
 					}
 					if (next?.rawText === '.' && tokenName(toks[i + 2])) {

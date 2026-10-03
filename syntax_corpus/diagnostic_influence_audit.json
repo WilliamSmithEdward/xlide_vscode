@@ -4042,7 +4042,9 @@
         "issue213_37_compile",
         "issue325_08_compile",
         "issue325_09_compile",
-        "issue325_10_compile"
+        "issue325_10_compile",
+        "issue612_12_compile",
+        "issue612_13_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -6945,7 +6947,14 @@
         "issue414b_07_runtime",
         "issue414b_08_runtime",
         "issue414b_09_runtime",
-        "issue414b_14_runtime"
+        "issue414b_14_runtime",
+        "issue612_03_runtime",
+        "issue612_04_runtime",
+        "issue612_05_runtime",
+        "issue612_06_runtime",
+        "issue612_08_runtime",
+        "issue612_09_runtime",
+        "issue612_10_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
