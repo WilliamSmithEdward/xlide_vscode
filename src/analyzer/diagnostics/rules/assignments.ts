@@ -1973,6 +1973,20 @@ interface SpelledText {
 	named?: string;
 }
 
+/** `Range("c1").Address` as Excel gives it with no arguments: "$C$1", or "$A$1:$B$2". */
+function literalRangeAddress(part: readonly VbaToken[]): string | undefined {
+	const toks = part.filter((tok) => tok.kind !== 'comment');
+	if (toks.length !== 6 || tokenText(toks[0]) !== 'range' || toks[1].rawText !== '(' || toks[2].kind !== 'stringLiteral' || toks[3].rawText !== ')'
+		|| toks[4].rawText !== '.' || tokenText(toks[5]) !== 'address') {
+		return undefined;
+	}
+	const cells = stringLiteralValue(toks[2].rawText).toUpperCase().split(':');
+	if (cells.length > 2 || !cells.every((cell) => /^[A-Z]{1,3}[1-9]\d*$/.test(cell))) {
+		return undefined;
+	}
+	return cells.map((cell) => cell.replace(/^([A-Z]+)(\d+)$/, '$$$1$$$2')).join(':');
+}
+
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const STRCONV_CASES: Readonly<Record<string, number>> = { vbuppercase: 1, vblowercase: 2, vbpropercase: 3 };
@@ -2004,6 +2018,20 @@ function fixedTextPart(part: readonly VbaToken[], known: (lower: string) => Know
 	}
 	const open = part[1]?.rawText === '$' ? 2 : 1;
 	const fn = tokenName(part[0])?.toLowerCase();
+	// `Split(Range("C1").Address, "$")(1)`, the column letter "C" (issue #457).
+	if (fn === 'split' && part[open]?.rawText === '(' && !runtimeCallableSourceShadowed(fn, sourceNames)) {
+		const close = matchParenFrom(part, open);
+		const index = part.slice(close + 1);
+		const [text, separator, ...rest] = splitTopLevelTokenGroups(part, open + 1, ',', close);
+		const address = text ? literalRangeAddress(text) : undefined;
+		const at = index.length === 3 && index[0].rawText === '(' && index[1].kind === 'integerLiteral' && index[2].rawText === ')' ? Number(index[1].rawText) : undefined;
+		if (address && separator?.length === 1 && separator[0].kind === 'stringLiteral' && rest.length === 0 && at !== undefined) {
+			const sep = stringLiteralValue(separator[0].rawText);
+			const element = sep ? address.split(sep)[at] : undefined;
+			return element === undefined ? undefined : exact(element);
+		}
+		return undefined;
+	}
 	if (!fn || runtimeCallableSourceShadowed(fn, sourceNames) || part[open]?.rawText !== '(' || matchParenFrom(part, open) !== part.length - 1) {
 		return undefined;
 	}
