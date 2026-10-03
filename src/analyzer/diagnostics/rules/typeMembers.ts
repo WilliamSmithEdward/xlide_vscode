@@ -25,7 +25,7 @@ import type { DiagnosticRuleName } from '../ruleMetadata';
 import { fieldChain, isFixedArrayField, isLeadingDot, moduleTypes, typeKey, typeRootAt, variableSymbolIn, walkWithSubjects, type FieldStep, type ModuleTypes, type WithSubject } from '../typeFields';
 import { typeMemberStatesAt, type MemberStatesAt } from '../typeMemberState';
 import { isKnownObjectAssignmentType, isKnownScalarType, normalizeType } from '../typeInference';
-import { activeModuleMembers, isInactiveNode, statementTokens, statementTokensAfterLeadingLabel, tokenName, tokenText } from '../walker';
+import { activeModuleMembers, isInactiveNode, matchParenFrom, statementTokens, statementTokensAfterLeadingLabel, tokenName, tokenText } from '../walker';
 import { moduleOptionBase } from './arrays';
 
 const NOT_SET = `This will raise Run-time error '91': Object variable or With block variable not set.`;
@@ -165,8 +165,17 @@ function fieldUseMisuse(
 	// A dynamic array field takes an array or, As Byte, a String: only a
 	// number literal is judged there (issue #417, measured in Excel 16.0).
 	const numberValue = value.length === 1 && (value[0].kind === 'integerLiteral' || value[0].kind === 'floatLiteral');
-	if (target && kind === 'array' && (isFixedArrayField(step.field) || numberValue)) {
+	// A String into one that is not As Byte is refused too (issue #604).
+	const elementType = normalizeType(step.field.type);
+	const stringValue = value.length === 1 && value[0].kind === 'stringLiteral' && elementType !== 'byte';
+	if (target && kind === 'array' && (isFixedArrayField(step.field) || numberValue || stringValue)) {
 		return { rule: 'arrayTargetAssignment', message: `'${shown}' is an array, which a value cannot be assigned to whole. This is a VBE compile error: Can't assign to array.`, span: at };
+	}
+	// `t.f = Split("a b")` gives a String array to a number array: 13
+	// (issue #604, measured in Excel 16.0).
+	if (target && kind === 'array' && elementType !== undefined && isKnownScalarType(elementType) && !['string', 'byte', 'boolean', 'date'].includes(elementType)
+		&& word(value[0]) === 'split' && value[1]?.rawText === '(' && matchParenFrom([...value], 1) === value.length - 1) {
+		return { rule: 'assignmentTypeMismatch', message: `'${shown}' is an array of ${declared.replace(/\(\)$/, '')}, and Split gives an array of String. This will raise Run-time error '13': Type mismatch.`, span: at };
 	}
 	if (target && kind === 'udt' && value.length === 1 && ['integerLiteral', 'floatLiteral', 'stringLiteral'].includes(value[0].kind)) {
 		return { rule: 'udtValueMismatch', message: `'${shown}' is a ${declared}, which ${value[0].rawText} cannot be assigned to. This is a VBE compile error: Type mismatch.`, span: at };

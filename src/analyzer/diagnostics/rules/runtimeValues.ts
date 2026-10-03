@@ -1137,8 +1137,8 @@ function dateSerialOfLiterals(source: string, span: Span, toks: readonly VbaToke
  * `DateSerial(9999, 13, 1)`: the month and day carry into the year, and a
  * date past December 31, 9999 raises error 5 (issue #189, measured in Excel
  * 16.0). The year alone decides nothing: DateSerial(10000, 0, 1) runs and is
- * December 1, 9999. A year from 0 to 99 is read as 19xx or 20xx, so it is not
- * judged.
+ * December 1, 9999. A year from 0 to 99, after the month carries, is read as
+ * 19xx or 20xx, and is judged only where both readings agree.
  */
 function dateSerialPastMaximum(
 	source: string,
@@ -1153,22 +1153,37 @@ function dateSerialPastMaximum(
 		const toks = slot.filter((t) => t.kind !== 'comment');
 		return toks.length === 0 ? undefined : integerGroupValue(source, span, toks, constants);
 	});
-	if (year === undefined || month === undefined || day === undefined || (year >= 0 && year < 100)) {
+	if (year === undefined || month === undefined || day === undefined) {
 		return undefined;
 	}
 	// A part past the Integer range overflows first (issue #218).
 	if ([year, month, day].some((part) => part < -32768 || part > 32767)) {
 		return undefined;
 	}
-	// A year below 0 is counted from 2000: DateSerial(-100, 1, 1) is
-	// January 1, 1900, and DateSerial(-10000, 1, 1) raises 5 (issue #559,
-	// measured in Excel 16.0).
-	const date = new Date(0);
-	date.setUTCFullYear(year < 0 ? year + 2000 : year, month - 1, 1);
-	date.setUTCDate(day);
-	const before = date.getTime() < Date.UTC(100, 0, 1);
-	if (date.getUTCFullYear() <= 9999 && !before) {
-		return undefined;
+	// VBA carries the month into the year first, then reads the year: 0 to
+	// 99 as 19xx or 20xx by the system's cut, below 0 counted from 2000. A
+	// year past 9999 then raises 5 before the day is added; otherwise the
+	// day carries from the first of the month, and the date must fall from
+	// January 1, 100 to December 31, 9999. DateSerial(100, 0, 1) is year 99,
+	// December, and runs; DateSerial(9999, 13, 0) raises 5 (issues #559 and
+	// #604, measured in Excel 16.0 over a 1,716-call grid).
+	const carried = year + Math.floor((month - 1) / 12);
+	const monthIndex = (((month - 1) % 12) + 12) % 12;
+	let before = false;
+	if (carried <= 9999) {
+		const readings = carried < 0 ? [carried + 2000] : carried < 100 ? [carried + 1900, carried + 2000] : [carried];
+		const outside = readings.map((reading) => {
+			const date = new Date(0);
+			date.setUTCFullYear(reading, monthIndex, 1);
+			date.setUTCDate(day);
+			const early = date.getUTCFullYear() < 100;
+			return { early, outside: early || date.getUTCFullYear() > 9999 };
+		});
+		// A two-digit year is judged only where both readings agree.
+		if (!outside.every((reading) => reading.outside)) {
+			return undefined;
+		}
+		before = outside[0].early;
 	}
 	const first = call.slots[0].find((t) => t.kind !== 'comment')!;
 	const last = [...call.slots[2]].reverse().find((t) => t.kind !== 'comment')!;
