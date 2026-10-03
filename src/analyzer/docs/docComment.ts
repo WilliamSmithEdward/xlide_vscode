@@ -455,6 +455,7 @@ export function scanDocTags(lines: readonly DocBlockLine[]): DocTagOccurrence[] 
 		return lines[i].textStart + (offset - bodyStarts[i]);
 	};
 	const lower = body.toLowerCase();
+	const closingOffsets = new Map<string, number>();
 	const tags: DocTagOccurrence[] = [];
 	const opening = new RegExp(OPENING_TAG_RE.source, 'gi');
 	let m: RegExpExecArray | null;
@@ -488,13 +489,21 @@ export function scanDocTags(lines: readonly DocBlockLine[]): DocTagOccurrence[] 
 			occurrence.text = '';
 			occurrence.end = occurrence.open.end;
 		} else {
-			const close = lower.indexOf(`</${tag}>`, openEnd);
-			const reopen = new RegExp(`<${tag}\\b`, 'g');
-			reopen.lastIndex = openEnd;
-			const next = reopen.exec(lower);
-			if (close >= 0 && (!next || close < next.index)) {
-				occurrence.text = collapse(body.slice(openEnd, close));
-				occurrence.end = toSource(close + tag.length + 3);
+			// Opening tags are visited in order. A cached following close stays
+			// valid until we pass it; a missing close never needs another scan.
+			let close = closingOffsets.get(tag);
+			if (close === undefined || (close >= 0 && close < openEnd)) {
+				close = lower.indexOf(`</${tag}>`, openEnd);
+				closingOffsets.set(tag, close);
+			}
+			if (close >= 0) {
+				const reopen = new RegExp(`<${tag}\\b`, 'g');
+				reopen.lastIndex = openEnd;
+				const next = reopen.exec(lower);
+				if (!next || close < next.index) {
+					occurrence.text = collapse(body.slice(openEnd, close));
+					occurrence.end = toSource(close + tag.length + 3);
+				}
 			}
 		}
 		tags.push(occurrence);
