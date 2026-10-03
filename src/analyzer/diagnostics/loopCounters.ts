@@ -98,6 +98,7 @@ export function loopCountersAt(
 		return cached.result;
 	}
 	const out = new Map<LeafStatementNode, CountersAt>();
+	let zeroStarts: ReturnType<typeof zeroStartLookup> | undefined;
 	const visit = (nodes: readonly BodyNode[], inLoop: boolean): void => {
 		for (let k = 0; k < nodes.length; k++) {
 			const node = nodes[k];
@@ -106,7 +107,7 @@ export function loopCountersAt(
 			}
 			const loopBody = node.body as BodyNode[];
 			// A loop inside another may start on a later pass of the outer one.
-			const zeroAtStart = inLoop ? undefined : (lower: string): boolean => startsAtZero(source, body, node.span.start, lower);
+			const zeroAtStart = inLoop ? undefined : (lower: string): boolean => (zeroStarts ??= zeroStartLookup(source, body))(node.span.start, lower);
 			const found = node.kind === 'ForBlock'
 				? forCounter(source, node.span, node.each, node.controlVariable, loopBody, activity)
 				: node.kind === 'DoBlock' || node.kind === 'WhileBlock'
@@ -253,54 +254,64 @@ const ZERO_START_SUFFIXES: ReadonlyMap<string, string> = new Map([['%', 'integer
  * holds no GoTo, GoSub or Resume to run the loop again: it is 0 as the loop
  * starts (issue #350).
  */
-function startsAtZero(source: string, body: readonly BodyNode[], loopStart: number, lower: string): boolean {
+function zeroStartLookup(source: string, body: readonly BodyNode[]): (loopStart: number, lower: string) => boolean {
 	if (body.length === 0) {
-		return false;
+		return () => false;
 	}
-	let declared = false;
-	// The text before the loop, its declarations blanked.
-	const before = source.slice(body[0].span.start, loopStart);
+	const start = body[0].span.start;
+	const whole = source.slice(start, body[body.length - 1].span.end);
+	const lowered = whole.toLowerCase();
+	if (mentions(lowered, 'goto') || mentions(lowered, 'resume') || mentions(lowered, 'gosub')) {
+		return () => false;
+	}
+	const declared = new Map<string, boolean>();
 	const blanks: Array<[number, number]> = [];
 	const visit = (nodes: readonly BodyNode[]): void => {
 		for (const node of nodes) {
 			if (node.kind === 'VariableGroup') {
-				const decl = node.declarations.find((d) => d.name.toLowerCase() === lower);
-				// A Variant starts Empty, which compares and indexes as 0.
-				const type = decl?.asType?.toLowerCase() ?? (decl?.typeSuffix ? ZERO_START_SUFFIXES.get(decl.typeSuffix) : 'variant');
-				if (decl) {
-					declared = !node.isConst && node.modifier.toLowerCase() === 'dim' && !decl.isArray && type !== undefined && ZERO_START_TYPES.has(type);
+				// A group's first matching declaration wins; later groups replace it.
+				const seen = new Set<string>();
+				for (const decl of node.declarations) {
+					const lower = decl.name.toLowerCase();
+					if (seen.has(lower)) { continue; }
+					seen.add(lower);
+					const type = decl.asType?.toLowerCase() ?? (decl.typeSuffix ? ZERO_START_SUFFIXES.get(decl.typeSuffix) : 'variant');
+					declared.set(lower, !node.isConst && node.modifier.toLowerCase() === 'dim' && !decl.isArray && type !== undefined && ZERO_START_TYPES.has(type));
 				}
-				if (node.span.end <= loopStart) {
-					const from = node.span.start - body[0].span.start;
-					const to = node.span.end - body[0].span.start;
-					blanks.push([from, to]);
-				}
+				blanks.push([node.span.start - start, node.span.end - start]);
 			} else if ('body' in node && Array.isArray(node.body)) {
 				visit(node.body as BodyNode[]);
 			}
 		}
 	};
 	visit(body);
-	if (!declared) {
-		return false;
-	}
-	const whole = source.slice(body[0].span.start, body[body.length - 1].span.end).toLowerCase();
-	if (mentions(whole, 'goto') || mentions(whole, 'resume') || mentions(whole, 'gosub')) {
-		return false;
-	}
-	// Build the masked prefix once instead of copying it for each declaration.
 	const parts: string[] = [];
 	let cursor = 0;
 	for (const [from, to] of blanks.sort((a, b) => a[0] - b[0])) {
-		if (to <= cursor) {
-			continue;
-		}
-		const start = Math.max(cursor, from);
-		parts.push(before.slice(cursor, start), ' '.repeat(to - start));
+		if (to <= cursor) { continue; }
+		const begin = Math.max(cursor, from);
+		parts.push(whole.slice(cursor, begin), ' '.repeat(to - begin));
 		cursor = to;
 	}
-	parts.push(before.slice(cursor));
-	return !mentions(parts.join('').toLowerCase(), lower);
+	parts.push(whole.slice(cursor));
+	const masked = parts.join('');
+	const folded = masked.toLowerCase();
+	const firstMentions = new Map<string, number>();
+	for (const match of folded.matchAll(/[A-Za-z0-9_$\u00C0-\uFFFF]+/g)) {
+		if (declared.get(match[0]) && !firstMentions.has(match[0])) {
+			firstMentions.set(match[0], match.index);
+		}
+	}
+	return (loopStart, lower) => {
+		if (!declared.get(lower)) { return false; }
+		const offset = loopStart - start;
+		// Expanded case folds and names outside the legacy word-character set
+		// retain its exact prefix/boundary behavior instead of using text offsets.
+		if (folded.length !== masked.length || !/^[A-Za-z0-9_$\u00C0-\uFFFF]+$/.test(lower)) {
+			return !mentions(masked.slice(0, offset).toLowerCase(), lower);
+		}
+		return (firstMentions.get(lower) ?? Infinity) >= offset;
+	};
 }
 
 /** `i = i + 1`. */
