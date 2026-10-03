@@ -18,6 +18,7 @@ import type { ConditionalActivityTracker } from '../../conditional/conditionalCo
 import type { HostObjectModel } from '../../host/excelObjectModel';
 import { resolveHostGlobal } from '../../host/hostModel';
 import { tokenizeCached } from '../../lexer/tokenize';
+import { firstTokenAtOrAfter } from '../../lexer/tokenHelpers';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type { ModuleNode, Span } from '../../parser/nodes';
 import { resolveRuntimeFunction } from '../../runtime/vbaRuntime';
@@ -56,10 +57,12 @@ export function checkLocalDeclarationOrder(
 			continue;
 		}
 		const declarations = new Map<string, LocalDeclaration>();
+		let lastDeclaration = -Infinity;
 		forEachVariableGroup(member.body, (group) => {
 			for (const decl of group.declarations) {
 				const key = decl.name.toLowerCase();
 				if (!isInactiveNode(activity, decl) && !declarations.has(key)) {
+					lastDeclaration = Math.max(lastDeclaration, group.span.start);
 					declarations.set(key, {
 						name: decl.name,
 						nameSpan: decl.nameSpan ?? decl.span,
@@ -75,10 +78,26 @@ export function checkLocalDeclarationOrder(
 		const params = new Set(member.params.map((param) => param.name.toLowerCase()));
 		const headerEnd = source.indexOf('\n', member.span.start);
 		const bodyStart = headerEnd < 0 ? member.span.end : headerEnd;
-		const lastDeclaration = Math.max(...[...declarations.values()].map((decl) => decl.start));
 		tokens ??= tokenizeCached(source);
 		const reported = new Set<string>();
-		for (let i = firstTokenAt(tokens, bodyStart); i < tokens.length && tokens[i].start < lastDeclaration; i++) {
+		let constSpans: Span[] | undefined;
+		let constCursor = 0;
+		const inConstValue = (offset: number): boolean => {
+			if (!constSpans) {
+				constSpans = [];
+				const seen = new Set<number>();
+				for (const declaration of declarations.values()) {
+					if (!declaration.isConst || seen.has(declaration.start)) { continue; }
+					seen.add(declaration.start);
+					constSpans.push({ start: declaration.start, end: constStatementEnd(source, declaration.start) });
+				}
+				constSpans.sort((a, b) => a.start - b.start);
+			}
+			// Uses arrive in token order; physical Const line ends never decrease.
+			while (constCursor < constSpans.length && constSpans[constCursor].start <= offset) { constCursor++; }
+			return constCursor > 0 && constSpans[constCursor - 1].end > offset;
+		};
+		for (let i = firstTokenAtOrAfter(tokens, bodyStart); i < tokens.length && tokens[i].start < lastDeclaration; i++) {
 			const tok = tokens[i];
 			const key = tok.kind === 'identifier' ? tokenName(tok)?.toLowerCase() : undefined;
 			const declaration = key ? declarations.get(key) : undefined;
@@ -94,16 +113,13 @@ export function checkLocalDeclarationOrder(
 			}
 			reported.add(key);
 			const outer = sourceIdentifierBinding(symbols, undefined, projectVisibleSymbols, declaration.name, 'expression');
-			const inConstValue = [...declarations.values()].some(
-				(other) => other.isConst && other.start <= tok.start && constStatementEnd(source, other.start) > tok.start,
-			);
 			if (optionExplicit && outer.scope === 'unresolved') {
 				push(
 					'undeclaredVariable',
 					`Variable not defined: '${tok.rawText}'. It is declared further down the procedure, and a declaration covers only the lines after it; move the ${declaration.isConst ? 'Const' : 'declaration'} above this line.`,
 					{ start: tok.start, end: tok.end },
 				);
-			} else if (!optionExplicit && outer.scope === 'unresolved' && inConstValue) {
+			} else if (!optionExplicit && outer.scope === 'unresolved' && inConstValue(tok.start)) {
 				push(
 					'constValueNotConstant',
 					`'${tok.rawText}' is declared further down the procedure, so here it is an implicit variable, which a Const cannot take its value from. This is a VBE compile error: Constant expression required.`,
@@ -118,20 +134,6 @@ export function checkLocalDeclarationOrder(
 			}
 		}
 	}
-}
-
-function firstTokenAt(tokens: readonly VbaToken[], offset: number): number {
-	let lo = 0;
-	let hi = tokens.length;
-	while (lo < hi) {
-		const mid = (lo + hi) >> 1;
-		if (tokens[mid].start < offset) {
-			lo = mid + 1;
-		} else {
-			hi = mid;
-		}
-	}
-	return lo;
 }
 
 /** Whether the name at `i` reads a variable, rather than naming a member, a label, a type or an argument. */
