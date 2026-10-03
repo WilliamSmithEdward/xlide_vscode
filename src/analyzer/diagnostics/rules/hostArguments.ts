@@ -575,18 +575,87 @@ const CELL_EDITS: ReadonlySet<string> = new Set(['clearcontents', 'clear', 'clea
 /** The members of a sheet that reach its cells. */
 const CELL_PATHS: ReadonlySet<string> = new Set(['range', 'cells', 'rows', 'columns', 'usedrange']);
 
+/** The cell properties a write to still raises under any AllowFormatting flag. */
+const VALUE_PROPERTIES: ReadonlySet<string> = new Set(['value', 'value2', 'formula', 'formular1c1', 'formula2', 'formula2r1c1', 'formulaarray', 'formulalocal', 'formular1c1local']);
+
+/** A sheet the code protected: its password ('' for none) and the Allow flags it set True. */
+interface ProtectedSheet {
+	password: string;
+	allows: ReadonlySet<string>;
+}
+
+/**
+ * Which Allow flag lets a protected sheet's edit run (issue #684, measured
+ * in Excel 16.0): AllowInsertingRows a row insert, AllowInsertingColumns a
+ * column insert, AllowFormattingColumns a ColumnWidth, AllowFormattingRows
+ * a RowHeight, and AllowFormattingCells any other format. A value write,
+ * ClearContents and a Delete raise whatever the flags: AllowDeletingRows
+ * deletes only unlocked rows.
+ */
+function allowedEdit(words: readonly string[], eq: number, edit: number, allows: ReadonlySet<string>): boolean {
+	if (edit > 0 && words[edit] === 'insert') {
+		const rows = words.slice(0, edit).some((word) => word === 'rows' || word === 'entirerow');
+		const columns = words.slice(0, edit).some((word) => word === 'columns' || word === 'entirecolumn');
+		return (rows && !columns && allows.has('allowinsertingrows')) || (columns && !rows && allows.has('allowinsertingcolumns'));
+	}
+	if (eq > 0) {
+		const property = words[eq - 1];
+		if (VALUE_PROPERTIES.has(property)) {
+			return false;
+		}
+		return property === 'columnwidth' ? allows.has('allowformattingcolumns')
+			: property === 'rowheight' ? allows.has('allowformattingrows')
+				: allows.has('allowformattingcells');
+	}
+	return false;
+}
+
+/** What each change to a workbook's sheets raises while its structure is protected (issue #684, measured in Excel 16.0). */
+const STRUCTURE_ERRORS: Readonly<Record<string, string>> = {
+	add: "Method 'Add' of object 'Sheets' failed",
+	name: "Method 'Name' of object '_Worksheet' failed",
+	delete: "Method 'Delete' of object '_Worksheet' failed",
+	visible: "Method 'Visible' of object '_Worksheet' failed",
+	copy: 'Workbook is protected and cannot be changed',
+};
+
+/** The Protect or Unprotect arguments at `toks[3]`: its password, '' for none, undefined when not a literal. */
+function protectArguments(toks: readonly VbaToken[]): { args: VbaToken[][]; named: (name: string) => VbaToken[] | undefined; passwordArg: VbaToken[] | undefined; password: string | undefined } {
+	const args = toks.length > 3 ? splitTopLevelTokenGroups(toks, toks[3].rawText === '(' ? 4 : 3, ',', toks[3].rawText === '(' ? matchParenFrom(toks, 3) : toks.length) : [];
+	const named = (name: string): VbaToken[] | undefined => args.find((arg) => tokenText(arg[0]) === name && arg[1]?.rawText === ':=')?.slice(2);
+	const passwordArg = named('password') ?? (args[0] && args[0][1]?.rawText !== ':=' ? args[0] : undefined);
+	const password = passwordArg === undefined ? '' : passwordArg.length === 1 && passwordArg[0].kind === 'stringLiteral' ? stringLiteralValue(passwordArg[0].rawText) : undefined;
+	return { args, named, passwordArg, password };
+}
+
 /**
  * The sheets the code just protected, with their password, and the faults
  * that follow (issue #471, measured in Excel 16.0): after `w2.Protect`, a
  * write to its cells or a cell edit raises 1004, and `w2.Unprotect` with
  * another password raises 1004. `Protect UserInterfaceOnly:=True` lets the
  * code write, a right Unprotect ends it, and a cell's Locked set by the
- * code, a call, a label or the end of a block ends what is known.
+ * code, a call, a label or the end of a block ends what is known. A sheet
+ * protected with no password takes any at Unprotect, and the Allow flags
+ * let their edits run (issue #684).
+ *
+ * The workbooks whose structure the code protected (issue #684, measured
+ * in Excel 16.0): `wb.Protect "pw"`, Structure True unless given False.
+ * Adding a sheet to it raises 1004, and so does renaming, deleting, hiding
+ * or copying a sheet the code took from it, until Unprotect.
  */
 function checkProtectedSheets(source: string, proc: ProcedureNode, activity: ConditionalActivityTracker | undefined, push: PushFn): void {
-	let protectedSheets = new Map<string, string>();
+	let protectedSheets = new Map<string, ProtectedSheet>();
+	let protectedBooks = new Map<string, string>();
+	// The workbooks by name, and which one each sheet variable was taken from.
+	const books = new Set(['activeworkbook', 'thisworkbook']);
+	let sheetBooks = new Map<string, string>();
 	// Sheets the code unlocked a cell on: which cells stay writable is not followed.
 	const unlocked = new Set<string>();
+	const forgetAll = (): void => {
+		protectedSheets = new Map();
+		protectedBooks = new Map();
+		sheetBooks = new Map();
+	};
 	const visit = (list: readonly BodyNode[]): void => {
 		for (const node of list) {
 			if (activity?.isInactive(node.span)) {
@@ -594,15 +663,16 @@ function checkProtectedSheets(source: string, proc: ProcedureNode, activity: Con
 			}
 			if (!isLeafStatement(node)) {
 				if ('body' in node && Array.isArray(node.body)) {
-					const entry = protectedSheets;
-					protectedSheets = new Map(entry);
+					protectedSheets = new Map(protectedSheets);
+					protectedBooks = new Map(protectedBooks);
+					sheetBooks = new Map(sheetBooks);
 					visit(node.body as BodyNode[]);
 				}
-				protectedSheets = new Map();
+				forgetAll();
 				continue;
 			}
 			if (jumpTargetLabelDeclaration(source, node.span)) {
-				protectedSheets = new Map();
+				forgetAll();
 			}
 			const toks = statementTokensAfterLeadingLabel(source, node.span).filter((tok) => tok.kind !== 'comment');
 			const words = toks.map((tok) => tok.rawText.toLowerCase());
@@ -611,21 +681,87 @@ function checkProtectedSheets(source: string, proc: ProcedureNode, activity: Con
 			if (words.includes('locked')) {
 				unlocked.add(sheet);
 			}
+			// Another workbook made active: what ActiveWorkbook was is not known.
+			if (words.includes('activate') || words.includes('workbooks')) {
+				protectedBooks.delete('activeworkbook');
+				for (const [name, book] of [...sheetBooks]) {
+					if (book === 'activeworkbook') {
+						sheetBooks.delete(name);
+					}
+				}
+			}
+			// Adding a sheet to a workbook whose structure is protected.
+			for (let i = 0; i + 2 < toks.length; i++) {
+				if ((words[i] === 'worksheets' || words[i] === 'sheets') && words[i + 1] === '.' && words[i + 2] === 'add') {
+					const book = words[i - 1] === '.' ? (books.has(words[i - 2]) && words[i - 3] !== '.' ? words[i - 2] : undefined) : 'activeworkbook';
+					if (book && protectedBooks.has(book)) {
+						push('hostArgumentOutOfRange', `${book === 'activeworkbook' && words[i - 1] !== '.' ? 'The active workbook' : `'${toks[i - 2].rawText}'`} has its structure protected here, so no sheet can be added. This will raise Run-time error '1004': ${STRUCTURE_ERRORS.add}.`, at(words[i - 1] === '.' ? i - 2 : i, i + 2));
+					}
+				}
+			}
+			if (words[0] === 'set' && words[2] === '=') {
+				const target = words[1];
+				const value = words.slice(3);
+				protectedSheets.delete(target);
+				protectedBooks.delete(target);
+				sheetBooks.delete(target);
+				if (value[0] === 'workbooks' || ((value[0] === 'activeworkbook' || value[0] === 'thisworkbook') && value.length === 1)) {
+					books.add(target);
+				}
+				// `Set ws = wb.Worksheets(1)`, `Worksheets.Add`, `ActiveSheet`.
+				const qualified = books.has(value[0]) && value[1] === '.';
+				const rest = qualified ? value.slice(2) : value;
+				if (rest[0] === 'activesheet' ? rest.length === 1 : (rest[0] === 'worksheets' || rest[0] === 'sheets') && (rest[1] === '(' || (rest[1] === '.' && rest[2] === 'add'))) {
+					sheetBooks.set(target, qualified ? value[0] : 'activeworkbook');
+				}
+				continue;
+			}
+			if (books.has(sheet) && words[1] === '.' && (words[2] === 'protect' || words[2] === 'unprotect')) {
+				const { args, named, passwordArg, password } = protectArguments(toks);
+				if (words[2] === 'protect') {
+					const structureArg = named('structure') ?? (args[1] && args[1][1]?.rawText !== ':=' ? args[1] : undefined);
+					const structure = structureArg === undefined ? 'true' : structureArg.length === 1 ? tokenText(structureArg[0]) : undefined;
+					if (password !== undefined && structure === 'true') {
+						protectedBooks.set(sheet, password);
+					} else {
+						protectedBooks.delete(sheet);
+					}
+				} else {
+					const held = protectedBooks.get(sheet);
+					if (held !== undefined && held !== '' && password !== undefined && password !== held && passwordArg) {
+						push('hostArgumentOutOfRange', `'${toks[0].rawText}' was protected with another password, which Unprotect must match. This will raise Run-time error '1004': The password you supplied is not correct.`, at(2, toks.length - 1));
+						continue;
+					}
+					protectedBooks.delete(sheet);
+				}
+				continue;
+			}
+			// Renaming, deleting, hiding or copying a sheet of a protected workbook.
+			const book = sheetBooks.get(sheet);
+			if (book && protectedBooks.has(book) && words[1] === '.') {
+				const change = (words[2] === 'name' || words[2] === 'visible') && words[3] === '=' ? words[2]
+					: words[2] === 'delete' && toks.length === 3 ? 'delete'
+						: words[2] === 'copy' ? 'copy' : undefined;
+				if (change) {
+					push('hostArgumentOutOfRange', `'${toks[0].rawText}' is a sheet of a workbook whose structure is protected here, so its sheets cannot be changed. This will raise Run-time error '1004': ${STRUCTURE_ERRORS[change]}.`, at(0, 2));
+					continue;
+				}
+			}
 			if (words[1] === '.' && (words[2] === 'protect' || words[2] === 'unprotect')) {
-				const args = toks.length > 3 ? splitTopLevelTokenGroups(toks, toks[3].rawText === '(' ? 4 : 3, ',', toks[3].rawText === '(' ? matchParenFrom(toks, 3) : toks.length) : [];
-				const named = (name: string): VbaToken[] | undefined => args.find((arg) => tokenText(arg[0]) === name && arg[1]?.rawText === ':=')?.slice(2);
-				const passwordArg = named('password') ?? (args[0] && args[0][1]?.rawText !== ':=' ? args[0] : undefined);
-				const password = passwordArg === undefined ? '' : passwordArg.length === 1 && passwordArg[0].kind === 'stringLiteral' ? stringLiteralValue(passwordArg[0].rawText) : undefined;
+				const { named, passwordArg, password } = protectArguments(toks);
 				if (words[2] === 'protect') {
 					const uiOnly = named('userinterfaceonly');
 					if (password === undefined || unlocked.has(sheet) || (uiOnly && tokenText(uiOnly[0]) !== 'false')) {
 						protectedSheets.delete(sheet);
 					} else {
-						protectedSheets.set(sheet, password);
+						const allows = new Set(['allowinsertingrows', 'allowinsertingcolumns', 'allowformattingcells', 'allowformattingcolumns', 'allowformattingrows']
+							.filter((flag) => named(flag) !== undefined && tokenText(named(flag)![0]) !== 'false'));
+						protectedSheets.set(sheet, { password, allows });
 					}
 				} else {
-					const held = protectedSheets.get(sheet);
-					if (held !== undefined && password !== undefined && password !== held && passwordArg) {
+					const held = protectedSheets.get(sheet)?.password;
+					// A sheet protected with no password takes any (issue #684).
+					if (held !== undefined && held !== '' && password !== undefined && password !== held && passwordArg) {
 						push('hostArgumentOutOfRange', `'${toks[0].rawText}' was protected with another password, which Unprotect must match. This will raise Run-time error '1004': The password you supplied is not correct.`, at(2, toks.length - 1));
 						continue;
 					}
@@ -633,7 +769,8 @@ function checkProtectedSheets(source: string, proc: ProcedureNode, activity: Con
 				}
 				continue;
 			}
-			if (protectedSheets.has(sheet) && words[1] === '.' && CELL_PATHS.has(words[2])) {
+			const protection = protectedSheets.get(sheet);
+			if (protection && words[1] === '.' && CELL_PATHS.has(words[2])) {
 				const eq = toks.findIndex((tok, i) => tok.rawText === '=' && i > 2);
 				const edit = toks.findIndex((tok, i) => i > 2 && toks[i - 1]?.rawText === '.' && CELL_EDITS.has(tokenText(tok)));
 				const locked = words.includes('locked');
@@ -641,17 +778,18 @@ function checkProtectedSheets(source: string, proc: ProcedureNode, activity: Con
 					protectedSheets.delete(sheet);
 					continue;
 				}
-				if (eq > 0 || edit > 0) {
+				if ((eq > 0 || edit > 0) && !allowedEdit(words, eq, edit, protection.allows)) {
 					push('hostArgumentOutOfRange', `'${toks[0].rawText}' is protected here, so its cells cannot be changed. This will raise Run-time error '1004': The cell or chart you're trying to change is on a protected sheet.`, at(0, (eq > 0 ? eq : edit + 1) - 1));
 				}
 				continue;
 			}
-			// A read keeps what is known; a call or another use of a sheet may unprotect it.
-			const bare = bareAssignmentTarget(source, node.span);
-			if (!bare || toks.some((tok) => ['unprotect', 'locked'].includes(tokenText(tok)))) {
-				if (!(bare || words[0] === 'set') || toks.some((tok) => tokenText(tok) === 'unprotect')) {
-					protectedSheets = new Map();
-				}
+			// A read keeps what is known, and so does setting a property of
+			// Application, `Application.DisplayAlerts = False`; a call or another
+			// use of a sheet may unprotect it.
+			const bare = bareAssignmentTarget(source, node.span) ?? (words[0] === 'application' && words[1] === '.' && words[3] === '=' ? words[2] : undefined);
+			if (!bare || toks.some((tok) => tokenText(tok) === 'unprotect')) {
+				protectedSheets = new Map();
+				protectedBooks = new Map();
 			}
 		}
 	};
