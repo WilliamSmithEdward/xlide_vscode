@@ -170,7 +170,13 @@ function enclosingCalleeLookup(toks: readonly VbaToken[]): (at: number) => strin
 }
 
 const PROJECT_WRITES = new WeakMap<ModuleSymbols, ReadonlySet<string>>();
-const MODULE_WRITES = new WeakMap<ModuleSymbols, ReadonlySet<string>>();
+interface ModuleState {
+	source: string;
+	projectWrites: ReadonlySet<string> | undefined;
+	variables: ReadonlyMap<string, VbaSymbol>;
+	procedures: WeakMap<ProcedureNode, ReadonlyMap<string, VbaSymbol>>;
+}
+const MODULE_STATES = new WeakMap<ModuleSymbols, ModuleState>();
 
 /**
  * Records, for one analysis of a module, what the rest of the project may
@@ -179,7 +185,10 @@ const MODULE_WRITES = new WeakMap<ModuleSymbols, ReadonlySet<string>>();
 export function rememberProjectWrittenNames(symbols: ModuleSymbols, names: ReadonlySet<string> | undefined): void {
 	if (names) {
 		PROJECT_WRITES.set(symbols, names);
+	} else {
+		PROJECT_WRITES.delete(symbols);
 	}
+	MODULE_STATES.delete(symbols);
 }
 
 /**
@@ -188,12 +197,17 @@ export function rememberProjectWrittenNames(symbols: ModuleSymbols, names: Reado
  * whole project. `As New` and fixed-length Strings are left out.
  */
 export function untouchedModuleVariables(source: string, symbols: ModuleSymbols): ReadonlyMap<string, VbaSymbol> {
-	let writes = MODULE_WRITES.get(symbols);
-	if (!writes) {
-		writes = writtenNamesIn(source);
-		MODULE_WRITES.set(symbols, writes);
-	}
+	return moduleStateFor(source, symbols).variables;
+}
+
+/** Read-only state shared by consumers of this bound module and source. */
+function moduleStateFor(source: string, symbols: ModuleSymbols): ModuleState {
 	const project = PROJECT_WRITES.get(symbols);
+	const cached = MODULE_STATES.get(symbols);
+	if (cached && cached.source === source && cached.projectWrites === project) {
+		return cached;
+	}
+	const writes = writtenNamesIn(source);
 	const out = new Map<string, VbaSymbol>();
 	for (const child of symbols.root.children ?? []) {
 		if (child.kind !== 'moduleVariable' || child.isAutoInstantiated || child.fixedLength !== undefined) {
@@ -206,12 +220,21 @@ export function untouchedModuleVariables(source: string, symbols: ModuleSymbols)
 		}
 		out.set(lower, child);
 	}
-	return out;
+	const state: ModuleState = {
+		source, projectWrites: project, variables: out, procedures: new WeakMap(),
+	};
+	MODULE_STATES.set(symbols, state);
+	return state;
 }
 
 /** {@link untouchedModuleVariables} less those a procedure's own local or parameter hides. */
 export function untouchedModuleVariablesIn(source: string, symbols: ModuleSymbols, proc: ProcedureNode): ReadonlyMap<string, VbaSymbol> {
-	const all = untouchedModuleVariables(source, symbols);
+	const state = moduleStateFor(source, symbols);
+	const all = state.variables;
+	const cached = state.procedures.get(proc);
+	if (cached) {
+		return cached;
+	}
 	if (all.size === 0) {
 		return all;
 	}
@@ -220,9 +243,13 @@ export function untouchedModuleVariablesIn(source: string, symbols: ModuleSymbol
 		hidden.add(param.name.toLowerCase());
 	}
 	hidden.add(proc.name.toLowerCase());
-	const out = new Map(all);
+	let out: Map<string, VbaSymbol> | undefined;
 	for (const lower of hidden) {
-		out.delete(lower);
+		if (all.has(lower)) {
+			(out ??= new Map(all)).delete(lower);
+		}
 	}
-	return out;
+	const result = out ?? all;
+	state.procedures.set(proc, result);
+	return result;
 }
