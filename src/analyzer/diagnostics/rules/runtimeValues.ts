@@ -284,13 +284,14 @@ export function checkRuntimeArgumentValues(
 					return [{ ...value[0], kind: 'keyword', rawText: 'Empty' }];
 				}
 				const held = lower ? known.get(lower) : undefined;
-				// A whole-number type rounds what it is given: `a = 2.5` with a
-				// a Long holds 2 (issue #664, measured in Excel 16.0).
-				const whole = ['byte', 'integer', 'long', 'longlong', 'longptr'].includes(normalizeType(env.get(lower ?? '')) ?? '');
-				if (!held || held.contentMutated || held.kind !== 'number' || Number.isInteger(held.value) || whole) {
+				if (!held || held.contentMutated || held.kind !== 'number' || Number.isInteger(held.value)) {
 					return slot;
 				}
-				return literalTokensFor(held.value as number, value[0]);
+				// A whole-number type rounds what it is given, half to even:
+				// `a = 2.5` with a a Long holds 2, `a = 1.5` holds 2 (issues #664
+				// and #673, measured in Excel 16.0).
+				const whole = ['byte', 'integer', 'long', 'longlong', 'longptr'].includes(normalizeType(env.get(lower ?? '')) ?? '');
+				return literalTokensFor(whole ? bankersRound(held.value as number) : held.value as number, value[0]);
 			};
 			// A bound of Len(s) reads the length s has as the loop starts.
 			const atomValue = (atom: { kind: string; name: string }, counter: { loopNode: BodyNode }): number | undefined =>

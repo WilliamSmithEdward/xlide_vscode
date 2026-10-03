@@ -249,6 +249,7 @@ function walkList(
 	// What holds at each forward `GoTo L` of this list, plain or the whole
 	// branch of a one-line If, by the label's key (issue #614).
 	const jumps = new Map<string, ReachingAssignments[]>();
+	const jumpCounts = new Map<string, number>();
 	for (let i = 0; i < list.length; i++) {
 		const node = list[i];
 		if (isInactiveNode(activity, node) || node.kind === 'VariableGroup' || node.kind === 'ConditionalDirective') {
@@ -262,14 +263,25 @@ function walkList(
 		const label = isLeafStatement(node) ? statementLabelDeclaration(source, node.span) : undefined;
 		if (label && walk.referenced.has(label.key)) {
 			const ways = jumps.get(label.key) ?? [];
-			current = ways.length > 0 && ways.length === walk.referenced.get(label.key)
-				? agreed(current === UNREACHED ? ways : [current, ...ways])
-				: NONE;
+			// Every GoTo to it seen, those that never jump included (issue #673).
+			if ((jumpCounts.get(label.key) ?? 0) > 0 && jumpCounts.get(label.key) === walk.referenced.get(label.key)) {
+				const states = current === UNREACHED ? ways : [current, ...ways];
+				current = states.length === 0 ? UNREACHED : agreed(states);
+			} else {
+				current = NONE;
+			}
 		}
 		if (current !== UNREACHED && isLeafStatement(node)) {
 			const target = forwardGoTo(source, node, list[i + 1]);
 			if (target !== undefined) {
-				jumps.set(target, [...(jumps.get(target) ?? []), current]);
+				// `If False Then GoTo L` never jumps, and adds no way into L
+				// (issue #673, measured in Excel 16.0).
+				const condition = node.kind === 'Statement' && node.singleLineIfBranches ? ifConditionTokens(statementTokensAfterLeadingLabel(source, node.span)) : undefined;
+				const mayJump = condition ? conditionValue(condition, factsFrom(current)) : true;
+				jumpCounts.set(target, (jumpCounts.get(target) ?? 0) + 1);
+				if (mayJump !== false) {
+					jumps.set(target, [...(jumps.get(target) ?? []), current]);
+				}
 			}
 		}
 		if (current === UNREACHED) {
