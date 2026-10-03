@@ -286,6 +286,28 @@ export function checkAssignmentTypes(
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
+	// Declared-type facts are stable within this rule invocation. Value and
+	// object-state facts below still depend on the individual statement.
+	const objectTypes = new Map<string, {
+		isObject: boolean;
+		verdict: ReturnType<typeof objectLetAssignmentVerdict>;
+		holding: ReturnType<typeof objectHoldingDefault>;
+		readOnlyDefault: string | undefined;
+	}>();
+	const objectFactsFor = (type: string) => {
+		let facts = objectTypes.get(type);
+		if (!facts) {
+			const isObject = isKnownObjectAssignmentType(type, memberCtx);
+			const verdict = isObject ? objectLetAssignmentVerdict(type, memberCtx) : 'unknown';
+			const holding = isObject && verdict !== 'noDefault' ? objectHoldingDefault(type, memberCtx) : undefined;
+			const readOnlyDefault = isObject && verdict === 'lets' && !holding
+				? readOnlyProjectDefault(type, memberCtx) ?? readOnlyHostDefault(type, memberCtx)
+				: undefined;
+			facts = { isObject, verdict, holding, readOnlyDefault };
+			objectTypes.set(type, facts);
+		}
+		return facts;
+	};
 	const moduleSignatures = buildModuleTypeSignatures(symbols);
 	// Enum assignment compatibility is a name query, not a full symbol scan
 	// per assignment. Keep this index within the current rule pass.
@@ -442,7 +464,7 @@ export function checkAssignmentTypes(
 			}
 			const declared = declaredTypeForSourceBinding(symbols, procSym, projectVisibleSymbols, element.name, 'assignmentTarget');
 			const expected = declared.resolved ? declared.asType : undefined;
-			if (expected && isKnownObjectAssignmentType(expected, memberCtx) && objectLetAssignmentVerdict(expected, memberCtx) === 'argument') {
+			if (expected && objectFactsFor(expected).verdict === 'argument') {
 				push(
 					'setRequired',
 					`Assignment to '${element.label}' requires Set: the default member of ${expected} takes an argument, so a Let cannot reach it. This is a VBE compile error: ${normalizeType(expected) === 'collection' ? 'Argument not optional' : 'Invalid use of property'}.`,
@@ -498,16 +520,17 @@ export function checkAssignmentTypes(
 			if (!expected) {
 				return;
 			}
-			if (isKnownObjectAssignmentType(expected, memberCtx)) {
+			const objectType = objectFactsFor(expected);
+			if (objectType.isObject) {
 				// The VBE compiles a bare `=` to an object variable as a Let
 				// through the type's default member (issue #107): `r = 5`
 				// writes the Range's Value. What is reported is what the
 				// default member makes of it.
-				const verdict = objectLetAssignmentVerdict(expected, memberCtx);
+				const verdict = objectType.verdict;
 				// `x = 5` on a Word Paragraph: its default member Range holds an
 				// object, which a Let cannot write (issue #462, measured in Word 16.0).
 				// A DAO Recordset's Fields holds an object too (issue #464).
-				const holding = verdict !== 'noDefault' ? objectHoldingDefault(expected, memberCtx) : undefined;
+				const holding = objectType.holding;
 				if (holding) {
 					push(
 						'invalidPropertyUse',
@@ -519,7 +542,7 @@ export function checkAssignmentTypes(
 				// A class whose default member is a Property Get with no Let:
 				// `c = 5` does not compile (issue #256, measured in Excel 16.0).
 				// So does a Word Document, whose Name takes none (issue #438).
-				const readOnlyDefault = verdict === 'lets' ? readOnlyProjectDefault(expected, memberCtx) ?? readOnlyHostDefault(expected, memberCtx) : undefined;
+				const readOnlyDefault = objectType.readOnlyDefault;
 				if (readOnlyDefault) {
 					push(
 						'readonlyMemberAssignment',
