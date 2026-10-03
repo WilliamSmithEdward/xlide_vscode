@@ -2683,7 +2683,9 @@
         "issue417_149_runtime",
         "issue559_07_runtime",
         "issue559_08_runtime",
-        "issue559_09_runtime"
+        "issue559_09_runtime",
+        "issue346b_01_runtime",
+        "issue346b_05_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -7360,7 +7362,8 @@
         "issue416b_01_runtime",
         "issue416b_02_runtime",
         "issue416b_03_runtime",
-        "issue416b_06_runtime"
+        "issue416b_06_runtime",
+        "issue346b_03_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],

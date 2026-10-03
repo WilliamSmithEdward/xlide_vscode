@@ -44,7 +44,7 @@ import {
 
 /** A bound's named part: `Len(s)`, `UBound(a)`, `LBound(a, 2)`, `c.Count`. */
 export interface CounterAtom {
-	kind: 'len' | 'ubound' | 'lbound' | 'count';
+	kind: 'len' | 'ubound' | 'lbound' | 'count' | 'local';
 	/** The name it reads, lower-cased. */
 	name: string;
 	/** As written, for messages. */
@@ -291,6 +291,10 @@ export function counterValue(tokens: readonly VbaToken[]): CounterValue | undefi
 		}
 		offset = sign === '-' ? -value : value;
 		core = toks.slice(0, -2);
+	}
+	// `s`, a local whose value a rule may know as the loop starts (issue #346).
+	if (core.length === 1 && core[0].kind === 'identifier') {
+		return { atom: { kind: 'local', name: core[0].rawText.toLowerCase(), text: core[0].rawText, dimension: 1 }, offset };
 	}
 	// `c.Count`
 	if (core.length === 3 && tokenName(core[0]) && core[1].rawText === '.' && tokenText(core[2]) === 'count') {

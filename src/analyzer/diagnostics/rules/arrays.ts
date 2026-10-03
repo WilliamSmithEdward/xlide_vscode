@@ -2892,6 +2892,11 @@ export function subscriptViolation(
 	}
 	// `a(i)` inside `For i = 0 To 3`: the counter's first and last passes.
 	const atomValue = (atom: { kind: string; name: string; dimension: number }): number | undefined => {
+		// `For i = s To 2` with s a local known to hold 1 (issue #346): the
+		// loop never writes s, so it holds the same here as where it starts.
+		if (atom.kind === 'local') {
+			return lookup ? evaluateIntegerConstantExpression(atom.name, lookup) : undefined;
+		}
 		const shape = fixed.get(atom.name)?.dims[atom.dimension - 1];
 		return atom.kind === 'ubound' ? shape?.upper : atom.kind === 'lbound' ? shape?.lower : undefined;
 	};
