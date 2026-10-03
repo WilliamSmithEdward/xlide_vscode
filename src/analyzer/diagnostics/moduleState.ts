@@ -120,6 +120,7 @@ function markWrites(segment: readonly VbaToken[], procedures: ReadonlySet<string
 		markAll(0, equals);
 	}
 	// A whole name passed to a call may come back changed (ByRef).
+	const calleeAt = enclosingCalleeLookup(toks);
 	for (let i = assignment ? equals + 1 : 1; i < toks.length; i++) {
 		const name = tokenName(toks[i])?.toLowerCase();
 		if (!name || toks[i - 1]?.rawText === '.' || toks[i - 1]?.rawText === '!') {
@@ -130,7 +131,7 @@ function markWrites(segment: readonly VbaToken[], procedures: ReadonlySet<string
 			continue;
 		}
 		const previous = toks[i - 1];
-		const callee = calleeOf(toks, i);
+		const callee = calleeAt(i);
 		if (callee === undefined) {
 			// At the top level: an argument of a call statement, `Fill s`.
 			const callStatement = !assignment && !COMPARING_HEADS.has(head)
@@ -150,20 +151,22 @@ function markWrites(segment: readonly VbaToken[], procedures: ReadonlySet<string
 	}
 }
 
-/** The name before the parenthesis that encloses `toks[at]`, or undefined at the top level. */
-function calleeOf(toks: readonly VbaToken[], at: number): string | undefined {
-	let depth = 0;
-	for (let j = at - 1; j >= 0; j--) {
-		if (toks[j].rawText === ')') {
-			depth++;
-		} else if (toks[j].rawText === '(') {
-			if (depth === 0) {
-				return tokenName(toks[j - 1])?.toLowerCase() ?? '';
+/** Enclosing callees for the increasing token offsets visited by markWrites. */
+function enclosingCalleeLookup(toks: readonly VbaToken[]): (at: number) => string | undefined {
+	const stack: string[] = [];
+	let cursor = 0;
+	return (at) => {
+		// Scan only the prefix not already visited by a previous argument.
+		for (; cursor < at; cursor++) {
+			const raw = toks[cursor].rawText;
+			if (raw === '(') {
+				stack.push(tokenName(toks[cursor - 1])?.toLowerCase() ?? '');
+			} else if (raw === ')') {
+				stack.pop();
 			}
-			depth--;
 		}
-	}
-	return undefined;
+		return stack[stack.length - 1];
+	};
 }
 
 const PROJECT_WRITES = new WeakMap<ModuleSymbols, ReadonlySet<string>>();
