@@ -89,7 +89,9 @@ function statementWrites(toks: readonly VbaToken[], lower: string): boolean {
 	// Passed on whole, `Other p`, `Other x, p` or `x = F(p)`: the next callee
 	// may write it. A call statement opens with the callee's name.
 	const callStatement = toks[0]?.kind === 'identifier' && !toks.some((tok) => tok.rawText === '=');
+	let depth = 0;
 	for (let i = 1; i < toks.length; i++) {
+		depth += toks[i].rawText === '(' ? 1 : toks[i].rawText === ')' ? -1 : 0;
 		if (tokenName(toks[i])?.toLowerCase() !== lower) {
 			continue;
 		}
@@ -98,7 +100,9 @@ function statementWrites(toks: readonly VbaToken[], lower: string): boolean {
 		if (prev === '.' || prev === '!' || next === '.' || next === '!' || next === '(' || tokenText(toks[i + 1]) === 'is') {
 			continue;
 		}
-		if (prev === '(' || prev === ':=' || (callStatement && (prev === ',' || i === 1))) {
+		// After a comma inside a call's parentheses too: `F = G(a, p)` passes p
+		// on (issue #665).
+		if (prev === '(' || prev === ':=' || (prev === ',' && depth > 0) || (callStatement && (prev === ',' || i === 1))) {
 			return true;
 		}
 	}

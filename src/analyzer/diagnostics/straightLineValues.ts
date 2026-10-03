@@ -181,6 +181,8 @@ function cachedWalk(
 	const outerProcedures = walkProcedures;
 	const outerElements = walkElements;
 	const outerEffects = walkCallEffects;
+	const outerCollections = walkCollections;
+	walkCollections = localCollectionNames(body, activity);
 	walkArrays = localArrayNames(body, activity);
 	walkCallEffects = CALL_EFFECTS.get(initial);
 	let exit: ReachingAssignments;
@@ -193,6 +195,7 @@ function cachedWalk(
 		walkProcedures = outerProcedures;
 		walkElements = outerElements;
 		walkCallEffects = outerEffects;
+		walkCollections = outerCollections;
 	}
 	const walk: CachedWalk = { source, activity, result: out, dead, deadSpans, exit: exit === UNREACHED ? undefined : exit };
 	byStart.set(key, walk);
@@ -253,10 +256,11 @@ function walkList(
 		}
 		// A label a jump may reach starts over; one nothing names, as when
 		// `On Error GoTo EH` is commented out, leaves dead code dead (issue
-		// #421). One only forward GoTos of this list reach holds what every
-		// way in agrees on (issue #614).
+		// #421), and live code as it was: `a = 1` then `L1:` keeps a 1
+		// (issue #665, measured in Excel 16.0). One only forward GoTos of
+		// this list reach holds what every way in agrees on (issue #614).
 		const label = isLeafStatement(node) ? statementLabelDeclaration(source, node.span) : undefined;
-		if (label && (current !== UNREACHED || walk.referenced.has(label.key))) {
+		if (label && walk.referenced.has(label.key)) {
 			const ways = jumps.get(label.key) ?? [];
 			current = ways.length > 0 && ways.length === walk.referenced.get(label.key)
 				? agreed(current === UNREACHED ? ways : [current, ...ways])
@@ -407,6 +411,27 @@ function walkBlock(
 		next.set(none.counter.name, rawExpressionTokens(String(none.counter.value)));
 		return next;
 	}
+	// `With k`, k a Collection: `.Add a` inside reads a (issue #665).
+	const outerWith = walkWithCollection;
+	if (node.kind === 'WithBlock') {
+		const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment');
+		walkWithCollection = header.length === 2 && walkCollections.has(tokenName(header[1])?.toLowerCase() ?? '');
+	}
+	try {
+		return walkBlockBody(source, node, entry, activity, walk);
+	} finally {
+		walkWithCollection = outerWith;
+	}
+}
+
+/** The rest of walkBlock, with a With block's subject set. */
+function walkBlockBody(
+	source: string,
+	node: BodyNode,
+	entry: ReachingAssignments,
+	activity: ConditionalActivityTracker | undefined,
+	walk: WalkOut,
+): ReachingAssignments {
 	const touched = loopTouched(source, node, entry, activity);
 	const after = withoutMentionedObjects(touched === 'all' ? NONE : without(entry, touched), source, node.span);
 	// An If arm, a Case or a With body runs once, from the state the block is
@@ -418,7 +443,7 @@ function walkBlock(
 			walkList(source, branch.body, inside, activity, walk);
 		}
 	} else {
-		walkList(source, node.body as BodyNode[], inside, activity, walk, node.kind === 'SelectBlock');
+		walkList(source, (node as { body: BodyNode[] }).body, inside, activity, walk, node.kind === 'SelectBlock');
 	}
 	const final = touched === 'all' ? undefined : forCounterFinalValue(source, node, activity) ?? doCounterFinalValue(source, node, entry, activity);
 	if (final !== undefined) {
@@ -1021,6 +1046,41 @@ let walkArrays: ReadonlySet<string> = new Set();
 let walkElements = false;
 
 /** The names a procedure's Dim statements declare as arrays: their subscripts pass nothing. */
+const COLLECTION_METHODS: ReadonlySet<string> = new Set(['add', 'remove', 'item']);
+
+/** The Collection locals of the body being walked, by lowercased name (issue #665); set while a walk runs. */
+let walkCollections: ReadonlySet<string> = new Set();
+
+/** Whether the statement being walked sits in `With k`, k one of walkCollections. */
+let walkWithCollection = false;
+
+/** The locals the body declares As Collection or As New Collection. */
+function localCollectionNames(body: readonly BodyNode[], activity: ConditionalActivityTracker | undefined): Set<string> {
+	const out = new Set<string>();
+	const visit = (list: readonly BodyNode[]): void => {
+		for (const node of list) {
+			if (isInactiveNode(activity, node)) {
+				continue;
+			}
+			if (node.kind === 'VariableGroup' && !node.isConst) {
+				for (const decl of node.declarations) {
+					if (!decl.isArray && /^(vba\.)?collection$/i.test(decl.asType ?? '')) {
+						out.add(decl.name.toLowerCase());
+					}
+				}
+			} else if (node.kind === 'IfBlock') {
+				for (const branch of (node as IfBlockNode).branches) {
+					visit(branch.body);
+				}
+			} else if ('body' in node && Array.isArray(node.body)) {
+				visit(node.body as BodyNode[]);
+			}
+		}
+	};
+	visit(body);
+	return out;
+}
+
 function localArrayNames(body: readonly BodyNode[], activity: ConditionalActivityTracker | undefined): Set<string> {
 	const out = new Set<string>();
 	const visit = (list: readonly BodyNode[]): void => {
@@ -1051,6 +1111,14 @@ function passedWhole(source: string, toks: readonly VbaToken[], spanStart: numbe
 	const hits = trackedLocalsNamedWhole(toks, spanStart, () => true, READ_ONLY_INTRINSICS, walkArrays, calleeKeepsArgument(source));
 	// A VBA library function assigns none of its arguments: `Left$("abc", n)`
 	// leaves n as it was (issue #565).
+	// A Collection's own methods assign none of their arguments: `k.Add a`,
+	// and `.Add a` inside `With k` (issue #665, measured in Excel 16.0).
+	const head = toks[0]?.rawText === '.' ? 0 : 1;
+	const collection = COLLECTION_METHODS.has(tokenText(toks[head + 1])) && toks[head]?.rawText === '.'
+		&& (head === 0 ? walkWithCollection : walkCollections.has(tokenName(toks[0])?.toLowerCase() ?? ''));
+	if (collection) {
+		return [];
+	}
 	const readOnly = printedArguments(toks);
 	for (const [lower, at] of hits) {
 		const index = toks.findIndex((tok) => spanStart + tok.start === at);

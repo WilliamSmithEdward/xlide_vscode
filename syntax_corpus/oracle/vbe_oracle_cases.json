@@ -102211,6 +102211,204 @@
       ],
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue665_01_runtime",
+      "description": "Issue #665 statements that only read a local keep its value, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function Twice(ByVal x As Long) As Long\r\n    Twice = x * 2\r\nEnd Function\r\nPrivate Sub NopV(ByVal x As Long)\r\nEnd Sub\r\nPrivate Sub SetR(ByRef x As Long)\r\n    x = 5\r\nEnd Sub\r\nPrivate Function SetA(ByRef x As Long) As Long\r\n    x = 5\r\n    SetA = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, c As Collection, k As New Collection\r\n    a = 0\r\n    k.Add a\r\n    Main = 10 \\ a\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue665_02_runtime",
+      "description": "Issue #665 statements that only read a local keep its value, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function Twice(ByVal x As Long) As Long\r\n    Twice = x * 2\r\nEnd Function\r\nPrivate Sub NopV(ByVal x As Long)\r\nEnd Sub\r\nPrivate Sub SetR(ByRef x As Long)\r\n    x = 5\r\nEnd Sub\r\nPrivate Function SetA(ByRef x As Long) As Long\r\n    x = 5\r\n    SetA = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, c As Collection, k As New Collection\r\n    a = 1\r\n    k.Add a\r\n    If a = 2 Then c.Add 1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue665_03_runtime",
+      "description": "Issue #665 statements that only read a local keep its value, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function Twice(ByVal x As Long) As Long\r\n    Twice = x * 2\r\nEnd Function\r\nPrivate Sub NopV(ByVal x As Long)\r\nEnd Sub\r\nPrivate Sub SetR(ByRef x As Long)\r\n    x = 5\r\nEnd Sub\r\nPrivate Function SetA(ByRef x As Long) As Long\r\n    x = 5\r\n    SetA = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, c As Collection, k As New Collection\r\n    a = 0\r\n    With k\r\n        .Add a\r\n    End With\r\n    Main = 10 \\ a\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue665_04_runtime",
+      "description": "Issue #665 statements that only read a local keep its value, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function Twice(ByVal x As Long) As Long\r\n    Twice = x * 2\r\nEnd Function\r\nPrivate Sub NopV(ByVal x As Long)\r\nEnd Sub\r\nPrivate Sub SetR(ByRef x As Long)\r\n    x = 5\r\nEnd Sub\r\nPrivate Function SetA(ByRef x As Long) As Long\r\n    x = 5\r\n    SetA = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, c As Collection, k As New Collection\r\n    a = 1\r\n    With k\r\n        .Add a\r\n    End With\r\n    If a = 2 Then c.Add 1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue665_05_runtime",
+      "description": "Issue #665 statements that only read a local keep its value, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function Twice(ByVal x As Long) As Long\r\n    Twice = x * 2\r\nEnd Function\r\nPrivate Sub NopV(ByVal x As Long)\r\nEnd Sub\r\nPrivate Sub SetR(ByRef x As Long)\r\n    x = 5\r\nEnd Sub\r\nPrivate Function SetA(ByRef x As Long) As Long\r\n    x = 5\r\n    SetA = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, c As Collection, k As New Collection\r\n    a = 0\r\n    ActiveSheet.Cells(a + 1, 1).Value = 1\r\n    Main = 10 \\ a\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue665_06_runtime",
+      "description": "Issue #665 statements that only read a local keep its value, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function Twice(ByVal x As Long) As Long\r\n    Twice = x * 2\r\nEnd Function\r\nPrivate Sub NopV(ByVal x As Long)\r\nEnd Sub\r\nPrivate Sub SetR(ByRef x As Long)\r\n    x = 5\r\nEnd Sub\r\nPrivate Function SetA(ByRef x As Long) As Long\r\n    x = 5\r\n    SetA = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, c As Collection, k As New Collection\r\n    a = 1\r\n    ActiveSheet.Cells(a + 1, 1).Value = 1\r\n    If a = 2 Then c.Add 1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue665_07_runtime",
+      "description": "Issue #665 statements that only read a local keep its value, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function Twice(ByVal x As Long) As Long\r\n    Twice = x * 2\r\nEnd Function\r\nPrivate Sub NopV(ByVal x As Long)\r\nEnd Sub\r\nPrivate Sub SetR(ByRef x As Long)\r\n    x = 5\r\nEnd Sub\r\nPrivate Function SetA(ByRef x As Long) As Long\r\n    x = 5\r\n    SetA = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, c As Collection, k As New Collection\r\n    a = 0\r\n    b = Twice(a)\r\n    Main = 10 \\ a\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue665_08_runtime",
+      "description": "Issue #665 statements that only read a local keep its value, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function Twice(ByVal x As Long) As Long\r\n    Twice = x * 2\r\nEnd Function\r\nPrivate Sub NopV(ByVal x As Long)\r\nEnd Sub\r\nPrivate Sub SetR(ByRef x As Long)\r\n    x = 5\r\nEnd Sub\r\nPrivate Function SetA(ByRef x As Long) As Long\r\n    x = 5\r\n    SetA = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, c As Collection, k As New Collection\r\n    a = 1\r\n    b = Twice(a)\r\n    If a = 2 Then c.Add 1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue665_09_runtime",
+      "description": "Issue #665 statements that only read a local keep its value, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function Twice(ByVal x As Long) As Long\r\n    Twice = x * 2\r\nEnd Function\r\nPrivate Sub NopV(ByVal x As Long)\r\nEnd Sub\r\nPrivate Sub SetR(ByRef x As Long)\r\n    x = 5\r\nEnd Sub\r\nPrivate Function SetA(ByRef x As Long) As Long\r\n    x = 5\r\n    SetA = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, c As Collection, k As New Collection\r\n    a = 0\r\n    L1:\r\n    Main = 10 \\ a\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue665_10_runtime",
+      "description": "Issue #665 statements that only read a local keep its value, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function Twice(ByVal x As Long) As Long\r\n    Twice = x * 2\r\nEnd Function\r\nPrivate Sub NopV(ByVal x As Long)\r\nEnd Sub\r\nPrivate Sub SetR(ByRef x As Long)\r\n    x = 5\r\nEnd Sub\r\nPrivate Function SetA(ByRef x As Long) As Long\r\n    x = 5\r\n    SetA = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, c As Collection, k As New Collection\r\n    a = 1\r\n    L1:\r\n    If a = 2 Then c.Add 1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue665_11_runtime",
+      "description": "Issue #665 statements that only read a local keep its value, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function Twice(ByVal x As Long) As Long\r\n    Twice = x * 2\r\nEnd Function\r\nPrivate Sub NopV(ByVal x As Long)\r\nEnd Sub\r\nPrivate Sub SetR(ByRef x As Long)\r\n    x = 5\r\nEnd Sub\r\nPrivate Function SetA(ByRef x As Long) As Long\r\n    x = 5\r\n    SetA = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, c As Collection, k As New Collection\r\n    a = 0\r\n    b = a\r\n    Main = 10 \\ a\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue665_12_runtime",
+      "description": "Issue #665 statements that only read a local keep its value, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function Twice(ByVal x As Long) As Long\r\n    Twice = x * 2\r\nEnd Function\r\nPrivate Sub NopV(ByVal x As Long)\r\nEnd Sub\r\nPrivate Sub SetR(ByRef x As Long)\r\n    x = 5\r\nEnd Sub\r\nPrivate Function SetA(ByRef x As Long) As Long\r\n    x = 5\r\n    SetA = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, c As Collection, k As New Collection\r\n    a = 1\r\n    b = a\r\n    If a = 2 Then c.Add 1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue665_13_runtime",
+      "description": "Issue #665 statements that only read a local keep its value, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function Twice(ByVal x As Long) As Long\r\n    Twice = x * 2\r\nEnd Function\r\nPrivate Sub NopV(ByVal x As Long)\r\nEnd Sub\r\nPrivate Sub SetR(ByRef x As Long)\r\n    x = 5\r\nEnd Sub\r\nPrivate Function SetA(ByRef x As Long) As Long\r\n    x = 5\r\n    SetA = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, c As Collection, k As New Collection\r\n    a = 0\r\n    NopV a\r\n    Main = 10 \\ a\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue665_14_runtime",
+      "description": "Issue #665 statements that only read a local keep its value, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function Twice(ByVal x As Long) As Long\r\n    Twice = x * 2\r\nEnd Function\r\nPrivate Sub NopV(ByVal x As Long)\r\nEnd Sub\r\nPrivate Sub SetR(ByRef x As Long)\r\n    x = 5\r\nEnd Sub\r\nPrivate Function SetA(ByRef x As Long) As Long\r\n    x = 5\r\n    SetA = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, c As Collection, k As New Collection\r\n    a = 1\r\n    NopV a\r\n    If a = 2 Then c.Add 1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue665_15_runtime",
+      "description": "Issue #665 statements that only read a local keep its value, case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function Twice(ByVal x As Long) As Long\r\n    Twice = x * 2\r\nEnd Function\r\nPrivate Sub NopV(ByVal x As Long)\r\nEnd Sub\r\nPrivate Sub SetR(ByRef x As Long)\r\n    x = 5\r\nEnd Sub\r\nPrivate Function SetA(ByRef x As Long) As Long\r\n    x = 5\r\n    SetA = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, c As Collection, k As New Collection\r\n    a = 0\r\n    ActiveSheet.Range(\"A1\").Value = a\r\n    Main = 10 \\ a\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue665_16_runtime",
+      "description": "Issue #665 statements that only read a local keep its value, case 16, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function Twice(ByVal x As Long) As Long\r\n    Twice = x * 2\r\nEnd Function\r\nPrivate Sub NopV(ByVal x As Long)\r\nEnd Sub\r\nPrivate Sub SetR(ByRef x As Long)\r\n    x = 5\r\nEnd Sub\r\nPrivate Function SetA(ByRef x As Long) As Long\r\n    x = 5\r\n    SetA = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, c As Collection, k As New Collection\r\n    a = 1\r\n    ActiveSheet.Range(\"A1\").Value = a\r\n    If a = 2 Then c.Add 1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue665_17_runtime",
+      "description": "Issue #665 statements that only read a local keep its value, case 17, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function Twice(ByVal x As Long) As Long\r\n    Twice = x * 2\r\nEnd Function\r\nPrivate Sub NopV(ByVal x As Long)\r\nEnd Sub\r\nPrivate Sub SetR(ByRef x As Long)\r\n    x = 5\r\nEnd Sub\r\nPrivate Function SetA(ByRef x As Long) As Long\r\n    x = 5\r\n    SetA = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, c As Collection, k As New Collection\r\n    a = 0\r\n    SetR a\r\n    Main = 10 \\ a\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue665_18_runtime",
+      "description": "Issue #665 statements that only read a local keep its value, case 18, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Function Twice(ByVal x As Long) As Long\r\n    Twice = x * 2\r\nEnd Function\r\nPrivate Sub NopV(ByVal x As Long)\r\nEnd Sub\r\nPrivate Sub SetR(ByRef x As Long)\r\n    x = 5\r\nEnd Sub\r\nPrivate Function SetA(ByRef x As Long) As Long\r\n    x = 5\r\n    SetA = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, c As Collection, k As New Collection\r\n    a = 0\r\n    b = Twice(a) + SetA(a)\r\n    Main = 10 \\ a\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
