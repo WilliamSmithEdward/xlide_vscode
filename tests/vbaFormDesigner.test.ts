@@ -36,6 +36,9 @@ const EXPECTED: DesignerControl[] = [
 	{ name: 'OkButton', type: 'MSForms.CommandButton' },
 ];
 
+/** The native reader adds what the designer knows of a list: no RowSource (#315). */
+const EXPECTED_ENTRY = EXPECTED.map((control) => (control.type === 'MSForms.ComboBox' ? { ...control, listStartsEmpty: true } : control));
+
 const ascii = (bytes: Buffer): string => bytes.toString('latin1');
 
 const tempDirs: string[] = [];
@@ -118,7 +121,7 @@ describe('a project form knows its controls with no host at all', () => {
 		const entries = listModules(FIXTURE);
 		const form = entries.find((entry) => entry.name === 'FrmPicker');
 		expect(form?.type).toBe('userform');
-		expect(form?.implicitMembers).toEqual(EXPECTED);
+		expect(form?.implicitMembers).toEqual(EXPECTED_ENTRY);
 		// And only on the form: no other entry invents members. A worksheet's
 		// module lists its ActiveX controls, and this sheet has none (#225).
 		for (const entry of entries.filter((candidate) => candidate.name !== 'FrmPicker')) {
@@ -228,7 +231,7 @@ describe('the form export pair, composed and round-tripped natively', () => {
 
 		// And the engine still reads the same controls out of the written copy.
 		const entries = listModules(copy);
-		expect(entries.find((entry) => entry.name === 'FrmPicker')?.implicitMembers).toEqual(EXPECTED);
+		expect(entries.find((entry) => entry.name === 'FrmPicker')?.implicitMembers).toEqual(EXPECTED_ENTRY);
 	});
 
 	it('importing the composed .frm keeps the designer block out of the code module', () => {

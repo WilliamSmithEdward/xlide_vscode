@@ -74,6 +74,7 @@ export type VbaProjectAnalysisOptions = Pick<
     | 'projectStringLiteralWords'
     | 'projectRunnableProcedures'
     | 'projectWrittenNames'
+    | 'projectNameMentions'
     | 'projectSheetChanges'
     | 'projectOpenedFileNumbers'
     | 'implicitMembers'
@@ -263,6 +264,7 @@ export function projectAnalysisOptionsForModule(
             projectStringLiteralWords: project.stringLiteralWords(),
             projectRunnableProcedures: project.runnableProcedureNames(),
             projectWrittenNames: project.writtenNames(),
+            projectNameMentions: project.nameMentions(),
             projectSheetChanges: project.sheetChanges(),
             projectOpenedFileNumbers: project.openedFileNumbers(),
             implementedInterfaces: project.implementedInterfaceNames(),

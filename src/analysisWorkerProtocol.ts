@@ -13,6 +13,10 @@ import type { WorkbookSheetInfo } from './analyzer/symbols/sheetChanges';
 export interface WorkerImplicitMember {
 	name: string;
 	type: string;
+	/** A MultiPage's page names, from the designer (issue #315). */
+	pages?: readonly string[];
+	/** A ListBox or ComboBox the designer gives no RowSource (issue #315). */
+	listStartsEmpty?: boolean;
 }
 
 export interface WorkerSeedModule {

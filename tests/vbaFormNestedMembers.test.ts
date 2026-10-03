@@ -20,22 +20,22 @@ import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
 
 const FIXTURE = path.join(__dirname, 'fixtures', 'binaries', 'FormFixtureVbide.xlsm');
 
-/** Top level, then the Frame's children, then the MultiPage's. */
+/** Top level, then the Frame's children, then the MultiPage's; with a MultiPage's pages and an unbound list's empty start (#315). */
 const EXPECTED = [
 	{ name: 'NameLabel', type: 'MSForms.Label' },
 	{ name: 'NameBox', type: 'MSForms.TextBox' },
-	{ name: 'RegionPick', type: 'MSForms.ComboBox' },
+	{ name: 'RegionPick', type: 'MSForms.ComboBox', listStartsEmpty: true },
 	{ name: 'Taxable', type: 'MSForms.CheckBox' },
 	{ name: 'Options', type: 'MSForms.Frame' },
 	{ name: 'HoldToggle', type: 'MSForms.ToggleButton' },
-	{ name: 'Wizard', type: 'MSForms.MultiPage' },
+	{ name: 'Wizard', type: 'MSForms.MultiPage', pages: ['Page1', 'Page2'] },
 	{ name: 'Views', type: 'MSForms.TabStrip' },
 	{ name: 'ViewNote', type: 'MSForms.Label' },
 	{ name: 'Amount', type: 'MSForms.ScrollBar' },
 	{ name: 'Steps', type: 'MSForms.SpinButton' },
 	{ name: 'Badge', type: 'MSForms.Image' },
 	{ name: 'OkButton', type: 'MSForms.CommandButton' },
-	{ name: 'HistoryList', type: 'MSForms.ListBox' },
+	{ name: 'HistoryList', type: 'MSForms.ListBox', listStartsEmpty: true },
 	{ name: 'PickGround', type: 'MSForms.OptionButton' },
 	{ name: 'PickAir', type: 'MSForms.OptionButton' },
 	{ name: 'Page1', type: 'MSForms.Page' },
