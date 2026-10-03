@@ -37,14 +37,24 @@ export interface ExternalDocEntry {
  */
 export function parseMetadataFile(xml: string): ExternalDocEntry[] {
 	const out: ExternalDocEntry[] = [];
-	const re = /<member\s+name\s*=\s*"([^"]*)"\s*>([\s\S]*?)<\/member>/gi;
+	const opening = /<member\s+name\s*=\s*"([^"]*)"\s*>/gi;
+	const closing = /<\/member>/gi;
 	let m: RegExpExecArray | null;
-	while ((m = re.exec(xml)) !== null) {
+	while ((m = opening.exec(xml)) !== null) {
+		const bodyStart = opening.lastIndex;
+		closing.lastIndex = bodyStart;
+		const close = closing.exec(xml);
+		if (!close) {
+			// No later opening can form a pair once no closing tag remains.
+			break;
+		}
+		// Empty names still consume their whole pair, just as the old regex did.
+		opening.lastIndex = closing.lastIndex;
 		const name = m[1].trim();
 		if (!name) {
 			continue;
 		}
-		out.push({ name, doc: parseDocBody(m[2], 'external') });
+		out.push({ name, doc: parseDocBody(xml.slice(bodyStart, close.index), 'external') });
 	}
 	return out;
 }
