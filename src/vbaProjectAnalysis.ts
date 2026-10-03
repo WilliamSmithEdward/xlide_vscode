@@ -75,6 +75,7 @@ export type VbaProjectAnalysisOptions = Pick<
     | 'projectRunnableProcedures'
     | 'projectWrittenNames'
     | 'projectSheetChanges'
+    | 'projectOpenedFileNumbers'
     | 'implicitMembers'
     | 'implementedInterfaces'
     | 'conditionalCompilation'
@@ -263,6 +264,7 @@ export function projectAnalysisOptionsForModule(
             projectRunnableProcedures: project.runnableProcedureNames(),
             projectWrittenNames: project.writtenNames(),
             projectSheetChanges: project.sheetChanges(),
+            projectOpenedFileNumbers: project.openedFileNumbers(),
             implementedInterfaces: project.implementedInterfaceNames(),
         // The rules must see the same constants the symbol table was built
         // with, or a branch dropped from the symbols would still be analyzed.

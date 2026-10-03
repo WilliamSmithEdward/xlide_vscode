@@ -38,11 +38,14 @@ import type { BodyNode, LeafStatementNode, ModuleNode, Span } from '../../parser
 import { isLeafStatement } from '../../parser/nodes';
 import { trackedLocalsNamedWhole, walkEnteringBlocks } from '../dataflow';
 import type { PushFn } from '../analysisContext';
+import { mergeOpenedFileNumbers, openedFileNumbersIn, type OpenedFileNumbers } from '../openedFileNumbers';
 import { stringLiteralValue } from '../typeInference';
 import {
 	activeModuleMembers,
 	bareAssignmentTarget,
 	blockHeaderLineSpan,
+	forEachStatement,
+	statementAndBranchSpans,
 	statementTokensAfterLeadingLabel,
 	tokenName,
 	tokenText,
@@ -101,7 +104,11 @@ export function checkFileStatements(
 	mod: ModuleNode,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	projectOpened?: OpenedFileNumbers,
 ): void {
+	if (projectOpened) {
+		checkUnopenedNumbers(source, mod, activity, push, mergeOpenedFileNumbers([projectOpened, openedFileNumbersIn(source)]));
+	}
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
@@ -176,6 +183,62 @@ export function checkFileStatements(
 			// `Do Until EOF(f)` checks before its body reads.
 			enter: (node) => markChecked(states, statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span))),
 		});
+	}
+}
+
+/** File statements that raise 52 on a number nothing opened; Close runs (issue #419). */
+const NUMBERED_STATEMENTS: ReadonlySet<string> = new Set(['print', 'write', 'input', 'line', 'get', 'put', 'seek', 'lock', 'unlock', 'width']);
+
+/**
+ * A literal file number no Open in the project names, while none names a
+ * variable or FreeFile: `Print #1, "x"` and `EOF(1)` raise 52, "Bad file
+ * name or number", wherever they run (issue #419, measured in Excel 16.0).
+ * The project's Opens come from the index, and this module's from its text
+ * as it stands.
+ */
+function checkUnopenedNumbers(source: string, mod: ModuleNode, activity: ConditionalActivityTracker | undefined, push: PushFn, opened: OpenedFileNumbers): void {
+	if (opened.any) {
+		return;
+	}
+	const unopened = (tok: VbaToken | undefined): number | undefined => {
+		const value = tok?.kind === 'integerLiteral' && /^\d+$/.test(tok.rawText) ? Number(tok.rawText) : undefined;
+		return value !== undefined && value >= 1 && value <= MAX_FILE_NUMBER && !opened.numbers.has(value) ? value : undefined;
+	};
+	const report = (base: Span, tok: VbaToken, value: number): void => {
+		push('fileNumberZero', `File number ${value} is opened by no Open statement in this project, so nothing can be open on it. This will raise Run-time error '52': Bad file name or number.`, { start: base.start + tok.start, end: base.start + tok.end });
+	};
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		forEachStatement(member.body, (stmt) => {
+			for (const span of statementAndBranchSpans(stmt)) {
+				const toks = statementTokensAfterLeadingLabel(source, span).filter((tok) => tok.kind !== 'comment' && tokenText(tok) !== 'else');
+				const head = tokenText(toks[0]);
+				const numberAt = head === 'line' ? (tokenText(toks[1]) === 'input' ? 2 : -1) : NUMBERED_STATEMENTS.has(head) ? 1 : -1;
+				if (numberAt > 0 && toks[numberAt]?.rawText === '#') {
+					const value = unopened(toks[numberAt + 1]);
+					if (value !== undefined) {
+						report(span, toks[numberAt + 1], value);
+						continue;
+					}
+				}
+				// `EOF(1)`, `LOF(1)`, `Input(1, #1)`.
+				for (let i = 0; i + 2 < toks.length; i++) {
+					const name = tokenText(toks[i]);
+					if (toks[i + 1].rawText !== '(' || toks[i - 1]?.rawText === '.') {
+						continue;
+					}
+					const number = FILE_STATE_FUNCTIONS.has(name) ? toks[i + 2]
+						: name === 'input' && toks[i + 3]?.rawText === ',' && toks[i + 4]?.rawText === '#' ? toks[i + 5]
+						: undefined;
+					const value = toks[toks.indexOf(number!) + 1]?.rawText === ')' || toks[toks.indexOf(number!) + 1]?.rawText === ',' ? unopened(number) : undefined;
+					if (value !== undefined) {
+						report(span, number!, value);
+					}
+				}
+			}
+		}, activity);
 	}
 }
 

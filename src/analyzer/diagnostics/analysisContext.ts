@@ -9,6 +9,7 @@
 // share one computation without threading a context object through every
 // helper signature.
 
+import type { OpenedFileNumbers } from './openedFileNumbers';
 import { getHostMembers, resolveHostGlobal, resolveHostGlobalMember } from '../host/hostModel';
 import type { ModuleNode, Span } from '../parser/nodes';
 import type { buildModuleSymbols } from '../symbols/buildModuleSymbols';
@@ -261,6 +262,8 @@ export interface AnalyzeModuleOptions {
 	workbookSheets?: readonly WorkbookSheetInfo[];
 	/** What the project's code may do to the workbook's sheets (ProjectIndex.sheetChanges). */
 	projectSheetChanges?: SheetChanges;
+	/** The file numbers the project's Open statements name (ProjectIndex.openedFileNumbers). */
+	projectOpenedFileNumbers?: OpenedFileNumbers;
 	/** Host object model metadata. Defaults to Excel's curated non-exhaustive model. */
 	hostModel?: HostObjectModel;
 	/**
