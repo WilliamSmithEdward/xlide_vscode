@@ -305,7 +305,7 @@ export function formatVbaModule(source: string, options: VbaFormatOptions): VbaF
 	}
 
 	const text = output.map((line, i) => line + (eols[i] ?? '')).join('');
-	const difference = tokenStreamDifference(source, text);
+	const difference = tokenStreamsDifference(tokens, tokenize(text));
 	if (difference) {
 		return { text: undefined, refusal: difference };
 	}
@@ -658,8 +658,10 @@ function indentString(width: number, tabSize: number, insertSpaces: boolean): st
  * away.
  */
 export function tokenStreamDifference(before: string, after: string): string | undefined {
-	const a = tokenize(before);
-	const b = tokenize(after);
+	return tokenStreamsDifference(tokenize(before), tokenize(after));
+}
+
+function tokenStreamsDifference(a: readonly VbaToken[], b: readonly VbaToken[]): string | undefined {
 	const continuations = (tokens: readonly VbaToken[]): number => {
 		let n = 0;
 		for (const token of tokens) {
@@ -702,13 +704,22 @@ export function tokenStreamDifference(before: string, after: string): string | u
 	// that loses its space is a stray `_` token, and one that gains a space is a
 	// continuation, so a formatted module could trade one for the other and
 	// keep the count (found by tests/properties).
-	const placed = (token: VbaToken): string => [token.leadingTrivia, token.trailingTrivia]
-		.map((trivia) => (trivia ?? []).filter((t) => t.kind === 'lineContinuation').length)
-		.join('/');
 	for (let i = 0; i < a.length; i++) {
-		if (placed(a[i]) !== placed(b[i])) {
+		if (lineContinuationCount(a[i].leadingTrivia) !== lineContinuationCount(b[i].leadingTrivia)
+			|| lineContinuationCount(a[i].trailingTrivia) !== lineContinuationCount(b[i].trailingTrivia)) {
 			return `a line continuation moved at token ${i}, line ${a[i].line + 1}`;
 		}
 	}
 	return undefined;
+}
+
+/** Counts continuation trivia without allocating per-token arrays or strings. */
+function lineContinuationCount(trivia: VbaToken['leadingTrivia']): number {
+	let count = 0;
+	if (trivia) {
+		for (const part of trivia) {
+			if (part.kind === 'lineContinuation') { count++; }
+		}
+	}
+	return count;
 }
