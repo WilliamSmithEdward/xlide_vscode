@@ -50,6 +50,7 @@ import type { VbaSymbol } from '../../symbols/symbolModel';
 import type { ProjectTypeName } from '../../completion/typeCompletion';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
 import { isKnownScalarType, normalizeType, sourceIdentifierBinding } from '../typeInference';
+import { resolveRuntimeFunction } from '../../runtime/vbaRuntime';
 import { isFixedArrayField, moduleTypes, type ModuleTypes } from '../typeFields';
 import {
 	absoluteSpan,
@@ -158,7 +159,14 @@ function variableNamed(ctx: Context, procSym: VbaSymbol | undefined, name: strin
 /** The scalar type a Function of the module or project returns, when the name is one. */
 function scalarFunctionNamed(ctx: Context, procSym: VbaSymbol | undefined, name: string): string | undefined {
 	const binding = sourceIdentifierBinding(ctx.symbols, procSym, ctx.projectVisibleSymbols, name, 'expression');
-	if (binding.scope === 'unresolved' || binding.scope === 'ambiguous' || binding.definitions.length !== 1) {
+	// VBA's own `CStr(1)`, where no name of the project hides it (issue #612,
+	// measured in Excel 16.0).
+	if (binding.scope === 'unresolved') {
+		const runtime = resolveRuntimeFunction(name);
+		const type = runtime?.kind === 'function' ? normalizeType(runtime.returns) : undefined;
+		return type && type !== 'variant' && isKnownScalarType(type) ? runtime!.returns : undefined;
+	}
+	if (binding.scope === 'ambiguous' || binding.definitions.length !== 1) {
 		return undefined;
 	}
 	const [definition] = binding.definitions;

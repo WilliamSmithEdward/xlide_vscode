@@ -273,6 +273,7 @@ export function checkCollectionState(
 				if (node.kind === 'WithBlock') {
 					enterWith(node);
 				}
+				checkScalarElements(source, node, states, symbols ? procedureSymbolFor(symbols, member)?.children ?? [] : [], push);
 				simulateCountedLoop(source, node, states, push, activity);
 				const after = unreachable?.has(node) ? undefined : simulateFillingLoop(source, node, states, push, activity);
 				if (after) {
@@ -309,6 +310,44 @@ function subjectName(subject: WithSubject): string {
 /** Whether a statement inside `With subject` reaches the subject by a leading dot. */
 function reachesSubject(toks: readonly VbaToken[], subject: WithSubject): boolean {
 	return withReceiver(toks.filter((tok) => tok.kind !== 'comment'), subject).length > toks.filter((tok) => tok.kind !== 'comment').length;
+}
+
+/**
+ * `For Each v In c` with every element of c a number or a string: v holds
+ * one, and the body's first line to name v, `v Is Nothing` or `v.Count`,
+ * raises 424 (issue #612, measured in Excel 16.0).
+ */
+function checkScalarElements(source: string, node: BodyNode, states: ReadonlyMap<string, CollectionContents>, locals: readonly VbaSymbol[], push: PushFn): void {
+	if (node.kind !== 'ForBlock' || !node.each || !node.controlVariable || !node.sourceExpression) {
+		return;
+	}
+	const lower = node.controlVariable.toLowerCase();
+	const contents = states.get(node.sourceExpression.trim().toLowerCase());
+	const local = locals.find((child) => child.name.toLowerCase() === lower);
+	const type = normalizeType(local?.asType);
+	if (!contents || contents.stale || contents.held.length === 0 || !contents.held.every((held) => held === 'number' || held === 'string')
+		|| local?.kind !== 'localVariable' || (type !== undefined && type !== 'variant')) {
+		return;
+	}
+	for (const child of node.body) {
+		if (!isLeafStatement(child)) {
+			if (new RegExp(`\\b${lower}\\b`, 'i').test(source.slice(child.span.start, child.span.end))) {
+				return;
+			}
+			continue;
+		}
+		const toks = statementTokensAfterLeadingLabel(source, child.span).filter((tok) => tok.kind !== 'comment');
+		const at = toks.findIndex((tok, i) => tokenName(tok)?.toLowerCase() === lower && toks[i - 1]?.rawText !== '.');
+		if (at < 0) {
+			continue;
+		}
+		const isOperand = (tokenText(toks[at + 1]) === 'is' && tokenText(toks[at - 1]) !== 'typeof') || (tokenText(toks[at - 1]) === 'is' && tokenText(toks[at - 2]) !== 'typeof');
+		const member = toks[at + 1]?.rawText === '.' && tokenName(toks[at + 2]) !== undefined;
+		if (isOperand || member) {
+			push('variantValueMisuse', `'${toks[at].rawText}' holds an element of '${node.sourceExpression.trim()}', each a number or a string, not an object${member ? ' with members' : ' for Is to compare'}. This will raise Run-time error '424': Object required.`, { start: child.span.start + toks[at].start, end: child.span.start + toks[at].end });
+		}
+		return;
+	}
 }
 
 /** The name a `With New Collection` block's collection is followed under. */
