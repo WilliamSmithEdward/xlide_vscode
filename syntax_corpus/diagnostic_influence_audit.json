@@ -5442,7 +5442,12 @@
         "issue565_10_runtime",
         "issue565_12_runtime",
         "issue565_13_runtime",
-        "issue565_14_runtime"
+        "issue565_14_runtime",
+        "issue278c_01_runtime",
+        "issue278c_02_runtime",
+        "issue278c_03_runtime",
+        "issue278c_04_runtime",
+        "issue278c_09_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],

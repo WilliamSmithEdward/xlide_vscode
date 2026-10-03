@@ -64,11 +64,13 @@ import {
 	matchParenFrom,
 	statementAndBranchSpans,
 	rawExpressionTokens,
+	setAssignmentTarget,
 	statementTokens,
 	statementTokensAfterLeadingLabel,
 	tokenName,
 	tokenText,
 } from '../walker';
+import { trackedLocalsNamedWhole } from '../dataflow';
 
 type NumericType = 'byte' | 'integer' | 'long' | 'longlong' | 'single' | 'double' | 'currency' | 'date';
 
@@ -291,7 +293,11 @@ function valOfString(text: string): Typed | 'overflow' | undefined {
  * where given, says the procedure or module declares the name, so a host
  * global of that spelling is hidden.
  */
-type NameLookup = ((lower: string) => Typed | undefined) & { declares?: (lower: string) => boolean };
+type NameLookup = ((lower: string) => Typed | undefined) & {
+	declares?: (lower: string) => boolean;
+	/** A local that holds a whole sheet's Cells: `Set r = Cells` (issue #278). */
+	wholeSheetCells?: (lower: string) => boolean;
+};
 
 /** The operators that read both sides as numbers: arithmetic and comparison. */
 const BINARY_ON_NUMBERS: ReadonlySet<string> = new Set(['+', '-', '*', '/', '\\', '^', 'mod', '=', '<>', '<', '>', '<=', '>=',
@@ -1402,6 +1408,85 @@ function namesSheet(receiver: readonly ChainSegment[], names: NameLookup): boole
 	return receiver.length === 2 && !first.args && first.name === 'application' && !second.args && second.name === 'activesheet';
 }
 
+/**
+ * The procedure's Range, Object or Variant locals that one Set gives a
+ * whole sheet's Cells, `Set r = Cells` or `Set r = ActiveSheet.Cells`, and
+ * that nothing else assigns or passes whole (issue #278, measured in Excel
+ * 16.0: `r.Count` raises 6).
+ */
+function wholeSheetCellLocals(
+	source: string,
+	member: ProcedureNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	names: NameLookup,
+	activity: ConditionalActivityTracker | undefined,
+): ReadonlySet<string> {
+	const candidates = new Set((procedureSymbolFor(symbols, member)?.children ?? [])
+		.filter((child) => child.kind === 'localVariable' && !child.isArray && child.visibility !== 'Static' && ['range', 'object', 'variant'].includes(normalizeType(child.asType) ?? 'variant'))
+		.map((child) => child.name.toLowerCase()));
+	if (candidates.size === 0) {
+		return candidates;
+	}
+	const sets = new Map<string, VbaToken[][]>();
+	const ruled = new Set<string>();
+	forEachStatement(member.body, (stmt) => {
+		for (const span of statementAndBranchSpans(stmt)) {
+			const toks = statementTokens(source, span).filter((tok) => tok.kind !== 'comment');
+			const target = setAssignmentTarget(source, span)?.name.toLowerCase();
+			if (target && candidates.has(target)) {
+				sets.set(target, [...(sets.get(target) ?? []), toks.slice(toks.findIndex((tok) => tok.rawText === '=') + 1)]);
+				continue;
+			}
+			const bare = bareAssignmentTarget(source, span)?.name.toLowerCase();
+			if (bare) {
+				ruled.add(bare);
+			}
+			for (const lower of trackedLocalsNamedWhole(toks, 0, (name) => candidates.has(name), new Set()).keys()) {
+				ruled.add(lower);
+			}
+		}
+	}, activity);
+	const out = new Set<string>();
+	for (const [lower, values] of sets) {
+		const chain = values.length === 1 && !ruled.has(lower) ? chainOf(values[0]) : undefined;
+		const last = chain?.[chain.length - 1];
+		if (chain && last?.name === 'cells' && !last.args && namesSheet(chain.slice(0, -1), names)) {
+			out.add(lower);
+		}
+	}
+	return out;
+}
+
+/** `a.b(1).c` as member segments, or undefined for anything else. */
+function chainOf(toks: readonly VbaToken[]): ChainSegment[] | undefined {
+	const out: ChainSegment[] = [];
+	for (let i = 0; i < toks.length;) {
+		const name = tokenName(toks[i])?.toLowerCase();
+		if (!name) {
+			return undefined;
+		}
+		let end = i;
+		let args: VbaToken[][] | undefined;
+		if (toks[i + 1]?.rawText === '(') {
+			const close = matchParenFrom([...toks], i + 1);
+			if (close < 0) {
+				return undefined;
+			}
+			args = splitTopLevelTokenGroups([...toks], i + 2, ',', close);
+			end = close;
+		}
+		out.push({ name, ...(args ? { args } : {}) });
+		if (end + 1 === toks.length) {
+			return out;
+		}
+		if (toks[end + 1].rawText !== '.') {
+			return undefined;
+		}
+		i = end + 2;
+	}
+	return undefined;
+}
+
 /** The cells `Range("A1:B2")` names, from a literal A1 address: a cell, a block, whole columns or whole rows. */
 function literalRange(segment: ChainSegment | undefined): { row: number; column: number; rows: number; columns: number } | undefined {
 	const arg = segment?.name === 'range' && segment.args?.length === 1 ? segment.args[0].filter((tok) => tok.kind !== 'comment') : undefined;
@@ -1434,14 +1519,16 @@ function literalRange(segment: ChainSegment | undefined): { row: number; column:
  * The size a member chain reads, where Excel fixes it (issue #411):
  * `ws.Rows.Count`, `Cells(Rows.Count, 1).Row`, `Range("A1:A40000").Rows.Count`.
  */
-function sheetSizeOf(segments: readonly ChainSegment[], fold: (expr: VbaToken[]) => number | undefined, names: NameLookup): number | undefined {
+function sheetSizeOf(chain: readonly ChainSegment[], fold: (expr: VbaToken[]) => number | undefined, names: NameLookup): number | undefined {
 	if (names('rows.count') === undefined) {
 		return undefined; // not Excel, or a name of the procedure's hides it
 	}
 	// `cells.Count` with a variable of the code's own named cells.
-	if (['cells', 'range', 'rows', 'columns'].includes(segments[0].name) && names.declares?.(segments[0].name)) {
+	if (['cells', 'range', 'rows', 'columns'].includes(chain[0].name) && names.declares?.(chain[0].name)) {
 		return undefined;
 	}
+	// `Set r = Cells`, then `r.Count` reads the sheet's Cells (issue #278).
+	const segments = !chain[0].args && names.wholeSheetCells?.(chain[0].name) ? [{ name: 'cells' }, ...chain.slice(1)] : chain;
 	const n = segments.length;
 	const last = segments[n - 1];
 	const before = segments[n - 2];
@@ -1580,6 +1667,8 @@ export function checkOverflow(
 			return hostValues.get(lower);
 		};
 		names.declares = (lower) => env.has(lower) || moduleNames.has(lower);
+		const sheetCells = wholeSheetCellLocals(source, member, symbols, names, activity);
+		names.wholeSheetCells = (lower) => sheetCells.has(lower);
 		const groups: VariableGroupNode[] = [];
 		forEachVariableGroup(member.body, (group) => { groups.push(group); }, activity);
 		checkConstDeclarations(source, groups, constants, activity, push);
@@ -2023,6 +2112,7 @@ function checkProcedureBody(
 			? (withSheets[withSheets.length - 1] ? { value: 0, type: 'long' as const } : undefined)
 			: outerNames(lower)),
 		outerNames.declares ? { declares: outerNames.declares } : {},
+		outerNames.wholeSheetCells ? { wholeSheetCells: outerNames.wholeSheetCells } : {},
 	);
 	const withNamesSheet = (node: BodyNode): boolean => {
 		const header = blockHeaderStatements(source, node).before;
