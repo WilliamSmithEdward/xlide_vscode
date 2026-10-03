@@ -35,6 +35,21 @@ const NOTHING_HELD: HeldObjects = { classes: new Map(), items: new Map() };
 /** The item class recorded for a number or string a Collection holds: no object. */
 export const HELD_VALUE = '(value)';
 
+/**
+ * `Set x = Application` and `Set x = ActiveWorkbook.Names`: the host's own
+ * object, which is never Nothing (issue #415).
+ */
+function hostObjectHeld(value: readonly VbaToken[], declared: ReadonlySet<string>): string | undefined {
+	const last = tokenText(value[value.length - 1]);
+	if (value.length === 1 && last === 'application' && !declared.has('application')) {
+		return 'Application';
+	}
+	if (last === 'names' && (value.length === 1 ? !declared.has('names') : value[value.length - 2]?.rawText === '.')) {
+		return 'Names';
+	}
+	return undefined;
+}
+
 /** Members that read a Collection without changing it. */
 const COLLECTION_READS: ReadonlySet<string> = new Set(['count', 'item']);
 
@@ -50,6 +65,8 @@ export function heldObjectsAt(
 ): (node: BodyNode) => HeldObjects {
 	const seen = new Map<BodyNode, HeldObjects>();
 	const state: State = { classes: new Map(), items: new Map() };
+	// The names a local or parameter takes, which hide a host's global.
+	const declared = new Set([...(procedureSymbolFor(symbols, proc)?.children ?? []).map((child) => child.name.toLowerCase()), ...proc.params.map((param) => param.name.toLowerCase())]);
 	// `Dim c As New Collection` holds an empty one from the start.
 	for (const child of procedureSymbolFor(symbols, proc)?.children ?? []) {
 		if (child.kind === 'localVariable' && child.isAutoInstantiated && !child.isArray && child.asType) {
@@ -87,7 +104,7 @@ export function heldObjectsAt(
 			const value = toks.slice(toks.findIndex((tok) => tok.rawText === '=') + 1);
 			const from = value.length === 1 ? tokenName(value[0])?.toLowerCase() : undefined;
 			const created = value.length === 2 && tokenText(value[0]) === 'new' ? tokenName(value[1]) : undefined;
-			const held = created ?? (from ? state.classes.get(from) : undefined);
+			const held = created ?? (from ? state.classes.get(from) : undefined) ?? hostObjectHeld(value, declared);
 			// The value's own holder may now change it unseen.
 			forget([lower, ...namesIn(source, node.span)].filter((name) => name !== from || !held));
 			if (from && held) {

@@ -117,9 +117,20 @@ export function checkObjectDefaultValues(
 		let heldAt: ((node: BodyNode) => HeldObjects) | undefined;
 		const holdsCollection = (stmt: BodyNode, lower: string): boolean =>
 			(heldAt ??= heldObjectsAt(source, proc, symbols, activity))(stmt).classes.get(lower)?.toLowerCase() === 'collection';
+		// Excel's Application and Names, by their own rules (issue #415).
+		const excel = (memberCtx.model?.hostName ?? 'Excel') === 'Excel';
+		const excelDefaults = excel ? [...env].filter(([lower, type]) => lower !== proc.name.toLowerCase() && EXCEL_DEFAULT_READS.has(normalizeType(type) ?? '')) : [];
 		return (stmt) => {
 			if (lateBound.length > 0) {
 				checkHeldCollections(source, stmt, lateBound, (lower) => holdsCollection(stmt, lower), push);
+			}
+			if (excelDefaults.length > 0) {
+				const held = (lower: string): string | undefined => (heldAt ??= heldObjectsAt(source, proc, symbols, activity))(stmt).classes.get(lower)?.toLowerCase();
+				for (const span of statementAndBranchSpans(stmt)) {
+					for (const hit of excelDefaultReads(source, span, new Map(excelDefaults.map(([lower, type]) => [lower, normalizeType(type)!])), held)) {
+						push(hit.rule, hit.message, { start: span.start + hit.tok.start, end: span.start + hit.tok.end });
+					}
+				}
 			}
 			// `If c Then` on a Collection is condition-values' (issues #268, #424).
 			const condition = statementTokens(source, stmt.span).filter((tok) => tok.kind !== 'comment');
@@ -196,6 +207,70 @@ export function checkObjectDefaultValues(
 			}
 		};
 	};
+}
+
+/**
+ * Excel's Application gives its Name, "Microsoft Excel", as its value: set,
+ * `x + 1`, `x = 0` and `If x Then` raise 13, and `x(1)` does not compile,
+ * since Name takes no argument. Names gives its Item, whose argument the
+ * call needs: `v = x` set raises 449, and `x & "a"` does not compile, Type
+ * mismatch (issue #415, each measured in Excel 16.0).
+ */
+const EXCEL_DEFAULT_READS: ReadonlySet<string> = new Set(['application', 'names']);
+const ARITHMETIC: ReadonlySet<string> = new Set(['-', '*', '/', '\\', '^', 'mod']);
+const COMPARISONS: ReadonlySet<string> = new Set(['=', '<>', '<', '>', '<=', '>=', '+']);
+
+function excelDefaultReads(
+	source: string,
+	span: Span,
+	typed: ReadonlyMap<string, string>,
+	held: (lower: string) => string | undefined,
+): Array<{ tok: VbaToken; rule: 'objectDefaultValue' | 'argumentCount' | 'assignmentTypeMismatch'; message: string }> {
+	const toks = statementTokens(source, span).filter((tok) => tok.kind !== 'comment');
+	const first = firstExecutableTokenIndex(toks);
+	if (tokenText(toks[first]) === 'set') {
+		return [];
+	}
+	const target = bareAssignmentTarget(source, span);
+	const eq = target ? toks.findIndex((tok) => tok.rawText === '=') : -1;
+	const then = ['if', 'elseif'].includes(tokenText(toks[first])) ? toks.findIndex((tok) => tokenText(tok) === 'then') : -1;
+	const numeric = (tok: VbaToken | undefined): boolean => tok?.kind === 'integerLiteral' || tok?.kind === 'floatLiteral';
+	const out: Array<{ tok: VbaToken; rule: 'objectDefaultValue' | 'argumentCount' | 'assignmentTypeMismatch'; message: string }> = [];
+	for (let i = first; i < toks.length; i++) {
+		const lower = tokenName(toks[i])?.toLowerCase();
+		const type = lower ? typed.get(lower) : undefined;
+		if (!type || i === eq - 1 || toks[i - 1]?.rawText === '.' || toks[i + 1]?.rawText === '.') {
+			continue;
+		}
+		const before = i - 1 === eq ? undefined : toks[i - 1];
+		const after = toks[i + 1];
+		const op = (tok: VbaToken | undefined): string => (tok ? tokenText(tok) || tok.rawText : '');
+		if (type === 'application') {
+			if (after?.rawText === '(') {
+				out.push({ tok: toks[i], rule: 'argumentCount', message: `'${toks[i].rawText}' is the Application, whose default member Name takes no argument. This is a VBE compile error: Wrong number of arguments or invalid property assignment.` });
+				continue;
+			}
+			if (held(lower!) !== 'application') {
+				continue;
+			}
+			const condition = then > 0 && i === first + 1 && i + 1 === then;
+			const arithmetic = ARITHMETIC.has(op(after)) || ARITHMETIC.has(op(before));
+			const numericCompare = (COMPARISONS.has(op(after)) && numeric(toks[i + 2])) || (COMPARISONS.has(op(before)) && before !== undefined && numeric(toks[i - 2]));
+			if (condition || arithmetic || numericCompare) {
+				out.push({ tok: toks[i], rule: 'assignmentTypeMismatch', message: `'${toks[i].rawText}' is the Application, whose value is its Name, "Microsoft Excel", which is not a number. This will raise Run-time error '13': Type mismatch.` });
+			}
+			continue;
+		}
+		// Names.
+		if (op(after) === '&' || op(before) === '&') {
+			out.push({ tok: toks[i], rule: 'objectDefaultValue', message: `'${toks[i].rawText}' is a Names collection, whose default member Item needs its argument, so '&' has no value to join. This is a VBE compile error: Type mismatch.` });
+			continue;
+		}
+		if (i === eq + 1 && i === toks.length - 1 && held(lower!) === 'names') {
+			out.push({ tok: toks[i], rule: 'objectDefaultValue', message: `'${toks[i].rawText}' is a Names collection, whose default member Item needs its argument, so it has no value to read here. This will raise Run-time error '449': Argument not optional.` });
+		}
+	}
+	return out;
 }
 
 /** `x + 1`, `If x Then`, `CStr(x)` and `x = 5` on an Object local that holds a Collection here. */

@@ -95690,6 +95690,233 @@
       "source": "Option Explicit\r\nPrivate Function Callee(ByVal p As Collection) As Long\r\n    Callee = 1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Callee(p:=-5)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue415d_01_runtime",
+      "description": "Issue #415 Application, Names and a held Collection read as values, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Application\r\n    Set x = Application\r\n    Main = x + 1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue415d_02_runtime",
+      "description": "Issue #415 Application, Names and a held Collection read as values, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Application\r\n    Set x = Application\r\n    If x Then Main = 2\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue415d_03_runtime",
+      "description": "Issue #415 Application, Names and a held Collection read as values, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Application\r\n    Set x = Application\r\n    If x = 0 Then Main = 2\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue415d_04_compile",
+      "description": "Issue #415 Application, Names and a held Collection read as values, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Application\r\n    Set x = Application\r\n    Main = x(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue415d_05_runtime",
+      "description": "Issue #415 Application, Names and a held Collection read as values, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 450.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Collection\r\n    Set x = New Collection\r\n    If x Then Main = 2\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue415d_06_runtime",
+      "description": "Issue #415 Application, Names and a held Collection read as values, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Object\r\n    Set x = New Collection\r\n    Main = x(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue415d_07_runtime",
+      "description": "Issue #415 Application, Names and a held Collection read as values, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 449.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Names\r\n    Set x = ActiveWorkbook.Names\r\n    Main = x\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue415d_08_compile",
+      "description": "Issue #415 Application, Names and a held Collection read as values, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Names\r\n    Set x = ActiveWorkbook.Names\r\n    Main = x & \"a\"\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue415d_09_compile",
+      "description": "Issue #415 Application, Names and a held Collection read as values, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Names\r\n    Set x = ActiveWorkbook.Names\r\n    x = \"7\"\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue415d_10_compile",
+      "description": "Issue #415 Application, Names and a held Collection read as values, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Names\r\n    Main = x\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue415d_11_runtime",
+      "description": "Issue #415 Application, Names and a held Collection read as values, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> Microsoft Excel.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Application\r\n    Set x = Application\r\n    Main = x\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue415d_12_runtime",
+      "description": "Issue #415 Application, Names and a held Collection read as values, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Object\r\n    Set x = New Collection\r\n    x.Add 1\r\n    Main = x(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue415d_13_runtime",
+      "description": "Issue #415 Application, Names and a held Collection read as values, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> Microsoft Excela.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Application\r\n    Set x = Application\r\n    Main = x & \"a\"\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue415d_14_runtime",
+      "description": "Issue #415 Application, Names and a held Collection read as values, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Application\r\n    Set x = Application\r\n    If x = \"Microsoft Excel\" Then Main = 2\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue415d_15_runtime",
+      "description": "Issue #415 Application, Names and a held Collection read as values, case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> Microsoft Excela.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Application\r\n    Set x = Application\r\n    Main = x + \"a\"\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue415d_16_runtime",
+      "description": "Issue #415 Application, Names and a held Collection read as values, case 16, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> Microsoft Excel.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Application\r\n    Set x = Application\r\n    Main = x.Name\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue415d_17_runtime",
+      "description": "Issue #415 Application, Names and a held Collection read as values, case 17, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Names\r\n    Set x = ActiveWorkbook.Names\r\n    Main = x.Count\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue415d_18_runtime",
+      "description": "Issue #415 Application, Names and a held Collection read as values, case 18, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Collection\r\n    Set x = New Collection\r\n    x.Add 1\r\n    Main = x(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue415d_19_runtime",
+      "description": "Issue #415 Application, Names and a held Collection read as values, case 19, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Object\r\n    Set x = New Collection\r\n    x.Add 1\r\n    Main = x.Count\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue415d_20_runtime",
+      "description": "Issue #415 Application, Names and a held Collection read as values, case 20, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Collection\r\n    Set x = New Collection\r\n    If x.Count = 0 Then Main = 2\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue415d_21_runtime",
+      "description": "Issue #415 Application, Names and a held Collection read as values, case 21, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long, x As Application\r\n    Set x = Application\r\n    n = Len(x)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

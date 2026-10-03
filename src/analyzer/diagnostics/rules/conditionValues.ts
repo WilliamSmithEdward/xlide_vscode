@@ -18,6 +18,7 @@ import { isLeafStatement } from '../../parser/nodes';
 import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
 import { blockHeaderStatements } from '../blockHeaders';
+import { heldObjectsAt } from '../heldObjects';
 import { conditionOperands, type ConditionForm } from '../conditionOperands';
 import { normalizeType } from '../typeInference';
 import { activeModuleMembers, isInactiveNode, statementTokensAfterLeadingLabel } from '../walker';
@@ -51,6 +52,11 @@ export function checkConditionValues(
 			continue;
 		}
 		let shapesAt: ReturnType<typeof knownArrayShapesAt> | undefined;
+		// A Collection set here holds one, as an `As New` one always does
+		// (issue #415, measured in Excel 16.0).
+		let heldAt: ReturnType<typeof heldObjectsAt> | undefined;
+		const holdsOne = (stmt: LeafStatementNode, lower: string): boolean =>
+			collections.get(lower) === true || (heldAt ??= heldObjectsAt(source, member, symbols, activity))(stmt).classes.get(lower)?.toLowerCase() === 'collection';
 		const check = (stmt: LeafStatementNode): void => {
 			const toks = statementTokensAfterLeadingLabel(source, stmt.span).filter((tok) => tok.kind !== 'comment');
 			for (const { index, form } of conditionOperands(toks)) {
@@ -61,7 +67,7 @@ export function checkConditionValues(
 				if (collections.has(lower)) {
 					if (form === 'select' || form === 'not' || form === 'logical') {
 						push('collectionOperand', `'${tok.rawText}' is a Collection: its default member Item needs an index, so ${where} has no value to work on. This is a VBE compile error: Argument not optional.`, at);
-					} else if (collections.get(lower)) {
+					} else if (holdsOne(stmt, lower)) {
 						push('objectDefaultValue', `'${tok.rawText}' is a Collection: its default member Item needs an index, so ${where} has no value to read. This will raise Run-time error '450': Wrong number of arguments or invalid property assignment.`, at);
 					}
 				} else if (arrays.has(lower)) {

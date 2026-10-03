@@ -644,7 +644,9 @@ function collectionLocals(
 			if (!decl.isArray && (type === undefined || type === 'variant') && !/[%&^!#@$]$/.test(decl.name)) {
 				variantLocals.add(decl.name.toLowerCase());
 			}
-			if (decl.isArray || type !== 'collection') {
+			// An Object is followed from `Set o = New Collection` on, as a
+			// Collection is: `o(1)` on it empty raises 5 (issue #415).
+			if (decl.isArray || (type !== 'collection' && !(type === 'object' && !decl.isNew))) {
 				continue;
 			}
 			(decl.isNew ? newLocals : plainLocals).add(decl.name.toLowerCase());
