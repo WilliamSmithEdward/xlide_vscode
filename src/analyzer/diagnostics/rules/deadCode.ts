@@ -24,7 +24,7 @@
 
 import type { VbaToken } from '../../lexer/tokenKinds';
 import { tokenizeCached } from '../../lexer/tokenize';
-import { identifierWords } from '../../lexer/tokenHelpers';
+import { firstTokenAtOrAfter, identifierWords } from '../../lexer/tokenHelpers';
 import type {
 	BodyNode,
 	LeafStatementNode,
@@ -260,21 +260,6 @@ function collectReferences(
 		}
 	}
 	return out;
-}
-
-/** Index of the first token starting at or after `offset` (tokens are in source order). */
-function firstTokenAtOrAfter(tokens: readonly VbaToken[], offset: number): number {
-	let low = 0;
-	let high = tokens.length;
-	while (low < high) {
-		const mid = (low + high) >> 1;
-		if (tokens[mid].start < offset) {
-			low = mid + 1;
-		} else {
-			high = mid;
-		}
-	}
-	return low;
 }
 
 function isMemberName(prev: VbaToken | undefined): boolean {

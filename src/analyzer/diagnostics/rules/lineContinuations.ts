@@ -21,6 +21,7 @@
 
 import { tokenizeCached } from '../../lexer/tokenize';
 import { firstTokenAtOrAfter } from '../../lexer/tokenHelpers';
+import { lineEndAtOrAfter } from '../../../vbaSourceScan';
 import type { Trivia } from '../../lexer/tokenKinds';
 import type { ModuleNode } from '../../parser/nodes';
 import type { PushFn } from '../analysisContext';
@@ -64,7 +65,7 @@ export function checkLineContinuationLimits(source: string, mod: ModuleNode, pus
 	}
 	for (const member of mod.members) {
 		if (member.kind === 'Enum') {
-			const headerEnd = lineEndAfter(source, member.nameSpan?.end ?? member.span.start);
+			const headerEnd = lineEndAtOrAfter(source, member.nameSpan?.end ?? member.span.start);
 			for (let i = firstTokenAtOrAfter(continuations, headerEnd + 1); i < continuations.length; i++) {
 				const trivia = continuations[i];
 				if (trivia.start >= member.span.end) { break; }
@@ -80,14 +81,4 @@ export function checkLineContinuationLimits(source: string, mod: ModuleNode, pus
 
 function onlyWhitespaceBetween(source: string, from: number, to: number): boolean {
 	return /^[ \t]*$/.test(source.slice(from, to));
-}
-
-/** Offset of the first line terminator at or after `from`. */
-function lineEndAfter(source: string, from: number): number {
-	for (let i = from; i < source.length; i++) {
-		if (source[i] === '\r' || source[i] === '\n') {
-			return i;
-		}
-	}
-	return source.length;
 }

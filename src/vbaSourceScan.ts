@@ -200,6 +200,16 @@ export function lineStartAtAnyBreak(source: string, offset: number): number {
     return Math.max(source.lastIndexOf('\n', offset - 1), source.lastIndexOf('\r', offset - 1)) + 1;
 }
 
+/** Offset of the first CR or LF at or after `from`, or source.length at EOF. */
+export function lineEndAtOrAfter(source: string, from: number): number {
+    for (let i = from; i < source.length; i++) {
+        if (source[i] === '\r' || source[i] === '\n') {
+            return i;
+        }
+    }
+    return source.length;
+}
+
 /** `span` widened to whole lines, the last line's break included. */
 export function wholeLineSpan(source: string, span: Span): Span {
     const next = source.indexOf('\n', span.end);
