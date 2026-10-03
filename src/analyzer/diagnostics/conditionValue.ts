@@ -7,8 +7,8 @@
 //
 // Only what is certain is answered: a comparison of two known numbers, two
 // strings that differ or match under any Option Compare, `Is Nothing` on an
-// object whose state is known, IsNumeric of a known string, and Not, And
-// and Or over those. Anything else is undefined.
+// object whose state is known, IsNumeric and Len of a known string, and
+// Not, And and Or over those. Anything else is undefined.
 
 import type { VbaToken } from '../lexer/tokenKinds';
 import { tokenName, tokenWord as tokenText } from '../lexer/tokenHelpers';
@@ -188,6 +188,13 @@ class ConditionParser {
 			}
 			const verdict = numericStringVerdict(value);
 			return verdict.kind === 'invalid' ? false : verdict.value !== undefined ? true : undefined;
+		}
+		// Len or LenB of a known String: `If Len(s) > 1 Then` with s empty (issue #577).
+		if ((word === 'len' || word === 'lenb') && this.toks[this.index]?.rawText === '(' && this.toks[this.index + 2]?.rawText === ')') {
+			const arg = this.toks[this.index + 1];
+			this.index += 3;
+			const value = arg.kind === 'stringLiteral' ? stringLiteralValue(arg.rawText) : this.facts.value(tokenName(arg)?.toLowerCase() ?? '');
+			return typeof value === 'string' ? value.length * (word === 'lenb' ? 2 : 1) : undefined;
 		}
 		const lower = tokenName(tok)?.toLowerCase();
 		if (!lower || this.toks[this.index]?.rawText === '(' || this.toks[this.index]?.rawText === '.') {

@@ -94442,6 +94442,105 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim r As Byte, i As Integer, n As Long, t As Date\r\n    Main = CInt(t + 40000)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue577_01_runtime",
+      "description": "Issue #577 a guard on Len of a known String, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Dim a As Long, n As Long, s As String\r\n    If Len(s) > 1 Then n = 10 \\ a\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue577_02_runtime",
+      "description": "Issue #577 a guard on Len of a known String, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Dim a As Long, n As Long, s As String\r\n    s = \"\"\r\n    If Len(s) > 1 Then n = 10 \\ a\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue577_03_runtime",
+      "description": "Issue #577 a guard on Len of a known String, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Dim a As Long, n As Long, s As String\r\n    If Len(s) > 1 Then\r\n        n = 10 \\ a\r\n    End If\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue577_04_runtime",
+      "description": "Issue #577 a guard on Len of a known String, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Dim a As Long, n As Long, s As String\r\n    s = \"abc\"\r\n    If Len(s) > 1 Then n = 10 \\ a\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue577_05_runtime",
+      "description": "Issue #577 a guard on Len of a known String, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Dim a As Long, n As Long, s As String\r\n    s = \"ab\"\r\n    If LenB(s) < 4 Then n = 10 \\ a\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue577_06_runtime",
+      "description": "Issue #577 a guard on Len of a known String, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Dim a As Long, n As Long, s As String\r\n    s = \"ab\"\r\n    If LenB(s) > 3 Then n = 10 \\ a\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue577_07_runtime",
+      "description": "Issue #577 a guard on Len of a known String, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Dim a As Long, n As Long\r\n    If Len(\"\") > 0 Then n = 10 \\ a\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue577_08_runtime",
+      "description": "Issue #577 a guard on Len of a known String, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Dim c As Collection, n As Long, s As String\r\n    On Error Resume Next\r\n    If Len(s) > 1 Then\r\n        On Error GoTo 0\r\n    End If\r\n    n = c.Count\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue577_09_runtime",
+      "description": "Issue #577 a guard on Len of a known String, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Dim a As Long, n As Long, s As String\r\n    If Len(s) = 0 Then Exit Function\r\n    n = 10 \\ a\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
