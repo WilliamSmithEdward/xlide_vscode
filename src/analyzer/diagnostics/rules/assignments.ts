@@ -1490,6 +1490,7 @@ function checkMemberAssignmentTypes(
 ): void {
 	const projectClasses = (memberCtx.projectClassMembers?.length ?? 0) > 0;
 	let valuesAt: ReturnType<typeof knownLocalLiteralValuesAt> | undefined;
+	let booleanNames: Set<string> | undefined;
 	const checkStatement = (span: Span, stmt: BodyNode): void => {
 		// A local known to hold a number, for a host property's limits (issue
 		// #346). A Boolean holding True is no -1 there: Excel takes True where
@@ -1502,8 +1503,17 @@ function checkMemberAssignmentTypes(
 			if (held?.kind !== 'number') {
 				return undefined;
 			}
-			const boolean = (procedureSymbolFor(symbols!, member)?.children ?? [])
-				.some((child) => child.name.toLowerCase() === lower && child.asType?.toLowerCase() === 'boolean');
+			// Any direct child with this exact declared type counts, including a
+			// later duplicate. Held values still come from the current statement.
+			if (!booleanNames) {
+				booleanNames = new Set();
+				for (const child of procedureSymbolFor(symbols!, member)?.children ?? []) {
+					if (child.asType?.toLowerCase() === 'boolean') {
+						booleanNames.add(child.name.toLowerCase());
+					}
+				}
+			}
+			const boolean = booleanNames.has(lower!);
 			return boolean && held.value !== 0 ? undefined : held.value as number;
 		};
 		const assignment = memberAssignmentTarget(source, span);
