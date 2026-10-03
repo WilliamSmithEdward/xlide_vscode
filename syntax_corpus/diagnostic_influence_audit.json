@@ -2115,7 +2115,11 @@
         "issue559_22_runtime",
         "issue420_09_runtime",
         "issue420_10_runtime",
-        "issue420_11_runtime"
+        "issue420_11_runtime",
+        "issue327b_01_runtime",
+        "issue327b_03_runtime",
+        "issue327b_04_runtime",
+        "issue327b_05_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
