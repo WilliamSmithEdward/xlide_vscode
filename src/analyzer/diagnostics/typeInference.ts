@@ -1493,7 +1493,8 @@ export function validateArgumentTypesForSignature(
 			resolveQualifiedExpressionType,
 		);
 		const kindProblem = objectValueArgumentProblem(expected, valueSlot, actual, memberCtx, sourceNames, (name) =>
-			env.has(name.toLowerCase()) || resolveExpressionType?.(name).resolved === true, heldClassOf);
+			env.has(name.toLowerCase()) || resolveExpressionType?.(name).resolved === true, heldClassOf,
+			param.byRef === false || call.argumentsParenthesized === true, env);
 		if (kindProblem) {
 			push(
 				kindProblem.rule,
@@ -1573,6 +1574,9 @@ export function sheetsFromCollectionProperty(
 	return bare || onWorkbook ? { text: value.map((tok) => tok.rawText).join(''), collection } : undefined;
 }
 
+/** What a held-class lookup gives for a Variant known to hold Empty, a number or a String: no object. */
+export const VALUE_HELD = '(value)';
+
 /**
  * An object where a parameter takes a value, or a value where it takes an
  * object (issue #223, measured in Excel 16.0):
@@ -1580,8 +1584,12 @@ export function sheetsFromCollectionProperty(
  *  - Nothing into a Long or String parameter: "Invalid use of object".
  *  - New Collection there: "Argument not optional", since its default
  *    member Item needs an index.
- *  - A number or string literal into a Collection or other known object
- *    parameter: "Type mismatch". Each is a compile error.
+ *  - A literal, True, False, a date, or an expression of a known scalar
+ *    type into a Collection or other known object parameter: "Type
+ *    mismatch". So is a scalar variable passed by value (issue #410).
+ *    Each is a compile error.
+ *  - A Variant holding no object, passed by value to one: 424 when the
+ *    call runs (issue #410).
  *  - Array(...) or Split(...) into a Long or String parameter: an array,
  *    which raises 13 when the call runs.
  */
@@ -1593,6 +1601,8 @@ function objectValueArgumentProblem(
 	sourceNames: SourceNameScope | undefined,
 	isDeclared: (name: string) => boolean,
 	heldClassOf?: (lower: string) => string | undefined,
+	byValue = false,
+	env: ReadonlyMap<string, string> = new Map(),
 ): { rule: 'argumentObjectTypeMismatch' | 'argumentTypeMismatch'; what: string; reason: string; tokens: readonly VbaToken[] } | undefined {
 	const toks = unwrapOuterParens(slot.filter((tok) => tok.kind !== 'comment' && tok.kind !== 'newline'));
 	if (toks.length === 0) {
@@ -1613,9 +1623,14 @@ function objectValueArgumentProblem(
 		}
 		return undefined;
 	}
-	const literal = toks.length === 1 && (toks[0].kind === 'integerLiteral' || toks[0].kind === 'floatLiteral' || toks[0].kind === 'stringLiteral');
-	if (literal && expectedType !== 'object' && isKnownObjectAssignmentType(expected, memberCtx)) {
-		return { rule: 'argumentObjectTypeMismatch', what: actual?.label ?? toks[0].rawText, reason: 'An object parameter takes an object. This is a VBE compile error: Type mismatch.', tokens: toks };
+	// A literal, True, False or a date, and an expression of a known scalar
+	// type such as `v + 0` (issue #410, measured in Excel 16.0).
+	const atom = toks[0].rawText === '-' ? toks.slice(1) : toks;
+	const literal = atom.length === 1 && (['integerLiteral', 'floatLiteral', 'stringLiteral', 'dateLiteral'].includes(atom[0].kind)
+		|| (toks.length === 1 && ['true', 'false'].includes(tokenText(atom[0]))));
+	const scalarExpression = toks.length > 1 && !literal && actual !== undefined && isKnownScalarType(normalizeType(actual.type) ?? '');
+	if ((literal || scalarExpression) && expectedType !== 'object' && isKnownObjectAssignmentType(expected, memberCtx)) {
+		return { rule: 'argumentObjectTypeMismatch', what: actual?.label ?? toks.map((tok) => tok.rawText).join(' '), reason: 'An object parameter takes an object. This is a VBE compile error: Type mismatch.', tokens: toks };
 	}
 	// An object of another class, as a Set of it would be: TakeWs(Range("A1"))
 	// and TakeWs(ThisWorkbook) into a Worksheet raise 13 when the call runs
@@ -1625,7 +1640,19 @@ function objectValueArgumentProblem(
 	// ByVal or ByRef (issue #246, measured in Excel 16.0).
 	const declaredName = toks.length === 1 && tokenName(toks[0]) !== undefined && isDeclared(toks[0].rawText);
 	const held = declaredName ? heldClassOf?.(tokenName(toks[0])!.toLowerCase()) : undefined;
-	if (held && expectedType !== 'object' && isKnownObjectAssignmentType(expected, memberCtx)) {
+	// A scalar variable passed by value is a value, as a literal is; ByRef it
+	// is byref-argument-type-mismatch's. A Variant holding Empty or a value
+	// raises 424 (issue #410, measured in Excel 16.0).
+	if (declaredName && byValue && expectedType !== 'object' && isKnownObjectAssignmentType(expected, memberCtx)) {
+		const declared = normalizeType(env.get(tokenName(toks[0])!.toLowerCase()));
+		if (declared && isKnownScalarType(declared)) {
+			return { rule: 'argumentObjectTypeMismatch', what: `'${toks[0].rawText}', declared ${env.get(tokenName(toks[0])!.toLowerCase())}`, reason: 'An object parameter takes an object. This is a VBE compile error: Type mismatch.', tokens: toks };
+		}
+		if (held === VALUE_HELD) {
+			return { rule: 'argumentTypeMismatch', what: `'${toks[0].rawText}', a Variant that holds no object here`, reason: "An object parameter takes an object. This will raise Run-time error '424': Object required.", tokens: toks };
+		}
+	}
+	if (held && held !== VALUE_HELD && expectedType !== 'object' && isKnownObjectAssignmentType(expected, memberCtx)) {
 		const holding = { type: held, label: `'${toks[0].rawText}', which holds a ${held} here`, span: { start: toks[0].start, end: toks[0].end } };
 		const reason = objectAssignmentIncompatibilityReason(expected, holding, memberCtx);
 		if (reason) {
