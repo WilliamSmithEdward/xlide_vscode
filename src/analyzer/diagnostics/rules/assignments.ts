@@ -2049,6 +2049,12 @@ function spelledText(
 	let text = '';
 	let standIn = false;
 	const parts = splitTopLevelTokenGroups(toks, 0, '&');
+	// A number on its own is no text: only `&` makes one of it. `d = -657435`
+	// is a Long, which Overflow judges (issue #329).
+	const lone = parts.length === 1 ? unwrapOuterParens(parts[0]) : [];
+	if (lone.length > 0 && lone.length <= 2 && lone[lone.length - 1].kind === 'integerLiteral' && (lone.length === 1 || lone[0].rawText === '-')) {
+		return undefined;
+	}
 	for (const part of parts) {
 		const spelled = spelledPart(unwrapOuterParens(part), known, env, sourceNames);
 		if (!spelled) {

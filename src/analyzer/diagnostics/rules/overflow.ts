@@ -545,6 +545,18 @@ class TypedFolder {
 			this.index++;
 			return this.stringOperand([tok]);
 		}
+		// `^` takes both operands as Doubles, a string literal too:
+		// `"12" ^ 32767` overflows (issue #331, measured in Excel 16.0).
+		if (tok.kind === 'stringLiteral' && (before === '^' || after === '^')) {
+			const read = numberInString(stringLiteralValue(tok.rawText));
+			if (read === 'overflow') {
+				return { overflow: true, span: this.span(this.index, this.index), detail: `${tok.rawText} spells a number past the Double range` };
+			}
+			if (read !== undefined) {
+				this.index++;
+				return { value: read.value, type: 'double' };
+			}
+		}
 		// In a Const, a string beside a number in `+`, `-`, `*` or `/` is the
 		// number it spells, a Double: `1 - "1E3"` is -999, and
 		// `&H7FFFFFFF * "2"` is 4294967294 (issue #556). Beside a Currency it
@@ -577,6 +589,19 @@ class TypedFolder {
 		const size = this.sheetSize();
 		if (size) {
 			return size;
+		}
+		// A String local known to hold a number, beside -, *, /, \, ^ or Mod,
+		// is that number as a Double: `s ^ 32767` with s = "12" overflows
+		// (issue #331, measured in Excel 16.0). Beside + two Strings join.
+		const numericBeside = (word: string): boolean => ['-', '*', '/', '\\', '^', 'mod'].includes(word);
+		const lone = this.toks[this.index + 1]?.rawText !== '(' && this.toks[this.index + 1]?.rawText !== '.' && this.toks[this.index - 1]?.rawText !== '.';
+		// A `-` at the start is a sign, not an operator.
+		if (lone && (numericBeside(after) || (numericBeside(before) && (before !== '-' || this.index >= 2)))) {
+			const spelled = this.names(`"${name.toLowerCase()}`);
+			if (spelled) {
+				this.index++;
+				return { value: spelled.value, type: 'double' };
+			}
 		}
 		// `VBA.CInt(...)` and `CInt(...)`.
 		let calleeIndex = this.index;
@@ -1525,6 +1550,11 @@ export function checkOverflow(
 			if (local?.kind === 'number' && type) {
 				return { value: local.value as number, type };
 			}
+			// A Boolean is an Integer in arithmetic, True -1: `n - b` with n the
+			// largest Long and b True overflows (issue #331, measured in Excel 16.0).
+			if (local?.kind === 'number' && normalizeType(env.get(lower)) === 'boolean') {
+				return { value: local.value as number, type: 'integer' };
+			}
 			if (!lower.includes('.')) {
 				// `b = F()` with F a Function of the module returning 300 (issue #448).
 				const result = functionResultNamed(lower.replace(/\(\)$/, ''), results, member, symbols);
@@ -2206,7 +2236,10 @@ function checkStatement(
 				const rounded = kept.value !== folded.value ? ` (${showNumber(folded.value)} rounds to ${showNumber(kept.value)})` : '';
 				const label = normalizeType(declared) === 'longptr' ? 'LongPtr, which holds no more than a LongLong' : RANGES[target].label;
 				const into = bare.element ? `an element of '${bare.name}'` : `'${bare.name}'`;
-				push('arithmeticOverflow', `Assignment to ${into} stores ${shown}${rounded} in ${article(label)} ${label}, whose range is ${rangeText(target)}. This will raise Run-time error '6': Overflow.`, {
+				// A Variant's number past the Date range is a Type mismatch, where
+				// a typed one's is an Overflow (issue #329, measured in Excel 16.0).
+				const variantDate = target === 'date' && folded.variant === true;
+				push(variantDate ? 'assignmentTypeMismatch' : 'arithmeticOverflow', `Assignment to ${into} stores ${shown}${rounded} in ${article(label)} ${label}, whose range is ${rangeText(target)}. This will raise Run-time error ${variantDate ? "'13': Type mismatch" : "'6': Overflow"}.`, {
 					start: span.start + value[0].start,
 					end: span.start + value[value.length - 1].end,
 				});

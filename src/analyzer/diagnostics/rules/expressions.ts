@@ -1112,10 +1112,13 @@ export function checkStringArithmeticOperands(
 					}
 					continue;
 				}
-				// `+`: a string against a NUMBER.
-				if (leftString && (numeric(right) || typeof rightElement?.value === 'number')) {
+				// `+`: a string against a NUMBER, True and False included:
+				// `s + True` with s = "True" raises 13, and `"1" + True` is 0
+				// (issue #331, measured in Excel 16.0).
+				const truth = (operand: VbaToken | undefined): boolean => tokenText(operand) === 'true' || tokenText(operand) === 'false';
+				if (leftString && (numeric(right) || truth(right) || typeof rightElement?.value === 'number')) {
 					report(leftString.span, leftString.what);
-				} else if (rightString && (numeric(left) || typeof leftElement?.value === 'number')) {
+				} else if (rightString && (numeric(left) || truth(left) || typeof leftElement?.value === 'number')) {
 					report(rightString.span, rightString.what);
 				} else {
 					// `s + d`, `s + b`: a String a Date or Boolean cannot read
