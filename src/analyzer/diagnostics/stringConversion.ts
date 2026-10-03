@@ -72,6 +72,12 @@ export function numericStringVerdict(text: string): NumericStringVerdict {
 	if (!/^(?:\d|[.,]\d)[\d.,' \t ]*(?:[eEdD][+-]?\d+)?$/.test(body)) {
 		return { kind: 'invalid' };
 	}
+	// Two "." and two ",": a second decimal point whichever of them the
+	// locale reads as one. "1,2.3,4.5" raises 13 (issue #504, measured in
+	// Excel 16.0); "1.5.5" alone is 155 where "." groups thousands.
+	if ((body.match(/\./g) ?? []).length >= 2 && (body.match(/,/g) ?? []).length >= 2) {
+		return { kind: 'invalid' };
+	}
 	if (!exact || !/^\d+(?:[eEdD][+-]?\d+)?$/.test(body)) {
 		return { kind: 'number' };
 	}
