@@ -54,10 +54,10 @@ export function checkParentheses(
 			continue;
 		}
 		const env = typeEnvironmentFor(symbols, member);
-		const needsIndex = (toks: readonly VbaToken[]): string | undefined => {
+		const needsIndex = (toks: readonly VbaToken[], from: number, to: number): string | undefined => {
 			// `New Collection`, or a variable of such a type.
-			const type = toks.length === 2 && tokenText(toks[0]) === 'new' ? tokenName(toks[1])
-				: toks.length === 1 ? env.get(tokenName(toks[0])?.toLowerCase() ?? '') : undefined;
+			const type = to - from === 2 && tokenText(toks[from]) === 'new' ? tokenName(toks[from + 1])
+				: to - from === 1 ? env.get(tokenName(toks[from])?.toLowerCase() ?? '') : undefined;
 			return type && objectValueNeedsIndex(type, memberCtx) ? type : undefined;
 		};
 		forEachStatementWithHeaders(source, member.body, (stmt) => {
@@ -69,7 +69,7 @@ export function checkParentheses(
 function checkStatement(
 	source: string,
 	span: Span,
-	needsIndex: (toks: readonly VbaToken[]) => string | undefined,
+	needsIndex: (toks: readonly VbaToken[], from: number, to: number) => string | undefined,
 	push: PushFn,
 ): void {
 	const all = statementTokens(source, span).filter((tok) => tok.kind !== 'comment');
@@ -110,11 +110,16 @@ function checkStatement(
 		}
 		return prev.kind !== 'keyword' || OPERAND_KEYWORDS.has(tokenText(prev));
 	};
-	for (let i = 0; i < toks.length; i++) {
+	// A single group is already linear; avoid index allocation on the common path.
+	const firstOpen = toks.findIndex(tok => tok.rawText === '(');
+	if (firstOpen < 0) { return; }
+	const multiple = toks.some((tok, index) => index > firstOpen && tok.rawText === '(');
+	const facts = multiple ? parenthesisFacts(toks) : undefined;
+	for (let i = firstOpen; i < toks.length; i++) {
 		if (toks[i].rawText !== '(') {
 			continue;
 		}
-		const close = matchParenFrom(toks, i);
+		const close = facts ? facts.closes[i] : matchParenFrom(toks, i);
 		if (close < 0) {
 			return;
 		}
@@ -134,10 +139,11 @@ function checkStatement(
 			syntax('Empty parentheses hold no value', at(toks[i]));
 			continue;
 		}
-		const inner = toks.slice(i + 1, close);
-		const named = inner.find((tok) => tok.rawText === ':=');
-		if (named && depthAt(inner, inner.indexOf(named)) === 0) {
-			syntax('A named argument cannot stand inside parentheses', at(named));
+		const named = facts ? facts.nextNamed[i + 1] : firstNamedArgument(toks, i + 1, close);
+		if (named < close && (facts
+			? facts.depths[named] === facts.depths[i] + 1
+			: depthAt(toks, named, i + 1) === 0)) {
+			syntax('A named argument cannot stand inside parentheses', at(toks[named]));
 		}
 		if (toks[close + 1]?.rawText === '.') {
 			const afterPrint = tokenText(toks[i - 1]) === 'print';
@@ -152,7 +158,7 @@ function checkStatement(
 		}
 		// A grouping paren always evaluates what it holds: an object whose
 		// default member needs an index has no value there.
-		const type = needsIndex(inner);
+		const type = needsIndex(toks, i + 1, close);
 		if (type) {
 			push(
 				'collectionOperand',
@@ -163,10 +169,36 @@ function checkStatement(
 	}
 }
 
-/** The paren depth at `index` within `toks`. */
-function depthAt(toks: readonly VbaToken[], index: number): number {
+/** Match groups and locate their first named token without rescanning nested slices. */
+function parenthesisFacts(toks: readonly VbaToken[]) {
+	const closes = new Int32Array(toks.length).fill(-1);
+	const depths = new Int32Array(toks.length);
+	const nextNamed = new Int32Array(toks.length + 1).fill(toks.length);
+	const stack: number[] = [];
 	let depth = 0;
-	for (let i = 0; i < index; i++) {
+	for (let i = 0; i < toks.length; i++) {
+		depths[i] = depth;
+		if (toks[i].rawText === '(') { stack.push(i); depth++; }
+		else if (toks[i].rawText === ')') {
+			depth--;
+			const open = stack.pop();
+			if (open !== undefined) { closes[open] = i; }
+		}
+	}
+	for (let i = toks.length - 1; i >= 0; i--) {
+		nextNamed[i] = toks[i].rawText === ':=' ? i : nextNamed[i + 1];
+	}
+	return { closes, depths, nextNamed };
+}
+
+function firstNamedArgument(toks: readonly VbaToken[], from: number, to: number): number {
+	for (let i = from; i < to; i++) { if (toks[i].rawText === ':=') { return i; } }
+	return to;
+}
+/** The paren depth at `index` within `toks`. */
+function depthAt(toks: readonly VbaToken[], index: number, from: number): number {
+	let depth = 0;
+	for (let i = from; i < index; i++) {
 		if (toks[i].rawText === '(') {
 			depth++;
 		} else if (toks[i].rawText === ')') {
