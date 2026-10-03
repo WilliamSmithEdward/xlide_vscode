@@ -13,7 +13,7 @@
 // checked by having Excel open the result.
 
 import { ZipArchive } from './zip';
-import { columnToIndex, indexToColumn } from './xlsxFormula';
+import { columnToIndex, indexToColumn } from './excelAddress';
 import {
 	Package,
 	attr,
