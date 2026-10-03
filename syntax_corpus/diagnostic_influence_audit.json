@@ -7983,6 +7983,26 @@
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "notes": "An ADODB.Recordset from CreateObject used before Open: MoveNext, MoveFirst, EOF, BOF, Close or RecordCount raise 3704 (issue #477, measured in Excel 16.0)."
+    },
+    {
+      "code": "formula-string-unparsed",
+      "status": "vbe-oracle-verified",
+      "diagnosticKind": "runtime-risk",
+      "sourceOfTruth": "Excel 1004 on a formula String it cannot parse; a cell formatted as Text takes it",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue276f_01_runtime",
+        "issue276f_02_runtime",
+        "issue276f_03_runtime",
+        "issue276f_04_runtime",
+        "issue276f_05_runtime",
+        "issue276f_06_runtime",
+        "issue276f_07_runtime",
+        "issue276f_08_runtime"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "A formula String with a parenthesis or string left open, or an operator last, raises 1004 when assigned to a Range's Formula or Value, except on a cell formatted as Text, so it is a warning (issue #276, measured in Excel 16.0)."
     }
   ]
 }

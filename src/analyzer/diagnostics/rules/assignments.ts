@@ -13,7 +13,7 @@ import {
 } from '../../completion/memberAccess';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import { isDispatchOnlyHostType, resolveHostEnum } from '../../host/hostModel';
-import { hostPropertyValueProblem, hostUnionPropertyValueProblem } from './hostPropertyValues';
+import { formulaStringProblem, hostPropertyValueProblem, hostUnionPropertyValueProblem } from './hostPropertyValues';
 import {
 	matchParenFrom,
 	splitTopLevelTokenGroups,
@@ -1450,6 +1450,14 @@ function checkMemberAssignmentTypes(
 					assignment.memberSpan,
 				);
 			}
+			return;
+		}
+		// `Range("A1").Formula = "=SUM(B1"`: a formula Excel cannot parse
+		// (issue #276). A warning: a cell formatted as Text takes it.
+		const formula = target && !assignment.usesSet && !assignment.withArguments ? formulaStringProblem(target, assignment.valueTokens) : undefined;
+		if (formula) {
+			const value = assignment.valueTokens.filter((tok) => tok.kind !== 'comment');
+			push('formulaStringUnparsed', formula, { start: span.start + value[0].start, end: span.start + value[value.length - 1].end });
 			return;
 		}
 		// `Range("A1").Font.Size = 500`: a value the host refuses (issue #204).
