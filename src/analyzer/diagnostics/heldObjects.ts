@@ -81,11 +81,14 @@ export function heldObjectsAt(
 			}
 		}
 	}
-	const snapshot = (): HeldObjects => ({ classes: new Map(state.classes), items: new Map([...state.items].map(([k, v]) => [k, [...v]])) });
+	// Maps and item arrays are copied; reuse the snapshot until tracked state changes.
+	let currentSnapshot: State | undefined;
+	const snapshot = (): State => currentSnapshot ??= { classes: new Map(state.classes), items: new Map([...state.items].map(([k, v]) => [k, [...v]])) };
 	const forget = (names: Iterable<string>): void => {
 		for (const lower of names) {
-			state.classes.delete(lower);
-			state.items.delete(lower);
+			const removedClass = state.classes.delete(lower);
+			const removedItems = state.items.delete(lower);
+			if (removedClass || removedItems) { currentSnapshot = undefined; }
 		}
 	};
 	const visit = (node: BodyNode): void => {
@@ -113,9 +116,10 @@ export function heldObjectsAt(
 			// The value's own holder may now change it unseen.
 			forget([lower, ...namesIn(source, node.span)].filter((name) => name !== from || !held));
 			if (from && held) {
-				state.items.delete(from);
+				if (state.items.delete(from)) { currentSnapshot = undefined; }
 			}
 			if (held) {
+				currentSnapshot = undefined;
 				state.classes.set(lower, held);
 				if (created && normalizeType(created) === 'collection') {
 					state.items.set(lower, []);
@@ -132,8 +136,9 @@ export function heldObjectsAt(
 			const items = state.items.get(head)!;
 			const at = addPosition(splitTopLevelTokenGroups(toks, 3, ','), items.length);
 			if (at === undefined) {
-				state.items.delete(head);
+				if (state.items.delete(head)) { currentSnapshot = undefined; }
 			} else {
+				currentSnapshot = undefined;
 				items.splice(at, 0, tokenName(toks[4])!);
 			}
 			return;
@@ -146,8 +151,9 @@ export function heldObjectsAt(
 			const items = state.items.get(head)!;
 			const at = addPosition(splitTopLevelTokenGroups(toks, 3, ','), items.length);
 			if (at === undefined) {
-				state.items.delete(head);
+				if (state.items.delete(head)) { currentSnapshot = undefined; }
 			} else {
+				currentSnapshot = undefined;
 				items.splice(at, 0, HELD_VALUE);
 			}
 			return;
@@ -167,7 +173,7 @@ export function heldObjectsAt(
 			if (next === '.' || next === '!') {
 				// A member call leaves the object; only Count and Item leave a Collection's items.
 				if (!COLLECTION_READS.has(tokenText(toks[i + 2]))) {
-					state.items.delete(lower);
+					if (state.items.delete(lower)) { currentSnapshot = undefined; }
 				}
 				continue;
 			}
@@ -175,10 +181,11 @@ export function heldObjectsAt(
 		}
 	};
 	walkEnteringBlocks(source, proc.body, (node) => activity?.isInactive(node.span) === true, visit, {
-		snapshot: () => ({ classes: new Map(state.classes), items: new Map([...state.items].map(([k, v]) => [k, [...v]])) }),
+		snapshot,
 		restore: (saved: State) => {
 			state.classes = new Map(saved.classes);
 			state.items = new Map([...saved.items].map(([k, v]) => [k, [...v]]));
+			currentSnapshot = saved;
 		},
 		forget: (names) => forget(names),
 		touches: (stmt) => namesIn(source, stmt.span),
