@@ -31,6 +31,8 @@ OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'src', 'ana
 TKIND_INTERFACE = 3
 TKIND_DISPATCH = 4
 INVOKE_PROPERTYGET = 2
+INVOKE_PROPERTYPUT = 4
+INVOKE_PROPERTYPUTREF = 8
 PARAMFLAG_FOPT = 0x10
 PARAMFLAG_FHASDEFAULT = 0x20
 VT_PTR = 26
@@ -75,11 +77,14 @@ def defaults(prefix, path):
         if attr.typekind not in (TKIND_INTERFACE, TKIND_DISPATCH):
             continue
         key = f"{prefix}.{name[1:] if name.startswith('_') else name}"
+        descs = []
         for i in range(attr.cFuncs):
             try:
-                desc = info.GetFuncDesc(i)
+                descs.append(info.GetFuncDesc(i))
             except pythoncom.com_error:
                 continue
+        writable = any(desc.memid == 0 and desc.invkind in (INVOKE_PROPERTYPUT, INVOKE_PROPERTYPUTREF) for desc in descs)
+        for desc in descs:
             if desc.memid != 0 or desc.invkind not in (1, INVOKE_PROPERTYGET):
                 continue
             member = info.GetNames(desc.memid)[0]
@@ -88,7 +93,9 @@ def defaults(prefix, path):
                 'name': member,
                 'kind': 'property' if desc.invkind == INVOKE_PROPERTYGET else 'method',
                 'required': required,
+                'params': len(desc.args),
                 'returns': type_name(info, desc.rettype[0], prefix),
+                'writable': writable,
             })
     return out
 
@@ -101,13 +108,16 @@ def main():
         '//',
         "// Each type's default member, the one the library gives DISPID 0: a Word",
         "// Range's is Text, so `rng = \"x\"` writes the text and `s = rng` reads it",
-        '// (issue #438). `required` counts the parameters a call must pass.',
+        '// (issue #438). `required` counts the parameters a call must pass,',
+        '// `params` all it takes; `writable` is whether a Let or Set reaches it.',
         '',
         'export interface HostDefaultMember {',
         '\tname: string;',
         "\tkind: 'property' | 'method';",
         '\trequired: number;',
+        '\tparams: number;',
         '\treturns: string;',
+        '\twritable: boolean;',
         '}',
         '',
         'export const HOST_DEFAULT_MEMBERS: Readonly<Record<string, HostDefaultMember>> = {',
@@ -117,7 +127,7 @@ def main():
         found.update(defaults(prefix, os.path.join(folder, file)))
     for key in sorted(found):
         d = found[key]
-        lines.append(f"\t'{key}': {{ name: '{d['name']}', kind: '{d['kind']}', required: {d['required']}, returns: '{d['returns']}' }},")
+        lines.append(f"\t'{key}': {{ name: '{d['name']}', kind: '{d['kind']}', required: {d['required']}, params: {d['params']}, returns: '{d['returns']}', writable: {'true' if d['writable'] else 'false'} }},")
     lines.append('};')
     with open(OUT, 'w', encoding='utf-8', newline='\n') as handle:
         handle.write('\n'.join(lines) + '\n')

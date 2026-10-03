@@ -37,6 +37,8 @@ import {
 	normalizeType,
 	objectHoldingDefault,
 	objectLetAssignmentVerdict,
+	objectValueNeedsIndex,
+	readOnlyHostDefault,
 	returnAssignmentTypeFor,
 	type SourceDeclaredType,
 	typeEnvironmentFor,
@@ -904,7 +906,8 @@ function checkObjectVariableNotSetStatement(
 		// argument, is set-required's to report, with the 91 when it is still
 		// Nothing (issue #193): the fix there is the Set.
 		const verdict = objectLetAssignmentVerdict(locals.get(lower)!.asType, memberCtx);
-		if (letState === 'unset' && verdict !== 'noDefault' && verdict !== 'argument' && !objectHoldingDefault(locals.get(lower)!.asType, memberCtx)) {
+		if (letState === 'unset' && verdict !== 'noDefault' && verdict !== 'argument'
+			&& !objectHoldingDefault(locals.get(lower)!.asType, memberCtx) && !readOnlyHostDefault(locals.get(lower)!.asType, memberCtx)) {
 			const what = locals.get(lower)!.letOnly ? `The result '${let_.name}'` : `Object variable '${let_.name}'`;
 			push(
 				'objectVariableNotSet',
@@ -927,6 +930,16 @@ function checkObjectVariableNotSetStatement(
 			push(
 				'objectVariableNotSet',
 				`Object variable '${toks[index].rawText}' is Nothing when ${reads} its value. This will raise Run-time error '91': Object variable or With block variable not set.`,
+				{ start: stmt.span.start + toks[index].start, end: stmt.span.start + toks[index].end },
+			);
+		} else if (local && !local.variant && (form === 'condition' || form === 'iif') && state.get(lower) === 'set'
+			&& normalizeType(local.asType) !== 'collection' && objectValueNeedsIndex(local.asType, memberCtx)) {
+			// Set, a Word Paragraphs or Tables has an Item that needs an index,
+			// as a Collection's does (issue #438, measured in Word 16.0). A
+			// Collection is condition-values'.
+			push(
+				'objectDefaultValue',
+				`'${toks[index].rawText}' is ${/^[aeiou]/i.test(local.asType ?? '') ? 'an' : 'a'} ${local.asType}: its default member Item needs an index, so ${form === 'iif' ? 'IIf' : 'the condition'} has no value to read. This will raise Run-time error '450': Wrong number of arguments or invalid property assignment.`,
 				{ start: stmt.span.start + toks[index].start, end: stmt.span.start + toks[index].end },
 			);
 		}

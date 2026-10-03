@@ -21,7 +21,7 @@ import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { VbaProcedureSignature } from '../../symbols/symbolModel';
 import { statementLabelDeclarations, statementLabelReferences } from '../../flow/procedureLabels';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
-import { isKnownScalarType, normalizeType, objectHoldingDefault, objectValueNeedsIndex, typeEnvironmentFor } from '../typeInference';
+import { argumentlessHostDefault, isKnownScalarType, normalizeType, objectHoldingDefault, objectValueNeedsIndex, typeEnvironmentFor } from '../typeInference';
 import { projectClassMemberAt, type MemberCompletionContext } from '../../completion/memberAccess';
 import { resolveHostAlias } from '../../host/hostModel';
 import {
@@ -101,8 +101,19 @@ export function checkStatementForms(
 			return type !== undefined && isKnownScalarType(type);
 		};
 		const locals = new Set<string>();
+		// Arrays, whose `x(1)` is an element: the procedure's, and the module's
+		// that no local hides.
+		const arrays = new Set<string>();
 		for (const child of procedureSymbolFor(symbols, member)?.children ?? []) {
 			locals.add(child.name.toLowerCase());
+			if (child.isArray) {
+				arrays.add(child.name.toLowerCase());
+			}
+		}
+		for (const child of symbols.root.children ?? []) {
+			if (child.isArray && !locals.has(child.name.toLowerCase())) {
+				arrays.add(child.name.toLowerCase());
+			}
 		}
 		forEachStatement(member.body, (stmt) => {
 			for (const span of statementAndBranchSpans(stmt)) {
@@ -164,8 +175,27 @@ export function checkStatementForms(
 						continue;
 					}
 					const lower = name.toLowerCase();
+					// `CStr(x)`, `Len(x)`: the whole argument of either (issue #438,
+					// measured in Word 16.0).
+					const valueCall = toks[i - 1]?.rawText === '(' && toks[i + 1]?.rawText === ')' && toks[i - 3]?.rawText !== '.'
+						? ['cstr', 'len'].find((fn) => fn === tokenText(toks[i - 2])) : undefined;
+					// `x(1)` where no default member on the way takes an argument:
+					// a Word Document's Name, a Range's Text (issue #438).
+					if (toks[i + 1]?.rawText === '(' && toks[i - 1]?.rawText !== '.' && env.has(lower) && !arrays.has(lower)) {
+						const through = argumentlessHostDefault(env.get(lower), memberCtx);
+						if (through) {
+							const typeName = env.get(lower)!;
+							push('argumentCount', `'${name}' is ${/^[aeiou]/i.test(typeName) ? 'an' : 'a'} ${typeName}, whose default member ${through} takes no argument. This is a VBE compile error: Wrong number of arguments or invalid property assignment.`, at(i));
+							continue;
+						}
+					}
 					if (toks[i + 1]?.rawText !== '(' && toks[i + 1]?.rawText !== '.' && indexed(lower)) {
 						const typeName = env.get(lower)!;
+						// A Collection's is builtin-arguments' (issue #242).
+						if (valueCall && normalizeType(typeName) !== 'collection') {
+							push('collectionOperand', `'${name}' is ${/^[aeiou]/i.test(typeName) ? 'an' : 'a'} ${typeName}: its default member Item needs an index, so ${toks[i - 2].rawText} has no value to take. This is a VBE compile error: Argument not optional.`, at(i));
+							continue;
+						}
 						const previous = i - 1 === eq ? undefined : toks[i - 1];
 						const operator = [toks[i + 1], previous].find((tok) => tok && ((tok.kind === 'operator' && SCALAR_OPERATORS.has(tok.rawText)) || tokenText(tok) === 'mod'));
 						if (operator) {
@@ -187,6 +217,10 @@ export function checkStatementForms(
 						const previous = i - 1 === eq ? undefined : toks[i - 1];
 						const operator = [toks[i + 1], previous].find((tok) => tok && ((tok.kind === 'operator' && SCALAR_OPERATORS.has(tok.rawText)) || tokenText(tok) === 'mod'));
 						const intoTyped = !operator && target && i === eq + 1 && toks.length === eq + 2 && typedValue(target.name.toLowerCase());
+						if (valueCall) {
+							push('collectionOperand', `'${name}' is ${/^[aeiou]/i.test(typeName) ? 'an' : 'a'} ${typeName}: its default member ${holding.name} holds an object (${holding.returns}), so ${toks[i - 2].rawText} has no value to take. This is a VBE compile error: ${valueCall === 'len' ? "Variable required - can't assign to this expression" : 'Type mismatch'}.`, at(i));
+							continue;
+						}
 						if (operator || intoTyped) {
 							push('collectionOperand', `'${name}' is ${/^[aeiou]/i.test(typeName) ? 'an' : 'a'} ${typeName}: its default member ${holding.name} holds an object (${holding.returns}), so ${operator ? `'${operator.rawText}' has no value to work on` : `it has no value for '${target!.name}' to take`}. This is a VBE compile error: Type mismatch.`, at(i));
 							continue;

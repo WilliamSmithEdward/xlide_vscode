@@ -96203,6 +96203,39 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(2) As Long, i As Variant\r\n    Do While i <= 3\r\n        a(i) = i\r\n        i = i + 1\r\n    Loop\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue438_01_runtime",
+      "description": "Issue #438 Word and PowerPoint objects read as values, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Object\r\n    Set x = Application\r\n    Main = x + 1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue438_02_runtime",
+      "description": "Issue #438 Word and PowerPoint objects read as values, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Object\r\n    Set x = Application\r\n    If x Then Main = 2\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue438_03_runtime",
+      "description": "Issue #438 Word and PowerPoint objects read as values, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> Microsoft Excela.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Object\r\n    Set x = Application\r\n    Main = x & \"a\"\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
