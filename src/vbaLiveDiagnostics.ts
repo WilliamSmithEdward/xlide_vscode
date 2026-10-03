@@ -333,6 +333,8 @@ export function registerVbaDiagnostics(
     // The workbook's sheets, kept the same way so a local pass checks
     // `ThisWorkbook.Sheets("x")` as the full pass does.
     const workbookSheetsByProject = new Map<string, readonly WorkbookSheetInfo[] | undefined>();
+    // The names of the libraries each project references; absent until read.
+    const referencedLibrariesByProject = new Map<string, readonly string[]>();
     const fullPassMetadataRetries = new Map<string, number>();
     const settingsWatchers = new ProjectSettingsWatcherRegistry((projectPath) => {
         invalidateAnalysisSettingsForProject(projectPath);
@@ -570,6 +572,12 @@ export function registerVbaDiagnostics(
                         ),
                     );
                     workbookSheetsByProject.set(projectKey(projectPath), diagnosticProject.sheets);
+                    // Every project references VBA, so an empty list was not read.
+                    if (diagnosticProject.references.length > 0) {
+                        referencedLibrariesByProject.set(projectKey(projectPath), diagnosticProject.references.map((reference) => reference.name));
+                    } else {
+                        referencedLibrariesByProject.delete(projectKey(projectPath));
+                    }
                     const current = diagnosticProject.moduleMetadata.get(moduleIdentityKey(moduleName));
                     if (current) {
                         moduleMetadataKnown = true;
@@ -658,6 +666,7 @@ export function registerVbaDiagnostics(
                     activeIncompleteExpressionOffset,
                     host: projectPath ? hostTokenForFileName(projectPath) : undefined,
                     referencedHosts: referencedHostsByProject.get(wbKey),
+                    referencedLibraries: referencedLibrariesByProject.get(wbKey),
                     designerClass,
                     workbookSheets: workbookSheetsByProject.get(wbKey),
                 });
@@ -688,6 +697,7 @@ export function registerVbaDiagnostics(
             referencedHosts: projectPath
                 ? referencedHostsByProject.get(projectKey(projectPath))
                 : undefined,
+            referencedLibraries: projectPath ? referencedLibrariesByProject.get(projectKey(projectPath)) : undefined,
             designerClass,
             workbookSheets: projectPath ? workbookSheetsByProject.get(projectKey(projectPath)) : undefined,
         });
