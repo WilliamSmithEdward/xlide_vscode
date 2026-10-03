@@ -268,8 +268,13 @@ function arrayArgumentProblem(
 	// `TArr -1`, `TArr "a"`, `TArr Null`: a literal is no array (issues #410 and
 	// #556, measured in Excel 16.0).
 	const literal = toks.length === 2 && (toks[0].rawText === '-' || toks[0].rawText === '+') ? toks[1] : toks.length === 1 ? toks[0] : undefined;
-	if (literal && (['integerLiteral', 'floatLiteral', 'stringLiteral', 'dateLiteral'].includes(literal.kind) || (toks.length === 1 && literal.rawText.toLowerCase() === 'null'))) {
+	if (literal && (['integerLiteral', 'floatLiteral', 'stringLiteral', 'dateLiteral'].includes(literal.kind) || (toks.length === 1 && ['null', 'empty'].includes(literal.rawText.toLowerCase())))) {
 		return { what: `${toks.map((t) => t.rawText).join('')} is a literal, not an array`, span: { start: sliceStart + toks[0].start, end: sliceStart + toks[toks.length - 1].end } };
+	}
+	// `d + 0`: an expression's value is no array variable (issue #647,
+	// measured in Excel 16.0).
+	if (toks.length > 2 && topLevelOperator(toks)) {
+		return { what: `'${toks.map((t) => t.rawText).join(' ')}' is an expression, not an array`, span: { start: sliceStart + toks[0].start, end: sliceStart + toks[toks.length - 1].end } };
 	}
 	const name = toks[0] ? tokenName(toks[0]) : undefined;
 	if (!name) {
@@ -302,6 +307,24 @@ function arrayArgumentProblem(
 	}
 	return undefined;
 }
+
+/** Whether an operator joins two operands outside any parentheses: `d + 0`, `a & b`. */
+function topLevelOperator(toks: readonly VbaToken[]): boolean {
+	let depth = 0;
+	for (let i = 0; i < toks.length; i++) {
+		const raw = toks[i].rawText;
+		if (raw === '(') {
+			depth++;
+		} else if (raw === ')') {
+			depth--;
+		} else if (depth === 0 && i > 0 && (BINARY_OPERATORS.has(raw) || BINARY_OPERATORS.has(raw.toLowerCase()))) {
+			return true;
+		}
+	}
+	return false;
+}
+
+const BINARY_OPERATORS: ReadonlySet<string> = new Set(['+', '-', '*', '/', '\\', '^', '&', 'mod', 'and', 'or', 'xor', '=', '<>', '<', '>', '<=', '>=']);
 
 /** A member's type: lowercased, and as written. */
 interface MemberType {
