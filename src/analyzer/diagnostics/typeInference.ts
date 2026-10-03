@@ -11,7 +11,7 @@
 import { untouchedModuleVariablesIn } from './moduleState';
 import type { VbaToken } from '../lexer/tokenKinds';
 import type { HostMember, HostObjectModel } from '../host/excelObjectModel';
-import { IDENT_RE, matchParenFrom } from '../lexer/tokenHelpers';
+import { IDENT_RE, matchParenFrom, splitTopLevelTokenGroups } from '../lexer/tokenHelpers';
 import { HOST_DEFAULT_MEMBERS } from '../host/hostDefaultMembers';
 import {
 	bankersRound,
@@ -64,7 +64,7 @@ import {
 	memberTakesOwnArguments,
 } from '../completion/memberAccess';
 import { procedureSymbolFor, type PushFn } from './analysisContext';
-import { EMPTY_COLLECTION, OBJECT_NOTHING, straightLineAssignments, straightLineDeadBranches, straightLineUnreachable, type ReachingAssignments } from './straightLineValues';
+import { EMPTY_COLLECTION, identityAssignment, OBJECT_NOTHING, straightLineAssignments, straightLineDeadBranches, straightLineUnreachable, type ReachingAssignments } from './straightLineValues';
 import { isInvalidBooleanString, isInvalidDateString, isInvalidNumericString, numericStringVerdict } from './stringConversion';
 import {
 	callableAcceptsZeroArguments,
@@ -3321,6 +3321,10 @@ export function knownLocalLiteralValues(
 				const first = firstExecutableTokenIndex(toks);
 				const head = tokenText(toks[first]);
 				const bare = bareAssignmentTarget(source, span);
+				// `d = d + 0` leaves d as it was (issue #350).
+				if (bare && identityAssignment(bare.name, bare.valueTokens)) {
+					continue;
+				}
 				if (bare) {
 					const entry = candidates.get(bare.name.toLowerCase());
 					if (entry) {
@@ -3338,7 +3342,15 @@ export function knownLocalLiteralValues(
 					mutateWholeArguments(toks, first + 2, true);
 					continue;
 				}
-				if (head === 'set' || head === 'redim' || head === 'input' || head === 'get' || head === 'line' || head === 'erase') {
+				// A ReDim writes its arrays alone: `ReDim a(n)` reads n (issue #350).
+				if (head === 'redim') {
+					const start = tokenText(toks[first + 1]) === 'preserve' ? first + 2 : first + 1;
+					for (const group of splitTopLevelTokenGroups(toks, start, ',', toks.length)) {
+						mutate(tokenName(group.find((tok) => tok.kind !== 'comment'))?.toLowerCase());
+					}
+					continue;
+				}
+				if (head === 'set' || head === 'input' || head === 'get' || head === 'line' || head === 'erase') {
 					for (const tok of toks) {
 						mutate(tokenName(tok)?.toLowerCase());
 					}

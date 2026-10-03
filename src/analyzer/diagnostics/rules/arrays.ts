@@ -72,6 +72,7 @@ import {
 	localsNamedWhole,
 	matchParenFrom,
 	pluralizeCount,
+	rawExpressionTokens,
 	statementTokens,
 	statementTokensAfterLeadingLabel,
 	tokenName,
@@ -2022,6 +2023,40 @@ export function redimShapesAt(
 			}
 		}
 	};
+	// A bound computed from what is known: `n = 2 + 1: ReDim a(n)`,
+	// `ReDim a(Len(s) - 1)` with s known, `ReDim a(UBound(b))` with b a fixed
+	// local array (issue #350, measured in Excel 16.0).
+	let valuesAt: ReturnType<typeof knownLocalLiteralValuesAt> | undefined;
+	let fixedLocals: Map<string, FixedArrayBound> | undefined;
+	const computedValue = (node: LeafStatementNode, toks: readonly VbaToken[]): number | undefined => {
+		const known = (valuesAt ??= knownLocalLiteralValuesAt(source, proc, symbols, activity))(node);
+		const parts: string[] = [];
+		for (let i = 0; i < toks.length; i++) {
+			const word = tokenText(toks[i]);
+			const close = toks[i + 1]?.rawText === '(' ? matchParenFrom(toks, i + 1) : -1;
+			const arg = close === i + 3 ? tokenName(toks[i + 2])?.toLowerCase() : undefined;
+			if (arg && (word === 'len' || word === 'ubound' || word === 'lbound')) {
+				const held = known.get(arg);
+				const dim = word === 'len' ? undefined : (fixedLocals ??= localFixedArrays(source, proc, activity, optionBase)).get(arg)?.dims[0];
+				const value = word === 'len' ? (held?.kind === 'string' ? (held.value as string).length : undefined) : word === 'ubound' ? dim?.upper : dim?.lower;
+				if (value === undefined) {
+					return undefined;
+				}
+				parts.push(String(value));
+				i = close;
+				continue;
+			}
+			parts.push(toks[i].rawText);
+		}
+		return evaluateIntegerConstantExpression(parts.join(' '), withKnownLocals({ get: () => undefined }, known));
+	};
+	const computedDimension = (node: LeafStatementNode, span: Span): ArrayDimensionBound | undefined => {
+		const toks = rawExpressionTokens(source.slice(span.start, span.end)).filter((tok) => tok.kind !== 'comment');
+		const to = toks.findIndex((tok) => tokenText(tok) === 'to');
+		const upper = computedValue(node, to < 0 ? toks : toks.slice(to + 1));
+		const lowerValue = to < 0 ? undefined : computedValue(node, toks.slice(0, to));
+		return upper === undefined || (to >= 0 && lowerValue === undefined) ? undefined : { lower: lowerValue ?? optionBase, upper, explicitLower: to >= 0 };
+	};
 	const visit = (node: BodyNode): void => {
 		if (!isLeafStatement(node)) {
 			return;
@@ -2046,11 +2081,12 @@ export function redimShapesAt(
 		for (const target of redims) {
 			const lower = target.name.toLowerCase();
 			const name = locals.get(lower);
-			const dims = target.dimensions.map((dim): ArrayDimensionBound | undefined => (
-				dim.upperValue === undefined || (dim.lowerKey !== undefined && dim.lowerValue === undefined)
-					? undefined
-					: { lower: dim.lowerValue ?? optionBase, upper: dim.upperValue, explicitLower: dim.lowerValue !== undefined }
-			));
+			const dims = target.dimensions.map((dim): ArrayDimensionBound | undefined => {
+				if (dim.upperValue !== undefined && (dim.lowerKey === undefined || dim.lowerValue !== undefined)) {
+					return { lower: dim.lowerValue ?? optionBase, upper: dim.upperValue, explicitLower: dim.lowerValue !== undefined };
+				}
+				return computedDimension(node, dim.span);
+			});
 			changed();
 			if (name && dims.length > 0 && dims.every((dim) => dim !== undefined)) {
 				shapes.set(lower, { name, dims: dims as ArrayDimensionBound[], origin: 'ReDim' });

@@ -588,7 +588,7 @@ function loopBodyMayLeaveOrWrite(source: string, body: readonly BodyNode[], lowe
 			if (LEAVING_HEADS.has(head) || (head === 'end' && toks.length === 1)) {
 				return true;
 			}
-			if (WRITING_HEADS.has(head) && mentionedNames(toks).has(lower)) {
+			if (WRITING_HEADS.has(head) && writtenNames(toks).has(lower)) {
 				return true;
 			}
 			if (bareAssignmentTarget(source, span)?.name.toLowerCase() === lower || [...passedWhole(source, toks, span.start)].includes(lower)) {
@@ -613,7 +613,7 @@ function afterStatement(source: string, span: Span, before: ReachingAssignments)
 	});
 	before = without(before, known);
 	if (WRITING_HEADS.has(head) && !(head === 'line' && tokenText(toks[1]) !== 'input')) {
-		const after = without(before, mentionedNames(toks));
+		const after = without(before, writtenNames(toks));
 		const object = head === 'set' ? setObjectValue(toks) : undefined;
 		if (!object) {
 			return after;
@@ -624,7 +624,7 @@ function afterStatement(source: string, span: Span, before: ReachingAssignments)
 	}
 	let after = without(before, passedWhole(source, toks, span.start));
 	const bare = bareAssignmentTarget(source, span);
-	if (bare) {
+	if (bare && !identityAssignment(bare.name, bare.valueTokens)) {
 		const next = new Map(after);
 		const value = bare.valueTokens.filter((tok) => tok.kind !== 'comment');
 		// `d = a` copies what a holds here: `a = 0: d = a` leaves d 0, and a
@@ -702,17 +702,36 @@ function touchedBy(source: string, stmts: readonly LeafStatementNode[]): Set<str
 			if (head === 'gosub') {
 				return 'all';
 			}
-			const changed = WRITING_HEADS.has(head) ? mentionedNames(toks) : passedWhole(source, toks, span.start);
+			const changed = WRITING_HEADS.has(head) ? writtenNames(toks) : passedWhole(source, toks, span.start);
 			for (const lower of changed) {
 				names.add(lower);
 			}
 			const bare = bareAssignmentTarget(source, span);
-			if (bare) {
+			if (bare && !identityAssignment(bare.name, bare.valueTokens)) {
 				names.add(bare.name.toLowerCase());
 			}
 		}
 	}
 	return names;
+}
+
+/**
+ * `d = d + 0`, `d = d * 1`, `d = 1 * d`, `d = d - 0`, `d = d / 1`: an
+ * assignment that leaves a number as it was (issue #350).
+ */
+export function identityAssignment(name: string, valueTokens: readonly VbaToken[]): boolean {
+	const value = valueTokens.filter((tok) => tok.kind !== 'comment');
+	const lower = name.toLowerCase();
+	const self = (tok: VbaToken | undefined): boolean => tokenName(tok)?.toLowerCase() === lower;
+	const literal = (tok: VbaToken | undefined): string | undefined => (tok?.kind === 'integerLiteral' ? tok.rawText.replace(/[%&^]$/, '') : undefined);
+	if (value.length !== 3) {
+		return false;
+	}
+	const [a, op, b] = value;
+	if (self(a)) {
+		return ((op.rawText === '+' || op.rawText === '-') && literal(b) === '0') || ((op.rawText === '*' || op.rawText === '/') && literal(b) === '1');
+	}
+	return self(b) && ((op.rawText === '+' && literal(a) === '0') || (op.rawText === '*' && literal(a) === '1'));
 }
 
 /** The state less every object the walk knows that the span names: a block may have added to it or set it. */
@@ -769,6 +788,26 @@ function localArrayNames(body: readonly BodyNode[], activity: ConditionalActivit
 
 function passedWhole(source: string, toks: readonly VbaToken[], spanStart: number): Iterable<string> {
 	return trackedLocalsNamedWhole(toks, spanStart, () => true, READ_ONLY_INTRINSICS, walkArrays, calleeKeepsArgument(source)).keys();
+}
+
+/**
+ * The names a writing statement may change: a ReDim's arrays, not the
+ * names its bounds read, `ReDim a(n)` leaving n as it was (issue #350);
+ * every name of any other.
+ */
+function writtenNames(toks: readonly VbaToken[]): Set<string> {
+	if (tokenText(toks[0]) !== 'redim') {
+		return mentionedNames(toks);
+	}
+	const start = tokenText(toks[1]) === 'preserve' ? 2 : 1;
+	const names = new Set<string>();
+	for (const group of splitTopLevelTokenGroups(toks, start, ',', toks.length)) {
+		const lower = tokenName(group.find((tok) => tok.kind !== 'comment'))?.toLowerCase();
+		if (lower) {
+			names.add(lower);
+		}
+	}
+	return names;
 }
 
 function mentionedNames(toks: readonly VbaToken[]): Set<string> {

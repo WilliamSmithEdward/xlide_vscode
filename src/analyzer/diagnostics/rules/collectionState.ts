@@ -44,6 +44,7 @@ import {
 	blockHeaderLineSpan,
 	forEachVariableGroup,
 	matchParenFrom,
+	rawExpressionTokens,
 	setAssignmentTarget,
 	statementTokensAfterLeadingLabel,
 	tokenName,
@@ -475,21 +476,38 @@ function simulateFillingLoop(
 	push: PushFn,
 	activity: ConditionalActivityTracker | undefined,
 ): Map<string, CollectionContents> | undefined {
-	if (node.kind !== 'ForBlock' || node.each || !node.controlVariable || states.size === 0) {
+	if (node.kind !== 'ForBlock' || !node.controlVariable || states.size === 0) {
 		return undefined;
 	}
 	const counter = node.controlVariable.toLowerCase();
-	const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment');
-	const eq = header.findIndex((tok) => tok.rawText === '=');
-	const to = header.findIndex((tok) => tokenText(tok) === 'to');
-	const stepAt = header.findIndex((tok) => tokenText(tok) === 'step');
-	const start = eq > 0 && to > eq ? literalIndex(header.slice(eq + 1, to)) : undefined;
-	const limit = to > 0 ? literalIndex(header.slice(to + 1, stepAt > 0 ? stepAt : header.length)) : undefined;
-	const step = stepAt > 0 ? literalIndex(header.slice(stepAt + 1)) : 1;
-	if (start === undefined || limit === undefined || !step) {
-		return undefined;
+	// The values the loop variable takes, pass by pass: a counted For's, or
+	// the elements of a literal Split or Array a For Each steps through.
+	const values: Array<number | string> = [];
+	if (node.each) {
+		const elements = literalElements(node.sourceExpression ?? '');
+		if (!elements) {
+			return undefined;
+		}
+		values.push(...elements);
+	} else {
+		const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment');
+		const eq = header.findIndex((tok) => tok.rawText === '=');
+		const to = header.findIndex((tok) => tokenText(tok) === 'to');
+		const stepAt = header.findIndex((tok) => tokenText(tok) === 'step');
+		const start = eq > 0 && to > eq ? literalIndex(header.slice(eq + 1, to)) : undefined;
+		const limit = to > 0 ? literalIndex(header.slice(to + 1, stepAt > 0 ? stepAt : header.length)) : undefined;
+		const step = stepAt > 0 ? literalIndex(header.slice(stepAt + 1)) : 1;
+		if (start === undefined || limit === undefined || !step) {
+			return undefined;
+		}
+		for (let value = start; step > 0 ? value <= limit : value >= limit; value += step) {
+			if (values.length >= MAX_SIMULATED_PASSES) {
+				return undefined;
+			}
+			values.push(value);
+		}
 	}
-	interface Change { name: string; display: string; add?: { key?: string; keyToks?: readonly VbaToken[]; keyBuilt: boolean }; remove?: number; base: number }
+	interface Change { name: string; display: string; add?: { key?: string; keyToks?: readonly VbaToken[]; keyBuilt: boolean; keyIsVariable?: boolean }; remove?: number; base: number }
 	const changes: Change[] = [];
 	for (const stmt of node.body) {
 		if (activity?.isInactive(stmt.span)) {
@@ -515,7 +533,9 @@ function simulateFillingLoop(
 		if (member === 'add' && args.length >= 1 && args.length <= 2 && !args.some((arg) => arg[1]?.rawText === ':=')) {
 			const keyToks = args[1];
 			const key = keyToks ? literalKey(keyToks) : undefined;
-			changes.push({ name, display: toks[0].rawText, base: stmt.span.start, add: { key, keyToks, keyBuilt: keyToks !== undefined && keyToks.length > 0 && key === undefined } });
+			// `c.Add p, p` in a For Each: the key is the element of the pass.
+			const keyIsVariable = node.each && keyToks?.length === 1 && tokenName(keyToks[0])?.toLowerCase() === counter;
+			changes.push({ name, display: toks[0].rawText, base: stmt.span.start, add: { key, keyToks, keyBuilt: !keyIsVariable && keyToks !== undefined && keyToks.length > 0 && key === undefined, keyIsVariable } });
 			continue;
 		}
 		const index = member === 'remove' && args.length === 1 ? literalIndex(args[0]) : undefined;
@@ -535,10 +555,8 @@ function simulateFillingLoop(
 		}
 	}
 	let passes = 0;
-	for (let value = start; step > 0 ? value <= limit : value >= limit; value += step) {
-		if (++passes > MAX_SIMULATED_PASSES) {
-			return undefined;
-		}
+	for (const value of values) {
+		passes++;
 		for (const change of changes) {
 			const contents = after.get(change.name)!;
 			if (change.remove !== undefined) {
@@ -550,11 +568,11 @@ function simulateFillingLoop(
 				contents.held.splice(change.remove - 1, 1);
 				continue;
 			}
-			const key = change.add!.key;
+			const key = change.add!.keyIsVariable ? String(value).toLowerCase() : change.add!.key;
 			if (key !== undefined && contents.keysKnown && contents.items.includes(key)) {
 				if (passes > 1) {
 					const keyToks = change.add!.keyToks!;
-					push('collectionKeyInUse', `On the pass of the For loop where '${node.controlVariable}' is ${value}, '${change.display}' already has an element with the key ${keyToks[0].rawText} from an earlier pass. This will raise Run-time error '457': This key is already associated with an element of this collection.`, { start: change.base + keyToks[0].start, end: change.base + keyToks[keyToks.length - 1].end });
+					push('collectionKeyInUse', `On the pass of the For loop where '${node.controlVariable}' is ${typeof value === 'string' ? JSON.stringify(value) : value}, '${change.display}' already has an element with the key ${keyToks[0].rawText} from an earlier pass. This will raise Run-time error '457': This key is already associated with an element of this collection.`, { start: change.base + keyToks[0].start, end: change.base + keyToks[keyToks.length - 1].end });
 				}
 				return undefined;
 			}
@@ -567,6 +585,27 @@ function simulateFillingLoop(
 		}
 	}
 	return after;
+}
+
+/** The elements of `Split("a,b", ",")` or `Array("a", "b")` written with literals, as Strings (issue #350). */
+function literalElements(expression: string): string[] | undefined {
+	const toks = rawExpressionTokens(expression).filter((tok) => tok.kind !== 'comment');
+	const callee = tokenText(toks[0]);
+	if ((callee !== 'split' && callee !== 'array') || toks[1]?.rawText !== '(' || matchParenFrom(toks, 1) !== toks.length - 1) {
+		return undefined;
+	}
+	const args = argumentsAfter(toks, 1);
+	if (!args.every((arg) => arg.length === 1 && arg[0].kind === 'stringLiteral')) {
+		return undefined;
+	}
+	const texts = args.map((arg) => stringLiteralValue(arg[0].rawText));
+	if (callee === 'array') {
+		return texts;
+	}
+	if (texts.length < 1 || texts.length > 2 || texts[1] === '' || texts[0] === '') {
+		return undefined;
+	}
+	return texts[0].split(texts[1] ?? ' ');
 }
 
 /** A copy of the states in which two names that shared one collection still do. */
