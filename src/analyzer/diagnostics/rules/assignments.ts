@@ -287,6 +287,11 @@ export function checkAssignmentTypes(
 	push: PushFn,
 ): void {
 	const moduleSignatures = buildModuleTypeSignatures(symbols);
+	// Enum assignment compatibility is a name query, not a full symbol scan
+	// per assignment. Keep this index within the current rule pass.
+	const enumNames = new Set([...(symbols.root.children ?? []), ...(projectVisibleSymbols ?? [])]
+		.filter((symbol) => symbol.kind === 'enum')
+		.map((symbol) => symbol.name.toLowerCase()));
 	const variantArrayFunctions = arrayOnlyVariantFunctions(source, mod, activity);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
@@ -470,8 +475,7 @@ export function checkAssignmentTypes(
 			// A variable As an Enum is a Long: `x = "abc"` raises 13 and
 			// `x = 3000000000#` 6 (issue #436, measured in Excel 16.0).
 			const enumName = declaredExpected?.split('.').pop()?.toLowerCase();
-			const expected = enumName && [...(symbols.root.children ?? []), ...(projectVisibleSymbols ?? [])]
-				.some((sym) => sym.kind === 'enum' && sym.name.toLowerCase() === enumName) ? 'Long' : declaredExpected;
+			const expected = enumName && enumNames.has(enumName) ? 'Long' : declaredExpected;
 			// `Sheet1 = 5` compiles as a Let through the document's default
 			// member, and a Worksheet or Workbook has none (issue #225).
 			if (!expected && !targetType.resolved && isDocumentModuleName(assignment.name, memberCtx)) {
