@@ -64,7 +64,7 @@ import {
 	memberTakesOwnArguments,
 } from '../completion/memberAccess';
 import { procedureSymbolFor, type PushFn } from './analysisContext';
-import { EMPTY_COLLECTION, identityAssignment, OBJECT_NOTHING, straightLineAssignments, straightLineDeadBranches, straightLineUnreachable, type ReachingAssignments } from './straightLineValues';
+import { EMPTY_COLLECTION, identityAssignment, OBJECT_NOTHING, straightLineAssignments, straightLineDeadBranches, straightLineExit, straightLineUnreachable, type ReachingAssignments } from './straightLineValues';
 import { isInvalidBooleanString, isInvalidDateString, isInvalidNumericString, numericStringVerdict } from './stringConversion';
 import {
 	callableAcceptsZeroArguments,
@@ -3967,6 +3967,114 @@ function walkStart(
 }
 
 const WALK_STARTS = new WeakMap<ProcedureNode, ReachingAssignments>();
+
+/** Statement heads after which a Function may end before its last line. */
+const RESULT_LEAVING_HEADS: ReadonlySet<string> = new Set(['exit', 'goto', 'gosub', 'return', 'resume', 'on', 'stop', 'error', 'end']);
+
+/**
+ * What a Function of the module returns for one call's arguments, as the
+ * tokens of the value it last assigns its name (issue #562): `Sign1(-1)` runs
+ * `If n > 0 Then Sign1 = 1 Else Sign1 = 0` with n = -1, so 0. An omitted
+ * Optional takes its default. Undefined where the result depends on more
+ * than the walk follows: a ParamArray, a Static Function, a statement that
+ * may leave early and still runs, or a value the walk does not know.
+ */
+export function functionResultFor(
+	source: string,
+	proc: ProcedureNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	activity: ConditionalActivityTracker | undefined,
+	args: ReadonlyArray<readonly VbaToken[] | undefined>,
+	objectResult = false,
+): readonly VbaToken[] | undefined {
+	if (proc.procKind !== 'Function' || proc.modifiers.some((word) => word.toLowerCase() === 'static') || args.length > proc.params.length) {
+		return undefined;
+	}
+	// Each statement that names the call asks again; a parse makes new nodes.
+	const key = `${objectResult}|${args.map((arg) => arg?.map((tok) => tok.rawText).join(' ') ?? '').join(',')}`;
+	let kept = CALL_RESULTS.get(proc);
+	if (!kept || kept.activity !== activity) {
+		kept = { activity, calls: new Map() };
+		CALL_RESULTS.set(proc, kept);
+	}
+	if (kept.calls.has(key)) {
+		return kept.calls.get(key);
+	}
+	const result = runFunctionFor(source, proc, symbols, activity, args, objectResult);
+	kept.calls.set(key, result);
+	return result;
+}
+
+const CALL_RESULTS = new WeakMap<ProcedureNode, { activity: ConditionalActivityTracker | undefined; calls: Map<string, readonly VbaToken[] | undefined> }>();
+
+function runFunctionFor(
+	source: string,
+	proc: ProcedureNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	activity: ConditionalActivityTracker | undefined,
+	args: ReadonlyArray<readonly VbaToken[] | undefined>,
+	objectResult: boolean,
+): readonly VbaToken[] | undefined {
+	// An object Function's result starts Nothing; the caller knows its type
+	// is an object's.
+	const type = normalizeType(proc.returnType ?? 'Variant');
+	const resultDefault = objectResult ? OBJECT_NOTHING
+		: type === 'string' ? DEFAULT_STRING : type !== undefined && (isNumericType(type) || type === 'boolean') ? DEFAULT_NUMBER : undefined;
+	if (!resultDefault) {
+		return undefined;
+	}
+	const initial = new Map(walkStart(symbols, proc, literalValueLocals(proc, symbols)));
+	// A module variable nothing writes holds its default: `GetMod = m`.
+	for (const [name, held] of moduleVariableDefaults(source, proc, symbols)) {
+		if (!initial.has(name) && (held.kind === 'number' || held.kind === 'string')) {
+			initial.set(name, held.kind === 'number' ? DEFAULT_NUMBER : DEFAULT_STRING);
+		}
+	}
+	for (const [index, param] of proc.params.entries()) {
+		const value = args[index] ?? (param.optional && param.defaultRaw !== undefined ? rawExpressionTokens(param.defaultRaw) : undefined);
+		if (param.paramArray || !value) {
+			return undefined;
+		}
+		initial.set(param.name.toLowerCase(), value);
+	}
+	const lower = proc.name.toLowerCase();
+	initial.set(lower, resultDefault);
+	const { exit, dead, deadSpans } = straightLineExit(source, proc.body, activity, initial);
+	if (!exit) {
+		return undefined;
+	}
+	// A path that leaves early returns what it held then, which the end
+	// state does not show; only one that never runs may stay.
+	const neverRuns = (span: Span): boolean => deadSpans.some((deadSpan) => span.start >= deadSpan.start && span.end <= deadSpan.end);
+	const leaves = (body: readonly BodyNode[]): boolean => body.some((node) => {
+		if (activity?.isInactive(node.span) || dead.has(node)) {
+			return false;
+		}
+		if (isLeafStatement(node)) {
+			return statementAndBranchSpans(node).some((span) => {
+				const toks = statementTokens(source, span);
+				const head = tokenText(toks[firstExecutableTokenIndex(toks)]);
+				return !neverRuns(span) && (RESULT_LEAVING_HEADS.has(head) || (head === 'err' && tokenText(toks[firstExecutableTokenIndex(toks) + 2]) === 'raise'));
+			});
+		}
+		return 'body' in node && Array.isArray(node.body) && leaves(node.body as BodyNode[]);
+	});
+	const value = leaves(proc.body) ? undefined : exit.get(lower);
+	if (!value || value === OBJECT_NOTHING || value === EMPTY_COLLECTION || !value.some((tok) => tokenName(tok) !== undefined)) {
+		return value;
+	}
+	// `Twice = n * 2`: a name nothing reassigns holds what the call gave it,
+	// so the value folds with it.
+	const folded = evaluateIntegerConstantExpression(value.map((tok) => tok.rawText).join(' '), {
+		get: (name) => {
+			const held = exit.get(name.toLowerCase());
+			return held && held === initial.get(name.toLowerCase()) && held.every((tok) => tokenName(tok) === undefined)
+				? evaluateIntegerConstantExpression(held.map((tok) => tok.rawText).join(' '), { get: () => undefined })
+				: undefined;
+		},
+	});
+	return folded === undefined ? undefined : rawExpressionTokens(String(folded));
+}
 
 /**
  * What an object local holds as the procedure starts (issue #483): Nothing

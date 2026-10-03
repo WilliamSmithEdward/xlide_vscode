@@ -101,6 +101,21 @@ export function straightLineDeadBranches(
 	return cachedWalk(source, body, activity, initial).deadSpans;
 }
 
+/**
+ * What holds as the body runs off its end, from `initial`, with the
+ * statements and one-line If branches the walk found never run. The end
+ * state is undefined when no path reaches it (issue #562).
+ */
+export function straightLineExit(
+	source: string,
+	body: readonly BodyNode[],
+	activity: ConditionalActivityTracker | undefined,
+	initial: ReachingAssignments,
+): { exit: ReachingAssignments | undefined; dead: ReadonlySet<BodyNode>; deadSpans: readonly Span[] } {
+	const walk = cachedWalk(source, body, activity, initial);
+	return { exit: walk.exit, dead: walk.dead, deadSpans: walk.deadSpans };
+}
+
 export function straightLineUnreachable(
 	source: string,
 	body: readonly BodyNode[],
@@ -137,12 +152,13 @@ function cachedWalk(
 	// The walk is synchronous, so its arrays can sit beside it for passedWhole.
 	const outer = walkArrays;
 	walkArrays = localArrayNames(body, activity);
+	let exit: ReachingAssignments;
 	try {
-		walkList(source, body, initial, activity, { out, dead, deadSpans, raiseLeaves: !/\bon\s+error\s+resume\s+next\b/i.test(text), referenced: referencedLabels(source, body, activity) });
+		exit = walkList(source, body, initial, activity, { out, dead, deadSpans, raiseLeaves: !/\bon\s+error\s+resume\s+next\b/i.test(text), referenced: referencedLabels(source, body, activity) });
 	} finally {
 		walkArrays = outer;
 	}
-	const walk: CachedWalk = { source, activity, result: out, dead, deadSpans };
+	const walk: CachedWalk = { source, activity, result: out, dead, deadSpans, exit: exit === UNREACHED ? undefined : exit };
 	byStart.set(key, walk);
 	return walk;
 }
@@ -153,6 +169,8 @@ interface CachedWalk {
 	result: ReadonlyMap<BodyNode, ReachingAssignments>;
 	dead: ReadonlySet<BodyNode>;
 	deadSpans: readonly Span[];
+	/** What holds as the body runs off its end; undefined when no path does. */
+	exit: ReachingAssignments | undefined;
 }
 
 /** What one walk collects: each statement's reaching values, and the statements that never run. */
@@ -279,6 +297,18 @@ function walkSingleLineIf(
 				if ((tail.span.start >= elseStart) === decided) {
 					walk.deadSpans.push(tail.span);
 				}
+			}
+			// One statement an arm, and no If nested in them: the arm that
+			// runs is the If's whole effect, `If n > 0 Then F = 1 Else F = 0`
+			// with n known leaving F known (issue #562).
+			// The Then arm's span runs through the Else that ends it.
+			const armToks = statementTokens(source, branches[decided ? 0 : 1]);
+			const elseTok = decided ? armToks.find((tok) => tokenText(tok) === 'else') : undefined;
+			const taken = elseTok ? { start: branches[0].start, end: branches[0].start + elseTok.start } : branches[decided ? 0 : 1];
+			const nested = statementTokensAfterLeadingLabel(source, ifStmt.span).some((tok, k) => k > 0 && tokenText(tok) === 'if');
+			if (group.length === 1 && !nested) {
+				record(walk.out, ifStmt, current);
+				return leavesTheList(source, taken, walk.raiseLeaves) ? UNREACHED : afterStatement(source, taken, current);
 			}
 		}
 	}

@@ -95124,6 +95124,204 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Application.ActiveSheet.Rows(5).Offset(0, 1).Address\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue562_01_runtime",
+      "description": "Issue #562 a Function run for its arguments, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Sub SetFiveVal(ByVal d As Long)\r\n    d = 5\r\nEnd Sub\r\nPrivate Sub SetFive(ByRef d As Long)\r\n    d = 5\r\nEnd Sub\r\nPrivate Function Sign1(ByVal n As Long) As Long\r\n    If n > 0 Then Sign1 = 1 Else Sign1 = 0\r\nEnd Function\r\nPrivate Function OptDef(Optional ByVal n As Long = 4) As Long\r\n    OptDef = n\r\nEnd Function\r\nPrivate Function MaybeColl(ByVal b As Boolean) As Collection\r\n    If b Then Set MaybeColl = New Collection\r\nEnd Function\r\nPrivate Function EarlyFive(ByVal b As Boolean) As Long\r\n    If b Then\r\n        EarlyFive = 5\r\n        Exit Function\r\n    End If\r\nEnd Function\r\nPrivate Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPrivate Function Pick(ByVal n As Long) As Long\r\n    Select Case n\r\n    Case 1\r\n        Pick = 0\r\n    Case Else\r\n        Pick = 3\r\n    End Select\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim d As Long\r\n    SetFive d\r\n    Main = 10 / d\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue562_02_runtime",
+      "description": "Issue #562 a Function run for its arguments, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Sub SetFiveVal(ByVal d As Long)\r\n    d = 5\r\nEnd Sub\r\nPrivate Sub SetFive(ByRef d As Long)\r\n    d = 5\r\nEnd Sub\r\nPrivate Function Sign1(ByVal n As Long) As Long\r\n    If n > 0 Then Sign1 = 1 Else Sign1 = 0\r\nEnd Function\r\nPrivate Function OptDef(Optional ByVal n As Long = 4) As Long\r\n    OptDef = n\r\nEnd Function\r\nPrivate Function MaybeColl(ByVal b As Boolean) As Collection\r\n    If b Then Set MaybeColl = New Collection\r\nEnd Function\r\nPrivate Function EarlyFive(ByVal b As Boolean) As Long\r\n    If b Then\r\n        EarlyFive = 5\r\n        Exit Function\r\n    End If\r\nEnd Function\r\nPrivate Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPrivate Function Pick(ByVal n As Long) As Long\r\n    Select Case n\r\n    Case 1\r\n        Pick = 0\r\n    Case Else\r\n        Pick = 3\r\n    End Select\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = 10 / Sign1(-1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue562_03_runtime",
+      "description": "Issue #562 a Function run for its arguments, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 10.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Sub SetFiveVal(ByVal d As Long)\r\n    d = 5\r\nEnd Sub\r\nPrivate Sub SetFive(ByRef d As Long)\r\n    d = 5\r\nEnd Sub\r\nPrivate Function Sign1(ByVal n As Long) As Long\r\n    If n > 0 Then Sign1 = 1 Else Sign1 = 0\r\nEnd Function\r\nPrivate Function OptDef(Optional ByVal n As Long = 4) As Long\r\n    OptDef = n\r\nEnd Function\r\nPrivate Function MaybeColl(ByVal b As Boolean) As Collection\r\n    If b Then Set MaybeColl = New Collection\r\nEnd Function\r\nPrivate Function EarlyFive(ByVal b As Boolean) As Long\r\n    If b Then\r\n        EarlyFive = 5\r\n        Exit Function\r\n    End If\r\nEnd Function\r\nPrivate Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPrivate Function Pick(ByVal n As Long) As Long\r\n    Select Case n\r\n    Case 1\r\n        Pick = 0\r\n    Case Else\r\n        Pick = 3\r\n    End Select\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = 10 / Sign1(3)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue562_04_runtime",
+      "description": "Issue #562 a Function run for its arguments, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Sub SetFiveVal(ByVal d As Long)\r\n    d = 5\r\nEnd Sub\r\nPrivate Sub SetFive(ByRef d As Long)\r\n    d = 5\r\nEnd Sub\r\nPrivate Function Sign1(ByVal n As Long) As Long\r\n    If n > 0 Then Sign1 = 1 Else Sign1 = 0\r\nEnd Function\r\nPrivate Function OptDef(Optional ByVal n As Long = 4) As Long\r\n    OptDef = n\r\nEnd Function\r\nPrivate Function MaybeColl(ByVal b As Boolean) As Collection\r\n    If b Then Set MaybeColl = New Collection\r\nEnd Function\r\nPrivate Function EarlyFive(ByVal b As Boolean) As Long\r\n    If b Then\r\n        EarlyFive = 5\r\n        Exit Function\r\n    End If\r\nEnd Function\r\nPrivate Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPrivate Function Pick(ByVal n As Long) As Long\r\n    Select Case n\r\n    Case 1\r\n        Pick = 0\r\n    Case Else\r\n        Pick = 3\r\n    End Select\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = 10 / OptDef(0)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue562_05_runtime",
+      "description": "Issue #562 a Function run for its arguments, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Sub SetFiveVal(ByVal d As Long)\r\n    d = 5\r\nEnd Sub\r\nPrivate Sub SetFive(ByRef d As Long)\r\n    d = 5\r\nEnd Sub\r\nPrivate Function Sign1(ByVal n As Long) As Long\r\n    If n > 0 Then Sign1 = 1 Else Sign1 = 0\r\nEnd Function\r\nPrivate Function OptDef(Optional ByVal n As Long = 4) As Long\r\n    OptDef = n\r\nEnd Function\r\nPrivate Function MaybeColl(ByVal b As Boolean) As Collection\r\n    If b Then Set MaybeColl = New Collection\r\nEnd Function\r\nPrivate Function EarlyFive(ByVal b As Boolean) As Long\r\n    If b Then\r\n        EarlyFive = 5\r\n        Exit Function\r\n    End If\r\nEnd Function\r\nPrivate Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPrivate Function Pick(ByVal n As Long) As Long\r\n    Select Case n\r\n    Case 1\r\n        Pick = 0\r\n    Case Else\r\n        Pick = 3\r\n    End Select\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = 10 / OptDef()\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue562_06_runtime",
+      "description": "Issue #562 a Function run for its arguments, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Sub SetFiveVal(ByVal d As Long)\r\n    d = 5\r\nEnd Sub\r\nPrivate Sub SetFive(ByRef d As Long)\r\n    d = 5\r\nEnd Sub\r\nPrivate Function Sign1(ByVal n As Long) As Long\r\n    If n > 0 Then Sign1 = 1 Else Sign1 = 0\r\nEnd Function\r\nPrivate Function OptDef(Optional ByVal n As Long = 4) As Long\r\n    OptDef = n\r\nEnd Function\r\nPrivate Function MaybeColl(ByVal b As Boolean) As Collection\r\n    If b Then Set MaybeColl = New Collection\r\nEnd Function\r\nPrivate Function EarlyFive(ByVal b As Boolean) As Long\r\n    If b Then\r\n        EarlyFive = 5\r\n        Exit Function\r\n    End If\r\nEnd Function\r\nPrivate Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPrivate Function Pick(ByVal n As Long) As Long\r\n    Select Case n\r\n    Case 1\r\n        Pick = 0\r\n    Case Else\r\n        Pick = 3\r\n    End Select\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = MaybeColl(False).Count\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue562_07_runtime",
+      "description": "Issue #562 a Function run for its arguments, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Sub SetFiveVal(ByVal d As Long)\r\n    d = 5\r\nEnd Sub\r\nPrivate Sub SetFive(ByRef d As Long)\r\n    d = 5\r\nEnd Sub\r\nPrivate Function Sign1(ByVal n As Long) As Long\r\n    If n > 0 Then Sign1 = 1 Else Sign1 = 0\r\nEnd Function\r\nPrivate Function OptDef(Optional ByVal n As Long = 4) As Long\r\n    OptDef = n\r\nEnd Function\r\nPrivate Function MaybeColl(ByVal b As Boolean) As Collection\r\n    If b Then Set MaybeColl = New Collection\r\nEnd Function\r\nPrivate Function EarlyFive(ByVal b As Boolean) As Long\r\n    If b Then\r\n        EarlyFive = 5\r\n        Exit Function\r\n    End If\r\nEnd Function\r\nPrivate Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPrivate Function Pick(ByVal n As Long) As Long\r\n    Select Case n\r\n    Case 1\r\n        Pick = 0\r\n    Case Else\r\n        Pick = 3\r\n    End Select\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = MaybeColl(True).Count\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue562_08_runtime",
+      "description": "Issue #562 a Function run for its arguments, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Sub SetFiveVal(ByVal d As Long)\r\n    d = 5\r\nEnd Sub\r\nPrivate Sub SetFive(ByRef d As Long)\r\n    d = 5\r\nEnd Sub\r\nPrivate Function Sign1(ByVal n As Long) As Long\r\n    If n > 0 Then Sign1 = 1 Else Sign1 = 0\r\nEnd Function\r\nPrivate Function OptDef(Optional ByVal n As Long = 4) As Long\r\n    OptDef = n\r\nEnd Function\r\nPrivate Function MaybeColl(ByVal b As Boolean) As Collection\r\n    If b Then Set MaybeColl = New Collection\r\nEnd Function\r\nPrivate Function EarlyFive(ByVal b As Boolean) As Long\r\n    If b Then\r\n        EarlyFive = 5\r\n        Exit Function\r\n    End If\r\nEnd Function\r\nPrivate Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPrivate Function Pick(ByVal n As Long) As Long\r\n    Select Case n\r\n    Case 1\r\n        Pick = 0\r\n    Case Else\r\n        Pick = 3\r\n    End Select\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = 10 / EarlyFive(False)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue562_09_runtime",
+      "description": "Issue #562 a Function run for its arguments, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Sub SetFiveVal(ByVal d As Long)\r\n    d = 5\r\nEnd Sub\r\nPrivate Sub SetFive(ByRef d As Long)\r\n    d = 5\r\nEnd Sub\r\nPrivate Function Sign1(ByVal n As Long) As Long\r\n    If n > 0 Then Sign1 = 1 Else Sign1 = 0\r\nEnd Function\r\nPrivate Function OptDef(Optional ByVal n As Long = 4) As Long\r\n    OptDef = n\r\nEnd Function\r\nPrivate Function MaybeColl(ByVal b As Boolean) As Collection\r\n    If b Then Set MaybeColl = New Collection\r\nEnd Function\r\nPrivate Function EarlyFive(ByVal b As Boolean) As Long\r\n    If b Then\r\n        EarlyFive = 5\r\n        Exit Function\r\n    End If\r\nEnd Function\r\nPrivate Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPrivate Function Pick(ByVal n As Long) As Long\r\n    Select Case n\r\n    Case 1\r\n        Pick = 0\r\n    Case Else\r\n        Pick = 3\r\n    End Select\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = 10 / EarlyFive(True)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue562_10_runtime",
+      "description": "Issue #562 a Function run for its arguments, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Sub SetFiveVal(ByVal d As Long)\r\n    d = 5\r\nEnd Sub\r\nPrivate Sub SetFive(ByRef d As Long)\r\n    d = 5\r\nEnd Sub\r\nPrivate Function Sign1(ByVal n As Long) As Long\r\n    If n > 0 Then Sign1 = 1 Else Sign1 = 0\r\nEnd Function\r\nPrivate Function OptDef(Optional ByVal n As Long = 4) As Long\r\n    OptDef = n\r\nEnd Function\r\nPrivate Function MaybeColl(ByVal b As Boolean) As Collection\r\n    If b Then Set MaybeColl = New Collection\r\nEnd Function\r\nPrivate Function EarlyFive(ByVal b As Boolean) As Long\r\n    If b Then\r\n        EarlyFive = 5\r\n        Exit Function\r\n    End If\r\nEnd Function\r\nPrivate Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPrivate Function Pick(ByVal n As Long) As Long\r\n    Select Case n\r\n    Case 1\r\n        Pick = 0\r\n    Case Else\r\n        Pick = 3\r\n    End Select\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = 10 / Twice(0)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue562_11_runtime",
+      "description": "Issue #562 a Function run for its arguments, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Sub SetFiveVal(ByVal d As Long)\r\n    d = 5\r\nEnd Sub\r\nPrivate Sub SetFive(ByRef d As Long)\r\n    d = 5\r\nEnd Sub\r\nPrivate Function Sign1(ByVal n As Long) As Long\r\n    If n > 0 Then Sign1 = 1 Else Sign1 = 0\r\nEnd Function\r\nPrivate Function OptDef(Optional ByVal n As Long = 4) As Long\r\n    OptDef = n\r\nEnd Function\r\nPrivate Function MaybeColl(ByVal b As Boolean) As Collection\r\n    If b Then Set MaybeColl = New Collection\r\nEnd Function\r\nPrivate Function EarlyFive(ByVal b As Boolean) As Long\r\n    If b Then\r\n        EarlyFive = 5\r\n        Exit Function\r\n    End If\r\nEnd Function\r\nPrivate Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPrivate Function Pick(ByVal n As Long) As Long\r\n    Select Case n\r\n    Case 1\r\n        Pick = 0\r\n    Case Else\r\n        Pick = 3\r\n    End Select\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = 10 / Pick(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue562_12_runtime",
+      "description": "Issue #562 a Function run for its arguments, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 3.33333333333333.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Sub SetFiveVal(ByVal d As Long)\r\n    d = 5\r\nEnd Sub\r\nPrivate Sub SetFive(ByRef d As Long)\r\n    d = 5\r\nEnd Sub\r\nPrivate Function Sign1(ByVal n As Long) As Long\r\n    If n > 0 Then Sign1 = 1 Else Sign1 = 0\r\nEnd Function\r\nPrivate Function OptDef(Optional ByVal n As Long = 4) As Long\r\n    OptDef = n\r\nEnd Function\r\nPrivate Function MaybeColl(ByVal b As Boolean) As Collection\r\n    If b Then Set MaybeColl = New Collection\r\nEnd Function\r\nPrivate Function EarlyFive(ByVal b As Boolean) As Long\r\n    If b Then\r\n        EarlyFive = 5\r\n        Exit Function\r\n    End If\r\nEnd Function\r\nPrivate Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPrivate Function Pick(ByVal n As Long) As Long\r\n    Select Case n\r\n    Case 1\r\n        Pick = 0\r\n    Case Else\r\n        Pick = 3\r\n    End Select\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = 10 / Pick(2)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue562_13_runtime",
+      "description": "Issue #562 a Function run for its arguments, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Sub SetFiveVal(ByVal d As Long)\r\n    d = 5\r\nEnd Sub\r\nPrivate Sub SetFive(ByRef d As Long)\r\n    d = 5\r\nEnd Sub\r\nPrivate Function Sign1(ByVal n As Long) As Long\r\n    If n > 0 Then Sign1 = 1 Else Sign1 = 0\r\nEnd Function\r\nPrivate Function OptDef(Optional ByVal n As Long = 4) As Long\r\n    OptDef = n\r\nEnd Function\r\nPrivate Function MaybeColl(ByVal b As Boolean) As Collection\r\n    If b Then Set MaybeColl = New Collection\r\nEnd Function\r\nPrivate Function EarlyFive(ByVal b As Boolean) As Long\r\n    If b Then\r\n        EarlyFive = 5\r\n        Exit Function\r\n    End If\r\nEnd Function\r\nPrivate Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPrivate Function Pick(ByVal n As Long) As Long\r\n    Select Case n\r\n    Case 1\r\n        Pick = 0\r\n    Case Else\r\n        Pick = 3\r\n    End Select\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = 10 \\ Sign1(-5)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue562_14_runtime",
+      "description": "Issue #562 a Function run for its arguments, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Sub SetFiveVal(ByVal d As Long)\r\n    d = 5\r\nEnd Sub\r\nPrivate Sub SetFive(ByRef d As Long)\r\n    d = 5\r\nEnd Sub\r\nPrivate Function Sign1(ByVal n As Long) As Long\r\n    If n > 0 Then Sign1 = 1 Else Sign1 = 0\r\nEnd Function\r\nPrivate Function OptDef(Optional ByVal n As Long = 4) As Long\r\n    OptDef = n\r\nEnd Function\r\nPrivate Function MaybeColl(ByVal b As Boolean) As Collection\r\n    If b Then Set MaybeColl = New Collection\r\nEnd Function\r\nPrivate Function EarlyFive(ByVal b As Boolean) As Long\r\n    If b Then\r\n        EarlyFive = 5\r\n        Exit Function\r\n    End If\r\nEnd Function\r\nPrivate Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPrivate Function Pick(ByVal n As Long) As Long\r\n    Select Case n\r\n    Case 1\r\n        Pick = 0\r\n    Case Else\r\n        Pick = 3\r\n    End Select\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = 10 Mod OptDef(0)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue562_15_runtime",
+      "description": "Issue #562 a Function run for its arguments, case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate m As Long\r\nPrivate Function GetMod() As Long\r\n    GetMod = m\r\nEnd Function\r\nPrivate Function Counter() As Long\r\n    Static n As Long\r\n    Counter = n\r\n    n = n + 1\r\nEnd Function\r\nPrivate Function GetPlus() As Long\r\n    GetPlus = m + 2\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = 10 / GetMod()\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue562_16_runtime",
+      "description": "Issue #562 a Function run for its arguments, case 16, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate m As Long\r\nPrivate Function GetMod() As Long\r\n    GetMod = m\r\nEnd Function\r\nPrivate Function Counter() As Long\r\n    Static n As Long\r\n    Counter = n\r\n    n = n + 1\r\nEnd Function\r\nPrivate Function GetPlus() As Long\r\n    GetPlus = m + 2\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = 10 / GetMod\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue562_17_runtime",
+      "description": "Issue #562 a Function run for its arguments, case 17, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate m As Long\r\nPrivate Function GetMod() As Long\r\n    GetMod = m\r\nEnd Function\r\nPrivate Function Counter() As Long\r\n    Static n As Long\r\n    Counter = n\r\n    n = n + 1\r\nEnd Function\r\nPrivate Function GetPlus() As Long\r\n    GetPlus = m + 2\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = 10 / GetPlus()\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue562_18_runtime",
+      "description": "Issue #562 a Function run for its arguments, case 18, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate m As Long\r\nPrivate Function GetMod() As Long\r\n    GetMod = m\r\nEnd Function\r\nPrivate Function Counter() As Long\r\n    Static n As Long\r\n    Counter = n\r\n    n = n + 1\r\nEnd Function\r\nPrivate Function GetPlus() As Long\r\n    GetPlus = m + 2\r\nEnd Function\r\nFunction Main() As Variant\r\n    m = 5\r\n    Main = 10 / GetMod()\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

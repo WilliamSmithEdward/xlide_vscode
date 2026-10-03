@@ -1546,8 +1546,10 @@ function zeroDivisorAtomTokenGroup(
 	if (close !== undefined && isDivisorAtomBoundary(toks[close + 1])) {
 		return toks.slice(start, close + 1);
 	}
-	// `Int(0.9)`, `Fix(-0.9)`, `Round(0.5)`: a number made whole, 0 (issue #286).
-	if (['int', 'fix', 'round'].includes(tokenText(first)) && toks[start + 1]?.rawText === '(' && toks[start - 1]?.rawText !== '.') {
+	// `Int(0.9)`, `Fix(-0.9)`, `Round(0.5)`: a number made whole, 0 (issue
+	// #286). `Sign1(-1)`: a Function of the module that returns 0 for these
+	// arguments (issue #562).
+	if (firstName && toks[start + 1]?.rawText === '(' && toks[start - 1]?.rawText !== '.') {
 		const end = matchParenFrom(toks, start + 1);
 		const call = end > start ? toks.slice(start, end + 1) : [];
 		if (call.length > 0 && isDivisorAtomBoundary(toks[end + 1])

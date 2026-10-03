@@ -14,12 +14,13 @@ import type { BodyNode, ModuleNode, ProcedureNode } from '../parser/nodes';
 import { isLeafStatement } from '../parser/nodes';
 import type { buildModuleSymbols } from '../symbols/buildModuleSymbols';
 import { procedureSymbolFor } from './analysisContext';
-import { normalizeType, stringLiteralValue } from './typeInference';
+import { functionResultFor, normalizeType, stringLiteralValue } from './typeInference';
 import {
 	activeModuleMembers,
 	blockFooterLineSpan,
 	blockHeaderLineSpan,
 	statementAndBranchSpans,
+	rawExpressionTokens,
 	statementTokensAfterLeadingLabel,
 	tokenName,
 	tokenText,
@@ -66,8 +67,16 @@ export function knownFunctionResults(
 	}
 	found = out;
 	RESULTS.set(mod, found);
+	CALLS.set(found, { source, procedures, activity });
 	return found;
 }
+
+/** What a results map needs to run one of its Functions for a call's arguments. */
+const CALLS = new WeakMap<ReadonlyMap<string, FunctionResult>, {
+	source: string;
+	procedures: ReadonlyMap<string, ProcedureNode | null>;
+	activity: ConditionalActivityTracker | undefined;
+}>();
 
 /**
  * The known result a call stands for at `toks[start]`: `F()`, or a bare `F`
@@ -110,8 +119,32 @@ export function functionIntegerResult(
 	caller: ProcedureNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 ): number | undefined {
-	const result = functionResultNamed(name.toLowerCase().replace(/\(\)$/, ''), results, caller, symbols);
+	const call = /^(\w+)\((-?\d+(?:,-?\d+)*)?\)$/.exec(name.toLowerCase()) ?? /^(\w+)$/.exec(name.toLowerCase());
+	const result = functionResultNamed(name.toLowerCase().replace(/\(\)$/, ''), results, caller, symbols)
+		?? (call ? callResult(call[1], call[2] ? call[2].split(',').map(Number) : [], results, caller, symbols) : undefined);
 	return result?.kind === 'number' && Number.isInteger(result.value) ? result.value : undefined;
+}
+
+/**
+ * `Sign1(-1)`: a Function of the module run for whole-number arguments, its
+ * result held as its type holds it (issue #562).
+ */
+function callResult(
+	lower: string,
+	args: readonly number[],
+	results: ReadonlyMap<string, FunctionResult>,
+	caller: ProcedureNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+): FunctionResult | undefined {
+	const context = CALLS.get(results);
+	const proc = context?.procedures.get(lower);
+	if (!context || !proc || shadowed(lower, caller, symbols)) {
+		return undefined;
+	}
+	const value = functionResultFor(context.source, proc, symbols, context.activity, args.map((arg) => rawExpressionTokens(String(arg))));
+	const literal = value ? literalOf(value.filter((tok) => tok.kind !== 'comment')) : undefined;
+	const type = proc.typeSuffix ? SUFFIX_TYPES[proc.typeSuffix] : normalizeType(proc.returnType ?? 'Variant');
+	return literal && type ? heldAs(literal, type) : undefined;
 }
 
 function shadowed(lower: string, caller: ProcedureNode, symbols: ReturnType<typeof buildModuleSymbols>): boolean {
