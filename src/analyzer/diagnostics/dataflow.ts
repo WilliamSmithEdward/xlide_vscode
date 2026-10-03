@@ -71,7 +71,7 @@ export function walkStraightLineBody(
 	hooks: StraightLineDataflowHooks,
 ): void {
 	if (!walkFollowingJumps(source, body, isInactive, hooks)) {
-		walkBody(source, body, isInactive, hooks, false);
+		walkBody(source, body, isInactive, hooks, onlyErrorModeStatements(source, body, isInactive));
 	}
 }
 
@@ -83,6 +83,32 @@ function singleLineGoToOnly(source: string, leaf: LeafStatementNode, next: BodyN
 	}
 	const then = tokensAfterLabel(source, branches[0]);
 	return then.length === 2 && tokenWord(then[0]) === 'goto';
+}
+
+/**
+ * Whether the body's only unstructured statements are `On Error Resume
+ * Next`, `On Error GoTo 0` and `On Error GoTo -1`: no label, no jump to one
+ * and no Resume. Control then runs in order, a failing statement going on
+ * to the next under Resume Next, so blocks are entered as in a structured
+ * body. What Resume Next keeps from raising is dropped from the report
+ * where its stretch is known.
+ */
+const JUMPING_HEADS: ReadonlySet<string> = new Set(['resume', 'gosub', 'return']);
+
+function onlyErrorModeStatements(source: string, body: readonly BodyNode[], isInactive: (node: BodyNode) => boolean): boolean {
+	const leaves: LeafStatementNode[] = [];
+	collectLeaves(body, () => false, leaves);
+	return leaves.every((leaf) => {
+		if (isInactive(leaf)) {
+			return true;
+		}
+		if (statementLabelReferences(source, leaf.span).length > 0 || statementLabelDeclarations(source, leaf.span).length > 0) {
+			return false;
+		}
+		// A Resume, GoSub or Return statement, alone or after a single-line If's Then.
+		const toks = statementTokensAfterLabel(source, leaf);
+		return !toks.some((tok, k) => JUMPING_HEADS.has(tokenWord(tok)) && (k === 0 || toks[k - 1].rawText === ':' || tokenWord(toks[k - 1]) === 'then' || tokenWord(toks[k - 1]) === 'else'));
+	});
 }
 
 /** The most runs the GoTo-following walk takes to settle its labels. */
