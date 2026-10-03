@@ -3245,9 +3245,16 @@ export function checkFixedArraySubscriptBounds(
 			return fixed;
 		};
 		const redimTargets = redimTargetNamesInBody(source, member.body, activity);
+		const exclusions = new Map<ReadonlyMap<string, FixedArrayBound>, ReadonlySet<string>>();
 		const excludedAt = (stmt: LeafStatementNode): ReadonlySet<string> => {
 			const reshaped = redimmed.get(stmt);
-			return reshaped ? new Set([...redimTargets].filter((lower) => !reshaped.has(lower))) : redimTargets;
+			if (!reshaped) { return redimTargets; }
+			let excluded = exclusions.get(reshaped);
+			if (!excluded) {
+				excluded = new Set([...redimTargets].filter((lower) => !reshaped.has(lower)));
+				exclusions.set(reshaped, excluded);
+			}
+			return excluded;
 		};
 		const counters = loopCountersAt(source, member.body, activity);
 		// A subscript through a Const or a local with one known value (issue #238).
