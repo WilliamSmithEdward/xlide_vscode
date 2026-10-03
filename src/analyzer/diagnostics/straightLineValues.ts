@@ -30,6 +30,7 @@ import { conditionValue, ifConditionTokens, type ConditionFacts } from './condit
 import { matchParenFrom, splitTopLevelTokenGroups } from '../lexer/tokenHelpers';
 import { resolveRuntimeFunction } from '../runtime/vbaRuntime';
 import { calleeKeepsArgument } from './calleeArguments';
+import { moduleCompare, type ModuleCompare } from './knownStringCalls';
 import {
 	bareAssignmentTarget,
 	blockFooterLineSpan,
@@ -277,7 +278,7 @@ function walkList(
 				// `If False Then GoTo L` never jumps, and adds no way into L
 				// (issue #673, measured in Excel 16.0).
 				const condition = node.kind === 'Statement' && node.singleLineIfBranches ? ifConditionTokens(statementTokensAfterLeadingLabel(source, node.span)) : undefined;
-				const mayJump = condition ? conditionValue(condition, factsFrom(current)) : true;
+				const mayJump = condition ? conditionValue(condition, factsFrom(current, source)) : true;
 				jumpCounts.set(target, (jumpCounts.get(target) ?? 0) + 1);
 				if (mayJump !== false) {
 					jumps.set(target, [...(jumps.get(target) ?? []), current]);
@@ -333,7 +334,7 @@ function walkSingleLineIf(
 	const [ifStmt] = group;
 	const branches = ifStmt.kind === 'Statement' ? ifStmt.singleLineIfBranches ?? [] : [];
 	const condition = branches.length === 1 ? ifConditionTokens(statementTokensAfterLeadingLabel(source, ifStmt.span)) : undefined;
-	const known = condition ? conditionValue(condition, factsFrom(current)) : undefined;
+	const known = condition ? conditionValue(condition, factsFrom(current, source)) : undefined;
 	if (known === false) {
 		for (const stmt of group) {
 			walk.dead.add(stmt);
@@ -355,7 +356,7 @@ function walkSingleLineIf(
 	// `If x = 2 Then y = 0 Else y = Sqr(-1)` with x known: the If runs, and
 	// the branch its condition decides against does not (issue #430).
 	if (branches.length === 2) {
-		const decided = conditionValue(ifConditionTokens(statementTokensAfterLeadingLabel(source, ifStmt.span)) ?? [], factsFrom(current));
+		const decided = conditionValue(ifConditionTokens(statementTokensAfterLeadingLabel(source, ifStmt.span)) ?? [], factsFrom(current, source));
 		if (decided !== undefined) {
 			const elseStart = branches[1].start;
 			walk.deadSpans.push(branches[decided ? 1 : 0]);
@@ -527,11 +528,11 @@ function doCounterFinalValue(
 			return undefined;
 		}
 	}
-	const facts = factsFrom(entry);
+	const facts = factsFrom(entry, source);
 	let value = start;
 	for (let pass = 0; pass <= DO_COUNTER_PASSES; pass++) {
 		const known = (current: number): boolean | undefined =>
-			conditionValue(condition, { value: (lower) => (lower === counter ? current : facts.value(lower)) });
+			conditionValue(condition, { value: (lower) => (lower === counter ? current : facts.value(lower)), compare: facts.compare });
 		if (atHead) {
 			const holds = known(value);
 			if (holds === undefined) {
@@ -604,7 +605,7 @@ function loopRunsNoPass(source: string, node: BodyNode, entry: ReachingAssignmen
 		return undefined;
 	}
 	const toks = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment');
-	const facts = factsFrom(entry);
+	const facts = factsFrom(entry, source);
 	if (node.kind === 'ForBlock' && node.each) {
 		const inAt = toks.findIndex((tok) => tokenText(tok) === 'in');
 		const group = toks.slice(inAt + 1);
@@ -971,7 +972,7 @@ function loopTouched(
 	}
 	let touched = new Set<string>();
 	for (;;) {
-		const facts = factsFrom(without(entry, touched));
+		const facts = factsFrom(without(entry, touched), source);
 		const live = touchedInBlock(source, node, activity, (condition) => conditionValue(condition, facts));
 		if (live === 'all' || [...live].every((lower) => touched.has(lower))) {
 			return live === 'all' ? live : touched;
@@ -1261,11 +1262,12 @@ function without(map: ReachingAssignments, names: Iterable<string>): ReachingAss
 }
 
 /** The numbers and strings the reaching assignments give their names, for a condition. */
-function factsFrom(current: ReachingAssignments): ConditionFacts {
+function factsFrom(current: ReachingAssignments, source: string): ConditionFacts {
 	return {
 		value: (lower) => literalOf(current.get(lower)),
 		isNothing: (lower) => (current.get(lower) === OBJECT_NOTHING ? true : current.get(lower) === EMPTY_COLLECTION ? false : undefined),
 		range: (lower) => datePartRange(current.get(lower)),
+		compare: moduleCompare(source),
 		isNull: (lower) => {
 			const value = current.get(lower)?.filter((tok) => tok.kind !== 'comment');
 			return value?.length === 1 && tokenText(value[0]) === 'null' ? true : undefined;
@@ -1343,7 +1345,7 @@ function literalOf(value: readonly VbaToken[] | undefined): number | string | un
  * the outcome is not known.
  */
 function knownArm(source: string, node: BodyNode, entry: ReachingAssignments): { arms: readonly (readonly BodyNode[])[]; taken: readonly BodyNode[] | undefined } | undefined {
-	const facts = factsFrom(entry);
+	const facts = factsFrom(entry, source);
 	if (node.kind === 'IfBlock') {
 		const arms = node.branches.map((branch) => branch.body);
 		for (const branch of node.branches) {
@@ -1366,17 +1368,19 @@ function knownArm(source: string, node: BodyNode, entry: ReachingAssignments): {
 	}
 	// `Select Case d` with d known: the first Case whose values match.
 	const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment');
-	const selector = header.length === 3 && tokenText(header[1]) === 'case' ? literalOf(header.slice(2)) ?? factsFrom(entry).value(tokenName(header[2])?.toLowerCase() ?? '') : undefined;
-	if (typeof selector !== 'number') {
+	const selector = header.length === 3 && tokenText(header[1]) === 'case' ? literalOf(header.slice(2)) ?? factsFrom(entry, source).value(tokenName(header[2])?.toLowerCase() ?? '') : undefined;
+	if (selector === undefined) {
 		return undefined;
 	}
+	// A string selector matches by the module's Option Compare (issue #686).
+	const compare = moduleCompare(source);
 	const arms = selectArms(source, node.body as BodyNode[]);
 	for (const arm of arms) {
 		const caseLine = arm.find((stmt) => isLeafStatement(stmt) && tokenText(statementTokensAfterLeadingLabel(source, stmt.span)[0]) === 'case');
 		if (!caseLine) {
 			continue;
 		}
-		const matched = caseMatches(statementTokensAfterLeadingLabel(source, caseLine.span).filter((tok) => tok.kind !== 'comment'), selector);
+		const matched = caseMatches(statementTokensAfterLeadingLabel(source, caseLine.span).filter((tok) => tok.kind !== 'comment'), selector, compare);
 		if (matched === undefined) {
 			return undefined;
 		}
@@ -1387,25 +1391,32 @@ function knownArm(source: string, node: BodyNode, entry: ReachingAssignments): {
 	return { arms, taken: undefined };
 }
 
-/** Whether a `Case` line's values take a number: literals, `Is op n`, `a To b`, Else. */
-function caseMatches(toks: readonly VbaToken[], selector: number): boolean | undefined {
+/**
+ * Whether a `Case` line's values take the selector: literals, `Is op v`,
+ * `a To b`, Else. A string compares by the module's Option Compare
+ * (issue #686), as conditionValue decides it.
+ */
+function caseMatches(toks: readonly VbaToken[], selector: number | string, compare: ModuleCompare): boolean | undefined {
 	if (tokenText(toks[1]) === 'else') {
 		return true;
 	}
+	const literal = (value: number | string): string => (typeof value === 'number' ? String(value) : `"${value.replace(/"/g, '""')}"`);
+	const decide = (text: string): boolean | undefined => conditionValue(rawExpressionTokens(text), { value: () => undefined, compare });
 	let anyUnknown = false;
 	for (const item of splitTopLevelTokenGroups(toks.slice(1), 0, ',')) {
 		let matched: boolean | undefined;
 		const to = item.findIndex((tok) => tokenText(tok) === 'to');
 		if (tokenText(item[0]) === 'is' && item[1]?.kind === 'operator') {
 			const value = literalOf(item.slice(2));
-			matched = typeof value === 'number' ? conditionValue(rawExpressionTokens(`${selector} ${item[1].rawText} ${value}`), { value: () => undefined }) : undefined;
+			matched = value === undefined || typeof value !== typeof selector ? undefined : decide(`${literal(selector)} ${item[1].rawText} ${literal(value)}`);
 		} else if (to > 0) {
 			const low = literalOf(item.slice(0, to));
 			const high = literalOf(item.slice(to + 1));
-			matched = typeof low === 'number' && typeof high === 'number' ? selector >= low && selector <= high : undefined;
+			matched = low === undefined || high === undefined || typeof low !== typeof selector || typeof high !== typeof selector ? undefined
+				: decide(`${literal(selector)} >= ${literal(low)} And ${literal(selector)} <= ${literal(high)}`);
 		} else {
 			const value = literalOf(item);
-			matched = typeof value === 'number' ? value === selector : undefined;
+			matched = value === undefined || typeof value !== typeof selector ? undefined : decide(`${literal(selector)} = ${literal(value)}`);
 		}
 		if (matched === true) {
 			return true;
