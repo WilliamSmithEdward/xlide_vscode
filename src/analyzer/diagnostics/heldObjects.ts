@@ -55,6 +55,22 @@ function hostObjectHeld(value: readonly VbaToken[], declared: ReadonlySet<string
 	return undefined;
 }
 
+/** The class each ProgID CreateObject makes, by lowercased ProgID (issue #685). */
+const PROGID_CLASSES: Readonly<Record<string, string>> = {
+	'scripting.dictionary': 'Scripting.Dictionary',
+	'scripting.filesystemobject': 'Scripting.FileSystemObject',
+};
+
+/** `Set d = CreateObject("Scripting.Dictionary")`: a Dictionary, which a Collection parameter refuses with 13 (issue #685). */
+function createdByProgId(value: readonly VbaToken[], declared: ReadonlySet<string>): string | undefined {
+	const at = tokenText(value[0]) === 'vba' && value[1]?.rawText === '.' ? 2 : 0;
+	if (tokenText(value[at]) !== 'createobject' || declared.has('createobject') || value[at + 1]?.rawText !== '(' || value[at + 2]?.kind !== 'stringLiteral'
+		|| value[at + 3]?.rawText !== ')' || value.length !== at + 4) {
+		return undefined;
+	}
+	return PROGID_CLASSES[value[at + 2].rawText.slice(1, -1).toLowerCase()];
+}
+
 /** Members that read a Collection without changing it. */
 const COLLECTION_READS: ReadonlySet<string> = new Set(['count', 'item']);
 
@@ -109,7 +125,7 @@ export function heldObjectsAt(
 			const value = toks.slice(toks.findIndex((tok) => tok.rawText === '=') + 1);
 			const from = value.length === 1 ? tokenName(value[0])?.toLowerCase() : undefined;
 			const created = value.length === 2 && tokenText(value[0]) === 'new' ? tokenName(value[1]) : undefined;
-			const held = created ?? (from ? state.classes.get(from) : undefined) ?? hostObjectHeld(value, declared);
+			const held = created ?? (from ? state.classes.get(from) : undefined) ?? hostObjectHeld(value, declared) ?? createdByProgId(value, declared);
 			// The value's own holder may now change it unseen.
 			forget([lower, ...namesIn(source, node.span)].filter((name) => name !== from || !held));
 			if (from && held) {

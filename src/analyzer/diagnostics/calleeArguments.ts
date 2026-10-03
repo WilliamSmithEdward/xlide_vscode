@@ -9,6 +9,7 @@
 
 import type { VbaToken } from '../lexer/tokenKinds';
 import { parseModule } from '../parser/parseModule';
+import { resolveRuntimeFunction } from '../runtime/vbaRuntime';
 import type { BodyNode, ProcedureNode } from '../parser/nodes';
 import { isLeafStatement } from '../parser/nodes';
 import { statementAndBranchSpans, statementTokensAfterLeadingLabel, tokenName, tokenText } from './walker';
@@ -52,7 +53,7 @@ function writesParameter(source: string, proc: ProcedureNode, lower: string): bo
 			}
 			if (isLeafStatement(node)) {
 				for (const span of statementAndBranchSpans(node)) {
-					if (statementWrites(statementTokensAfterLeadingLabel(source, span), lower)) {
+					if (statementWrites(statementTokensAfterLeadingLabel(source, span), lower, (name) => procedureNamed(source, name) === undefined && resolveRuntimeFunction(name) !== undefined)) {
 						writes = true;
 						return;
 					}
@@ -72,8 +73,12 @@ function writesParameter(source: string, proc: ProcedureNode, lower: string): bo
 	return writes;
 }
 
-/** Whether one statement may write `lower`: as its target, under a writing statement, or passed on whole. */
-function statementWrites(toks: readonly VbaToken[], lower: string): boolean {
+/**
+ * Whether one statement may write `lower`: as its target, under a writing
+ * statement, or passed on whole. A VBA function only reads what it is given:
+ * `Debug.Print TypeName(p)` leaves p alone (issue #685, measured in Excel 16.0).
+ */
+function statementWrites(toks: readonly VbaToken[], lower: string, builtin: (lower: string) => boolean = () => false): boolean {
 	const mentions = toks.some((tok) => tokenName(tok)?.toLowerCase() === lower);
 	if (!mentions) {
 		return false;
@@ -103,6 +108,20 @@ function statementWrites(toks: readonly VbaToken[], lower: string): boolean {
 		// After a comma inside a call's parentheses too: `F = G(a, p)` passes p
 		// on (issue #665).
 		if (prev === '(' || prev === ':=' || (prev === ',' && depth > 0) || (callStatement && (prev === ',' || i === 1))) {
+			// The call whose parentheses hold it, when that is a VBA function.
+			let open = i - 1;
+			for (let level = 0; open >= 0; open--) {
+				const raw = toks[open].rawText;
+				if (raw === ')') {
+					level++;
+				} else if (raw === '(' && level-- === 0) {
+					break;
+				}
+			}
+			const callee = open > 0 && toks[open - 2]?.rawText !== '.' ? tokenName(toks[open - 1])?.toLowerCase() : undefined;
+			if (depth > 0 && callee !== undefined && builtin(callee)) {
+				continue;
+			}
 			return true;
 		}
 	}

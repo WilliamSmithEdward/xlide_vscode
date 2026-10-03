@@ -129,6 +129,8 @@ interface KnownClass {
 	writeOnly?: ReadonlySet<string>;
 	/** Properties with only a Set: reading one raises 450 too (issue #414). */
 	setOnly?: ReadonlySet<string>;
+	/** Properties with a Get and a Set and no Let: a Let of one raises 438 (issue #685). */
+	noLet?: ReadonlySet<string>;
 	/** Subs: assigning one raises 450, reading one with arguments 451 (issue #414). */
 	subs?: ReadonlySet<string>;
 	/** Fields of a scalar type, by lowercased name: a member of one raises 424 (issue #414). */
@@ -179,6 +181,9 @@ function argumentRefusal(toks: readonly VbaToken[], at: number, params: readonly
 	} else if (at === 0 && toks.length > open && toks[open].rawText !== '=' && toks[open].rawText !== '.') {
 		args = splitTopLevelTokenGroups([...toks].filter((tok) => tok.kind !== 'comment'), open, ',', toks.filter((tok) => tok.kind !== 'comment').length);
 	} else if (at === 0 && toks.length === open) {
+		args = [];
+	} else if (at > 0 && toks[open]?.rawText !== '=' && toks[open]?.rawText !== '.' && toks[open]?.rawText !== '!') {
+		// Read with no parentheses, `x = o.Idx`: no arguments (issue #685).
 		args = [];
 	}
 	if (!args) {
@@ -549,7 +554,8 @@ function knownClassNamed(name: string | undefined, memberCtx: MemberCompletionCo
 	const properties = projectType.members.filter((m) => m.kind === 'property' && m.signature !== undefined);
 	const params = new Map<string, readonly KnownParam[]>();
 	for (const m of projectType.members) {
-		const list = m.kind === 'method' && m.signature ? signatureParams(m.signature) : undefined;
+		// A Property Get's parameters too: `o.Idx` with Idx(ByVal i As Long) raises 449 (issue #685).
+		const list = (m.kind === 'method' || (m.kind === 'property' && !m.letAccessor && !m.setAccessor)) && m.signature ? signatureParams(m.signature) : undefined;
 		if (list) {
 			params.set(m.name.toLowerCase(), list);
 		}
@@ -561,6 +567,7 @@ function knownClassNamed(name: string | undefined, memberCtx: MemberCompletionCo
 		readOnly: new Set(properties.filter((m) => !m.letAccessor && !m.setAccessor).map((m) => m.name.toLowerCase())),
 		writeOnly: new Set(projectType.members.filter((m) => m.kind === 'property' && m.letAccessor && m.signature === undefined).map((m) => m.name.toLowerCase())),
 		setOnly: new Set(projectType.members.filter((m) => m.kind === 'property' && m.setAccessor && !m.letAccessor && m.signature === undefined).map((m) => m.name.toLowerCase())),
+		noLet: new Set(projectType.members.filter((m) => m.kind === 'property' && m.setAccessor && !m.letAccessor && m.signature !== undefined).map((m) => m.name.toLowerCase())),
 		subs: new Set(projectType.members.filter((m) => m.kind === 'method' && m.sub).map((m) => m.name.toLowerCase())),
 		scalarFields: new Map(projectType.members
 			.filter((m) => m.kind === 'property' && m.signature === undefined && !m.letAccessor && !m.setAccessor && m.returns !== undefined && SCALAR_FIELD_TYPES.has(m.returns.toLowerCase()))
@@ -660,6 +667,12 @@ function checkStatement(
 			const scalarType = known.scalarFields?.get(lower);
 			if (scalarType && toks[i + 3]?.rawText === '.' && tokenName(toks[i + 4])) {
 				push('variantValueMisuse', `'${receiver}' holds a ${known.display} here, whose '${memberName}' is a ${scalarType}, which has no members. This will raise Run-time error '424': Object required${nothing}.`, at);
+				continue;
+			}
+			// `o.O = New Collection` with no Set, and O a Get and a Set (issue
+			// #685, measured in Excel 16.0).
+			if (target && statementHead !== 'set' && known.noLet?.has(lower)) {
+				push('runtimeMemberNotFound', `'${receiver}' holds a ${known.display} here, whose '${memberName}' has a Property Get and a Property Set and no Property Let, so it takes no value without Set. This will raise Run-time error '438': Object doesn't support this property or method${nothing}.`, at);
 				continue;
 			}
 			if (!target && known.setOnly?.has(lower) && !(i > 0 && toks[i - 1]?.rawText === '.')) {

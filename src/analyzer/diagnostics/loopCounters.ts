@@ -65,6 +65,8 @@ export interface LoopCounter {
 	first: CounterValue;
 	/** Undefined when the last pass cannot be told: a symbolic bound with a Step other than 1 or -1. */
 	last: CounterValue | undefined;
+	/** A For loop's To bound, for working out the last pass where `last` is undefined. */
+	upTo?: CounterValue;
 	step: number;
 	/** 'For', or 'Do' for a counter the loop steps itself. */
 	loop: 'For' | 'Do';
@@ -169,8 +171,11 @@ function forCounter(
 		return undefined;
 	}
 	const written = namesWrittenIn(source, body, activity);
-	const first = readable(from, written);
-	const upTo = readable(bound, written);
+	// For reads its bounds once, so a local the body writes still bounds it
+	// with what it held at the start, which a rule reads at the loop (issue
+	// #685). UBound and Len are left out: a symbolic check assumes the shape.
+	const first = readable(from, written, true);
+	const upTo = readable(bound, written, true);
 	if (written.has(controlVariable.toLowerCase()) || !first || !upTo) {
 		return undefined;
 	}
@@ -181,7 +186,7 @@ function forCounter(
 			? undefined
 			: { offset: first.offset + Math.floor((upTo.offset - first.offset) / step) * step };
 	}
-	return { counter: { name: controlVariable, first, last, step, loop: 'For' }, body };
+	return { counter: { name: controlVariable, first, last, upTo, step, loop: 'For' }, body };
 }
 
 /**
@@ -392,9 +397,9 @@ export function counterValue(tokens: readonly VbaToken[]): CounterValue | undefi
 	return { atom: { kind: callee, name: name.toLowerCase(), text, dimension }, offset };
 }
 
-/** The value, unless the loop body writes the name its atom reads. */
-function readable(value: CounterValue | undefined, written: ReadonlySet<string>): CounterValue | undefined {
-	return value?.atom && written.has(value.atom.name) ? undefined : value;
+/** The value, unless the loop body writes the name its atom reads; a local of a For bound may be written. */
+function readable(value: CounterValue | undefined, written: ReadonlySet<string>, readOnce = false): CounterValue | undefined {
+	return value?.atom && written.has(value.atom.name) && !(readOnce && value.atom.kind === 'local') ? undefined : value;
 }
 
 /**
@@ -588,7 +593,13 @@ export function numericCounterPasses(
 	atomValue: (atom: CounterAtom, counter: LoopCounter) => number | undefined,
 ): CounterPass[] {
 	const first = counterNumber(counter.first, counter, atomValue);
-	const last = counterNumber(counter.last, counter, atomValue);
+	let last = counterNumber(counter.last, counter, atomValue);
+	// A symbolic bound with a Step: the last pass is the last first + k*step
+	// not past it, once the numbers are known (issue #685).
+	if (last === undefined && counter.upTo && first !== undefined) {
+		const bound = counterNumber(counter.upTo, counter, atomValue);
+		last = bound === undefined ? undefined : first + Math.floor((bound - first) / counter.step) * counter.step;
+	}
 	if (first !== undefined && last !== undefined && (counter.step > 0 ? first > last : first < last)) {
 		return [];
 	}

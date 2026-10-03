@@ -3430,6 +3430,7 @@ export function knownLocalLiteralValues(
 		return moduleVariableDefaults(source, proc, symbols);
 	}
 	const bytes = byteVariables(proc, symbols);
+	const wholes = wholeNumberVariables(proc, symbols);
 	const mutate = (lower: string | undefined): void => {
 		const entry = lower ? candidates.get(lower) : undefined;
 		if (entry) {
@@ -3471,7 +3472,7 @@ export function knownLocalLiteralValues(
 					if (entry) {
 						const value = toks.slice(first + 2).filter((tok) => tok.kind !== 'comment');
 						const kind = entry.kind ?? (unwrapOuterParens(value)[0]?.kind === 'stringLiteral' ? 'string' : 'number');
-						const literal = plainLiteralText(value, kind, entry.kind !== undefined, bytes.has(bare.name.toLowerCase()));
+						const literal = plainLiteralText(value, kind, entry.kind !== undefined, bytes.has(bare.name.toLowerCase()), wholes.has(bare.name.toLowerCase()));
 						if (literal === undefined || (entry.kind !== undefined && entry.kind !== kind)) {
 							entry.mutated = true;
 						} else {
@@ -3642,6 +3643,22 @@ function literalValueLocals(
 			continue;
 		}
 		out.set(child.name.toLowerCase(), kind);
+	}
+	return out;
+}
+
+/** The Static locals {@link literalValueLocals} leaves out, with the same kinds. */
+function staticValueLocals(proc: ProcedureNode, symbols: ReturnType<typeof buildModuleSymbols>): Map<string, 'number' | 'string' | undefined> {
+	const out = new Map<string, 'number' | 'string' | undefined>();
+	for (const child of procedureSymbolFor(symbols, proc)?.children ?? []) {
+		if (child.kind !== 'localVariable' || child.isArray || child.visibility !== 'Static' || child.fixedLength !== undefined) {
+			continue;
+		}
+		const type = normalizeType(child.asType);
+		const kind = type === undefined || type === 'variant' ? undefined : isNumericType(type) || type === 'boolean' || type === 'date' ? 'number' : type === 'string' ? 'string' : 'other';
+		if (kind !== 'other') {
+			out.set(child.name.toLowerCase(), kind);
+		}
 	}
 	return out;
 }
@@ -3848,14 +3865,19 @@ function buildKnownLocalLiteralValuesAt(
 	activity: ConditionalActivityTracker | undefined,
 ): LocalValuesAt {
 	const whole = knownLocalLiteralValues(source, proc, symbols, activity);
-	const locals = literalValueLocals(proc, symbols);
+	const startLocals = literalValueLocals(proc, symbols);
+	// A Static local holds what the last call left as the procedure starts,
+	// but what the straight line assigns it after that (issue #685): it has
+	// no start of its own and no procedure-wide value.
+	const locals = new Map([...startLocals, ...staticValueLocals(proc, symbols)]);
 	const moduleVariables = followedModuleVariables(proc, symbols);
 	const bytes = byteVariables(proc, symbols);
+	const wholes = wholeNumberVariables(proc, symbols);
 	let writes: ReadonlyMap<string, readonly BodyNode[]> | undefined;
 	// The same start as unreachableStatementsIn, so the two share one walk.
 	const reaching = locals.size === 0 && moduleVariables.size === 0
 		? new Map()
-		: straightLineAssignments(source, proc.body, activity, walkStartWithEffects(source, symbols, proc, locals, activity));
+		: straightLineAssignments(source, proc.body, activity, walkStartWithEffects(source, symbols, proc, startLocals, activity));
 	// Statements in a run share one reaching map, so they share one result.
 	const results = new Map<ReachingAssignments, ReadonlyMap<string, KnownLocalValue>>();
 	// A block's opening line, given as a statement of its own, sees what
@@ -3882,7 +3904,7 @@ function buildKnownLocalLiteralValuesAt(
 			out = 'whole';
 		} else {
 			const kind = locals.get(lower) ?? (unwrapOuterParens([...value])[0]?.kind === 'stringLiteral' ? 'string' : 'number');
-			const literal = plainLiteralText([...value], kind, locals.get(lower) !== undefined, bytes.has(lower));
+			const literal = plainLiteralText([...value], kind, locals.get(lower) !== undefined, bytes.has(lower), wholes.has(lower));
 			const origin = value === DEFAULT_NUMBER || value === DEFAULT_STRING ? 'default' : 'literal';
 			out = literal === undefined ? undefined : { kind, value: kind === 'number' ? Number(literal) : literal, origin };
 		}
@@ -3915,7 +3937,7 @@ function buildKnownLocalLiteralValuesAt(
 				continue;
 			}
 			const kind = moduleVariables.get(lower) ?? (unwrapOuterParens(value)[0]?.kind === 'stringLiteral' ? 'string' : 'number');
-			const literal = plainLiteralText([...value], kind, moduleVariables.get(lower) !== undefined, bytes.has(lower));
+			const literal = plainLiteralText([...value], kind, moduleVariables.get(lower) !== undefined, bytes.has(lower), wholes.has(lower));
 			// The reaching write is the last one that runs before the
 			// statement: a later one in a block would have ended the value.
 			const dead = unreachableStatementsIn(source, proc, symbols, activity);
@@ -3958,6 +3980,30 @@ function byteVariables(proc: ProcedureNode, symbols: ReturnType<typeof buildModu
 		has: (lower) => {
 			const local = locals.get(lower);
 			return local ? local.kind === 'localVariable' && normalizeType(local.asType) === 'byte' : moduleBytes.has(lower);
+		},
+	};
+}
+
+const MODULE_WHOLE_VARIABLES = new WeakMap<object, ReadonlySet<string>>();
+
+/** The whole-number types, which store a fraction rounded half to even: `a As Long = 4.4` holds 4. */
+const WHOLE_NUMBER_TYPES: ReadonlySet<string> = new Set(['byte', 'integer', 'long', 'longlong', 'longptr']);
+
+/** The locals and module variables a procedure sees that are declared a whole-number type (issue #685). */
+function wholeNumberVariables(proc: ProcedureNode, symbols: ReturnType<typeof buildModuleSymbols>): { has(lower: string): boolean } {
+	let module = MODULE_WHOLE_VARIABLES.get(symbols);
+	if (!module) {
+		module = new Set((symbols.root.children ?? [])
+			.filter((sym) => sym.kind === 'moduleVariable' && WHOLE_NUMBER_TYPES.has(normalizeType(sym.asType) ?? ''))
+			.map((sym) => sym.name.toLowerCase()));
+		MODULE_WHOLE_VARIABLES.set(symbols, module);
+	}
+	const locals = new Map((procedureSymbolFor(symbols, proc)?.children ?? []).map((child) => [child.name.toLowerCase(), child]));
+	const moduleWholes = module;
+	return {
+		has: (lower) => {
+			const local = locals.get(lower);
+			return local ? local.kind === 'localVariable' && WHOLE_NUMBER_TYPES.has(normalizeType(local.asType) ?? '') : moduleWholes.has(lower);
 		},
 	};
 }
@@ -4592,7 +4638,14 @@ const DEFAULT_NUMBER: readonly VbaToken[] = rawExpressionTokens('0');
 const DEFAULT_STRING: readonly VbaToken[] = rawExpressionTokens('""');
 
 /** The literal a plain `x = literal` assigns, as text, or undefined for any other value. */
-function plainLiteralText(value: VbaToken[], kind: 'number' | 'string', typed = false, byte = false): string | undefined {
+function plainLiteralText(value: VbaToken[], kind: 'number' | 'string', typed = false, byte = false, whole = false): string | undefined {
+	const text = plainLiteralTextAsWritten(value, kind, typed, byte);
+	// A whole-number type keeps a fraction rounded half to even: `a As Long =
+	// 4.4` holds 4, so `r(a)` on `Dim r(3)` raises 9 (issue #685).
+	return whole && text !== undefined && kind === 'number' && !Number.isInteger(Number(text)) ? String(bankersRound(Number(text)) + 0) : text;
+}
+
+function plainLiteralTextAsWritten(value: VbaToken[], kind: 'number' | 'string', typed: boolean, byte: boolean): string | undefined {
 	const toks = unwrapOuterParens(value);
 	if (kind === 'string') {
 		return toks.length === 1 && toks[0].kind === 'stringLiteral' ? stringLiteralValue(toks[0].rawText) : undefined;
@@ -4677,7 +4730,10 @@ export function objectAssignmentIncompatibilityReason(
 	}
 	const actualObject = resolveKnownObjectAssignmentType(actual.type, memberCtx);
 	if (!actualObject) {
-		return undefined;
+		// A Scripting object CreateObject made is no Collection, sheet or class
+		// of the project: 13 (issue #685, measured in Excel 16.0).
+		const scripting = /^scripting\.(\w+)$/.exec(actualType);
+		return scripting && expected.key !== actualType && expected.key !== scripting[1] ? `This object type is not compatible with ${expected.display}.` : undefined;
 	}
 	if (actualObject.kind === 'generic' && actualObject.key === 'object') {
 		return undefined;

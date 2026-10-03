@@ -1083,7 +1083,8 @@ export function checkUnallocatedDynamicArrayAccess(
 		// A Variant that takes a copy of one: `v = a` with a unallocated
 		// leaves v an array with no storage (issue #342, measured in Excel 16.0).
 		// So does one given Array or Split and then erased (issue #420).
-		for (const [lower, decl] of variantArrayCopies(source, member.body, arrays, activity)) {
+		const fixedArrays = fixedArrayLocals(member.body, activity);
+		for (const [lower, decl] of variantArrayCopies(source, member.body, arrays, activity, fixedArrays)) {
 			arrays.set(lower, decl);
 			state.set(lower, 'unknown');
 		}
@@ -1105,7 +1106,7 @@ export function checkUnallocatedDynamicArrayAccess(
 		const unreachable = unreachableStatementsIn(source, member, symbols, activity);
 		walk(source, member.body, (node) => isInactiveNode(activity, node) || unreachable.has(node), {
 			onStatement: (stmt) =>
-				checkUnallocatedDynamicArrayAccessStatement(source, stmt, arrays, state, report, erasedByCall),
+				checkUnallocatedDynamicArrayAccessStatement(source, stmt, arrays, state, report, erasedByCall, fixedArrays),
 			onBlock: (node) => {
 				// The header runs as the block is entered: `For i = 0 To
 				// UBound(a)`, `Do While i <= UBound(a)`, `Select Case UBound(a)`
@@ -1113,7 +1114,7 @@ export function checkUnallocatedDynamicArrayAccess(
 				if (node.kind === 'SelectBlock' || node.kind === 'DoBlock' || node.kind === 'WhileBlock' || (node.kind === 'ForBlock' && !node.each)) {
 					const { before } = blockHeaderStatements(source, node);
 					if (before) {
-						checkUnallocatedDynamicArrayAccessStatement(source, before, arrays, state, report);
+						checkUnallocatedDynamicArrayAccessStatement(source, before, arrays, state, report, undefined, fixedArrays);
 					}
 				}
 				// `For Each x In a` over an array with no storage raises 92, For
@@ -1235,6 +1236,7 @@ function checkUnallocatedDynamicArrayAccessStatement(
 	state: Map<string, DynamicArrayAllocationState>,
 	push: PushFn,
 	erasedByCall: (toks: readonly VbaToken[]) => ReadonlySet<string> = () => new Set(),
+	fixedArrays: ReadonlySet<string> = new Set(),
 ): void {
 	const redimmed = redimStatementTargets(source, stmt.span);
 	if (redimmed.length > 0) {
@@ -1302,7 +1304,10 @@ function checkUnallocatedDynamicArrayAccessStatement(
 		// `a = b` copies b's storage, or its lack of it (issue #342).
 		const value = assignment!.valueTokens.filter((tok) => tok.kind !== 'comment');
 		const from = value.length === 1 ? tokenName(value[0])?.toLowerCase() : undefined;
-		state.set(assignmentLower, from && arrays.has(from) ? state.get(from) ?? 'unknown' : dynamicArrayCall(value) ? 'allocated' : 'unknown');
+		// A Variant's copy of a fixed array is a dynamic array with its storage
+		// (issue #685, measured in Excel 16.0: Erase then empties it).
+		state.set(assignmentLower, from && arrays.has(from) ? state.get(from) ?? 'unknown'
+			: dynamicArrayCall(value) || (from !== undefined && fixedArrays.has(from) && arrays.get(assignmentLower)!.variant) ? 'allocated' : 'unknown');
 	}
 	// `Free a`, whose callee ends by erasing its parameter, leaves a
 	// unallocated (issue #449, measured in Excel 16.0).
@@ -1360,6 +1365,7 @@ function variantArrayCopies(
 	body: readonly BodyNode[],
 	arrays: ReadonlyMap<string, DynamicArrayDeclaration>,
 	activity: ConditionalActivityTracker | undefined,
+	fixedArrays: ReadonlySet<string> = new Set(),
 ): Map<string, DynamicArrayDeclaration> {
 	const variants = new Map<string, DynamicArrayDeclaration>();
 	forEachVariableGroup(body as BodyNode[], (group) => {
@@ -1381,8 +1387,25 @@ function variantArrayCopies(
 		const bare = bareAssignmentTarget(source, stmt.span);
 		const value = bare?.valueTokens.filter((tok) => tok.kind !== 'comment') ?? [];
 		const lower = bare?.name.toLowerCase() ?? '';
-		if (variants.has(lower) && ((value.length === 1 && arrays.has(tokenName(value[0])?.toLowerCase() ?? '')) || dynamicArrayCall(value))) {
+		const from = value.length === 1 ? tokenName(value[0])?.toLowerCase() ?? '' : '';
+		if (variants.has(lower) && (arrays.has(from) || fixedArrays.has(from) || dynamicArrayCall(value))) {
 			out.set(lower, variants.get(lower)!);
+		}
+	}, activity);
+	return out;
+}
+
+/** The fixed-size array locals of a body, lowercased (issue #685). */
+function fixedArrayLocals(body: readonly BodyNode[], activity: ConditionalActivityTracker | undefined): Set<string> {
+	const out = new Set<string>();
+	forEachVariableGroup(body as BodyNode[], (group) => {
+		if (group.isConst) {
+			return;
+		}
+		for (const decl of group.declarations) {
+			if (decl.isArray && decl.arrayBounds !== undefined) {
+				out.add(decl.name.toLowerCase());
+			}
 		}
 	}, activity);
 	return out;
@@ -2288,6 +2311,13 @@ function arrayValueShapeAtDepth(valueTokens: readonly VbaToken[], name: string, 
 		// Limit -1 keeps every part, 0 none, n at most n; any other
 		// negative is error 5, which this leaves alone.
 		const limit = args.length >= 3 && args[2].length > 0 ? signedIntegerArgument(args[2]) : -1;
+		// An empty delimiter splits nothing: the whole text is the one element
+		// (issue #685, measured in Excel 16.0: `Split("a,b", "")(1)` raises 9, and
+		// `Split("", "")(0)` is "").
+		if (text !== undefined && delimiter === '' && limit !== undefined && limit >= -1) {
+			const parts = limit === 0 ? [] : [text];
+			return { name, dims: [{ lower: 0, upper: parts.length - 1, explicitLower: true }], origin: 'Split(...)', ...(parts.length > 0 ? { values: parts } : {}) };
+		}
 		const textCompare = args.length === 4 ? compareArgument(args[3]) : defaultCompare(compare, delimiter);
 		if (text === undefined || delimiter === undefined || delimiter.length === 0 || limit === undefined || limit < -1 || textCompare === undefined) {
 			return undefined;
@@ -2716,6 +2746,7 @@ function fixedArraySubscriptViolations(
 	excluded: ReadonlySet<string>,
 	counters: CountersAt | undefined,
 	lookup?: IntegerConstantLookup,
+	entryLookup?: (loop: BodyNode) => IntegerConstantLookup,
 ): SubscriptHit[] {
 	const toks = statementTokensAfterLeadingLabel(source, span);
 	const out: SubscriptHit[] = [];
@@ -2757,7 +2788,7 @@ function fixedArraySubscriptViolations(
 		// One report per access: the first dimension that is out of range.
 		let hit: SubscriptHit | undefined;
 		for (let index = 0; index < slots.length && !hit; index++) {
-			hit = subscriptViolation(span, decl, fixed, slots[index], index, counters, lookup);
+			hit = subscriptViolation(span, decl, fixed, slots[index], index, counters, lookup, entryLookup);
 		}
 		hit ??= elementSubscriptViolation(span, toks, decl, slots, close, lookup);
 		if (hit) {
@@ -2899,6 +2930,7 @@ function returnedArraySubscriptViolations(
 	span: Span,
 	returned: ReadonlyMap<string, FixedArrayBound>,
 	lookup: IntegerConstantLookup,
+	parameterless: ReadonlySet<string> = new Set(),
 ): Array<{ span: Span; message: string }> {
 	if (returned.size === 0) {
 		return [];
@@ -2911,12 +2943,23 @@ function returnedArraySubscriptViolations(
 			continue;
 		}
 		const call = matchParenFrom(toks, i + 1);
-		if (call < 0 || toks[call + 1]?.rawText !== '(') {
+		// A Function of no parameters takes `Arr(5)` as a subscript on what it
+		// returns (issue #685, measured in Excel 16.0).
+		const direct = parameterless.has(tokenName(toks[i])!.toLowerCase()) && call > i + 1 && toks[call + 1]?.rawText !== '(';
+		if (call < 0 || (!direct && toks[call + 1]?.rawText !== '(')) {
 			continue;
 		}
-		const close = matchParenFrom(toks, call + 1);
-		const slots = close < 0 ? [] : splitTopLevelTokenGroups(toks.slice(call + 2, close).filter((tok) => tok.kind !== 'comment'), ',');
-		if (slots.length !== shape.dims.length || slots.some((slot) => slot.length === 0)) {
+		const open = direct ? i + 1 : call + 1;
+		const close = matchParenFrom(toks, open);
+		const slots = close < 0 ? [] : splitTopLevelTokenGroups(toks.slice(open + 1, close).filter((tok) => tok.kind !== 'comment'), ',');
+		if (slots.length === 0 || slots.some((slot) => slot.length === 0)) {
+			continue;
+		}
+		if (slots.length !== shape.dims.length) {
+			out.push({
+				span: { start: span.start + toks[open + 1].start, end: span.start + toks[close - 1].end },
+				message: `${shape.name} returns an array of ${shape.dims.length} dimension(s), and ${slots.length} subscripts are given. This will raise Run-time error '9': Subscript out of range.`,
+			});
 			continue;
 		}
 		for (let index = 0; index < slots.length; index++) {
@@ -3006,6 +3049,8 @@ export function subscriptViolation(
 	index: number,
 	counters: CountersAt | undefined,
 	lookup?: IntegerConstantLookup,
+	/** The values as a loop starts, which its For bounds read (issue #685). */
+	entryLookup?: (loop: BodyNode) => IntegerConstantLookup,
 ): { span: Span; message: string } | undefined {
 	const dim = decl.dims[index];
 	const slotSpan = { start: span.start + slot[0].start, end: span.start + slot[slot.length - 1].end };
@@ -3052,10 +3097,11 @@ export function subscriptViolation(
 	}
 	// `a(i)` inside `For i = 0 To 3`: the counter's first and last passes.
 	const atomValue = (atom: { kind: string; name: string; dimension: number }): number | undefined => {
-		// `For i = s To 2` with s a local known to hold 1 (issue #346): the
-		// loop never writes s, so it holds the same here as where it starts.
+		// `For i = s To 2` with s a local known to hold 1 (issue #346), read
+		// as the loop starts, the body may write s after (issue #685).
 		if (atom.kind === 'local') {
-			return lookup ? evaluateIntegerConstantExpression(atom.name, lookup) : undefined;
+			const at = entryLookup?.(counter.loopNode) ?? (counter.loop === 'Do' ? lookup : undefined);
+			return at ? evaluateIntegerConstantExpression(atom.name, at) : undefined;
 		}
 		const shape = fixed.get(atom.name)?.dims[atom.dimension - 1];
 		return atom.kind === 'ubound' ? shape?.upper : atom.kind === 'lbound' ? shape?.lower : undefined;
@@ -3236,6 +3282,7 @@ export function checkFixedArraySubscriptBounds(
 		const unallocated = new Map([...moduleVariables].filter(([, variable]) => variable.isArray && variable.arrayBounds === undefined));
 		const shapesAt = knownArrayShapesAt(source, symbols, member, activity, optionBase);
 		const returned = functionReturnShapes(source, mod, activity, optionBase);
+		const parameterless = new Set(activeModuleMembers(mod, activity).filter((one) => one.kind === 'Procedure' && one.procKind === 'Function' && one.params.length === 0).map((one) => (one as ProcedureNode).name.toLowerCase()).filter((lower) => !hiddenIn(symbols, member).has(lower)));
 		const redimmed = redimShapesAt(source, symbols, member, activity, optionBase);
 		const merged = new Map<ReadonlyMap<string, FixedArrayBound>, Map<ReadonlyMap<string, FixedArrayBound> | undefined, ReadonlyMap<string, FixedArrayBound>>>();
 		const fixedAt = (stmt: LeafStatementNode): ReadonlyMap<string, FixedArrayBound> => {
@@ -3289,7 +3336,7 @@ export function checkFixedArraySubscriptBounds(
 			for (const hit of unallocated.size === 0 ? [] : unallocatedModuleArrayUses(source, stmt.span, unallocated)) {
 				push('arraySubscriptOutOfBounds', hit.message, hit.span);
 			}
-			for (const hit of returned.size === 0 ? [] : returnedArraySubscriptViolations(source, stmt.span, returned, withKnownLocals(constants, valuesAt(stmt)))) {
+			for (const hit of returned.size === 0 ? [] : returnedArraySubscriptViolations(source, stmt.span, returned, withKnownLocals(constants, valuesAt(stmt)), parameterless)) {
 				push('arraySubscriptOutOfBounds', hit.message, hit.span);
 			}
 			const fixed = fixedAt(stmt);
@@ -3298,7 +3345,7 @@ export function checkFixedArraySubscriptBounds(
 				return;
 			}
 			const excluded = excludedAt(stmt);
-			for (const hit of fixedArraySubscriptViolations(source, stmt.span, fixed, excluded, stmtCounters, withKnownLocals(constants, valuesAt(stmt)))) {
+			for (const hit of fixedArraySubscriptViolations(source, stmt.span, fixed, excluded, stmtCounters, withKnownLocals(constants, valuesAt(stmt)), (loop) => withKnownLocals(constants, valuesAt(loop as LeafStatementNode)))) {
 				push(hit.rule ?? 'arraySubscriptOutOfBounds', hit.message, hit.span);
 			}
 			for (const hit of boundIntrinsicDimensionViolations(source, stmt.span, fixed, excluded)) {
