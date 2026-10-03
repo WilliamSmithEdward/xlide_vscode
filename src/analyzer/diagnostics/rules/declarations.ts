@@ -50,6 +50,7 @@ import {
 	collectModuleLiteralIntegerConstants,
 	resolveFixedLengthStringSize,
 } from '../constExpr';
+import { libraryTypeNames } from '../../host/libraryTypeNames';
 import {
 	declarationNameHit,
 	DEFTYPE_KEYWORDS,
@@ -1512,6 +1513,9 @@ function isDeclarationTypeNameToken(tok: VbaToken | undefined): boolean {
 	);
 }
 
+/** The Scripting Runtime's types, which missing-library-reference judges (issue #349). */
+const SCRIPTING_TYPE_NAMES: ReadonlySet<string> = new Set(['dictionary', 'filesystemobject', 'textstream']);
+
 export function checkInvalidAsTypeNames(
 	source: string,
 	mod: ModuleNode,
@@ -1521,6 +1525,7 @@ export function checkInvalidAsTypeNames(
 ): void {
 	const withEventsNewDeclarationSpans = collectWithEventsNewDeclarationSpans(mod, activity);
 	let variables: Set<string> | undefined;
+	let ownTypes: Set<string> | undefined;
 	for (const ref of collectTypeNameReferences(source)) {
 		if (activity?.isInactive(ref.span)) {
 			continue;
@@ -1594,6 +1599,20 @@ export function checkInvalidAsTypeNames(
 				ref.span,
 			);
 			continue;
+		}
+		// No type of the project and none of a referenced library spells it,
+		// where every library the project references is one whose names are
+		// all known (issue #234, measured in Excel 16.0).
+		// The Scripting Runtime's own types are missing-library-reference's, which
+		// names the reference to add.
+		const libraries = opts.referencedLibraries?.map((library) => libraryTypeNames(library));
+		ownTypes ??= new Set(activeModuleMembers(mod, activity).filter((member) => member.kind === 'Type' || member.kind === 'Enum').map((member) => member.name.toLowerCase()));
+		if (!ref.qualifier && !SCRIPTING_TYPE_NAMES.has(ref.name.toLowerCase()) && !ownTypes.has(ref.name.toLowerCase()) && libraries !== undefined && libraries.length > 0 && libraries.every((names) => names !== undefined && !names.has(ref.name.toLowerCase()))) {
+			push(
+				'invalidAsTypeName',
+				`No type of this project and none of the libraries it references is named '${ref.name}'. This is a VBE compile error: User-defined type not defined.`,
+				ref.span,
+			);
 		}
 	}
 }
