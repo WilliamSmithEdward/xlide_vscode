@@ -155,7 +155,7 @@ export function checkCollectionState(
 				// `If x Then .Add 20` inside `With c` may change c (issue #584).
 				const within = withSubjects[withSubjects.length - 1];
 				if (within && reachesSubject(statementTokensAfterLeadingLabel(source, node.span), within)) {
-					forgetCollection(states, within.toLowerCase());
+					forgetCollection(states, subjectName(within));
 				}
 				return;
 			}
@@ -220,13 +220,19 @@ export function checkCollectionState(
 		};
 		const leaves = new Map<BodyNode, { after: Map<string, CollectionContents>; aliases: string[] }>();
 		// The subject of each With block the walk is in: a tracked local's
-		// name, `New Collection` for a new one, or undefined for anything else.
-		const withSubjects: Array<string | undefined> = [];
+		// name, its element `c(1)`, `New Collection` for a new one, or
+		// undefined for anything else.
+		const withSubjects: Array<WithSubject | undefined> = [];
 		const enterWith = (node: BodyNode): void => {
 			const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment');
 			const name = header.length === 2 ? tokenName(header[1]) : undefined;
+			const element = header.length >= 5 && header[2].rawText === '(' && matchParenFrom([...header], 2) === header.length - 1 ? tokenName(header[1]) : undefined;
 			if (name && states.has(name.toLowerCase())) {
 				withSubjects.push(name);
+			} else if (element && states.has(element.toLowerCase())) {
+				// `With c(1)` on a collection whose element is a collection:
+				// `.Item(2)` reads as `c(1).Item(2)` (issue #295).
+				withSubjects.push(header.slice(1));
 			} else if (header.length === 3 && tokenText(header[1]) === 'new' && tokenText(header[2]) === 'collection') {
 				states.set(NEW_WITH_SUBJECT.toLowerCase(), emptyContents());
 				withSubjects.push(NEW_WITH_SUBJECT);
@@ -251,12 +257,14 @@ export function checkCollectionState(
 			// a `.Add` among them naming the subject (issue #584).
 			touches: (stmt) => {
 				const toks = statementTokensAfterLeadingLabel(source, stmt.span).filter((tok) => tok.kind !== 'comment');
-				if (tokenText(toks[0]) === 'with' && toks.length === 2) {
+				// `With c(1)` reads one element, by a literal, and changes nothing.
+				if (tokenText(toks[0]) === 'with' && (toks.length === 2
+					|| (toks.length === 5 && toks[2].rawText === '(' && (toks[3].kind === 'integerLiteral' || toks[3].kind === 'stringLiteral') && toks[4].rawText === ')'))) {
 					return new Set<string>();
 				}
 				const names = namesIn(source, stmt.span);
 				const within = withSubjects[withSubjects.length - 1];
-				return within && reachesSubject(toks, within) ? new Set([...names, within.toLowerCase()]) : names;
+				return within && reachesSubject(toks, within) ? new Set([...names, subjectName(within)]) : names;
 			},
 			withBodyRunsThrough: true,
 			// A counted loop that removes or reads by its counter (issue #263),
@@ -290,8 +298,16 @@ export function checkCollectionState(
 	}
 }
 
+/** A With block's subject: a name, or the tokens of an element, `c ( 1 )`. */
+type WithSubject = string | readonly VbaToken[];
+
+/** The lowercased local a With subject is, or is an element of. */
+function subjectName(subject: WithSubject): string {
+	return (typeof subject === 'string' ? subject : subject[0].rawText).toLowerCase();
+}
+
 /** Whether a statement inside `With subject` reaches the subject by a leading dot. */
-function reachesSubject(toks: readonly VbaToken[], subject: string): boolean {
+function reachesSubject(toks: readonly VbaToken[], subject: WithSubject): boolean {
 	return withReceiver(toks.filter((tok) => tok.kind !== 'comment'), subject).length > toks.filter((tok) => tok.kind !== 'comment').length;
 }
 
@@ -302,13 +318,17 @@ const NEW_WITH_SUBJECT = 'New Collection';
  * A statement's tokens with the With subject before each member the block
  * reaches by a leading dot: `.Item(2)` reads as `c.Item(2)`.
  */
-export function withReceiver(toks: readonly VbaToken[], subject: string): VbaToken[] {
+export function withReceiver(toks: readonly VbaToken[], subject: WithSubject): VbaToken[] {
 	const out: VbaToken[] = [];
 	toks.forEach((tok, i) => {
 		const before = toks[i - 1];
 		const leading = tok.rawText === '.' && (!before || (before.kind !== 'identifier' && before.kind !== 'bracketedIdentifier' && before.rawText !== ')' && !(before.kind === 'keyword' && tokenText(before) === 'me')));
 		if (leading && tokenName(toks[i + 1])) {
-			out.push({ ...tok, kind: 'identifier', rawText: subject, end: tok.start });
+			if (typeof subject === 'string') {
+				out.push({ ...tok, kind: 'identifier', rawText: subject, end: tok.start });
+			} else {
+				out.push(...subject.map((part) => ({ ...part, start: tok.start, end: tok.start })));
+			}
 		}
 		out.push(tok);
 	});

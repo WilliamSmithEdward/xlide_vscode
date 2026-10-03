@@ -98947,6 +98947,182 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim s As Variant\r\n    s = \"abc\"\r\n    Main = Str(s)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue295b_01_runtime",
+      "description": "Issue #295 With over an element: With c(1) and With a(0), case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, d As Collection\r\n    Set c = New Collection\r\n    Set d = New Collection\r\n    d.Add 1\r\n    c.Add d\r\n    With c(1)\r\n        Main = .Item(2)\r\n    End With\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue295b_02_runtime",
+      "description": "Issue #295 With over an element: With c(1) and With a(0), case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, d As Collection\r\n    Set c = New Collection\r\n    Set d = New Collection\r\n    d.Add 1\r\n    c.Add d\r\n    With c(1)\r\n        Main = .Item(1)\r\n    End With\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue295b_03_runtime",
+      "description": "Issue #295 With over an element: With c(1) and With a(0), case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, d As Collection\r\n    Set c = New Collection\r\n    Set d = New Collection\r\n    d.Add 1\r\n    c.Add d\r\n    With c(1)\r\n        Main = .Item(\"k\")\r\n    End With\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue295b_04_runtime",
+      "description": "Issue #295 With over an element: With c(1) and With a(0), case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, d As Collection\r\n    Set c = New Collection\r\n    Set d = New Collection\r\n    d.Add 1\r\n    c.Add d\r\n    Main = c(1).Item(2)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue295b_05_runtime",
+      "description": "Issue #295 With over an element: With c(1) and With a(0), case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, d As Collection\r\n    Set c = New Collection\r\n    Set d = New Collection\r\n    d.Add 1\r\n    c.Add d\r\n    Main = c(1)(2)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue295b_06_runtime",
+      "description": "Issue #295 With over an element: With c(1) and With a(0), case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, d As Collection\r\n    Set c = New Collection\r\n    Set d = New Collection\r\n    d.Add 1\r\n    c.Add d\r\n    With c(1)\r\n        .Add 2\r\n        Main = .Item(2)\r\n    End With\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue295b_07_runtime",
+      "description": "Issue #295 With over an element: With c(1) and With a(0), case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1) As Collection\r\n    With a(0)\r\n        Main = .Count\r\n    End With\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue295b_08_runtime",
+      "description": "Issue #295 With over an element: With c(1) and With a(0), case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1) As Collection\r\n    Main = a(0).Count\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue295b_09_runtime",
+      "description": "Issue #295 With over an element: With c(1) and With a(0), case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1) As Collection\r\n    Set a(0) = New Collection\r\n    With a(0)\r\n        Main = .Count\r\n    End With\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue295b_10_runtime",
+      "description": "Issue #295 With over an element: With c(1) and With a(0), case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1) As Object\r\n    With a(0)\r\n        Main = .Count\r\n    End With\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue295b_11_runtime",
+      "description": "Issue #295 With over an element: With c(1) and With a(0), case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, d As Collection\r\n    Set c = New Collection\r\n    Set d = New Collection\r\n    d.Add 1\r\n    c.Add d\r\n    c(1).Add 2\r\n    Main = c(1).Item(2)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue295b_12_runtime",
+      "description": "Issue #295 With over an element: With c(1) and With a(0), case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, d As Collection\r\n    Set c = New Collection\r\n    Set d = New Collection\r\n    d.Add 1\r\n    c.Add d\r\n    With c(1)\r\n        .Remove 1\r\n        Main = .Count\r\n    End With\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue295b_13_runtime",
+      "description": "Issue #295 With over an element: With c(1) and With a(0), case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, d As Collection\r\n    Set c = New Collection\r\n    Set d = New Collection\r\n    d.Add 1\r\n    c.Add d\r\n    With c(1)\r\n        .Remove 1\r\n    End With\r\n    Main = c(1).Item(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue295b_14_runtime",
+      "description": "Issue #295 With over an element: With c(1) and With a(0), case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1) As Collection\r\n    With a(0)\r\n    End With\r\n    Main = 2\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue295b_15_runtime",
+      "description": "Issue #295 With over an element: With c(1) and With a(0), case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As Collection\r\n    With o\r\n    End With\r\n    Main = 2\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue295b_16_runtime",
+      "description": "Issue #295 With over an element: With c(1) and With a(0), case 16, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 3.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1) As Collection\r\n    With a(0)\r\n        Main = 3\r\n    End With\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
