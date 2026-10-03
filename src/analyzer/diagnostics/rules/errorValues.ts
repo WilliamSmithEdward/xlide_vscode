@@ -6,10 +6,21 @@
 // IsError, TypeName, CStr, CLng and CInt, and a Let into another Variant,
 // run.
 //
+// Issue #607 adds, each measured: unary minus, And, Or and Like; IIf's and
+// Choose's first argument; a Do or For condition or bound; the arguments of
+// Int, Fix, Sgn, Round, Sqr, CDate, Str, Format, Trim, Left, UCase, InStr,
+// Mid, Hex, Chr and Space, all 13, and of CByte, 6 (2042 does not fit); an
+// array's index; a ByVal typed parameter of the module's procedure; an
+// element of Array(...) given to Join; and WorksheetFunction.Sum, 1004.
+// CDbl, CLng, CVar, IsError and Application.Sum run.
+//
 // Where the value is known: `CVErr(...)` itself; a Variant local whose
 // straight-line assignment is one; `Evaluate("1/0")` and `Evaluate("NA()")`;
-// an element of `Array(...)` that is one; and `Range("A1").Value` right
-// after the procedure wrote `=1/0` or `=NA()` into Range("A1").Formula.
+// an element of `Array(...)` that is one; and a cell right after the
+// procedure wrote `=1/0` or `=NA()` into it, through Formula or Value, as
+// `Range("A1")`, `ActiveSheet.Range("A1")` or `Cells(1, 1)`. A Variant
+// local given any of these holds the error from then on, though the cell
+// changes after (issue #607).
 
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import { statementLabelDeclaration } from '../../flow/procedureLabels';
@@ -32,7 +43,7 @@ import {
 } from '../walker';
 import { moduleOptionBase } from './arrays';
 
-const BINARY_OPERATORS: ReadonlySet<string> = new Set(['+', '-', '*', '/', '\\', '^', 'mod', '&', '=', '<>', '<', '>', '<=', '>=']);
+const BINARY_OPERATORS: ReadonlySet<string> = new Set(['+', '-', '*', '/', '\\', '^', 'mod', '&', '=', '<>', '<', '>', '<=', '>=', 'and', 'or', 'xor', 'eqv', 'imp', 'like']);
 
 const COMPARISONS: ReadonlySet<string> = new Set(['=', '<>', '<', '>', '<=', '>=']);
 
@@ -51,8 +62,13 @@ function isLiteral(tok: VbaToken | undefined): boolean {
 	return tok?.kind === 'integerLiteral' || tok?.kind === 'floatLiteral' || tok?.kind === 'stringLiteral';
 }
 
-/** VBA functions that need a number or text of their argument. */
-const VALUE_FUNCTIONS: ReadonlySet<string> = new Set(['val', 'abs', 'len']);
+/** VBA functions that need a number or text of their argument, any of them (issue #607). */
+const VALUE_FUNCTIONS: ReadonlySet<string> = new Set([
+	'val', 'abs', 'len', 'int', 'fix', 'sgn', 'round', 'sqr', 'cdate', 'cbyte', 'str', 'format', 'trim', 'left', 'ucase', 'instr', 'mid', 'hex', 'chr', 'space',
+]);
+
+/** Functions whose first argument is read as a number or a Boolean (issue #607). */
+const FIRST_ARGUMENT_FUNCTIONS: ReadonlySet<string> = new Set(['iif', 'choose']);
 
 /** A formula whose value is an error whatever the sheet holds. */
 const ERROR_FORMULA = /^\s*(?:\d+(?:\.\d+)?\s*\/\s*0|na\(\s*\))\s*$/i;
@@ -72,7 +88,9 @@ export function checkErrorValues(
 			continue;
 		}
 		const children = procedureSymbolFor(symbols, member)?.children ?? [];
-		const local = (lower: string) => children.find((child) => child.name.toLowerCase() === lower && (child.kind === 'localVariable' || child.kind === 'parameter'));
+		// By name, so a procedure of many locals asks in constant time (issue #322).
+		const locals = new Map(children.filter((child) => child.kind === 'localVariable' || child.kind === 'parameter').map((child) => [child.name.toLowerCase(), child]));
+		const local = (lower: string) => locals.get(lower);
 		const variantLocal = (lower: string): boolean => {
 			const child = local(lower);
 			const type = normalizeType(child?.asType);
@@ -86,12 +104,25 @@ export function checkErrorValues(
 			}
 			return lower === member.name.toLowerCase() && member.procKind === 'Function' && member.returnType && normalizeType(member.returnType) !== 'variant' && isKnownScalarType(normalizeType(member.returnType)!) ? member.returnType : undefined;
 		};
+		const arrayLocal = (lower: string): boolean => local(lower)?.kind === 'localVariable' && local(lower)!.isArray === true;
+		// `TakeL(v)` with `ByVal p As Long` (issue #607).
+		const byValScalarParam = (lower: string, slot: number): string | undefined => {
+			const proc = (symbols.root.children ?? []).find((sym) => (sym.kind === 'function' || sym.kind === 'sub') && sym.name.toLowerCase() === lower);
+			const param = proc?.children?.filter((child) => child.kind === 'parameter')[slot];
+			const type = normalizeType(param?.asType);
+			return param?.byVal && type && type !== 'variant' && isKnownScalarType(type) ? `${param.name} As ${param.asType}` : undefined;
+		};
 		const reaching = straightLineAssignments(source, member.body, activity);
+		// Variant locals given an error value, by name: the text of the value
+		// the walk saw reach, which must still reach where it is read
+		// (issue #607). A cell's error is taken when it is read.
+		const errorLocals = new Map<string, { text: string; what: string }>();
 		// Cells a formula of the procedure made an error, by address, in one
 		// straight run of statements.
 		let errorCells = new Map<string, string>();
 		const check = (span: Span, toks: readonly VbaToken[], held: ReachingAssignments | undefined, header: boolean, selectHasLiteralCase = false): void => {
-			const operand = (i: number): { end: number; what: string } | undefined => errorOperand(toks, i, held, variantLocal, errorCells, optionBase);
+			const operand = (i: number): { end: number; what: string } | undefined => errorOperand(toks, i, held, variantLocal, errorCells, optionBase)
+				?? givenError(toks, i, held);
 			const head = tokenText(toks[0]);
 			// The `=` of an assignment is no comparison.
 			const assignAt = header ? -1 : assignmentEquals(toks);
@@ -116,6 +147,7 @@ export function checkErrorValues(
 				const binaryBefore = BINARY_OPERATORS.has(beforeText) && i - 1 !== assignAt && i - 1 > 0 && !['(', ',', '='].includes(toks[i - 2]?.rawText ?? '') && !BINARY_OPERATORS.has(tokenText(toks[i - 2]));
 				const binaryAfter = BINARY_OPERATORS.has(tokenText(after));
 				let use: string | undefined;
+				let error = '13';
 				// Two error values compare: `v = CVErr(2042)` runs (issue #310,
 				// measured), so a comparison is judged against a literal only.
 				const operator = binaryAfter ? after : before;
@@ -130,8 +162,36 @@ export function checkErrorValues(
 					use = `an operand of ${operator.rawText}`;
 				} else if (beforeText === 'not') {
 					use = 'the operand of Not';
-				} else if (before?.rawText === '(' && after?.rawText === ')' && VALUE_FUNCTIONS.has(tokenText(toks[i - 2])) && toks[i - 3]?.rawText !== '.') {
-					use = `the argument of ${toks[i - 2].rawText}`;
+				} else if (before?.rawText === '-' && (i - 1 === 0 || i - 1 === assignAt + 1 || ['(', ',', '='].includes(toks[i - 2]?.rawText ?? '') || BINARY_OPERATORS.has(tokenText(toks[i - 2])))) {
+					use = 'the operand of -';
+				} else if (header && head === 'do' && ['while', 'until'].includes(tokenText(toks[1])) && i === 2 && end === toks.length) {
+					use = 'the Do condition';
+				} else if (header && head === 'loop' && ['while', 'until'].includes(tokenText(toks[1])) && i === 2 && end === toks.length) {
+					use = 'the Loop condition';
+				} else if (header && head === 'for' && ['to', 'step'].includes(beforeText) || (header && head === 'for' && before?.rawText === '=' && tokenText(after) === 'to')) {
+					use = 'a bound of the For';
+				} else if ((before?.rawText === '(' || before?.rawText === ',') && (after?.rawText === ')' || after?.rawText === ',')) {
+					const call = callAround(toks, i);
+					if (call) {
+						const name = tokenText(toks[call.name]);
+						const qualified = toks[call.name - 1]?.rawText === '.';
+						if (!qualified && VALUE_FUNCTIONS.has(name)) {
+							use = `an argument of ${toks[call.name].rawText}`;
+							error = name === 'cbyte' ? '6' : '13';
+						} else if (!qualified && FIRST_ARGUMENT_FUNCTIONS.has(name) && call.slot === 0) {
+							use = `the first argument of ${toks[call.name].rawText}`;
+						} else if (qualified && tokenText(toks[call.name - 2]) === 'worksheetfunction' && name === 'sum' && toks[call.name - 3]?.rawText !== '.') {
+							use = 'an argument of WorksheetFunction.Sum';
+							error = '1004';
+						} else if (!qualified && name === 'array' && arrayGivenToJoin(toks, call.name)) {
+							use = 'an element of the array Join is given';
+						} else if (!qualified && arrayLocal(name)) {
+							use = `an index of '${toks[call.name].rawText}'`;
+						} else if (!qualified) {
+							const param = byValScalarParam(name, call.slot);
+							use = param ? `the argument of ${toks[call.name].rawText}'s ByVal ${param}` : undefined;
+						}
+					}
 				} else if (header && (head === 'if' || head === 'elseif') && i === 1 && tokenText(after) === 'then') {
 					use = 'the If condition';
 				} else if (header && head === 'select' && tokenText(toks[1]) === 'case' && i === 2 && end === toks.length && selectHasLiteralCase) {
@@ -142,12 +202,34 @@ export function checkErrorValues(
 					use = type ? `Let into '${target.rawText}', a ${type}` : undefined;
 				}
 				if (use) {
-					push('variantValueMisuse', `${what}, which is no number or text, and here it is ${use}. ${MESSAGE_TAIL}`, at);
+					const tail = error === '6' ? "This will raise Run-time error '6': Overflow." : error === '1004' ? "This will raise Run-time error '1004': Unable to get the Sum property of the WorksheetFunction class." : MESSAGE_TAIL;
+					push('variantValueMisuse', `${what}, which is no number or text, and here it is ${use}${error === '6' ? ', whose 2042 or so does not fit a Byte' : ''}. ${tail}`, at);
 					if (binaryAfter) {
 						reportedOperator = end;
 					}
 				}
 				i = end - 1;
+			}
+		};
+		// A local the walk still sees holding what was given it in error.
+		const givenError = (toks: readonly VbaToken[], i: number, held: ReachingAssignments | undefined): { end: number; what: string } | undefined => {
+			const lower = toks[i - 1]?.rawText === '.' || toks[i + 1]?.rawText === '.' || toks[i + 1]?.rawText === '(' ? undefined : tokenName(toks[i])?.toLowerCase();
+			const given = lower ? errorLocals.get(lower) : undefined;
+			const now = lower ? held?.get(lower)?.filter((tok) => tok.kind !== 'comment').map((tok) => tok.rawText).join(' ') : undefined;
+			return given && now === given.text ? { end: i + 1, what: `'${toks[i].rawText}' ${given.what}` } : undefined;
+		};
+		// `v = Range("A1").Value` after the error was written there, `v = a(1)`.
+		const noteGiven = (toks: readonly VbaToken[], held: ReachingAssignments | undefined): void => {
+			const lower = tokenName(toks[0])?.toLowerCase();
+			if (!lower || toks[1]?.rawText !== '=' || !variantLocal(lower)) {
+				return;
+			}
+			const value = toks.slice(2);
+			const found = errorOperand(value, 0, held, variantLocal, errorCells, optionBase) ?? arrayLiteralElement(value, optionBase);
+			if (found && found.end === value.length) {
+				errorLocals.set(lower, { text: value.map((tok) => tok.rawText).join(' '), what: `holds what ${found.what.replace(/^'?([^' ]+)'? /, '$1 ')}, an error value,` });
+			} else {
+				errorLocals.delete(lower);
 			}
 		};
 		const visit = (body: readonly BodyNode[]): void => {
@@ -182,7 +264,9 @@ export function checkErrorValues(
 						check(span, toks, reaching.get(node), false);
 					}
 				}
-				errorCells = nextErrorCells(statementTokens(source, node.span).filter((tok) => tok.kind !== 'comment'), errorCells);
+				const own = statementTokens(source, node.span).filter((tok) => tok.kind !== 'comment');
+				noteGiven(own, reaching.get(node));
+				errorCells = nextErrorCells(own, errorCells);
 			}
 		};
 		visit(member.body);
@@ -213,13 +297,18 @@ function errorOperand(
 	if (formula !== undefined && ERROR_FORMULA.test(formula)) {
 		return { end: close + 1, what: `${toks.slice(i, close + 1).map((tok) => tok.rawText).join('')} gives an error value` };
 	}
-	// `Range("A1").Value` after the procedure wrote `=1/0` there.
-	if (word === 'range' && close === i + 3 && toks[i + 2].kind === 'stringLiteral' && errorCells.size > 0) {
-		const address = stringLiteralValue(toks[i + 2].rawText).replace(/\$/g, '').toLowerCase();
-		const read = toks[close + 1]?.rawText === '.' && ['value', 'value2'].includes(tokenText(toks[close + 2])) ? close + 3 : -1;
-		if (errorCells.has(address) && read > 0 && toks[read]?.rawText !== '(') {
-			return { end: read, what: `${toks.slice(i, read).map((tok) => tok.rawText).join('')} holds the error value of ${errorCells.get(address)}` };
+	// `Range("A1").Value` after the procedure wrote `=1/0` there, or
+	// `ActiveSheet.Range("A1")`, `Cells(1, 1)` (issue #607).
+	const cell = cellAt(toks, i);
+	if (cell && errorCells.size > 0) {
+		const valueRead = toks[cell.end]?.rawText === '.' && ['value', 'value2'].includes(tokenText(toks[cell.end + 1])) ? cell.end + 2 : -1;
+		const read = valueRead > 0 ? valueRead : toks[cell.end]?.rawText !== '.' ? cell.end : -1;
+		if (errorCells.has(cell.address) && read > 0 && toks[read]?.rawText !== '(') {
+			return { end: read, what: `${toks.slice(i, read).map((tok) => tok.rawText).join('')} holds the error value of ${errorCells.get(cell.address)}` };
 		}
+		return undefined;
+	}
+	if (cell) {
 		return undefined;
 	}
 	const lower = tokenName(toks[i])?.toLowerCase();
@@ -272,6 +361,75 @@ function assignmentEquals(toks: readonly VbaToken[]): number {
 	}
 }
 
+/**
+ * A cell named by literals at `toks[i]`: `Range("A1")`, `Cells(1, 1)`, each
+ * maybe after `ActiveSheet.`, with its A1 address in lower case and the
+ * index after it.
+ */
+function cellAt(toks: readonly VbaToken[], i: number): { address: string; end: number } | undefined {
+	let at = i;
+	if (tokenText(toks[at]) === 'activesheet' && toks[at + 1]?.rawText === '.') {
+		at += 2;
+	} else if (toks[at - 1]?.rawText === '.') {
+		return undefined;
+	}
+	const word = tokenText(toks[at]);
+	if (word === 'range' && toks[at + 1]?.rawText === '(' && toks[at + 2]?.kind === 'stringLiteral' && toks[at + 3]?.rawText === ')') {
+		return { address: stringLiteralValue(toks[at + 2].rawText).replace(/\$/g, '').toLowerCase(), end: at + 4 };
+	}
+	if (word === 'cells' && toks[at + 1]?.rawText === '(' && toks[at + 2]?.kind === 'integerLiteral' && toks[at + 3]?.rawText === ','
+		&& toks[at + 4]?.kind === 'integerLiteral' && toks[at + 5]?.rawText === ')') {
+		const row = Number(toks[at + 2].rawText);
+		let column = Number(toks[at + 4].rawText);
+		let letters = '';
+		while (column > 0) {
+			letters = String.fromCharCode(97 + ((column - 1) % 26)) + letters;
+			column = Math.floor((column - 1) / 26);
+		}
+		return letters && row > 0 ? { address: `${letters}${row}`, end: at + 6 } : undefined;
+	}
+	return undefined;
+}
+
+/** `Array(1, CVErr(2007))(1)`: an element of an array literal that is an error value. */
+function arrayLiteralElement(value: readonly VbaToken[], optionBase: number): { end: number; what: string } | undefined {
+	if (tokenText(value[0]) !== 'array' || value[1]?.rawText !== '(') {
+		return undefined;
+	}
+	const close = matchParenFrom(value, 1);
+	if (close < 0 || value[close + 1]?.rawText !== '(' || value[close + 2]?.kind !== 'integerLiteral' || value[close + 3]?.rawText !== ')') {
+		return undefined;
+	}
+	const elements = close > 2 ? splitTopLevelTokenGroups([...value], 2, ',', close) : [];
+	const element = elements[Number(value[close + 2].rawText) - optionBase];
+	return element && isErrorSource(element) ? { end: close + 4, what: `an element ${element.map((tok) => tok.rawText).join('')} of an array` } : undefined;
+}
+
+/** The call whose argument list holds `toks[i]`: its name's index and the argument's slot. */
+function callAround(toks: readonly VbaToken[], i: number): { name: number; slot: number } | undefined {
+	let depth = 0;
+	let slot = 0;
+	for (let k = i - 1; k >= 0; k--) {
+		const raw = toks[k].rawText;
+		if (raw === ')') {
+			depth++;
+		} else if (raw === '(') {
+			if (depth === 0) {
+				return tokenName(toks[k - 1]) ? { name: k - 1, slot } : undefined;
+			}
+			depth--;
+		} else if (raw === ',' && depth === 0) {
+			slot++;
+		}
+	}
+	return undefined;
+}
+
+/** Whether the Array call at `at` is the first argument of Join. */
+function arrayGivenToJoin(toks: readonly VbaToken[], at: number): boolean {
+	return toks[at - 1]?.rawText === '(' && tokenText(toks[at - 2]) === 'join' && toks[at - 3]?.rawText !== '.';
+}
+
 /** `CVErr(...)`, or `Evaluate` of a literal formula that is an error, whole. */
 function isErrorSource(value: readonly VbaToken[]): boolean {
 	const word = tokenText(value[0]);
@@ -290,13 +448,14 @@ function isErrorSource(value: readonly VbaToken[]): boolean {
  * may run other code, ends what is known.
  */
 function nextErrorCells(toks: readonly VbaToken[], cells: ReadonlyMap<string, string>): Map<string, string> {
-	if (tokenText(toks[0]) === 'range' && toks[1]?.rawText === '(' && toks[2]?.kind === 'stringLiteral' && toks[3]?.rawText === ')'
-		&& toks[4]?.rawText === '.' && tokenText(toks[5]) === 'formula' && toks[6]?.rawText === '=' && toks.length === 8 && toks[7].kind === 'stringLiteral') {
-		const formula = stringLiteralValue(toks[7].rawText);
-		const address = stringLiteralValue(toks[2].rawText).replace(/\$/g, '').toLowerCase();
+	// `Range("A1").Formula = "=1/0"`; Value takes a formula too (issue #607).
+	const cell = cellAt(toks, 0);
+	if (cell && toks[cell.end]?.rawText === '.' && ['formula', 'value'].includes(tokenText(toks[cell.end + 1])) && toks[cell.end + 2]?.rawText === '='
+		&& toks.length === cell.end + 4 && toks[cell.end + 3].kind === 'stringLiteral') {
+		const formula = stringLiteralValue(toks[cell.end + 3].rawText);
 		const next = new Map(cells);
-		if (formula.startsWith('=') && ERROR_FORMULA.test(formula.slice(1)) && /^[a-z]{1,3}\d+$/.test(address)) {
-			next.set(address, formula);
+		if (formula.startsWith('=') && ERROR_FORMULA.test(formula.slice(1)) && /^[a-z]{1,3}\d+$/.test(cell.address)) {
+			next.set(cell.address, formula);
 		} else {
 			next.clear();
 		}
