@@ -8,7 +8,7 @@
 // Pure analysis: the only diagnostics emitted here flow through the PushFn
 // passed by the argument-type rules.
 
-import { untouchedModuleVariablesIn } from './moduleState';
+import { untouchedModuleVariablesIn, writtenNamesIn } from './moduleState';
 import type { VbaToken } from '../lexer/tokenKinds';
 import type { HostMember, HostObjectModel } from '../host/excelObjectModel';
 import { IDENT_RE, matchParenFrom, splitTopLevelTokenGroups } from '../lexer/tokenHelpers';
@@ -3898,8 +3898,12 @@ export function knownLocalLiteralValuesAt(
 			const dead = unreachableStatementsIn(source, proc, symbols, activity);
 			const write = [...(writes ??= moduleVariableWrites(source, proc, activity)).get(lower) ?? []]
 				.reverse().find((node) => node.span.end <= stmt!.span.start && !dead.has(node));
+			// A call to a procedure of this module that leaves the variable
+			// alone, and runs no code but the module's own, keeps its value
+			// (issue #618).
+			const leavesAlone = (name: string): boolean => calleeLeavesAlone(source, symbols, name, lower);
 			if (literal === undefined || !write
-				|| codeMayRun(statementTokens(source, { start: write.span.end, end: stmt!.span.end }), proc, symbols)) {
+				|| codeMayRun(statementTokens(source, { start: write.span.end, end: stmt!.span.end }), proc, symbols, leavesAlone)) {
 				continue;
 			}
 			withModule ??= new Map(result);
@@ -3999,7 +4003,7 @@ const CODE_RUNNING_FUNCTIONS: ReadonlySet<string> = new Set(['callbyname', 'doev
  * The procedure's locals, its ByVal parameters, the module's variables and
  * Consts, and the VBA library's functions and constants run nothing.
  */
-function codeMayRun(toks: readonly VbaToken[], proc: ProcedureNode, symbols: ReturnType<typeof buildModuleSymbols>): boolean {
+function codeMayRun(toks: readonly VbaToken[], proc: ProcedureNode, symbols: ReturnType<typeof buildModuleSymbols>, leavesAlone?: (name: string) => boolean): boolean {
 	const safe = new Set<string>();
 	for (const child of procedureSymbolFor(symbols, proc)?.children ?? []) {
 		safe.add(child.name.toLowerCase());
@@ -4009,6 +4013,22 @@ function codeMayRun(toks: readonly VbaToken[], proc: ProcedureNode, symbols: Ret
 			safe.delete(param.name.toLowerCase());
 		}
 	}
+	return codeMayRunWith(toks, proc.name.toLowerCase(), safe, symbols, leavesAlone);
+}
+
+/**
+ * Whether these tokens may run code that changes what the rules follow:
+ * `safe` names are this procedure's own, and a call `leavesAlone` clears is
+ * one the rules have read through.
+ */
+function codeMayRunWith(
+	toks: readonly VbaToken[],
+	ownName: string,
+	ownSafe: ReadonlySet<string>,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	leavesAlone?: (name: string) => boolean,
+): boolean {
+	const safe = new Set(ownSafe);
 	for (const child of symbols.root.children ?? []) {
 		if (child.kind === 'moduleVariable' || child.kind === 'constant') {
 			safe.add(child.name.toLowerCase());
@@ -4049,16 +4069,81 @@ function codeMayRun(toks: readonly VbaToken[], proc: ProcedureNode, symbols: Ret
 			continue;
 		}
 		// The procedure's own name is its result; with an argument list it is a call.
-		if (name === proc.name.toLowerCase() && toks[i + 1]?.rawText !== '(') {
+		if (name === ownName && toks[i + 1]?.rawText !== '(') {
 			continue;
 		}
 		const fn = resolveRuntimeFunction(name) ?? resolveRuntimeFunction(`${name}$`);
 		if (fn && !CODE_RUNNING_FUNCTIONS.has(name) && !moduleMemberNames(symbols).has(name)) {
 			continue;
 		}
+		if (leavesAlone?.(name)) {
+			continue;
+		}
 		return true;
 	}
 	return false;
+}
+
+/**
+ * Whether a statement may run code that changes the module variable: a call
+ * to a procedure of the module that writes it, or any code outside the
+ * module's own (issue #618).
+ */
+export function statementMayChangeModuleVariable(
+	source: string,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	proc: ProcedureNode,
+	span: Span,
+	variable: string,
+): boolean {
+	return codeMayRun(statementTokens(source, span), proc, symbols, (name) => calleeLeavesAlone(source, symbols, name, variable));
+}
+
+const LEAVES_ALONE = new WeakMap<object, Map<string, boolean>>();
+
+/**
+ * Whether a call to the module's procedure `name` leaves the module variable
+ * alone: neither it nor any procedure of the module it calls writes the
+ * variable, and none runs code outside the module's own (issue #618,
+ * measured in Excel 16.0). Kept per module and asked by name.
+ */
+function calleeLeavesAlone(source: string, symbols: ReturnType<typeof buildModuleSymbols>, name: string, variable: string): boolean {
+	let cache = LEAVES_ALONE.get(symbols);
+	if (!cache) {
+		cache = new Map();
+		LEAVES_ALONE.set(symbols, cache);
+	}
+	const visiting = new Set<string>();
+	const check = (callee: string): boolean => {
+		const key = `${callee}|${variable}`;
+		const known = cache!.get(key);
+		if (known !== undefined) {
+			return known;
+		}
+		if (visiting.has(callee)) {
+			return true; // a cycle adds nothing the other procedures do not
+		}
+		const procedure = (symbols.root.children ?? []).filter((child) => isProcedureKind(child.kind) && child.name.toLowerCase() === callee);
+		if (procedure.length === 0) {
+			return false;
+		}
+		visiting.add(callee);
+		let alone = true;
+		for (const symbol of procedure) {
+			const text = source.slice(symbol.fullSpan.start, symbol.fullSpan.end);
+			const own = new Set((symbol.children ?? []).map((child) => child.name.toLowerCase()));
+			// The callee's own lines, its header left out.
+			const body = statementTokens(source, symbol.fullSpan).filter((tok) => tok.start >= symbol.nameSpan.end - symbol.fullSpan.start);
+			if (writtenNamesIn(text).has(variable) || codeMayRunWith(body, callee, own, symbols, check)) {
+				alone = false;
+				break;
+			}
+		}
+		visiting.delete(callee);
+		cache!.set(key, alone);
+		return alone;
+	};
+	return check(name);
 }
 
 /**

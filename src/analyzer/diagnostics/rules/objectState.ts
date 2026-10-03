@@ -28,6 +28,7 @@ import { procedureHasUnstructuredFlow } from '../../flow/procedureUnstructured';
 import { statementLabelDeclarations, statementLabelReferences } from '../../flow/procedureLabels';
 import { builtinNameBefore, resolveExhaustiveMemberSurface, ONE_VALUE_BUILTINS } from '../rules/shared';
 import {
+	statementMayChangeModuleVariable,
 	declaredTypeForSourceBinding,
 	defTypeOf,
 	functionResultFor,
@@ -159,6 +160,8 @@ interface LocalObjectVariable {
 	letOnly?: boolean;
 	/** A Variant: Nothing only once `Set v = Nothing` (issue #343). Only member reads are judged. */
 	variant?: boolean;
+	/** A variable of the module, followed from `Set mc = Nothing` in the procedure (issue #618). */
+	module?: boolean;
 }
 
 type ObjectVariableState = 'unset' | 'set' | 'unknown';
@@ -496,8 +499,9 @@ function walkObjectState(
 	}
 	const state = new Map<string, ObjectVariableState>();
 	for (const key of locals.keys()) {
-		// A Variant starts Empty, which is no object and not Nothing.
-		state.set(key, locals.get(key)!.variant ? 'unknown' : 'unset');
+		// A Variant starts Empty, which is no object and not Nothing; what a
+		// module variable holds as the procedure starts is not known.
+		state.set(key, locals.get(key)!.variant || locals.get(key)!.module ? 'unknown' : 'unset');
 	}
 	// Each element of a fixed array of objects is Nothing until Set (issue
 	// #489); a dynamic one's are, once ReDim allocates them.
@@ -516,6 +520,9 @@ function walkObjectState(
 			}
 		}
 	}, activity);
+	// The module variables a statement may change through what it calls.
+	const moduleVariables = [...locals].filter(([, local]) => local.module).map(([lower]) => lower);
+	const moduleTouches = (stmt: LeafStatementNode): string[] => moduleVariables.filter((lower) => statementMayChangeModuleVariable(source, symbols, member, stmt.span, lower));
 	// The GoTo-following walk runs the body until its labels settle, and
 	// reports on its last run (issue #271).
 	let silent = false;
@@ -532,8 +539,13 @@ function walkObjectState(
 	// A statement a known guard keeps from running (issue #273).
 	const unreachable = unreachableStatementsIn(source, member, symbols, activity);
 	walk(source, member.body, (node) => isInactiveNode(activity, node) || unreachable.has(node), {
-		onStatement: (stmt) =>
-			checkObjectVariableNotSetStatement(source, stmt, locals, state, setAnywhere, memberCtx, report, lets, facts, elements),
+		onStatement: (stmt) => {
+			checkObjectVariableNotSetStatement(source, stmt, locals, state, setAnywhere, memberCtx, report, lets, facts, elements);
+			// Code the statement runs may set a module variable (issue #618).
+			for (const lower of moduleTouches(stmt)) {
+				state.set(lower, 'unknown');
+			}
+		},
 		onBlock: (node) => {
 			// The header runs as the block is entered, with the state as it
 			// stands: `For i = 1 To c.Count`, `Select Case c.Count` (issue #233).
@@ -620,6 +632,9 @@ function walkObjectState(
 				for (const key of elementTouches(statementTokensAfterLeadingLabel(source, span), elements)) {
 					touched.add(key);
 				}
+			}
+			for (const lower of moduleTouches(stmt)) {
+				touched.add(lower);
 			}
 			// A single-line If's branches Set too. A Let gives a Variant a value.
 			for (const span of statementAndBranchSpans(stmt)) {
@@ -1421,6 +1436,15 @@ function localObjectVariablesFor(
 		if (child.kind === 'localVariable' && child.visibility !== 'Static' && !child.isArray && (type === undefined || type === 'variant')
 			&& new RegExp(`\\bset\\s+${child.name}\\s*=\\s*nothing\\b`, 'i').test(text)) {
 			out.set(child.name.toLowerCase(), { name: child.name, asType: 'Variant', variant: true });
+		}
+	}
+	// A module's object variable, where the procedure sets it to Nothing and
+	// no local or parameter hides it (issue #618, measured in Excel 16.0).
+	const hidden = new Set([...(procSym?.children ?? []).map((child) => child.name.toLowerCase()), proc.name.toLowerCase()]);
+	for (const child of symbols.root.children ?? []) {
+		if (child.kind === 'moduleVariable' && !child.isArray && !child.isAutoInstantiated && !hidden.has(child.name.toLowerCase()) && child.asType
+			&& isKnownObjectAssignmentType(child.asType, memberCtx) && new RegExp(`\\bset\\s+${child.name}\\s*=\\s*nothing\\b`, 'i').test(text)) {
+			out.set(child.name.toLowerCase(), { name: child.name, asType: child.asType, module: true });
 		}
 	}
 	const result = returnAssignmentTypeFor(proc);
