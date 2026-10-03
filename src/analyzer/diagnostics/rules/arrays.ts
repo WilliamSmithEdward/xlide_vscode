@@ -1160,8 +1160,13 @@ function arraysErasedByCalls(source: string, mod: ModuleNode, activity: Conditio
 		if (member.kind !== 'Procedure' || (member.procKind !== 'Sub' && member.procKind !== 'Function')) {
 			continue;
 		}
+		const params = [...member.params.entries()].filter(([, param]) => param.isArray && !param.byVal);
+		if (params.length === 0) {
+			continue;
+		}
 		let leaves = false;
 		forEachStatement(member.body, (stmt) => {
+			if (leaves) { return; }
 			for (const span of statementAndBranchSpans(stmt)) {
 				const toks = statementTokens(source, span).filter((tok) => tok.kind !== 'comment' && tok.kind !== 'integerLiteral');
 				const head = tokenText(toks[0]);
@@ -1171,18 +1176,27 @@ function arraysErasedByCalls(source: string, mod: ModuleNode, activity: Conditio
 		if (leaves) {
 			continue;
 		}
-		for (const [index, param] of member.params.entries()) {
-			if (!param.isArray || param.byVal) {
-				continue;
+		const relevant = new Set(params.map(([, param]) => param.name.toLowerCase()));
+		const lastNamed = new Map<string, BodyNode>();
+		const nested = new Set<string>();
+		for (const node of member.body) {
+			const leaf = isLeafStatement(node);
+			const active = !isInactiveNode(activity, node);
+			// The legacy nested-name check includes inactive non-leaf nodes.
+			if (!active && leaf) { continue; }
+			for (const tok of statementTokens(source, node.span)) {
+				const lower = tokenName(tok)?.toLowerCase();
+				if (!lower || !relevant.has(lower)) { continue; }
+				if (active) { lastNamed.set(lower, node); }
+				if (!leaf) { nested.add(lower); }
 			}
+		}
+		for (const [index, param] of params) {
 			const lower = param.name.toLowerCase();
-			const named = (node: BodyNode): boolean => statementTokens(source, node.span).some((tok) => tokenName(tok)?.toLowerCase() === lower);
-			const top = member.body.filter((node) => !isInactiveNode(activity, node) && named(node));
-			const last = top[top.length - 1];
-			const nested = member.body.some((node) => !isLeafStatement(node) && named(node));
+			const last = lastNamed.get(lower);
 			const lastToks = last && isLeafStatement(last) ? statementTokens(source, last.span).filter((tok) => tok.kind !== 'comment') : [];
-			if (!nested && lastToks.length === 2 && tokenText(lastToks[0]) === 'erase' && tokenName(lastToks[1])?.toLowerCase() === lower
-				&& !(last.kind === 'Statement' && last.singleLineIfBranches)) {
+			if (!nested.has(lower) && lastToks.length === 2 && tokenText(lastToks[0]) === 'erase' && tokenName(lastToks[1])?.toLowerCase() === lower
+				&& !(last?.kind === 'Statement' && last.singleLineIfBranches)) {
 				const set = erasing.get(member.name.toLowerCase()) ?? new Set<number>();
 				set.add(index);
 				erasing.set(member.name.toLowerCase(), set);
