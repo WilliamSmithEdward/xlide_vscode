@@ -2479,7 +2479,13 @@
         "issue332r_18_runtime",
         "issue332r_19_runtime",
         "issue332r_20_runtime",
-        "issue332r_29_runtime"
+        "issue332r_29_runtime",
+        "issue504_01_runtime",
+        "issue504_02_runtime",
+        "issue504_03_runtime",
+        "issue504_04_runtime",
+        "issue504_08_runtime",
+        "issue504_09_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
