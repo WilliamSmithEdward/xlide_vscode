@@ -5213,7 +5213,12 @@
         "issue407b_05_runtime",
         "issue407b_08_runtime",
         "issue407b_09_runtime",
-        "issue407b_10_runtime"
+        "issue407b_10_runtime",
+        "issue411b_01_runtime",
+        "issue411b_02_runtime",
+        "issue411b_03_runtime",
+        "issue411b_06_runtime",
+        "issue411b_07_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
