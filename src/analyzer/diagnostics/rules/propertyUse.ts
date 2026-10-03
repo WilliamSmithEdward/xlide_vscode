@@ -188,6 +188,11 @@ function memberMisuse(member: MemberCompletion, use: MemberUse): { rule: Diagnos
 		if (use.after === '.') {
 			return { rule: 'invalidPropertyUse', message: `has ${member.letAccessor ? 'a Property Let' : 'a Property Set'} and no Property Get, so it has no value to take a member of. This is a VBE compile error: Invalid use of property.` };
 		}
+		// `c.M(1) = 2` with a Let that takes only the value (issue #414,
+		// measured in Excel 16.0).
+		if (use.target && use.indexed && member.letAccessor && member.letParamCount === 1) {
+			return { rule: 'invalidPropertyUse', message: 'has a Property Let that takes no index and no Property Get, so an element of it cannot be assigned. This is a VBE compile error: Invalid use of property.' };
+		}
 		return undefined;
 	}
 	// A plain read of a property is argument-count's (issue #224).

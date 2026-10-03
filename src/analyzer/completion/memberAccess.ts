@@ -165,6 +165,8 @@ export interface MemberCompletion {
 	/** A project method declared as a Sub, which gives no value (issue #414). */
 	sub?: boolean;
 	setAccessor?: boolean;
+	/** How many parameters a project property's Let declares, the value's included (issue #414). */
+	letParamCount?: number;
 	/** Exported attribute lines attached to this member. */
 	attributes?: readonly VbaSymbolAttribute[];
 }
@@ -643,8 +645,14 @@ function completionFromSurfaceMember(
 		letAccessor: mem.letAccessor,
 		sub: mem.sub,
 		setAccessor: mem.setAccessor,
+		...(letParamsOf(mem) !== undefined ? { letParamCount: letParamsOf(mem) } : {}),
 		attributes: mem.attributes,
 	};
+}
+
+/** How many parameters a project property's Let declares, if the member says. */
+function letParamsOf(mem: object): number | undefined {
+	return (mem as { procedureParams?: { propertyLet?: readonly unknown[] } }).procedureParams?.propertyLet?.length;
 }
 
 function signatureForMember(

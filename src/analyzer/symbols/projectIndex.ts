@@ -45,6 +45,7 @@ import { identifierWords } from '../lexer/tokenHelpers';
 import { mergeSheetChanges, sheetChangesIn, type SheetChanges } from './sheetChanges';
 import { writtenNamesIn } from '../diagnostics/moduleState';
 import { mergeOpenedFileNumbers, openedFileNumbersIn, type OpenedFileNumbers } from '../diagnostics/openedFileNumbers';
+import { classMemberValues } from './classMemberFacts';
 import { hasAuthoritativeDesignerHeader, parseUserFormControls } from '../../vbaUserFormControls';
 
 /**
@@ -1244,6 +1245,15 @@ export class ProjectIndex {
 					continue;
 				}
 				const members = this.visibleObjectMembers(mod);
+				if (kind === 'class') {
+					const values = classMemberValues(this.moduleSources.get(mod.moduleName.toLowerCase()) ?? '', mod.root.children ?? []);
+					for (const member of members) {
+						const value = values.get(member.name.toLowerCase());
+						if (value) {
+							member.knownValue = value;
+						}
+					}
+				}
 				// A worksheet's ActiveX controls are members of it the same way
 				// (issue #225), when the workbook supplied them.
 				const sheetControls = kind === 'document' && this.moduleDesignerClassByName.has(mod.moduleName.toLowerCase())

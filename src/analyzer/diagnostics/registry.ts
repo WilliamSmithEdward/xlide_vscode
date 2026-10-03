@@ -124,6 +124,7 @@ import { callableTypeSignaturesFor } from './typeInference';
 import { checkVariantValueMisuse } from './rules/variantValues';
 import { checkRuntimeMemberNotFound } from './rules/lateBoundMembers';
 import { checkFormContents } from './rules/formContents';
+import { checkClassInstanceValues } from './rules/classInstanceValues';
 import { checkConditionValues } from './rules/conditionValues';
 import { checkLockedArrays } from './rules/lockedArrays';
 import { checkDeletedObjects } from './rules/deletedObjects';
@@ -489,6 +490,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'formContents',
 		run: (ctx, push) => checkFormContents(ctx.source, ctx.mod, ctx.opts.implicitMembers, ctx.opts.projectNameMentions, ctx.activity, push),
+	},
+	{
+		name: 'classInstanceValues',
+		run: (ctx, push) => checkClassInstanceValues(ctx.source, ctx.mod, ctx.symbols, ctx.memberCtx, ctx.activity, push),
 	},
 	{
 		name: 'declarationForms',

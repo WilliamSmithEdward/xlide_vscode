@@ -280,6 +280,13 @@ export interface VbaProjectClassMember {
 	/** A method declared as a Sub, which returns no value (issue #369). */
 	sub?: boolean;
 	/**
+	 * What the class's own code shows the member always gives (issue #414):
+	 * Nothing for an object field it never assigns or a Function it only sets
+	 * to Nothing, Empty for a Variant field it never assigns, a scalar for a
+	 * Get that only returns one literal.
+	 */
+	knownValue?: 'nothing' | 'empty' | 'scalar';
+	/**
 	 * The parameters each procedure of the member declares, ByVal and ByRef
 	 * kept, by procedure kind: an implementation must pass each as the
 	 * interface does (issue #291). Absent for a variable.
