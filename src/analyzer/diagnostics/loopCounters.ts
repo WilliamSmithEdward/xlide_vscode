@@ -346,7 +346,15 @@ function namesWrittenIn(source: string, body: readonly BodyNode[], activity: Con
 				if (target) {
 					out.add(target.name.toLowerCase());
 				}
-				if (WRITING_HEADS.has(tokenText(toks[0]) ?? '')) {
+				// `Mid(s, i, 1) = "x"` writes s alone: its start and length are
+				// read (issue #327).
+				const head = tokenText(toks[0]) ?? '';
+				if (['mid', 'mid$', 'midb', 'midb$'].includes(head) && (toks[1]?.rawText === '(' || (toks[1]?.rawText === '$' && toks[2]?.rawText === '('))) {
+					const lower = tokenName(toks[toks[1].rawText === '(' ? 2 : 3])?.toLowerCase();
+					if (lower) {
+						out.add(lower);
+					}
+				} else if (WRITING_HEADS.has(head)) {
 					for (const tok of toks) {
 						const lower = tokenName(tok)?.toLowerCase();
 						if (lower) {

@@ -3337,10 +3337,12 @@ export function knownLocalLiteralValues(
 					}
 					continue;
 				}
-				if ((head === 'mid' || head === 'mid$') && toks[first + 1]?.rawText === '(') {
+				// `Mid$` lexes as Mid and a `$` of its own (issue #327).
+				const midOpen = toks[first + 1]?.rawText === '$' ? first + 2 : first + 1;
+				if ((head === 'mid' || head === 'mid$') && toks[midOpen]?.rawText === '(') {
 					// `Mid(x, start, len) = value` rewrites characters of x and
 					// keeps its length; anything else named in it is read.
-					const target = candidates.get(tokenName(toks[first + 2])?.toLowerCase() ?? '');
+					const target = candidates.get(tokenName(toks[midOpen + 1])?.toLowerCase() ?? '');
 					if (target) {
 						target.contentMutated = true;
 					}

@@ -92891,6 +92891,72 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a() As Long\r\n    Main = Join(a, \",\")\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue327b_01_runtime",
+      "description": "Issue #327 the Mid statement in a loop, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim s As String, i As Long\r\n    s = \"abc\"\r\n    For i = 1 To 4\r\n        Mid(s, i, 1) = \"x\"\r\n    Next\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue327b_02_runtime",
+      "description": "Issue #327 the Mid statement in a loop, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim s As String, i As Long\r\n    s = \"abc\"\r\n    For i = 1 To 3\r\n        Mid(s, i, 1) = \"x\"\r\n    Next\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue327b_03_runtime",
+      "description": "Issue #327 the Mid statement in a loop, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim s As String\r\n    s = \"abc\"\r\n    Mid(s, 4, 1) = \"x\"\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue327b_04_runtime",
+      "description": "Issue #327 the Mid statement in a loop, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim s As String, i As Long\r\n    s = \"abc\"\r\n    For i = 0 To 2\r\n        Mid(s, i, 1) = \"x\"\r\n    Next\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue327b_05_runtime",
+      "description": "Issue #327 the Mid statement in a loop, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim s As String, i As Long\r\n    s = \"abc\"\r\n    For i = 1 To 4\r\n        Mid$(s, i) = \"x\"\r\n    Next\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue327b_06_runtime",
+      "description": "Issue #327 the Mid statement in a loop, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim s As String, i As Long\r\n    s = \"abc\"\r\n    For i = 1 To 4\r\n        Debug.Print Mid(s, i, 1)\r\n    Next\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
