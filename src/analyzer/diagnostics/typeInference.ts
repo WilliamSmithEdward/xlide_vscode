@@ -81,6 +81,7 @@ import {
 	externalIntegerConstantValue,
 	numericExternalConstantValue,
 } from './constExpr';
+import { operatorYieldsNull } from './nullOperators';
 import {
 	bareAssignmentTarget,
 	blockFooterLineSpan,
@@ -1360,6 +1361,7 @@ export function validateArgumentTypes(
 	resolveExpressionType?: SourceDeclaredTypeResolver,
 	resolveQualifiedExpressionType?: SourceQualifiedDeclaredTypeResolver,
 	heldClassOf?: (lower: string) => string | undefined,
+	heldNull?: (lower: string) => boolean,
 ): void {
 	const sig = callableSignatureForCall(call, moduleSignatures, sourceNames);
 	if (!sig || sig.params.length === 0) {
@@ -1377,6 +1379,7 @@ export function validateArgumentTypes(
 		resolveExpressionType,
 		resolveQualifiedExpressionType,
 		heldClassOf,
+		heldNull,
 	);
 }
 
@@ -1392,6 +1395,7 @@ export function validateArgumentTypesForSignature(
 	resolveExpressionType?: SourceDeclaredTypeResolver,
 	resolveQualifiedExpressionType?: SourceQualifiedDeclaredTypeResolver,
 	heldClassOf?: (lower: string) => string | undefined,
+	heldNull?: (lower: string) => boolean,
 ): void {
 	if (sig.params.length === 0) {
 		return;
@@ -1442,6 +1446,19 @@ export function validateArgumentTypesForSignature(
 		// An array parameter takes an array variable; anything else is
 		// argument-shape-mismatch's, not a value to convert (issue #410).
 		if (param.isArray) {
+			continue;
+		}
+		// `TakeL(1 + Null)`: an operator on Null gives Null, which a typed
+		// parameter refuses (issue #324, measured in Excel 16.0).
+		const nullSlot = valueSlot.filter((tok) => tok.kind !== 'comment');
+		const scalarExpected = normalizeType(expected);
+		if (nullSlot.length > 1 && scalarExpected && scalarExpected !== 'variant' && isKnownScalarType(scalarExpected)
+			&& operatorYieldsNull(nullSlot, (tok) => tokenText(tok) === 'null' || heldNull?.(tokenName(tok)?.toLowerCase() ?? '') === true)) {
+			push(
+				'argumentTypeMismatch',
+				`Argument '${param.name}' of '${sig.name}' expects ${expected}, but '${nullSlot.map((tok) => tok.rawText).join(' ').replace(/ ?([()]) ?/g, '$1')}' is Null: an operator on Null gives Null. Null cannot be coerced to this scalar type. This will raise Run-time error '94': Invalid use of Null.`,
+				{ start: call.sliceStart + nullSlot[0].start, end: call.sliceStart + nullSlot[nullSlot.length - 1].end },
+			);
 			continue;
 		}
 		const stringArithmetic = nonnumericStringArithmeticOperand(

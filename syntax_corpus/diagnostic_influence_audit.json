@@ -566,7 +566,15 @@
         "issue329_15_runtime",
         "issue329_17_runtime",
         "issue329_18_runtime",
-        "issue285_07_runtime"
+        "issue285_07_runtime",
+        "issue324b_01_runtime",
+        "issue324b_02_runtime",
+        "issue324b_03_runtime",
+        "issue324b_06_runtime",
+        "issue324b_07_runtime",
+        "issue324b_09_runtime",
+        "issue324b_10_runtime",
+        "issue324b_11_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],

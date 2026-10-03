@@ -105,6 +105,7 @@ import {
 	type ProcedureStatementVisitor,
 } from '../walker';
 import { nameMentions } from './shared';
+import { operatorYieldsNull } from '../nullOperators';
 
 /**
  * Rule: assigning to a constant is illegal. High-confidence form only - the
@@ -366,52 +367,7 @@ export function checkAssignmentTypes(
 			}
 			const holdsNull = (tok: VbaToken): boolean => tokenText(tok) === 'null'
 				|| nullHeldAt(stmt, span, [tok]) !== undefined;
-			const yieldsNull = (toks: readonly VbaToken[]): boolean => {
-				const part = unwrapOuterParens([...toks]);
-				if (part.length === 1) {
-					return holdsNull(part[0]);
-				}
-				const head = tokenText(part[0]);
-				if (head === '-' || head === 'not') {
-					return yieldsNull(part.slice(1));
-				}
-				if (head === 'abs' && part[1]?.rawText === '(' && matchParenFrom(part, 1) === part.length - 1) {
-					return yieldsNull(part.slice(2, -1));
-				}
-				const operands: VbaToken[][] = [[]];
-				const operators: string[] = [];
-				let depth = 0;
-				for (const tok of part) {
-					depth += tok.rawText === '(' ? 1 : tok.rawText === ')' ? -1 : 0;
-					const word = tok.kind === 'operator' ? tok.rawText : tokenText(tok);
-					const current = operands[operands.length - 1];
-					if (depth === 0 && current.length > 0 && NULL_PROPAGATING.has(word) && tok.kind !== 'stringLiteral') {
-						operators.push(word);
-						operands.push([]);
-					} else {
-						current.push(tok);
-					}
-				}
-				if (operators.length === 0 || operators.includes('&') || operands.some((operand) => operand.length === 0)) {
-					return false;
-				}
-				// And, Or and Imp give a value when the other side decides it
-				// (issue #556, measured in Excel 16.0): Null And 0 is 0, but
-				// Null And 1 is Null; 40000 Or Null is 40000, but 0 Or Null is
-				// Null; Null Imp 12 is 12 and False Imp Null is True, but
-				// Null Imp False is Null. Judged with one operator only.
-				const logical = operators.find((operator) => operator === 'and' || operator === 'or' || operator === 'imp');
-				if (logical) {
-					if (operators.length !== 1) {
-						return operands.every((operand) => yieldsNull(operand));
-					}
-					const [left, right] = operands.map((operand) => (yieldsNull(operand) ? 'null' : literalNumber(operand)));
-					const decided = (other: number | 'null' | undefined, otherOnLeft: boolean): boolean => other === 'null'
-						|| (other !== undefined && (logical === 'and' ? other !== 0 : logical === 'or' ? other === 0 : otherOnLeft ? other !== 0 : other === 0));
-					return (left === 'null' && decided(right, false)) || (right === 'null' && decided(left, true));
-				}
-				return operands.some((operand) => yieldsNull(operand));
-			};
+			const yieldsNull = (toks: readonly VbaToken[]): boolean => operatorYieldsNull(toks, holdsNull);
 			return yieldsNull(value)
 				? { text: value.map((tok) => tok.rawText).join(' ').replace(/ ?([()]) ?/g, '$1'), span: { start: span.start + value[0].start, end: span.start + value[value.length - 1].end } }
 				: undefined;
@@ -2076,24 +2032,6 @@ function fixedTextPart(part: readonly VbaToken[], known: (lower: string) => Know
 }
 
 /** The text functions folded over known text: `Left("abc", 1)` is "a". */
-/** The binary operators whose result is Null when an operand is (issue #324). `&` is here to be refused. */
-const NULL_PROPAGATING: ReadonlySet<string> = new Set(['+', '-', '*', '/', '\\', '^', 'mod', '=', '<>', '<', '>', '<=', '>=', 'and', 'or', 'xor', 'eqv', 'imp', '&']);
-
-/** The number a literal operand is, True as -1 and False as 0: `1`, `-2.5`, `True`. */
-function literalNumber(operand: readonly VbaToken[]): number | undefined {
-	const toks = unwrapOuterParens([...operand]);
-	const sign = toks.length === 2 && toks[0].rawText === '-' ? -1 : 1;
-	const tok = toks.length === 1 ? toks[0] : toks.length === 2 && (toks[0].rawText === '-' || toks[0].rawText === '+') ? toks[1] : undefined;
-	const word = tokenText(tok);
-	if (word === 'true' || word === 'false') {
-		return sign * (word === 'true' ? -1 : 0);
-	}
-	if (tok?.kind !== 'integerLiteral' && tok?.kind !== 'floatLiteral') {
-		return undefined;
-	}
-	const value = Number(tok.rawText.replace(/[%&^!#@]$/, ''));
-	return Number.isFinite(value) ? sign * value : undefined;
-}
 
 const TEXT_FUNCTIONS: ReadonlySet<string> = new Set(['cstr', 'left', 'right', 'mid', 'ucase', 'lcase', 'trim', 'ltrim', 'rtrim']);
 
