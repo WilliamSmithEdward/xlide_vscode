@@ -983,13 +983,39 @@ function passedWhole(source: string, toks: readonly VbaToken[], spanStart: numbe
 	const hits = trackedLocalsNamedWhole(toks, spanStart, () => true, READ_ONLY_INTRINSICS, walkArrays, calleeKeepsArgument(source));
 	// A VBA library function assigns none of its arguments: `Left$("abc", n)`
 	// leaves n as it was (issue #565).
+	const readOnly = printedArguments(toks);
 	for (const [lower, at] of hits) {
 		const index = toks.findIndex((tok) => spanStart + tok.start === at);
-		if (index >= 0 && libraryFunctionArgument(toks, index)) {
+		if (index >= 0 && (libraryFunctionArgument(toks, index) || readOnly(index))) {
 			hits.delete(lower);
 		}
 	}
 	return hits.keys();
+}
+
+/**
+ * The tokens Debug.Print, Debug.Assert, `Print #` and `Write #` read and
+ * never write, up to the end of the statement or a one-line If's Else:
+ * `Debug.Print a` leaves a as it was (issue #655, measured in Excel 16.0).
+ */
+function printedArguments(toks: readonly VbaToken[]): (index: number) => boolean {
+	const ranges: Array<[number, number]> = [];
+	for (let i = 0; i < toks.length; i++) {
+		const word = tokenText(toks[i]);
+		const debug = word === 'debug' && toks[i + 1]?.rawText === '.' && ['print', 'assert'].includes(tokenText(toks[i + 2]));
+		const file = (word === 'print' || word === 'write') && toks[i + 1]?.rawText === '#' && toks[i - 1]?.rawText !== '.';
+		if (!debug && !file) {
+			continue;
+		}
+		const start = i + (debug ? 3 : 2);
+		let end = start;
+		while (end < toks.length && toks[end].rawText !== ':' && tokenText(toks[end]) !== 'else') {
+			end++;
+		}
+		ranges.push([start, end]);
+		i = end;
+	}
+	return (index) => ranges.some(([start, end]) => index >= start && index < end);
 }
 
 /**
