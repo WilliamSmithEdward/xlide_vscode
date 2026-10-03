@@ -68,7 +68,9 @@ export function checkArgumentTypes(
 			.filter((child) => child.kind === 'localVariable' && child.visibility !== 'Static' && !child.isArray && (!child.asType || child.asType.toLowerCase() === 'variant'))
 			.map((child) => child.name.toLowerCase()));
 		let reaching: ReturnType<typeof straightLineAssignments> | undefined;
-		const valuesAt = knownLocalLiteralValuesAt(source, member, symbols, activity);
+		let localValuesAt: ReturnType<typeof knownLocalLiteralValuesAt> | undefined;
+		const valuesAt: ReturnType<typeof knownLocalLiteralValuesAt> = (node) =>
+			(localValuesAt ??= knownLocalLiteralValuesAt(source, member, symbols, activity))(node);
 		// Where each name is first named: a Variant local is Empty there,
 		// though the call may pass it ByRef. A parameter holds what the caller
 		// gave it, and a Static local what an earlier call left.
