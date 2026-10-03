@@ -19,6 +19,7 @@
 // procedure. A block keeps the values it never touches, inside and after it.
 
 import type { VbaToken } from '../lexer/tokenKinds';
+import { withReachingValue } from './reachingSnapshot';
 import type { ConditionalActivityTracker } from '../conditional/conditionalCompilation';
 import type { BodyNode, IfBlockNode, LeafStatementNode, Span } from '../parser/nodes';
 import { isLeafStatement } from '../parser/nodes';
@@ -446,9 +447,7 @@ function walkBlock(
 		if (none.counter === undefined) {
 			return entry;
 		}
-		const next = new Map(entry);
-		next.set(none.counter.name, rawExpressionTokens(String(none.counter.value)));
-		return next;
+		return withReachingValue(entry, none.counter.name, rawExpressionTokens(String(none.counter.value)));
 	}
 	// `With k`, k a Collection: `.Add a` inside reads a (issue #665).
 	const outerWith = walkWithCollection;
@@ -486,9 +485,7 @@ function walkBlockBody(
 	}
 	const final = touched === 'all' ? undefined : forCounterFinalValue(source, node, activity) ?? doCounterFinalValue(source, node, entry, activity);
 	if (final !== undefined) {
-		const next = new Map(after);
-		next.set(final.name, rawExpressionTokens(String(final.value)));
-		return next;
+		return withReachingValue(after, final.name, rawExpressionTokens(String(final.value)));
 	}
 	return after;
 }
@@ -828,23 +825,18 @@ function afterStatement(source: string, span: Span, before: ReachingAssignments)
 		if (!object) {
 			return after;
 		}
-		const next = new Map(after);
-		next.set(object.name, object.value);
-		return next;
+		return withReachingValue(after, object.name, object.value);
 	}
 	let after = without(before, passedWhole(source, toks, span.start));
 	// A name passed ByRef holds what the callee leaves in it (issue #449).
 	const effects = walkCallEffects?.(toks);
 	if (effects && effects.size > 0) {
-		const next = new Map(after);
 		for (const [lower, value] of effects) {
-			next.set(lower, value);
+			after = withReachingValue(after, lower, value);
 		}
-		after = next;
 	}
 	const bare = bareAssignmentTarget(source, span);
 	if (bare && !identityAssignment(bare.name, bare.valueTokens)) {
-		const next = new Map(after);
 		const value = bare.valueTokens.filter((tok) => tok.kind !== 'comment');
 		// `d = a` copies what a holds here: `a = 0: d = a` leaves d 0, and a
 		// later change to a leaves d as it was (issue #346).
@@ -853,14 +845,11 @@ function afterStatement(source: string, span: Span, before: ReachingAssignments)
 		const computed = copied === undefined && value.some((tok) => tokenName(tok) !== undefined)
 			? knownSum(value, before) ?? knownCall(source, value, before, bare.name.toLowerCase())
 			: undefined;
-		next.set(bare.name.toLowerCase(), copied !== undefined && before.has(copied) ? before.get(copied)! : computed ?? value);
-		after = next;
+		after = withReachingValue(after, bare.name.toLowerCase(), copied !== undefined && before.has(copied) ? before.get(copied)! : computed ?? value);
 	}
 	const element = walkElements ? elementAssignment(toks, before) : undefined;
 	if (element) {
-		const next = new Map(after);
-		next.set(element.key, element.value);
-		after = next;
+		after = withReachingValue(after, element.key, element.value);
 	}
 	return after;
 }
