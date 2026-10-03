@@ -101511,6 +101511,182 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Long, b As Long, s As String, arr(0 To 3) As Long, c As Collection\r\n    b = 9\r\n    If a = 1 Then GoTo Skip1\r\n    a = 2\r\nSkip1:\r\n    b = 1\r\n    Main = arr(b)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue618_01_runtime",
+      "description": "Issue #618 a module variable across a call that leaves it alone, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate mn As Long\r\nPrivate mc As Collection\r\nPublic pn As Long\r\nPrivate Sub Nop()\r\nEnd Sub\r\nPrivate Sub Log(ByVal t As String)\r\n    Debug.Print t\r\nEnd Sub\r\nPrivate Function Twice(ByVal x As Long) As Long\r\n    Twice = x * 2\r\nEnd Function\r\nPrivate Sub SetMn()\r\n    mn = 1\r\nEnd Sub\r\nPrivate Sub Indirect()\r\n    SetMn\r\nEnd Sub\r\nPrivate Sub Outer()\r\n    Nop\r\n    Log \"y\"\r\nEnd Sub\r\nPrivate Sub Fill(ByRef x As Long)\r\n    x = 2\r\nEnd Sub\r\nPrivate Sub Calls()\r\n    Application.Calculate\r\nEnd Sub\r\nPrivate Sub SetMc()\r\n    Set mc = New Collection\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Dim arr(0 To 3) As Long, r As Long\r\n    mn = 4\r\n    Nop\r\n    Main = arr(mn)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue618_02_runtime",
+      "description": "Issue #618 a module variable across a call that leaves it alone, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate mn As Long\r\nPrivate mc As Collection\r\nPublic pn As Long\r\nPrivate Sub Nop()\r\nEnd Sub\r\nPrivate Sub Log(ByVal t As String)\r\n    Debug.Print t\r\nEnd Sub\r\nPrivate Function Twice(ByVal x As Long) As Long\r\n    Twice = x * 2\r\nEnd Function\r\nPrivate Sub SetMn()\r\n    mn = 1\r\nEnd Sub\r\nPrivate Sub Indirect()\r\n    SetMn\r\nEnd Sub\r\nPrivate Sub Outer()\r\n    Nop\r\n    Log \"y\"\r\nEnd Sub\r\nPrivate Sub Fill(ByRef x As Long)\r\n    x = 2\r\nEnd Sub\r\nPrivate Sub Calls()\r\n    Application.Calculate\r\nEnd Sub\r\nPrivate Sub SetMc()\r\n    Set mc = New Collection\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Dim arr(0 To 3) As Long, r As Long\r\n    mn = 0\r\n    Nop\r\n    Main = 10 \\ mn\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue618_03_runtime",
+      "description": "Issue #618 a module variable across a call that leaves it alone, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate mn As Long\r\nPrivate mc As Collection\r\nPublic pn As Long\r\nPrivate Sub Nop()\r\nEnd Sub\r\nPrivate Sub Log(ByVal t As String)\r\n    Debug.Print t\r\nEnd Sub\r\nPrivate Function Twice(ByVal x As Long) As Long\r\n    Twice = x * 2\r\nEnd Function\r\nPrivate Sub SetMn()\r\n    mn = 1\r\nEnd Sub\r\nPrivate Sub Indirect()\r\n    SetMn\r\nEnd Sub\r\nPrivate Sub Outer()\r\n    Nop\r\n    Log \"y\"\r\nEnd Sub\r\nPrivate Sub Fill(ByRef x As Long)\r\n    x = 2\r\nEnd Sub\r\nPrivate Sub Calls()\r\n    Application.Calculate\r\nEnd Sub\r\nPrivate Sub SetMc()\r\n    Set mc = New Collection\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Dim arr(0 To 3) As Long, r As Long\r\n    mn = 0\r\n    Log \"x\"\r\n    Main = 10 \\ mn\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue618_04_runtime",
+      "description": "Issue #618 a module variable across a call that leaves it alone, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate mn As Long\r\nPrivate mc As Collection\r\nPublic pn As Long\r\nPrivate Sub Nop()\r\nEnd Sub\r\nPrivate Sub Log(ByVal t As String)\r\n    Debug.Print t\r\nEnd Sub\r\nPrivate Function Twice(ByVal x As Long) As Long\r\n    Twice = x * 2\r\nEnd Function\r\nPrivate Sub SetMn()\r\n    mn = 1\r\nEnd Sub\r\nPrivate Sub Indirect()\r\n    SetMn\r\nEnd Sub\r\nPrivate Sub Outer()\r\n    Nop\r\n    Log \"y\"\r\nEnd Sub\r\nPrivate Sub Fill(ByRef x As Long)\r\n    x = 2\r\nEnd Sub\r\nPrivate Sub Calls()\r\n    Application.Calculate\r\nEnd Sub\r\nPrivate Sub SetMc()\r\n    Set mc = New Collection\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Dim arr(0 To 3) As Long, r As Long\r\n    mn = 0\r\n    r = Twice(3)\r\n    Main = 10 \\ mn\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue618_05_runtime",
+      "description": "Issue #618 a module variable across a call that leaves it alone, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate mn As Long\r\nPrivate mc As Collection\r\nPublic pn As Long\r\nPrivate Sub Nop()\r\nEnd Sub\r\nPrivate Sub Log(ByVal t As String)\r\n    Debug.Print t\r\nEnd Sub\r\nPrivate Function Twice(ByVal x As Long) As Long\r\n    Twice = x * 2\r\nEnd Function\r\nPrivate Sub SetMn()\r\n    mn = 1\r\nEnd Sub\r\nPrivate Sub Indirect()\r\n    SetMn\r\nEnd Sub\r\nPrivate Sub Outer()\r\n    Nop\r\n    Log \"y\"\r\nEnd Sub\r\nPrivate Sub Fill(ByRef x As Long)\r\n    x = 2\r\nEnd Sub\r\nPrivate Sub Calls()\r\n    Application.Calculate\r\nEnd Sub\r\nPrivate Sub SetMc()\r\n    Set mc = New Collection\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Dim arr(0 To 3) As Long, r As Long\r\n    mn = 0\r\n    Outer\r\n    Main = 10 \\ mn\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue618_06_runtime",
+      "description": "Issue #618 a module variable across a call that leaves it alone, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate mn As Long\r\nPrivate mc As Collection\r\nPublic pn As Long\r\nPrivate Sub Nop()\r\nEnd Sub\r\nPrivate Sub Log(ByVal t As String)\r\n    Debug.Print t\r\nEnd Sub\r\nPrivate Function Twice(ByVal x As Long) As Long\r\n    Twice = x * 2\r\nEnd Function\r\nPrivate Sub SetMn()\r\n    mn = 1\r\nEnd Sub\r\nPrivate Sub Indirect()\r\n    SetMn\r\nEnd Sub\r\nPrivate Sub Outer()\r\n    Nop\r\n    Log \"y\"\r\nEnd Sub\r\nPrivate Sub Fill(ByRef x As Long)\r\n    x = 2\r\nEnd Sub\r\nPrivate Sub Calls()\r\n    Application.Calculate\r\nEnd Sub\r\nPrivate Sub SetMc()\r\n    Set mc = New Collection\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Dim arr(0 To 3) As Long, r As Long\r\n    Set mc = Nothing\r\n    Nop\r\n    Main = mc.Count\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue618_07_runtime",
+      "description": "Issue #618 a module variable across a call that leaves it alone, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate mn As Long\r\nPrivate mc As Collection\r\nPublic pn As Long\r\nPrivate Sub Nop()\r\nEnd Sub\r\nPrivate Sub Log(ByVal t As String)\r\n    Debug.Print t\r\nEnd Sub\r\nPrivate Function Twice(ByVal x As Long) As Long\r\n    Twice = x * 2\r\nEnd Function\r\nPrivate Sub SetMn()\r\n    mn = 1\r\nEnd Sub\r\nPrivate Sub Indirect()\r\n    SetMn\r\nEnd Sub\r\nPrivate Sub Outer()\r\n    Nop\r\n    Log \"y\"\r\nEnd Sub\r\nPrivate Sub Fill(ByRef x As Long)\r\n    x = 2\r\nEnd Sub\r\nPrivate Sub Calls()\r\n    Application.Calculate\r\nEnd Sub\r\nPrivate Sub SetMc()\r\n    Set mc = New Collection\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Dim arr(0 To 3) As Long, r As Long\r\n    Set mc = Nothing\r\n    Main = mc.Count\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue618_08_runtime",
+      "description": "Issue #618 a module variable across a call that leaves it alone, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 10.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate mn As Long\r\nPrivate mc As Collection\r\nPublic pn As Long\r\nPrivate Sub Nop()\r\nEnd Sub\r\nPrivate Sub Log(ByVal t As String)\r\n    Debug.Print t\r\nEnd Sub\r\nPrivate Function Twice(ByVal x As Long) As Long\r\n    Twice = x * 2\r\nEnd Function\r\nPrivate Sub SetMn()\r\n    mn = 1\r\nEnd Sub\r\nPrivate Sub Indirect()\r\n    SetMn\r\nEnd Sub\r\nPrivate Sub Outer()\r\n    Nop\r\n    Log \"y\"\r\nEnd Sub\r\nPrivate Sub Fill(ByRef x As Long)\r\n    x = 2\r\nEnd Sub\r\nPrivate Sub Calls()\r\n    Application.Calculate\r\nEnd Sub\r\nPrivate Sub SetMc()\r\n    Set mc = New Collection\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Dim arr(0 To 3) As Long, r As Long\r\n    mn = 0\r\n    SetMn\r\n    Main = 10 \\ mn\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue618_09_runtime",
+      "description": "Issue #618 a module variable across a call that leaves it alone, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 10.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate mn As Long\r\nPrivate mc As Collection\r\nPublic pn As Long\r\nPrivate Sub Nop()\r\nEnd Sub\r\nPrivate Sub Log(ByVal t As String)\r\n    Debug.Print t\r\nEnd Sub\r\nPrivate Function Twice(ByVal x As Long) As Long\r\n    Twice = x * 2\r\nEnd Function\r\nPrivate Sub SetMn()\r\n    mn = 1\r\nEnd Sub\r\nPrivate Sub Indirect()\r\n    SetMn\r\nEnd Sub\r\nPrivate Sub Outer()\r\n    Nop\r\n    Log \"y\"\r\nEnd Sub\r\nPrivate Sub Fill(ByRef x As Long)\r\n    x = 2\r\nEnd Sub\r\nPrivate Sub Calls()\r\n    Application.Calculate\r\nEnd Sub\r\nPrivate Sub SetMc()\r\n    Set mc = New Collection\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Dim arr(0 To 3) As Long, r As Long\r\n    mn = 0\r\n    Indirect\r\n    Main = 10 \\ mn\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue618_10_runtime",
+      "description": "Issue #618 a module variable across a call that leaves it alone, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate mn As Long\r\nPrivate mc As Collection\r\nPublic pn As Long\r\nPrivate Sub Nop()\r\nEnd Sub\r\nPrivate Sub Log(ByVal t As String)\r\n    Debug.Print t\r\nEnd Sub\r\nPrivate Function Twice(ByVal x As Long) As Long\r\n    Twice = x * 2\r\nEnd Function\r\nPrivate Sub SetMn()\r\n    mn = 1\r\nEnd Sub\r\nPrivate Sub Indirect()\r\n    SetMn\r\nEnd Sub\r\nPrivate Sub Outer()\r\n    Nop\r\n    Log \"y\"\r\nEnd Sub\r\nPrivate Sub Fill(ByRef x As Long)\r\n    x = 2\r\nEnd Sub\r\nPrivate Sub Calls()\r\n    Application.Calculate\r\nEnd Sub\r\nPrivate Sub SetMc()\r\n    Set mc = New Collection\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Dim arr(0 To 3) As Long, r As Long\r\n    mn = 0\r\n    Fill mn\r\n    Main = 10 \\ mn\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue618_11_runtime",
+      "description": "Issue #618 a module variable across a call that leaves it alone, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate mn As Long\r\nPrivate mc As Collection\r\nPublic pn As Long\r\nPrivate Sub Nop()\r\nEnd Sub\r\nPrivate Sub Log(ByVal t As String)\r\n    Debug.Print t\r\nEnd Sub\r\nPrivate Function Twice(ByVal x As Long) As Long\r\n    Twice = x * 2\r\nEnd Function\r\nPrivate Sub SetMn()\r\n    mn = 1\r\nEnd Sub\r\nPrivate Sub Indirect()\r\n    SetMn\r\nEnd Sub\r\nPrivate Sub Outer()\r\n    Nop\r\n    Log \"y\"\r\nEnd Sub\r\nPrivate Sub Fill(ByRef x As Long)\r\n    x = 2\r\nEnd Sub\r\nPrivate Sub Calls()\r\n    Application.Calculate\r\nEnd Sub\r\nPrivate Sub SetMc()\r\n    Set mc = New Collection\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Dim arr(0 To 3) As Long, r As Long\r\n    pn = 0\r\n    Nop\r\n    Main = 10 \\ pn\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue618_12_runtime",
+      "description": "Issue #618 a module variable across a call that leaves it alone, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate mn As Long\r\nPrivate mc As Collection\r\nPublic pn As Long\r\nPrivate Sub Nop()\r\nEnd Sub\r\nPrivate Sub Log(ByVal t As String)\r\n    Debug.Print t\r\nEnd Sub\r\nPrivate Function Twice(ByVal x As Long) As Long\r\n    Twice = x * 2\r\nEnd Function\r\nPrivate Sub SetMn()\r\n    mn = 1\r\nEnd Sub\r\nPrivate Sub Indirect()\r\n    SetMn\r\nEnd Sub\r\nPrivate Sub Outer()\r\n    Nop\r\n    Log \"y\"\r\nEnd Sub\r\nPrivate Sub Fill(ByRef x As Long)\r\n    x = 2\r\nEnd Sub\r\nPrivate Sub Calls()\r\n    Application.Calculate\r\nEnd Sub\r\nPrivate Sub SetMc()\r\n    Set mc = New Collection\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Dim arr(0 To 3) As Long, r As Long\r\n    Set mc = Nothing\r\n    SetMc\r\n    Main = mc.Count\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue618_13_runtime",
+      "description": "Issue #618 a module variable across a call that leaves it alone, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate mn As Long\r\nPrivate mc As Collection\r\nPublic pn As Long\r\nPrivate Sub Nop()\r\nEnd Sub\r\nPrivate Sub Log(ByVal t As String)\r\n    Debug.Print t\r\nEnd Sub\r\nPrivate Function Twice(ByVal x As Long) As Long\r\n    Twice = x * 2\r\nEnd Function\r\nPrivate Sub SetMn()\r\n    mn = 1\r\nEnd Sub\r\nPrivate Sub Indirect()\r\n    SetMn\r\nEnd Sub\r\nPrivate Sub Outer()\r\n    Nop\r\n    Log \"y\"\r\nEnd Sub\r\nPrivate Sub Fill(ByRef x As Long)\r\n    x = 2\r\nEnd Sub\r\nPrivate Sub Calls()\r\n    Application.Calculate\r\nEnd Sub\r\nPrivate Sub SetMc()\r\n    Set mc = New Collection\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Dim arr(0 To 3) As Long, r As Long\r\n    Set mc = Nothing\r\n    If r = 0 Then SetMc\r\n    Main = mc.Count\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue618_14_runtime",
+      "description": "Issue #618 a module variable across a call that leaves it alone, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate mn As Long\r\nPrivate mc As Collection\r\nPublic pn As Long\r\nPrivate Sub Nop()\r\nEnd Sub\r\nPrivate Sub Log(ByVal t As String)\r\n    Debug.Print t\r\nEnd Sub\r\nPrivate Function Twice(ByVal x As Long) As Long\r\n    Twice = x * 2\r\nEnd Function\r\nPrivate Sub SetMn()\r\n    mn = 1\r\nEnd Sub\r\nPrivate Sub Indirect()\r\n    SetMn\r\nEnd Sub\r\nPrivate Sub Outer()\r\n    Nop\r\n    Log \"y\"\r\nEnd Sub\r\nPrivate Sub Fill(ByRef x As Long)\r\n    x = 2\r\nEnd Sub\r\nPrivate Sub Calls()\r\n    Application.Calculate\r\nEnd Sub\r\nPrivate Sub SetMc()\r\n    Set mc = New Collection\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Dim arr(0 To 3) As Long, r As Long\r\n    Set mc = Nothing\r\n    If r = 0 Then\r\n        SetMc\r\n    End If\r\n    Main = mc.Count\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue618_15_runtime",
+      "description": "Issue #618 a module variable across a call that leaves it alone, case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate mn As Long\r\nPrivate mc As Collection\r\nPublic pn As Long\r\nPrivate Sub Nop()\r\nEnd Sub\r\nPrivate Sub Log(ByVal t As String)\r\n    Debug.Print t\r\nEnd Sub\r\nPrivate Function Twice(ByVal x As Long) As Long\r\n    Twice = x * 2\r\nEnd Function\r\nPrivate Sub SetMn()\r\n    mn = 1\r\nEnd Sub\r\nPrivate Sub Indirect()\r\n    SetMn\r\nEnd Sub\r\nPrivate Sub Outer()\r\n    Nop\r\n    Log \"y\"\r\nEnd Sub\r\nPrivate Sub Fill(ByRef x As Long)\r\n    x = 2\r\nEnd Sub\r\nPrivate Sub Calls()\r\n    Application.Calculate\r\nEnd Sub\r\nPrivate Sub SetMc()\r\n    Set mc = New Collection\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Dim arr(0 To 3) As Long, r As Long\r\n    Set mc = Nothing\r\n    Set mc = New Collection\r\n    Main = mc.Count\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue618_16_runtime",
+      "description": "Issue #618 a module variable across a call that leaves it alone, case 16, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> True.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate mn As Long\r\nPrivate mc As Collection\r\nPublic pn As Long\r\nPrivate Sub Nop()\r\nEnd Sub\r\nPrivate Sub Log(ByVal t As String)\r\n    Debug.Print t\r\nEnd Sub\r\nPrivate Function Twice(ByVal x As Long) As Long\r\n    Twice = x * 2\r\nEnd Function\r\nPrivate Sub SetMn()\r\n    mn = 1\r\nEnd Sub\r\nPrivate Sub Indirect()\r\n    SetMn\r\nEnd Sub\r\nPrivate Sub Outer()\r\n    Nop\r\n    Log \"y\"\r\nEnd Sub\r\nPrivate Sub Fill(ByRef x As Long)\r\n    x = 2\r\nEnd Sub\r\nPrivate Sub Calls()\r\n    Application.Calculate\r\nEnd Sub\r\nPrivate Sub SetMc()\r\n    Set mc = New Collection\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Dim arr(0 To 3) As Long, r As Long\r\n    Set mc = Nothing\r\n    Main = mc Is Nothing\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
