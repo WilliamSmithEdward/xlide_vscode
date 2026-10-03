@@ -403,50 +403,67 @@ function externalTypeCandidatesInModule(moduleName: string): readonly TypeComple
  * A model merged from a project's references carries one per library, which
  * is what makes `Dim xl As Excel.` completable inside a Word document.
  */
-function hostLibraryNames(model: HostObjectModel): string[] {
-	const seen = new Map<string, string>();
-	for (const qualified of Object.keys(model.types)) {
+interface HostLibraryTypeEntry {
+	name: string;
+	type: HostType;
+	candidate?: TypeCompletion;
+}
+
+interface HostLibraryIndex {
+	name: string;
+	byLower: Map<string, HostLibraryTypeEntry>;
+}
+
+// Host metadata is immutable for a model identity, as in the bare-name index.
+// Group its keys once; render documentation only for a library/type in use.
+const HOST_LIBRARY_INDEXES = new WeakMap<HostObjectModel, Map<string, HostLibraryIndex>>();
+
+function hostLibraryIndex(model: HostObjectModel): Map<string, HostLibraryIndex> {
+	const cached = HOST_LIBRARY_INDEXES.get(model);
+	if (cached) { return cached; }
+	const libraries = new Map<string, HostLibraryIndex>();
+	for (const [qualified, type] of Object.entries(model.types)) {
 		const dot = qualified.indexOf('.');
 		if (dot <= 0) { continue; }
 		const name = qualified.slice(0, dot);
 		const key = name.toLowerCase();
-		if (!seen.has(key)) { seen.set(key, name); }
+		let library = libraries.get(key);
+		if (!library) {
+			library = { name, byLower: new Map() };
+			libraries.set(key, library);
+		}
+		const short = qualified.slice(dot + 1);
+		const lower = short.toLowerCase();
+		if (short.length === 0 || short.includes('.') || library.byLower.has(lower)) { continue; }
+		library.byLower.set(lower, { name: short, type });
 	}
-	return [...seen.values()];
+	HOST_LIBRARY_INDEXES.set(model, libraries);
+	return libraries;
 }
 
-/**
- * A library's own types, for a qualified type position. VBA writes the
- * library name before the type whenever two references share one - and a
- * reader writes it for clarity even when they do not - so `Excel.` has to
- * offer Excel's types the way a module qualifier offers a module's.
- *
- * Enumerations are left out: the model keys them by their own name rather
- * than by library, so which one an enum belongs to is not known here. They
- * are offered unqualified, where `Dim k As XlAxisType` already works.
- */
+function hostLibraryNames(model: HostObjectModel): string[] {
+	return [...hostLibraryIndex(model).values()].map((library) => library.name);
+}
+
+function hostLibraryCandidate(library: HostLibraryIndex, entry: HostLibraryTypeEntry): TypeCompletion {
+	entry.candidate ??= {
+		name: entry.name,
+		kind: 'host',
+		detail: library.name + ' type',
+		documentation: hostTypeDocumentation(entry.type),
+	};
+	// Qualified APIs previously returned fresh records. Keep callers from
+	// changing later completions or resolutions through the private index.
+	return { ...entry.candidate };
+}
+
+/** Qualified types keep model order and omit enums without library keys. */
 function hostLibraryTypeCandidatesIn(
 	model: HostObjectModel,
 	qualifier: string,
 ): TypeCompletion[] {
-	const prefix = `${qualifier.toLowerCase()}.`;
-	const library = hostLibraryNames(model)
-		.find((name) => name.toLowerCase() === qualifier.toLowerCase());
-	if (library === undefined) {
-		return [];
-	}
-	const detail = `${library} type`;
-	const seen = new Set<string>();
-	const out: TypeCompletion[] = [];
-	for (const [qualified, type] of Object.entries(model.types)) {
-		if (!qualified.toLowerCase().startsWith(prefix)) { continue; }
-		const short = qualified.slice(prefix.length);
-		const key = short.toLowerCase();
-		if (short.length === 0 || short.includes('.') || seen.has(key)) { continue; }
-		seen.add(key);
-		out.push({ name: short, kind: 'host', detail, documentation: hostTypeDocumentation(type) });
-	}
-	return out;
+	const library = hostLibraryIndex(model).get(qualifier.toLowerCase());
+	return library ? [...library.byLower.values()].map((entry) => hostLibraryCandidate(library, entry)) : [];
 }
 
 /**
@@ -511,13 +528,16 @@ export function resolveTypeName(
 ): TypeCompletion | undefined {
 	const qualified = qualifiedTypeName(name);
 	if (qualified) {
-		return [
-			...projectTypeCandidatesInModule(qualified.qualifier, ctx.projectTypes),
-			...externalTypeCandidatesInModule(qualified.qualifier),
-			...hostLibraryTypeCandidatesIn(ctx.model ?? getExcelObjectModel(), qualified.qualifier),
-		].find(
-			(candidate) => candidate.name.toLowerCase() === qualified.member.toLowerCase(),
-		);
+		const lower = qualified.member.toLowerCase();
+		const project = projectTypeCandidatesInModule(qualified.qualifier, ctx.projectTypes)
+			.find((candidate) => candidate.name.toLowerCase() === lower);
+		if (project) { return project; }
+		const external = externalTypeCandidatesInModule(qualified.qualifier)
+			.find((candidate) => candidate.name.toLowerCase() === lower);
+		if (external) { return external; }
+		const library = hostLibraryIndex(ctx.model ?? getExcelObjectModel()).get(qualified.qualifier.toLowerCase());
+		const entry = library?.byLower.get(lower);
+		return library && entry ? hostLibraryCandidate(library, entry) : undefined;
 	}
 	const lower = name.toLowerCase();
 	return exactTypeNameIndex(ctx).get(lower);
