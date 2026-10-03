@@ -753,6 +753,8 @@ export function checkUndeclaredVariables(
 		);
 	};
 
+	let eol: string | undefined;
+	const moduleEol = (): string => eol ??= detectEol(source);
 	const ctxForTypes = {
 		moduleName: symbols.moduleName,
 		moduleKind,
@@ -766,6 +768,7 @@ export function checkUndeclaredVariables(
 		}
 		const procSym = procedureSymbolFor(symbols, member);
 		redimDeclared = redimTargetNamesIn(source, member.body, activity);
+		const declarationData = declarationDataFor(source, member, moduleEol);
 		forEachUndeclaredReferenceSpan(source, member.body, (span) => {
 			const reported = new Set<string>();
 			const report = (
@@ -784,7 +787,7 @@ export function checkUndeclaredVariables(
 					'undeclaredVariable',
 					`Variable not defined: '${name}'. Declare it before ${mode}, or remove Option Explicit.`,
 					span,
-					declareVariableData(source, member, name, assignedType?.()),
+					declarationData(name, assignedType?.()),
 				);
 			};
 			const scalarTarget = bareAssignmentTarget(source, span);
@@ -1038,31 +1041,40 @@ function assignedValueType(
  * infer a type from, and declaring a name the author only reads is as likely to
  * be papering over a typo as to be the fix.
  */
-function declareVariableData(
+function declarationDataFor(
 	source: string,
 	member: ProcedureNode,
-	name: string,
-	declaredType: string | undefined,
-): VbaDiagnosticData | undefined {
-	// Any letter the code page holds starts an identifier (issue #207).
-	if (!declaredType || !/^\p{L}[\p{L}\p{N}_]*$/u.test(name)) {
-		return undefined;
-	}
-	const insertAt = declarationInsertOffset(source, member);
-	if (insertAt === undefined) {
-		return undefined;
-	}
-	const eol = detectEol(source);
-	const indent = leadingWhitespaceOfLineAt(source, insertAt);
-	return {
-		declareVariable: {
-			variableName: name,
-			declaredType,
-			edit: {
-				span: { start: insertAt, end: insertAt },
-				newText: `${indent}Dim ${name} As ${declaredType}${eol}`,
+	moduleEol: () => string,
+): (name: string, declaredType: string | undefined) => VbaDiagnosticData | undefined {
+	// The insertion site depends only on this procedure and source. Resolve it
+	// once, and only when a diagnostic actually offers a declaration edit.
+	let site: { insertAt: number; indent: string; eol: string } | null | undefined;
+	return (name, declaredType) => {
+		// Any letter the code page holds starts an identifier (issue #207).
+		if (!declaredType || !/^\p{L}[\p{L}\p{N}_]*$/u.test(name)) {
+			return undefined;
+		}
+		if (site === undefined) {
+			const insertAt = declarationInsertOffset(source, member);
+			site = insertAt === undefined ? null : {
+				insertAt,
+				indent: leadingWhitespaceOfLineAt(source, insertAt),
+				eol: moduleEol(),
+			};
+		}
+		if (!site) {
+			return undefined;
+		}
+		return {
+			declareVariable: {
+				variableName: name,
+				declaredType,
+				edit: {
+					span: { start: site.insertAt, end: site.insertAt },
+					newText: `${site.indent}Dim ${name} As ${declaredType}${site.eol}`,
+				},
 			},
-		},
+		};
 	};
 }
 
