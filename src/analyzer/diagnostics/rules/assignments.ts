@@ -289,6 +289,7 @@ export function checkAssignmentTypes(
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
+	const isDocumentModule = documentModuleNameLookup(memberCtx);
 	// Declared-type facts are stable within this rule invocation. Value and
 	// object-state facts below still depend on the individual statement.
 	const objectTypes = new Map<string, {
@@ -517,7 +518,7 @@ export function checkAssignmentTypes(
 			const expected = enumName && enumNames.has(enumName) ? 'Long' : declaredExpected;
 			// `Sheet1 = 5` compiles as a Let through the document's default
 			// member, and a Worksheet or Workbook has none (issue #225).
-			if (!expected && !targetType.resolved && isDocumentModuleName(assignment.name, memberCtx)) {
+			if (!expected && !targetType.resolved && isDocumentModule(assignment.name)) {
 				// Word refuses `ThisDocument = 5` while compiling (issue #228).
 				if (memberCtx.model?.hostName === 'Word') {
 					push(
@@ -971,10 +972,26 @@ function arrayOnlyVariantFunctions(
 	return out;
 }
 
-/** Whether a bare name no declaration resolves is a document module's: Sheet1, ThisWorkbook. */
-function isDocumentModuleName(name: string, memberCtx: MemberCompletionContext): boolean {
-	const lower = name.toLowerCase();
-	return (memberCtx.projectClassMembers ?? []).some((type) => type.kind === 'document' && type.name.toLowerCase() === lower);
+/** Query document names without repeating project scans, preserving early matches. */
+function documentModuleNameLookup(memberCtx: MemberCompletionContext): (name: string) => boolean {
+	let names: Set<string> | undefined;
+	let nextIndex = 0;
+	return (name) => {
+		names ??= new Set();
+		const lower = name.toLowerCase();
+		if (names.has(lower)) { return true; }
+		const surfaces = memberCtx.projectClassMembers ?? [];
+		// Metadata is stable within this rule pass. Resume after the last examined
+		// surface; a successful query need not inspect the remaining project.
+		while (nextIndex < surfaces.length) {
+			const type = surfaces[nextIndex++];
+			if (type.kind !== 'document') { continue; }
+			const declared = type.name.toLowerCase();
+			names.add(declared);
+			if (declared === lower) { return true; }
+		}
+		return false;
+	};
 }
 
 /** Whether the value is one call and nothing more: `F()`, `F(1, 2)`. */
@@ -1718,6 +1735,7 @@ export function checkSetAssignments(
 	push: PushFn,
 	activity?: ConditionalActivityTracker,
 ): ProcedureStatementVisitor {
+	const isDocumentModule = documentModuleNameLookup(memberCtx);
 	// Form metadata is stable within this rule invocation; query only the names
 	// actually used, retaining the first matching control and missing results.
 	let formResolved = false;
@@ -1771,7 +1789,7 @@ export function checkSetAssignments(
 			);
 			// `Set Sheet1 = Nothing`: a document's name is no variable to Set
 			// (issue #225, measured in Excel 16.0).
-			if (!targetDeclaredType.resolved && isDocumentModuleName(target.name, memberCtx)) {
+			if (!targetDeclaredType.resolved && isDocumentModule(target.name)) {
 				push(
 					'setRequiresObject',
 					`'${target.name}' names the document module itself, which no Set can replace. This is a VBE compile error: Invalid use of property.`,
