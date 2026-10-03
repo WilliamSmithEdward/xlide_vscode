@@ -13,7 +13,7 @@ import {
 } from '../../completion/memberAccess';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import { isDispatchOnlyHostType, resolveHostEnum } from '../../host/hostModel';
-import { hostPropertyValueProblem } from './hostPropertyValues';
+import { hostPropertyValueProblem, hostUnionPropertyValueProblem } from './hostPropertyValues';
 import {
 	matchParenFrom,
 	splitTopLevelTokenGroups,
@@ -1479,6 +1479,18 @@ function checkMemberAssignmentTypes(
 		// `Range("A1").Font.Size = 500`: a value the host refuses (issue #204).
 		if (target && target.writable === undefined && !assignment.usesSet && !assignment.withArguments) {
 			const problem = hostPropertyValueProblem(target, assignment.valueTokens);
+			const value = assignment.valueTokens.filter((tok) => tok.kind !== 'comment');
+			if (problem && value.length > 0) {
+				push('hostPropertyValueOutOfRange', problem, { start: span.start + value[0].start, end: span.start + value[value.length - 1].end });
+				return;
+			}
+		}
+		// `ActiveSheet.Visible = "abc"`: a receiver of several host types,
+		// each refusing the value alike (issue #416).
+		if ((!target || !target.owner.includes('.')) && target?.writable === undefined && !assignment.usesSet && !assignment.withArguments) {
+			const resolved = resolveReceiverTypeAt(source, assignment.memberSpan.start, memberCtx);
+			const parts = resolved?.startsWith('union:') ? resolved.slice('union:'.length).split('|') : [];
+			const problem = parts.length > 0 ? hostUnionPropertyValueProblem(parts, assignment.member, assignment.valueTokens) : undefined;
 			const value = assignment.valueTokens.filter((tok) => tok.kind !== 'comment');
 			if (problem && value.length > 0) {
 				push('hostPropertyValueOutOfRange', problem, { start: span.start + value[0].start, end: span.start + value[value.length - 1].end });
