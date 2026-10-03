@@ -595,11 +595,11 @@ function walkObjectState(
 			if (node.kind !== 'WithBlock') {
 				return;
 			}
-			const receiver = unsetWithObjectReceiver(source, node.span, locals, state);
+			const receiver = unsetWithObjectReceiver(source, node, locals, state, elements);
 			if (receiver) {
 				report(
 					'objectVariableNotSet',
-					`Object variable '${receiver.name}' is Nothing before With member access. This will raise Run-time error '91': Object variable or With block variable not set.`,
+					`${receiver.element ? `Element ${receiver.name} of '${receiver.element}'` : `Object variable '${receiver.name}'`} is Nothing before With member access. This will raise Run-time error '91': Object variable or With block variable not set.`,
 					receiver.span,
 				);
 			}
@@ -1191,8 +1191,29 @@ function objectArrayElements(
 	if (arrays.size === 0) {
 		return { arrays, keys };
 	}
+	// `With a(0)` names an element too (issue #295).
+	const withHeaders: Span[] = [];
+	const visitWiths = (list: readonly BodyNode[]): void => {
+		for (const node of list) {
+			if (node.kind === 'WithBlock') {
+				withHeaders.push(blockHeaderLineSpan(source, node.span));
+			}
+			if (node.kind === 'IfBlock') {
+				for (const branch of node.branches) {
+					visitWiths(branch.body);
+				}
+			} else if ('body' in node && Array.isArray(node.body)) {
+				visitWiths(node.body as BodyNode[]);
+			}
+		}
+	};
+	visitWiths(proc.body);
+	const spans = [...withHeaders];
 	forEachStatement(proc.body, (stmt) => {
-		const toks = statementTokens(source, stmt.span);
+		spans.push(stmt.span);
+	}, activity);
+	for (const span of spans) {
+		const toks = statementTokens(source, span);
 		for (let i = 0; i + 3 < toks.length; i++) {
 			const lower = tokenName(toks[i])?.toLowerCase();
 			if (lower && arrays.has(lower) && toks[i - 1]?.rawText !== '.' && toks[i + 1].rawText === '(' && toks[i + 2].kind === 'integerLiteral' && toks[i + 3].rawText === ')') {
@@ -1202,7 +1223,7 @@ function objectArrayElements(
 				}
 			}
 		}
-	}, activity);
+	}
 	return { arrays, keys };
 }
 
@@ -1455,15 +1476,22 @@ function hasDefiniteMissingMember(
 	return surface !== undefined && !surface.hasMember(memberName);
 }
 
+/**
+ * `With o` on an object never set, or `With a(0)` on an element of a fixed
+ * array never set, whose body reaches it by a leading dot on a line that
+ * always runs. `With o` alone runs; the first `.Count` raises 91 (issue
+ * #295, measured in Excel 16.0).
+ */
 function unsetWithObjectReceiver(
 	source: string,
-	span: Span,
+	node: BodyNode,
 	locals: ReadonlyMap<string, LocalObjectVariable>,
 	state: ReadonlyMap<string, ObjectVariableState>,
-): { name: string; span: Span } | undefined {
-	const header = blockHeaderLineSpan(source, span);
-	const toks = statementTokensAfterLeadingLabel(source, header);
-	if (tokenText(toks[0]) !== 'with' || toks.length !== 2) {
+	elements: ObjectArrayElements,
+): { name: string; element?: string; span: Span } | undefined {
+	const header = blockHeaderLineSpan(source, node.span);
+	const toks = statementTokensAfterLeadingLabel(source, header).filter((tok) => tok.kind !== 'comment');
+	if (tokenText(toks[0]) !== 'with') {
 		return undefined;
 	}
 	const name = tokenName(toks[1]);
@@ -1471,13 +1499,20 @@ function unsetWithObjectReceiver(
 		return undefined;
 	}
 	const lower = name.toLowerCase();
-	if (!locals.has(lower) || locals.get(lower)!.letOnly || state.get(lower) !== 'unset') {
+	let found: { name: string; element?: string; span: Span } | undefined;
+	if (toks.length === 2 && locals.has(lower) && !locals.get(lower)!.letOnly && state.get(lower) === 'unset') {
+		found = { name, span: { start: header.start + toks[1].start, end: header.start + toks[1].end } };
+	} else if (toks.length === 5 && toks[2].rawText === '(' && toks[3].kind === 'integerLiteral' && toks[4].rawText === ')' && elements.arrays.has(lower)
+		&& state.get(`${lower}(${Number(toks[3].rawText.replace(/[%&^]$/, ''))})`) === 'unset') {
+		found = { name: toks.slice(1).map((tok) => tok.rawText).join(''), element: elements.arrays.get(lower)!.name, span: { start: header.start + toks[1].start, end: header.start + toks[4].end } };
+	}
+	if (!found || !('body' in node) || !Array.isArray(node.body)) {
 		return undefined;
 	}
-	return {
-		name,
-		span: { start: header.start + toks[1].start, end: header.start + toks[1].end },
-	};
+	const reached = (node.body as BodyNode[]).some((child) => isLeafStatement(child) && !(child.kind === 'Statement' && child.singleLineIfBranches)
+		&& statementTokensAfterLeadingLabel(source, child.span).some((tok, i, line) => tok.rawText === '.' && tokenName(line[i + 1]) !== undefined
+			&& (i === 0 || (line[i - 1].kind !== 'identifier' && line[i - 1].kind !== 'bracketedIdentifier' && line[i - 1].rawText !== ')' && line[i - 1].rawText !== ']' && tokenText(line[i - 1]) !== 'me'))));
+	return reached ? found : undefined;
 }
 
 function setAssignmentValueIsNothing(
