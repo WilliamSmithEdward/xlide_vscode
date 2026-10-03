@@ -591,7 +591,16 @@
         "issue332r_24_runtime",
         "issue332r_25_runtime",
         "issue332r_26_runtime",
-        "issue332r_27_runtime"
+        "issue332r_27_runtime",
+        "issue664_08_runtime",
+        "issue664_09_runtime",
+        "issue664_10_runtime",
+        "issue664_11_runtime",
+        "issue664_12_runtime",
+        "issue664_13_runtime",
+        "issue664_15_runtime",
+        "issue664_19_runtime",
+        "issue664_21_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -2306,7 +2315,9 @@
         "issue477e_122_runtime",
         "issue332r_07_runtime",
         "issue332r_08_runtime",
-        "issue614_05_runtime"
+        "issue614_05_runtime",
+        "issue664_06_runtime",
+        "issue664_07_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],

@@ -26,6 +26,8 @@ export interface ConditionFacts {
 	isNothing?(lower: string): boolean | undefined;
 	/** The whole numbers a name is known to lie between, both included: `Second(Now) + 1000` (issue #565). */
 	range?(lower: string): readonly [number, number] | undefined;
+	/** Whether a name is known to hold Null (issue #664). */
+	isNull?(lower: string): boolean | undefined;
 }
 
 /** What a name holds when only its range is known. */
@@ -219,6 +221,21 @@ class ConditionParser {
 		const word = tokenText(tok);
 		if (word === 'true' || word === 'false') {
 			return word === 'true';
+		}
+		// IsNull of a local a straight line set to Null, or to a number or a
+		// string (issue #664).
+		if (word === 'isnull' && this.toks[this.index]?.rawText === '(' && this.toks[this.index + 2]?.rawText === ')') {
+			const arg = this.toks[this.index + 1];
+			this.index += 3;
+			if (tokenText(arg) === 'null') {
+				return true;
+			}
+			const lower = tokenName(arg)?.toLowerCase() ?? '';
+			const held = this.facts.isNull?.(lower);
+			if (held !== undefined) {
+				return held;
+			}
+			return this.facts.value(lower) !== undefined ? false : undefined;
 		}
 		if (word === 'isnumeric' && this.toks[this.index]?.rawText === '(' && this.toks[this.index + 2]?.rawText === ')') {
 			const arg = this.toks[this.index + 1];

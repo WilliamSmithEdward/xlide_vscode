@@ -251,8 +251,12 @@ export function checkRuntimeArgumentValues(
 			// The argument's type; for a Variant local, the type of what a
 			// straight line has just put in it.
 			const valueType = (slot: readonly VbaToken[] | undefined): string | undefined => {
+				// What a Variant holds gives its type; a typed local keeps its own:
+				// `Dim a As Long: a = -0.5` holds 0, a Long (issue #664).
 				const held = (lower: string): VbaToken[] | undefined =>
-					(reaching ??= straightLineAssignments(source, member.body, activity)).get(stmt)?.get(lower)?.filter((tok) => tok.kind !== 'comment');
+					(normalizeType(env.get(lower)) ?? 'variant') !== 'variant'
+						? undefined
+						: (reaching ??= straightLineAssignments(source, member.body, activity)).get(stmt)?.get(lower)?.filter((tok) => tok.kind !== 'comment');
 				return staticValueType((slot ?? []).filter((tok) => tok.kind !== 'comment'), env, moduleSignatures, sourceNames, source, held);
 			};
 			const isNullSlot = (slot: readonly VbaToken[]): boolean => {
@@ -280,7 +284,10 @@ export function checkRuntimeArgumentValues(
 					return [{ ...value[0], kind: 'keyword', rawText: 'Empty' }];
 				}
 				const held = lower ? known.get(lower) : undefined;
-				if (!held || held.contentMutated || held.kind !== 'number' || Number.isInteger(held.value)) {
+				// A whole-number type rounds what it is given: `a = 2.5` with a
+				// a Long holds 2 (issue #664, measured in Excel 16.0).
+				const whole = ['byte', 'integer', 'long', 'longlong', 'longptr'].includes(normalizeType(env.get(lower ?? '')) ?? '');
+				if (!held || held.contentMutated || held.kind !== 'number' || Number.isInteger(held.value) || whole) {
 					return slot;
 				}
 				return literalTokensFor(held.value as number, value[0]);

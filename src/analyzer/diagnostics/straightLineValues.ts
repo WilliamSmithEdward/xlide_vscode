@@ -1186,6 +1186,10 @@ function factsFrom(current: ReachingAssignments): ConditionFacts {
 		value: (lower) => literalOf(current.get(lower)),
 		isNothing: (lower) => (current.get(lower) === OBJECT_NOTHING ? true : current.get(lower) === EMPTY_COLLECTION ? false : undefined),
 		range: (lower) => datePartRange(current.get(lower)),
+		isNull: (lower) => {
+			const value = current.get(lower)?.filter((tok) => tok.kind !== 'comment');
+			return value?.length === 1 && tokenText(value[0]) === 'null' ? true : undefined;
+		},
 	};
 }
 
