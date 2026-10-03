@@ -307,6 +307,7 @@ export function checkRuntimeMemberNotFound(
 ): void {
 	const model = memberCtx.model;
 	const applicationSurface = excelApplicationSurface(model);
+	const rangeSurface = applicationSurface ? excelRangeSurface(model) : undefined;
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
@@ -317,7 +318,7 @@ export function checkRuntimeMemberNotFound(
 			for (const span of statementAndBranchSpans(stmt)) {
 				const toks = statementTokens(source, span);
 				checkFormControlNames(source, span.start, toks, memberCtx, added, push);
-				checkOpenTypeMembers(source, span.start, toks, env, applicationSurface, memberCtx, push);
+				checkOpenTypeMembers(source, span.start, toks, env, applicationSurface, rangeSurface, memberCtx, push);
 			}
 		}, activity);
 		checkCollectionItems(source, member, symbols, env, memberCtx, activity, push);
@@ -595,6 +596,13 @@ function excelApplicationSurface(model: HostObjectModel | undefined): ReadonlySe
 	return names;
 }
 
+/** A Range's members, when the model knows all of them; empty otherwise. */
+function excelRangeSurface(model: HostObjectModel | undefined): ReadonlySet<string> {
+	return getHostType('Excel.Range', model)?.exhaustive === true
+		? new Set(getHostMembers('Excel.Range', model).map((member) => member.name.toLowerCase()))
+		: new Set();
+}
+
 function checkStatement(
 	source: string,
 	base: number,
@@ -705,12 +713,12 @@ function checkOpenTypeMembers(
 	toks: readonly VbaToken[],
 	env: ReadonlyMap<string, string>,
 	applicationSurface: ReadonlySet<string> | undefined,
+	rangeNames: ReadonlySet<string> | undefined,
 	memberCtx: MemberCompletionContext,
 	push: PushFn,
 ): void {
 	const model = memberCtx.model;
 	const projectTypes = memberCtx.projectClassMembers ?? [];
-	let rangeNames: ReadonlySet<string> | undefined;
 	let sheetNames: ReadonlySet<string> | undefined;
 	for (let i = 1; i + 1 < toks.length; i++) {
 		const name = toks[i].rawText === '.' ? tokenName(toks[i + 1]) : undefined;
@@ -742,10 +750,7 @@ function checkOpenTypeMembers(
 			}
 			continue;
 		}
-		rangeNames ??= getHostType('Excel.Range', model)?.exhaustive === true
-			? new Set(getHostMembers('Excel.Range', model).map((member) => member.name.toLowerCase()))
-			: new Set();
-		if (rangeNames.size > 0 && !rangeNames.has(lower) && resolveReceiverTypeAt(source, base + toks[i].end, memberCtx) === 'Excel.Range') {
+		if (rangeNames && rangeNames.size > 0 && !rangeNames.has(lower) && resolveReceiverTypeAt(source, base + toks[i].end, memberCtx) === 'Excel.Range') {
 			push('runtimeMemberNotFound', `A Range has no member '${name}'. The VBE compiles the name because Range is extensible; ${MEMBER_NOT_SUPPORTED}`, at);
 		}
 	}
