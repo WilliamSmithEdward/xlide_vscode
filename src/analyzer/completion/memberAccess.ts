@@ -299,6 +299,9 @@ export function resolveHostMemberKindAt(
 	if (!hit || !hostReceiverTypesOf(hit.currentType).some((type) => getHostType(type, ctx.model))) {
 		return undefined;
 	}
+	if (ctx.memberSurfaceCache) {
+		return surfaceMemberNamed(hit.surface, memberName)?.kind;
+	}
 	const lowerName = memberName.toLowerCase();
 	return hit.surface.members.find((member) => member.name.toLowerCase() === lowerName)?.kind;
 }

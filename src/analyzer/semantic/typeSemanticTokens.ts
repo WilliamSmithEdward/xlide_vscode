@@ -811,6 +811,8 @@ export function collectHostMemberMethodTokens(
 		parsedModule: parseModule(source),
 		// One With-stack scan per procedure for the whole pass, not one per dot.
 		withScanCache: new Map(),
+		// One member surface/index per receiver type for this immutable pass.
+		memberSurfaceCache: new Map(),
 		model: ctx.model,
 		codeNames: ctx.codeNames,
 		implicitMembers: ctx.implicitMembers as MemberCompletionContext['implicitMembers'],
