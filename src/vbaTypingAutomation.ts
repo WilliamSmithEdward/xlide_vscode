@@ -90,9 +90,13 @@ export function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
             new vscode.Position(bodyLineIndex, bodyLine.length),
         );
 
+        const caretOwnership = enterCaretOwnership(editor,
+            new vscode.Position(bodyLineIndex, bodyLine.length),
+            new vscode.Position(bodyLineIndex + smartBlock.bodyLineOffset, smartBlock.bodyText.length));
         applying.add(doc);
+        let applied = false;
         try {
-            const applied = await editor.edit(
+            applied = await editor.edit(
                 (eb) => {
                     if (headerParensEdit) {
                         eb.insert(
@@ -110,6 +114,7 @@ export function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
             if (!applied) { return; }
         } finally {
             applying.delete(doc);
+            if (!applied) { caretOwnership.dispose(); }
         }
 
         // Keep the caret on the indented body line, above the inserted End. The
@@ -127,30 +132,45 @@ export function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
                 smartBlock.bodyText.length,
             );
             editor.selection = new vscode.Selection(caret, caret);
+            suggestAfterAutoDot(editor, smartBlock.bodyText);
         };
-        placeCaret();
-        scheduleCaretRetry(editor, placeCaret);
-        suggestAfterAutoDot(editor, smartBlock.bodyText);
+        caretOwnership.schedule(placeCaret);
     });
 
     context.subscriptions.push(sub);
 }
 
-/** Retry placement only while this edit still owns the document and selection. */
-function scheduleCaretRetry(editor: vscode.TextEditor, placeCaret: () => void): void {
+/** Tracks native navigation until the editor's pending edit has settled. */
+function enterCaretOwnership(editor: vscode.TextEditor, before: vscode.Position, after: vscode.Position) {
     const document = editor.document;
     const version = document.version;
-    const selection = editor.selection;
-    setTimeout(() => {
-        if (vscode.window.activeTextEditor !== editor) { return; }
-        const current = editor.selection;
-        if (document.isClosed || document.version !== version || editor.document !== document ||
-            current.active.line !== selection.active.line || current.active.character !== selection.active.character ||
-            current.anchor.line !== selection.anchor.line || current.anchor.character !== selection.anchor.character) {
-            return;
-        }
-        placeCaret();
-    }, 0);
+    const initial = editor.selection;
+    let navigated = false;
+    const subscription = vscode.window.onDidChangeTextEditorSelection(event => {
+        // Text-edit adjustments have no selection kind. Explicit keyboard,
+        // mouse or command navigation takes ownership away from this edit.
+        if (event.textEditor === editor && event.kind !== undefined) { navigated = true; }
+    });
+    const at = (selection: vscode.Selection, position: vscode.Position): boolean =>
+        selection.active.line === position.line && selection.active.character === position.character &&
+        selection.anchor.line === position.line && selection.anchor.character === position.character;
+    return {
+        dispose: () => subscription.dispose(),
+        schedule(placeCaret: () => void): void {
+            // Let queued native selection notifications arrive before deciding
+            // to place the caret. Keep observing until this deferred pass ends.
+            setTimeout(() => {
+                try {
+                    const current = editor.selection;
+                    const unchanged = current.active.line === initial.active.line && current.active.character === initial.active.character &&
+                        current.anchor.line === initial.anchor.line && current.anchor.character === initial.anchor.character;
+                    if (navigated || vscode.window.activeTextEditor !== editor || editor.document !== document || document.isClosed ||
+                        document.version !== version + 1 || (!unchanged && !at(current, before) && !at(current, after))) { return; }
+                    placeCaret();
+                } finally { subscription.dispose(); }
+            }, 0);
+        },
+    };
 }
 
 /**
@@ -227,15 +247,12 @@ async function maybeContinueWithMemberLine(
     const lineText = withMemberContinuationText(doc.getText(), previousLineIndex);
     if (!lineText) { return; }
 
-    const editor = await replaceBodyLine(doc, bodyLineIndex, bodyLine, lineText);
-    if (editor) {
-        suggestAfterAutoDot(editor, lineText);
-    }
+    await replaceBodyLine(doc, bodyLineIndex, bodyLine, lineText);
 }
 
 /**
- * Replaces the blank body line with `lineText` and parks the caret at its end,
- * now and again once the editor settles. The editor, when the edit applied.
+ * Replaces the blank body line with `lineText`, then places its caret once the
+ * editor settles if navigation has not taken ownership. Returns the edited editor.
  */
 async function replaceBodyLine(
     doc: vscode.TextDocument,
@@ -250,10 +267,15 @@ async function replaceBodyLine(
         new vscode.Position(bodyLineIndex, 0),
         new vscode.Position(bodyLineIndex, bodyLine.length),
     );
-    const applied = await editor.edit(
-        (eb) => eb.replace(bodyRange, lineText),
-        { undoStopBefore: false, undoStopAfter: true },
-    );
+    const caretOwnership = enterCaretOwnership(editor,
+        new vscode.Position(bodyLineIndex, bodyLine.length), new vscode.Position(bodyLineIndex, lineText.length));
+    let applied = false;
+    try {
+        applied = await editor.edit(
+            (eb) => eb.replace(bodyRange, lineText),
+            { undoStopBefore: false, undoStopAfter: true },
+        );
+    } finally { if (!applied) { caretOwnership.dispose(); } }
     if (!applied) { return undefined; }
 
     const placeCaret = (): void => {
@@ -265,9 +287,9 @@ async function replaceBodyLine(
         }
         const caret = new vscode.Position(bodyLineIndex, lineText.length);
         editor.selection = new vscode.Selection(caret, caret);
+        suggestAfterAutoDot(editor, lineText);
     };
-    placeCaret();
-    scheduleCaretRetry(editor, placeCaret);
+    caretOwnership.schedule(placeCaret);
     return editor;
 }
 
