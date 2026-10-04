@@ -182,6 +182,32 @@ suite('Explorer shape refresh in the extension host', () => {
 });
 
 suite('Explorer sheet context in the extension host', () => {
+    test('an opened module-less Shapes folder survives a case-only sheet rename', async () => {
+        let name = 'Data';
+        const explorer = new ProjectExplorer({ call: (method: string) => {
+            if (method === 'listModules') { return Promise.resolve([]); }
+            if (method === 'listWorkbookSheets') { return Promise.resolve({ sheets: [{ name, kind: 'worksheet' }] }); }
+            if (method === 'listShapes') { return Promise.resolve({ surfaces: [{ surface: name, shapes: [{ name: 'Box', kind: 'shape' }] }] }); }
+            return Promise.resolve([]);
+        } } as unknown as ConstructorParameters<typeof ProjectExplorer>[0]);
+        try {
+            const project = (await explorer.getChildren()).find(node => node.filePath === workbookPath());
+            assert.ok(project);
+            const [sheets] = await explorer.getChildren(project);
+            const [sheet] = await explorer.getChildren(sheets);
+            const [folder] = await explorer.getChildren(sheet);
+            assert.deepEqual((await explorer.getChildren(folder)).map(node => node.label), ['Box']);
+            name = 'DATA';
+            explorer.refreshShapes(workbookPath());
+            const [renamed] = await explorer.getChildren(sheets);
+            assert.equal(renamed, sheet);
+            const [retained] = await explorer.getChildren(renamed);
+            assert.equal(retained, folder);
+            assert.deepEqual((await explorer.getChildren(retained)).map(node => node.label), ['Box']);
+            assert.deepEqual(await explorer.shapeSurfaceOf(retained), { host: 'excel', surface: 'DATA' });
+        } finally { explorer.dispose(); }
+    });
+
     test('an opened Shapes folder targets the renamed sheet', async () => {
         let name = 'Data';
         const explorer = new ProjectExplorer({ call: (method: string) => {
