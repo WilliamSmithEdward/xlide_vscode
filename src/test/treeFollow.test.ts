@@ -125,6 +125,25 @@ suite('The explorer following the editor', () => {
 		}
 	});
 
+	test('selects the module when its last procedure is deleted without moving the caret', async () => {
+		await agentWrite(workbookPath(), 'CaretEmpty', 'Public Sub CaretOnly()\r\nEnd Sub\r\n');
+		await vscode.commands.executeCommand('xlide.refreshExplorer');
+		const editor = await vscode.window.showTextDocument(moduleUri('CaretEmpty'), { preview: false });
+		editor.selection = new vscode.Selection(0, 0, 0, 0);
+		await settle();
+		assert.deepEqual((await viewState()).selected, ['sub:Sub CaretOnly']);
+		try {
+			assert.ok(await editor.edit(edit => edit.delete(new vscode.Range(0, 0, editor.document.lineCount, 0))));
+			await settle();
+			assert.ok(editor.document.isDirty);
+			assert.equal(editor.selection.active.line, 0);
+			const state = await viewState();
+			assert.deepEqual(state.selected, ['module:CaretEmpty'], JSON.stringify(state));
+		} finally {
+			await vscode.commands.executeCommand('workbench.action.files.revert');
+		}
+	});
+
 	test('marks the procedure the caret ends in, after it crossed several quickly', async () => {
 		await showInSecond(moduleUri('FollowD'));
 		await settle();
