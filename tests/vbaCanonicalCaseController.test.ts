@@ -147,6 +147,27 @@ afterEach(() => {
 });
 
 describe('what the canonical-case controller counts as typing', () => {
+	it.each([1, 2])('cancels pending casing on history changes (reason %s)', async (reason) => {
+		const document = fakeDocument(SOURCE);
+		document.isDirty = true;
+		const editor = fakeEditor(document);
+		show(editor);
+		const casing = controller();
+		casing.handleTextDocumentChange(changed(document, 0, 15, 15, ' '));
+		const read = vi.spyOn(document, 'getText');
+		casing.handleTextDocumentChange({ ...changed(document, 0, 0, 15, 'option explicit'), reason } as vscodeTypes.TextDocumentChangeEvent);
+		await vi.advanceTimersByTimeAsync(250);
+		casing.handleSelectionChange({ textEditor: editor } as unknown as vscodeTypes.TextEditorSelectionChangeEvent);
+		expect(casing.pendingEditsForSave(document as never)).toEqual([]);
+		expect(editor.edit).not.toHaveBeenCalled();
+		expect(read).not.toHaveBeenCalled();
+
+		// The next real keystroke must still receive normal casing.
+		casing.handleTextDocumentChange(changed(document, 0, 15, 15, ' '));
+		await vi.advanceTimersByTimeAsync(250);
+		expect(editor.replaced).toEqual(['Option', 'Explicit']);
+	});
+
 	it('defers canonical analysis during caret updates caused by typing or Backspace', async () => {
 		const document = fakeDocument(SOURCE);
 		document.isDirty = true;
@@ -344,6 +365,23 @@ describe('an editor that closes under a pending recase', () => {
 
 
 describe('canonical casing lifecycle and idle work', () => {
+	it.each([1, 2])('drops queued recases when history changes during a pending edit (reason %s)', async (reason) => {
+		const document = fakeDocument(SOURCE);
+		document.isDirty = true;
+		const editor = fakeEditor(document);
+		show(editor);
+		const casing = controller();
+		let finish!: (value: boolean) => void;
+		editor.edit.mockImplementationOnce(() => new Promise<boolean>(resolve => { finish = resolve; }));
+		const first = casing.applyCanonicalCaseForLine(document as never, 0, editor as never);
+		await casing.applyCanonicalCaseForLine(document as never, 1, editor as never);
+		casing.handleTextDocumentChange({ ...changed(document, 0, 0, 15, 'option explicit'), reason } as vscodeTypes.TextDocumentChangeEvent);
+		finish(false);
+		await first;
+		await vi.advanceTimersByTimeAsync(250);
+		expect(editor.edit).toHaveBeenCalledTimes(1);
+	});
+
     it('does not read an untouched module during save', () => {
         const document = fakeDocument(SOURCE);
         const read = vi.spyOn(document, 'getText');

@@ -250,6 +250,12 @@ export class VbaCanonicalCaseController implements vscode.Disposable {
 		if (this._disposed || event.document.isClosed || !isVbaDocument(event.document)) {
 			return;
 		}
+		if (event.reason !== undefined) {
+			// Undo/Redo restores the user's chosen text. Discard timers, queued
+			// edits and save/navigation touches from the abandoned typing pass.
+			this._cancelDocumentWork(event.document);
+			return;
+		}
 		// A reload - an agent's write to an open module, a restore from git, a
 		// revert - arrives as a content change too, and leaves the document
 		// matching its file, which typing never does. VS Code reports the
@@ -349,6 +355,10 @@ export class VbaCanonicalCaseController implements vscode.Disposable {
 	}
 
 	handleDocumentClose(document: vscode.TextDocument): void {
+		this._cancelDocumentWork(document);
+	}
+
+	private _cancelDocumentWork(document: vscode.TextDocument): void {
 		for (let index = this._pendingCanonicalCaseRequests.length - 1; index >= 0; index--) {
 			if (this._pendingCanonicalCaseRequests[index].document === document) {
 				this._pendingCanonicalCaseRequests.splice(index, 1);
