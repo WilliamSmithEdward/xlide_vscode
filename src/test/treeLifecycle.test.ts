@@ -82,6 +82,35 @@ suite('Explorer lifetime in the extension host', () => {
 });
 
 suite('Explorer shape refresh in the extension host', () => {
+    test('a shape refresh visits only opened rows in its own project', async () => {
+        let shapeCalls = 0, unrelatedPathReads = 0;
+        const explorer = new ProjectExplorer({ call: () => {
+            shapeCalls++;
+            return Promise.resolve({ surfaces: [] });
+        } } as unknown as ConstructorParameters<typeof ProjectExplorer>[0]);
+        const target = { kind: 'shapes' as const, shapeFolder: 'surface' as const,
+            surface: 'Data', label: 'Shapes', filePath: workbookPath() };
+        const fired: unknown[] = [];
+        const subscription = explorer.onDidChangeTreeData(node => fired.push(node));
+        try {
+            for (let i = 0; i < 1000; i++) {
+                const other = { ...target, surface: `Sheet ${i}` };
+                Object.defineProperty(other, 'filePath', { get: () => {
+                    unrelatedPathReads++;
+                    return `${workbookPath()}.other.xlsm`;
+                } });
+                await explorer.getChildren(other);
+            }
+            await explorer.getChildren(target);
+            await explorer.getChildren(target);
+            unrelatedPathReads = 0;
+            for (let i = 0; i < 10; i++) { explorer.refreshShapes(workbookPath()); }
+            assert.equal(unrelatedPathReads, 0, 'refresh must not scan other projects');
+            assert.deepEqual(fired, Array(10).fill(target));
+            assert.equal(shapeCalls, 2, 'refresh notification itself should start no bridge reads');
+        } finally { subscription.dispose(); explorer.dispose(); }
+    });
+
     test('a retained bare-sheet folder refreshes before Sheets redraws', async () => {
         let name = 'Data', hasShapes = false;
         const explorer = new ProjectExplorer({ call: (method: string) => {
