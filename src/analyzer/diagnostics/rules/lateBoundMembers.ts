@@ -186,7 +186,7 @@ function argumentRefusal(toks: readonly VbaToken[], at: number, params: readonly
 		}
 		args = close === open + 1 ? [] : splitTopLevelTokenGroups(toks, open + 1, ',', close);
 	} else if (at === 0 && toks.length > open && toks[open].rawText !== '=' && toks[open].rawText !== '.') {
-		args = splitTopLevelTokenGroups(toks.filter((tok) => tok.kind !== 'comment'), open, ',', toks.filter((tok) => tok.kind !== 'comment').length);
+		args = splitTopLevelTokenGroups(toks, open, ',', toks.length);
 	} else if (at === 0 && toks.length === open) {
 		args = [];
 	} else if (at > 0 && toks[open]?.rawText !== '=' && toks[open]?.rawText !== '.' && toks[open]?.rawText !== '!') {
@@ -211,7 +211,7 @@ function argumentRefusal(toks: readonly VbaToken[], at: number, params: readonly
 	}
 	const given = new Set(named.map((arg) => arg[0].rawText.toLowerCase()));
 	const missing = params.find((param, k) => !param.optional && !param.paramArray && !given.has(param.name.toLowerCase())
-		&& (k >= positional || (args![k] !== undefined && args![k].filter((tok) => tok.kind !== 'comment').length === 0)));
+		&& (k >= positional || (args![k] !== undefined && args![k].length === 0)));
 	return missing ? `its ${memberName} needs '${missing.name}', which is not passed. This will raise Run-time error '449': Argument not optional` : undefined;
 }
 
