@@ -36,4 +36,4 @@ Node v24.18.0, AMD Ryzen 7 9800X3D 8-Core Processor           ; three warmups an
 | 1000/WithMe/fresh | 10.859–12.790 | 10.817–16.367 |
 
 
-Full repository validation is running before this change is marked ready.
+Full repository validation passes: 705 files passed, two skipped; 14,158 tests passed and 26 skipped. The linked PR is stacked on #1011 until that prerequisite merges.

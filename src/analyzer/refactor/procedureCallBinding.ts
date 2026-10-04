@@ -24,7 +24,7 @@ export function procedureCallBinding(
 					if (otherName.toLowerCase() !== moduleName.toLowerCase()) {
 						project.setModule({moduleName: otherName, moduleKind: 'standard', source: otherSource});
 					}
-			}
+				}
 			}
 		}
 		let tokens = tokensByModule.get(callerName);
