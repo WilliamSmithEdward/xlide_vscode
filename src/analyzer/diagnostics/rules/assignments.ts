@@ -55,6 +55,7 @@ import {
 import {
 	buildModuleTypeSignatures,
 	createObjectAssignmentTypeResolver,
+	createObjectTypeImplementationLookup,
 	createProjectInterfaceSharingLookup,
 	callableSignatureForCall,
 	callableTypeSignaturesFor,
@@ -293,6 +294,11 @@ export function checkAssignmentTypes(
 ): void {
 	const isDocumentModule = projectTypeNameLookup(memberCtx, 'document', false);
 	const isFormOwner = projectTypeNameLookup(memberCtx, 'userform', true);
+	const resolveObjectType = createObjectAssignmentTypeResolver(memberCtx);
+	const shareInterfaces = createProjectInterfaceSharingLookup(memberCtx);
+	const implementsType = createObjectTypeImplementationLookup();
+	const objectAssignmentReason = (expected: string | undefined, actual: ReturnType<typeof inferArgumentType>) =>
+		objectAssignmentIncompatibilityReason(expected, actual, memberCtx, resolveObjectType, shareInterfaces, implementsType);
 	// Declared-type facts are stable within this rule invocation. Value and
 	// object-state facts below still depend on the individual statement.
 	const objectTypes = new Map<string, {
@@ -773,6 +779,7 @@ export function checkAssignmentTypes(
 			push,
 			projectDeclaresCollection,
 			isFormOwner,
+			objectAssignmentReason,
 			resolveExpressionType,
 			resolveQualifiedExpressionType,
 			symbols,
@@ -1493,6 +1500,7 @@ function checkMemberAssignmentTypes(
 	push: PushFn,
 	projectDeclaresCollection: () => boolean,
 	isFormOwner: (name: string) => boolean,
+	objectAssignmentReason: (expected: string | undefined, actual: ReturnType<typeof inferArgumentType>) => string | undefined,
 	resolveExpressionType?: SourceDeclaredTypeResolver,
 	resolveQualifiedExpressionType?: SourceQualifiedDeclaredTypeResolver,
 	symbols?: ReturnType<typeof buildModuleSymbols>,
@@ -1646,11 +1654,7 @@ function checkMemberAssignmentTypes(
 				resolveExpressionType,
 				resolveQualifiedExpressionType,
 			);
-			const reason = objectAssignmentIncompatibilityReason(
-				expected,
-				actual,
-				memberCtx,
-			);
+			const reason = objectAssignmentReason(expected, actual);
 			if (reason) {
 				pushObjectAssignmentMismatch(push, assignment.label, expected, actual, reason, assignment.memberSpan, 'Object required');
 			}
@@ -1779,6 +1783,7 @@ export function checkSetAssignments(
 	const isProjectClass = projectTypeNameLookup(memberCtx, 'class', false);
 	const resolveObjectType = createObjectAssignmentTypeResolver(memberCtx);
 	const shareInterfaces = createProjectInterfaceSharingLookup(memberCtx);
+	const implementsType = createObjectTypeImplementationLookup();
 	// Form metadata is stable within this rule invocation; query only the names
 	// actually used, retaining the first matching control and missing results.
 	let formResolved = false;
@@ -1912,6 +1917,7 @@ export function checkSetAssignments(
 					memberCtx,
 					resolveObjectType,
 					shareInterfaces,
+					implementsType,
 				);
 				// `Set o = New Flat1` then `Set c = o`: the class an Object holds
 				// is checked as the Set runs (issue #246, measured in Excel 16.0).
@@ -1920,7 +1926,7 @@ export function checkSetAssignments(
 					const held = heldAt(stmt).classes.get(tokenName(value[0])!.toLowerCase());
 					if (held) {
 						shown = { type: held, label: `'${value[0].rawText}', which holds a ${held} here`, span: { start: span.start + value[0].start, end: span.start + value[0].end } };
-						reason = objectAssignmentIncompatibilityReason(expected, shown, memberCtx, resolveObjectType, shareInterfaces);
+						reason = objectAssignmentIncompatibilityReason(expected, shown, memberCtx, resolveObjectType, shareInterfaces, implementsType);
 					}
 				}
 				// `Set c = ActiveSheet`: a Worksheet or a Chart, never a
