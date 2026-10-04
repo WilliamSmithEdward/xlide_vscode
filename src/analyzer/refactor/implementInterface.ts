@@ -1,6 +1,7 @@
 import { parseModule } from '../parser/parseModule';
-import type { ModuleNode, ProcedureNode, Span } from '../parser/nodes';
-import { detectEol, lineStartAt } from '../../vbaSourceScan';
+import { blockHeaderLineSpan } from '../parser/physicalLineSpans';
+import type { ModuleNode, ProcedureNode } from '../parser/nodes';
+import { detectEol } from '../../vbaSourceScan';
 import { refactor, refuse, type VbaRefactorResult } from './refactorTypes';
 import { escapeForRegExp, lookupModuleSource } from './shared';
 import { isRefactorObjectType } from './typeKinds';
@@ -137,20 +138,9 @@ function publicMembersOf(source: string): InterfaceMember[] {
  * otherwise.
  */
 function headerText(source: string, member: ProcedureNode): string {
-	const line = source.slice(member.span.start, headerEnd(source, member.span));
+	const header = blockHeaderLineSpan(source, member.span);
+	const line = source.slice(header.start, header.end);
 	return line.trim().replace(/^\s*(?:Public|Private|Friend)\s+/i, '');
-}
-
-/** The end of the header, following any `_` line continuations. */
-function headerEnd(source: string, span: Span): number {
-	let at = source.indexOf('\n', span.start);
-	if (at === -1) { return span.end; }
-	while (/_[ \t]*\r?$/.test(source.slice(lineStartAt(source, at), at))) {
-		const next = source.indexOf('\n', at + 1);
-		if (next === -1) { break; }
-		at = next;
-	}
-	return Math.min(at, span.end);
 }
 
 function closerFor(procKind: ProcedureNode['procKind']): string {
