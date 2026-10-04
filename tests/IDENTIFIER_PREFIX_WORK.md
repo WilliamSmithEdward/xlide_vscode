@@ -53,3 +53,21 @@ caret/focus failure capture, so it is not classified as a product stall or
 excluded as a test error. The probe now captures focus, synthetic-line suffix
 booleans and actual document/caret metadata on failure; it prints no private
 source or completion labels. Further sustained unprofiled coverage is required.
+
+
+The full local suite passed 14,601 tests across 743 files with four workers.
+The default-worker attempt hit two existing five-second storage-test timeouts;
+no limits or tests were changed. An unprofiled repeat passed all 12 native/
+workbook cases, 1,000 fresh-source cycles and 62 mouse hovers at 9fcfce85.
+Visible Backspace median/p95/max was 16/37/61 ms; typing 17/46/61 ms; menus
+120/156/651 ms; miss invalidation 1/18/77 ms. Mouse hover was 380/406/420 ms,
+including Code's hover delay. The longest menu was cycle 573 after 30 ms idle.
+Command-driven typing median/max was 2.14/14.98 ms and Backspace 2.02/85.21 ms;
+the recorded host-heartbeat maximum was 48.72 ms. Declaration edit-to-hover was
+15.29 ms and edit-to-code-actions 3.78 ms. Native deletion still worked during
+an occupied host, including a forced stale cleanup context.
+
+The cycle-113 failure did not repeat in this run, but remains unclassified.
+The 651 ms popup outlier keeps the overall stalling/latency goal open. The
+component optimization is validated; the remaining outlier needs a longer
+correlated CPU capture rather than attribution from these unprofiled timings.
