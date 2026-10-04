@@ -98,4 +98,39 @@ suite('Native Backspace renderer routing', () => {
             console.log(`Renderer Backspace ${suffix}: ${JSON.stringify(result)}`);
         });
     }
+
+    test('recovers member suggestions when host load delays the native caret update', async () => {
+        const file = path.join(workspaceRoot(), 'NativeDelayedRecovery.bas');
+        fs.writeFileSync(file, 'Sub NativeDelayedRecovery()\nThisWorkbook.Sheets(1).cez\nEnd Sub\n');
+        const document = await open(vscode.Uri.file(file));
+        const editor = vscode.window.activeTextEditor!;
+        const caret = document.lineAt(1).range.end;
+        editor.selection = new vscode.Selection(caret, caret);
+        await vscode.commands.executeCommand('hideSuggestWidget');
+        await vscode.commands.executeCommand('workbench.action.focusActiveEditorGroup');
+        let pauses = 0;
+        const trace: { oldCaret: boolean; elapsedMs: number }[] = [];
+        const subscription = vscode.workspace.onDidChangeTextDocument(event => {
+            if (event.document !== document || event.contentChanges.length !== 1) { return; }
+            const change = event.contentChanges[0];
+            if (change.text !== '' || change.rangeLength !== 1 || !document.lineAt(1).text.endsWith('.ce')) { return; }
+            pauses++;
+            const oldCaret = editor.selection.active.character === change.range.end.character;
+            const started = Date.now();
+            const deadline = started + 1500;
+            while (Date.now() < deadline) { /* delay the queued native caret notification */ }
+            trace.push({ oldCaret, elapsedMs: Date.now() - started });
+        });
+        try {
+            const result = await runRendererBackspaceProbe('stress', false, undefined,
+                { cycles: 6, hover: false, assertMissHidden: false, freshSources: false, nonceStatement: '' }, '-delayed-caret');
+            assert.equal(result.samples?.length, 6);
+            assert.equal(pauses, 6);
+            assert.ok(trace.every(state => state.oldCaret), 'each pause must precede the native caret update');
+            console.log('Delayed native caret recovery:', JSON.stringify(result));
+        } finally {
+            subscription.dispose();
+            console.log('Delayed native caret states:', JSON.stringify(trace));
+        }
+    });
 });

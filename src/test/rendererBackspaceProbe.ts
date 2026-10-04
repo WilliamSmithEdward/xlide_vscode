@@ -46,6 +46,7 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
     };
     const readLine = "Array.from(document.querySelectorAll('.monaco-editor .view-line')).map(line => line.textContent).find(text => text.includes('ThisWorkbook.Sheets(1).ce'))";
     if (mode !== 'transition' && mode !== 'cleanup' && !(await evaluate(readLine))?.endsWith('.cez')) throw new Error('Synthetic test line is not visible');
+    await call('Page.bringToFront');
     await evaluate("(() => { const input = document.querySelector('.monaco-editor.focused .inputarea') || document.querySelector('.monaco-editor .inputarea'); if (input) input.focus(); return document.activeElement?.className; })()");
     fs.writeFileSync(readyFile, 'ready');
     const deadline = Date.now() + 15000;
@@ -109,12 +110,20 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
                 await delay(5);
             }
         };
+        const ensureForeground = async () => {
+            // A disposable test window can lose native focus to another app.
+            // Establish the input precondition before starting a timed action.
+            await call('Page.bringToFront');
+            await evaluate("(() => { const input = document.querySelector('.monaco-editor.focused .inputarea, .monaco-editor.focused .native-edit-context') || document.querySelector('.monaco-editor .inputarea, .monaco-editor .native-edit-context'); input?.focus(); })()");
+            await until(async () => await evaluate("document.hasFocus() && document.querySelectorAll('.monaco-editor.focused').length === 1"), 'foreground editor precondition');
+        };
         const visibleHover = "Array.from(document.querySelectorAll('.monaco-hover')).filter(node => node.checkVisibility({ visibilityProperty: true, opacityProperty: true })).map(node => node.textContent).join(' ')";
         const hoverSamples = [];
         // Monaco retains offscreen rows in the DOM; choose a visible symbol
         // rather than repeatedly waiting for the first occurrence to scroll in.
         const readHoverPoint = () => evaluate("(() => { const editor = document.querySelector('.monaco-editor.focused'); const viewport = editor?.querySelector('.editor-scrollable')?.getBoundingClientRect(); if (!viewport) return; for (const row of editor.querySelectorAll('.view-line')) { const walker = document.createTreeWalker(row, NodeFilter.SHOW_TEXT); let text; while ((text = walker.nextNode())) { const start = text.textContent.indexOf('LatencyValue'); if (start < 0) continue; const range = document.createRange(); range.setStart(text, start + 2); range.setEnd(text, start + 3); const box = range.getBoundingClientRect(); const x = box.x + box.width / 2, y = box.y + box.height / 2; if (box.width > 0 && box.height > 0 && x >= viewport.left && x <= viewport.right && y >= viewport.top && y <= viewport.bottom) return { x, y }; } } })()");
         const showHover = async () => {
+            await ensureForeground();
             // Reveal the variable's own line: a short editor viewport need
             // not show the preceding statement while the member caret is visible.
             await pressKey('Escape', 'Escape', 27);
@@ -144,6 +153,7 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
             for (let i = 0; i < stress.cycles; i++) {
                 const idleMs = [0, 30, 250, 350][i % 4];
                 await delay(idleMs);
+                await ensureForeground();
                 const before = Date.now();
                 await deleteKey();
                 await until(async () => (await evaluate(readLine))?.endsWith('.ce'), 'Backspace cycle ' + i);
@@ -168,6 +178,7 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
                 if (stress.hover && (i + 1) % 16 === 0) { await showHover(); }
                 if ((i + 1) % 100 === 0) fs.writeFileSync(readyFile, JSON.stringify({ completed: i + 1, cycles: stress.cycles }));
                 if (stress.freshSources) {
+                    await ensureForeground();
                     // Change only the synthetic preceding statement, keeping the
                     // member expression identical while defeating source-text reuse.
                     await captureNavigation(i, 'before fresh edit');
@@ -238,12 +249,12 @@ export interface RendererBackspaceResult {
     samples?: { idleMs: number; backspacePaintMs: number; menuPaintMs: number; typingPaintMs: number; missClearMs: number }[];
 }
 
-export async function runRendererBackspaceProbe(mode: 'busy' | 'stress' | 'transition' | 'cleanup', staleCleanupContext = false, cleanup?: { line: number; before: string; after: string[] }, stress = { cycles: 24, hover: false, assertMissHidden: false, freshSources: false, nonceStatement: '' }): Promise<RendererBackspaceResult> {
+export async function runRendererBackspaceProbe(mode: 'busy' | 'stress' | 'transition' | 'cleanup', staleCleanupContext = false, cleanup?: { line: number; before: string; after: string[] }, stress = { cycles: 24, hover: false, assertMissHidden: false, freshSources: false, nonceStatement: '' }, artifactSuffix = ''): Promise<RendererBackspaceResult> {
     const port = Number(process.env.XLIDE_UI_DEBUG_PORT);
     assert.ok(Number.isInteger(port) && port >= 1024 && port <= 65535, 'an owned integration renderer debugger port is required');
     const root = workspaceRoot();
-    const readyFile = path.join(root, 'backspace-renderer.ready');
-    const busyFile = path.join(root, 'backspace-renderer.busy');
+    const readyFile = path.join(root, 'backspace-renderer' + artifactSuffix + '.ready');
+    const busyFile = path.join(root, 'backspace-renderer' + artifactSuffix + '.busy');
     for (const marker of [readyFile, busyFile]) { fs.rmSync(marker, { force: true }); }
     const child = spawn(process.execPath, ['-e', rendererProbe, String(port), readyFile, busyFile, mode], {
         env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, windowsHide: true,
