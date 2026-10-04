@@ -537,7 +537,7 @@ export class ShapeRows {
 					return this.sheetItem(node, sheet, context);
 				}
 				const item = new vscode.TreeItem(node.label, vscode.TreeItemCollapsibleState.Collapsed);
-				item.id = `su::${projectIdentityKey(node.filePath)}::${node.surface}`;
+				item.id = surfaceItemId(node);
 				const host = context?.host;
 				item.iconPath = new vscode.ThemeIcon(host === 'powerpoint' ? 'preview' : host === 'word' ? 'note' : 'table');
 				item.description = node.itemCount === 1 ? '1 shape' : `${node.itemCount ?? 0} shapes`;
@@ -875,7 +875,7 @@ export class ShapeRows {
 			node.label,
 			shapes > 0 ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None,
 		);
-		item.id = `su::${projectIdentityKey(node.filePath)}::${node.surface}`;
+		item.id = surfaceItemId(node);
 		item.iconPath = new vscode.ThemeIcon(sheet.kind === 'chartsheet' ? 'graph' : 'table');
 		const kind = SHEET_KIND_LABELS[sheet.kind];
 		const notes = [
@@ -896,7 +896,8 @@ export class ShapeRows {
 			node.label,
 			members > 0 ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None,
 		);
-		item.id = `sh::${projectIdentityKey(node.filePath)}::${node.surface}::${(node.shapePath ?? [node.label]).join('/')}`;
+		item.id = `sh::${JSON.stringify([projectIdentityKey(node.filePath), node.surface?.toLowerCase(),
+			(node.shapePath ?? [node.label]).map(name => name.toLowerCase())])}`;
 		const icon = shape.kind === 'shape' && shape.geometry === 'ellipse' ? 'circle-large-outline' : KIND_ICONS[shape.kind] ?? 'symbol-misc';
 		item.iconPath = new vscode.ThemeIcon(icon);
 		const parts = [shapeKindLabel(shape.kind)];
@@ -927,6 +928,11 @@ export class ShapeRows {
 		}
 		return item;
 	}
+}
+
+/** Surface identity follows the case-insensitive row cache, independently of its display name. */
+function surfaceItemId(node: XlideNode): string {
+	return `su::${JSON.stringify([projectIdentityKey(node.filePath), node.surface?.toLowerCase()])}`;
 }
 
 /** The worksheet a module stands for, by its code name. */
