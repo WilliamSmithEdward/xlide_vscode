@@ -109,3 +109,19 @@ export function applyEdits(text: string, edits: readonly vscode.TextEdit[]): str
 export function closeAllEditors(): Thenable<unknown> {
 	return vscode.commands.executeCommand('workbench.action.closeAllEditors');
 }
+
+/** Retry only rejected edits; each attempt uses the latest caret and no wait. */
+export async function insertTypedCharacter(
+	document: vscode.TextDocument,
+	editor: vscode.TextEditor,
+	line: number,
+	character: string,
+	options?: { undoStopBefore: boolean; undoStopAfter: boolean },
+): Promise<number> {
+	for (let attempt = 1; attempt <= 3; attempt++) {
+		const caret = document.lineAt(line).range.end;
+		editor.selection = new vscode.Selection(caret, caret);
+		if (await editor.edit(edit => edit.insert(caret, character), options)) { return attempt; }
+	}
+	assert.fail('typing edit was rejected three times at fresh caret positions');
+}
