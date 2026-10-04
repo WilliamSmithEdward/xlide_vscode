@@ -290,7 +290,7 @@ export function activate(context: vscode.ExtensionContext): void {
             enabled: () => xlideExplorerAutoExpandCollapseFromConfig(vscode.workspace.getConfiguration('xlide')).value,
             modulesClosedBy: (event) => modulesWithNoTabLeft(
                 event.closed,
-                vscode.window.tabGroups.all.flatMap((group) => group.tabs),
+                () => vscode.window.tabGroups.all.flatMap((group) => group.tabs),
             ),
         }),
 

@@ -126,3 +126,36 @@ describe('the modules a closure leaves with nothing open', () => {
         expect(named(modulesWithNoTabLeft(closed, []))).toEqual(['Module1']);
     });
 });
+
+
+describe('unrelated tab closures', () => {
+    it.each(['text', 'custom', 'other'])('does not inspect remaining tab inputs for a non-module %s closure', kind => {
+        let reads = 0;
+        const open = Array.from({ length: 1000 }, () => ({
+            get input() { reads++; return new vscode.TabInputText(encodeModuleUri(BOOK, 'Module1')); },
+        }) as unknown as vscode.Tab);
+        const closed = kind === 'text' ? textTab(vscode.Uri.file('C:/work/notes.txt'))
+            : kind === 'custom' ? customTab(vscode.Uri.file('C:/work/notes.txt')) : otherTab();
+        expect(modulesWithNoTabLeft([closed], open)).toEqual([]);
+        expect(reads).toBe(0);
+    });
+});
+
+
+it('does not enumerate lazy tab groups for empty or unrelated closures', () => {
+    const open = vi.fn(() => [textTab(encodeModuleUri(BOOK, 'Module1'))]);
+    expect(modulesWithNoTabLeft([], open)).toEqual([]);
+    expect(modulesWithNoTabLeft([textTab(vscode.Uri.file('C:/work/notes.txt'))], open)).toEqual([]);
+    expect(modulesWithNoTabLeft([otherTab()], open)).toEqual([]);
+    expect(open).not.toHaveBeenCalled();
+});
+
+it('enumerates lazy tab groups once for mixed and multiple module closures', () => {
+    const one = encodeModuleUri(BOOK, 'Module1'), two = encodeModuleUri(BOOK, 'Module2');
+    const closed = [otherTab(), textTab(one), diffTab(two, one)];
+    const remaining = [diffTab(one, vscode.Uri.file('C:/work/notes.txt'))];
+    const open = vi.fn(() => remaining);
+    expect(modulesWithNoTabLeft(closed, open)).toEqual(modulesWithNoTabLeft(closed, remaining));
+    expect(named(modulesWithNoTabLeft(closed, remaining))).toEqual(['Module2']);
+    expect(open).toHaveBeenCalledTimes(1);
+});
