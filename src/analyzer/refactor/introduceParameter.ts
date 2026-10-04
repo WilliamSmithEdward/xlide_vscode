@@ -245,9 +245,12 @@ function strandedNames(value: string, procedure: ProcedureNode, module: ModuleNo
 	}
 
 	const out: string[] = [];
+	let seen: Set<string> | undefined;
 	for (const name of identifiersIn(blankStringLiterals(value))) {
 		const lower = name.toLowerCase();
-		if ((locals.has(lower) || privates.has(lower)) && !out.includes(name)) {
+		if ((locals.has(lower) || privates.has(lower)) && !seen?.has(name)) {
+			// Preserve the first exact spelling without re-scanning every prior hit.
+			(seen ??= new Set()).add(name);
 			out.push(name);
 		}
 	}
