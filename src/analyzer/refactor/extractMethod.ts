@@ -1,5 +1,6 @@
+import { tokenize } from '../lexer/tokenize';
 import { parseModule } from '../parser/parseModule';
-import type { BodyNode, ModuleNode, ProcedureNode, Span, VariableDeclNode, VariableGroupNode } from '../parser/nodes';
+import type { BodyNode, ModuleNode, ProcedureNode, ParameterNode, Span, VariableDeclNode, VariableGroupNode } from '../parser/nodes';
 import { classifyReferenceKinds } from '../references/referenceKinds';
 import { detectEol, findIdentifierOccurrencesForNames, leadingWhitespace, lineStartAtAnyBreak, type VbaIdentifierOccurrence } from '../../vbaSourceScan';
 import { applyVbaTextEdits, refactor, refuse, type VbaRefactorResult, type VbaTextEdit } from './refactorTypes';
@@ -11,7 +12,9 @@ import { procedureContainingSpan, walkBody, statementRemovalSpan, mergeRemovals,
  *
  * The signature is READ, not guessed. Every local the selection touches is
  * classified from the analyzer's reference kinds (issue #55) and its position
- * relative to the selection:
+ * relative to the selection. Existing procedure parameters instead retain
+ * their original invocation variable through a ByRef helper parameter.
+ * The following table applies to declared locals:
  *
  * | inside the selection      | after it | becomes                     |
  * | ------------------------- | -------- | --------------------------- |
@@ -42,7 +45,7 @@ interface LocalUse {
 	name: string;
 	sourceOrder: number;
 	declaration?: { group: VariableGroupNode; decl: VariableDeclNode };
-	isParameter: boolean;
+	parameter?: ParameterNode;
 	type: string;
 	readBeforeWriteInside: boolean;
 	writtenInside: boolean;
@@ -102,6 +105,10 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 	}
 
 	const locals = classifyLocals(source, procedure, block);
+	const paramArray = locals.find(local => local.parameter?.paramArray);
+	if (paramArray) {
+		return refuse(`'${paramArray.name}' is a ParamArray. Extract Method cannot safely forward that binding.`);
+	}
 	const staticLocal = locals.find((local) => local.isStatic);
 	if (staticLocal) {
 		return refuse(
@@ -110,11 +117,11 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 		);
 	}
 
-	const byValIn = locals.filter((l) => l.readBeforeWriteInside && !(l.writtenInside && l.readAfter));
-	const byRefIn = locals.filter((l) => l.readBeforeWriteInside && l.writtenInside && l.readAfter);
-	const outputs = locals.filter((l) => !l.readBeforeWriteInside && l.writtenInside && l.readAfter);
+	const byValIn = locals.filter((l) => !l.parameter && l.readBeforeWriteInside && !(l.writtenInside && l.readAfter));
+	const byRefIn = locals.filter((l) => !l.parameter && l.readBeforeWriteInside && l.writtenInside && l.readAfter);
+	const outputs = locals.filter((l) => !l.parameter && !l.readBeforeWriteInside && l.writtenInside && l.readAfter);
 	const moved = locals.filter(
-		(l) => !l.readBeforeWriteInside && l.writtenInside && !l.readAfter && l.declaration && !l.isParameter,
+		(l) => !l.readBeforeWriteInside && l.writtenInside && !l.readAfter && l.declaration && !l.parameter,
 	);
 
 	// One output becomes the result; more than one cannot, so they all go ByRef
@@ -122,7 +129,11 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 	const asFunction = outputs.length === 1;
 	const byRefOut = asFunction ? [] : outputs;
 
+	// A parent's ByVal parameter is already a private variable; ByRef here
+	// preserves that variable, while also preserving a parent's caller alias.
+	const parameters = locals.filter(local => local.parameter);
 	const params = [
+		...parameters.map(local => ({ local, text: parameterBindingText(source, local.parameter!) })),
 		...byValIn.map((l) => ({ local: l, text: `ByVal ${l.name} As ${l.type}` })),
 		...byRefIn.map((l) => ({ local: l, text: `ByRef ${l.name} As ${l.type}` })),
 		...byRefOut.map((l) => ({ local: l, text: `ByRef ${l.name} As ${l.type}` })),
@@ -181,7 +192,7 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 		closer,
 	].join(eol);
 
-	const argumentList = params.map((p) => p.local.name).join(', ');
+	const argumentList = params.map((p) => p.local.parameter?.nameSpan ? source.slice(p.local.parameter.nameSpan.start, p.local.parameter.nameSpan.end) : p.local.name).join(', ');
 	const invocation = asFunction
 		? `${indent}${outputs[0].name} = ${name}(${argumentList})`
 		: `${indent}${name}${argumentList ? ` ${argumentList}` : ''}`;
@@ -280,7 +291,7 @@ function classifyLocals(source: string, procedure: ProcedureNode, block: Span): 
 			name: display,
 			sourceOrder: 0,
 			...(declaration ? { declaration } : {}),
-			isParameter: parameter !== undefined,
+			...(parameter ? { parameter } : {}),
 			type: declaration?.decl.asType ?? parameter?.asType ?? 'Variant',
 			readBeforeWriteInside: readsBeforeAnyWrite(inside, kinds),
 			writtenInside: inside.some((occ) => kinds.get(occ.offset) !== 'read'),
@@ -437,4 +448,18 @@ function rawFirstOccurrences(source: string, names: readonly string[]): Map<stri
 		return nativeFallback(); // Preserve the result if an engine rejects the dictionary.
 	}
 	return positions;
+}
+
+/** Retain array shape, suffixes, bracketed types, and module DefType inference. */
+function parameterBindingText(source: string, parameter: ParameterNode): string {
+	const name = parameter.nameSpan ? source.slice(parameter.nameSpan.start, parameter.nameSpan.end) : parameter.name;
+	const declared = name + (parameter.typeSuffix ?? '') + (parameter.isArray ? '()' : '');
+	if (parameter.hasAsClause) {
+		const tokens = tokenize(source.slice(parameter.span.start, parameter.span.end));
+		const as = tokens.findIndex(token => token.rawText.toLowerCase() === 'as');
+		const end = tokens.findIndex((token, index) => index > as && token.rawText === '=');
+		const type = tokens.slice(as + 1, end < 0 ? undefined : end).map(token => token.rawText).join('');
+		return `ByRef ${declared} As ${type}`;
+	}
+	return `ByRef ${declared}`;
 }
