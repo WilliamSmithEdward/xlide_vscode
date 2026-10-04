@@ -18,7 +18,7 @@ try {
  const plugins=baseline?[{name:'baseline',setup(builder){builder.onLoad({filter:/moveToModule\.ts$/},args=>({contents:execFileSync('git',['show',baseline+':src/analyzer/refactor/moveToModule.ts'],{cwd:root,encoding:'utf8'}),loader:'ts',resolveDir:dirname(args.path)}));}}]:[];
  const built=await build({plugins,stdin:{contents:"export {moveToModule} from './src/analyzer/refactor/moveToModule';export {applyVbaTextEdits} from './src/analyzer/refactor/refactorTypes';",resolveDir:root,loader:'ts'},bundle:true,platform:'node',format:'cjs',write:false});
  writeFileSync(file,built.outputFiles[0].contents);api=createRequire(import.meta.url)(file);
-}finally{rmSync(scratch,{recursive:true,force:true});}
+}finally{try{unlinkSync(file);}catch(error){if(error.code!=='ENOENT')throw error;}rmdirSync(scratch);}
 const rows=[];let salt=0;
 for(const count of [1,100,1000])for(const layout of ['colon','multiline','comments'])for(const mode of ['cached','fresh']){
  const call='Reports.Build';
