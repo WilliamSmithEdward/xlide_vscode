@@ -63,3 +63,7 @@ maximum host heartbeat delays were 61.60/53.10/65.21 ms. Fresh declaration hover
 returned updated content in 16.57/31.96/31.37 ms. Command outliers and the first
 menu show remain distinct from successful native editing while the host stalls.
 The intermittent latency goal and issues #964/#985 remain open.
+
+The merged-base full unit suite passed 14,474 tests across 729 files, with
+32 tests and seven files intentionally skipped. Compilation and the 34 focused
+routing/lifecycle/cleanup tests passed.
