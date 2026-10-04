@@ -1,6 +1,6 @@
 import type { Span } from '../parser/nodes';
 import { tokenize } from '../lexer/tokenize';
-import { firstTokenAtOrAfter, tokenName } from '../lexer/tokenHelpers';
+import { firstTokenAtOrAfter, isDecimalLineNumber, tokenName } from '../lexer/tokenHelpers';
 import { findIdentifierOccurrences, lineStartAtAnyBreak, lineEndAtOrAfter, stripVba, VBA_IDENTIFIER_PATTERN } from '../../vbaSourceScan';
 
 /** A call's insertion point, preserving its original argument syntax and text. */
@@ -18,6 +18,8 @@ export interface CallSiteOptions {
 	skip?: Span;
 	/** Owning module; qualified and unqualified project calls are considered. */
 	qualifier?: string;
+	/** Optional source-binding filter; true call syntax bypasses function result variables. */
+	accept?: (offset: number, call: boolean, qualifier: string | undefined, nameSpan: Span) => boolean;
 }
 const QUALIFIERS = new RegExp('(?:' + VBA_IDENTIFIER_PATTERN + '\\s*\\.\\s*)+$', 'u');
 const DECLARATION = /\b(?:Sub|Function|Property\s+(?:Get|Let|Set)|Declare)\s+$|^\s*(?:Public|Private|Friend|Static)?\s*(?:Static\s+)?(?:Sub|Function|Property)\b/i;
@@ -32,17 +34,27 @@ class CallLine {
 	readonly pairs = new Map<number, number>();
 	readonly named = new Map<number, number[]>();
 	readonly elses = new Map<number, number[]>();
+	readonly typeNames = new Set<number>();
 	constructor(readonly source: string, readonly start: number, readonly end: number) {
 		this.tokens = tokenize(source.slice(start, end));
 		let root = 0;
 		const stack: number[] = [];
+		const pendingTypeOf = new Map<number, number>();
 		for (let i = 0; i < this.tokens.length; i++) {
 			const token = this.tokens[i];
 			this.roots[i] = root;
 			this.depths[i] = stack.length;
-			if (token.kind === 'colon' || token.kind === 'comment' || token.kind === 'newline') { root = i + 1; stack.length = 0; }
+			if (token.kind === 'colon' || token.kind === 'comment' || token.kind === 'newline') { root = i + 1; stack.length = 0; pendingTypeOf.clear(); }
 			else if (token.rawText === '(') { stack.push(i); }
 			else if (token.rawText === ')') { const open = stack.pop(); if (open !== undefined) { this.pairs.set(open, i); } }
+			else if (token.kind === 'keyword' && /^typeof$/i.test(token.rawText)) { pendingTypeOf.set(stack.length, (pendingTypeOf.get(stack.length) ?? 0) + 1); }
+			else if (token.kind === 'keyword' && /^is$/i.test(token.rawText) && (pendingTypeOf.get(stack.length) ?? 0) > 0) {
+				pendingTypeOf.set(stack.length, pendingTypeOf.get(stack.length)! - 1);
+				for (let name = i + 1; tokenName(this.tokens[name]) !== undefined; name += 2) {
+					this.typeNames.add(name);
+					if (this.tokens[name + 1]?.rawText !== '.') { break; }
+				}
+			}
 			else if (token.kind === 'operator' && token.rawText === ':=') { this.add(this.named, stack.length, i); }
 			else if (token.kind === 'keyword' && /^else$/i.test(token.rawText)
 				&& !['.', '!'].includes(this.tokens[i - 1]?.rawText)) { this.add(this.elses, stack.length, i); }
@@ -63,22 +75,29 @@ class CallLine {
 		while (low < high) { const mid = low + Math.floor((high - low) / 2); if (values[mid] < start) { low = mid + 1; } else { high = mid; } }
 		return values[low] ?? this.tokens.length;
 	}
-	site(offset: number, wanted: string): CallSite | undefined {
+	site(offset: number, wanted: string, accept?: CallSiteOptions['accept']): CallSite | undefined {
 		let index = firstTokenAtOrAfter(this.tokens, offset - this.start);
 		const previous = this.tokens[index - 1];
 		if (previous?.kind === 'bracketedIdentifier' && previous.start < offset - this.start && previous.end > offset - this.start) { index--; }
 		const token = this.tokens[index];
 		if (!token || token.start > offset - this.start || tokenName(token)?.toLowerCase() !== wanted) { return undefined; }
-		const root = this.roots[index];
+		let root = this.roots[index];
+		if (index > root && isDecimalLineNumber(this.tokens[root])) { root++; }
 		let header = root;
 		while (/^(Public|Private|Friend|Static)$/i.test(this.tokens[header]?.rawText ?? '')) { header++; }
 		if (/^(Sub|Function|Property|Declare)$/i.test(this.tokens[header]?.rawText ?? '')) { return undefined; }
 		let first = index;
-		while (first >= root + 2 && this.tokens[first - 1].rawText === '.') { first -= 2; }
-		const before = first > root ? this.tokens[first - 1] : undefined;
+		while (first >= root + 2 && this.tokens[first - 1].rawText === '.' && tokenName(this.tokens[first - 2]) !== undefined
+			&& (!/^(Then|Else|Call)$/i.test(this.tokens[first - 2].rawText) || this.tokens[first - 3]?.rawText === '.')) { first -= 2; }
+		const leadingDot = first > root && this.tokens[first - 1].rawText === '.';
+		const beforeIndex = first - (leadingDot ? 2 : 1);
+		const before = beforeIndex >= root ? this.tokens[beforeIndex] : undefined;
 		const explicit = /^Call$/i.test(before?.rawText ?? '');
 		const bare = before === undefined || /^(Then|Else)$/i.test(before.rawText);
 		const next = this.tokens[index + 1];
+		if (this.typeNames.has(index) || next?.kind === 'colon' && index === root || next?.rawText === ':=' || before?.rawText === '!' || /^(GoTo|GoSub|Resume|AddressOf|New|As|Implements)$/i.test(before?.rawText ?? '')) { return undefined; }
+		const qualifier = leadingDot ? '.' : first === index ? undefined : this.source.slice(this.start + this.tokens[first].start, this.start + this.tokens[index - 1].start).trim();
+		if (accept && !accept(offset, bare || explicit || next?.rawText === '(', qualifier, {start: this.start + token.start, end: this.start + token.end})) { return undefined; }
 		if (next?.rawText === '.' || next?.rawText === '=' && (bare || explicit || /^(Set|Let|For|LSet|RSet)$/i.test(before?.rawText ?? ''))) { return undefined; }
 		const after = this.start + token.end;
 		if (next?.rawText === '(') {
@@ -138,24 +157,28 @@ export function callSitesOf(source: string, procedureName: string, options: Call
 				if (comment >= 0 && !text.slice(0, comment).includes('"')) { end = start + comment; }
 			}
 			line = undefined; seen = false;
-			if (start !== offset - occurrence.column || /[\r\n]/.test(source.slice(start, end)) || /[:'#\[]|\b(?:Rem|Else)\b/i.test(source.slice(start, end))) { line = new CallLine(source, start, end); }
+			if (start !== offset - occurrence.column || /[\r\n]/.test(source.slice(start, end)) || /[:'#\[]|\b(?:Rem|Else|TypeOf)\b/i.test(source.slice(start, end))) { line = new CallLine(source, start, end); }
 		} else if (seen && !line) { line = new CallLine(source, start, end); }
 		seen = true;
-		if (line) { const site = line.site(offset, wanted); if (site) { out.push(site); } continue; }
+		if (line) { const site = line.site(offset, wanted, options.accept); if (site) { out.push(site); } continue; }
 		// The common single-call line needs no lexer or token-index allocation.
 		const prefix = stripVba(source.slice(start, offset));
 		if (DECLARATION.test(prefix)) { continue; }
+		if (/(?:^|\bThen|\bElse|\bCall)\s*\.$/i.test(prefix.trimEnd())) { line = new CallLine(source, start, end); const site = line.site(offset, wanted, options.accept); if (site) { out.push(site); } continue; }
 		const after = offset + occurrence.text.length;
 		const rest = source.slice(after, end);
 		const lead = /^[ \t]*/.exec(rest)?.[0] ?? '';
 		const next = rest[lead.length];
 		if (next === '.') { continue; }
-		const context = prefix.replace(QUALIFIERS, '').trim();
+		const context = prefix.replace(/^\s*\d+\s+/, '').replace(QUALIFIERS, '').trim();
 		const bare = context === '' || /\b(?:Then|Else)$/i.test(context);
+		if (/\b(?:GoTo|GoSub|Resume|AddressOf|New|As|Implements)$/i.test(context) || prefix.trimEnd().endsWith('!')) { continue; }
+		const qualifier = QUALIFIERS.exec(prefix)?.[0].replace(/\s*\.\s*$/, '').trim() ?? (prefix.trimEnd().endsWith('.') ? '.' : undefined);
+		if (options.accept && !options.accept(offset, bare || /^Call$/i.test(context) || next === '(', qualifier, {start: offset, end: after})) { continue; }
 		if (next === '(') {
 			// Numeric flat lists need no token index; complex arguments use the lexer.
 			const flat = /^\(([ \t0-9,+\-*/\\.^&%!=<>]*)\)/.exec(rest.slice(lead.length));
-			if (!flat) { line = new CallLine(source, start, end); const site = line.site(offset, wanted); if (site) { out.push(site); } continue; }
+			if (!flat) { line = new CallLine(source, start, end); const site = line.site(offset, wanted, options.accept); if (site) { out.push(site); } continue; }
 			const empty = flat[1].trim() === '';
 			if (!bare || empty) {
 				const insert = after + lead.length + flat[0].length - 1;

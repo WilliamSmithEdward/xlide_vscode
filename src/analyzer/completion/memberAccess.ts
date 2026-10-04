@@ -365,7 +365,9 @@ export function resolveMemberDefinitionsAt(
 	prefixTokens?: VbaToken[],
 ): readonly VbaProjectClassMemberDefinition[] {
 	const safeOffset = Math.max(0, Math.min(offset, source.length));
-	if (!precededByMemberAccessDot(source, safeOffset - memberName.length)) {
+	const bracketed = source[safeOffset - 1] === ']' && source[safeOffset - memberName.length - 2] === '['
+		&& source.slice(safeOffset - memberName.length - 1, safeOffset - 1).toLowerCase() === memberName.toLowerCase();
+	if (!precededByMemberAccessDot(source, safeOffset - memberName.length - (bracketed ? 2 : 0))) {
 		return [];
 	}
 	// Only trust supplied tokens that end exactly with the member name; when a
@@ -874,7 +876,11 @@ function receiverTypeFromTokens(
 	// A dot whose chain is the previous dot's plus one member takes that dot's
 	// chain and adds the member, instead of walking the whole chain back again
 	// (issue #135: a 4,000-member chain took 2.4 s, each dot re-walking it).
-	const chain = chainExtendedFromPreviousDot(tokens, dotIndex, ctx) ?? collectReceiverChainWithStart(tokens, dotIndex - 1);
+	// Expression-introducing keywords (Then, Else, Call, ...) mark a leading
+	// With dot; resolving them as identifier roots scans all preceding statements.
+	const before = tokens[dotIndex - 1];
+	const leading = before?.kind === 'keyword' && /^(Then|Else|Call)$/i.test(before.rawText) && tokens[dotIndex - 2]?.rawText !== '.';
+	const chain = leading ? undefined : chainExtendedFromPreviousDot(tokens, dotIndex, ctx) ?? collectReceiverChainWithStart(tokens, dotIndex - 1);
 	if (chain && ctx.receiverChainCache) {
 		ctx.receiverChainCache.set(tokens[dotIndex].start, chain);
 	}

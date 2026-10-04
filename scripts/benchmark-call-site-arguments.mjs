@@ -1,4 +1,4 @@
-// Run: node scripts/benchmark-call-site-arguments.mjs [--baseline=COMMIT] [--rounds=9] [--date-literals]
+// Run: node scripts/benchmark-call-site-arguments.mjs [--baseline=COMMIT] [--rounds=9] [--date-literals] [--recursive-refactor]
 import { build } from 'esbuild';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -12,17 +12,47 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const baseline = process.argv.find(arg => arg.startsWith('--baseline='))?.slice(11);
 const rounds = Number(process.argv.find(arg => arg.startsWith('--rounds='))?.slice(9) ?? 9);
 if (!Number.isInteger(rounds) || rounds < 3 || rounds > 100) throw new Error('rounds must be 3..100');
+const recursiveRefactor = process.argv.includes('--recursive-refactor');
 const scratch = mkdtempSync(join(tmpdir(), 'xlide-call-site-bounds-'));
 const bundle = join(scratch, 'calls.cjs');
 let api;
 try {
  const plugins = baseline ? [{name:'baseline',setup(builder) {
-  builder.onLoad({filter:/callSites\.ts$/},args => ({contents:execFileSync('git',['show',baseline+':src/analyzer/refactor/callSites.ts'],{cwd:root,encoding:'utf8'}),loader:'ts',resolveDir:dirname(args.path)}));
+  builder.onLoad({filter:recursiveRefactor ? /(?:callSites|introduceParameter|memberAccess)\.ts$/ : /callSites\.ts$/},args => ({contents:execFileSync('git',['show',baseline+':'+args.path.slice(root.length+1).replaceAll('\\','/')],{cwd:root,encoding:'utf8'}),loader:'ts',resolveDir:dirname(args.path)}));
  }}] : [];
- const result = await build({plugins,stdin:{contents:"export {callSitesOf} from './src/analyzer/refactor/callSites';export {applyVbaTextEdits} from './src/analyzer/refactor/refactorTypes';",resolveDir:root,loader:'ts'},bundle:true,platform:'node',format:'cjs',write:false});
+ const result = await build({plugins,stdin:{contents:recursiveRefactor ? "export {introduceParameter} from './src/analyzer/refactor/introduceParameter';export {applyVbaTextEdits} from './src/analyzer/refactor/refactorTypes';" : "export {callSitesOf} from './src/analyzer/refactor/callSites';export {applyVbaTextEdits} from './src/analyzer/refactor/refactorTypes';",resolveDir:root,loader:'ts'},bundle:true,platform:'node',format:'cjs',write:false});
  writeFileSync(bundle,result.outputFiles[0].contents);
  api = createRequire(import.meta.url)(bundle);
 } finally { try { unlinkSync(bundle); } catch(error) { if(error.code !== 'ENOENT') throw error; } rmdirSync(scratch); }
+if(recursiveRefactor) {
+ const rows=[];
+ let salt=0;
+ for(const count of [1,100,1000]) for(const layout of ['bare','Me','WithMe']) for(const mode of ['cached','fresh']) {
+  const call='If depth > 0 Then '+(layout==='Me'?'Me.':layout==='WithMe'?'.':'')+'Report depth - 1';
+  const calls=Array(count).fill(call).join('\n');
+  const statements=layout==='WithMe'?'With Me\n'+calls+'\nEnd With':calls;
+  const expectedStatements=layout==='WithMe'?'With Me\n'+Array(count).fill(call+', 3').join('\n')+'\nEnd With':Array(count).fill(call+', 3').join('\n');
+  const body='Public Sub Report(ByVal depth As Long)\nDim limit As Long\nlimit = 3\n'+statements+'\nEnd Sub\n';
+  const expectedBody='Public Sub Report(ByVal depth As Long, ByVal limit As Long)\n'+expectedStatements+'\nEnd Sub\n';
+  const samples=[];
+  let result,source;
+  for(let round=-3;round<rounds;round++) {
+   source='Option Explicit\n'+(mode==='fresh'?"' run "+(++salt)+'\n':'')+body;
+   const start=performance.now();
+   result=api.introduceParameter({source,offset:source.indexOf('limit'),moduleName:'Module1',moduleKinds:{Module1:'class'}});
+   const elapsed=performance.now()-start;
+   if(!result.ok)throw new Error(result.reason);
+   if(round>=0)samples.push(elapsed);
+  }
+  const rendered=api.applyVbaTextEdits(source,result.edits).slice(source.indexOf('Public Sub'));
+  const correctRender=rendered===expectedBody;
+  const actualCalls=result.edits.filter(edit=>edit.newText===', 3').length;
+  if(!baseline&&(!correctRender||actualCalls!==count))throw new Error('Incorrect recursive refactor: '+layout+'/'+count);
+  samples.sort((a,b)=>a-b);
+  rows.push({name:[count,layout,mode].join('/'),count,layout,mode,actualCalls,correctRender,medianMs:+samples[Math.floor(rounds/2)].toFixed(5),p95Ms:+samples[Math.ceil(rounds*.95)-1].toFixed(5)});
+ }
+ console.log(JSON.stringify({baseline:baseline??null,node:process.version,cpu:cpus()[0]?.model,rounds,rows},null,2));
+} else {
 const dateLiterals=process.argv.includes("--date-literals");
 const layouts=dateLiterals ? ["month", "fileNumber", "number"] : ["number","string","bracketed","nested","colon","comments"];
 const procedureName=dateLiterals ? "May" : "Go";
@@ -53,3 +83,4 @@ for(const count of [1,100,1000]) for(const layout of layouts) for(const mode of 
  rows.push({name:[count,layout,mode].join('/'),count,layout,mode,actualCalls:sites.length,medianMs:+samples[Math.floor(rounds/2)].toFixed(5),p95Ms:+samples[Math.ceil(rounds*.95)-1].toFixed(5),correctRender,renderError,renderedHash:signature(rendered),expectedHash:signature(expectedBody)});
 }
 console.log(JSON.stringify({baseline:baseline??null,node:process.version,cpu:cpus()[0]?.model,rounds,rows},null,2));
+}

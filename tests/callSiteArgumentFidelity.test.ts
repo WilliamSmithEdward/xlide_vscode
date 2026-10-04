@@ -18,7 +18,7 @@ const examples = [
  ['Debug.Print Go(1)', 'Debug.Print Go(1, 3)'],
  ['If True Then Go (1) Else Debug.Print 2', 'If True Then Go (1), 3 Else Debug.Print 2'],
  ['Go \'note', 'Go 3 \'note'],
- ['Go: Go 1', 'Go 3: Go 1, 3'],
+ ['Go: Go 1', 'Go: Go 1, 3'],
  ['Label: Go "hello"', 'Label: Go "hello", 3'],
 ];
 for (const eol of ['\n','\r\n','\r']) {
@@ -27,7 +27,7 @@ for (const eol of ['\n','\r\n','\r']) {
    it(before, () => {
     const source = ['Option Explicit','Sub Caller()',before,'Debug.Print "neighbor"','End Sub',''].join(eol);
     const sites = callSitesOf(source,'Go');
-    expect(sites).toHaveLength(before === 'Go: Go 1' ? 2 : 1);
+    expect(sites).toHaveLength(1);
     const edits = sites.map(site => ({span:site.argumentInsert,newText:site.argumentText('3', 'added')}));
     expect(applyVbaTextEdits(source,edits)).toBe(source.replace(before,after));
    });
