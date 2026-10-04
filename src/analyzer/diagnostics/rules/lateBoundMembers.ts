@@ -31,6 +31,7 @@ import { isLeafStatement } from '../../parser/nodes';
 import { walkEnteringBlocks } from '../dataflow';
 import { bodyMayLeaveLoop, namesIn } from './shared';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
+import type { VbaProjectClassMembers } from '../../symbols/symbolModel';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
 import { buildModuleTypeSignatures, inferExpressionType, isKnownScalarType, normalizeType, objectAssignmentIncompatibilityReason, sourceNameScopeFor, stringLiteralValue, typeEnvironmentFor } from '../typeInference';
 import {
@@ -313,6 +314,7 @@ export function checkRuntimeMemberNotFound(
 	const model = memberCtx.model;
 	const applicationSurface = excelApplicationSurface(model);
 	const rangeSurface = applicationSurface ? excelRangeSurface(model) : undefined;
+	const classNamed = createKnownClassLookup(memberCtx);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
@@ -326,7 +328,7 @@ export function checkRuntimeMemberNotFound(
 				checkOpenTypeMembers(source, span.start, toks, env, applicationSurface, rangeSurface, memberCtx, push);
 			}
 		}, activity);
-		checkCollectionItems(source, member, symbols, env, memberCtx, activity, push);
+		checkCollectionItems(source, member, symbols, env, memberCtx, classNamed, activity, push);
 		const autoInstanced = new Set<string>();
 		for (const child of procedureSymbolFor(symbols, member)?.children ?? []) {
 			if (child.isAutoInstantiated) {
@@ -371,12 +373,12 @@ export function checkRuntimeMemberNotFound(
 				const lower = set.name.toLowerCase();
 				const value = toks.slice(toks.findIndex((tok) => tok.rawText === '=') + 1);
 				const source1 = value.length === 1 ? tokenName(value[0])?.toLowerCase() : undefined;
-				const fromVariable = source1 !== undefined && !isLateBound(source1) ? knownClassNamed(env.get(source1), memberCtx) : undefined;
+				const fromVariable = source1 !== undefined && !isLateBound(source1) ? classNamed(env.get(source1)) : undefined;
 				const created = value.length === 4 && tokenText(value[0]) === 'createobject' && value[1].rawText === '(' && value[2].kind === 'stringLiteral' && value[3].rawText === ')'
 					? progIdClass(stringLiteralValue(value[2].rawText))
 					: undefined;
 				const known = created ?? (value.length === 2 && tokenText(value[0]) === 'new'
-					? knownClassNamed(tokenName(value[1]), memberCtx)
+					? classNamed(tokenName(value[1]))
 					: fromVariable && { ...fromVariable, mayBeNothing: !autoInstanced.has(source1!) });
 				if (known) {
 					held.set(lower, known);
@@ -417,6 +419,7 @@ function checkCollectionItems(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	env: ReadonlyMap<string, string>,
 	memberCtx: MemberCompletionContext,
+	classNamed: ReturnType<typeof createKnownClassLookup>,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
@@ -442,7 +445,7 @@ function checkCollectionItems(
 			const index = close === open + 2 && toks[open + 1].kind === 'integerLiteral' ? Number(toks[open + 1].rawText) : undefined;
 			const className = index !== undefined && index >= 1 && index <= held.length ? held[index - 1]
 				: held.every((name) => name.toLowerCase() === held[0].toLowerCase()) ? held[0] : undefined;
-			const known = knownClassNamed(className, memberCtx);
+			const known = classNamed(className);
 			const memberName = tokenName(toks[close + 2])!;
 			if (!known || known.members.has(memberName.toLowerCase())) {
 				continue;
@@ -538,19 +541,40 @@ function forEachLoopIn(body: readonly BodyNode[], activity: ConditionalActivityT
 	}
 }
 
-function knownClassNamed(name: string | undefined, memberCtx: MemberCompletionContext): KnownClass | undefined {
-	if (!name) {
-		return undefined;
-	}
-	if (name.toLowerCase() === 'collection') {
-		return { display: 'Collection', members: COLLECTION_MEMBERS, params: COLLECTION_PARAMS };
-	}
-	const projectType = (memberCtx.projectClassMembers ?? []).find(
-		(type) => type.kind === 'class' && type.exhaustive === true && type.name.toLowerCase() === name.toLowerCase(),
-	);
-	if (!projectType) {
-		return undefined;
-	}
+/** Class surfaces are stable for one public query; only consulted members are projected. */
+function createKnownClassLookup(memberCtx: MemberCompletionContext): (name: string | undefined) => KnownClass | undefined {
+	const classes = new Map<string, KnownClass | undefined>();
+	let projectTypes: Map<string, VbaProjectClassMembers> | undefined;
+	return (name) => {
+		if (!name) {
+			return undefined;
+		}
+		const lower = name.toLowerCase();
+		if (lower === 'collection') {
+			return { display: 'Collection', members: COLLECTION_MEMBERS, params: COLLECTION_PARAMS };
+		}
+		if (!classes.has(lower)) {
+			if (!projectTypes) {
+				projectTypes = new Map();
+				for (const type of memberCtx.projectClassMembers ?? []) {
+					if (type.kind !== 'class' || type.exhaustive !== true) {
+						continue;
+					}
+					const key = type.name.toLowerCase();
+					// The former find selected the first eligible case-insensitive duplicate.
+					if (!projectTypes.has(key)) {
+						projectTypes.set(key, type);
+					}
+				}
+			}
+			const type = projectTypes.get(lower);
+			classes.set(lower, type ? knownClassForSurface(type) : undefined);
+		}
+		return classes.get(lower);
+	};
+}
+
+function knownClassForSurface(projectType: VbaProjectClassMembers): KnownClass {
 	const properties = projectType.members.filter((m) => m.kind === 'property' && m.signature !== undefined);
 	const params = new Map<string, readonly KnownParam[]>();
 	for (const m of projectType.members) {
