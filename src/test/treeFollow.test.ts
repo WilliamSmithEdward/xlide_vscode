@@ -87,6 +87,22 @@ suite('The explorer following the editor', () => {
 		assert.deepEqual(second.selected, ['sub:Sub FollowBSecond'], JSON.stringify(second));
 	});
 
+	test('keeps the project folded when Collapse All overtakes a queued caret follow', async () => {
+		await showInSecond(moduleUri('FollowA'));
+		await settle();
+		const editor = vscode.window.activeTextEditor!;
+		editor.selection = new vscode.Selection(3, 1, 3, 1);
+		await vscode.commands.executeCommand('workbench.actions.treeView.xlide.explorer.collapseAll');
+		await settle();
+		const folded = await viewState();
+		assert.deepEqual(folded.expanded, [], JSON.stringify(folded));
+		editor.selection = new vscode.Selection(7, 1, 7, 1);
+		await settle();
+		const resumed = await viewState();
+		assert.deepEqual(modules(resumed), ['module:FollowA'], JSON.stringify(resumed));
+		assert.deepEqual(resumed.selected, ['sub:Sub FollowASecond'], JSON.stringify(resumed));
+	});
+
 	test('lands on the last module when tabs switch faster than the tree reveals', async () => {
 		// Each module visited once, so its procedure rows exist: the caret's
 		// row can then be revealed, which expands the module it sits in.

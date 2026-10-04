@@ -152,6 +152,12 @@ export class ExplorerFollow implements vscode.Disposable {
                 // spring it open again because it holds the active module.
                 if (event.element.kind === 'project') {
                     explorer.notifyProjectCollapsed(event.element.filePath);
+                    const position = caret.current;
+                    if (_deps.enabled() && position && sameProjectPath(event.element.filePath, position.projectPath)) {
+                        // A fold of the editor's own project takes control even
+                        // during reveal's grace period; pending follow must not undo it.
+                        this._takeTreeControl();
+                    }
                 }
                 if (_deps.enabled()) {
                     explorer.notifyFolderExpansion(event.element, false);

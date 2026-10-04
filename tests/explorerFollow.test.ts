@@ -116,6 +116,7 @@ function world(options: { enabled?: () => boolean; modulesClosedBy?: ExplorerFol
     return {
         modules, procedures, listed, explorer, rowsReplaced, treeView, caret, follow, modulesClosedBy,
         expand: (element: XlideNode) => expanded.fire({ element }),
+        collapse: (element: XlideNode) => collapsed.fire({ element }),
         revealed: () => treeView.reveal.mock.calls.map(([node]) => node.label),
     };
 }
@@ -222,6 +223,54 @@ describe('the explorer following the editor', () => {
         await settle();
         expect(explorer.setActiveModule.mock.calls).toEqual([[PROJECT, 'B']]);
         expect(revealed()).toEqual([]);
+    });
+
+    it('cancels a queued follow when its project is collapsed', async () => {
+        const { caret, collapse, explorer, revealed } = make();
+        caret.moveTo('A', 'First');
+        collapse(project);
+        await settle();
+        expect(explorer.resolveModuleNode).not.toHaveBeenCalled();
+        expect(revealed()).toEqual([]);
+        caret.moveTo('A', 'Second');
+        await settle();
+        expect(revealed()).toEqual(['Sub ASecond']);
+    });
+
+    it('cancels a loading follow when its project is collapsed', async () => {
+        const { caret, collapse, explorer, revealed, rowsReplaced } = make();
+        let release!: () => void;
+        explorer.resolveModuleNode.mockImplementationOnce(async (_path, name) => {
+            await new Promise<void>(yes => { release = yes; });
+            return { kind: 'module', label: name, filePath: PROJECT, moduleName: name };
+        });
+        caret.moveTo('A', 'First');
+        await settle();
+        collapse(project);
+        rowsReplaced.fire(undefined);
+        release();
+        await settle();
+        expect(explorer.setActiveModule).not.toHaveBeenCalled();
+        expect(revealed()).toEqual([]);
+    });
+
+    it('does not follow selection loss caused by collapsing the current project', async () => {
+        const { caret, collapse, revealed, treeView, rowsReplaced } = make();
+        caret.moveTo('A', 'First');
+        await settle();
+        collapse(project);
+        treeView.select([]);
+        rowsReplaced.fire(undefined);
+        await settle();
+        expect(revealed()).toEqual(['Sub AFirst']);
+    });
+
+    it('ignores another project being folded while following this one', async () => {
+        const { caret, collapse, revealed } = make();
+        caret.moveTo('A', 'First');
+        collapse({ ...project, filePath: 'C:\\work\\Other.xlsm' });
+        await settle();
+        expect(revealed()).toEqual(['Sub AFirst']);
     });
 
     it('does not restart a pending reveal for another module being redrawn', async () => {
