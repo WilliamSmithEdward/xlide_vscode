@@ -19,7 +19,7 @@ function prepare(source: string) {
  };
 }
 function isolateGuard() {
- vi.spyOn(typeInference, 'isKnownObjectAssignmentType').mockReturnValue(true);
+ vi.spyOn(typeInference, 'createObjectAssignmentTypeResolver').mockReturnValue(() => ({ kind: 'generic', display: 'Object', key: 'object' }));
  vi.spyOn(typeInference, 'objectAssignmentIncompatibilityReason').mockReturnValue(undefined);
 }
 afterEach(() => { vi.restoreAllMocks(); });

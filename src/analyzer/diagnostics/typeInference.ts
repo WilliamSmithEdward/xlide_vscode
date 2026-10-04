@@ -43,6 +43,7 @@ import type { ConditionalActivityTracker } from '../conditional/conditionalCompi
 import type { buildModuleSymbols } from '../symbols/buildModuleSymbols';
 import type {
 	VbaProcedureSignature,
+	VbaProjectClassMembers,
 	VbaSymbol,
 } from '../symbols/symbolModel';
 import {
@@ -3103,9 +3104,44 @@ export type KnownObjectAssignmentType =
 	| { kind: 'host'; display: string; key: string }
 	| { kind: 'project'; display: string; key: string; implements: readonly string[] };
 
+/**
+ * Resolve object types against metadata stable for one analysis pass. Project
+ * indexing stays lazy behind the normal host/library resolution priority.
+ * A fresh resolver observes metadata changes on the next pass.
+ */
+export function createObjectAssignmentTypeResolver(
+	memberCtx: MemberCompletionContext,
+): (type: string | undefined) => KnownObjectAssignmentType | undefined {
+	let queries: Map<string | undefined, KnownObjectAssignmentType | undefined> | undefined;
+	let projectTypes: Map<string, VbaProjectClassMembers | undefined> | undefined;
+	const projectType = (lower: string): VbaProjectClassMembers | undefined => {
+		if (!projectTypes) {
+			projectTypes = new Map();
+			for (const candidate of memberCtx.projectClassMembers ?? []) {
+				if (candidate.kind === 'userType' || candidate.kind === 'enum' || candidate.kind === 'standardModule') {
+					continue;
+				}
+				const name = candidate.name.toLowerCase();
+				// Every eligible duplicate makes the name ambiguous, even the same object twice.
+				projectTypes.set(name, projectTypes.has(name) ? undefined : candidate);
+			}
+		}
+		return projectTypes.get(lower);
+	};
+	return (type) => {
+		queries ??= new Map();
+		// Raw keys preserve the display spelling used for generic and host types.
+		if (!queries.has(type)) {
+			queries.set(type, resolveKnownObjectAssignmentType(type, memberCtx, projectType));
+		}
+		return queries.get(type);
+	};
+}
+
 export function resolveKnownObjectAssignmentType(
 	type: string | undefined,
 	memberCtx: MemberCompletionContext,
+	projectTypeLookup?: (lower: string) => VbaProjectClassMembers | undefined,
 ): KnownObjectAssignmentType | undefined {
 	if (!type) {
 		return undefined;
@@ -3139,7 +3175,7 @@ export function resolveKnownObjectAssignmentType(
 		return undefined;
 	}
 	const lower = simple.toLowerCase();
-	const matches = (memberCtx.projectClassMembers ?? []).filter(
+	const matches = projectTypeLookup ? undefined : (memberCtx.projectClassMembers ?? []).filter(
 		(projectType) =>
 			// userType and enum are VALUE types - `Dim c As Corner` is a Long,
 			// not an object - so neither can make an assignment require Set.
@@ -3148,14 +3184,15 @@ export function resolveKnownObjectAssignmentType(
 			projectType.kind !== 'standardModule' &&
 			projectType.name.toLowerCase() === lower,
 	);
-	if (matches.length !== 1) {
+	const match = projectTypeLookup ? projectTypeLookup(lower) : matches?.length === 1 ? matches[0] : undefined;
+	if (!match) {
 		return undefined;
 	}
 	return {
 		kind: 'project',
-		display: matches[0].name,
+		display: match.name,
 		key: lower,
-		implements: matches[0].implements ?? [],
+		implements: match.implements ?? [],
 	};
 }
 
@@ -4719,8 +4756,9 @@ export function objectAssignmentIncompatibilityReason(
 	expectedRaw: string | undefined,
 	actual: InferredArgumentType | undefined,
 	memberCtx: MemberCompletionContext,
+	resolveType: typeof resolveKnownObjectAssignmentType = resolveKnownObjectAssignmentType,
 ): string | undefined {
-	const expected = resolveKnownObjectAssignmentType(expectedRaw, memberCtx);
+	const expected = resolveType(expectedRaw, memberCtx);
 	if (!expected || !actual) {
 		return undefined;
 	}
@@ -4737,7 +4775,7 @@ export function objectAssignmentIncompatibilityReason(
 	if (expected.kind === 'generic' && expected.key === 'object') {
 		return undefined;
 	}
-	const actualObject = resolveKnownObjectAssignmentType(actual.type, memberCtx);
+	const actualObject = resolveType(actual.type, memberCtx);
 	if (!actualObject) {
 		// A Scripting object CreateObject made is no Collection, sheet or class
 		// of the project: 13 (issue #685, measured in Excel 16.0).
