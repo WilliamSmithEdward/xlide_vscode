@@ -99,6 +99,17 @@ export function vbaProcedureLabelAtLine(source: string, line: number): string {
 	return vbaProcedureLabel(vbaProcedureAtLine(vbaProcedureRanges(source), line));
 }
 
+/**
+ * The parts of a line that can change procedure ownership or its label.
+ * Body edits with the same signature cannot change the range scanner's answer.
+ */
+export function vbaProcedureLineStructure(line: string): string {
+    const header = PROCEDURE_HEADER_RE.exec(line);
+    return header
+        ? JSON.stringify([header[1].replace(/\s+/g, ' ').trim(), header[2]])
+        : isLeadIn(line) ? 'leadIn' : 'code';
+}
+
 function isLeadIn(line: string): boolean {
 	return line.trim() === '' || COMMENT_LINE_RE.test(line);
 }

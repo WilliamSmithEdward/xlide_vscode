@@ -3,6 +3,7 @@ import { moduleLocationOfDocument } from './vbaDocumentLocation';
 import {
     vbaProcedureLabel,
     vbaProcedureRanges,
+    vbaProcedureLineStructure,
     type VbaProcedureRange,
 } from './vbaProcedureAtLine';
 
@@ -36,11 +37,12 @@ export class VbaCaretProcedureTracker implements vscode.Disposable {
      * them; an edit rescans only that document. Weak keys do not keep closed
      * documents alive, and a reopened document starts with a fresh entry.
      */
-    private readonly _ranges = new WeakMap<vscode.TextDocument, { version: number; ranges: VbaProcedureRange[] }>();
+    private readonly _ranges = new WeakMap<vscode.TextDocument, { version: number; ranges: VbaProcedureRange[]; lineStructures: string[] }>();
 
     constructor() {
         this._disposables.push(
             this._emitter,
+            vscode.workspace.onDidChangeTextDocument((event) => this._acceptNonStructuralEdit(event)),
             vscode.window.onDidChangeActiveTextEditor(() => this._update()),
             vscode.window.onDidChangeTextEditorSelection((e) => {
                 if (e.textEditor === vscode.window.activeTextEditor) {
@@ -77,7 +79,12 @@ export class VbaCaretProcedureTracker implements vscode.Disposable {
         const document = editor.document;
         let cached = this._ranges.get(document);
         if (cached?.version !== document.version) {
-            cached = { version: document.version, ranges: vbaProcedureRanges(document.getText()) };
+            const source = document.getText();
+            cached = {
+                version: document.version,
+                ranges: vbaProcedureRanges(source),
+                lineStructures: source.split(/\r\n|\r|\n/).map(vbaProcedureLineStructure),
+            };
             this._ranges.set(document, cached);
         }
         const procedure = orderedProcedureAtLine(cached.ranges, editor.selection.active.line);
@@ -88,6 +95,23 @@ export class VbaCaretProcedureTracker implements vscode.Disposable {
             procedure,
             label: vbaProcedureLabel(procedure),
         };
+    }
+
+    /** Reuse ranges when an edit cannot change headers or their leading lines. */
+    private _acceptNonStructuralEdit(event: vscode.TextDocumentChangeEvent): void {
+        if (event.contentChanges.length === 0) { return; }
+        const document = event.document;
+        const cached = this._ranges.get(document);
+        if (!cached || cached.version !== document.version - 1 ||
+            cached.lineStructures.length !== document.lineCount) { return; }
+        for (const change of event.contentChanges) {
+            const line = change.range.start.line;
+            if (line !== change.range.end.line || /[\r\n]/.test(change.text) ||
+                cached.lineStructures[line] !== vbaProcedureLineStructure(document.lineAt(line).text)) {
+                return;
+            }
+        }
+        cached.version = document.version;
     }
 
     dispose(): void {
