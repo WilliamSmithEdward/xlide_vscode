@@ -60,28 +60,12 @@ export function checkObjectDefaultValues(
 	activity?: ConditionalActivityTracker,
 ): ProcedureStatementVisitor {
 	const defaultQueries = createObjectDefaultQueries(memberCtx);
-	let classIndex = 0;
-	// Facts belong to this invocation, so a later project metadata update is read anew.
-	const projectClasses = new Map<string, VbaProjectClassMembers | undefined>();
+	// Facts belong to this invocation, so later metadata is read anew.
 	const classForType = (type: string | undefined): VbaProjectClassMembers | undefined => {
 		const lower = type?.trim().split('.').pop()?.toLowerCase();
-		if (!lower) {
-			return undefined;
-		}
-		if (!projectClasses.has(lower)) {
-			// Preserve the first class, including an incomplete surface that
-			// prevents a later same-name class from proving absence.
-			const types = memberCtx.projectClassMembers ?? [];
-			while (classIndex < types.length) {
-				const candidate = types[classIndex++];
-				if (candidate.kind !== 'class') { continue; }
-				const key = candidate.name.toLowerCase();
-				if (!projectClasses.has(key)) { projectClasses.set(key, candidate.exhaustive === true ? candidate : undefined); }
-				if (key === lower) { break; }
-			}
-			if (!projectClasses.has(lower)) { projectClasses.set(lower, undefined); }
-		}
-		return projectClasses.get(lower);
+		if (!lower) { return undefined; }
+		const found = defaultQueries.projectClassNamed(lower);
+		return found?.exhaustive === true ? found : undefined;
 	};
 	const defaultReads = new Map<VbaProjectClassMembers, { hasDefault: boolean; problem: string | undefined }>();
 	const defaultFactsFor = (cls: VbaProjectClassMembers): { hasDefault: boolean; problem: string | undefined } => {

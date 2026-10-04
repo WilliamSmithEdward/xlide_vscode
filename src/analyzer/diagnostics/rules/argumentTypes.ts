@@ -23,7 +23,7 @@ import {
 } from '../callExtraction';
 import {
 	callableTypeSignaturesFor,
-	createObjectAssignmentTypeResolver,
+	createObjectDefaultQueries,
 	createProjectInterfaceSharingLookup,
 	createObjectTypeImplementationLookup,
 	expressionCalls,
@@ -58,8 +58,10 @@ export function checkArgumentTypes(
 	activity?: ConditionalActivityTracker,
 ): ProcedureStatementVisitor {
 	const moduleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
+	const defaultQueries = createObjectDefaultQueries(memberCtx);
 	const objectQueries = {
-		resolveType: createObjectAssignmentTypeResolver(memberCtx),
+		resolveType: defaultQueries.resolveType,
+		needsIndex: defaultQueries.needsIndex,
 		shareInterfaces: createProjectInterfaceSharingLookup(memberCtx),
 		implementsType: createObjectTypeImplementationLookup(),
 	};
