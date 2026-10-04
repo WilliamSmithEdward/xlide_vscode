@@ -36,6 +36,18 @@ describe('call-site lexer work is bounded with immutable cached tokens',()=>{
    const output=applyVbaTextEdits(source,sites.map(s=>({span:s.argumentInsert,newText:s.argumentText('3')})));
    expect(output).toBe(source.replace(body,Array(count).fill('Go 1, 3').join(': ')));
   });
+  it('bounds lexing for date words and real calls at '+count+' lines',()=>{
+   const source='Sub Caller()\n'+Array.from({length:count},(_,i)=>'Debug.Print #May '+(i%28+1)+', 2000#\nMay 1').join('\n')+'\nEnd Sub';
+   const moduleTokens=tokenizeCached(source);
+   work.characters=0;work.calls=0;
+   const sites=callSitesOf(source,'May');
+   expect(sites).toHaveLength(count);
+   expect(work.characters).toBeLessThanOrEqual(source.length);
+   expect(work.calls).toBeLessThanOrEqual(count);
+   expect(tokenizeCached(source)).toBe(moduleTokens);
+   expect(applyVbaTextEdits(source,sites.map(s=>({span:s.argumentInsert,newText:s.argumentText('3')}))))
+    .toBe(source.replace(/\nMay 1/g,'\nMay 1, 3'));
+  });
   it('tokenizes a nested call line once at '+count+' calls',()=>{
    const body='x = '+'Go('.repeat(count)+'1'+')'.repeat(count);
    const source='Sub Caller()\n'+body+'\nEnd Sub';

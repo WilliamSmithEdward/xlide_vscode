@@ -1,4 +1,4 @@
-// Run: node scripts/benchmark-call-site-arguments.mjs [--baseline=COMMIT] [--rounds=9]
+// Run: node scripts/benchmark-call-site-arguments.mjs [--baseline=COMMIT] [--rounds=9] [--date-literals]
 import { build } from 'esbuild';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -23,12 +23,15 @@ try {
  writeFileSync(bundle,result.outputFiles[0].contents);
  api = createRequire(import.meta.url)(bundle);
 } finally { try { unlinkSync(bundle); } catch(error) { if(error.code !== 'ENOENT') throw error; } rmdirSync(scratch); }
+const dateLiterals=process.argv.includes("--date-literals");
+const layouts=dateLiterals ? ["month", "fileNumber", "number"] : ["number","string","bracketed","nested","colon","comments"];
+const procedureName=dateLiterals ? "May" : "Go";
 const rows=[];
 let salt=0;
-for(const count of [1,100,1000]) for(const layout of ['number','string','bracketed','nested','colon','comments']) for(const mode of ['cached','fresh']) {
- const call=layout==='string'?'Go "hello"':layout==='bracketed'?'Call Go(1)':'Go 1';
+for(const count of [1,100,1000]) for(const layout of layouts) for(const mode of ['cached','fresh']) {
+ const call=layout==='month'?'Debug.Print #May 1, 2000#\nMay 1':layout==='fileNumber'?'Print #channel, May(1)':dateLiterals?'May 1':layout==='string'?'Go "hello"':layout==='bracketed'?'Call Go(1)':'Go 1';
  const statement=layout==='nested'?'x = '+'Go('.repeat(count)+'1'+')'.repeat(count):layout==='colon'?Array(count).fill(call).join(': '):layout==='comments'?Array.from({length:count},(_,i)=>"Go 1 'note "+i).join('\n'):Array(count).fill(call).join('\n');
- const expectedStatement=layout==='nested'?'x = '+'Go('.repeat(count)+'1'+', 3)'.repeat(count):layout==='colon'?Array(count).fill('Go 1, 3').join(': '):layout==='comments'?Array.from({length:count},(_,i)=>"Go 1, 3 'note "+i).join('\n'):Array(count).fill(layout==='string'?'Go "hello", 3':layout==='bracketed'?'Call Go(1, 3)':'Go 1, 3').join('\n');
+ const expectedStatement=layout==='nested'?'x = '+'Go('.repeat(count)+'1'+', 3)'.repeat(count):layout==='colon'?Array(count).fill('Go 1, 3').join(': '):layout==='comments'?Array.from({length:count},(_,i)=>"Go 1, 3 'note "+i).join('\n'):Array(count).fill(layout==='month'?'Debug.Print #May 1, 2000#\nMay 1, 3':layout==='fileNumber'?'Print #channel, May(1, 3)':dateLiterals?'May 1, 3':layout==='string'?'Go "hello", 3':layout==='bracketed'?'Call Go(1, 3)':'Go 1, 3').join('\n');
  const body='Sub Caller()\n'+statement+'\nEnd Sub\n';
  const expectedBody='Sub Caller()\n'+expectedStatement+'\nEnd Sub\n';
  const cached='Option Explicit\n'+body;
@@ -36,8 +39,8 @@ for(const count of [1,100,1000]) for(const layout of ['number','string','bracket
  let sites,source;
  for(let round=-3;round<rounds;round++) {
   source=mode==='cached'?cached:'Option Explicit\n'+"' run "+(++salt)+'\n'+body;
-  const start=performance.now();sites=api.callSitesOf(source,'Go');const elapsed=performance.now()-start;
-  if(sites.length!==count)throw new Error('Unexpected call count');
+  const start=performance.now();sites=api.callSitesOf(source,procedureName);const elapsed=performance.now()-start;
+  if(sites.length!==count && !(baseline&&dateLiterals))throw new Error('Unexpected call count');
   if(round>=0)samples.push(elapsed);
  }
  let rendered,renderError;
@@ -47,6 +50,6 @@ for(const count of [1,100,1000]) for(const layout of ['number','string','bracket
  if(!baseline&&!correctRender)throw new Error('Candidate produces an incorrect edit: '+layout);
  const signature=text=>createHash('sha256').update(text??'render-error:'+renderError).digest('hex');
  samples.sort((a,b)=>a-b);
- rows.push({name:[count,layout,mode].join('/'),count,layout,mode,medianMs:+samples[Math.floor(rounds/2)].toFixed(5),p95Ms:+samples[Math.ceil(rounds*.95)-1].toFixed(5),correctRender,renderError,renderedHash:signature(rendered),expectedHash:signature(expectedBody)});
+ rows.push({name:[count,layout,mode].join('/'),count,layout,mode,actualCalls:sites.length,medianMs:+samples[Math.floor(rounds/2)].toFixed(5),p95Ms:+samples[Math.ceil(rounds*.95)-1].toFixed(5),correctRender,renderError,renderedHash:signature(rendered),expectedHash:signature(expectedBody)});
 }
 console.log(JSON.stringify({baseline:baseline??null,node:process.version,cpu:cpus()[0]?.model,rounds,rows},null,2));
