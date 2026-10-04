@@ -14,6 +14,74 @@ function create(call: ReturnType<typeof vi.fn>) {
     return new ShapeRows({ call } as unknown as ProjectEngine, () => {});
 }
 describe('sheet row context across refresh', () => {
+    it.each(['case', 'renamed', 'removed', 'chart', 'failed'] as const)(
+        'rechecks module-less sheet and folder targets after %s changes', async change => {
+            let name = 'Data', kind = 'worksheet', removed = false, failed = false;
+            const call = vi.fn(async (method: string) => {
+                if (method === 'listWorkbookSheets') {
+                    if (failed) { throw new Error('Workbook busy'); }
+                    return { sheets: removed ? [] : [{ name, kind }] };
+                }
+                return shapes(name);
+            });
+            const tree = create(call);
+            const { folders: [sheets] } = await tree.projectRows(project, []);
+            const [sheet] = await tree.children(sheets, async () => []);
+            const [folder] = await tree.children(sheet, async () => []);
+            name = change === 'case' ? 'DATA' : change === 'renamed' ? 'Renamed' : 'Data';
+            kind = change === 'chart' ? 'chartsheet' : 'worksheet';
+            removed = change === 'removed';
+            failed = change === 'failed';
+            tree.refresh(BOOK);
+            const expected = change === 'case' ? { host: 'excel', surface: 'DATA' } : undefined;
+            expect(await tree.surfaceOf(sheet)).toEqual(expected);
+            expect(await tree.surfaceOf(folder)).toEqual(expected);
+            expect(call.mock.calls.filter(([method]) => method === 'listShapes')).toHaveLength(1);
+        });
+
+    it('adds to an empty module-less worksheet using the catalog without reading drawings', async () => {
+        const call = vi.fn(async (method: string) => method === 'listWorkbookSheets'
+            ? { sheets: [{ name: 'Data', kind: 'worksheet' }] } : { surfaces: [] });
+        const tree = create(call);
+        const { folders: [sheets] } = await tree.projectRows(project, []);
+        const [bare] = await tree.children(sheets, async () => []);
+        const [sheet] = await tree.children(bare, async () => []);
+        tree.refresh(BOOK);
+        expect(await tree.surfaceOf(sheet)).toEqual({ host: 'excel', surface: 'Data' });
+        expect(call.mock.calls.filter(([method]) => method === 'listShapes')).toHaveLength(1);
+    });
+
+    it('follows a retained sheet code name instead of a replacement with the old display name', async () => {
+        const call = vi.fn(async (method: string) => method === 'listWorkbookSheets' ? catalog : shapes('Data'));
+        const tree = create(call);
+        const { folders: [sheets] } = await tree.projectRows(project, []);
+        const [sheet] = await tree.children(sheets, async () => []);
+        const [folder] = await tree.children(sheet, async () => []);
+        call.mockResolvedValue({ sheets: [
+            { name: 'Data', codeName: 'Replacement', kind: 'worksheet' },
+            { name: 'Renamed', codeName: 'Sheet1', kind: 'worksheet' },
+        ] });
+        tree.refresh(BOOK);
+        for (const node of [sheet, folder]) {
+            expect(await tree.surfaceOf(node)).toEqual({ host: 'excel', surface: 'Renamed' });
+        }
+    });
+
+    it.each(['success', 'failure'] as const)('retries an overtaken worksheet catalog ending in %s', async outcome => {
+        let resolve!: (value: unknown) => void, reject!: (error: Error) => void;
+        const old = new Promise((yes, no) => { resolve = yes; reject = no; });
+        const call = vi.fn().mockReturnValueOnce(old).mockResolvedValue({ sheets: [{ name: 'DATA', kind: 'worksheet' }] });
+        const tree = create(call);
+        const sheet: XlideNode = { kind: 'surface', label: 'Data', surface: 'Data', filePath: BOOK };
+        const pending = tree.surfaceOf(sheet);
+        tree.refresh(BOOK);
+        expect(await tree.surfaceOf(sheet)).toEqual({ host: 'excel', surface: 'DATA' });
+        if (outcome === 'success') { resolve({ sheets: [{ name: 'Data', kind: 'worksheet' }] }); }
+        else { reject(new Error('Obsolete catalog')); }
+        expect(await pending).toEqual({ host: 'excel', surface: 'DATA' });
+        expect(call).toHaveBeenCalledTimes(2);
+    });
+
     it.each(['renamed', 'removed'] as const)('resolves an already opened module folder after its sheet is %s', async change => {
         const call = vi.fn(async (method: string) => method === 'listWorkbookSheets' ? catalog : shapes('Data'));
         const tree = create(call), module = moduleRow();
