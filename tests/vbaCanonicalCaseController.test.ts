@@ -365,6 +365,50 @@ describe('an editor that closes under a pending recase', () => {
 
 
 describe('canonical casing lifecycle and idle work', () => {
+	it('recases another module while the first module edit is pending', async () => {
+		const firstDocument = fakeDocument(SOURCE);
+		const secondDocument = fakeDocument(SOURCE);
+		const firstEditor = fakeEditor(firstDocument);
+		const secondEditor = fakeEditor(secondDocument);
+		show(firstEditor);
+		show(secondEditor);
+		const casing = controller();
+		let finish!: (value: boolean) => void;
+		firstEditor.edit.mockImplementationOnce(() => new Promise<boolean>(resolve => { finish = resolve; }));
+		const first = casing.applyCanonicalCaseForLine(firstDocument as never, 0, firstEditor as never);
+		await casing.applyCanonicalCaseForLine(secondDocument as never, 1, secondEditor as never);
+		expect(secondEditor.replaced).toEqual(['Sub']);
+		finish(false);
+		await first;
+	});
+
+	it('drains each module queue only after that module edit completes', async () => {
+		const firstDocument = fakeDocument(SOURCE);
+		const secondDocument = fakeDocument(SOURCE);
+		const firstEditor = fakeEditor(firstDocument);
+		const secondEditor = fakeEditor(secondDocument);
+		show(firstEditor);
+		show(secondEditor);
+		const casing = controller();
+		let finishFirst!: (value: boolean) => void;
+		let finishSecond!: (value: boolean) => void;
+		firstEditor.edit.mockImplementationOnce(() => new Promise<boolean>(resolve => { finishFirst = resolve; }));
+		secondEditor.edit.mockImplementationOnce(() => new Promise<boolean>(resolve => { finishSecond = resolve; }));
+		const first = casing.applyCanonicalCaseForLine(firstDocument as never, 0, firstEditor as never);
+		const second = casing.applyCanonicalCaseForLine(secondDocument as never, 0, secondEditor as never);
+		await casing.applyCanonicalCaseForLine(firstDocument as never, 1, firstEditor as never);
+		await casing.applyCanonicalCaseForLine(secondDocument as never, 2, secondEditor as never);
+		expect(firstEditor.edit).toHaveBeenCalledTimes(1);
+		expect(secondEditor.edit).toHaveBeenCalledTimes(1);
+		finishSecond(false);
+		await second;
+		expect(secondEditor.replaced).toEqual(['End', 'Sub']);
+		expect(firstEditor.edit).toHaveBeenCalledTimes(1);
+		finishFirst(false);
+		await first;
+		expect(firstEditor.replaced).toEqual(['Sub']);
+	});
+
 	it('drops queued casing for an older document version before reading source', async () => {
 		const document = fakeDocument(SOURCE);
 		const editor = fakeEditor(document);

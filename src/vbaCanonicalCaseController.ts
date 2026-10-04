@@ -49,7 +49,7 @@ function canonicalCandidateFromEditor(
 export class VbaCanonicalCaseController implements vscode.Disposable {
 	private _disposed = false;
 	private readonly _pendingCanonicalCaseRequests: CanonicalCaseRequest[] = [];
-	private _applyingCanonicalCase = false;
+	private readonly _applyingCanonicalCase = new WeakSet<vscode.TextDocument>();
 	private _lastCanonicalCandidate = canonicalCandidateFromEditor(vscode.window.activeTextEditor);
 	private readonly _canonicalLineTimers = new Map<string, ReturnType<typeof setTimeout>>();
 	private readonly _userTouchedCanonicalLines = new Set<string>();
@@ -121,11 +121,11 @@ export class VbaCanonicalCaseController implements vscode.Disposable {
 		resolveEdits: (source: string, ctx: CanonicalCaseContext) => CanonicalCaseEdit[],
 	): Promise<void> {
 		if (this._disposed || document.isClosed) { return; }
-		if (this._applyingCanonicalCase) {
+		if (this._applyingCanonicalCase.has(document)) {
 			this._enqueueCanonicalCaseRequest({ document, documentVersion: document.version, editorHint, resolveEdits });
 			return;
 		}
-		this._applyingCanonicalCase = true;
+		this._applyingCanonicalCase.add(document);
 		try {
 			// A pass that runs from a timer holds the editor it started with,
 			// which may have closed since: then any editor still showing the
@@ -172,9 +172,10 @@ export class VbaCanonicalCaseController implements vscode.Disposable {
 				}
 			}
 		} finally {
-			this._applyingCanonicalCase = false;
-			let next: CanonicalCaseRequest | undefined;
-			while ((next = this._pendingCanonicalCaseRequests.shift())) {
+			this._applyingCanonicalCase.delete(document);
+			let queuedIndex: number;
+			while ((queuedIndex = this._pendingCanonicalCaseRequests.findIndex(request => request.document === document)) >= 0) {
+				const [next] = this._pendingCanonicalCaseRequests.splice(queuedIndex, 1);
 				// Captured line numbers and caret offsets belong to this version.
 				// Newer content changes schedule their own pass; do not scan or
 				// edit newer text using a request from an earlier typing state.
