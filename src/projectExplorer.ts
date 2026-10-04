@@ -120,6 +120,8 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     private _modulesListCache = new Map<string, XlideNode[]>();
     private _modulesListLoads = new Map<string, Promise<ModuleListing[]>>();
     private _moduleListVersions = new Map<string, number>();
+    // A module cannot be revealed until its sheet/folder parent rows exist.
+    private _projectRenderLoads = new Map<string, Promise<XlideNode[]>>();
     // Bumped on every refresh(). An in-flight load captured before a refresh must
     // not write its now-stale result into the freshly-cleared cache (which would
     // leave a just-added module invisible until the next refresh).
@@ -182,6 +184,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         this._generation++;
         this._projectFilesLoad = undefined;
         this._modulesListLoads.clear();
+        this._projectRenderLoads.clear();
         this._subsListLoads.clear();
         this._protectionLoads.clear();
         this._shapes.dispose();
@@ -225,6 +228,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         this._modulesListCache.clear();
         this._modulesListLoads.clear();
         this._moduleListVersions.clear();
+        this._projectRenderLoads.clear();
         this._subsListCache.clear();
         this._subsListLoads.clear();
         this._subListVersions.clear();
@@ -440,8 +444,16 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
      * the workspace holds the module.
      */
     async resolveModuleNode(filePath: string, moduleName: string): Promise<XlideNode | undefined> {
+        if (this._disposed) { return undefined; }
+        const projectKey = projectNodeKey(filePath);
+        const pending = this._projectRenderLoads.get(projectKey);
+        if (pending) {
+            await pending;
+            if (this._disposed || !this._modulesListCache.has(projectKey)) { return undefined; }
+        }
         const cached = this.getModuleNode(filePath, moduleName);
-        if (cached) {
+        if (cached && this._modulesListCache.has(projectKey)
+            && (this._view !== 'folders' || this._folderTrees.has(projectKey))) {
             return cached;
         }
         const project = (await this._getProjectFiles())
@@ -450,19 +462,20 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
             return undefined;
         }
         await this._getChildren(project);
-        return this.getModuleNode(filePath, moduleName);
+        return this._disposed || !this._modulesListCache.has(projectKey)
+            ? undefined : this.getModuleNode(filePath, moduleName);
     }
 
     /** A procedure's row, listing the module's procedures if the tree has not. */
     async resolveProcedureNode(filePath: string, moduleName: string, label: string): Promise<XlideNode | undefined> {
         const module = await this.resolveModuleNode(filePath, moduleName);
-        if (!module) {
+        if (this._disposed || !module) {
             return undefined;
         }
         if (!this._subNodes.has(moduleNodeKey(filePath, moduleName))) {
             await this._getChildren(module);
         }
-        return this.getProcedureNode(filePath, moduleName, label);
+        return this._disposed ? undefined : this.getProcedureNode(filePath, moduleName, label);
     }
 
     /**
@@ -946,34 +959,18 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         }
         if (node.kind === 'project') {
             const projectKey = projectNodeKey(node.filePath);
-            const generation = this._generation;
-            const version = this._moduleListVersions.get(projectKey) ?? 0;
-            const stale = (): boolean => generation !== this._generation
-                || version !== (this._moduleListVersions.get(projectKey) ?? 0);
-            const modules = await this._getModules(node.filePath);
-            if (this._disposed) { return []; }
-            const failed = modules.some((m) => m.kind === 'loadError');
-            // A presentation's slides, and a workbook's sheets, lead the
-            // project's rows, and a sheet's module is drawn under Sheets; a
-            // listing that failed shows only that.
-            const rows = failed ? { folders: [], modules } : await this._shapes.projectRows(node, modules);
-            // A refreshed module listing must also own the derived layout.
-            // Older renders join the current load before registering any rows.
-            if (stale()) {
-                return this._getChildren(node);
+            let render = this._projectRenderLoads.get(projectKey);
+            if (!render) {
+                render = this._getProjectChildren(node);
+                this._projectRenderLoads.set(projectKey, render);
+                const settled = (): void => {
+                    if (this._projectRenderLoads.get(projectKey) === render) {
+                        this._projectRenderLoads.delete(projectKey);
+                    }
+                };
+                render.then(settled, settled);
             }
-            if (modules.length === 0) {
-                const hasVbaProject = await this._hasVbaProject(node.filePath);
-                if (stale()) {
-                    return this._getChildren(node);
-                }
-                return [...rows.folders, this._emptyNode(node.filePath, hasVbaProject)];
-            }
-            if (this._view !== 'folders' || failed) {
-                return [...rows.folders, ...rows.modules];
-            }
-            const tree = this._folderTreeOf(node.filePath, rows.modules);
-            return [...rows.folders, ...this._folderNodesOf(node.filePath, tree.folders), ...tree.modules];
+            return render;
         }
         if (node.kind === 'folder') {
             const folder = this._folderIn(node.filePath, node.folder ?? '');
@@ -998,6 +995,32 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                 .filter((m) => m.kind === 'module'));
         }
         return [];
+    }
+
+    private async _getProjectChildren(node: XlideNode): Promise<XlideNode[]> {
+        const projectKey = projectNodeKey(node.filePath);
+        const generation = this._generation;
+        const version = this._moduleListVersions.get(projectKey) ?? 0;
+        const stale = (): boolean => generation !== this._generation
+            || version !== (this._moduleListVersions.get(projectKey) ?? 0);
+        const modules = await this._getModules(node.filePath);
+        if (this._disposed) { return []; }
+        const failed = modules.some((m) => m.kind === 'loadError');
+        // A presentation's slides, and a workbook's sheets, lead the
+        // project's rows; a sheet's module is drawn under Sheets.
+        const rows = failed ? { folders: [], modules } : await this._shapes.projectRows(node, modules);
+        // Older renders join the current load before registering derived rows.
+        if (stale()) { return this._getChildren(node); }
+        if (modules.length === 0) {
+            const hasVbaProject = await this._hasVbaProject(node.filePath);
+            if (stale()) { return this._getChildren(node); }
+            return [...rows.folders, this._emptyNode(node.filePath, hasVbaProject)];
+        }
+        if (this._view !== 'folders' || failed) {
+            return [...rows.folders, ...rows.modules];
+        }
+        const tree = this._folderTreeOf(node.filePath, rows.modules);
+        return [...rows.folders, ...this._folderNodesOf(node.filePath, tree.folders), ...tree.modules];
     }
 
     /**
@@ -1103,6 +1126,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         this._moduleListVersions.set(projectKey, (this._moduleListVersions.get(projectKey) ?? 0) + 1);
         this._modulesListCache.delete(projectKey);
         this._modulesListLoads.delete(projectKey);
+        this._projectRenderLoads.delete(projectKey);
         this._folderTrees.delete(projectKey);
     }
 
