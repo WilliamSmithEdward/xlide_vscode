@@ -94,8 +94,7 @@ export function localUsesIn(
 	declarationSpan: Span,
 	name: string,
 ): { uses: VbaIdentifierOccurrence[]; writes: VbaIdentifierOccurrence[] } {
-	const occurrences = findIdentifierOccurrences(source, name)
-		.filter((occ) => occ.offset >= procedure.span.start && occ.offset <= procedure.span.end);
+	const occurrences = findIdentifierOccurrences(source, name, procedure.span);
 	const kinds = classifyReferenceKinds(source, occurrences.map((occ) => occ.offset));
 	const uses = occurrences.filter(
 		(occ) => occ.offset < declarationSpan.start || occ.offset > declarationSpan.end,

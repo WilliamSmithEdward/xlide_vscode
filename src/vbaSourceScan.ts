@@ -359,24 +359,32 @@ function strippedSource(source: string): { lines: readonly string[]; starts: rea
 export function findIdentifierOccurrences(
     source: string,
     name: string,
+    /** Inclusive bounds on an occurrence's starting offset. */
+    range?: Span,
 ): VbaIdentifierOccurrence[] {
-    return findIdentifierOccurrencesForNames(source, [name]).get(name.toLowerCase()) ?? [];
+    return findIdentifierOccurrencesForNames(source, [name], range).get(name.toLowerCase()) ?? [];
 }
 
 /** Finds several names in one source sweep, keyed by their lowercase spelling. */
 export function findIdentifierOccurrencesForNames(
     source: string,
     names: readonly string[],
+    /** Inclusive bounds on an occurrence's starting offset. */
+    range?: Span,
 ): Map<string, VbaIdentifierOccurrence[]> {
     const out = new Map<string, VbaIdentifierOccurrence[]>();
     for (const name of names) { out.set(name.toLowerCase(), []); }
-    if (out.size === 0) { return out; }
+    if (out.size === 0 || (range && range.start > range.end)) { return out; }
     // Keep the common single-name path a direct string comparison, avoiding
     // a map lookup for every unrelated identifier in references/rename.
     const singleName = out.size === 1 ? out.keys().next().value : undefined;
     const singleMatches = singleName !== undefined ? out.get(singleName) : undefined;
     const { lines, starts } = strippedSource(source);
-    for (let i = 0; i < lines.length; i++) {
+    // Reuse whole-source stripping so comments continued from earlier lines
+    // keep their context. Only the identifier sweep is confined to the range.
+    const firstLine = range ? lineIndexOf(starts, range.start) : 0;
+    const lastLine = range ? lineIndexOf(starts, range.end) : lines.length - 1;
+    for (let i = firstLine; i <= lastLine; i++) {
         const stripped = lines[i];
         VBA_IDENTIFIER_WORD_RE.lastIndex = 0;
         let m: RegExpExecArray | null;
@@ -386,10 +394,12 @@ export function findIdentifierOccurrencesForNames(
                 ? (lower === singleName ? singleMatches : undefined)
                 : out.get(lower);
             if (matches) {
+                const offset = (starts[i] ?? 0) + m.index;
+                if (range && (offset < range.start || offset > range.end)) { continue; }
                 matches.push({
                     line: i,
                     column: m.index,
-                    offset: (starts[i] ?? 0) + m.index,
+                    offset,
                     text: m[0],
                 });
             }
