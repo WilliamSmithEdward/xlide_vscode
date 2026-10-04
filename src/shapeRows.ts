@@ -127,6 +127,8 @@ export class ShapeRows {
 		parent: XlideNode; hasCode: boolean | undefined; current: () => boolean;
 	}>();
 	private readonly contexts = new WeakMap<XlideNode, ShapeRowContext>();
+	/** A shape's member snapshot is usable only until its project refreshes. */
+	private readonly shapeRenders = new WeakMap<XlideNode, () => boolean>();
 	/** The workbook sheet a sheet row stands for. */
 	private readonly sheetOfRow = new WeakMap<XlideNode, WorkbookSheet>();
 	/** The rows under a workbook's folder of bare sheets: module rows for empty sheet modules, sheet rows for sheets with none. */
@@ -348,11 +350,12 @@ export class ShapeRows {
 		const current = this.renderCurrent(node.filePath);
 		if (node.kind === 'shape') {
 			const context = this.contexts.get(node);
-			return context
-				? (node.shape?.shapes ?? []).map((member) => this.shapeRow(node, context.host, context.surface, member, true))
-				: [];
+			if (!context) { return []; }
+			if (this.shapeRenders.get(node)?.()) {
+				return (node.shape?.shapes ?? []).map((member) => this.shapeRow(node, context.host, context.surface, member, true));
+			}
 		}
-		if (node.kind !== 'shapes' && node.kind !== 'surface') { return []; }
+		if (node.kind !== 'shapes' && node.kind !== 'surface' && node.kind !== 'shape') { return []; }
 		if (node.shapeFolder === 'sheets') {
 			const modules = await modulesOf();
 			if (this.disposed) { return []; }
@@ -372,10 +375,12 @@ export class ShapeRows {
 		}
 		const host = shapeHostForPath(node.filePath);
 		if (!host) { return []; }
-		const project = projectIdentityKey(node.filePath);
-		let opened = this.opened.get(project);
-		if (!opened) { this.opened.set(project, opened = new Set()); }
-		opened.add(node);
+		if (node.kind !== 'shape') {
+			const project = projectIdentityKey(node.filePath);
+			let opened = this.opened.get(project);
+			if (!opened) { this.opened.set(project, opened = new Set()); }
+			opened.add(node);
+		}
 		let surfaces: ShapeSurface[];
 		try {
 			surfaces = await this.surfaces(node.filePath);
@@ -386,6 +391,27 @@ export class ShapeRows {
 		}
 		if (this.disposed) { return []; }
 		if (!current()) { return this.children(node, modulesOf); }
+		if (node.kind === 'shape') {
+			let ancestor: XlideNode | undefined = this.parents.get(node);
+			while (ancestor?.kind === 'shape') { ancestor = this.parents.get(ancestor); }
+			const surface = host === 'excel' && ancestor?.shapeFolder === 'module'
+				? sheetOfModule(surfaces, ancestor.moduleName ?? '')
+				: surfaces.find(s => s.surface.toLowerCase() === node.surface?.toLowerCase());
+			let level: readonly ShapeInfo[] = surface?.shapes ?? [];
+			let shape: ShapeInfo | undefined;
+			for (const name of node.shapePath ?? [node.label]) {
+				shape = level.find(candidate => candidate.name.toLowerCase() === name.toLowerCase());
+				level = shape?.shapes ?? [];
+				if (!shape) { break; }
+			}
+			if (!shape || !surface) { this.contexts.delete(node); return []; }
+			node.shape = shape;
+			node.label = shape.name;
+			node.surface = surface.surface;
+			this.contexts.set(node, { ...this.contexts.get(node)!, host, surface: surface.surface, shape });
+			this.shapeRenders.set(node, current);
+			return level.map(member => this.shapeRow(node, host, surface.surface, member, true));
+		}
 		if (node.kind === 'surface') {
 			const surface = surfaces.find((s) => s.surface === node.surface);
 			if (host !== 'excel') {
@@ -760,6 +786,7 @@ export class ShapeRows {
 		};
 		this.parents.set(node, parent);
 		this.contexts.set(node, { host, surface, shape, inGroup });
+		this.shapeRenders.set(node, this.renderCurrent(node.filePath));
 		return node;
 	}
 
