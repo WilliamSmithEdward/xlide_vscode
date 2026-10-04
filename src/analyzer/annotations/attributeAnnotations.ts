@@ -128,6 +128,8 @@ export function readAttributeAnnotations(source: string | undefined): ModuleAnno
 	let inDeclarations = true;
 	let defaultMemberAt = 0;
 	const seenProcedures = new Map<string, number>();
+	const moduleKinds = new Set<AnnotationKind>();
+	const variableTargets = new Set<string>();
 
 	const lines = source.split('\n');
 	for (let at = 0; at < lines.length; at += 1) {
@@ -158,13 +160,14 @@ export function readAttributeAnnotations(source: string | undefined): ModuleAnno
 				problems.push({ line: number, message: needsArgumentMessage(kind) });
 				continue;
 			}
-			if (annotations.some((one) => one.kind === kind)) {
+			if (moduleKinds.has(kind)) {
 				problems.push({
 					line: number,
 					message: `${spelledAnnotation(kind)} appears more than once; the first one counts.`,
 				});
 				continue;
 			}
+			moduleKinds.add(kind);
 			annotations.push({ kind, line: number, ...(argument !== undefined ? { argument } : {}) });
 			continue;
 		}
@@ -209,6 +212,8 @@ export function readAttributeAnnotations(source: string | undefined): ModuleAnno
 	return { annotations, problems };
 
 	function bindToProcedure(name: string, headerLine: number, occurrence: number): void {
+		if (pending.length === 0) { return; }
+		const acceptedKinds = new Set<AnnotationKind>();
 		for (const one of pending) {
 			if (one.kind === 'VariableDescription') {
 				problems.push({
@@ -238,14 +243,14 @@ export function readAttributeAnnotations(source: string | undefined): ModuleAnno
 				}
 				defaultMemberAt = one.line;
 			}
-			if (annotations.some((found) => found.kind === one.kind
-				&& found.target === name && found.targetLine === headerLine)) {
+			if (acceptedKinds.has(one.kind)) {
 				problems.push({
 					line: one.line,
 					message: `${spelledAnnotation(one.kind)} appears more than once above '${name}'; the first one counts.`,
 				});
 				continue;
 			}
+			acceptedKinds.add(one.kind);
 			annotations.push({
 				kind: one.kind,
 				line: one.line,
@@ -271,13 +276,14 @@ export function readAttributeAnnotations(source: string | undefined): ModuleAnno
 				problems.push({ line: one.line, message: needsArgumentMessage(one.kind) });
 				continue;
 			}
-			if (annotations.some((found) => found.kind === one.kind && found.target === name)) {
+			if (variableTargets.has(name)) {
 				problems.push({
 					line: one.line,
 					message: `${spelledAnnotation(one.kind)} appears more than once above '${name}'; the first one counts.`,
 				});
 				continue;
 			}
+			variableTargets.add(name);
 			annotations.push({
 				kind: one.kind,
 				line: one.line,
