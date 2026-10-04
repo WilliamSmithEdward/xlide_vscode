@@ -11,8 +11,9 @@ export function registerVbaEditorCommands(context: vscode.ExtensionContext): voi
 				await vscode.commands.executeCommand('deleteLeft');
 				return;
 			}
-			const handled = await clearEmptyContinuedComment(editor);
-			if (handled) {
+			const clearing = clearEmptyContinuedComment(editor);
+			const handled = typeof clearing === 'boolean' || clearing === undefined ? clearing : await clearing;
+			if (handled === undefined || handled) {
 				return;
 			}
 			// A blank line keeps its indent here (trimAutoWhitespace is off), so
@@ -38,7 +39,9 @@ export function registerVbaEditorCommands(context: vscode.ExtensionContext): voi
 				await vscode.commands.executeCommand('tab');
 				return;
 			}
-			await clearEmptyContinuedComment(editor);
+			const clearing = clearEmptyContinuedComment(editor);
+			const cleared = typeof clearing === 'boolean' || clearing === undefined ? clearing : await clearing;
+			if (cleared === undefined) { return; }
 			const selection = editor.selection;
 			const lineText = editor.document.lineAt(selection.active.line).text;
 			const spansLines = editor.selections.some((s) => s.start.line !== s.end.line);
@@ -57,7 +60,12 @@ export function registerVbaEditorCommands(context: vscode.ExtensionContext): voi
 				if (!move) {
 					return;
 				}
+				const editor = vscode.window.activeTextEditor;
+				const document = editor?.document;
+				const version = document?.version;
 				await vscode.commands.executeCommand('leaveSnippet');
+				if (vscode.window.activeTextEditor !== editor || editor?.document !== document ||
+					document?.isClosed || document?.version !== version) { return; }
 				await vscode.commands.executeCommand('cursorMove', move);
 			},
 		),
@@ -80,7 +88,8 @@ function cursorMoveFor(direction: CursorDirection): Record<string, unknown> | un
 	}
 }
 
-async function clearEmptyContinuedComment(editor: vscode.TextEditor): Promise<boolean> {
+function clearEmptyContinuedComment(editor: vscode.TextEditor): boolean | undefined | Thenable<boolean | undefined> {
+	if (editor.document.isClosed) { return undefined; }
 	if (editor.selections.length !== 1) {
 		return false;
 	}
@@ -107,10 +116,22 @@ async function clearEmptyContinuedComment(editor: vscode.TextEditor): Promise<bo
 		return false;
 	}
 	const markerStart = match[1].length;
+	const version = document.version;
 	return editor.edit((edit) => {
 		edit.delete(new vscode.Range(
 			new vscode.Position(position.line, markerStart),
 			position,
 		));
+	}).then(applied => {
+		// A rejected edit must not turn into a deletion/tab at a newer caret
+		// or in an editor selected while the original edit was pending.
+		if (vscode.window.activeTextEditor !== editor || editor.document !== document || document.isClosed ||
+			document.version < version || document.version > version + (applied ? 1 : 0)) { return undefined; }
+		const current = editor.selection;
+		if (!applied && (current.active.line !== selection.active.line || current.active.character !== selection.active.character ||
+			current.anchor.line !== selection.anchor.line || current.anchor.character !== selection.anchor.character)) {
+			return undefined;
+		}
+		return applied;
 	});
 }

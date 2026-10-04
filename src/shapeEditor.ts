@@ -160,7 +160,12 @@ async function createShapeEditor(
 	);
 	openEditors.set(key, panel);
 	panel.webview.html = renderShapeEditorHtml(model);
+	let writePending = false, disposed = false;
 	const messages = panel.webview.onDidReceiveMessage(async (message: { type?: string; values?: ShapeFormValues; macro?: string }) => {
+		if (disposed) { return; }
+		const writing = message.type === 'save' || message.type === 'delete';
+		if (writing && writePending) { return; }
+		if (writing) { writePending = true; }
 		try {
 			switch (message.type) {
 				case 'cancel':
@@ -170,7 +175,7 @@ async function createShapeEditor(
 					if (message.macro) { await deps.goToMacro(filePath, message.macro); }
 					return;
 				case 'delete':
-					await deleteFromEditor(deps, panel, filePath, model);
+					await deleteFromEditor(deps, panel, filePath, model, () => !disposed);
 					return;
 				case 'save':
 					if (message.values) { await saveFromEditor(deps, panel, filePath, model, message.values); }
@@ -182,9 +187,12 @@ async function createShapeEditor(
 				reportProjectLocked(filePath, 'write', err);
 			}
 			await panel.webview.postMessage({ type: 'error', error: errorMessage(err) });
+		} finally {
+			if (writing) { writePending = false; }
 		}
 	});
 	panel.onDidDispose(() => {
+		disposed = true;
 		messages.dispose();
 		if (openEditors.get(key) === panel) { openEditors.delete(key); }
 	});
@@ -215,7 +223,7 @@ async function saveFromEditor(
 	);
 }
 
-async function deleteFromEditor(deps: ShapeEditorDeps, panel: vscode.WebviewPanel, filePath: string, model: ShapeEditorModel): Promise<void> {
+async function deleteFromEditor(deps: ShapeEditorDeps, panel: vscode.WebviewPanel, filePath: string, model: ShapeEditorModel, isOpen: () => boolean): Promise<void> {
 	const name = model.shape?.name;
 	if (!name) { return; }
 	const choice = await vscode.window.showWarningMessage(
@@ -223,6 +231,7 @@ async function deleteFromEditor(deps: ShapeEditorDeps, panel: vscode.WebviewPane
 		{ modal: true },
 		'Delete',
 	);
+	if (!isOpen()) { return; }
 	if (choice !== 'Delete') {
 		await panel.webview.postMessage({ type: 'idle' });
 		return;

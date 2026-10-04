@@ -216,6 +216,75 @@ describe('the shape editor tab', () => {
         } finally { firstPanel.dispose(); }
     });
 
+    it('accepts only one save while a shape write is pending', async () => {
+        const values = await openOn('Badge');
+        let release!: () => void;
+        const ready = new Promise<void>(yes => { release = yes; });
+        const engine = deps.bridge;
+        const call = vi.fn(async (method: string, args: Record<string, unknown>) => {
+            await ready;
+            return engine.call(method, args);
+        });
+        deps.bridge = { call } as unknown as ProjectEngine;
+        const first = panel.send({ type: 'save', values: { ...values, text: 'First submission' } });
+        const second = panel.send({ type: 'save', values: { ...values, text: 'Second submission' } });
+        release();
+        await Promise.all([first, second]);
+        expect(call).toHaveBeenCalledTimes(1);
+        expect(shape('Slide 1', 'Badge')?.text).toBe('First submission');
+    });
+
+    it('blocks repeated delete and save requests while deletion is awaiting confirmation', async () => {
+        const values = await openOn('Caption');
+        let release!: (value: never) => void;
+        const confirmation = new Promise<never>(yes => { release = yes; });
+        vi.mocked(vscode.window.showWarningMessage).mockReturnValue(confirmation);
+        const deleting = panel.send({ type: 'delete' });
+        const duplicate = panel.send({ type: 'delete' });
+        const saving = panel.send({ type: 'save', values: { ...values, text: 'Unexpected edit' } });
+        release('Delete' as never);
+        await Promise.all([deleting, duplicate, saving]);
+        expect(vscode.window.showWarningMessage).toHaveBeenCalledTimes(1);
+        expect(deps.explorer.refreshShapes).toHaveBeenCalledTimes(1);
+        expect(panel.webview.postMessage).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }));
+    });
+
+    it('does not delete after its editor closes while confirmation is pending', async () => {
+        await openOn('Caption');
+        let release!: (value: never) => void;
+        vi.mocked(vscode.window.showWarningMessage).mockReturnValue(new Promise<never>(yes => { release = yes; }));
+        const deleting = panel.send({ type: 'delete' });
+        panel.dispose();
+        release('Delete' as never);
+        await deleting;
+        expect(shape('Slide 1', 'Caption')).toBeDefined();
+        expect(deps.explorer.refreshShapes).not.toHaveBeenCalled();
+    });
+
+    it.each(['invalid', 'failed'] as const)('allows a corrected save after an %s submission', async outcome => {
+        const values = await openOn('Badge');
+        if (outcome === 'failed') {
+            const engine = deps.bridge;
+            const call = vi.fn().mockRejectedValueOnce(new Error('Write failed'))
+                .mockImplementation((method: string, args: Record<string, unknown>) => engine.call(method, args));
+            deps.bridge = { call } as unknown as ProjectEngine;
+        }
+        await panel.send({ type: 'save', values: { ...values, text: 'Retry me', ...(outcome === 'invalid' ? { width: '-5' } : {}) } });
+        expect(panel.dispose).not.toHaveBeenCalled();
+        await panel.send({ type: 'save', values: { ...values, text: 'Corrected submission' } });
+        expect(shape('Slide 1', 'Badge')?.text).toBe('Corrected submission');
+        expect(panel.dispose).toHaveBeenCalledTimes(1);
+    });
+
+    it('ignores queued write messages after its editor has closed', async () => {
+        const values = await openOn('Badge');
+        const original = shape('Slide 1', 'Badge')?.text;
+        panel.dispose();
+        await panel.send({ type: 'save', values: { ...values, text: 'Queued after close' } });
+        expect(shape('Slide 1', 'Badge')?.text).toBe(original);
+        expect(deps.explorer.refreshShapes).not.toHaveBeenCalled();
+    });
+
     it('opens on what the file holds now, not on the tree\'s older listing', async () => {
         const listedEarlier = shape('Slide 1', 'ClickMe')!;
         editShape(deck, 'Slide 1', { action: 'update', name: 'ClickMe', text: 'Changed outside' });

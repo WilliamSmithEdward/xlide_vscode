@@ -28,6 +28,7 @@ const CANONICAL_LINE_IDLE_DELAY_MS = 200;
 
 type CanonicalCaseRequest = {
 	document: vscode.TextDocument;
+	documentVersion: number;
 	editorHint?: vscode.TextEditor;
 	resolveEdits: (source: string, ctx: CanonicalCaseContext) => CanonicalCaseEdit[];
 };
@@ -48,7 +49,7 @@ function canonicalCandidateFromEditor(
 export class VbaCanonicalCaseController implements vscode.Disposable {
 	private _disposed = false;
 	private readonly _pendingCanonicalCaseRequests: CanonicalCaseRequest[] = [];
-	private _applyingCanonicalCase = false;
+	private readonly _applyingCanonicalCase = new WeakSet<vscode.TextDocument>();
 	private _lastCanonicalCandidate = canonicalCandidateFromEditor(vscode.window.activeTextEditor);
 	private readonly _canonicalLineTimers = new Map<string, ReturnType<typeof setTimeout>>();
 	private readonly _userTouchedCanonicalLines = new Set<string>();
@@ -120,11 +121,11 @@ export class VbaCanonicalCaseController implements vscode.Disposable {
 		resolveEdits: (source: string, ctx: CanonicalCaseContext) => CanonicalCaseEdit[],
 	): Promise<void> {
 		if (this._disposed || document.isClosed) { return; }
-		if (this._applyingCanonicalCase) {
-			this._enqueueCanonicalCaseRequest({ document, editorHint, resolveEdits });
+		if (this._applyingCanonicalCase.has(document)) {
+			this._enqueueCanonicalCaseRequest({ document, documentVersion: document.version, editorHint, resolveEdits });
 			return;
 		}
-		this._applyingCanonicalCase = true;
+		this._applyingCanonicalCase.add(document);
 		try {
 			// A pass that runs from a timer holds the editor it started with,
 			// which may have closed since: then any editor still showing the
@@ -171,10 +172,18 @@ export class VbaCanonicalCaseController implements vscode.Disposable {
 				}
 			}
 		} finally {
-			this._applyingCanonicalCase = false;
-			const next = this._pendingCanonicalCaseRequests.shift();
-			if (next) {
+			this._applyingCanonicalCase.delete(document);
+			let queuedIndex: number;
+			while ((queuedIndex = this._pendingCanonicalCaseRequests.findIndex(request => request.document === document)) >= 0) {
+				const [next] = this._pendingCanonicalCaseRequests.splice(queuedIndex, 1);
+				// Captured line numbers and caret offsets belong to this version.
+				// Newer content changes schedule their own pass; do not scan or
+				// edit newer text using a request from an earlier typing state.
+				if (next.document.isClosed || next.document.version !== next.documentVersion) {
+					continue;
+				}
 				void this._applyCanonicalCaseEdits(next.document, next.editorHint, next.resolveEdits);
+				break;
 			}
 		}
 	}
@@ -248,6 +257,12 @@ export class VbaCanonicalCaseController implements vscode.Disposable {
 
 	handleTextDocumentChange(event: vscode.TextDocumentChangeEvent): void {
 		if (this._disposed || event.document.isClosed || !isVbaDocument(event.document)) {
+			return;
+		}
+		if (event.reason !== undefined) {
+			// Undo/Redo restores the user's chosen text. Discard timers, queued
+			// edits and save/navigation touches from the abandoned typing pass.
+			this._cancelDocumentWork(event.document);
 			return;
 		}
 		// A reload - an agent's write to an open module, a restore from git, a
@@ -349,6 +364,10 @@ export class VbaCanonicalCaseController implements vscode.Disposable {
 	}
 
 	handleDocumentClose(document: vscode.TextDocument): void {
+		this._cancelDocumentWork(document);
+	}
+
+	private _cancelDocumentWork(document: vscode.TextDocument): void {
 		for (let index = this._pendingCanonicalCaseRequests.length - 1; index >= 0; index--) {
 			if (this._pendingCanonicalCaseRequests[index].document === document) {
 				this._pendingCanonicalCaseRequests.splice(index, 1);

@@ -579,12 +579,44 @@ export function isLeafStatement(node: BodyNode): node is LeafStatementNode {
 	return node.kind === 'Assignment' || node.kind === 'Call' || node.kind === 'Statement';
 }
 
+// Cached ASTs are immutable. Receiver walks can query thousands of positions
+// in one semantic pass, so collect procedure spans once rather than scanning
+// every module member for each chain. Unusual overlapping/unsorted ASTs retain
+// the original first-match behavior.
+const PROCEDURE_SPAN_INDEX = new WeakMap<ModuleNode, readonly ProcedureNode[] | null>();
+
 /** The procedure whose span holds `offset`, header and `End` line included. */
 export function procedureAtOffset(module: ModuleNode, offset: number): ProcedureNode | undefined {
-	return module.members.find(
-		(member): member is ProcedureNode =>
-			member.kind === 'Procedure' && offset >= member.span.start && offset <= member.span.end,
-	);
+	let procedures = PROCEDURE_SPAN_INDEX.get(module);
+	if (procedures === undefined) {
+		const ordered: ProcedureNode[] = [];
+		let overlapping = false;
+		for (const member of module.members) {
+			if (member.kind !== 'Procedure') { continue; }
+			const previous = ordered[ordered.length - 1];
+			if (!Number.isFinite(member.span.start) || !Number.isFinite(member.span.end) ||
+				member.span.end < member.span.start || (previous && previous.span.end >= member.span.start)) {
+				overlapping = true;
+			}
+			ordered.push(member);
+		}
+		procedures = overlapping ? null : ordered;
+		PROCEDURE_SPAN_INDEX.set(module, procedures);
+	}
+	if (procedures === null) {
+		return module.members.find(
+			(member): member is ProcedureNode =>
+				member.kind === 'Procedure' && offset >= member.span.start && offset <= member.span.end,
+		);
+	}
+	let lo = 0;
+	let hi = procedures.length;
+	while (lo < hi) {
+		const mid = (lo + hi) >> 1;
+		if (procedures[mid].span.start <= offset) { lo = mid + 1; } else { hi = mid; }
+	}
+	const procedure = procedures[lo - 1];
+	return procedure && offset <= procedure.span.end ? procedure : undefined;
 }
 
 /** Any node that can appear at module level. */

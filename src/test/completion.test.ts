@@ -83,6 +83,38 @@ suite('Completion editor surface', () => {
         assert.ok(after.projectTypes?.some(type => type.name === 'ProbeType'));
         service.dispose();
     });
+    test('Smart Enter seeds a With member and undo restores the original source', async () => {
+        const source = 'Sub Demo()\n\tWith ActiveSheet\n\tEnd With\nEnd Sub\n';
+        const { document, editor } = await probe('SmartEnterUndo', source, 'With ActiveSheet');
+        await vscode.commands.executeCommand('type', { text: '\n' });
+        await until(() => {
+            const caret = editor.selection.active;
+            return document.lineAt(caret.line).text.slice(0, caret.character).endsWith('.') || undefined;
+        }, 'Smart Enter should place the caret after the seeded With dot', 4000);
+        await vscode.commands.executeCommand('hideSuggestWidget');
+        await vscode.commands.executeCommand('undo');
+        try {
+            await until(() => document.getText() === source || undefined,
+                'undo should restore the source without generating another Smart Enter edit', 4000);
+        } catch (error) {
+            throw new Error(`${String(error)}; actual=${JSON.stringify(document.getText())}`);
+        }
+    });
+    test('Smart Backspace clears a continued comment then its remaining indent', async () => {
+        const { document } = await probe('CommentBackspace',
+            "Sub Demo()\n    'note\n    ' \nEnd Sub\n", "    ' ");
+        await vscode.commands.executeCommand('xlide.vba.smartBackspace');
+        assert.equal(document.lineAt(2).text, '    ');
+        await vscode.commands.executeCommand('xlide.vba.smartBackspace');
+        assert.equal(document.lineAt(2).text, '');
+    });
+    test('Smart Tab clears a continued comment and indents the blank line', async () => {
+        const { document } = await probe('CommentTab',
+            "Sub Demo()\n    'note\n    ' \nEnd Sub\n", "    ' ");
+        await vscode.commands.executeCommand('xlide.vba.smartTab');
+        assert.equal(document.lineAt(2).text.trim(), '');
+        assert.ok(document.lineAt(2).text.length > 4, 'Tab should deepen the remaining indent');
+    });
     test('serves repeated completion requests in a large unchanged module', async () => {
         const source = 'Sub Demo()\nDim value As Long\n' + 'value = value + 1\n'.repeat(3000) +
             'ThisWorkbook.Sheets(1).ce\nEnd Sub\n';
