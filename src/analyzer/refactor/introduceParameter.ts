@@ -175,7 +175,7 @@ export function introduceParameter(input: IntroduceParameterInput): VbaRefactorR
 		if (otherName.toLowerCase() === input.moduleName.toLowerCase()) {
 			continue;
 		}
-		const sites = callSitesOf(otherSource, procedure.name, { qualifier: input.moduleName })
+		const sites = callSitesOf(otherSource, procedure.name)
 			.filter(site => accepts(otherName, otherSource, site));
 		if (sites.length > 0) {
 			otherModules.push({
