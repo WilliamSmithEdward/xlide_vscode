@@ -17,7 +17,7 @@ import {
 	tokensWithoutLeadingLineNumber,
 	tokenWord,
 } from '../lexer/tokenHelpers';
-import { completionCursorContext } from '../completion/cursorContext';
+import { completionLineCursorContext } from '../completion/cursorContext';
 
 export { isIdentLike } from '../lexer/tokenHelpers';
 
@@ -468,7 +468,7 @@ export function findActiveCallSite(source: string, offset: number): VbaCallSite 
 	if (offset < 0) {
 		return undefined;
 	}
-	const tokens = completionCursorContext(source, offset).significantTokens;
+	const tokens = completionLineCursorContext(source, offset).significantTokens;
 	if (tokens.length === 0) {
 		return undefined;
 	}
@@ -484,7 +484,7 @@ export function callableCompletionShouldInsertParens(
 	source: string,
 	offset: number,
 ): boolean {
-	const tokens = completionCursorContext(source, offset).significantTokens;
+	const tokens = completionLineCursorContext(source, offset).significantTokens;
 	if (tokens.length === 0) {
 		return false;
 	}
