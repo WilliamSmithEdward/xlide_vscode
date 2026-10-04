@@ -34,3 +34,17 @@ miss. The first menu show took 117 ms after deletion; the installed VS Code
 so this includes editor widget scheduling as well as provider delivery. Updated
 declaration hover returned in 29.93 ms. Startup, profiling and run scheduling
 are reported separately from warm component timing.
+
+Two further repeats also passed all eight cases. The second unprofiled run had
+command typing/Backspace medians 6.01/6.34 ms and maxima 70.09/226.38 ms; visible
+typing/Backspace maxima were 57/51 ms. Updated declaration hover took 99.78 ms.
+The profiled run had command medians 4.54/5.61 ms and maxima 55.04/125.72 ms;
+visible maxima were 50/49 ms, and updated hover took 47.33 ms. The latest profile
+recorded no self samples in `findParenCall`, while index scans and GC remain.
+Run conditions vary, so these repeats establish correctness and remove known
+unbounded work, rather than proving all scheduling outliers are gone.
+
+The full unit suite passed 14,491 tests across 730 files, with 33 tests and seven
+files intentionally skipped. All 131 focused call/completion/signature cases
+passed; the optional private-corpus differential check passed all 18 cases.
+The intermittent latency goal and issues #964/#985 remain open.
