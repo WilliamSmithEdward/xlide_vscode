@@ -220,11 +220,15 @@ export function lineEndAtOrAfter(source: string, from: number): number {
 
 /** `span` widened to whole lines, the last line's break included. */
 export function wholeLineSpan(source: string, span: Span): Span {
-    const next = source.indexOf('\n', span.end);
-    return { start: lineStartAt(source, span.start), end: next === -1 ? source.length : next + 1 };
+    const lines = wholeLineSpanAnyBreak(source, span);
+    // Preserve LF-based boundary behavior when a span begins inside CRLF.
+    if (source[lines.start] === '\n' && source[lines.start - 1] === '\r') {
+        lines.start = lineStartAtAnyBreak(source, lines.start - 1);
+    }
+    return lines;
 }
 
-/** Like wholeLineSpan, for text whose lines may also break at a lone CR. */
+/** Physical lines may end with LF, CRLF or a lone CR. */
 export function wholeLineSpanAnyBreak(source: string, span: Span): Span {
     const end = lineEndAtOrAfter(source, span.end);
     const breakLength = end < source.length ? (source[end] === '\r' && source[end + 1] === '\n' ? 2 : 1) : 0;

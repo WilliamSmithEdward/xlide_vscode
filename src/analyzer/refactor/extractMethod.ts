@@ -1,9 +1,9 @@
 import { parseModule } from '../parser/parseModule';
 import type { BodyNode, ModuleNode, ProcedureNode, Span, VariableDeclNode, VariableGroupNode } from '../parser/nodes';
 import { classifyReferenceKinds } from '../references/referenceKinds';
-import { detectEol, findIdentifierOccurrencesForNames, leadingWhitespace, lineEndAtOrAfter, lineStartAtAnyBreak, wholeLineSpanAnyBreak, type VbaIdentifierOccurrence } from '../../vbaSourceScan';
+import { detectEol, findIdentifierOccurrencesForNames, leadingWhitespace, lineStartAtAnyBreak, type VbaIdentifierOccurrence } from '../../vbaSourceScan';
 import { applyVbaTextEdits, refactor, refuse, type VbaRefactorResult, type VbaTextEdit } from './refactorTypes';
-import { procedureContainingSpan, walkBody } from './shared';
+import { procedureContainingSpan, walkBody, statementRemovalSpan, mergeRemovals } from './shared';
 
 /**
  * Extract Method: selected whole statements become a Private procedure below
@@ -142,14 +142,14 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 			callerDeclarations.push(indent + declarationText(source, group, inCaller));
 		}
 		if (inHelper.length !== group.declarations.length) {
-			const span = inHelper.length > 0 ? group.span : declarationRemovalSpan(source, group.span);
+			const span = inHelper.length > 0 ? group.span : statementRemovalSpan(source, group.span);
 			bodyEdits.push({
 				span: { start: Math.max(block.start, span.start) - block.start, end: Math.min(block.end, span.end) - block.start },
 				newText: inHelper.length > 0 ? declarationText(source, group, inHelper) : '',
 			});
 		}
 	}
-	const body = applyVbaTextEdits(source.slice(block.start, block.end), mergeDeclarationRemovals(bodyEdits));
+	const body = applyVbaTextEdits(source.slice(block.start, block.end), mergeRemovals(bodyEdits));
 	const movedDeclarations = moved
 		.filter((l) => !containsSpan(block, l.declaration!.group.span))
 		.map((l) => `${indent}Dim ${source.slice(l.declaration!.decl.span.start, l.declaration!.decl.span.end)}`)
@@ -225,12 +225,12 @@ function movedDeclarationEdits(source: string, moved: readonly LocalUse[], block
 	for (const [group, declarations] of groups) {
 		const remaining = group.declarations.filter((decl) => !declarations.has(decl));
 		if (remaining.length === 0) {
-			removals.push(declarationRemovalSpan(source, group.span));
+			removals.push(statementRemovalSpan(source, group.span));
 		} else {
 			edits.push({ span: group.span, newText: declarationText(source, group, remaining) });
 		}
 	}
-	return mergeDeclarationRemovals([...edits, ...removals.map((span) => ({ span, newText: '' }))]);
+	return mergeRemovals([...edits, ...removals.map((span) => ({ span, newText: '' }))]);
 }
 
 function declarationText(source: string, group: VariableGroupNode, declarations: readonly VariableDeclNode[]): string {
@@ -238,35 +238,6 @@ function declarationText(source: string, group: VariableGroupNode, declarations:
 	return source.slice(group.span.start, first.span.start)
 		+ declarations.map((decl) => source.slice(decl.span.start, decl.span.end)).join(', ')
 		+ source.slice(last.span.end, group.span.end);
-}
-
-/** Adjacent colon statements can share a deleted separator; union removals. */
-function mergeDeclarationRemovals(edits: readonly VbaTextEdit[]): VbaTextEdit[] {
-	const out = edits.filter((edit) => edit.newText !== '');
-	const removals = edits.filter((edit) => edit.newText === '').sort((a, b) => a.span.start - b.span.start);
-	let previous: Span | undefined;
-	for (const { span } of removals) {
-		if (previous && span.start <= previous.end) {
-			previous.end = Math.max(previous.end, span.end);
-		} else {
-			previous = { ...span };
-			out.push({ span: previous, newText: '' });
-		}
-	}
-	return out;
-}
-
-/** Remove a Dim without deleting other statements or its trailing comment. */
-function declarationRemovalSpan(source: string, span: Span): Span {
-	const start = lineStartAtAnyBreak(source, span.start);
-	const end = lineEndAtOrAfter(source, span.end);
-	const before = source.slice(start, span.start), after = source.slice(span.end, end);
-	if (!before.trim() && !after.trim()) { return wholeLineSpanAnyBreak(source, span); }
-	const followingColon = /^[ \t]*:/.exec(after);
-	if (followingColon) { return { start: span.start, end: span.end + followingColon[0].length }; }
-	const precedingColon = /:[ \t]*$/.exec(before);
-	if (precedingColon) { return { start: start + precedingColon.index, end: span.end }; }
-	return { ...span };
 }
 
 /** Every local and parameter the selection touches, typed by how it is used. */
