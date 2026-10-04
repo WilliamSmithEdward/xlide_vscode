@@ -513,7 +513,9 @@ describe('following the editor', () => {
     it('folds them all when the last editor closes', async () => {
         const { explorer } = await drawn();
         explorer.setActiveModule(BOOK, 'Bare');
+        vscodeMock.treeEvents = [];
         explorer.clearActiveModule(BOOK, 'Bare');
+        expect(vscodeMock.treeEvents).toContain(explorer.getFolderNode(BOOK, 'Accounts.Billing.Reminders'));
         expect(expanded(explorer, 'Accounts')).toBe(false);
         expect(expanded(explorer, 'Accounts.Billing.Reminders')).toBe(false);
     });

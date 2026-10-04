@@ -585,7 +585,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     foldModuleUnlessActive(filePath: string, moduleName: string): void {
         const key = moduleNodeKey(filePath, moduleName);
         if (key !== this._activeModuleKey) {
-            this._refreshModuleExpansion(key);
+            this._refreshModuleExpansion(key, true);
         }
     }
 
@@ -594,7 +594,10 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         const key = moduleNodeKey(filePath, moduleName);
         if (this._activeModuleKey !== key) { return; }
         this._activeModuleKey = undefined;
-        this._refreshModuleExpansion(key);
+        // An in-place refresh can retain the expanded row even with a new
+        // render id. Re-read its parent's children so VS Code replaces the
+        // row and applies Collapsed, without waiting for a full redraw.
+        this._refreshModuleExpansion(key, true);
         this.collapseAllFolders();
     }
 
@@ -1390,12 +1393,12 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         return nodes;
     }
 
-    private _refreshModuleExpansion(key: string | undefined): void {
+    private _refreshModuleExpansion(key: string | undefined, refreshParent = false): void {
         if (!key) { return; }
         this._moduleRenderVersions.set(key, (this._moduleRenderVersions.get(key) ?? 0) + 1);
         const node = this._moduleNodes.get(key);
         if (node) {
-            this._emitter.fire(node);
+            this._emitter.fire(refreshParent ? this.getParent(node) : node);
         }
     }
 

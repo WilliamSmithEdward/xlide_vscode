@@ -258,6 +258,35 @@ suite('The explorer following the editor', () => {
 		assert.deepEqual(state.selected, ['sub:Sub FollowBSecond'], JSON.stringify(state));
 	});
 
+	test('folds the module when its last tab closes, keeping the workbook open', async () => {
+		await closeAllEditors();
+		await showInSecond(moduleUri('FollowA'));
+		await settle();
+		assert.deepEqual(modules(await viewState()), ['module:FollowA']);
+
+		await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+		await settle();
+		const state = await viewState();
+		assert.equal(state.activeModule, undefined, JSON.stringify(state));
+		assert.deepEqual(modules(state), [], JSON.stringify(state));
+		assert.ok(state.expanded.includes(`project:${path.basename(workbookPath())}`), JSON.stringify(state));
+	});
+
+	test('folds the last workbook module while an unrelated editor stays open', async () => {
+		await closeAllEditors();
+		const notes = await vscode.workspace.openTextDocument({ content: 'Workbook notes' });
+		await vscode.window.showTextDocument(notes, { preview: false });
+		await showInSecond(moduleUri('FollowA'));
+		await settle();
+
+		await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+		await settle();
+		assert.equal(vscode.window.activeTextEditor?.document.uri.toString(), notes.uri.toString());
+		const state = await viewState();
+		assert.equal(state.activeModule, undefined, JSON.stringify(state));
+		assert.deepEqual(modules(state), [], JSON.stringify(state));
+	});
+
 	test('keeps one project open when the editor moves between two quickly', async () => {
 		const second = path.join(workspaceRoot(), 'FollowOther.xlsm');
 		fs.copyFileSync(workbookPath(), second);

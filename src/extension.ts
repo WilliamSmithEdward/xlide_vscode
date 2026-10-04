@@ -288,7 +288,7 @@ export function activate(context: vscode.ExtensionContext): void {
             treeView,
             caret,
             enabled: () => xlideExplorerAutoExpandCollapseFromConfig(vscode.workspace.getConfiguration('xlide')).value,
-            modulesClosedBy: (event) => modulesWithNoTabLeft(
+            modulesClosedBy: (event) => event.closed.length === 0 ? [] : modulesWithNoTabLeft(
                 event.closed,
                 () => vscode.window.tabGroups.all.flatMap((group) => group.tabs),
             ),

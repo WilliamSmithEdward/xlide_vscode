@@ -47,6 +47,38 @@ describe('the documents a tab shows', () => {
 });
 
 describe('the modules a closure leaves with nothing open', () => {
+    it('stops scanning once every closing module has another tab', () => {
+        const uri = encodeModuleUri(BOOK, 'Module1');
+        const tail = vi.fn();
+        const open = [textTab(uri), ...Array.from({ length: 1000 }, () => ({
+            get input() { tail(); return undefined; },
+        }) as unknown as vscode.Tab)];
+        expect(modulesWithNoTabLeft([textTab(uri)], open)).toEqual([]);
+        expect(tail).not.toHaveBeenCalled();
+    });
+    it('keeps a form open while its markup or designer remains', () => {
+        const code = textTab(encodeModuleUri(BOOK, 'FrmMain'));
+        const markup = encodeFormMarkupUri(BOOK, 'FrmMain');
+        expect(modulesWithNoTabLeft([code], [textTab(markup)])).toEqual([]);
+        expect(modulesWithNoTabLeft([code], [customTab(markup)])).toEqual([]);
+        expect(modulesWithNoTabLeft([customTab(markup)], [code])).toEqual([]);
+    });
+
+    it('recognizes another open tab by module identity rather than URI spelling', () => {
+        expect(modulesWithNoTabLeft(
+            [textTab(encodeModuleUri(BOOK, 'Module1'))],
+            [textTab(encodeModuleUri(BOOK, 'MODULE1'))],
+        )).toEqual([]);
+    });
+
+    it('does not inspect open tabs when no module tab closed', () => {
+        const input = vi.fn();
+        const open = [{ get input() { input(); return undefined; } }] as unknown as vscode.Tab[];
+        expect(modulesWithNoTabLeft([], open)).toEqual([]);
+        expect(modulesWithNoTabLeft([otherTab()], open)).toEqual([]);
+        expect(input).not.toHaveBeenCalled();
+    });
+
     it('names the module whose last tab closed', () => {
         const uri = encodeModuleUri(BOOK, 'Module1');
 

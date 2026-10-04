@@ -168,7 +168,7 @@ describe('ProjectExplorer', () => {
 
         expect(explorer.getTreeItem(module).collapsibleState).toBe(1);
         expect(explorer.getTreeItem(module).id).not.toBe(expandedId);
-        expect(vscodeMock.treeEvents).toContain(module);
+        expect(vscodeMock.treeEvents).toEqual([project]);
         expect(explorer.getTreeItem(project).collapsibleState).toBe(2);
         explorer.setActiveModule(project.filePath, 'Module1');
         expect(explorer.getTreeItem(module).collapsibleState).toBe(2);
@@ -194,7 +194,7 @@ describe('ProjectExplorer', () => {
         expect(explorer.getTreeItem(module2).collapsibleState).toBe(1);
         expect(explorer.getTreeItem(module1).id).toBe(activeId);
         expect(explorer.getTreeItem(module1).collapsibleState).toBe(2);
-        expect(vscodeMock.treeEvents).toEqual([module2]);
+        expect(vscodeMock.treeEvents).toEqual([project]);
     });
 
     it('keeps the current module expanded when a different module tab closes', async () => {
