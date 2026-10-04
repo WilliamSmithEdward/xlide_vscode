@@ -4772,6 +4772,7 @@ export function objectAssignmentIncompatibilityReason(
 	memberCtx: MemberCompletionContext,
 	resolveType: typeof resolveKnownObjectAssignmentType = resolveKnownObjectAssignmentType,
 	shareInterfaces?: (expected: string, actual: string) => boolean,
+	implementsType?: typeof implementsObjectType,
 ): string | undefined {
 	const expected = resolveType(expectedRaw, memberCtx);
 	if (!expected || !actual) {
@@ -4815,14 +4816,16 @@ export function objectAssignmentIncompatibilityReason(
 	if (expected.kind === 'generic' || actualObject.kind === 'generic') {
 		// A project class that implements Collection can stand in for one.
 		const project = actualObject.kind === 'project' ? actualObject : expected.kind === 'project' ? expected : undefined;
-		return project?.implements.some((name) => name.toLowerCase() === 'collection')
+		return project && (implementsType
+			? implementsType(project, { kind: 'generic', display: 'Collection', key: 'collection' })
+			: project.implements.some((name) => name.toLowerCase() === 'collection'))
 			? undefined
 			: `This object type is not compatible with ${expected.display}.`;
 	}
 	if (actualObject.kind === 'host' && HOST_VALUES_ALSO_OF_TYPE.get(actualObject.key) === expected.key) {
 		return undefined;
 	}
-	if (actualObject.kind === 'project' && implementsObjectType(actualObject, expected)) {
+	if (actualObject.kind === 'project' && (implementsType ?? implementsObjectType)(actualObject, expected)) {
 		return undefined;
 	}
 	// A Set between two class types is checked when it runs, by QueryInterface,
@@ -4831,7 +4834,7 @@ export function objectAssignmentIncompatibilityReason(
 	// (`Set c = o`, casting back), and two interfaces one class implements can
 	// hold each other's (`Set b = o`). Only project interfaces are known here.
 	if (expected.kind === 'project' && actualObject.kind === 'project'
-		&& projectTypesCanShareInstance(expected, actualObject, memberCtx, shareInterfaces)) {
+		&& projectTypesCanShareInstance(expected, actualObject, memberCtx, shareInterfaces, implementsType)) {
 		return undefined;
 	}
 	return `This object type is not compatible with ${expected.display}.`;
@@ -4907,8 +4910,9 @@ function projectTypesCanShareInstance(
 	actual: Extract<KnownObjectAssignmentType, { kind: 'project' }>,
 	memberCtx: MemberCompletionContext,
 	shareInterfaces?: (expected: string, actual: string) => boolean,
+	implementsType?: typeof implementsObjectType,
 ): boolean {
-	if (implementsObjectType(expected, actual)) {
+	if ((implementsType ?? implementsObjectType)(expected, actual)) {
 		return true;
 	}
 	if (shareInterfaces) {
@@ -4928,6 +4932,35 @@ export function implementsObjectType(
 	actual: Extract<KnownObjectAssignmentType, { kind: 'project' }>,
 	expected: KnownObjectAssignmentType,
 ): boolean {
+	const expectedNames = objectTypeExpectedNames(expected);
+	return actual.implements.some((implemented) => {
+		const lower = implemented.toLowerCase();
+		return expectedNames.has(lower) || expectedNames.has(`excel.${lower}`);
+	});
+}
+
+/** Index direct interface memberships only when consulted, against one pass's metadata. */
+export function createObjectTypeImplementationLookup(): typeof implementsObjectType {
+	const namesByList = new WeakMap<readonly string[], ReadonlySet<string>>();
+	return (actual, expected) => {
+		let names = namesByList.get(actual.implements);
+		if (!names) {
+			const indexed = new Set<string>();
+			// Like some, forEach skips sparse array holes.
+			actual.implements.forEach((name) => indexed.add(name.toLowerCase()));
+			namesByList.set(actual.implements, indexed);
+			names = indexed;
+		}
+		for (const name of objectTypeExpectedNames(expected)) {
+			if (names.has(name) || (name.startsWith('excel.') && names.has(name.slice(6)))) {
+				return true;
+			}
+		}
+		return false;
+	};
+}
+
+function objectTypeExpectedNames(expected: KnownObjectAssignmentType): ReadonlySet<string> {
 	const expectedNames = new Set([expected.key]);
 	const simple = simpleTypeNameForAssignment(expected.display);
 	if (simple) {
@@ -4937,10 +4970,7 @@ export function implementsObjectType(
 	if (expectedLastSegment) {
 		expectedNames.add(expectedLastSegment);
 	}
-	return actual.implements.some((implemented) => {
-		const lower = implemented.toLowerCase();
-		return expectedNames.has(lower) || expectedNames.has(`excel.${lower}`);
-	});
+	return expectedNames;
 }
 
 // One-way proof only: strings with digits are left unknown until VBA conversion
