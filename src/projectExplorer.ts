@@ -139,7 +139,10 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     private _view: XlideExplorerView = 'tree';
     private _folderNodes = new Map<string, XlideNode>(); // key: folderNodeKey
     private _folderRenderVersions = new Map<string, number>();
-    private _folderTrees = new Map<string, FolderTree<XlideNode>>();
+    private _folderTrees = new Map<string, {
+        tree: FolderTree<XlideNode>;
+        foldersByPath: Map<string, FolderTreeFolder<XlideNode>>;
+    }>();
     // Folders the editor's own module opened, and the ones the user opened or
     // shut by hand, which outrank it until the attention genuinely moves.
     private _openFolderKeys = new Set<string>();
@@ -1005,13 +1008,13 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
      */
     private _folderTreeOf(filePath: string, modules: XlideNode[]): FolderTree<XlideNode> {
         const key = projectNodeKey(filePath);
-        let tree = this._folderTrees.get(key);
-        if (!tree) {
-            tree = buildFolderTree(modules);
-            this._folderTrees.set(key, tree);
-            this._registerFolderNodes(filePath, tree.folders);
+        let layout = this._folderTrees.get(key);
+        if (!layout) {
+            layout = { tree: buildFolderTree(modules), foldersByPath: new Map() };
+            this._folderTrees.set(key, layout);
+            this._registerFolderNodes(filePath, layout.tree.folders, layout.foldersByPath);
         }
-        return tree;
+        return layout.tree;
     }
 
     /**
@@ -1025,8 +1028,10 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     private _registerFolderNodes(
         filePath: string,
         folders: readonly FolderTreeFolder<XlideNode>[],
+        foldersByPath: Map<string, FolderTreeFolder<XlideNode>>,
     ): void {
         for (const folder of folders) {
+            foldersByPath.set(folder.path, folder);
             const key = folderNodeKey(filePath, folder.path);
             const existing = this._folderNodes.get(key);
             if (!existing) {
@@ -1044,7 +1049,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                 // and the count stays at what it was.
                 this._bumpFolderVersions([key]);
             }
-            this._registerFolderNodes(filePath, folder.folders);
+            this._registerFolderNodes(filePath, folder.folders, foldersByPath);
         }
     }
 
@@ -1103,11 +1108,18 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
 
     /** One folder in a project's layout, found by its dotted path. */
     private _folderIn(filePath: string, wanted: string): FolderTree<XlideNode> | undefined {
-        let level: FolderTree<XlideNode> | undefined = this._folderTrees.get(projectNodeKey(filePath));
-        for (const step of folderPathChain(wanted)) {
-            level = level?.folders.find((folder) => folder.path === step);
+        const layout = this._folderTrees.get(projectNodeKey(filePath));
+        if (!layout || !wanted) {
+            return layout?.tree;
         }
-        return level;
+        const folder = layout.foldersByPath.get(wanted);
+        if (folder) {
+            return folder;
+        }
+        // Preserve the path-chain normalization for a caller's noncanonical
+        // path; drawn folder rows already carry the canonical path above.
+        const normalized = folderPathChain(wanted).at(-1);
+        return normalized === undefined ? layout.tree : layout.foldersByPath.get(normalized);
     }
 
     /** The stable nodes for a level of folders, in the order they are drawn. */
