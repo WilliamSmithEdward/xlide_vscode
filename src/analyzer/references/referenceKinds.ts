@@ -52,6 +52,23 @@ function depthZeroIndexOf(seg: readonly VbaToken[], raw: string, from: number): 
 	return -1;
 }
 
+/** Endpoints for overlapping suffix queries within one assignment target. */
+function targetParenEnds(seg: readonly VbaToken[], from: number, eq: number): Map<number, number> {
+	const ends = new Map<number, number>();
+	const stack: number[] = [];
+	for (let i = from; i < seg.length; i++) {
+		// Malformed targets can close after '='; retain the old full scan.
+		if (i >= eq && stack.length === 0) { break; }
+		const raw = seg[i].rawText;
+		if (raw === '(') { stack.push(i); }
+		else if (raw === ')') {
+			const start = stack.pop();
+			if (start !== undefined) { ends.set(start, i + 1); }
+		}
+	}
+	return ends;
+}
+
 /**
  * The assignment-target rule: within `[from, eq)`, the WRITE lands on the
  * terminal name of the target chain - the name whose only suffix before the
@@ -63,13 +80,20 @@ function markAssignmentTarget(
 	seg: readonly VbaToken[],
 	from: number,
 	eq: number,
-	mark: (t: VbaToken, kind: ReferenceKind) => void,
+	wanted: ReadonlySet<number>,
+	out: Map<number, ReferenceKind>,
 ): void {
+	let firstSuffix = true;
+	let ends: Map<number, number> | undefined;
 	for (let k = from; k < eq; k++) {
-		if (!isName(seg[k])) { continue; }
+		if (!isName(seg[k]) || !wanted.has(seg[k].start)) { continue; }
 		let j = k + 1;
-		while (j < eq && seg[j].rawText === '(') { j = pastParens(seg, j); }
-		if (j === eq) { mark(seg[k], 'write'); }
+		while (j < eq && seg[j].rawText === '(') {
+			// A single suffix keeps the cheap scan; later queries share endpoints.
+			if (firstSuffix) { firstSuffix = false; j = pastParens(seg, j); }
+			else { ends ??= targetParenEnds(seg, from, eq); j = ends.get(j) ?? j + 1; }
+		}
+		if (j === eq) { out.set(seg[k].start, 'write'); }
 	}
 }
 
@@ -90,7 +114,7 @@ function classifySegment(
 	// Set / Let are assignment statements with a keyword prefix.
 	if (headWord === 'set' || headWord === 'let' || headWord === 'lset' || headWord === 'rset') {
 		const eq = depthZeroIndexOf(seg, '=', head + 1);
-		if (eq > 0) { markAssignmentTarget(seg, head + 1, eq, mark); }
+		if (eq > 0) { markAssignmentTarget(seg, head + 1, eq, wanted, out); }
 		return;
 	}
 
@@ -248,7 +272,7 @@ function classifySegment(
 	if (startsExpression) {
 		const eq = depthZeroIndexOf(seg, '=', head);
 		if (eq > 0 && seg[eq].kind === 'operator' && seg[eq].rawText === '=') {
-			markAssignmentTarget(seg, head, eq, mark);
+			markAssignmentTarget(seg, head, eq, wanted, out);
 		}
 	}
 }
