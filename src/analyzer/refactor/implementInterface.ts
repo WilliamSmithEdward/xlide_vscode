@@ -1,9 +1,9 @@
 import { parseModule } from '../parser/parseModule';
 import { blockHeaderLineSpan } from '../parser/physicalLineSpans';
-import type { ModuleNode, ProcedureNode, ProcKind } from '../parser/nodes';
+import type { ModuleNode, ProcedureNode, ProcKind, Span } from '../parser/nodes';
 import { detectEol } from '../../vbaSourceScan';
 import { refactor, refuse, type VbaRefactorResult } from './refactorTypes';
-import { escapeForRegExp, lookupModuleSource } from './shared';
+import { lookupModuleSource } from './shared';
 import { isRefactorObjectType } from './typeKinds';
 
 /**
@@ -106,6 +106,8 @@ export function implementInterface(input: ImplementInterfaceInput): VbaRefactorR
 interface InterfaceMember {
 	name: string;
 	procKind: ProcKind;
+	/** Declared-name token relative to signature; absent on incomplete syntax. */
+	nameSpan?: Span;
 	/** `Property Get Total() As Long`, exactly as the interface writes it. */
 	signature: string;
 	/** The keyword that closes it: Sub, Function or Property. */
@@ -128,7 +130,7 @@ function publicMembersOf(source: string): InterfaceMember[] {
 			out.push({
 				name: member.name,
 				procKind: member.procKind,
-				signature: headerText(source, member),
+				...headerText(source, member),
 				closer: closerFor(member.procKind),
 			});
 			continue;
@@ -137,16 +139,20 @@ function publicMembersOf(source: string): InterfaceMember[] {
 			for (const decl of member.declarations) {
 				const type = decl.asType ?? 'Variant';
 				const isObject = isRefactorObjectType(type);
+				const fieldName = decl.nameSpan && source[decl.nameSpan.start] === '[' ? `[${decl.name}]` : decl.name;
+				const writerPrefix = `Property ${isObject ? 'Set' : 'Let'} `;
 				out.push({
 					name: decl.name,
 					procKind: 'PropertyGet',
-					signature: `Property Get ${decl.name}() As ${type}`,
+					signature: `Property Get ${fieldName}() As ${type}`,
+					nameSpan: { start: 'Property Get '.length, end: 'Property Get '.length + fieldName.length },
 					closer: 'Property',
 				});
 				out.push({
 					name: decl.name,
 					procKind: isObject ? 'PropertySet' : 'PropertyLet',
-					signature: `Property ${isObject ? 'Set' : 'Let'} ${decl.name}(ByVal RHS As ${type})`,
+					signature: `${writerPrefix}${fieldName}(ByVal RHS As ${type})`,
+					nameSpan: { start: writerPrefix.length, end: writerPrefix.length + fieldName.length },
 					closer: 'Property',
 				});
 			}
@@ -160,10 +166,17 @@ function publicMembersOf(source: string): InterfaceMember[] {
  * modifier: an implementing member is always Private, and VBA rejects it
  * otherwise.
  */
-function headerText(source: string, member: ProcedureNode): string {
+function headerText(source: string, member: ProcedureNode): Pick<InterfaceMember, 'signature' | 'nameSpan'> {
 	const header = blockHeaderLineSpan(source, member.span);
 	const line = source.slice(header.start, header.end);
-	return line.trim().replace(/^\s*(?:Public|Private|Friend)\s+/i, '');
+	const trimmed = line.trim();
+	const signature = trimmed.replace(/^\s*(?:Public|Private|Friend)\s+/i, '');
+	const removedPrefix = line.length - line.trimStart().length + trimmed.length - signature.length;
+	const nameSpan = member.nameSpan ? {
+		start: member.nameSpan.start - header.start - removedPrefix,
+		end: member.nameSpan.end - header.start - removedPrefix,
+	} : undefined;
+	return { signature, nameSpan };
 }
 
 function closerFor(procKind: ProcedureNode['procKind']): string {
@@ -176,10 +189,12 @@ function closerFor(procKind: ProcedureNode['procKind']): string {
 
 function stubFor(interfaceName: string, member: InterfaceMember, eol: string): string {
 	// The name VBA requires: the interface, an underscore, the member.
-	const renamed = member.signature.replace(
-		new RegExp(`(\\b(?:Sub|Function|Property\\s+(?:Get|Let|Set))\\s+)${escapeForRegExp(member.name)}\\b`, 'i'),
-		`$1${interfaceName}_${member.name}`,
-	);
+	const span = member.nameSpan;
+	const qualifiedName = `${interfaceName}_${member.name}`;
+	const writtenName = span && member.signature[span.start] === '[' ? `[${qualifiedName}]` : qualifiedName;
+	const renamed = span && span.start >= 0 && span.end > span.start && span.end <= member.signature.length
+		? member.signature.slice(0, span.start) + writtenName + member.signature.slice(span.end)
+		: member.signature;
 	return [
 		`Private ${renamed}`,
 		`    ${NOT_IMPLEMENTED}`,
