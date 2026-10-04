@@ -37,8 +37,7 @@ import {
 	isKnownScalarType,
 	normalizeType,
 	objectHoldingDefault,
-	objectLetAssignmentVerdict,
-	objectValueNeedsIndex,
+	createObjectDefaultQueries,
 	readOnlyHostDefault,
 	returnAssignmentTypeFor,
 	type SourceDeclaredType,
@@ -168,6 +167,7 @@ interface LocalObjectVariable {
 type ObjectVariableState = 'unset' | 'set' | 'unknown';
 
 type ObjectTypeResolver = ReturnType<typeof createObjectAssignmentTypeResolver>;
+type ObjectDefaultQueries = ReturnType<typeof createObjectDefaultQueries>;
 
 export function checkObjectVariableNotSet(
 	source: string,
@@ -177,7 +177,8 @@ export function checkObjectVariableNotSet(
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
-	const resolveObjectType = createObjectAssignmentTypeResolver(memberCtx);
+	const defaultQueries = createObjectDefaultQueries(memberCtx);
+	const resolveObjectType = defaultQueries.resolveType;
 	const nothingFunctions = functionsReturningNothing(source, mod, resolveObjectType, activity);
 	const objectFunctions = new Map(activeModuleMembers(mod, activity)
 		.filter((member): member is ProcedureNode => member.kind === 'Procedure' && member.procKind === 'Function' && member.params.length > 0
@@ -226,7 +227,7 @@ export function checkObjectVariableNotSet(
 				}
 			}, activity);
 		}
-		for (const finding of objectStateWalk(source, mod, member, symbols, memberCtx, activity, resolveObjectType).findings) {
+		for (const finding of objectStateWalk(source, mod, member, symbols, memberCtx, activity, defaultQueries).findings) {
 			push(...finding);
 		}
 	}
@@ -493,7 +494,7 @@ function objectStateWalk(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	memberCtx: MemberCompletionContext,
 	activity: ConditionalActivityTracker | undefined,
-	resolveObjectType?: ObjectTypeResolver,
+	defaultQueries?: ObjectDefaultQueries,
 ): ObjectStateWalk {
 	let cache = OBJECT_STATE_WALKS.get(symbols);
 	const cached = cache?.get(member);
@@ -505,7 +506,7 @@ function objectStateWalk(
 	const push: PushFn = (...finding) => {
 		walk.findings.push(finding);
 	};
-	walkObjectState(source, moduleObjectFacts(source, mod, memberCtx, activity), member, symbols, memberCtx, activity, push, walk.lets, resolveObjectType ?? createObjectAssignmentTypeResolver(memberCtx));
+	walkObjectState(source, moduleObjectFacts(source, mod, memberCtx, activity), member, symbols, memberCtx, activity, push, walk.lets, defaultQueries ?? createObjectDefaultQueries(memberCtx));
 	if (!cache) {
 		cache = new WeakMap();
 		OBJECT_STATE_WALKS.set(symbols, cache);
@@ -523,8 +524,9 @@ function walkObjectState(
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 	lets: Map<number, ObjectVariableState>,
-	resolveObjectType: ObjectTypeResolver,
+	defaultQueries: ObjectDefaultQueries,
 ): void {
+	const resolveObjectType = defaultQueries.resolveType;
 	const locals = localObjectVariablesFor(source, symbols, member, resolveObjectType);
 	const elements = objectArrayElements(source, symbols, member, resolveObjectType, activity);
 	if (locals.size === 0 && elements.keys.size === 0) {
@@ -573,7 +575,7 @@ function walkObjectState(
 	const unreachable = unreachableStatementsIn(source, member, symbols, activity);
 	walk(source, member.body, (node) => isInactiveNode(activity, node) || unreachable.has(node), {
 		onStatement: (stmt) => {
-			checkObjectVariableNotSetStatement(source, stmt, locals, state, setAnywhere, memberCtx, report, lets, facts, elements);
+			checkObjectVariableNotSetStatement(source, stmt, locals, state, setAnywhere, memberCtx, report, lets, facts, defaultQueries, elements);
 			// Code the statement runs may set a module variable (issue #618).
 			for (const lower of moduleTouches(stmt)) {
 				state.set(lower, 'unknown');
@@ -585,7 +587,7 @@ function walkObjectState(
 			if (node.kind === 'SelectBlock' || node.kind === 'DoBlock' || node.kind === 'WhileBlock' || (node.kind === 'ForBlock' && !node.each)) {
 				const { before, after } = blockHeaderStatements(source, node);
 				if (before) {
-					checkObjectVariableNotSetStatement(source, before, locals, state, setAnywhere, memberCtx, report, lets, facts, elements);
+					checkObjectVariableNotSetStatement(source, before, locals, state, setAnywhere, memberCtx, report, lets, facts, defaultQueries, elements);
 				}
 				// `Loop Until x` reads x after the body, with what it entered with
 				// when the body never names x (issue #424). Any local the line
@@ -598,7 +600,7 @@ function walkObjectState(
 						return lower !== undefined && locals.has(lower) && new RegExp(`\\b${lower}\\b`).test(inBody);
 					});
 					if (!named) {
-						checkObjectVariableNotSetStatement(source, after, locals, state, setAnywhere, memberCtx, report, lets, facts);
+						checkObjectVariableNotSetStatement(source, after, locals, state, setAnywhere, memberCtx, report, lets, facts, defaultQueries);
 					}
 				}
 			}
@@ -607,7 +609,7 @@ function walkObjectState(
 			if (node.kind === 'IfBlock') {
 				for (const branch of node.branches) {
 					if (branch.branchKind !== 'else') {
-						checkObjectVariableNotSetStatement(source, { kind: 'Statement', span: branch.headerSpan, raw: source.slice(branch.headerSpan.start, branch.headerSpan.end) }, locals, state, setAnywhere, memberCtx, report, lets, facts);
+						checkObjectVariableNotSetStatement(source, { kind: 'Statement', span: branch.headerSpan, raw: source.slice(branch.headerSpan.start, branch.headerSpan.end) }, locals, state, setAnywhere, memberCtx, report, lets, facts, defaultQueries);
 					}
 				}
 			}
@@ -897,6 +899,7 @@ function checkObjectVariableNotSetStatement(
 	push: PushFn,
 	lets: Map<number, ObjectVariableState>,
 	facts: ModuleObjectFacts,
+	defaultQueries: ObjectDefaultQueries,
 	elements: ObjectArrayElements = { arrays: new Map(), keys: new Map() },
 ): void {
 	const toks = statementTokensAfterLeadingLabel(source, stmt.span);
@@ -953,7 +956,7 @@ function checkObjectVariableNotSetStatement(
 		// A type with no default member for the Let, or one that needs an
 		// argument, is set-required's to report, with the 91 when it is still
 		// Nothing (issue #193): the fix there is the Set.
-		const verdict = objectLetAssignmentVerdict(locals.get(lower)!.asType, memberCtx);
+		const verdict = defaultQueries.verdictFor(locals.get(lower)!.asType);
 		if (letState === 'unset' && verdict !== 'noDefault' && verdict !== 'argument'
 			&& !objectHoldingDefault(locals.get(lower)!.asType, memberCtx) && !readOnlyHostDefault(locals.get(lower)!.asType, memberCtx)) {
 			const what = locals.get(lower)!.letOnly ? `The result '${let_.name}'` : `Object variable '${let_.name}'`;
@@ -973,7 +976,7 @@ function checkObjectVariableNotSetStatement(
 		const lower = toks[index].rawText.toLowerCase();
 		const local = locals.get(lower);
 		if (local && !local.letOnly && !local.variant && state.get(lower) === 'unset' && !guardedAt(lower, stmt.span.start + toks[index].start)
-			&& objectLetAssignmentVerdict(local.asType, memberCtx) !== 'noDefault') {
+			&& defaultQueries.verdictFor(local.asType) !== 'noDefault') {
 			const reads = form === 'condition' ? 'the condition reads' : form === 'select' ? 'Select Case reads' : form === 'iif' ? 'IIf reads' : `'${form === 'not' ? 'Not' : 'the Boolean operator'}' reads`;
 			push(
 				'objectVariableNotSet',
@@ -981,7 +984,7 @@ function checkObjectVariableNotSetStatement(
 				{ start: stmt.span.start + toks[index].start, end: stmt.span.start + toks[index].end },
 			);
 		} else if (local && !local.variant && (form === 'condition' || form === 'iif') && state.get(lower) === 'set'
-			&& normalizeType(local.asType) !== 'collection' && objectValueNeedsIndex(local.asType, memberCtx)) {
+			&& normalizeType(local.asType) !== 'collection' && defaultQueries.needsIndex(local.asType)) {
 			// Set, a Word Paragraphs or Tables has an Item that needs an index,
 			// as a Collection's does (issue #438, measured in Word 16.0). A
 			// Collection is condition-values'.
@@ -1001,7 +1004,7 @@ function checkObjectVariableNotSetStatement(
 		const lower = value.length === 1 ? tokenName(value[0])?.toLowerCase() : undefined;
 		const local = lower ? locals.get(lower) : undefined;
 		if (!target || !local || local.letOnly || local.variant || locals.has(target.name.toLowerCase()) || state.get(lower!) !== 'unset'
-			|| guardedAt(lower!, span.start + value[0].start) || objectLetAssignmentVerdict(local.asType, memberCtx) !== 'lets') {
+			|| guardedAt(lower!, span.start + value[0].start) || defaultQueries.verdictFor(local.asType) !== 'lets') {
 			continue;
 		}
 		push(
@@ -1025,7 +1028,7 @@ function checkObjectVariableNotSetStatement(
 			const local = lower ? locals.get(lower) : undefined;
 			if (eq > 0 && local && !local.letOnly && !local.variant && operandToks[eq + 2]?.rawText === '(' && state.get(lower!) === 'unset'
 				&& !guardedAt(lower!, span.start + value.start) && matchParenFrom(operandToks, eq + 2) === operandToks.length - 1
-				&& objectLetAssignmentVerdict(local.asType, memberCtx) !== 'noDefault') {
+				&& defaultQueries.verdictFor(local.asType) !== 'noDefault') {
 				push(
 					'objectVariableNotSet',
 					`Object variable '${value.rawText}' is Nothing when its default member is indexed. This will raise Run-time error '91': Object variable or With block variable not set.`,
@@ -1047,7 +1050,7 @@ function checkObjectVariableNotSetStatement(
 				|| state.get(lower!) !== 'unset' || guardedAt(lower!, span.start + operandToks[i].start) || objectHoldingDefault(local.asType, memberCtx)) {
 				continue;
 			}
-			const verdict = objectLetAssignmentVerdict(local.asType, memberCtx);
+			const verdict = defaultQueries.verdictFor(local.asType);
 			// `CStr(x)`, `Len(x)`: a whole argument of a built-in that reads one
 			// value (issue #415, measured in Excel 16.0). A Collection or Names
 			// there does not compile, which is collection-operand's; a type with
