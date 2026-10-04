@@ -1553,6 +1553,12 @@ function zeroDivisorAtomTokenGroup(
 ): VbaToken[] | undefined {
 	const first = toks[start];
 	const firstName = first ? tokenName(first) : undefined;
+	// Recognize VBA-qualified conversions before the member-access branch,
+	// which rejects a following '(' (issue #898).
+	const close = zeroConversionCallEnd(toks, start, constants);
+	if (close !== undefined && isDivisorAtomBoundary(toks[close + 1])) {
+		return toks.slice(start, close + 1);
+	}
 	const member = toks[start + 2];
 	const memberName = member ? tokenName(member) : undefined;
 	if (firstName && toks[start + 1]?.rawText === '.' && memberName) {
@@ -1575,10 +1581,6 @@ function zeroDivisorAtomTokenGroup(
 	if (firstName && toks[start + 1]?.rawText === '(' && toks[start + 2]?.rawText === ')' && isDivisorAtomBoundary(toks[start + 3])
 		&& toks[start - 1]?.rawText !== '.' && constants.get(`${firstName}()`) === 0) {
 		return toks.slice(start, start + 3);
-	}
-	const close = zeroConversionCallEnd(toks, start, constants);
-	if (close !== undefined && isDivisorAtomBoundary(toks[close + 1])) {
-		return toks.slice(start, close + 1);
 	}
 	// `Int(0.9)`, `Fix(-0.9)`, `Round(0.5)`: a number made whole, 0 (issue
 	// #286). `Sign1(-1)`: a Function of the module that returns 0 for these
