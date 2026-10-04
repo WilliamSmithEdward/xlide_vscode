@@ -30,6 +30,7 @@
 //     a later phase.
 
 import { incrementalModuleParseFromCache } from './incrementalModuleParse';
+import { rememberDirectiveFreeModule } from './moduleParseFacts';
 import { VbaToken } from '../lexer/tokenKinds';
 import { tokenizeCached } from '../lexer/tokenize';
 import {
@@ -181,6 +182,7 @@ export function parseModule(source: string): ModuleNode {
 		module = new Parser(source, remaining).parse(prefix?.members);
 		hasDirectives = remaining.some(token => token.kind === 'directive');
 	}
+	if (!hasDirectives) { rememberDirectiveFreeModule(module); }
 	parseCache.unshift({ source, module, hasDirectives });
 	if (parseCache.length > PARSE_CACHE_MAX) {
 		parseCache.pop();
