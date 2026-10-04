@@ -127,8 +127,9 @@ export function tokenizeCached(src: string): VbaToken[] {
 }
 
 // Limit reuse to a small edit in a large source. Re-lex complete logical lines,
-// whose newline tokens reset lexical/contextual-keyword state. Newline edits,
-// large replacements, and a lost trailing boundary use the full lexer.
+// whose newline tokens reset lexical/contextual-keyword state. Changes to the
+// physical line-break sequence, large replacements, or a lost trailing boundary
+// use the full lexer.
 function editedLineTokens(src: string, previous: { src: string; tokens: VbaToken[] } | undefined): VbaToken[] | undefined {
 	if (!previous || src.length < TOKENIZE_MODULE_MIN_LENGTH || Math.abs(src.length - previous.src.length) > 128) {
 		return undefined;
@@ -143,9 +144,16 @@ function editedLineTokens(src: string, previous: { src: string; tokens: VbaToken
 		oldEnd--;
 		newEnd--;
 	}
-	if ((start > 0 && old[start - 1] === '\r' && old[oldEnd] === '\n') ||
-		Math.max(oldEnd - start, newEnd - start) > 128 ||
-		/[\r\n]/.test(old.slice(start, oldEnd)) || /[\r\n]/.test(src.slice(start, newEnd))) {
+	if (Math.max(oldEnd - start, newEnd - start) > 128) {
+		return undefined;
+	}
+	// Include both boundary neighbours: an edit can split or join a CRLF
+	// without containing either complete physical line break in its own span.
+	// Preserve the line coordinates of cached suffix tokens.
+	const contextStart = Math.max(0, start - 1);
+	const oldBreaks = old.slice(contextStart, oldEnd + 1).match(/\r\n|\r|\n/g) ?? [];
+	const newBreaks = src.slice(contextStart, newEnd + 1).match(/\r\n|\r|\n/g) ?? [];
+	if (oldBreaks.length !== newBreaks.length || oldBreaks.some((eol, index) => eol !== newBreaks[index])) {
 		return undefined;
 	}
 	const all = previous.tokens;
