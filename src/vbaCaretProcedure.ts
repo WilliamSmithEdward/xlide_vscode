@@ -42,7 +42,15 @@ export class VbaCaretProcedureTracker implements vscode.Disposable {
     constructor() {
         this._disposables.push(
             this._emitter,
-            vscode.workspace.onDidChangeTextDocument((event) => this._acceptNonStructuralEdit(event)),
+            vscode.workspace.onDidChangeTextDocument((event) => {
+                this._acceptNonStructuralEdit(event);
+                // Edits applied by a command need not move the caret. Update
+                // structural changes now; ordinary typing keeps its cached ranges.
+                if (event.contentChanges.length > 0 && event.document === vscode.window.activeTextEditor?.document
+                    && this._ranges.get(event.document)?.version !== event.document.version) {
+                    this._update();
+                }
+            }),
             vscode.window.onDidChangeActiveTextEditor(() => this._update()),
             vscode.window.onDidChangeTextEditorSelection((e) => {
                 if (e.textEditor === vscode.window.activeTextEditor) {

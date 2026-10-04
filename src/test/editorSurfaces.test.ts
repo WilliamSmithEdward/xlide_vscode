@@ -59,10 +59,8 @@ suite('Editor surfaces', () => {
         try {
             assert.equal(tracker.current?.label, 'Sub SurfaceProbe');
             assert.ok(await editor.edit(edit => edit.insert(new vscode.Position(5, document.lineAt(5).text.length), ' + 2')));
-            editor.selection = new vscode.Selection(5, 6, 5, 6);
             await until(() => tracker.current?.label === 'Sub SurfaceProbe' ? true : undefined, 'body edit should retain procedure');
             assert.ok(await editor.edit(edit => edit.replace(new vscode.Range(3, 4, 3, 16), 'RenamedProbe')));
-            editor.selection = new vscode.Selection(5, 7, 5, 7);
             await until(() => tracker.current?.label === 'Sub RenamedProbe' ? true : undefined, 'header rename should invalidate procedure ranges');
         } finally {
             tracker.dispose();

@@ -238,7 +238,8 @@ describe('procedure ranges across tab switches', () => {
 });
 
 describe('ordinary typing reuses procedure ranges', () => {
-    function change(one: ReturnType<typeof editor>, text: string, line: number, inserted: string, endLine = line) {
+    function change(one: ReturnType<typeof editor>, text: string, line: number, inserted: string, endLine = line,
+        notifySelection = true) {
         one.document.version++;
         one.document.lineCount = text.split('\n').length;
         one.document.getText.mockReturnValue(text);
@@ -247,8 +248,60 @@ describe('ordinary typing reuses procedure ranges', () => {
             document: one.document,
             contentChanges: [{ text: inserted, range: { start: { line }, end: { line: endLine } } }],
         });
-        fireSelection();
+        if (notifySelection) { fireSelection(); }
     }
+
+    it('reports a renamed procedure without waiting for the caret to move', () => {
+        const one = editor(3);
+        setActiveEditor(one);
+        track();
+        change(one, SOURCE.replace('Sub Post()', 'Sub Posted()'), 2, 'ed', 2, false);
+        expect(tracker?.current?.label).toBe('Sub Posted');
+        expect(seen.map(position => position?.label)).toEqual(['Sub Posted']);
+        fireSelection();
+        expect(one.document.getText).toHaveBeenCalledTimes(2);
+        expect(seen).toHaveLength(1);
+    });
+
+    it('reports declarations when the last procedure is deleted with the caret still at zero', () => {
+        const one = editor(0, 'Sub Post()\nEnd Sub');
+        setActiveEditor(one);
+        track();
+        change(one, '', 0, '', 1, false);
+        expect(tracker?.current?.label).toBe('(Declarations)');
+        expect(seen.map(position => position?.label)).toEqual(['(Declarations)']);
+    });
+
+    it('updates procedure ownership when a lead-in changes without a selection event', () => {
+        const one = editor(6);
+        setActiveEditor(one);
+        track();
+        change(one, SOURCE.replace('End Sub\n\nFunction', 'End Sub\nx = 1\nFunction'), 6, 'x = 1', 6, false);
+        expect(tracker?.current?.label).toBe('Sub Post');
+    });
+
+    it('keeps ordinary body edits cached and quiet without selection events', () => {
+        const one = editor(3);
+        setActiveEditor(one);
+        track();
+        change(one, SOURCE.replace('Debug.Print 1', 'Debug.Print 10'), 3, '0', 3, false);
+        expect(one.document.getText).toHaveBeenCalledTimes(1);
+        expect(seen).toEqual([]);
+    });
+
+    it('defers an inactive document rescan until it is shown again', () => {
+        const one = editor(3), other = editor(8);
+        setActiveEditor(one);
+        track();
+        switchTo(other);
+        seen = [];
+        change(one, SOURCE.replace('Sub Post()', 'Sub Posted()'), 2, 'ed', 2, false);
+        expect(one.document.getText).toHaveBeenCalledTimes(1);
+        expect(seen).toEqual([]);
+        switchTo(one);
+        expect(tracker?.current?.label).toBe('Sub Posted');
+        expect(one.document.getText).toHaveBeenCalledTimes(2);
+    });
 
     it('does not reread the module while editing body code', () => {
         const one = editor(3);
