@@ -271,20 +271,16 @@ function memberAccessReferences(
             meType: meHostTypeForModule(mod.moduleName, mod.type, mod.documentType),
             meProjectType: meProjectTypeForModule(mod.moduleName, mod.type),
             projectClassMembers: project.projectMemberSurfaces(mod.moduleName),
+            // Let the resolver copy only the current logical statement's tokens.
+            sourceTokens: tokenizeCached(mod.source).filter((t) => t.kind !== 'comment'),
         };
-        const moduleTokens = tokenizeCached(mod.source).filter((t) => t.kind !== 'comment');
-        let tokenEnd = 0;
         for (const occ of occurrences) {
             const occEnd = occ.offset + memberName.length;
-            while (tokenEnd < moduleTokens.length && moduleTokens[tokenEnd].end <= occEnd) {
-                tokenEnd += 1;
-            }
             const resolved = resolveMemberDefinitionsAt(
                 mod.source,
                 occEnd,
                 memberName,
                 ctx,
-                moduleTokens.slice(0, tokenEnd),
             );
             if (!resolved.some((definition) => targetKeys.has(memberDefinitionKey(definition)))) {
                 continue;
