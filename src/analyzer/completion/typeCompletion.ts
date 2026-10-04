@@ -14,7 +14,7 @@
 // is unit-tested directly. The VS Code provider supplies the project type names.
 
 import type { VbaToken } from '../lexer/tokenKinds';
-import { completionCursorContext } from './cursorContext';
+import { completionTypeTokens } from './cursorContext';
 import {
 	getExcelObjectModel,
 	type HostObjectModel,
@@ -592,7 +592,7 @@ export function resolveTypeCompletions(
 	ctx: TypeCompletionContext = {},
 ): TypeCompletion[] {
 	const pos = detectTypePosition(
-		completionCursorContext(source, offset).significantTokens,
+		completionTypeTokens(source, offset),
 	);
 	if (!pos) {
 		return [];

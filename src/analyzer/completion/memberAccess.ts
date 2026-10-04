@@ -17,7 +17,7 @@ import {
 	type MsFormsMember,
 } from '../host/msformsReferenceMembers';
 import { VBA_USERFORM_EXTENDER_MEMBERS, VBA_USERFORM_TYPE } from '../host/userFormExtenderMembers';
-import { completionCursorContext } from './cursorContext';
+import { completionLineCursorContext } from './cursorContext';
 import { parseModule } from '../parser/parseModule';
 import {
 	BodyNode,
@@ -444,7 +444,7 @@ function prefixSignificantTokens(
 			return shared.slice(start, found + 1);
 		}
 	}
-	return completionCursorContext(source, offset).significantTokens;
+	return completionLineCursorContext(source, offset).significantTokens;
 }
 
 function memberSurfaceAtDot(
