@@ -125,7 +125,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     private _subsListCache = new Map<string, Array<{ name: string; kind: string; line: number }>>();
     private _subsListLoads = new Map<string, Promise<Array<{ name: string; kind: string; line: number }>>>();
     // The drawn sub/designer rows of a module, kept so reveal() can name one.
-    private _subNodes = new Map<string, XlideNode[]>();
+    private _subNodes = new Map<string, { nodes: XlideNode[]; byLabel: Map<string, XlideNode> }>();
     // Protection-state cache: {isPasswordProtected, isSigned} per projectNodeKey.
     // Loaded lazily after tree expansion has gone idle; cleared on refresh().
     private _protectionCache = new Map<string, { isPasswordProtected: boolean; isSigned: boolean }>();
@@ -486,10 +486,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
      * calling the same procedure different things.
      */
     getProcedureNode(filePath: string, moduleName: string, label: string): XlideNode | undefined {
-        const wanted = label.toLowerCase();
-        return this._subNodes
-            .get(moduleNodeKey(filePath, moduleName))
-            ?.find((node) => node.kind === 'sub' && node.label.toLowerCase() === wanted);
+        return this._subNodes.get(moduleNodeKey(filePath, moduleName))?.byLabel.get(label.toLowerCase());
     }
 
     /** The view that draws this tree; set once, right after it is created. */
@@ -1342,13 +1339,21 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
             // Built once and kept: treeView.reveal() matches the element it is
             // given against the ones the tree drew, so a fresh object per
             // render would leave the caret's own procedure unfindable.
-            let nodes = this._subNodes.get(cacheKey);
-            if (!nodes) {
-                nodes = this._buildSubNodes(subs, filePath, moduleName, moduleType);
-                this._subNodes.set(cacheKey, nodes);
+            let cached = this._subNodes.get(cacheKey);
+            if (!cached) {
+                const nodes = this._buildSubNodes(subs, filePath, moduleName, moduleType);
+                const byLabel = new Map<string, XlideNode>();
+                for (const node of nodes) {
+                    if (node.kind !== 'sub') { continue; }
+                    const label = node.label.toLowerCase();
+                    // Match the first row, as the previous case-insensitive find did.
+                    if (!byLabel.has(label)) { byLabel.set(label, node); }
+                }
+                cached = { nodes, byLabel };
+                this._subNodes.set(cacheKey, cached);
             }
             this._scheduleProtectionLoad(filePath);
-            return nodes;
+            return cached.nodes;
         } catch (err) {
             vscode.window.showErrorMessage(`XLIDE: Failed to list procedures in "${moduleName}" (${fileNameForDisplay(filePath)}): ${err}`);
             return [this._loadErrorNode(filePath, moduleName, err)];
