@@ -1,11 +1,12 @@
 # Shared diagnostic held-object facts
 
-Several diagnostic rules request the same procedure's callback-free object/Collection state. A whole-module probe on f006e788 records three requests with identical source, procedure, symbols and activity. Previously each ran the full dataflow walk.
+Several diagnostic rules request the same procedure's callback-free object/Collection state. A whole-module probe on f006e788 records three requests with identical source, procedure, symbols and activity. Previously each ran the full dataflow walk. An instrumented complete analyzer pass verifies Work walks three times before and once after, with identical full diagnostic arrays and no errors.
 
 The cache is weakly owned by symbol snapshot and parsed procedure. Each procedure retains only its most recent source/activity pair, with no older-version chain. Facts are read-only snapshots by the existing HeldObjects contract. A changed source, symbol snapshot or activity identity collects fresh facts. Callback-driven queries always collect again, preserving side effects and answers from changing callback contexts.
 
 Validation:
 
+- Full unit suite: 719 files passed, seven skipped; 14,327 tests passed, 31 skipped. No failures.
 - Seven new regressions: four baseline work-count failures and three passing isolation controls. Fixed: all 18 focused checks across shared facts, historical snapshots and argument laziness pass; types pass.
 - Repeated equivalent consumers (2/10/100) perform one body walk. Activity off/on/off, with two consumers each, performs three walks and preserves A/B/A facts. Source changes preserve A/B/A; separate symbol snapshots collect independently. The same callback returning A then B is called twice, and default facts do not acquire callback results.
 - All 8,298 complete diagnostic and internal-error arrays match f006e788: 8,256 corpus sources plus 42 generated cases across LF/CRLF/CR, activity on/off, collection additions, aliasing, changing members, labels, branches and calls. 13,485 diagnostics; zero internal errors. AST nodes and lexer tokens/trivia are frozen.
