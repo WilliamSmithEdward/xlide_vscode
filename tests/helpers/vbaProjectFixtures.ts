@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import {
 	buildVbaProjectIndex,
 	projectEditorSymbolContextForModule,
+	projectAnalysisOptionsForModule,
 	type VbaProjectAnalysisOptions,
 	type VbaProjectModuleInput,
 } from '../../src/vbaProjectAnalysis';
@@ -203,14 +204,15 @@ export function fixtureContext(
 ): VbaProjectFixtureContext {
 	const project = buildFixtureProject(fixture);
 	const context = projectEditorSymbolContextForModule(project, moduleName);
+	const analysisOptions = projectAnalysisOptionsForModule(project, moduleName);
 	const implicitMembers = fixture.modules.find(
 		(mod) => mod.name.toLowerCase() === moduleName.toLowerCase(),
 	)?.implicitMembers;
 	return {
 		project,
 		options: implicitMembers
-			? { ...context.analysisOptions, implicitMembers }
-			: context.analysisOptions,
+			? { ...analysisOptions, implicitMembers }
+			: analysisOptions,
 		projectProcedures: context.externalProjectProcedures,
 		projectSymbols: context.externalProjectSymbols,
 	};
