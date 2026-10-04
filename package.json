@@ -1202,7 +1202,7 @@
       {
         "command": "xlide.vba.smartBackspace",
         "key": "backspace",
-        "when": "editorTextFocus && editorLangId =~ /^(vba|xlide-vba)$/ && !suggestWidgetVisible && !inSnippetMode"
+        "when": "editorTextFocus && editorLangId =~ /^(vba|xlide-vba)$/ && xlide.vba.backspaceNeedsExtension && !suggestWidgetVisible && !inSnippetMode"
       },
       {
         "command": "xlide.vba.smartTab",

@@ -37,3 +37,5 @@ import './grammar.test';
 
 import './completion.test';
 import './editorSurfaces.test';
+
+import './nativeBackspaceRouting.test';

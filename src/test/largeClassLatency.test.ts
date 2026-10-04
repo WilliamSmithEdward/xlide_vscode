@@ -6,6 +6,8 @@ import * as vscode from 'vscode';
 import { activate, closeAllEditors, insertTypedCharacter, open, workspaceRoot } from './support';
 import { readModule, writeModule } from '../vba/projectService';
 import { encodeModuleUri } from '../xlideFileSystem';
+import { backspaceNeedsExtension } from '../vbaEditorCommands';
+import { runRendererBackspaceProbe } from './rendererBackspaceProbe';
 
 (process.env.XLIDE_PERF_WORKBOOK ? suite : suite.skip)('Actual large class latency', () => {
     let document: vscode.TextDocument;
@@ -61,10 +63,10 @@ import { encodeModuleUri } from '../xlideFileSystem';
         }
     });
 
-    test('records sustained typing and smart Backspace stalls in the actual class', async () => {
+    test('records sustained typing and native/cleanup Backspace routes in the actual class', async () => {
         const editor = vscode.window.activeTextEditor!;
         // Probe both the original reported area and the appended procedure.
-        const samples: { line: number; idleMs: number; typingMs: number; backspaceMs: number }[] = [];
+        const samples: { line: number; idleMs: number; typingMs: number; backspaceMs: number; backspaceCommand: string }[] = [];
         const profiler = new Session();
         const profileEnabled = process.env.XLIDE_PERF_CPU_PROFILE === '1';
         const post = (method: string) => new Promise<any>((resolve, reject) => profiler.post(method, (error, value) => error ? reject(error) : resolve(value)));
@@ -95,8 +97,9 @@ import { encodeModuleUri } from '../xlideFileSystem';
                         'Keyboard typing must insert before measuring Backspace: ' + JSON.stringify({
                             probeLine, idleMs, beforeLength: originalLine.length,
                             afterLength: document.lineAt(probeLine).text.length, caret: editor.selection.active }));
-                    await vscode.commands.executeCommand('xlide.vba.smartBackspace');
-                    samples.push({ line: probeLine, idleMs, typingMs: typed - start, backspaceMs: performance.now() - typed });
+                    const backspaceCommand = backspaceNeedsExtension(editor) ? 'xlide.vba.smartBackspace' : 'deleteLeft';
+                    await vscode.commands.executeCommand(backspaceCommand);
+                    samples.push({ line: probeLine, idleMs, typingMs: typed - start, backspaceMs: performance.now() - typed, backspaceCommand });
                 }
                 const after = document.getText();
                 if (after !== before) {
@@ -130,8 +133,9 @@ import { encodeModuleUri } from '../xlideFileSystem';
         for (let i = 0; i < 8; i++) {
             await vscode.commands.executeCommand('type', { text: 'cez' });
             assert.ok(document.lineAt(memberLine).text.endsWith('.cez'), 'Keyboard typing must reach the member prefix');
+            assert.equal(backspaceNeedsExtension(editor), false);
             const start = performance.now();
-            await vscode.commands.executeCommand('xlide.vba.smartBackspace');
+            await vscode.commands.executeCommand('deleteLeft');
             const deleted = performance.now();
             assert.ok(document.lineAt(memberLine).text.endsWith('.ce'));
             const result = await vscode.commands.executeCommand<vscode.CompletionList>(
@@ -144,11 +148,32 @@ import { encodeModuleUri } from '../xlideFileSystem';
             assert.ok(hovers?.length, 'Hover must still respond after Backspace');
             samples.push({ backspaceMs: deleted - start, completionMs: completed - deleted, hoverMs: performance.now() - completed });
             await vscode.commands.executeCommand('hideSuggestWidget');
-            await vscode.commands.executeCommand('xlide.vba.smartBackspace');
-            await vscode.commands.executeCommand('xlide.vba.smartBackspace');
+            await vscode.commands.executeCommand('deleteLeft');
+            await vscode.commands.executeCommand('deleteLeft');
             assert.ok(document.lineAt(memberLine).text === original, 'Repeated Backspace must restore the member line');
         }
         console.log('Actual member recovery latency:', JSON.stringify(samples));
+    });
+
+    test('records visible typing, Backspace and menu recovery in the actual class', async function () {
+        if (!process.env.XLIDE_UI_DEBUG_PORT) { this.skip(); }
+        const editor = vscode.window.activeTextEditor!;
+        const memberLine = line + 1;
+        const original = document.lineAt(memberLine).text;
+        const caret = document.lineAt(memberLine).range.end;
+        editor.selection = new vscode.Selection(caret, caret);
+        editor.revealRange(new vscode.Range(caret, caret), vscode.TextEditorRevealType.InCenter);
+        await vscode.commands.executeCommand('workbench.action.focusActiveEditorGroup');
+        await vscode.commands.executeCommand('type', { text: 'cez' });
+        await vscode.commands.executeCommand('hideSuggestWidget');
+        assert.ok(document.lineAt(memberLine).text.endsWith('.cez'));
+        assert.equal(backspaceNeedsExtension(editor), false);
+        const result = await runRendererBackspaceProbe('stress');
+        assert.equal(result.samples?.length, 24);
+        assert.ok(document.lineAt(memberLine).text.endsWith('.cez'));
+        console.log('Actual renderer typing latency:', JSON.stringify(result));
+        for (let i = 0; i < 3; i++) { await vscode.commands.executeCommand('deleteLeft'); }
+        assert.equal(document.lineAt(memberLine).text, original);
     });
 
     test('records hover after a declaration edit in the actual large class', async () => {

@@ -3,7 +3,43 @@ import { isVbaDocument } from './xlideFileSystem';
 import { smartTabShouldIndentLine } from './vbaSmartTab';
 import { smartBackspaceShouldClearIndent } from './vbaSmartBackspace';
 
+export const BACKSPACE_NEEDS_EXTENSION_CONTEXT = 'xlide.vba.backspaceNeedsExtension';
+
+/** Ordinary code deletion must stay native when the extension host is busy. */
+export function backspaceNeedsExtension(editor: vscode.TextEditor | undefined): boolean {
+	if (!editor || editor.document.isClosed || !isVbaDocument(editor.document) || editor.selections.length !== 1) { return false; }
+	const selection = editor.selection;
+	if (!selection.isEmpty || selection.active.line < 0 || selection.active.line >= editor.document.lineCount) { return false; }
+	return smartBackspaceShouldClearIndent(editor.document.lineAt(selection.active.line).text,
+		selection.active.character, true) || emptyContinuedCommentStart(editor) !== undefined;
+}
+
+function registerBackspaceContext(context: vscode.ExtensionContext): void {
+	let previous: boolean | undefined;
+	const update = (): void => {
+		const next = backspaceNeedsExtension(vscode.window.activeTextEditor);
+		if (next === previous) { return; }
+		previous = next;
+		void vscode.commands.executeCommand('setContext', BACKSPACE_NEEDS_EXTENSION_CONTEXT, next);
+	};
+	context.subscriptions.push(
+		vscode.window.onDidChangeActiveTextEditor(update),
+		vscode.window.onDidChangeTextEditorSelection(event => {
+			if (event.textEditor === vscode.window.activeTextEditor) { update(); }
+		}),
+		vscode.workspace.onDidChangeTextDocument(event => {
+			if (event.document === vscode.window.activeTextEditor?.document) { update(); }
+		}),
+		vscode.workspace.onDidCloseTextDocument(document => {
+			if (document === vscode.window.activeTextEditor?.document) { update(); }
+		}),
+		{ dispose: () => { void vscode.commands.executeCommand('setContext', BACKSPACE_NEEDS_EXTENSION_CONTEXT, false); } },
+	);
+	update();
+}
+
 export function registerVbaEditorCommands(context: vscode.ExtensionContext): void {
+	registerBackspaceContext(context);
 	context.subscriptions.push(
 		vscode.commands.registerCommand('xlide.vba.smartBackspace', async () => {
 			const editor = vscode.window.activeTextEditor;
@@ -88,14 +124,14 @@ function cursorMoveFor(direction: CursorDirection): Record<string, unknown> | un
 	}
 }
 
-function clearEmptyContinuedComment(editor: vscode.TextEditor): boolean | undefined | Thenable<boolean | undefined> {
+function emptyContinuedCommentStart(editor: vscode.TextEditor): number | undefined {
 	if (editor.document.isClosed) { return undefined; }
 	if (editor.selections.length !== 1) {
-		return false;
+		return undefined;
 	}
 	const selection = editor.selection;
 	if (!selection.isEmpty || selection.active.line === 0) {
-		return false;
+		return undefined;
 	}
 	const document = editor.document;
 	const position = selection.active;
@@ -103,19 +139,28 @@ function clearEmptyContinuedComment(editor: vscode.TextEditor): boolean | undefi
 	const before = line.slice(0, position.character);
 	const after = line.slice(position.character);
 	if (after.trim().length > 0) {
-		return false;
+		return undefined;
 	}
 	// Match any apostrophe run, mirroring commentContinuationText's ('+) capture,
 	// so Smart Backspace clears 2- and 4+-apostrophe continued comments too.
 	const match = /^(\s*)('+) ?$/.exec(before);
 	if (!match) {
-		return false;
+		return undefined;
 	}
 	const previous = document.lineAt(position.line - 1).text.trimStart();
 	if (!previous.startsWith(match[2])) {
-		return false;
+		return undefined;
 	}
-	const markerStart = match[1].length;
+	return match[1].length;
+}
+
+function clearEmptyContinuedComment(editor: vscode.TextEditor): boolean | undefined | Thenable<boolean | undefined> {
+	if (editor.document.isClosed) { return undefined; }
+	const markerStart = emptyContinuedCommentStart(editor);
+	if (markerStart === undefined) { return false; }
+	const selection = editor.selection;
+	const document = editor.document;
+	const position = selection.active;
 	const version = document.version;
 	return editor.edit((edit) => {
 		edit.delete(new vscode.Range(
