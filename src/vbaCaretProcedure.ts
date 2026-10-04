@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import { moduleLocationOfDocument } from './vbaDocumentLocation';
 import {
-    vbaProcedureAtLine,
     vbaProcedureLabel,
     vbaProcedureRanges,
     type VbaProcedureRange,
@@ -81,7 +80,7 @@ export class VbaCaretProcedureTracker implements vscode.Disposable {
             cached = { version: document.version, ranges: vbaProcedureRanges(document.getText()) };
             this._ranges.set(document, cached);
         }
-        const procedure = vbaProcedureAtLine(cached.ranges, editor.selection.active.line);
+        const procedure = orderedProcedureAtLine(cached.ranges, editor.selection.active.line);
         return {
             projectPath: location.projectPath,
             moduleName: location.moduleName,
@@ -103,4 +102,25 @@ function samePosition(left: VbaCaretPosition | undefined, right: VbaCaretPositio
     return left.projectPath === right.projectPath
         && left.moduleName === right.moduleName
         && left.label === right.label;
+}
+
+/** Tracker-owned scanner ranges are ordered and disjoint; callers supplying
+ * arbitrary ranges to vbaProcedureAtLine retain its existing first-match semantics.
+ */
+function orderedProcedureAtLine(ranges: readonly VbaProcedureRange[], line: number): VbaProcedureRange | undefined {
+    const initial = ranges[0];
+    if (!initial || line <= initial.lastLine) {
+        return initial && line >= initial.firstLine ? initial : undefined;
+    }
+    let first = 1, end = ranges.length;
+    while (first < end) {
+        const middle = first + Math.floor((end - first) / 2);
+        if (ranges[middle].firstLine <= line) {
+            first = middle + 1;
+        } else {
+            end = middle;
+        }
+    }
+    const range = ranges[first - 1];
+    return range && line <= range.lastLine ? range : undefined;
 }
