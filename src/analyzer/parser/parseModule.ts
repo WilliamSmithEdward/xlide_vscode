@@ -29,7 +29,7 @@
 //     are captured as StatementNode with their raw text. Expression parsing is
 //     a later phase.
 
-import { incrementalModuleParse } from './incrementalModuleParse';
+import { incrementalModuleParseFromCache } from './incrementalModuleParse';
 import { VbaToken } from '../lexer/tokenKinds';
 import { tokenizeCached } from '../lexer/tokenize';
 import {
@@ -161,11 +161,9 @@ export function parseModule(source: string): ModuleNode {
 			return hit.module;
 		}
 	}
-	let module: ModuleNode | undefined;
-	for (const previous of parseCache) {
-		module = incrementalModuleParse(source, previous.source, previous.module, parseModuleFreshForTests);
-		if (module) { break; }
-	}
+	// A failed body-edit probe must not compare the full class against every
+	// historical snapshot. Probe the most recent compatible source once.
+	let module = incrementalModuleParseFromCache(source, parseCache, parseModuleFreshForTests);
 	module ??= parseModuleFreshForTests(source);
 	parseCache.unshift({ source, module });
 	if (parseCache.length > PARSE_CACHE_MAX) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { incrementalModuleParse } from '../src/analyzer/parser/incrementalModuleParse';
+import { incrementalModuleParse, incrementalModuleParseFromCache } from '../src/analyzer/parser/incrementalModuleParse';
 import { parseModule, parseModuleFreshForTests } from '../src/analyzer/parser/parseModule';
 
 const prefix = "Option Explicit\n" + "' Padding before the editable procedures\n".repeat(450);
@@ -54,6 +54,23 @@ describe('incremental procedure parsing', () => {
             const source = prefix + text + tail;
             expect(incrementalModuleParse(source.replace('value = 1', 'value = 12'), source, parseModuleFreshForTests(source), parseModuleFreshForTests)).toBeUndefined();
         }
+    });
+
+    it('probes only one compatible historical class before falling back for a module-level edit', () => {
+        const source = prefix + body + tail;
+        const first = parseModuleFreshForTests(source);
+        let probed = 0;
+        const snapshots = Array.from({ length: 8 }, (_, index) => ({
+            source: source.replace('value = 1', 'value = ' + (index + 1)),
+            module: { ...first, get members() { probed++; return first.members; } },
+        }));
+        const changed = prefix + 'unknown\n' + body + tail;
+        expect(incrementalModuleParseFromCache(changed, snapshots, parseModuleFreshForTests)).toBeUndefined();
+        expect(probed).toBe(0); // The newline gate rejected the only candidate before scanning members.
+        const sameLineEdit = source.slice(0, prefix.length) + 'unknown ' + source.slice(prefix.length);
+        expect(incrementalModuleParseFromCache(sameLineEdit, snapshots, parseModuleFreshForTests)).toBeUndefined();
+        expect(probed).toBe(1);
+        expect(parseModule(sameLineEdit)).toEqual(parseModuleFreshForTests(sameLineEdit));
     });
 
     it('matches fresh parses over a sequence of typing and Backspace changes', () => {

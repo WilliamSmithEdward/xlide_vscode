@@ -312,7 +312,10 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 				&& callableCompletionShouldInsertParens(source, offset);
 
 		const cachedProjectCtx = this._projectContext.cachedEditorProjectContext(document);
-		const fastProjectCtx = cachedProjectCtx ?? this._projectContext.localEditorProjectContext(document, source);
+		const bareIdentifierStatement = /^[ \t]*[\p{L}_][\p{L}\p{M}\p{N}_]*[$%&!#@^]?$/u.test(
+			document.lineAt(position.line).text.slice(0, position.character),
+		) && completionCursorContext(source, offset).statementStart === document.offsetAt(new vscode.Position(position.line, 0));
+		const fastProjectCtx = cachedProjectCtx ?? this._projectContext.localEditorProjectContext(document, source, bareIdentifierStatement);
 		if (!cachedProjectCtx) {
 			this._projectContext.warmEditorProjectContext(document, source);
 		}

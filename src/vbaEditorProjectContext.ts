@@ -37,6 +37,7 @@ import type { HostObjectModel } from './analyzer/host/excelObjectModel';
 import { VbaProjectIndexService } from './vbaProjectIndexService';
 import { moduleLocationOfDocument, moduleLocationOfUri } from './vbaDocumentLocation';
 import { blankDesignerHeader } from './vba/moduleSource';
+import { editorModuleSymbols } from './analyzer/symbols/editorModuleSymbols';
 
 const WORKBOOK = 'Excel.Workbook';
 const WORKSHEET = 'Excel.Worksheet';
@@ -562,7 +563,18 @@ export class VbaEditorProjectContextService implements vscode.Disposable {
 	}
 
 	/** Reuse the local symbol snapshot across completion/hover requests for unchanged text. */
-	localEditorProjectContext(document: vscode.TextDocument, source: string): EditorProjectContext {
+	localEditorProjectContext(document: vscode.TextDocument, source: string, bareIdentifierStatement = false): EditorProjectContext {
+		if (bareIdentifierStatement) {
+			const identity = this._localModuleIdentity(document);
+			if (identity.moduleKind === 'standard') {
+				// Bare identifiers get current-module declarations from the shared
+				// editor symbol snapshot. A one-module project has no external
+				// declarations; only its module name/documentation adds a row.
+				const symbols = editorModuleSymbols(identity.moduleName, identity.moduleKind, source);
+				return { ...identity, projectClassMembers: [{ name: identity.moduleName,
+					moduleName: identity.moduleName, kind: 'standardModule', members: [], doc: symbols.root.doc }] };
+			}
+		}
 		const key = document.uri.toString();
 		const cached = this._localContextCache.get(key);
 		if (!document.isClosed && cached?.document === document && cached.documentVersion === document.version && cached.source === source &&

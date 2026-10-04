@@ -1,5 +1,16 @@
 import type { ModuleNode } from './nodes';
 
+/** Try one compatible snapshot; failed probes must not scan every historical class. */
+export function incrementalModuleParseFromCache(
+	source: string,
+	snapshots: readonly { source: string; module: ModuleNode }[],
+	parseFresh: (source: string) => ModuleNode,
+): ModuleNode | undefined {
+	const previous = snapshots.find(entry => source.length >= 16_384 &&
+		Math.abs(source.length - entry.source.length) <= 256 && source.slice(0, 128) === entry.source.slice(0, 128));
+	return previous && incrementalModuleParse(source, previous.source, previous.module, parseFresh);
+}
+
 /** Immutable AST rebasing. Parser trees contain plain objects, arrays and spans. */
 function rebase<T>(value: T, delta: number): T {
 	if (delta === 0 || value === null || typeof value !== 'object') { return value; }
