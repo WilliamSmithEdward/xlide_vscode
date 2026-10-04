@@ -1360,6 +1360,12 @@ export function isMemberParenlessArgumentStart(tok: VbaToken): boolean {
 	return tok.rawText === ',' || tok.rawText === '+' || tok.rawText === '-';
 }
 
+export interface ArgumentObjectQueries {
+	resolveType: ReturnType<typeof createObjectAssignmentTypeResolver>;
+	shareInterfaces: ReturnType<typeof createProjectInterfaceSharingLookup>;
+	implementsType: ReturnType<typeof createObjectTypeImplementationLookup>;
+}
+
 export function validateArgumentTypes(
 	call: CallArguments,
 	env: ReadonlyMap<string, string>,
@@ -1373,6 +1379,7 @@ export function validateArgumentTypes(
 	heldClassOf?: (lower: string) => string | undefined,
 	heldNull?: (lower: string) => boolean,
 	heldNumber?: (lower: string) => number | string | undefined,
+	objectQueries?: ArgumentObjectQueries,
 ): void {
 	const sig = callableSignatureForCall(call, moduleSignatures, sourceNames);
 	if (!sig || sig.params.length === 0) {
@@ -1392,6 +1399,7 @@ export function validateArgumentTypes(
 		heldClassOf,
 		heldNull,
 		heldNumber,
+		objectQueries,
 	);
 }
 
@@ -1409,6 +1417,7 @@ export function validateArgumentTypesForSignature(
 	heldClassOf?: (lower: string) => string | undefined,
 	heldNull?: (lower: string) => boolean,
 	heldNumber?: (lower: string) => number | string | undefined,
+	objectQueries?: ArgumentObjectQueries,
 ): void {
 	if (sig.params.length === 0) {
 		return;
@@ -1500,7 +1509,7 @@ export function validateArgumentTypesForSignature(
 		);
 		const kindProblem = objectValueArgumentProblem(expected, valueSlot, actual, memberCtx, sourceNames, (name) =>
 			env.has(name.toLowerCase()) || resolveExpressionType?.(name).resolved === true, heldClassOf,
-			param.byRef === false || call.argumentsParenthesized === true, env);
+			param.byRef === false || call.argumentsParenthesized === true, env, objectQueries);
 		if (kindProblem) {
 			push(
 				kindProblem.rule,
@@ -1680,6 +1689,7 @@ function objectValueArgumentProblem(
 	heldClassOf?: (lower: string) => string | undefined,
 	byValue = false,
 	env: ReadonlyMap<string, string> = new Map(),
+	objectQueries?: ArgumentObjectQueries,
 ): { rule: 'argumentObjectTypeMismatch' | 'argumentTypeMismatch'; what: string; reason: string; tokens: readonly VbaToken[] } | undefined {
 	const toks = unwrapOuterParens(slot.filter((tok) => tok.kind !== 'comment' && tok.kind !== 'newline'));
 	if (toks.length === 0) {
@@ -1716,7 +1726,7 @@ function objectValueArgumentProblem(
 	// `b + 0` and `d + 0` with b a Boolean and d a Date too (issue #647).
 	const scalarExpression = toks.length > 1 && !literal
 		&& ((actual !== undefined && isKnownScalarType(normalizeType(actual.type) ?? '')) || arithmeticOfScalars(toks, env));
-	if ((literal || scalarExpression) && expectedType !== 'object' && isKnownObjectAssignmentType(expected, memberCtx)) {
+	if ((literal || scalarExpression) && expectedType !== 'object' && isKnownObjectAssignmentType(expected, memberCtx, objectQueries?.resolveType)) {
 		return { rule: 'argumentObjectTypeMismatch', what: actual?.label ?? toks.map((tok) => tok.rawText).join(' '), reason: 'An object parameter takes an object. This is a VBE compile error: Type mismatch.', tokens: toks };
 	}
 	// An object of another class, as a Set of it would be: TakeWs(Range("A1"))
@@ -1730,7 +1740,7 @@ function objectValueArgumentProblem(
 	// A scalar variable passed by value is a value, as a literal is; ByRef it
 	// is byref-argument-type-mismatch's. A Variant holding Empty or a value
 	// raises 424 (issue #410, measured in Excel 16.0).
-	if (declaredName && byValue && expectedType !== 'object' && isKnownObjectAssignmentType(expected, memberCtx)) {
+	if (declaredName && byValue && expectedType !== 'object' && isKnownObjectAssignmentType(expected, memberCtx, objectQueries?.resolveType)) {
 		const declared = normalizeType(env.get(tokenName(toks[0])!.toLowerCase()));
 		if (declared && isKnownScalarType(declared)) {
 			return { rule: 'argumentObjectTypeMismatch', what: `'${toks[0].rawText}', declared ${env.get(tokenName(toks[0])!.toLowerCase())}`, reason: 'An object parameter takes an object. This is a VBE compile error: Type mismatch.', tokens: toks };
@@ -1739,18 +1749,18 @@ function objectValueArgumentProblem(
 			return { rule: 'argumentTypeMismatch', what: `'${toks[0].rawText}', a Variant that holds no object here`, reason: "An object parameter takes an object. This will raise Run-time error '424': Object required.", tokens: toks };
 		}
 	}
-	if (held && held !== VALUE_HELD && expectedType !== 'object' && isKnownObjectAssignmentType(expected, memberCtx)) {
+	if (held && held !== VALUE_HELD && expectedType !== 'object' && isKnownObjectAssignmentType(expected, memberCtx, objectQueries?.resolveType)) {
 		const holding = { type: held, label: `'${toks[0].rawText}', which holds a ${held} here`, span: { start: toks[0].start, end: toks[0].end } };
-		const reason = objectAssignmentIncompatibilityReason(expected, holding, memberCtx);
+		const reason = objectAssignmentIncompatibilityReason(expected, holding, memberCtx, objectQueries?.resolveType, objectQueries?.shareInterfaces, objectQueries?.implementsType);
 		if (reason) {
 			return { rule: 'argumentTypeMismatch', what: holding.label, reason: `${reason} This will raise Run-time error '13': Type mismatch.`, tokens: toks };
 		}
 	}
 	// `TakeC(ActiveSheet)` into a Collection, as the Object holding it (issue #685).
 	if (!declaredName && toks.length === 1 && tokenText(toks[0]) === 'activesheet' && !isDeclared(toks[0].rawText)
-		&& resolveHostGlobal('ActiveSheet', memberCtx.model) !== undefined && expectedType !== 'object' && isKnownObjectAssignmentType(expected, memberCtx)) {
+		&& resolveHostGlobal('ActiveSheet', memberCtx.model) !== undefined && expectedType !== 'object' && isKnownObjectAssignmentType(expected, memberCtx, objectQueries?.resolveType)) {
 		const sheet = { type: 'Worksheet or Chart', label: `'${toks[0].rawText}', a Worksheet or a Chart`, span: { start: toks[0].start, end: toks[0].end } };
-		const reason = objectAssignmentIncompatibilityReason(expected, sheet, memberCtx);
+		const reason = objectAssignmentIncompatibilityReason(expected, sheet, memberCtx, objectQueries?.resolveType, objectQueries?.shareInterfaces, objectQueries?.implementsType);
 		if (reason) {
 			return { rule: 'argumentTypeMismatch', what: sheet.label, reason: `${reason} This will raise Run-time error '13': Type mismatch.`, tokens: toks };
 		}
@@ -1760,9 +1770,9 @@ function objectValueArgumentProblem(
 	if (sheets) {
 		return { rule: 'argumentTypeMismatch', what: `'${sheets.text}', which returns a Sheets object`, reason: `Excel's Worksheets and Charts properties return a Sheets object, never a ${sheets.collection} one. This will raise Run-time error '13': Type mismatch.`, tokens: toks };
 	}
-	if (actual && !declaredName && expectedType !== 'object' && isKnownObjectAssignmentType(expected, memberCtx)
+	if (actual && !declaredName && expectedType !== 'object' && isKnownObjectAssignmentType(expected, memberCtx, objectQueries?.resolveType)
 		&& !isKnownScalarType(normalizeType(actual.type) ?? '')) {
-		const reason = objectAssignmentIncompatibilityReason(expected, actual, memberCtx);
+		const reason = objectAssignmentIncompatibilityReason(expected, actual, memberCtx, objectQueries?.resolveType, objectQueries?.shareInterfaces, objectQueries?.implementsType);
 		if (reason) {
 			return { rule: 'argumentTypeMismatch', what: actual.label, reason: `${reason} This will raise Run-time error '13': Type mismatch.`, tokens: toks };
 		}
@@ -3092,8 +3102,9 @@ export function isKnownScalarType(type: string): boolean {
 export function isKnownObjectAssignmentType(
 	type: string | undefined,
 	memberCtx: MemberCompletionContext,
+	resolveType?: ReturnType<typeof createObjectAssignmentTypeResolver>,
 ): boolean {
-	return resolveKnownObjectAssignmentType(type, memberCtx) !== undefined;
+	return (resolveType ? resolveType(type) : resolveKnownObjectAssignmentType(type, memberCtx)) !== undefined;
 }
 
 export type KnownObjectAssignmentType =

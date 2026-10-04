@@ -23,6 +23,9 @@ import {
 } from '../callExtraction';
 import {
 	callableTypeSignaturesFor,
+	createObjectAssignmentTypeResolver,
+	createProjectInterfaceSharingLookup,
+	createObjectTypeImplementationLookup,
 	expressionCalls,
 	knownLocalLiteralValuesAt,
 	memberExpressionCalls,
@@ -55,6 +58,11 @@ export function checkArgumentTypes(
 	activity?: ConditionalActivityTracker,
 ): ProcedureStatementVisitor {
 	const moduleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
+	const objectQueries = {
+		resolveType: createObjectAssignmentTypeResolver(memberCtx),
+		shareInterfaces: createProjectInterfaceSharingLookup(memberCtx),
+		implementsType: createObjectTypeImplementationLookup(),
+	};
 	return (member) => {
 		const env = typeEnvironmentFor(symbols, member);
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
@@ -149,6 +157,7 @@ export function checkArgumentTypes(
 					heldClassOf,
 					heldNull,
 					heldNumber,
+					objectQueries,
 				);
 			}
 			for (const memberCall of memberExpressionCalls(
@@ -170,6 +179,7 @@ export function checkArgumentTypes(
 					heldClassOf,
 					heldNull,
 					heldNumber,
+					objectQueries,
 				);
 			}
 			for (const memberCall of memberStatementCalls(
@@ -191,6 +201,7 @@ export function checkArgumentTypes(
 					heldClassOf,
 					heldNull,
 					heldNumber,
+					objectQueries,
 				);
 			}
 			// A single-line If's branch is a statement call too: `If x Then Sl Nothing` (issue #254).
@@ -210,6 +221,7 @@ export function checkArgumentTypes(
 						heldClassOf,
 						heldNull,
 						heldNumber,
+						objectQueries,
 					);
 				}
 			}
