@@ -3897,6 +3897,7 @@ export function knownLocalLiteralValuesAt(
 	const cache = perProcedureCache(LOCAL_VALUES_AT, symbols);
 	const cached = cache.get(proc);
 	if (cached && cached.source === source && cached.activity === activity) {
+		cached.source = source;
 		return cached.valuesAt;
 	}
 	const valuesAt = buildKnownLocalLiteralValuesAt(source, proc, symbols, activity);
@@ -4306,6 +4307,7 @@ export function unreachableStatementsIn(
 	const cache = perProcedureCache(UNREACHABLE, symbols);
 	const kept = cache.get(proc);
 	if (kept && kept.source === source && kept.activity === activity) {
+		kept.source = source;
 		return kept.dead;
 	}
 	// Walked even with no value known: `GoTo Done` leaves whatever the locals hold.
@@ -4573,6 +4575,7 @@ export function functionResultFor(
 		cache.set(proc, kept);
 	}
 	if (kept.calls.has(key)) {
+		kept.source = source;
 		return kept.calls.get(key);
 	}
 	const result = runFunctionFor(source, proc, symbols, activity, args, objectResult);
