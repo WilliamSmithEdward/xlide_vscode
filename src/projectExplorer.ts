@@ -1273,12 +1273,15 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
             await existing;
             return;
         }
-        const load = (async () => {
+        // Register the owner before bridge work starts, including a synchronous
+        // bridge failure that must clear this pending entry rather than leak it.
+        const load: Promise<void> = Promise.resolve().then(async () => {
             try {
                 const info = await this._bridge.call<{ isPasswordProtected: boolean; isSigned: boolean }>(
                     'getProtectionInfo',
                     { path: filePath },
                 );
+                if (this._protectionLoads.get(key) !== load) { return; }
                 this._protectionCache.set(key, info);
                 const node = this._projectNodes.get(key);
                 if (node) {
@@ -1287,12 +1290,15 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                     this._emitter.fire(node);
                 }
             } catch (err) {
+                if (this._protectionLoads.get(key) !== load) { return; }
                 // Badge is best-effort; log the probe failure without surfacing it.
                 this._out?.appendLine(`[projectExplorer] Protection probe failed for "${fileNameForDisplay(filePath)}": ${err}`);
             } finally {
-                this._protectionLoads.delete(key);
+                if (this._protectionLoads.get(key) === load) {
+                    this._protectionLoads.delete(key);
+                }
             }
-        })();
+        });
         this._protectionLoads.set(key, load);
         await load;
     }
