@@ -33,3 +33,25 @@ export function smartBackspaceShouldClearIndent(
 	// because everything to the left is still whitespace.
 	return /^[ \t]*$/.test(lineText) && lineText.length > 0;
 }
+
+/** Start of an empty marker continued from the preceding comment, if any. */
+export function emptyContinuedCommentMarkerStart(
+    lineText: string, character: number, previousLine: string | undefined,
+): number | undefined {
+    if (previousLine === undefined || lineText.slice(character).trim().length > 0) { return undefined; }
+    const match = /^(\s*)('+) ?$/.exec(lineText.slice(0, character));
+    return match && previousLine.trimStart().startsWith(match[2]) ? match[1].length : undefined;
+}
+
+/** Remaining smart cleanup after the renderer has already deleted natively. */
+export function remainingBackspaceCleanup(
+    beforeLine: string, beforeCaret: number, previousLine: string | undefined,
+    deletedStart: number, deletedEnd: number, afterLine: string,
+): { start: number; end: number } | undefined {
+    if (deletedStart < 0 || deletedStart >= deletedEnd || deletedEnd !== beforeCaret ||
+        deletedEnd > beforeLine.length ||
+        afterLine !== beforeLine.slice(0, deletedStart) + beforeLine.slice(deletedEnd)) { return undefined; }
+    const start = smartBackspaceShouldClearIndent(beforeLine, beforeCaret, true)
+        ? 0 : emptyContinuedCommentMarkerStart(beforeLine, beforeCaret, previousLine);
+    return start !== undefined && start < deletedStart ? { start, end: deletedStart } : undefined;
+}

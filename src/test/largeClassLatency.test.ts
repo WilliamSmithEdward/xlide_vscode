@@ -168,8 +168,12 @@ import { runRendererBackspaceProbe } from './rendererBackspaceProbe';
         await vscode.commands.executeCommand('hideSuggestWidget');
         assert.ok(document.lineAt(memberLine).text.endsWith('.cez'));
         assert.equal(backspaceNeedsExtension(editor), false);
-        const result = await runRendererBackspaceProbe('stress');
-        assert.equal(result.samples?.length, 24);
+        const cycles = Number(process.env.XLIDE_PERF_RENDERER_CYCLES ?? 24);
+        assert.ok(Number.isInteger(cycles) && cycles >= 24 && cycles <= 1000);
+        this.timeout(Math.max(120000, cycles * 1200));
+        const result = await runRendererBackspaceProbe('stress', false, undefined, { cycles, hover: true });
+        assert.equal(result.samples?.length, cycles);
+        assert.equal(result.hoverSamples?.length, Math.floor(cycles / 16));
         assert.ok(document.lineAt(memberLine).text.endsWith('.cez'));
         console.log('Actual renderer typing latency:', JSON.stringify(result));
         for (let i = 0; i < 3; i++) { await vscode.commands.executeCommand('deleteLeft'); }

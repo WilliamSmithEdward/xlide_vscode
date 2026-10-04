@@ -8,8 +8,22 @@ The keybinding now requires a cleanup context: one caret on a whitespace-only
 indented line, or an empty continued-comment marker. Ordinary code, selection
 and multiple-caret deletion use VS Code's native handler. The context reads only
 the caret line and, for a comment marker, its preceding line, and sends
-`setContext` only when its boolean changes. Cleanup still needs a responsive
-extension host; the context is updated by editor events in that host.
+`setContext` only when its boolean changes.
+
+A true cleanup flag can become stale while the host is busy: the user can type
+ordinary code into the formerly blank line before the host updates that flag.
+The cleanup binding therefore runs native `deleteLeft` first through VS Code's
+`runCommands`, then invokes `xlide.vba.finishBackspaceCleanup`. A busy host can
+delay optional cleanup but cannot hold up the initial deletion, even with a
+stale true flag. The follow-up validates the original line/caret, exact native
+deletion, document version and current editor/caret. It discards cleanup after
+another edit, navigation, close or a rejected edit, and never retries deletion.
+Native deletion and any remaining indentation/comment cleanup share one Undo.
+
+The event tracker retains two line/caret snapshots because native selection
+and text notifications can arrive in either order. Dirty-state notifications
+with no text changes preserve pending cleanup until the native caret arrives.
+It introduces no full-module reads, timers or response-path sleeps.
 
 ## Verification
 
@@ -24,15 +38,20 @@ committed.
 
 A separate Node process sends Backspace through Chromium's renderer input API
 while the extension host is deliberately blocked for 1.2 seconds. The native
-route must change the visible editor line during that interval. A positive
-control enables the extension binding and must stay unchanged during the same
-interval, then delete once the host resumes. This directly distinguishes native
-routing from merely invoking `deleteLeft` via the extension host.
+route must change the visible editor line during that interval. Both ordinary
+false-context and deliberately stale true-context routes must pass. A third
+probe starts on an indented blank line, types code while the host is blocked,
+then presses Backspace while the true flag remains stale. Physical-key cleanup
+probes check indentation and continued comments, with one Undo restoring the
+entire action. This distinguishes native routing from invoking `deleteLeft`
+through the extension host.
 
-The actual-class renderer probe performs 24 `.cez` -> `.ce` -> `.cez` cycles at
+The actual-class renderer probe defaults to 24 `.cez` -> `.ce` -> `.cez` cycles at
 0/30/250/350 ms idle cadences. Every Backspace must recover a visible Cells row;
 the subsequent miss must hide it before another recovery can count. It records
-visible DOM updates and suggestion visibility, including debugger roundtrip
+visible DOM updates, suggestion visibility and resolved mouse hovers. Set
+`XLIDE_PERF_RENDERER_CYCLES=200` for a longer session; a mouse hover is checked
+every 16 cycles. Measurements include debugger roundtrip
 and polling overhead, rather than GPU presentation timing. Provider/command
 measurements are reported separately and may still wait for the host.
 
@@ -41,7 +60,7 @@ selection/multiple-caret routing, and zero whole-module reads/context traffic
 for ordinary typing. Existing continued-comment/whole-indent integration
 checks preserve those behaviors.
 
-## Observed results
+## Earlier results before native-first cleanup
 
 After integrating main at 49ed5c90, three VS Code 1.139.1 runs passed all eight
 cases. In 72 actual-class renderer cycles, visible Backspace medians were
@@ -67,3 +86,30 @@ The intermittent latency goal and issues #964/#985 remain open.
 The merged-base full unit suite passed 14,474 tests across 729 files, with
 32 tests and seven files intentionally skipped. Compilation and the 34 focused
 routing/lifecycle/cleanup tests passed.
+
+
+## Stale-context reproduction and correction
+
+On the previous narrow-context binding, typing out of an indented line while
+blocking the host left Backspace unchanged for its entire 604 ms observation
+window. With native-first cleanup, the same transition deleted in 7 ms while
+the 1.2-second host block was still in progress. An initial synthetic run also
+passed ordinary and forced-stale routing in 32 ms each. Physical indent and
+continued-comment cleanup took 50–66 ms and each restored fully with one Undo.
+These values include renderer polling/roundtrips; they are not GPU timing.
+
+Focused regressions additionally cover both notification orders, interleaved
+no-change notifications, intervening typing, navigation, focus/version changes,
+close, multiple carets, selections, Undo/Redo and rejected cleanup.
+
+
+The 200-cycle private-class run passed all 12 cases. Visible Backspace had a
+16 ms median, 33 ms p95 and 47 ms maximum; typing had a 30 ms median, 39 ms p95
+and 47 ms maximum. Warm menu recovery had a 5 ms median (first show 118 ms).
+All 12 mouse hovers resolved in 371–412 ms with the editor's normal hover delay;
+none stayed at Loading. Fresh declaration hover returned updated content in
+34.75 ms. Forced-stale and transition Backspace still deleted during the busy
+interval in 19/31 ms. The long run also emitted renderer listener-leak warnings
+from VS Code's suggestion-menu status code. That warning is recorded for
+further investigation; these measurements do not establish its cause or an
+absence of future long-session stalls.
