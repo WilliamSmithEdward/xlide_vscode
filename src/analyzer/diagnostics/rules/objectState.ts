@@ -459,9 +459,10 @@ interface ObjectStateWalk {
 	lets: Map<number, ObjectVariableState>;
 }
 
-// Keyed by the procedure node; the source, the activity and the member
-// context must match too, since a parse is reused under another host.
-const OBJECT_STATE_WALKS = new WeakMap<ProcedureNode, { source: string; activity: ConditionalActivityTracker | undefined; memberCtx: MemberCompletionContext; walk: ObjectStateWalk }>();
+// Bound symbols own procedure walks: a retained parse can be rebound under
+// different declaration facts. Source, module, activity and member context
+// must still match within that symbol snapshot.
+const OBJECT_STATE_WALKS = new WeakMap<ReturnType<typeof buildModuleSymbols>, WeakMap<ProcedureNode, { source: string; mod: ModuleNode; activity: ConditionalActivityTracker | undefined; memberCtx: MemberCompletionContext; walk: ObjectStateWalk }>>();
 
 /**
  * Whether the object a Let assigns through at `offset` is provably set, or
@@ -488,8 +489,9 @@ function objectStateWalk(
 	memberCtx: MemberCompletionContext,
 	activity: ConditionalActivityTracker | undefined,
 ): ObjectStateWalk {
-	const cached = OBJECT_STATE_WALKS.get(member);
-	if (cached && cached.source === source && cached.activity === activity && cached.memberCtx === memberCtx) {
+	let cache = OBJECT_STATE_WALKS.get(symbols);
+	const cached = cache?.get(member);
+	if (cached && cached.source === source && cached.mod === mod && cached.activity === activity && cached.memberCtx === memberCtx) {
 		return cached.walk;
 	}
 	const walk: ObjectStateWalk = { findings: [], lets: new Map() };
@@ -497,7 +499,11 @@ function objectStateWalk(
 		walk.findings.push(finding);
 	};
 	walkObjectState(source, moduleObjectFacts(source, mod, memberCtx, activity), member, symbols, memberCtx, activity, push, walk.lets);
-	OBJECT_STATE_WALKS.set(member, { source, activity, memberCtx, walk });
+	if (!cache) {
+		cache = new WeakMap();
+		OBJECT_STATE_WALKS.set(symbols, cache);
+	}
+	cache.set(member, { source, mod, activity, memberCtx, walk });
 	return walk;
 }
 
