@@ -1,78 +1,125 @@
 // Whether an expression gives Null through its operators (issues #324 and
-// #556, each measured in Excel 16.0): arithmetic, `+`, unary minus, Not, a
-// comparison and Abs give Null when an operand is Null, and so do Xor and
-// Eqv; And, Or and Imp give a value when the other side decides it; `&`
-// never does.
-
+// #556): arithmetic and comparisons propagate Null; And, Or and Imp can be
+// decided by the other operand. Concatenation is not inferred as Null.
 import type { VbaToken } from '../lexer/tokenKinds';
-import { matchParenFrom, tokenText } from './walker';
-import { unwrapOuterParens } from './typeInference';
+import { tokenWord as tokenText } from '../lexer/tokenHelpers';
 
-/** The binary operators whose result is Null when an operand is. `&` is here to be refused. */
 const NULL_PROPAGATING: ReadonlySet<string> = new Set(['+', '-', '*', '/', '\\', '^', 'mod', '=', '<>', '<', '>', '<=', '>=', 'and', 'or', 'xor', 'eqv', 'imp', '&']);
-
-/** The number a literal operand is, True as -1 and False as 0: `1`, `-2.5`, `True`. */
-function literalNumber(operand: readonly VbaToken[]): number | undefined {
-	const toks = unwrapOuterParens([...operand]);
-	const sign = toks.length === 2 && toks[0].rawText === '-' ? -1 : 1;
-	const tok = toks.length === 1 ? toks[0] : toks.length === 2 && (toks[0].rawText === '-' || toks[0].rawText === '+') ? toks[1] : undefined;
-	const word = tokenText(tok);
-	if (word === 'true' || word === 'false') {
-		return sign * (word === 'true' ? -1 : 0);
-	}
-	if (tok?.kind !== 'integerLiteral' && tok?.kind !== 'floatLiteral') {
-		return undefined;
-	}
-	const value = Number(tok.rawText.replace(/[%&^!#@]$/, ''));
-	return Number.isFinite(value) ? sign * value : undefined;
+type TokenRange = { start: number; end: number };
+type NullLiteral = number | 'null' | undefined;
+interface NullFrame {
+	ranges: TokenRange[];
+	mode: 'some' | 'every' | 'and' | 'or' | 'imp';
+	next: number;
+	left?: NullLiteral;
 }
 
-/**
- * Whether the tokens give Null. `holdsNull` says whether one token does: the
- * literal Null, or a local known to hold it. A single token is asked whole.
- */
+/** Whether tokens give Null, querying single-token values through holdsNull. */
 export function operatorYieldsNull(toks: readonly VbaToken[], holdsNull: (tok: VbaToken) => boolean): boolean {
-	const part = unwrapOuterParens([...toks]);
-	if (part.length === 1) {
-		return holdsNull(part[0]);
+	// Common leaf and single-prefix operands need no continuation setup.
+	if (toks.length === 1) { return holdsNull(toks[0]); }
+	if (toks.length === 2 && (tokenText(toks[0]) === 'not' || tokenText(toks[0]) === '-')) {
+		return holdsNull(toks[1]);
 	}
-	const head = tokenText(part[0]);
-	if (head === '-' || head === 'not') {
-		return operatorYieldsNull(part.slice(1), holdsNull);
-	}
-	if (head === 'abs' && part[1]?.rawText === '(' && matchParenFrom(part, 1) === part.length - 1) {
-		return operatorYieldsNull(part.slice(2, -1), holdsNull);
-	}
-	const operands: VbaToken[][] = [[]];
-	const operators: string[] = [];
-	let depth = 0;
-	for (const tok of part) {
-		depth += tok.rawText === '(' ? 1 : tok.rawText === ')' ? -1 : 0;
-		const word = tok.kind === 'operator' ? tok.rawText : tokenText(tok);
-		const current = operands[operands.length - 1];
-		if (depth === 0 && current.length > 0 && NULL_PROPAGATING.has(word) && tok.kind !== 'stringLiteral') {
-			operators.push(word);
-			operands.push([]);
-		} else {
-			current.push(tok);
+	// Match once, only when parentheses are encountered. All windows share the
+	// immutable input; nested wrappers neither copy tokens nor grow the stack.
+	let parens: Map<number, number> | undefined;
+	const matchingParen = (open: number): number | undefined => {
+		if (!parens) {
+			parens = new Map();
+			const pending: number[] = [];
+			for (let i = 0; i < toks.length; i++) {
+				if (toks[i].rawText === '(') { pending.push(i); }
+				else if (toks[i].rawText === ')') {
+					const start = pending.pop();
+					if (start !== undefined) { parens.set(start, i); }
+				}
+			}
+		}
+		return parens.get(open);
+	};
+	// Keep the existing single outer-pair normalization and literal coercions.
+	const isOuterPair = (start: number, end: number): boolean =>
+		end - start >= 2 && toks[start].rawText === '(' && matchingParen(start) === end - 1;
+	const unwrap = (range: TokenRange): TokenRange =>
+		isOuterPair(range.start, range.end)
+			? { start: range.start + 1, end: range.end - 1 } : range;
+	const literalNumber = (range: TokenRange): number | undefined => {
+		const { start, end } = unwrap(range);
+		const length = end - start;
+		const sign = length === 2 && toks[start].rawText === '-' ? -1 : 1;
+		const tok = length === 1 ? toks[start] : length === 2 && (toks[start].rawText === '-' || toks[start].rawText === '+') ? toks[start + 1] : undefined;
+		const word = tokenText(tok);
+		if (word === 'true' || word === 'false') { return sign * (word === 'true' ? -1 : 0); }
+		if (tok?.kind !== 'integerLiteral' && tok?.kind !== 'floatLiteral') { return undefined; }
+		const value = Number(tok.rawText.replace(/[%&^!#@]$/, ''));
+		return Number.isFinite(value) ? sign * value : undefined;
+	};
+	const frames: NullFrame[] = [];
+	let current: TokenRange = { start: 0, end: toks.length };
+	let result: boolean | undefined;
+	for (;;) {
+		if (result === undefined) {
+			let { start, end } = current;
+			for (;;) {
+				if (isOuterPair(start, end)) { start++; end--; }
+				if (end - start === 1) { result = holdsNull(toks[start]); break; }
+				if (end <= start) { result = false; break; }
+				const head = tokenText(toks[start]);
+				if (head === '-' || head === 'not') { start++; continue; }
+				if (head === 'abs' && toks[start + 1]?.rawText === '(' && matchingParen(start + 1) === end - 1) {
+					start += 2; end--; continue;
+				}
+				break;
+			}
+			if (result === undefined) {
+				const ranges: TokenRange[] = [];
+				const operators: string[] = [];
+				let segmentStart = start;
+				let depth = 0;
+				for (let i = start; i < end; i++) {
+					const tok = toks[i];
+					if (depth === 0 && tok.rawText === '(') {
+						const close = matchingParen(i);
+						if (close !== undefined && close < end) { i = close; continue; }
+					}
+					depth += tok.rawText === '(' ? 1 : tok.rawText === ')' ? -1 : 0;
+					const word = tok.kind === 'operator' ? tok.rawText : tokenText(tok);
+					if (depth === 0 && i > segmentStart && NULL_PROPAGATING.has(word) && tok.kind !== 'stringLiteral') {
+						ranges.push({ start: segmentStart, end: i });
+						operators.push(word); segmentStart = i + 1;
+					}
+				}
+				ranges.push({ start: segmentStart, end });
+				if (operators.length === 0 || operators.includes('&') || ranges.some(range => range.start === range.end)) {
+					result = false;
+				} else {
+					const logical = operators.find((op): op is 'and' | 'or' | 'imp' => op === 'and' || op === 'or' || op === 'imp');
+					frames.push({ ranges, mode: logical ? (operators.length === 1 ? logical : 'every') : 'some', next: 1 });
+					current = ranges[0];
+					continue;
+				}
+			}
+		}
+		// Resume one child at a time to retain callback order and short-circuiting.
+		for (;;) {
+			const frame = frames[frames.length - 1];
+			if (!frame) { return result; }
+			if (frame.mode === 'some' || frame.mode === 'every') {
+				if ((frame.mode === 'some' ? result : !result) || frame.next === frame.ranges.length) {
+					frames.pop(); continue;
+				}
+				current = frame.ranges[frame.next++]; result = undefined; break;
+			}
+			const value: NullLiteral = result ? 'null' : literalNumber(frame.ranges[frame.next - 1]);
+			if (frame.next === 1) {
+				frame.left = value; frame.next = 2; current = frame.ranges[1]; result = undefined; break;
+			}
+			const left = frame.left;
+			const decided = (other: NullLiteral, otherOnLeft: boolean): boolean => other === 'null'
+				|| (other !== undefined && (frame.mode === 'and' ? other !== 0 : frame.mode === 'or' ? other === 0 : otherOnLeft ? other !== 0 : other === 0));
+			result = (left === 'null' && decided(value, false)) || (value === 'null' && decided(left, true));
+			frames.pop();
 		}
 	}
-	if (operators.length === 0 || operators.includes('&') || operands.some((operand) => operand.length === 0)) {
-		return false;
-	}
-	// And, Or and Imp give a value when the other side decides it (issue
-	// #556): Null And 0 is 0, but Null And 1 is Null; 40000 Or Null is 40000,
-	// but 0 Or Null is Null; Null Imp 12 is 12 and False Imp Null is True, but
-	// Null Imp False is Null. Judged with one operator only.
-	const logical = operators.find((operator) => operator === 'and' || operator === 'or' || operator === 'imp');
-	if (logical) {
-		if (operators.length !== 1) {
-			return operands.every((operand) => operatorYieldsNull(operand, holdsNull));
-		}
-		const [left, right] = operands.map((operand) => (operatorYieldsNull(operand, holdsNull) ? 'null' : literalNumber(operand)));
-		const decided = (other: number | 'null' | undefined, otherOnLeft: boolean): boolean => other === 'null'
-			|| (other !== undefined && (logical === 'and' ? other !== 0 : logical === 'or' ? other === 0 : otherOnLeft ? other !== 0 : other === 0));
-		return (left === 'null' && decided(right, false)) || (right === 'null' && decided(left, true));
-	}
-	return operands.some((operand) => operatorYieldsNull(operand, holdsNull));
 }
