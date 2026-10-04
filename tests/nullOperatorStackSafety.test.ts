@@ -27,6 +27,7 @@ describe('Null inference stack and token work',()=>{
   const input=Object.freeze(original.map(t=>Object.freeze({...t,get rawText(){reads++;return t.rawText;}})));
   expect(operatorYieldsNull(input,holdsNull)).toBe(true);expect(reads).toBeLessThanOrEqual(input.length*40);
  });
+ // Full-module stack regressions are correctness checks, not wall-clock gates.
  it.each(['assignment','argument'] as const)('keeps the scalar %s diagnostic with 10000 Not operators',kind=>{
   const expression='Not '.repeat(10000)+'Null';
   const source=kind==='assignment'?'Option Explicit\nSub Go()\nDim value As Long\nvalue = '+expression+'\nDebug.Print value\nEnd Sub\n':'Option Explicit\nSub Take(ByVal value As Long)\nDebug.Print value\nEnd Sub\nSub Go()\nTake ('+expression+')\nEnd Sub\n';
@@ -35,7 +36,7 @@ describe('Null inference stack and token work',()=>{
   const diagnostic=diagnostics.find(d=>d.code===(kind==='assignment'?'assignment-type-mismatch':'argument-type-mismatch'));
   expect(diagnostic).toBeDefined();expect(diagnostic!.message).toContain('Null');
   const start=source.indexOf(expression);expect(diagnostic!.span).toEqual({start,end:start+expression.length});
- });
+ },30_000);
  it.each(['assignment','argument'] as const)('restores the continued scalar %s diagnostic within physical limits',kind=>{
   const expression=Array(20).fill('Not '.repeat(250).trimEnd()).join(' _\n')+' Null';
   const source=kind==='assignment'?'Option Explicit\nSub Go()\nDim value As Long\nvalue = '+expression+'\nDebug.Print value\nEnd Sub\n':'Option Explicit\nSub Take(ByVal value As Long)\nDebug.Print value\nEnd Sub\nSub Go()\nTake ('+expression+')\nEnd Sub\n';

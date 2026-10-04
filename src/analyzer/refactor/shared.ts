@@ -1,4 +1,5 @@
 import { tokenize } from '../lexer/tokenize';
+import type { Trivia } from '../lexer/tokenKinds';
 import type { VbaTextEdit } from './refactorTypes';
 import type { BodyNode, ModuleNode, ProcedureNode, Span, VariableGroupNode } from '../parser/nodes';
 import { classifyReferenceKinds } from '../references/referenceKinds';
@@ -124,7 +125,25 @@ export function assignmentAt(
 /** The right-hand side of `name = value` (or `Set name = value`). */
 export function assignedValue(source: string, span: Span, name: string): string | undefined {
 	const code = statementCodeSpan(source, span);
-	const text = source.slice(code.start, code.end);
+	let text = source.slice(code.start, code.end);
+	if (/[\r\n]/.test(text)) {
+		// Fold only lexer-recognized continuation trivia. String/date contents
+		// and ordinary logical line breaks must retain their original meaning.
+		const parts: string[] = [];
+		let cursor = 0;
+		const fold = (trivia: readonly Trivia[] | undefined): void => {
+			if (!trivia) { return; }
+			for (const part of trivia) {
+				if (part.kind !== 'lineContinuation') { continue; }
+				parts.push(text.slice(cursor, part.start), ' ');
+				cursor = part.end;
+			}
+		};
+		for (const token of tokenize(text)) {
+			fold(token.leadingTrivia); fold(token.trailingTrivia);
+		}
+		if (cursor > 0) { parts.push(text.slice(cursor)); text = parts.join(''); }
+	}
 	const match = new RegExp(`^\\s*(?:Set\\s+)?${escapeForRegExp(name)}\\s*=\\s*(.+?)\\s*$`, 'i')
 		.exec(text);
 	return match ? match[1] : undefined;
