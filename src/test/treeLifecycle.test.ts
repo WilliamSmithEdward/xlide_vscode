@@ -126,3 +126,51 @@ suite('Explorer shape refresh in the extension host', () => {
         } finally { explorer.dispose(); }
     });
 });
+
+suite('Explorer sheet context in the extension host', () => {
+    test('an opened Shapes folder targets the renamed sheet', async () => {
+        let name = 'Data';
+        const explorer = new ProjectExplorer({ call: (method: string) => {
+            if (method === 'listModules') { return Promise.resolve([{ name: 'Sheet1', type: 'document' }]); }
+            if (method === 'listWorkbookSheets') { return Promise.resolve({ sheets: [{ name, codeName: 'Sheet1', kind: 'worksheet' }] }); }
+            if (method === 'listShapes') { return Promise.resolve({ surfaces: [{ surface: name, codeName: 'Sheet1', shapes: [{ name: 'Box', kind: 'shape' }] }] }); }
+            return Promise.resolve([]);
+        } } as unknown as ConstructorParameters<typeof ProjectExplorer>[0]);
+        try {
+            const project = (await explorer.getChildren()).find(node => node.filePath === workbookPath());
+            assert.ok(project);
+            await explorer.getChildren(project);
+            const module = explorer.getModuleNode(workbookPath(), 'Sheet1');
+            assert.ok(module);
+            const [folder] = await explorer.getChildren(module);
+            assert.equal(folder.kind, 'shapes');
+            await explorer.getChildren(folder);
+            name = 'Renamed';
+            explorer.refreshShapes(workbookPath());
+            assert.deepEqual(await explorer.shapeSurfaceOf(folder), { host: 'excel', surface: 'Renamed' });
+        } finally { explorer.dispose(); }
+    });
+
+    test('a flat fallback module has its actual project parent', async () => {
+        let busy = false;
+        const explorer = new ProjectExplorer({ call: (method: string) => {
+            if (method === 'listModules') { return Promise.resolve([{ name: 'Sheet1', type: 'document' }]); }
+            if (method === 'listWorkbookSheets') { return busy ? Promise.reject(new Error('Workbook busy'))
+                : Promise.resolve({ sheets: [{ name: 'Data', codeName: 'Sheet1', kind: 'worksheet' }] }); }
+            return Promise.resolve([]);
+        } } as unknown as ConstructorParameters<typeof ProjectExplorer>[0]);
+        try {
+            const project = (await explorer.getChildren()).find(node => node.filePath === workbookPath());
+            assert.ok(project);
+            await explorer.getChildren(project);
+            const module = explorer.getModuleNode(workbookPath(), 'Sheet1');
+            assert.ok(module);
+            assert.equal(explorer.getParent(module)?.shapeFolder, 'sheets');
+            busy = true;
+            explorer.refreshShapes(workbookPath());
+            assert.deepEqual(await explorer.getChildren(project), [module]);
+            assert.equal(explorer.getParent(module), project);
+            assert.equal(module.label, 'Sheet1');
+        } finally { explorer.dispose(); }
+    });
+});

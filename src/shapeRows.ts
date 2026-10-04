@@ -278,6 +278,7 @@ export class ShapeRows {
 		if (this.disposed) { return { folders: [], modules: [] }; }
 		if (!current()) { return this.projectRows(project, modules); }
 		if (!catalog) {
+			for (const module of modules) { this.unplaceModuleRow(module); }
 			return { folders: [], modules: [...modules] };
 		}
 		const sheets = this.folder(project.filePath, 'sheets', SHEETS_FOLDER_LABEL);
@@ -295,10 +296,19 @@ export class ShapeRows {
 			if (sheet) {
 				this.placeModuleRow(module, sheet, sheets);
 			} else {
+				this.unplaceModuleRow(module);
 				rest.push(module);
 			}
 		}
 		return { folders: [sheets], modules: rest };
+	}
+
+	/** A flat module must not retain a sheet's label or its old reveal path. */
+	private unplaceModuleRow(module: XlideNode): void {
+		if (module.kind !== 'module') { return; }
+		this.parents.delete(module);
+		module.sheetName = undefined;
+		module.label = module.moduleName ?? module.label;
 	}
 
 	/** A sheet's module row: under the Sheets folder, named the way the VBE names it. */
@@ -382,14 +392,28 @@ export class ShapeRows {
 	 * read now when the folder has never been opened.
 	 */
 	async surfaceOf(node: XlideNode): Promise<ShapeRowContext | undefined> {
-		const known = this.contexts.get(node);
-		if (known) { return known; }
+		if (this.disposed) { return undefined; }
 		const host = shapeHostForPath(node.filePath);
-		if (!host || node.kind !== 'shapes' || node.shapeFolder !== 'module') { return undefined; }
-		const surfaces = await this.surfaces(node.filePath);
-		if (host === 'word') { return { host, surface: surfaces[0]?.surface ?? 'Document' }; }
+		if (!host || node.kind !== 'shapes' || node.shapeFolder !== 'module') { return this.contexts.get(node); }
+		// A module folder survives a sheet rename. Its last drawn context is
+		// only presentation state; commands resolve the current cached listing.
+		const current = this.renderCurrent(node.filePath);
+		let surfaces: ShapeSurface[];
+		try {
+			surfaces = await this.surfaces(node.filePath);
+		} catch (err) {
+			if (this.disposed) { return undefined; }
+			if (!current()) { return this.surfaceOf(node); }
+			throw err;
+		}
+		if (this.disposed) { return undefined; }
+		if (!current()) { return this.surfaceOf(node); }
 		const sheet = sheetOfModule(surfaces, node.moduleName ?? '');
-		return sheet ? { host, surface: sheet.surface } : undefined;
+		const context = host === 'word' ? { host, surface: surfaces[0]?.surface ?? 'Document' }
+			: sheet ? { host, surface: sheet.surface } : undefined;
+		if (context) { this.contexts.set(node, context); }
+		else { this.contexts.delete(node); }
+		return context;
 	}
 
 	/** The tree item for a row made here. */

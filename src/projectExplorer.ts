@@ -306,10 +306,9 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
      */
     refreshGitMarks(filePath: string): void {
         const project = projectIdentityKey(filePath);
-        for (const node of this._moduleNodes.values()) {
-            if (projectIdentityKey(node.filePath) === project) {
-                this._emitter.fire(node);
-            }
+        for (const key of this._projectModuleKeys.get(project) ?? []) {
+            const node = this._moduleNodes.get(key);
+            if (node) { this._emitter.fire(node); }
         }
         const projectNode = this._projectNodes.get(project);
         if (projectNode) {
