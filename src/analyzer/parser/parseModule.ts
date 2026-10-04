@@ -136,24 +136,25 @@ const CLOSER_LABELS: Readonly<Record<string, string>> = {
  */
 const PROCEDURE_CLOSERS: ReadonlySet<string> = new Set(['endsub', 'endfunction', 'endproperty']);
 
-// Editor surfaces (completion, hover, signature help, references) re-parse
-// the same module text many times within one request, so a value-keyed memo
-// collapses those parses to one. The AST is treated as immutable by all
-// consumers; callers must not mutate the returned nodes. The cache holds a
-// handful of recent modules (not just the active one) so a project analysis
-// pass that parses several sibling modules between two requests for the active
-// module does not evict it. ASTs are immutable and small, so the memory cost is
-// negligible.
+// Editor surfaces re-parse the same module text many times within one request.
+// Keep immutable, value-keyed snapshots for eight recent modules in each tier.
+// Short lookup snippets must not evict large editor snapshots: that discards
+// both exact hits and the prefix/body reuse needed by the next small edit.
+// The large-module budget remains eight; the extra tier holds only sources
+// shorter than 4,096 characters. Callers must not mutate returned AST nodes.
 const PARSE_CACHE_MAX = 8;
+const PARSE_MODULE_MIN_LENGTH = 4096;
 interface ParseCacheEntry {
 	source: string;
 	module: ModuleNode;
 	hasDirectives: boolean;
 }
-const parseCache: ParseCacheEntry[] = [];
+const moduleParseCache: ParseCacheEntry[] = [];
+const shortParseCache: ParseCacheEntry[] = [];
 
 /** Parse VBA source text into a ModuleNode AST. Never throws. */
 export function parseModule(source: string): ModuleNode {
+	const parseCache = source.length >= PARSE_MODULE_MIN_LENGTH ? moduleParseCache : shortParseCache;
 	for (let i = 0; i < parseCache.length; i += 1) {
 		if (parseCache[i].source === source) {
 			const hit = parseCache[i];
@@ -174,7 +175,7 @@ export function parseModule(source: string): ModuleNode {
 	let hasDirectives = body?.snapshot.hasDirectives ?? false;
 	if (!module) {
 		const tokens = tokenizeCached(source);
-		const previous = source.length >= 4096
+		const previous = source.length >= PARSE_MODULE_MIN_LENGTH
 			? parseCache.find(entry => Math.abs(entry.source.length - source.length) <= 128)
 			: undefined;
 		const prefix = unchangedModulePrefix(source, tokens, previous);
