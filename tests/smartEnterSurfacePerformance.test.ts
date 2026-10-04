@@ -11,7 +11,7 @@ vi.mock('vscode', async () => ({
 import * as vscode from 'vscode';
 import { registerVbaAutoBlock } from '../src/vbaTypingAutomation';
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 
 function enterScenario(source: string, previousLine: number) {
     const lines = source.split('\n');
@@ -23,7 +23,7 @@ function enterScenario(source: string, previousLine: number) {
     const replacements: string[] = [];
     const editor = {
         document,
-        selection: { isEmpty: true, active: new vscode.Position(previousLine + 1, 0) },
+        selection: { isEmpty: true, anchor: new vscode.Position(previousLine + 1, 0), active: new vscode.Position(previousLine + 1, 0) },
         edit: vi.fn(async (apply: (edit: unknown) => void) => {
             apply({ replace: (_range: unknown, text: string) => replacements.push(text), insert: vi.fn() });
             return true;
@@ -40,11 +40,74 @@ function enterScenario(source: string, previousLine: number) {
             text: '\n',
         }],
     } as unknown as vscode.TextDocumentChangeEvent;
-    return { document, editor, replacements, invoke: async () => { await listener(event); },
+    return { document, editor, replacements, lines, event, invoke: async () => { await listener(event); },
         dispose: () => context.subscriptions.forEach(item => item.dispose()) };
 }
 
 describe('Smart Enter surface work', () => {
+    it('does not scan an inactive module after a block-opener newline', async () => {
+        const scenario = enterScenario('Sub T()\n    If ready Then\n\nEnd Sub\n', 1);
+        try {
+            Object.assign(vscode.window, { activeTextEditor: undefined });
+            await scenario.invoke();
+            expect(scenario.document.getText).not.toHaveBeenCalled();
+            expect(scenario.editor.edit).not.toHaveBeenCalled();
+        } finally { scenario.dispose(); }
+    });
+
+    it.each([1, 2])('does not generate edits for undo/redo reason %s', async reason => {
+        const scenario = enterScenario('Sub T()\n    If ready Then\n\nEnd Sub\n', 1);
+        try {
+            Object.assign(scenario.event, { reason });
+            await scenario.invoke();
+            expect(scenario.document.getText).not.toHaveBeenCalled();
+            expect(scenario.editor.edit).not.toHaveBeenCalled();
+        } finally { scenario.dispose(); }
+    });
+
+    it('leaves the caret alone when the smart-block edit is rejected', async () => {
+        const scenario = enterScenario('Sub T()\n    If ready Then\n    \t\n    End If\nEnd Sub\n', 1);
+        try {
+            const initial = scenario.editor.selection;
+            scenario.editor.edit.mockResolvedValueOnce(false);
+            await scenario.invoke();
+            expect(scenario.editor.selection).toBe(initial);
+        } finally { scenario.dispose(); }
+    });
+
+    it('does not move the caret back after the user navigates away before the delayed pass', async () => {
+        vi.useFakeTimers();
+        const scenario = enterScenario('Sub T()\n    With ActiveSheet\n    \t\n    End With\nEnd Sub\n', 1);
+        try {
+            scenario.editor.edit.mockImplementationOnce(async () => {
+                scenario.lines[2] = '    \t.';
+                return true;
+            });
+            await scenario.invoke();
+            expect(scenario.editor.selection.active.line).toBe(2);
+            scenario.editor.selection = { isEmpty: true, anchor: new vscode.Position(0, 0), active: new vscode.Position(0, 0) };
+            await vi.advanceTimersByTimeAsync(0);
+            expect(scenario.editor.selection.active.line).toBe(0);
+        } finally { scenario.dispose(); }
+    });
+
+    it('does not open dot suggestions after the caret moved left from the seeded dot', async () => {
+        vi.useFakeTimers();
+        const scenario = enterScenario('Sub T()\n    With ActiveSheet\n    \t\n    End With\nEnd Sub\n', 1);
+        try {
+            scenario.editor.edit.mockImplementationOnce(async () => {
+                scenario.lines[2] = '    \t.';
+                return true;
+            });
+            await scenario.invoke();
+            scenario.editor.selection = {
+                isEmpty: true, anchor: new vscode.Position(2, 5), active: new vscode.Position(2, 5),
+            };
+            await vi.advanceTimersByTimeAsync(0);
+            expect(vscode.commands.executeCommand).not.toHaveBeenCalledWith('editor.action.triggerSuggest');
+        } finally { scenario.dispose(); }
+    });
+
     it.each(['    value = 1', '    Debug.Print "hello"', "    value = 1 ' trailing", '    Rem comment'])(
         'does not read the module for Enter after %s', async line => {
             const scenario = enterScenario('Sub T()\n' + line + '\n\nEnd Sub\n', 1);
