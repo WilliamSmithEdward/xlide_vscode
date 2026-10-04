@@ -73,6 +73,26 @@ export function applyVbaTextEdits(source: string, edits: readonly VbaTextEdit[])
 	// Right to left, so an earlier edit's span still means what it meant when
 	// it was computed.
 	const ordered = [...edits].sort((a, b) => b.span.start - a.span.start);
+	let boundary = source.length;
+	const disjoint = ordered.every(({ span }) => {
+		if (!Number.isInteger(span.start) || !Number.isInteger(span.end)
+			|| span.start < 0 || span.end < span.start || span.end > boundary) { return false; }
+		boundary = span.start;
+		return true;
+	});
+	if (disjoint && ordered.length > 1) {
+		// Collect untouched source regions once, preserving stable equal-offset
+		// insertion order. Joining avoids rebuilding the whole module per edit.
+		const chunks: string[] = [];
+		boundary = source.length;
+		for (const edit of ordered) {
+			chunks.push(source.slice(edit.span.end, boundary), edit.newText);
+			boundary = edit.span.start;
+		}
+		chunks.push(source.slice(0, boundary));
+		return chunks.reverse().join('');
+	}
+	// Preserve sequential slice semantics for overlapping or unusual spans.
 	let out = source;
 	for (const edit of ordered) {
 		out = out.slice(0, edit.span.start) + edit.newText + out.slice(edit.span.end);
