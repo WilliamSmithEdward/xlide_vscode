@@ -66,7 +66,7 @@ import {
 	inferArgumentType,
 	isKnownScalarType,
 	normalizeType,
-	resolveKnownObjectAssignmentType,
+	createObjectAssignmentTypeResolver,
 	spanForTokens,
 } from '../typeInference';
 import {
@@ -1825,6 +1825,7 @@ export function checkParameterDefaultValues(
 	memberCtx: MemberCompletionContext,
 	push: PushFn,
 ): void {
+	const objectType = createObjectAssignmentTypeResolver(memberCtx);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
@@ -1841,7 +1842,7 @@ export function checkParameterDefaultValues(
 			if (!actual) {
 				continue;
 			}
-			const reason = parameterDefaultIncompatibilityReason(param, actual, memberCtx);
+			const reason = parameterDefaultIncompatibilityReason(param, actual, objectType);
 			if (!reason) {
 				continue;
 			}
@@ -1871,6 +1872,7 @@ export function checkNonConstantParameterDefaults(
 	memberCtx: MemberCompletionContext,
 	push: PushFn,
 ): void {
+	const objectType = createObjectAssignmentTypeResolver(memberCtx);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
@@ -1879,7 +1881,7 @@ export function checkNonConstantParameterDefaults(
 			if (!param.defaultRaw) {
 				continue;
 			}
-			if (resolveKnownObjectAssignmentType(param.asType, memberCtx)) {
+			if (objectType(param.asType)) {
 				continue;
 			}
 			const defaultTokens = parameterDefaultTokens(source, param);
@@ -2189,7 +2191,7 @@ function valueTokensAfterEquals(
 function parameterDefaultIncompatibilityReason(
 	param: ParameterNode,
 	actual: InferredArgumentType,
-	memberCtx: MemberCompletionContext,
+	objectType: ReturnType<typeof createObjectAssignmentTypeResolver>,
 ): string | undefined {
 	if (param.isArray && isKnownScalarDefaultType(actual.type)) {
 		return 'Optional array parameter defaults cannot be scalar values.';
@@ -2198,7 +2200,7 @@ function parameterDefaultIncompatibilityReason(
 	if (!expectedRaw) {
 		return undefined;
 	}
-	const expectedObject = resolveKnownObjectAssignmentType(expectedRaw, memberCtx);
+	const expectedObject = objectType(expectedRaw);
 	if (expectedObject) {
 		return normalizeType(actual.type) === 'nothing'
 			? undefined
