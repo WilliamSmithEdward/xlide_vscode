@@ -327,11 +327,12 @@ function formControlWithoutMember(
 	} else {
 		// A bare `T1.Nope` inside the form, where no local or parameter
 		// takes the name.
+		if (ownNames.has(lower) || memberCtx.meProjectType === undefined) {
+			return undefined;
+		}
 		const self = (memberCtx.projectClassMembers ?? []).find((candidate) => candidate.kind === 'userform'
 			&& candidate.exhaustive === true && candidate.name.toLowerCase() === memberCtx.meProjectType?.toLowerCase());
-		type = ownNames.has(lower)
-			? undefined
-			: self?.members.find((member) => member.name.toLowerCase() === lower && /^MSForms\./i.test(member.returns ?? ''))?.returns;
+		type = self?.members.find((member) => member.name.toLowerCase() === lower && /^MSForms\./i.test(member.returns ?? ''))?.returns;
 	}
 	const members = type ? MSFORMS_FORM_CONTROL_MEMBERS[type] : undefined;
 	if (!members || members.some((member) => member.toLowerCase() === ref.member.toLowerCase())) {
