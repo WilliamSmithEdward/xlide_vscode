@@ -4,6 +4,7 @@
 // the editor calls, so a passing run means the feature works in the product,
 // not only that its internals were exercised.
 
+import './typeLookbackSurfaces.test';
 import './formatting.test';
 import './deadCode.test';
 import './gitCompare.test';

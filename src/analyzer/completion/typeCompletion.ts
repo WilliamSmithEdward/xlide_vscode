@@ -169,7 +169,16 @@ function readPartialTypeName(tokens: readonly VbaToken[]): {
 	return { prefix, qualifier, memberPrefix, beforeIndex: i };
 }
 
-function detectTypePosition(tokens: readonly VbaToken[]): TypePosition | undefined {
+function detectTypePosition(allTokens: readonly VbaToken[]): TypePosition | undefined {
+	// The longest suffix this detector reads is `As New Library.Type`: five
+	// non-newline tokens. Skip newlines as before, but avoid filtering the whole
+	// module prefix for every completion/casing word outside a type position.
+	const tokens: VbaToken[] = [];
+	for (let i = allTokens.length - 1; i >= 0 && tokens.length < 5; i--) {
+		const token = allTokens[i];
+		if (token.kind !== 'newline') { tokens.push(token); }
+	}
+	tokens.reverse();
 	if (tokens.length === 0) {
 		return undefined;
 	}
@@ -583,8 +592,7 @@ export function resolveTypeCompletions(
 	ctx: TypeCompletionContext = {},
 ): TypeCompletion[] {
 	const pos = detectTypePosition(
-		completionCursorContext(source, offset).significantTokens
-			.filter((tok) => tok.kind !== 'newline'),
+		completionCursorContext(source, offset).significantTokens,
 	);
 	if (!pos) {
 		return [];
