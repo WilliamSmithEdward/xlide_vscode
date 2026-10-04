@@ -158,6 +158,48 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 		this._projectContext.invalidate(projectPath);
 	}
 
+	/** Reopen member suggestions when Backspace widens a prefix after a miss. */
+	handleTextDocumentChange(event: vscode.TextDocumentChangeEvent): void {
+		const document = event.document;
+		const editor = vscode.window.activeTextEditor;
+		if (!isVbaDocument(document) || !editor || editor.document !== document ||
+			event.reason !== undefined || event.contentChanges.length !== 1 ||
+			editor.selections.length !== 1) {
+			return;
+		}
+		const change = event.contentChanges[0];
+		if (change.text !== '' || change.rangeLength !== 1 ||
+			change.range.start.line !== change.range.end.line ||
+			change.range.end.character !== change.range.start.character + 1) {
+			return;
+		}
+		const expectedCaret = change.range.start;
+		const prefix = document.lineAt(expectedCaret.line).text.slice(0, expectedCaret.character);
+		if (!/\.[\p{L}\p{N}_]*$/u.test(prefix)) {
+			return;
+		}
+		const version = document.version;
+		// The document event can precede the updated selection and suggest
+		// widget filtering. Wait for both, and discard superseded keystrokes.
+		setTimeout(() => {
+			const caret = editor.selection.active;
+			if (document.isClosed || document.version !== version ||
+				vscode.window.activeTextEditor !== editor || editor.document !== document ||
+				editor.selections.length !== 1 || !editor.selection.isEmpty ||
+				caret.line !== expectedCaret.line || caret.character !== expectedCaret.character) {
+				return;
+			}
+			const source = document.getText();
+			const projectCtx = this._projectContext.cachedEditorProjectContext(document)
+				?? this._projectContext.localEditorProjectContext(document, source);
+			// The shared resolver excludes comments, strings and unknown receivers.
+			if (resolveMemberCompletions(source, document.offsetAt(caret),
+				toMemberCompletionContext(projectCtx)).length > 0) {
+				void vscode.commands.executeCommand('editor.action.triggerSuggest');
+			}
+		}, 0);
+	}
+
 	async provideCompletionItems(
 		document: vscode.TextDocument,
 		position: vscode.Position,

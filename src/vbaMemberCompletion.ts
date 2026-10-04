@@ -62,6 +62,7 @@ export function registerVbaMemberCompletion(
 		vscode.workspace.onDidChangeTextDocument((event) => {
 			keywordSnippets.handleTextDocumentChange(event);
 			canonicalCase.handleTextDocumentChange(event);
+			provider.handleTextDocumentChange(event);
 			// Drop the project's derived editor-context cache when ANY of its
 			// modules is edited (even unsaved), so completion/hover for one module
 			// does not serve stale cross-module symbols from a sibling module's
