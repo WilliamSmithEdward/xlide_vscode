@@ -92,5 +92,20 @@ above the member expression, ignoring legitimate casing and display whitespace.
 These are setup conditions outside the measured Backspace/typing response;
 there are no new product waits. This prevents a wrong-line synthetic edit from
 being reported later as a missing Backspace paint. Compilation and the 64-cycle
-short run passed all 12 cases with these stronger checks. A sustained unprofiled
-repeat of the final probe is pending.
+short run passed all 12 cases with these stronger checks. The sustained unprofiled
+repeat of the final probe passed too.
+
+The final unprofiled capture passed all 12 integration cases over 1,000 fresh
+sources and 62 hovers. Median/p95/max observations were Backspace 18/34/67 ms,
+menu recovery 118/140/206 ms, typing 16/47/61 ms, miss clearing 1/12/42 ms and
+hover 379/409/418 ms. Its 48 command-based typing/deletion pairs measured median
+1.85/1.90 ms and maximum 9.32/13.87 ms; the separate host heartbeat maximum was
+27.39 ms. The slowest menu samples were cycles 197 (206 ms), 216 (198 ms) and
+190 (195 ms). No wrong-row edit or recovery failure occurred. The native busy
+host checks painted ordinary and stale-context deletions in 6 and 16 ms.
+
+The strengthened setup changes the interval before each measured cycle, so it
+is not directly comparable to the earlier permissive setup. Component bundles
+and work counts establish the scan reductions; these UI captures establish
+continued recovery and report remaining slow samples. They do not establish
+that all intermittent editor latency is resolved.
