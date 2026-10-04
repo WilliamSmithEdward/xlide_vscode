@@ -420,7 +420,12 @@ export class ShapeRows {
 			return level.map(member => this.shapeRow(node, host, surface.surface, member, true));
 		}
 		if (node.kind === 'surface') {
-			const surface = surfaces.find((s) => s.surface === node.surface);
+			const surface = surfaces.find((s) => s.surface.toLowerCase() === node.surface?.toLowerCase());
+			if (surface) {
+				node.label = node.surface = surface.surface;
+				const context = this.contexts.get(node);
+				if (context) { this.contexts.set(node, { ...context, surface: surface.surface }); }
+			}
 			if (host !== 'excel') {
 				return this.shapeRowsOf(node, host, surface);
 			}
@@ -445,8 +450,14 @@ export class ShapeRows {
 					.filter((s, index) => index === 0 || s.shapes.length > 0)
 					.map((s) => this.surfaceRow(node, host, s));
 			}
-			case 'surface':
-				return this.shapeRowsOf(node, host, surfaces.find((s) => s.surface === node.surface));
+			case 'surface': {
+				const surface = surfaces.find((s) => s.surface.toLowerCase() === node.surface?.toLowerCase());
+				if (surface) {
+					node.surface = surface.surface;
+					this.contexts.set(node, { host, surface: surface.surface });
+				}
+				return this.shapeRowsOf(node, host, surface);
+			}
 			case 'slides':
 				return surfaces.map((s) => this.surfaceRow(node, host, s));
 			default:
