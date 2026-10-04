@@ -120,6 +120,8 @@ export class ShapeRows {
 	private readonly sheetsDrawn = new Map<string, string>();
 	/** One node per folder and per surface, so a redraw finds the row VS Code has. */
 	private readonly folders = new Map<string, XlideNode>();
+	private readonly projectFolderKeys = new Map<string, Set<string>>();
+	private readonly ownedRowKeys = new WeakMap<XlideNode, string>();
 	/** The rows whose shapes were drawn, and so are drawn again when the file changes. */
 	private readonly opened = new Map<string, Set<XlideNode>>();
 	private readonly parents = new WeakMap<XlideNode, XlideNode>();
@@ -129,6 +131,7 @@ export class ShapeRows {
 	private readonly contexts = new WeakMap<XlideNode, ShapeRowContext>();
 	/** A shape's member snapshot is usable only until its project refreshes. */
 	private readonly shapeRenders = new WeakMap<XlideNode, () => boolean>();
+	private readonly shapeRoots = new WeakMap<XlideNode, XlideNode>();
 	/** The workbook sheet a sheet row stands for. */
 	private readonly sheetOfRow = new WeakMap<XlideNode, WorkbookSheet>();
 	/** The rows under a workbook's folder of bare sheets: module rows for empty sheet modules, sheet rows for sheets with none. */
@@ -162,6 +165,7 @@ export class ShapeRows {
 		this.catalogFailures.clear();
 		this.sheetsDrawn.clear();
 		this.folders.clear();
+		this.projectFolderKeys.clear();
 		this.opened.clear();
 	}
 
@@ -225,6 +229,8 @@ export class ShapeRows {
 
 	/** The surface and shape a row stands for, for the commands on it. */
 	contextOf(node: XlideNode): ShapeRowContext | undefined {
+		if (this.disposed || this.retired(node)
+			|| (node.kind === 'shape' && !this.shapeRenders.get(node)?.())) { return undefined; }
 		return this.contexts.get(node);
 	}
 
@@ -346,7 +352,7 @@ export class ShapeRows {
 
 	/** The rows under a row made here. */
 	async children(node: XlideNode, modulesOf: () => Promise<readonly XlideNode[]>): Promise<XlideNode[]> {
-		if (this.disposed) { return []; }
+		if (this.disposed || this.retired(node)) { return []; }
 		const current = this.renderCurrent(node.filePath);
 		if (node.kind === 'shape') {
 			const context = this.contexts.get(node);
@@ -385,15 +391,16 @@ export class ShapeRows {
 		try {
 			surfaces = await this.surfaces(node.filePath);
 		} catch (err) {
-			if (this.disposed) { return []; }
+			if (this.disposed || this.retired(node)) { return []; }
 			if (!current()) { return this.children(node, modulesOf); }
 			return [this.infoRow(node, 'Shapes could not be read', err instanceof Error ? err.message : String(err))];
 		}
-		if (this.disposed) { return []; }
+		if (this.disposed || this.retired(node)) { return []; }
 		if (!current()) { return this.children(node, modulesOf); }
 		if (node.kind === 'shape') {
 			let ancestor: XlideNode | undefined = this.parents.get(node);
 			while (ancestor?.kind === 'shape') { ancestor = this.parents.get(ancestor); }
+			if (ancestor && this.retired(ancestor)) { this.contexts.delete(node); return []; }
 			const surface = host === 'excel' && ancestor?.shapeFolder === 'module'
 				? sheetOfModule(surfaces, ancestor.moduleName ?? '')
 				: surfaces.find(s => s.surface.toLowerCase() === node.surface?.toLowerCase());
@@ -454,12 +461,12 @@ export class ShapeRows {
 	 * including empty sheets that have no entry in the shape listing.
 	 */
 	async surfaceOf(node: XlideNode): Promise<ShapeRowContext | undefined> {
-		if (this.disposed) { return undefined; }
+		if (this.disposed || this.retired(node)) { return undefined; }
 		const host = shapeHostForPath(node.filePath);
 		if (host === 'excel' && (node.kind === 'surface' || node.shapeFolder === 'surface')) {
 			const current = this.renderCurrent(node.filePath);
 			const catalog = await this.catalog(node.filePath);
-			if (this.disposed) { return undefined; }
+			if (this.disposed || this.retired(node)) { return undefined; }
 			if (!current()) { return this.surfaceOf(node); }
 			const row = node.kind === 'surface' ? node : this.parents.get(node);
 			const previous = row ? this.sheetOfRow.get(row) : undefined;
@@ -479,11 +486,11 @@ export class ShapeRows {
 		try {
 			surfaces = await this.surfaces(node.filePath);
 		} catch (err) {
-			if (this.disposed) { return undefined; }
+			if (this.disposed || this.retired(node)) { return undefined; }
 			if (!current()) { return this.surfaceOf(node); }
 			throw err;
 		}
-		if (this.disposed) { return undefined; }
+		if (this.disposed || this.retired(node)) { return undefined; }
 		if (!current()) { return this.surfaceOf(node); }
 		const sheet = sheetOfModule(surfaces, node.moduleName ?? '');
 		const context = host === 'word' ? { host, surface: surfaces[0]?.surface ?? 'Document' }
@@ -532,7 +539,7 @@ export class ShapeRows {
 					return this.sheetItem(node, sheet, context);
 				}
 				const item = new vscode.TreeItem(node.label, vscode.TreeItemCollapsibleState.Collapsed);
-				item.id = `su::${projectIdentityKey(node.filePath)}::${node.surface}`;
+				item.id = surfaceItemId(node);
 				const host = context?.host;
 				item.iconPath = new vscode.ThemeIcon(host === 'powerpoint' ? 'preview' : host === 'word' ? 'note' : 'table');
 				item.description = node.itemCount === 1 ? '1 shape' : `${node.itemCount ?? 0} shapes`;
@@ -615,6 +622,7 @@ export class ShapeRows {
 					}
 					if (this.generation === generation && this.catalogLoads.get(project) === started) {
 						this.catalogs.set(project, result.sheets);
+						this.pruneWorkbookRows(project, result.sheets);
 					}
 					return result.sheets;
 				})
@@ -738,7 +746,7 @@ export class ShapeRows {
 				...(owner.moduleName ? { moduleName: owner.moduleName } : {}),
 				...(owner.surface ? { surface: owner.surface } : {}),
 			};
-			this.folders.set(key, node);
+			this.rememberRow(key, node);
 		}
 		// Folder keys ignore case, but shape lookup needs the current surface name.
 		if (owner.surface !== undefined) { node.surface = owner.surface; }
@@ -778,12 +786,52 @@ export class ShapeRows {
 		let node = this.folders.get(key);
 		if (!node) {
 			node = { kind: 'surface', label: surface, filePath, surface };
-			this.folders.set(key, node);
+			this.rememberRow(key, node);
 		} else {
 			node.label = surface;
 			node.surface = surface;
 		}
 		return node;
+	}
+
+	private rememberRow(key: string, node: XlideNode): void {
+		this.folders.set(key, node);
+		this.ownedRowKeys.set(node, key);
+		const project = projectIdentityKey(node.filePath);
+		let keys = this.projectFolderKeys.get(project);
+		if (!keys) { this.projectFolderKeys.set(project, keys = new Set()); }
+		keys.add(key);
+	}
+
+	private retired(node: XlideNode): boolean {
+		const owner = this.shapeRoots.get(node) ?? node;
+		const key = this.ownedRowKeys.get(owner);
+		return key !== undefined && this.folders.get(key) !== owner;
+	}
+
+	/** A successful current catalog retires deleted sheets without scanning other projects. */
+	private pruneWorkbookRows(project: string, catalog: readonly WorkbookSheet[]): void {
+		const names = new Set(catalog.map(sheet => sheet.name.toLowerCase()));
+		const codes = new Set(catalog.flatMap(sheet => sheet.codeName ? [sheet.codeName.toLowerCase()] : []));
+		const keys = this.projectFolderKeys.get(project);
+		const opened = this.opened.get(project);
+		for (const key of keys ?? []) {
+			const node = this.folders.get(key)!;
+			if (node.kind === 'surface' || node.shapeFolder === 'surface') {
+				const row = node.kind === 'surface' ? node : this.parents.get(node);
+				const code = row ? this.sheetOfRow.get(row)?.codeName : undefined;
+				if (names.has(node.surface?.toLowerCase() ?? '') || (code && codes.has(code.toLowerCase()))) { continue; }
+			} else if (node.shapeFolder === 'module') {
+				if (codes.has(node.moduleName?.toLowerCase() ?? '')) { continue; }
+			} else { continue; }
+			this.folders.delete(key);
+			keys!.delete(key);
+			opened?.delete(node);
+			this.contexts.delete(node);
+			this.parents.delete(node);
+			this.sheetOfRow.delete(node);
+		}
+		if (opened?.size === 0) { this.opened.delete(project); }
 	}
 
 	private shapeRowsOf(parent: XlideNode, host: ShapeHost, surface: ShapeSurface | undefined): XlideNode[] {
@@ -805,6 +853,7 @@ export class ShapeRows {
 		this.parents.set(node, parent);
 		this.contexts.set(node, { host, surface, shape, inGroup });
 		this.shapeRenders.set(node, this.renderCurrent(node.filePath));
+		this.shapeRoots.set(node, this.shapeRoots.get(parent) ?? parent);
 		return node;
 	}
 
@@ -828,7 +877,7 @@ export class ShapeRows {
 			node.label,
 			shapes > 0 ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None,
 		);
-		item.id = `su::${projectIdentityKey(node.filePath)}::${node.surface}`;
+		item.id = surfaceItemId(node);
 		item.iconPath = new vscode.ThemeIcon(sheet.kind === 'chartsheet' ? 'graph' : 'table');
 		const kind = SHEET_KIND_LABELS[sheet.kind];
 		const notes = [
@@ -849,7 +898,8 @@ export class ShapeRows {
 			node.label,
 			members > 0 ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None,
 		);
-		item.id = `sh::${projectIdentityKey(node.filePath)}::${node.surface}::${(node.shapePath ?? [node.label]).join('/')}`;
+		item.id = `sh::${JSON.stringify([projectIdentityKey(node.filePath), node.surface?.toLowerCase(),
+			(node.shapePath ?? [node.label]).map(name => name.toLowerCase())])}`;
 		const icon = shape.kind === 'shape' && shape.geometry === 'ellipse' ? 'circle-large-outline' : KIND_ICONS[shape.kind] ?? 'symbol-misc';
 		item.iconPath = new vscode.ThemeIcon(icon);
 		const parts = [shapeKindLabel(shape.kind)];
@@ -880,6 +930,11 @@ export class ShapeRows {
 		}
 		return item;
 	}
+}
+
+/** Surface identity follows the case-insensitive row cache, independently of its display name. */
+function surfaceItemId(node: XlideNode): string {
+	return `su::${JSON.stringify([projectIdentityKey(node.filePath), node.surface?.toLowerCase()])}`;
 }
 
 /** The worksheet a module stands for, by its code name. */

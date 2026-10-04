@@ -31,3 +31,20 @@ for(const count of [1,100,1000]) {
   });
  }
 }
+
+for(const count of [1,100,1000]) for(const qualified of [false,true]) {
+ it('shares the project between recursion and external calls at '+count+', qualified='+qualified,()=>{
+  const call='If depth > 0 Then '+(qualified?'Module1.':'')+'Report depth - 1';
+  const source=['Public Sub Report(ByVal depth As Long)','Dim limit As Long','limit = 3',...Array(count).fill(call),'End Sub',''].join('\n');
+  const caller=['Sub Caller()',...Array(count).fill('Module1.Report 2'), 'Other.Report 2','End Sub',''].join('\n');
+  const other='Public Sub Report(ByVal depth As Long)\nEnd Sub\n';
+  work.builds.clear();work.statementReads=0;
+  const result=introduceParameter({source,offset:source.indexOf('limit'),moduleName:'Module1',otherModuleSources:{Caller:caller,Other:other}});
+  if(!result.ok)throw new Error(result.reason);
+  for(const name of ['Module1','Caller','Other'])expect(work.builds.get(name)??0).toBeLessThanOrEqual(1);
+  expect(applyVbaTextEdits(source,result.edits)).toBe(['Public Sub Report(ByVal depth As Long, ByVal limit As Long)',...Array(count).fill(call+', 3'),'End Sub',''].join('\n'));
+  expect(result.otherModules).toHaveLength(1);
+  expect(result.otherModules![0].moduleName).toBe('Caller');
+  expect(applyVbaTextEdits(caller,result.otherModules![0].edits)).toBe(['Sub Caller()',...Array(count).fill('Module1.Report 2, 3'),'Other.Report 2','End Sub',''].join('\n'));
+ });
+}

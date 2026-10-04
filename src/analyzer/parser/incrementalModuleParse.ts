@@ -3,12 +3,13 @@ import type { ModuleNode } from './nodes';
 /** Try one compatible snapshot; failed probes must not scan every historical class. */
 export function incrementalModuleParseFromCache(
 	source: string,
-	snapshots: readonly { source: string; module: ModuleNode }[],
+	snapshots: readonly { source: string; module: ModuleNode; hasDirectives?: boolean }[],
 	parseFresh: (source: string) => ModuleNode,
-): ModuleNode | undefined {
+): { module: ModuleNode; snapshot: { hasDirectives?: boolean } } | undefined {
 	const previous = snapshots.find(entry => source.length >= 16_384 &&
 		Math.abs(source.length - entry.source.length) <= 256 && source.slice(0, 128) === entry.source.slice(0, 128));
-	return previous && incrementalModuleParse(source, previous.source, previous.module, parseFresh);
+	const module = previous && incrementalModuleParse(source, previous.source, previous.module, parseFresh);
+	return module && previous ? { module, snapshot: previous } : undefined;
 }
 
 /** Immutable AST rebasing. Parser trees contain plain objects, arrays and spans. */
@@ -50,7 +51,7 @@ export function incrementalModuleParse(
 	const firstLineEnd = text.search(/[\r\n]/);
 	const lastLineStart = Math.max(text.lastIndexOf('\n'), text.lastIndexOf('\r')) + 1;
 	if (firstLineEnd < 0 || start <= original.span.start + firstLineEnd ||
-		oldEnd >= original.span.start + lastLineStart || /^[ \t]*#/m.test(text)) { return undefined; }
+		oldEnd >= original.span.start + lastLineStart || /(?:^|:)[ \t]*#/m.test(text)) { return undefined; }
 	// A pre-existing structural error can make a procedure depend on recovery
 	// state outside its span. Only independently parseable bodies qualify.
 	if (previous.diagnostics.some(item => item.span.start < original.span.end && item.span.end >= original.span.start)) {
@@ -58,7 +59,7 @@ export function incrementalModuleParse(
 	}
 	const delta = source.length - previousSource.length;
 	const replacementText = source.slice(original.span.start, original.span.end + delta);
-	if (/^[ \t]*#/m.test(replacementText)) { return undefined; }
+	if (/(?:^|:)[ \t]*#/m.test(replacementText)) { return undefined; }
 	const parsed = parseFresh(replacementText);
 	const replacement = parsed.members[0];
 	if (parsed.members.length !== 1 || replacement?.kind !== 'Procedure' || !replacement.closed ||

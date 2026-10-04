@@ -119,7 +119,6 @@ export function introduceParameter(input: IntroduceParameterInput): VbaRefactorR
 		{ span: statementRemovalSpan(source, assignment.span), newText: '' },
 	];
 
-	const accepts = procedureCallBinding(source, input.moduleName, procedure, input.otherModuleSources ?? {});
 	const kinds = new Map(Object.entries(input.moduleKinds ?? {}).map(([key, kind]) => [key.toLowerCase(), kind]));
 	let memberContext: MemberCompletionContext | undefined;
 	let initializerCallsSelf = false;
@@ -127,21 +126,31 @@ export function introduceParameter(input: IntroduceParameterInput): VbaRefactorR
 	let project: ProjectIndex | undefined;
 	let symbols: ModuleSymbols | undefined;
 	let owner: VbaSymbol | undefined;
-	const here = callSitesOf(source, procedure.name, { accept: (offset, call, qualifier, nameSpan) => {
-		if (offset < procedure.span.start || offset >= procedure.span.end) { return true; }
+	let otherModulesLoaded = false;
+	const bindingProject = (includeOtherModules: boolean): ProjectIndex => {
 		if (!symbols) {
 			project = new ProjectIndex();
 			project.setModule({moduleName: input.moduleName, moduleKind: kinds.get(input.moduleName.toLowerCase()) ?? 'standard', source});
 			symbols = project.getModule(input.moduleName)!;
 			owner = symbols.root.children?.find(symbol => symbol.fullSpan.start === procedure.span.start && symbol.name.toLowerCase() === procedure.name.toLowerCase());
 		}
+		if (includeOtherModules && !otherModulesLoaded) {
+			for (const [moduleName, otherSource] of Object.entries(input.otherModuleSources ?? {})) {
+				if (moduleName.toLowerCase() !== input.moduleName.toLowerCase()) { project!.setModule({moduleName, moduleKind: kinds.get(moduleName.toLowerCase()) ?? 'standard', source: otherSource}); }
+			}
+			otherModulesLoaded = true;
+		}
+		return project!;
+	};
+	const accepts = procedureCallBinding(source, input.moduleName, procedure, input.otherModuleSources ?? {}, () => bindingProject(true));
+	const here = callSitesOf(source, procedure.name, { accept: (offset, call, qualifier, nameSpan) => {
+		if (offset < procedure.span.start || offset >= procedure.span.end) { return true; }
+		bindingProject(false);
 		let target: boolean;
 		if (qualifier) {
 			if (!memberContext) {
-				for (const [moduleName, otherSource] of Object.entries(input.otherModuleSources ?? {})) {
-					if (moduleName.toLowerCase() !== input.moduleName.toLowerCase()) { project!.setModule({moduleName, moduleKind: kinds.get(moduleName.toLowerCase()) ?? 'standard', source: otherSource}); }
-				}
-				memberContext = {parsedModule: module, sourceTokens: tokenizeCached(source).filter(token => token.kind !== 'comment'), projectClassMembers: project!.projectMemberSurfaces(input.moduleName), meProjectType: symbols.moduleKind === 'standard' ? undefined : input.moduleName, withScanCache: new Map(), receiverTypeCache: new Map(), receiverChainCache: new Map(), memberSurfaceCache: new Map()};
+				bindingProject(true);
+				memberContext = {parsedModule: module, sourceTokens: tokenizeCached(source).filter(token => token.kind !== 'comment'), projectClassMembers: project!.projectMemberSurfaces(input.moduleName), meProjectType: symbols!.moduleKind === 'standard' ? undefined : input.moduleName, withScanCache: new Map(), receiverTypeCache: new Map(), receiverChainCache: new Map(), memberSurfaceCache: new Map()};
 			}
 			const calledName = source.slice(nameSpan.start, nameSpan.end).replace(/^\[([^\]]+)\]$/, '$1');
 			const definitions = resolveMemberDefinitionsAt(source, nameSpan.end, calledName, memberContext);
@@ -149,7 +158,7 @@ export function introduceParameter(input: IntroduceParameterInput): VbaRefactorR
 			if (definitions.length === 0 && privateOwner === undefined) { unresolvedReceiver = true; }
 			target = privateOwner?.toLowerCase() === input.moduleName.toLowerCase() || definitions.length === 1 && definitions[0].moduleName.toLowerCase() === input.moduleName.toLowerCase() && definitions[0].fullSpan.start === procedure.span.start;
 		} else {
-			const binding = resolveBareIdentifierBinding({currentModule: symbols, name: procedure.name, context: call ? 'call' : 'expression', enclosingProcedure: owner, offset});
+			const binding = resolveBareIdentifierBinding({currentModule: symbols!, name: procedure.name, context: call ? 'call' : 'expression', enclosingProcedure: owner, offset});
 			target = binding.scope !== 'ambiguous' && binding.definitions.length === 1 && binding.definitions[0] === owner;
 		}
 		if (target && offset >= assignment.span.start && offset < assignment.span.end) { initializerCallsSelf = true; }
@@ -166,7 +175,7 @@ export function introduceParameter(input: IntroduceParameterInput): VbaRefactorR
 		if (otherName.toLowerCase() === input.moduleName.toLowerCase()) {
 			continue;
 		}
-		const sites = callSitesOf(otherSource, procedure.name, { qualifier: input.moduleName })
+		const sites = callSitesOf(otherSource, procedure.name)
 			.filter(site => accepts(otherName, otherSource, site));
 		if (sites.length > 0) {
 			otherModules.push({

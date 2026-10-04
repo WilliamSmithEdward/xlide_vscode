@@ -1,6 +1,6 @@
 import * as assert from 'node:assert/strict';
 import * as vscode from 'vscode';
-import { activate, closeAllEditors, open, until, writeModule } from './support';
+import { activate, closeAllEditors, insertTypedCharacter, open, until, writeModule } from './support';
 
 suite('Immediate completion surfaces', () => {
     let document: vscode.TextDocument;
@@ -30,26 +30,23 @@ suite('Immediate completion surfaces', () => {
     test('updates local completion after each actual keystroke and records response latency', async () => {
         const editor = vscode.window.activeTextEditor!;
         const samples: number[] = [];
+        const editAttempts: number[] = [];
         for (const character of 'instantvalue') {
             await new Promise(resolve => setTimeout(resolve, 30));
-            const end = document.lineAt(bodyLine).range.end;
-            editor.selection = new vscode.Selection(end, end);
             const start = performance.now();
-            assert.ok(await editor.edit(edit => edit.insert(end, character)));
+            editAttempts.push(await insertTypedCharacter(document, editor, bodyLine, character));
             const result = await complete(document.lineAt(bodyLine).range.end);
             samples.push(performance.now() - start);
             assert.ok(result?.items.some(item => label(item) === 'InstantValue'), 'each prefix should retain the local candidate');
         }
         samples.sort((a, b) => a - b);
         console.log('Actual edit-to-completion-result latency (ms):', JSON.stringify({
-            median: samples[Math.floor(samples.length / 2)], p95: samples[Math.ceil(samples.length * 0.95) - 1], samples: samples.length, sortedSamples: samples,
+            editAttempts, median: samples[Math.floor(samples.length / 2)], p95: samples[Math.ceil(samples.length * 0.95) - 1], samples: samples.length, sortedSamples: samples,
         }));
         const dotLine = bodyLine + 1;
         for (const character of 'name') {
             await new Promise(resolve => setTimeout(resolve, 30));
-            const end = document.lineAt(dotLine).range.end;
-            editor.selection = new vscode.Selection(end, end);
-            assert.ok(await editor.edit(edit => edit.insert(end, character)));
+            await insertTypedCharacter(document, editor, dotLine, character);
             assert.ok((await complete(document.lineAt(dotLine).range.end))?.items.some(item => label(item) === 'Name'));
         }
     });

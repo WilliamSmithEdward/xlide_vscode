@@ -49,6 +49,22 @@ describe('incremental procedure parsing', () => {
         expect(incrementalModuleParse(source.replace(before, after), source, parseModuleFreshForTests(source), parseModuleFreshForTests)).toBeUndefined();
     });
 
+    it('preserves unchanged surrounding module-level conditional state for body-only edits', () => {
+        const source = prefix + '#If VBA7 Then\n' + body + '#Else\n' + body.replace('First', 'Alternate') + '#End If\n' + tail;
+        const changed = source.replace('value = 1', 'value = 123');
+        compare(source, changed);
+        parseModule(source);
+        expect(parseModule(changed)).toEqual(parseModuleFreshForTests(changed));
+        const next = changed.replace('value = 123', 'value = 12');
+        expect(parseModule(next)).toEqual(parseModuleFreshForTests(next));
+    });
+
+    it('falls back for directives following a colon inside a procedure', () => {
+        const source = prefix + body + tail;
+        const changed = source.replace('value = 1', 'value = 1: #If VBA7 Then');
+        expect(incrementalModuleParse(changed, source, parseModuleFreshForTests(source), parseModuleFreshForTests)).toBeUndefined();
+    });
+
     it('falls back for conditional or malformed procedures', () => {
         for (const text of [body.replace('value = 1', '#If WIN64 Then\nvalue = 1\n#End If'), body.replace('value = 1', 'If True Then\nvalue = 1')]) {
             const source = prefix + text + tail;

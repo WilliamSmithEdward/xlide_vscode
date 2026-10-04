@@ -144,7 +144,12 @@ const PROCEDURE_CLOSERS: ReadonlySet<string> = new Set(['endsub', 'endfunction',
 // module does not evict it. ASTs are immutable and small, so the memory cost is
 // negligible.
 const PARSE_CACHE_MAX = 8;
-const parseCache: { source: string; module: ModuleNode }[] = [];
+interface ParseCacheEntry {
+	source: string;
+	module: ModuleNode;
+	hasDirectives: boolean;
+}
+const parseCache: ParseCacheEntry[] = [];
 
 /** Parse VBA source text into a ModuleNode AST. Never throws. */
 export function parseModule(source: string): ModuleNode {
@@ -161,11 +166,22 @@ export function parseModule(source: string): ModuleNode {
 			return hit.module;
 		}
 	}
-	// A failed body-edit probe must not compare the full class against every
-	// historical snapshot. Probe the most recent compatible source once.
-	let module = incrementalModuleParseFromCache(source, parseCache, parseModuleFreshForTests);
-	module ??= parseModuleFreshForTests(source);
-	parseCache.unshift({ source, module });
+	// Attempt one compatible body snapshot. Broader edits retain main's safe
+	// parser-prefix reuse, then parse the affected suffix with full recovery.
+	const body = incrementalModuleParseFromCache(source, parseCache, parseModuleFreshForTests);
+	let module = body?.module;
+	let hasDirectives = body?.snapshot.hasDirectives ?? false;
+	if (!module) {
+		const tokens = tokenizeCached(source);
+		const previous = source.length >= 4096
+			? parseCache.find(entry => Math.abs(entry.source.length - source.length) <= 128)
+			: undefined;
+		const prefix = unchangedModulePrefix(source, tokens, previous);
+		const remaining = prefix ? tokens.slice(prefix.tokenIndex) : tokens;
+		module = new Parser(source, remaining).parse(prefix?.members);
+		hasDirectives = remaining.some(token => token.kind === 'directive');
+	}
+	parseCache.unshift({ source, module, hasDirectives });
 	if (parseCache.length > PARSE_CACHE_MAX) {
 		parseCache.pop();
 	}
@@ -175,6 +191,46 @@ export function parseModule(source: string): ModuleNode {
 /** Uncached reference parser for differential validation of editor cache reuse. */
 export function parseModuleFreshForTests(source: string): ModuleNode {
 	return new Parser(source, tokenizeCached(source)).parse();
+}
+
+// Only complete logical lines before the first changed character/diagnostic
+// can be reused. The old prefix has no conditional-directive state to carry
+// into the new parse. Nodes and their absolute offsets stay unchanged.
+function unchangedModulePrefix(
+	source: string,
+	tokens: readonly VbaToken[],
+	previous: ParseCacheEntry | undefined,
+): { members: ModuleMember[]; tokenIndex: number } | undefined {
+	if (!previous || previous.hasDirectives) { return undefined; }
+	const old = previous.source;
+	const limit = Math.min(old.length, source.length);
+	let common = 0;
+	while (common < limit && old.charCodeAt(common) === source.charCodeAt(common)) { common++; }
+	for (const diagnostic of previous.module.diagnostics) { common = Math.min(common, diagnostic.span.start); }
+	if (common < 4096) { return undefined; }
+	const members = previous.module.members;
+	let count = 0;
+	while (count < members.length && members[count].span.end <= common) { count++; }
+	let lo = 0;
+	let hi = tokens.length;
+	while (lo < hi) {
+		const mid = (lo + hi) >> 1;
+		if (tokens[mid].end <= common) { lo = mid + 1; } else { hi = mid; }
+	}
+	// Walk backward once. A partial line with many colon-separated members
+	// must not make us rescan that line separately for every candidate.
+	for (let end = lo - 1; end >= 0 && count > 0; end--) {
+		const newline = tokens[end];
+		if (newline.kind !== 'newline') { continue; }
+		while (count > 0 && members[count - 1].span.end > newline.end) { count--; }
+		if (count === 0) { break; }
+		if (members[count] && members[count].span.start < newline.end) { continue; }
+		const member = members[count - 1];
+		// A malformed/unclosed block can depend on the next header for recovery.
+		if ('closed' in member && !member.closed) { count--; continue; }
+		return { members: members.slice(0, count), tokenIndex: end + 1 };
+	}
+	return undefined;
 }
 
 class Parser {
@@ -199,8 +255,8 @@ class Parser {
 		this.cursor = new StatementCursor(splitLogicalStatements(tokens));
 	}
 
-	parse(): ModuleNode {
-		const members: ModuleMember[] = [];
+	parse(prefix: readonly ModuleMember[] = []): ModuleNode {
+		const members: ModuleMember[] = [...prefix];
 		while (!this.cursor.atEnd()) {
 			const member = this.parseModuleMember();
 			if (member) {

@@ -14,8 +14,8 @@ For differential parser validation, set `XLIDE_INCREMENTAL_PARSE_CORPUS` to a pr
 
 ## Changes
 
-- Reparse an eligible same-line procedure-body edit and immutably rebase the unchanged tail. Header, newline, directive and malformed-procedure edits retain full parsing. Only the most recent compatible cached source is probed, so a failed attempt does not scan the class against eight historical versions.
-- Bound caret name lookup to its adjacent Unicode word. Update procedure ownership from cached headers/lead-in lines for same-line nonstructural edits, including Backspace, and refresh the current range even when its display name did not change.
+- Reparse an eligible same-line procedure-body edit and immutably rebase the unchanged tail. Header, newline, directive and malformed-procedure edits retain main's safe prefix/full parsing. Only the most recent compatible cached source is probed, so a failed attempt does not scan the class against eight historical versions.
+- Retain the line-bounded caret name lookup now on main. Update procedure ownership from cached headers/lead-in lines for same-line nonstructural edits, including Backspace, and refresh the current range even when its display name did not change.
 - Use shared current-module symbols for a standalone identifier statement while project context warms. Preserve the module-name/documentation row; member, type, argument and continued-statement positions retain their complete local context. The partial list remains refreshable.
 - Yield between semantic-token collector passes in large documents and discard requests invalidated by typing, close or cancellation before running the next pass.
 

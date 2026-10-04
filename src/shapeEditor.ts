@@ -43,8 +43,8 @@ const openEditors = new Map<string, vscode.WebviewPanel>();
 /** Repeated clicks share the reads that happen before a tab is registered. */
 const openingEditors = new Map<string, Promise<void>>();
 
-function editorKey(filePath: string, surface: string, shapeName: string | undefined): string {
-	return `${projectIdentityKey(filePath)}::${surface.toLowerCase()}::${shapeName?.toLowerCase() ?? '+'}`;
+function editorKey(filePath: string, surface: string, shapePath: readonly string[] | undefined): string {
+	return JSON.stringify([projectIdentityKey(filePath), surface.toLowerCase(), shapePath?.map(name => name.toLowerCase()) ?? null]);
 }
 
 /** The Subs a shape in this file can run; none when they cannot be read. */
@@ -104,7 +104,7 @@ export async function openShapeEditor(
 	filePath: string,
 	target: Omit<ShapeEditorTarget, 'fileName'> & { shapePath?: string[] },
 ): Promise<void> {
-	const key = editorKey(filePath, target.surface, target.shape?.name);
+	const key = editorKey(filePath, target.surface, target.shape ? target.shapePath ?? [target.shape.name] : undefined);
 	const open = openEditors.get(key);
 	if (open) {
 		open.reveal();

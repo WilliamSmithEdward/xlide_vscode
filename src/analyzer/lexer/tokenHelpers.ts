@@ -65,7 +65,7 @@ export function statementTokens(
 // Statement-token cache (audit #5, hoisted here from the diagnostics engine
 // so every surface shares one implementation): independent consumers
 // re-tokenized the same statement 25-40 times per pass. Tokens are cached
-// per source string (value identity, LRU of 2 like tokenizeCached) and per
+// per source string (value identity, bounded LRU of 2) and per
 // statement span, so one pass lexes each statement once. Callers must not
 // mutate the returned arrays or their tokens.
 const STATEMENT_TOKEN_CACHE_MAX = 2;
@@ -95,7 +95,7 @@ export function statementTokensCached(
 		}
 	}
 	if (!entry) {
-		entry = { src: source, byStart: new Map() };
+		entry = { src: source, byStart: unchangedStatementPrefix(source) };
 		statementTokenCache.unshift(entry);
 		if (statementTokenCache.length > STATEMENT_TOKEN_CACHE_MAX) {
 			statementTokenCache.pop();
@@ -117,6 +117,30 @@ export function statementTokensCached(
 		byEnd.set(span.end, toks);
 	}
 	return toks;
+}
+
+// Copy only the span maps, borrowing immutable token arrays wholly before the
+// changed physical line. Do not retain previous entries: that would turn a
+// bounded cache into a chain holding every typed source snapshot alive.
+function unchangedStatementPrefix(source: string): Map<number, Map<number, VbaToken[]>> {
+	const byStart = new Map<number, Map<number, VbaToken[]>>();
+	if (source.length < 4096) { return byStart; }
+	const previous = statementTokenCache.find(entry => Math.abs(entry.src.length - source.length) <= 128);
+	if (!previous) { return byStart; }
+	const limit = Math.min(previous.src.length, source.length);
+	let common = 0;
+	while (common < limit && previous.src.charCodeAt(common) === source.charCodeAt(common)) { common++; }
+	if (common < 4096) { return byStart; }
+	const boundary = Math.max(source.lastIndexOf('\n', common - 1), source.lastIndexOf('\r', common - 1)) + 1;
+	for (const [start, oldEnds] of previous.byStart) {
+		if (!Number.isFinite(start) || start < 0 || start >= boundary) { continue; }
+		const ends = new Map<number, VbaToken[]>();
+		for (const [end, tokens] of oldEnds) {
+			if (end >= start && end <= boundary) { ends.set(end, tokens); }
+		}
+		if (ends.size > 0) { byStart.set(start, ends); }
+	}
+	return byStart;
 }
 
 /**

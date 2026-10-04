@@ -1,16 +1,19 @@
 import { parseModule } from '../parser/parseModule';
 import type { ModuleNode, ProcedureNode, Span } from '../parser/nodes';
 import { procedureAtOffset } from '../parser/nodes';
-import { detectEol, lineStartAtAnyBreak, lineEndAtOrAfter, stripVba } from '../../vbaSourceScan';
+import { detectEol, lineStartAtAnyBreak, stripVba } from '../../vbaSourceScan';
 import {
+	applyVbaTextEdits,
 	refactor,
 	refuse,
 	type VbaRefactorModuleEdits,
 	type VbaRefactorResult,
 	type VbaTextEdit,
 } from './refactorTypes';
-import { escapeForRegExp, lookupModuleSource, blankStringLiterals } from './shared';
-import { identifiersIn } from '../lexer/tokenHelpers';
+import { lookupModuleSource, blankStringLiterals } from './shared';
+import { identifiersIn, tokenName } from '../lexer/tokenHelpers';
+import { tokenizeCached } from '../lexer/tokenize';
+import { ProjectIndex } from '../symbols/projectIndex';
 import { attachedCommentsStart } from '../docs/docComment';
 
 /**
@@ -74,8 +77,29 @@ export function moveToModule(input: MoveToModuleInput): VbaRefactorResult {
 	// Its doc comment and directives go with it: left behind, they would
 	// document the procedure that came next.
 	const start = attachedCommentsStart(source, procedure.span.start);
-	const moved = source.slice(start, procedure.span.end).replace(/\s+$/, '');
-	const edits: VbaTextEdit[] = [{ span: removalSpan(source, { start, end: procedure.span.end }), newText: '' }];
+	// One lazy index belongs to this refactor; candidate references in every
+	// caller share it rather than rebuilding project bindings per occurrence.
+	let project: ProjectIndex | undefined;
+	const bindingProject = (): ProjectIndex => {
+		if (!project) {
+			project = new ProjectIndex();
+			project.setModule({moduleName: input.moduleName, moduleKind: 'standard', source});
+			for (const [moduleName, otherSource] of Object.entries(input.otherModuleSources)) {
+				if (moduleName.toLowerCase() !== input.moduleName.toLowerCase()) {
+					project.setModule({moduleName, moduleKind: 'standard', source: otherSource});
+				}
+			}
+		}
+		return project;
+	};
+	const here = qualifiedCallEdits(source, input.moduleName, input.moduleName, procedure.name, input.targetModuleName, bindingProject);
+	// Repoint references inside the copied procedure before inserting it. Those
+	// edits belong to the destination text, not to the removed source range.
+	const movedEdits = here.filter(edit => edit.span.start >= start && edit.span.end <= procedure.span.end)
+		.map(edit => ({span: {start: edit.span.start - start, end: edit.span.end - start}, newText: edit.newText}));
+	const moved = applyVbaTextEdits(source.slice(start, procedure.span.end), movedEdits).replace(/\s+$/, '');
+	const removal = removalSpan(source, { start, end: procedure.span.end });
+	const edits: VbaTextEdit[] = [{ span: removal, newText: '' }, ...here.filter(edit => edit.span.end <= removal.start || edit.span.start >= removal.end)];
 
 	const otherModules: VbaRefactorModuleEdits[] = [{
 		moduleName: input.targetModuleName,
@@ -86,13 +110,11 @@ export function moveToModule(input: MoveToModuleInput): VbaRefactorResult {
 	}];
 
 	// Qualified calls, wherever they are, including the module it leaves.
-	const here = qualifiedCallEdits(source, input.moduleName, procedure.name, input.targetModuleName);
-	edits.push(...here);
 	for (const [name, otherSource] of Object.entries(input.otherModuleSources)) {
 		if (name.toLowerCase() === input.moduleName.toLowerCase()) {
 			continue;
 		}
-		const repoints = qualifiedCallEdits(otherSource, input.moduleName, procedure.name, input.targetModuleName);
+		const repoints = qualifiedCallEdits(otherSource, name, input.moduleName, procedure.name, input.targetModuleName, bindingProject);
 		if (repoints.length === 0) {
 			continue;
 		}
@@ -118,21 +140,30 @@ export function moveToModule(input: MoveToModuleInput): VbaRefactorResult {
  */
 function qualifiedCallEdits(
 	source: string,
+	callerName: string,
 	fromModule: string,
 	procedureName: string,
 	toModule: string,
+	bindingProject: () => ProjectIndex,
 ): VbaTextEdit[] {
-	const pattern = new RegExp(
-		`\\b(${escapeForRegExp(fromModule)})\\s*\\.\\s*${escapeForRegExp(procedureName)}\\b`,
-		'gi',
-	);
+	const tokens = tokenizeCached(source);
+	const ownerName = fromModule.toLowerCase();
+	const memberName = procedureName.toLowerCase();
 	const out: VbaTextEdit[] = [];
-	for (const match of source.matchAll(pattern)) {
-		const at = match.index ?? 0;
-		if (isInsideCommentOrString(source, at)) {
-			continue;
-		}
-		out.push({ span: { start: at, end: at + match[1].length }, newText: toModule });
+	for (let i = 0; i + 2 < tokens.length; i++) {
+		const receiver = tokens[i];
+		if (tokenName(receiver)?.toLowerCase() !== ownerName
+			|| tokens[i + 1].rawText !== '.'
+			|| tokenName(tokens[i + 2])?.toLowerCase() !== memberName
+			|| ['.', '!'].includes(tokens[i - 1]?.rawText)) { continue; }
+		// A local, parameter, field or function-result name owns this receiver.
+		// Only an unresolved bare name denotes the standard module qualifier.
+		const binding = bindingProject().resolveBareIdentifier(callerName, fromModule, receiver.start, 'memberReceiver');
+		if (binding.scope !== 'unresolved') { continue; }
+		out.push({
+			span: {start: receiver.start, end: receiver.end},
+			newText: receiver.kind === 'bracketedIdentifier' ? '[' + toModule + ']' : toModule,
+		});
 	}
 	return out;
 }
@@ -187,15 +218,4 @@ function removalSpan(source: string, span: Span): Span {
 		end += after[0].length;
 	}
 	return { start, end };
-}
-
-/**
- * `stripVba` blanks comments and string bodies in place, keeping every column,
- * so a character that was there and is now a space was inside one of them.
- */
-function isInsideCommentOrString(source: string, offset: number): boolean {
-	const lineStart = lineStartAtAnyBreak(source, offset);
-	const line = source.slice(lineStart, lineEndAtOrAfter(source, offset));
-	const column = offset - lineStart;
-	return line[column] !== ' ' && stripVba(line)[column] === ' ';
 }
