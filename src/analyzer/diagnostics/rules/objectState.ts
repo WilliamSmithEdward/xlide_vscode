@@ -30,6 +30,7 @@ import { builtinNameBefore, resolveExhaustiveMemberSurface, ONE_VALUE_BUILTINS }
 import {
 	statementMayChangeModuleVariable,
 	declaredTypeForSourceBinding,
+	createObjectAssignmentTypeResolver,
 	defTypeOf,
 	functionResultFor,
 	isKnownObjectAssignmentType,
@@ -379,13 +380,14 @@ function moduleObjectFacts(
 		return cached.facts;
 	}
 	const memberFirst = new Map<string, Map<number, string>>();
+	const resolveObjectType = createObjectAssignmentTypeResolver(memberCtx);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure' || member.procKind === 'PropertyLet' || member.procKind === 'PropertySet') {
 			continue;
 		}
 		const reads = new Map<number, string>();
 		member.params.forEach((param, k) => {
-			if (!param.paramArray && !param.isArray && param.asType && isKnownObjectAssignmentType(param.asType, memberCtx)) {
+			if (!param.paramArray && !param.isArray && param.asType && resolveObjectType(param.asType) !== undefined) {
 				const read = firstUseMemberRead(source, member, param.name.toLowerCase(), activity);
 				if (read) {
 					reads.set(k, read);
