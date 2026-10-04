@@ -25,3 +25,4 @@ import './shapes.test';
 import './grammar.test';
 
 import './completion.test';
+import './editorSurfaces.test';

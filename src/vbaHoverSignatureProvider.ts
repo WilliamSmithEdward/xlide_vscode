@@ -10,6 +10,7 @@ import {
 	HoverContext,
 	resolveHover,
 	resolveSignatureHelp,
+	findActiveCallSite,
 	SignatureHelpContext,
 } from './analyzer';
 import { startPerformanceTrace } from './performanceTrace';
@@ -89,6 +90,9 @@ export class VbaHoverSignatureProvider
 		}
 		const source = document.getText();
 		const offset = document.offsetAt(position);
+		// Spaces trigger this provider throughout ordinary code. No project
+		// context can produce a call tip when the syntax has no active call.
+		if (!findActiveCallSite(source, offset)) { return undefined; }
 		const info = await this._resolveWithProjectContext(
 			document,
 			source,

@@ -23,7 +23,6 @@ import {
 } from './analyzer';
 import { codeNameHostTypesForModules } from './vbaEditorProjectContext';
 import {
-    projectAnalysisOptionsForModule,
     type VbaProjectAnalysisOptions,
 } from './vbaProjectAnalysis';
 import { VbaProjectIndexService } from './vbaProjectIndexService';
@@ -108,27 +107,41 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
         try {
             if (!isVbaDocument(document)) { return builder.build(); }
 
-            const source = analysisSourceForDocument(document);
-            const moduleName = moduleNameFromDocument(document);
-            const projectContext = document.uri.scheme === XLIDE_SCHEME
-                ? this._cachedProjectTypesForDocument(document, { requireFresh: false })
-                : await this._projectTypesForDocument(document, source, moduleName, token);
-            const projectTypes = projectContext?.projectTypes ?? [];
-            if (
-                document.uri.scheme === XLIDE_SCHEME &&
-                !this._cachedProjectTypesForDocument(document, { requireFresh: true })
-            ) {
+            if (token.isCancellationRequested) { return builder.build(); }
+            const documentVersion = document.version;
+            const key = document.uri.toString();
+            const virtual = document.uri.scheme === XLIDE_SCHEME;
+            let projectContext = this._cachedProjectTypesForDocument(document, { requireFresh: !virtual });
+            if (virtual && !this._cachedProjectTypesForDocument(document, { requireFresh: true })) {
                 this._scheduleProjectTypesRefresh(document);
             }
-            const projectTypesLoadedAt = this._projectTypesCache.get(document.uri.toString())?.at ?? 0;
-            const cachedTokens = this._semanticTokensCache.get(document.uri.toString());
+            let projectTypesLoadedAt = this._projectTypesCache.get(key)?.at ?? 0;
+            const cachedTokens = this._semanticTokensCache.get(key);
             if (
                 cachedTokens &&
-                cachedTokens.documentVersion === document.version &&
-                cachedTokens.projectTypesLoadedAt === projectTypesLoadedAt
+                cachedTokens.documentVersion === documentVersion &&
+                cachedTokens.projectTypesLoadedAt === projectTypesLoadedAt &&
+                (virtual || projectContext)
             ) {
                 return cachedTokens.tokens;
             }
+
+            const source = analysisSourceForDocument(document);
+            const moduleName = moduleNameFromDocument(document);
+            if (!virtual && !projectContext) {
+                projectContext = await this._projectTypesForDocument(document, source, moduleName, token);
+                projectTypesLoadedAt = this._projectTypesCache.get(key)?.at ?? 0;
+            }
+            if (token.isCancellationRequested || document.version !== documentVersion) {
+                return builder.build();
+            }
+            // A failed refresh retains the previous context. Reuse its tokens
+            // instead of repainting the same source after the attempted load.
+            if (cachedTokens?.documentVersion === documentVersion &&
+                cachedTokens.projectTypesLoadedAt === projectTypesLoadedAt) {
+                return cachedTokens.tokens;
+            }
+            const projectTypes = projectContext?.projectTypes ?? [];
 
             const items = [
                 ...resolveTypeSemanticTokens(source, { projectTypes }),
@@ -164,7 +177,7 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
             const tokens = builder.build();
             if (!token.isCancellationRequested) {
                 this._semanticTokensCache.set(document.uri.toString(), {
-                    documentVersion: document.version,
+                    documentVersion,
                     projectTypesLoadedAt,
                     tokens,
                 });
@@ -265,33 +278,49 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
         }
 
         const previous = this._projectTypesCache.get(key);
+        const documentVersion = document.version;
 
         try {
-            const project = await liveProjectIndexForDocument(
-                this._projectIndexService,
-                document,
-                source,
-                moduleName,
-                token,
+            const location = moduleLocationOfDocument(document);
+            const context = location
+                ? await this._projectIndexService.contextForProject(location.projectPath, 'live')
+                : undefined;
+            const project = context?.project ?? await liveProjectIndexForDocument(
+                this._projectIndexService, document, source, moduleName, token,
             );
-            const options = projectAnalysisOptionsForModule(project, moduleName);
-            const codeNames = await this._codeNamesForDocument(document);
-            const accessDesignClass = await this._accessDesignClass(document, moduleName);
+            if (token?.isCancellationRequested || document.version !== documentVersion) { return previous; }
+            // Painting needs types and designer controls only.
+            const projectTypes = project.visibleTypeNames(moduleName);
+            const implicitMembers = project.moduleImplicitMembers?.(moduleName);
+            const metadata = context?.moduleMetadata.get(moduleIdentityKey(moduleName));
+            const host = location ? hostTokenForFileName(location.projectPath) : undefined;
+            const codeNames = context
+                ? codeNameHostTypesForModules(
+                    [...context.moduleMetadata.values()].map((meta) => ({
+                        name: meta.moduleName,
+                        type: meta.moduleType ?? '',
+                        documentType: meta.documentType,
+                    })),
+                    host,
+                )
+                : undefined;
+            const accessDesignClass = isAccessDesignerClass(metadata?.designerClass)
+                ? metadata?.designerClass
+                : undefined;
+            const userForm = host !== 'vb6' && (context
+                ? metadata?.moduleKind === 'userform'
+                : moduleKindFromDocument(document) === 'userform');
             const entry: CachedTypeSemanticProjectTypes = {
                 at: Date.now(),
-                projectTypes: options.projectTypes ?? [],
-                implicitMembers: options.implicitMembers,
-                // An Access form is an Access.Form, not a UserForm: saying so
-                // keeps the forms collector from painting `Me.Show` there.
-                meType: accessDesignClass ?? await this._userFormMeType(document, moduleName),
+                projectTypes,
+                implicitMembers,
+                meType: accessDesignClass ?? (userForm ? 'MSForms.UserForm' : undefined),
                 hostModel: hostModelForDocument(document),
                 codeNames,
-                // A document module's own code name IS what `Me` denotes there,
-                // and an Access form or report is its designer's class; any
-                // other module kind has no entry and `Me.` stays unpainted.
                 meHostType: codeNames?.[moduleName.toLowerCase()] ?? accessDesignClass,
                 meProjectType: accessDesignClass ? moduleName : undefined,
             };
+            if (token?.isCancellationRequested || document.version !== documentVersion) { return previous; }
             this._projectTypesCache.set(key, entry);
             return entry;
         } catch {
@@ -299,84 +328,6 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
         }
     }
 
-    /**
-     * Lowercased code-name -> host type map for the document's container, so
-     * `Sheet1.Calculate` and Word's `ThisDocument.Save` paint as method calls
-     * (issue #29). Loose files have no sibling document modules; undefined.
-     */
-    private async _codeNamesForDocument(
-        document: vscode.TextDocument,
-    ): Promise<Record<string, string> | undefined> {
-        const location = moduleLocationOfDocument(document);
-        if (!location) {
-            return undefined;
-        }
-        try {
-            const projectPath = location.projectPath;
-            // The same cached project context the project build above used.
-            const context = await this._projectIndexService.contextForProject(projectPath, 'live');
-            return codeNameHostTypesForModules(
-                [...context.moduleMetadata.values()].map((meta) => ({
-                    name: meta.moduleName,
-                    type: meta.moduleType ?? '',
-                    documentType: meta.documentType,
-                })),
-                hostTokenForFileName(projectPath),
-            );
-        } catch {
-            return undefined;
-        }
-    }
-
-    /** `MSForms.UserForm` when the document is a form's code-behind. */
-    // (see hostModelForDocument below for the host side)
-    /** `Access.Form` or `Access.Report` when the module is an Access design's. */
-    private async _accessDesignClass(
-        document: vscode.TextDocument,
-        moduleName: string,
-    ): Promise<string | undefined> {
-        const location = moduleLocationOfDocument(document);
-        if (!location) {
-            return undefined;
-        }
-        try {
-            // The same cached project context the project build above used.
-            const context = await this._projectIndexService.contextForProject(
-                location.projectPath,
-                'live',
-            );
-            const designerClass = context.moduleMetadata.get(moduleIdentityKey(moduleName))?.designerClass;
-            return isAccessDesignerClass(designerClass) ? designerClass : undefined;
-        } catch {
-            return undefined;
-        }
-    }
-
-    private async _userFormMeType(
-        document: vscode.TextDocument,
-        moduleName: string,
-    ): Promise<string | undefined> {
-        const location = moduleLocationOfDocument(document);
-        if (!location) {
-            return moduleKindFromDocument(document) === 'userform' ? 'MSForms.UserForm' : undefined;
-        }
-        if (hostTokenForFileName(location.projectPath) === 'vb6') {
-            // A VB6 form is a VB.Form; its surface arrives with the vb6 model.
-            return undefined;
-        }
-        try {
-            // The same cached project context the project build above used.
-            const context = await this._projectIndexService.contextForProject(
-                location.projectPath,
-                'live',
-            );
-            return context.moduleMetadata.get(moduleIdentityKey(moduleName))?.moduleKind === 'userform'
-                ? 'MSForms.UserForm'
-                : undefined;
-        } catch {
-            return undefined;
-        }
-    }
 }
 
 /** The host model for the document's container; undefined keeps Excel defaults. */
