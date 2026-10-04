@@ -53,7 +53,7 @@ function literalCaseItem(all: readonly VbaToken[]): boolean {
 	if (tokenText(toks[0]) !== 'case' || tokenText(toks[1]) === 'else') {
 		return false;
 	}
-	const items = toks.length > 1 ? splitTopLevelTokenGroups([...toks], 1, ',', toks.length) : [];
+	const items = toks.length > 1 ? splitTopLevelTokenGroups(toks, 1, ',', toks.length) : [];
 	return items.some((item) => item.length > 0 && item.every((tok) => isLiteral(tok) || ['to', 'is'].includes(tokenText(tok)) || COMPARISONS.has(tok.rawText)));
 }
 
@@ -325,7 +325,7 @@ function errorOperand(
 		if (index === undefined || tokenText(value[0]) !== 'array' || value[1]?.rawText !== '(' || matchParenFrom(value, 1) !== value.length - 1) {
 			return undefined;
 		}
-		const elements = value.length > 3 ? splitTopLevelTokenGroups([...value], 2, ',', value.length - 1) : [];
+		const elements = value.length > 3 ? splitTopLevelTokenGroups(value, 2, ',', value.length - 1) : [];
 		const element = elements[index - optionBase];
 		return element && isErrorSource(element) ? { end: close + 1, what: `'${toks[i].rawText}(${index})' holds an error value from ${element.map((tok) => tok.rawText).join('')} here` } : undefined;
 	}
@@ -400,7 +400,7 @@ function arrayLiteralElement(value: readonly VbaToken[], optionBase: number): { 
 	if (close < 0 || value[close + 1]?.rawText !== '(' || value[close + 2]?.kind !== 'integerLiteral' || value[close + 3]?.rawText !== ')') {
 		return undefined;
 	}
-	const elements = close > 2 ? splitTopLevelTokenGroups([...value], 2, ',', close) : [];
+	const elements = close > 2 ? splitTopLevelTokenGroups(value, 2, ',', close) : [];
 	const element = elements[Number(value[close + 2].rawText) - optionBase];
 	return element && isErrorSource(element) ? { end: close + 4, what: `an element ${element.map((tok) => tok.rawText).join('')} of an array` } : undefined;
 }

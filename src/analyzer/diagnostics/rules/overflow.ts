@@ -1533,11 +1533,11 @@ function chainOf(toks: readonly VbaToken[]): ChainSegment[] | undefined {
 		let end = i;
 		let args: VbaToken[][] | undefined;
 		if (toks[i + 1]?.rawText === '(') {
-			const close = matchParenFrom([...toks], i + 1);
+			const close = matchParenFrom(toks, i + 1);
 			if (close < 0) {
 				return undefined;
 			}
-			args = splitTopLevelTokenGroups([...toks], i + 2, ',', close);
+			args = splitTopLevelTokenGroups(toks, i + 2, ',', close);
 			end = close;
 		}
 		out.push({ name, ...(args ? { args } : {}) });

@@ -248,7 +248,7 @@ export function checkCollectionState(
 		const enterWith = (node: BodyNode): void => {
 			const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span));
 			const name = header.length === 2 ? tokenName(header[1]) : undefined;
-			const element = header.length >= 5 && header[2].rawText === '(' && matchParenFrom([...header], 2) === header.length - 1 ? tokenName(header[1]) : undefined;
+			const element = header.length >= 5 && header[2].rawText === '(' && matchParenFrom(header, 2) === header.length - 1 ? tokenName(header[1]) : undefined;
 			if (name && states.has(name.toLowerCase())) {
 				withSubjects.push(name);
 			} else if (element && states.has(element.toLowerCase())) {
