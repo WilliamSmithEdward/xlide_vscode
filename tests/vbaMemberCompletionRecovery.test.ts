@@ -170,7 +170,7 @@ describe('member completion recovery on Backspace', () => {
         });
         edit.send();
         await vi.runAllTimersAsync();
-        expect(vscode.commands.executeCommand).toHaveBeenCalledWith('editor.action.triggerSuggest');
+        expect(vscode.commands.executeCommand).toHaveBeenCalledWith('editor.action.triggerSuggest', { auto: true });
     });
     it('does not build full module/project contexts just to reopen host members', async () => {
         const edit = deletion('ThisWorkbook.Sheets(1).ce');
@@ -194,7 +194,7 @@ describe('member completion recovery on Backspace', () => {
         expect(vscode.commands.executeCommand).not.toHaveBeenCalled();
         edit.editor.selection.active = caret;
         await vi.runAllTimersAsync();
-        expect(vscode.commands.executeCommand).toHaveBeenCalledWith('editor.action.triggerSuggest');
+        expect(vscode.commands.executeCommand).toHaveBeenCalledWith('editor.action.triggerSuggest', { auto: true });
     });
 
     it.each([

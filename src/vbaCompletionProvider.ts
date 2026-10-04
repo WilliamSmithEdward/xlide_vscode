@@ -217,7 +217,9 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 				hasMatches = Boolean(built && memberCompletionStatus(source, offset, toMemberCompletionContext(built)));
 			}
 			if (hasMatches && isCurrent()) {
-				void vscode.commands.executeCommand('editor.action.triggerSuggest');
+				// Recovery is keyboard-driven, so a subsequent miss should dismiss
+				// suggestions just as it does after typing the member dot.
+				void vscode.commands.executeCommand('editor.action.triggerSuggest', { auto: true });
 			}
 		};
 		// The extension host can receive the edit before the new selection.

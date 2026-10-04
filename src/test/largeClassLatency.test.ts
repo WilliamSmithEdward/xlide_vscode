@@ -12,6 +12,7 @@ import { runRendererBackspaceProbe } from './rendererBackspaceProbe';
 (process.env.XLIDE_PERF_WORKBOOK ? suite : suite.skip)('Actual large class latency', () => {
     let document: vscode.TextDocument;
     let line: number;
+    let wordSuggestions: { config: vscode.WorkspaceConfiguration; previous: unknown } | undefined;
     suiteSetup(async () => {
         await activate();
         const copy = path.join(workspaceRoot(), 'LargeClassLatency.xlsm');
@@ -21,9 +22,16 @@ import { runRendererBackspaceProbe } from './rendererBackspaceProbe';
         writeModule(copy, 'ROneCOne', original + probe, 'class');
         document = await open(encodeModuleUri(copy, 'ROneCOne'));
         line = document.lineCount - 4;
+        const editorConfig = vscode.workspace.getConfiguration('editor', document);
+        console.log('Renderer word suggestions mode:', editorConfig.get('wordBasedSuggestions'));
+        if (process.env.XLIDE_PERF_WORD_SUGGESTIONS === '0') {
+            wordSuggestions = { config: editorConfig, previous: editorConfig.inspect('wordBasedSuggestions')?.workspaceLanguageValue };
+            await editorConfig.update('wordBasedSuggestions', 'off', vscode.ConfigurationTarget.Workspace, true);
+        }
         console.log('Actual class fixture:', JSON.stringify({ characters: original.length, lines: document.lineCount }));
     });
     suiteTeardown(async () => {
+        if (wordSuggestions) { await wordSuggestions.config.update('wordBasedSuggestions', wordSuggestions.previous, vscode.ConfigurationTarget.Workspace, true); }
         if (document?.isDirty) { await document.save(); }
         await closeAllEditors();
     });
@@ -171,7 +179,7 @@ import { runRendererBackspaceProbe } from './rendererBackspaceProbe';
         const cycles = Number(process.env.XLIDE_PERF_RENDERER_CYCLES ?? 24);
         assert.ok(Number.isInteger(cycles) && cycles >= 24 && cycles <= 1000);
         this.timeout(Math.max(120000, cycles * 1200));
-        const result = await runRendererBackspaceProbe('stress', false, undefined, { cycles, hover: true });
+        const result = await runRendererBackspaceProbe('stress', false, undefined, { cycles, hover: true, assertMissHidden: process.env.XLIDE_PERF_WORD_SUGGESTIONS === '0' });
         assert.equal(result.samples?.length, cycles);
         assert.equal(result.hoverSamples?.length, Math.floor(cycles / 16));
         assert.ok(document.lineAt(memberLine).text.endsWith('.cez'));

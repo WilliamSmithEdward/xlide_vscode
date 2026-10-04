@@ -82,7 +82,10 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
         const until = async (check, phase) => {
             const deadline = Date.now() + 4000;
             while (!(await check())) {
-                if (Date.now() > deadline) throw new Error('Expected renderer update did not paint: ' + phase);
+                if (Date.now() > deadline) {
+                    const widgets = await evaluate("Array.from(document.querySelectorAll('.suggest-widget.visible')).map(node => ({ shown: node.checkVisibility({ visibilityProperty: true, opacityProperty: true }), classes: node.className, message: node.querySelector('.message')?.textContent, rows: node.querySelectorAll('.monaco-list-row').length, kinds: Array.from(node.querySelectorAll('.monaco-list-row')).map(row => row.querySelector('.suggest-icon')?.className) }))");
+                    throw new Error('Expected renderer update did not paint: ' + phase + '; widgets=' + JSON.stringify(widgets));
+                }
                 await delay(5);
             }
         };
@@ -117,6 +120,12 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
             // Do not count a stale Cells row from the preceding .ce cycle as
             // successful recovery. The .cez miss must clear it first.
             await until(async () => !(await evaluate("Array.from(document.querySelectorAll('.suggest-widget.visible .monaco-list-row')).some(row => row.checkVisibility({ visibilityProperty: true, opacityProperty: true }) && row.textContent.includes('Cells'))")), 'miss menu invalidation cycle ' + i);
+            // Other providers can have matching rows. They must not leave a
+            // loading/empty message after the keyboard-driven miss settles.
+            await until(async () => !(await evaluate("Array.from(document.querySelectorAll('.suggest-widget.visible.message')).some(node => node.checkVisibility({ visibilityProperty: true, opacityProperty: true }))")), 'miss status-message dismissal cycle ' + i);
+            if (stress.assertMissHidden) {
+                await until(async () => !(await evaluate("Array.from(document.querySelectorAll('.suggest-widget.visible')).some(node => node.checkVisibility({ visibilityProperty: true, opacityProperty: true }))")), 'miss widget dismissal cycle ' + i);
+            }
             samples.push({ idleMs, backspacePaintMs: deleted - before, menuPaintMs, typingPaintMs, missClearMs: Date.now() - missed });
             if (stress.hover && (i + 1) % 16 === 0) { await showHover(); }
         }
@@ -153,7 +162,7 @@ export interface RendererBackspaceResult {
     samples?: { idleMs: number; backspacePaintMs: number; menuPaintMs: number; typingPaintMs: number; missClearMs: number }[];
 }
 
-export async function runRendererBackspaceProbe(mode: 'busy' | 'stress' | 'transition' | 'cleanup', staleCleanupContext = false, cleanup?: { line: number; before: string; after: string[] }, stress = { cycles: 24, hover: false }): Promise<RendererBackspaceResult> {
+export async function runRendererBackspaceProbe(mode: 'busy' | 'stress' | 'transition' | 'cleanup', staleCleanupContext = false, cleanup?: { line: number; before: string; after: string[] }, stress = { cycles: 24, hover: false, assertMissHidden: false }): Promise<RendererBackspaceResult> {
     const port = Number(process.env.XLIDE_UI_DEBUG_PORT);
     assert.ok(Number.isInteger(port) && port >= 1024 && port <= 65535, 'an owned integration renderer debugger port is required');
     const root = workspaceRoot();
