@@ -166,11 +166,17 @@ class IntegerConstantExpressionParser {
 	 */
 	private logical(level: number): number | undefined {
 		if (level === LOGICAL_LEVELS.length) {
-			if (this.acceptWord('not')) {
-				const operand = this.logical(level);
-				return operand === undefined || !isLong(operand) ? undefined : ~operand;
+			// A flat Not chain needs no recursive frames. Keep the range check
+			// even when an even number of operators would cancel each other.
+			if (!this.acceptWord('not')) {
+				return this.expressionInner();
 			}
-			return this.expressionInner();
+			let invert = true;
+			while (this.acceptWord('not')) {
+				invert = !invert;
+			}
+			const operand = this.expressionInner();
+			return operand === undefined || !isLong(operand) ? undefined : invert ? ~operand : operand | 0;
 		}
 		const word = LOGICAL_LEVELS[level];
 		let value = this.logical(level + 1);
