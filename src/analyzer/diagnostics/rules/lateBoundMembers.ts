@@ -18,7 +18,7 @@
 // and no Let raises 451 when assigned, and one with a Let and no Get 450 when
 // read.
 
-import { getExcelObjectModel, type HostObjectModel } from '../../host/excelObjectModel';
+import { getExcelObjectModel, type HostMember, type HostObjectModel } from '../../host/excelObjectModel';
 import { getHostMembers, getHostType } from '../../host/hostModel';
 import type { MemberCompletionContext } from '../../completion/memberAccess';
 import { projectTypeAt, resolveReceiverTypeAt } from '../../completion/memberAccess';
@@ -146,6 +146,7 @@ interface KnownClass {
 }
 
 interface CollectionQueries {
+	hostItem(collection: string, model: HostObjectModel): HostMember | undefined;
 	classNamed: ReturnType<typeof createKnownClassLookup>;
 	itemIncompatible(expected: string | undefined, actual: InferredArgumentType): boolean;
 }
@@ -325,8 +326,23 @@ export function checkRuntimeMemberNotFound(
 	const objectType = createObjectAssignmentTypeResolver(memberCtx);
 	const shareInterfaces = createProjectInterfaceSharingLookup(memberCtx);
 	const implementsType = createObjectTypeImplementationLookup();
+	// Scoped to this pass: host metadata may change between public invocations.
+	let hostItems: WeakMap<HostObjectModel, Map<string, HostMember | undefined>> | undefined;
 	const collectionQueries: CollectionQueries = {
 		classNamed,
+		hostItem: (collection, model) => {
+			hostItems ??= new WeakMap();
+			let items = hostItems.get(model);
+			if (!items) {
+				items = new Map();
+				hostItems.set(model, items);
+			}
+			if (!items.has(collection)) {
+				// Preserve the first exact-case Item, including cached absence.
+				items.set(collection, getHostMembers(collection, model).find((member) => member.name === 'Item'));
+			}
+			return items.get(collection);
+		},
 		// The resolver's omitted-model default is Excel, matching the host-item path.
 		itemIncompatible: (expected, actual) => objectAssignmentIncompatibilityReason(expected, actual, memberCtx, objectType, shareInterfaces, implementsType) !== undefined,
 	};
@@ -479,7 +495,7 @@ function checkCollectionItems(
 		// `For Each c In Worksheets` with c As Range: each sheet is Set into c,
 		// and a sheet is no Range (issue #447, measured in Excel 16.0).
 		const element = expected && loop.sourceExpressionSpan && !held
-			? hostElementType(source, loop.sourceExpressionSpan, env, signatures, sourceNames, memberCtx)
+			? hostElementType(source, loop.sourceExpressionSpan, env, signatures, sourceNames, memberCtx, queries.hostItem)
 			: undefined;
 		if (element && loop.sourceExpressionSpan) {
 			const bare = element.replace(/^\w+\./, '');
@@ -525,6 +541,7 @@ function hostElementType(
 	signatures: ReturnType<typeof buildModuleTypeSignatures>,
 	sourceNames: ReturnType<typeof sourceNameScopeFor>,
 	memberCtx: MemberCompletionContext,
+	hostItem: CollectionQueries['hostItem'],
 ): string | undefined {
 	const toks = rawExpressionTokens(source.slice(span.start, span.end));
 	// The analyzer's default host is Excel: with no model given, its globals still resolve.
@@ -537,7 +554,7 @@ function hostElementType(
 	if (normalizeType(collection) === 'excel.range') {
 		return 'Excel.Range';
 	}
-	const item = getHostMembers(collection, model).find((member) => member.name === 'Item');
+	const item = hostItem(collection, model);
 	const type = item?.returns;
 	return type && type.includes('.') ? type : undefined;
 }
