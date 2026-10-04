@@ -567,6 +567,8 @@ export class ProjectIndex {
 	private readonly moduleStringLiteralWords = new Map<string, ReadonlySet<string>>();
 	/** The names each module's code may write (issue #241), computed when first asked. */
 	private readonly moduleWrittenNames = new Map<string, ReadonlySet<string>>();
+	/** Open-file facts of unchanged modules survive edits elsewhere in the project. */
+	private readonly moduleOpenedFileNumbers = new Map<string, OpenedFileNumbers>();
 	private readonly moduleMentionedNames = new Map<string, ReadonlySet<string>>();
 	/** Whole-project query memo for the current index revision. */
 	private readonly queryCache = new Map<string, unknown>();
@@ -589,6 +591,7 @@ export class ProjectIndex {
 		this.moduleSources.set(key, input.source);
 		this.moduleStringLiteralWords.set(key, stringLiteralWordsIn(input.source));
 		this.moduleWrittenNames.delete(key);
+		this.moduleOpenedFileNumbers.delete(key);
 		this.moduleMentionedNames.delete(key);
 		if (input.implicitMembers !== undefined) {
 			this.moduleImplicitMembersByName.set(key, input.implicitMembers);
@@ -615,6 +618,7 @@ export class ProjectIndex {
 		this.moduleSources.delete(key);
 		this.moduleStringLiteralWords.delete(key);
 		this.moduleWrittenNames.delete(key);
+		this.moduleOpenedFileNumbers.delete(key);
 		this.moduleMentionedNames.delete(key);
 		this.moduleImplicitMembersByName.delete(key);
 		this.modulePredeclaredIdByName.delete(key);
@@ -885,7 +889,18 @@ export class ProjectIndex {
 	 * names a number that is no literal (issue #419).
 	 */
 	openedFileNumbers(): OpenedFileNumbers {
-		return this.cached('openedFileNumbers', () => mergeOpenedFileNumbers([...this.moduleSources.values()].map(openedFileNumbersIn)));
+		return this.cached('openedFileNumbers', () => {
+			const parts: OpenedFileNumbers[] = [];
+			for (const [key, source] of this.moduleSources) {
+				let part = this.moduleOpenedFileNumbers.get(key);
+				if (!part) {
+					part = openedFileNumbersIn(source);
+					this.moduleOpenedFileNumbers.set(key, part);
+				}
+				parts.push(part);
+			}
+			return mergeOpenedFileNumbers(parts);
+		});
 	}
 
 	/**
