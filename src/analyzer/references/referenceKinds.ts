@@ -15,7 +15,7 @@
 
 import { tokenizeCached } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
-import { tokenWord } from '../lexer/tokenHelpers';
+import { firstTokenAtOrAfter, tokenWord } from '../lexer/tokenHelpers';
 
 export type ReferenceKind = 'read' | 'write' | 'readwrite';
 
@@ -342,18 +342,63 @@ export function classifyReferenceKinds(
 	if (offsets.length === 0) { return out; }
 	const wanted = new Set(offsets);
 	const all = tokenizeCached(source);
-	let seg: VbaToken[] = [];
-	const flush = (): void => {
-		if (seg.length > 0) { classifySegment(seg, wanted, out); seg = []; }
-	};
-	for (const t of all) {
-		if (t.kind === 'newline' || t.kind === 'colon') { flush(); continue; }
-		if (t.kind === 'comment') { continue; }
-		seg.push(t);
+	if (wanted.size * 8 >= all.length) {
+		// Dense queries retain the streaming pass rather than sorting offsets
+		// and binary-searching once per reference across the entire module.
+		classifyTokenStream(all, wanted, out);
+	} else {
+		// Sparse queries visit only statements containing exact token starts.
+		// Source order preserves the Map's write ordering; a statement already
+		// classified includes every wanted offset it contains.
+		let coveredThrough = -1;
+		for (const offset of [...wanted].filter(Number.isFinite).sort((a, b) => a - b)) {
+			const index = firstTokenAtOrAfter(all, offset);
+			if (index <= coveredThrough || index === all.length || all[index].start !== offset) { continue; }
+			const kind = all[index].kind;
+			if (kind === 'newline' || kind === 'colon' || kind === 'comment') { continue; }
+			let start = index;
+			while (start > 0 && index - start < 64
+				&& all[start - 1].kind !== 'newline' && all[start - 1].kind !== 'colon') {
+				start--;
+			}
+			if (index - start === 64) {
+				// A long statement would be traversed backward and forward. Use
+				// the streaming pass, resetting earlier sparse results so the
+				// complete Map keeps exactly the streaming insertion order.
+				out.clear();
+				classifyTokenStream(all, wanted, out);
+				break;
+			}
+			const seg: VbaToken[] = [];
+			let end = start;
+			for (; end < all.length; end++) {
+				const token = all[end];
+				if (token.kind === 'newline' || token.kind === 'colon') { break; }
+				if (token.kind !== 'comment') { seg.push(token); }
+			}
+			classifySegment(seg, wanted, out);
+			coveredThrough = end;
+		}
 	}
-	flush();
 	for (const offset of offsets) {
 		if (!out.has(offset)) { out.set(offset, 'read'); }
 	}
 	return out;
+}
+
+/** Shared streaming fallback for dense queries and long statement contexts. */
+function classifyTokenStream(
+	all: readonly VbaToken[],
+	wanted: ReadonlySet<number>,
+	out: Map<number, ReferenceKind>,
+): void {
+	let seg: VbaToken[] = [];
+	const flush = (): void => {
+		if (seg.length > 0) { classifySegment(seg, wanted, out); seg = []; }
+	};
+	for (const token of all) {
+		if (token.kind === 'newline' || token.kind === 'colon') { flush(); continue; }
+		if (token.kind !== 'comment') { seg.push(token); }
+	}
+	flush();
 }
