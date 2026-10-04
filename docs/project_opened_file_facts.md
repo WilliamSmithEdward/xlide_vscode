@@ -4,6 +4,7 @@ ProjectIndex previously rescanned every module for Open file numbers after any e
 
 Validation against f006e788:
 
+- Full unit suite: 719 files passed, seven skipped; 14,325 tests passed, 31 skipped. No failures.
 - Four work-count regressions fail before the fix; the initial-lazy/stable-query control passes. With 2/20/100 modules and three edits to one module, scans decrease from 6/60/300 to three. Addition scans one new module; removal scans none; replacing an unknown number with a literal clears any. Empty-project and case-insensitive replacement/removal behavior are covered.
 - Frozen-input differential: 8,256 corpus sources plus 42 generated resource/activity cases; 33,192 complete project-fact queries per version through initial, edited, removed and empty states all match, with independently checked aggregation/removal controls. All 8,298 complete diagnostic arrays (13,504 findings) match; no internal errors. ASTs and lexer tokens/trivia are frozen.
 - Types and 29 focused checks across five files pass, including file-number diagnostics, project visibility/service and module-state reuse.
