@@ -60,7 +60,7 @@ export function checkClassInstanceValues(
 		const statements: Array<{ span: Span; toks: VbaToken[] }> = [];
 		forEachStatement(member.body, (stmt) => {
 			for (const span of statementAndBranchSpans(stmt)) {
-				statements.push({ span, toks: statementTokensAfterLeadingLabel(source, span).filter((tok) => tok.kind !== 'comment') });
+				statements.push({ span, toks: statementTokensAfterLeadingLabel(source, span) });
 			}
 		}, activity);
 		const instances = new Map<string, Instance>();

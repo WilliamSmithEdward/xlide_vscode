@@ -434,7 +434,7 @@ function checkRecursiveProperty(
 			continue;
 		}
 		if (entry.node.kind === 'WithBlock') {
-			const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, entry.node.span)).filter((tok) => tok.kind !== 'comment');
+			const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, entry.node.span));
 			if (header.length === 2 && selves.has(tokenText(header[1]))) {
 				for (const child of entry.node.body) {
 					if (isLeafStatement(child) && !(child.kind === 'Statement' && child.singleLineIfBranches)) {

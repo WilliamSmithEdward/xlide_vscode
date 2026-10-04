@@ -72,7 +72,7 @@ function checkStatement(
 	needsIndex: (toks: readonly VbaToken[], from: number, to: number) => string | undefined,
 	push: PushFn,
 ): void {
-	const all = statementTokens(source, span).filter((tok) => tok.kind !== 'comment');
+	const all = statementTokens(source, span);
 	const first = firstExecutableTokenIndex(all);
 	const toks = all.slice(first);
 	if (toks.length === 0) {

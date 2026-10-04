@@ -502,7 +502,7 @@ function checkEnumLines(source: string, member: EnumNode, activity: ConditionalA
 		if (activity?.isInactive(line.span)) {
 			continue;
 		}
-		const toks = statementTokens(source, line.span).filter((tok) => tok.kind !== 'comment');
+		const toks = statementTokens(source, line.span);
 		const name = toks[0];
 		if (!name) {
 			continue;

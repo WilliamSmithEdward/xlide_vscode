@@ -67,7 +67,7 @@ export function checkExcelSessionState(
 			if (!isLeafStatement(node)) {
 				return;
 			}
-			const toks = statementTokensAfterLeadingLabel(source, node.span).filter((tok) => tok.kind !== 'comment');
+			const toks = statementTokensAfterLeadingLabel(source, node.span);
 			if (statementLabelDeclaration(source, node.span) || tokenText(toks[0]) === 'gosub') {
 				state.clear();
 			}

@@ -79,7 +79,7 @@ export function checkAccessData(
 		const isRecordset = (lower: string): boolean => ['dao.recordset', 'recordset'].includes(normalizeType(env.get(lower)) ?? '');
 		forEachStatement(member.body, (stmt) => {
 			for (const span of statementAndBranchSpans(stmt)) {
-				checkSqlLiterals(span, statementTokens(source, span).filter((tok) => tok.kind !== 'comment'), isDatabase, push);
+				checkSqlLiterals(span, statementTokens(source, span), isDatabase, push);
 			}
 		}, activity);
 		checkRecordsets(source, member.body, isDatabase, isRecordset, activity, push);
@@ -294,7 +294,7 @@ function checkRecordsets(
 			forget(namesIn(source, node.span));
 			return;
 		}
-		const own = statementTokensAfterLeadingLabel(source, node.span).filter((tok) => tok.kind !== 'comment');
+		const own = statementTokensAfterLeadingLabel(source, node.span);
 		// Inside `With rs`, `!Nm = x` and `.Edit` are rs's (issue #611).
 		const subject = withSubjects[withSubjects.length - 1];
 		const toks = subject && (own[0]?.rawText === '!' || own[0]?.rawText === '.') ? [{ ...own[0], kind: 'identifier' as const, rawText: subject, end: own[0].start }, ...own] : own;
@@ -416,7 +416,7 @@ function checkRecordsets(
 		forget,
 		// `With rs` reads rs, and a body line reaching it by `!` or `.` names it.
 		touches: (stmt) => {
-			const toks = statementTokensAfterLeadingLabel(source, stmt.span).filter((tok) => tok.kind !== 'comment');
+			const toks = statementTokensAfterLeadingLabel(source, stmt.span);
 			if (tokenText(toks[0]) === 'with' && toks.length === 2) {
 				return new Set<string>();
 			}
@@ -428,7 +428,7 @@ function checkRecordsets(
 			if (node.kind !== 'WithBlock') {
 				return;
 			}
-			const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment');
+			const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span));
 			const name = header.length === 2 ? tokenName(header[1]) : undefined;
 			withSubjects.push(name && state.has(name.toLowerCase()) ? name : undefined);
 		},

@@ -69,7 +69,7 @@ export function checkParamArrayUse(
 		};
 		return (stmt) => {
 			for (const span of statementAndBranchSpans(stmt)) {
-				const toks = statementTokensAfterLeadingLabel(source, span).filter((tok) => tok.kind !== 'comment');
+				const toks = statementTokensAfterLeadingLabel(source, span);
 				const head = tokenText(toks[0]);
 				const named = (tok: VbaToken | undefined): boolean => tokenName(tok)?.toLowerCase() === lower;
 				if (head === 'redim') {

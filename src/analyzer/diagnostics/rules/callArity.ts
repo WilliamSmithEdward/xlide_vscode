@@ -180,7 +180,7 @@ function checkUnmodelledArity(
 	memberCtx: MemberCompletionContext,
 	push: PushFn,
 ): void {
-	const toks = statementTokens(source, span).filter((tok) => tok.kind !== 'comment');
+	const toks = statementTokens(source, span);
 	const validate = (signature: string, display: string, nameIndex: number, slots: VbaToken[][]): void => {
 		const call: CallArguments = {
 			name: display,

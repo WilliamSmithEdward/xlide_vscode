@@ -86,7 +86,7 @@ export function checkModuleMemberForms(
 		};
 		const at = (span: Span, from: VbaToken, to: VbaToken): Span => ({ start: span.start + from.start, end: span.start + to.end });
 		const check = (span: Span): void => {
-			const toks = statementTokensAfterLeadingLabel(source, span).filter((tok) => tok.kind !== 'comment');
+			const toks = statementTokensAfterLeadingLabel(source, span);
 			const head = tokenText(toks[0]);
 			const first = head === 'call' ? 1 : 0;
 			const assignAt = COMPARING_HEADS.has(head) || head === 'set' ? -1 : toks.findIndex((tok) => tok.rawText === '=' && tok.kind === 'operator');

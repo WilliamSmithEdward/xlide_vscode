@@ -256,7 +256,7 @@ function mayLeave(source: string, body: readonly BodyNode[], activity: Condition
 }
 
 function tokens(source: string, span: { start: number; end: number }): VbaToken[] {
-	return statementTokensAfterLeadingLabel(source, span).filter((tok) => tok.kind !== 'comment');
+	return statementTokensAfterLeadingLabel(source, span);
 }
 
 function literalOf(toks: readonly VbaToken[]): FunctionResult | undefined {

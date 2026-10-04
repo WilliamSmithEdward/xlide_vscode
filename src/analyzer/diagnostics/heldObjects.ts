@@ -121,7 +121,7 @@ export function heldObjectsAt(
 		if (!isLeafStatement(node)) {
 			return;
 		}
-		const toks = statementTokensAfterLeadingLabel(source, node.span).filter((tok) => tok.kind !== 'comment');
+		const toks = statementTokensAfterLeadingLabel(source, node.span);
 		if (jumpTargetLabelDeclaration(source, node.span) || tokenText(toks[0]) === 'gosub') {
 			forget([...state.classes.keys(), ...state.items.keys()]);
 		}

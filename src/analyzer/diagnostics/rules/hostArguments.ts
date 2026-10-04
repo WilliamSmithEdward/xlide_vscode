@@ -272,7 +272,7 @@ function activeSheetsAt(source: string, proc: ProcedureNode, activity: Condition
 				continue;
 			}
 			if (!isLeafStatement(node)) {
-				const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment');
+				const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span));
 				// The body runs from the state the block is entered with; after
 				// it, what it may have activated is not known.
 				if ('body' in node && Array.isArray(node.body)) {
@@ -289,7 +289,7 @@ function activeSheetsAt(source: string, proc: ProcedureNode, activity: Condition
 			if (notActive.size > 0) {
 				out.set(node, { notActive: new Set(notActive), subject });
 			}
-			const toks = statementTokensAfterLeadingLabel(source, node.span).filter((tok) => tok.kind !== 'comment');
+			const toks = statementTokensAfterLeadingLabel(source, node.span);
 			const words = toks.map((tok) => tok.rawText.toLowerCase());
 			if (words[0] === 'set' && words[2] === '=') {
 				const target = words[1];
@@ -399,7 +399,7 @@ function sheetFactsAt(source: string, proc: ProcedureNode, activity: Conditional
 			if (empty.size > 0 || distinct.size > 0) {
 				out.set(node, { empty: new Set(empty), distinct: new Set(distinct) });
 			}
-			const toks = statementTokensAfterLeadingLabel(source, node.span).filter((tok) => tok.kind !== 'comment');
+			const toks = statementTokensAfterLeadingLabel(source, node.span);
 			const words = toks.map((tok) => tok.rawText.toLowerCase());
 			if (words[0] === 'set' && words[2] === '=') {
 				const target = words[1];
@@ -675,7 +675,7 @@ function checkProtectedSheets(source: string, proc: ProcedureNode, activity: Con
 			if (jumpTargetLabelDeclaration(source, node.span)) {
 				forgetAll();
 			}
-			const toks = statementTokensAfterLeadingLabel(source, node.span).filter((tok) => tok.kind !== 'comment');
+			const toks = statementTokensAfterLeadingLabel(source, node.span);
 			const words = toks.map((tok) => tok.rawText.toLowerCase());
 			const sheet = words[0];
 			const at = (from: number, to: number): Span => ({ start: node.span.start + toks[from].start, end: node.span.start + toks[to].end });
@@ -849,7 +849,7 @@ function newDocumentsAt(source: string, proc: ProcedureNode, activity: Condition
 			if (state.size > 0) {
 				out.set(node, new Map(state));
 			}
-			const toks = statementTokensAfterLeadingLabel(source, node.span).filter((tok) => tok.kind !== 'comment');
+			const toks = statementTokensAfterLeadingLabel(source, node.span);
 			const words = toks.map((tok) => tok.rawText.toLowerCase());
 			// `Set d = Documents.Add` or `Set d = Documents.Add()`, plain.
 			const from = words[0] === 'set' && words[2] === '=' ? (words[3] === 'application' && words[4] === '.' ? 5 : 3) : -1;

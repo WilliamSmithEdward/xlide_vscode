@@ -210,7 +210,7 @@ function checkListAgainstCount(
 		}
 		const spans = statementAndBranchSpans(node);
 		for (const span of spans) {
-			const toks = statementTokens(source, span).filter((tok) => tok.kind !== 'comment');
+			const toks = statementTokens(source, span);
 			listStatement(toks, span, lists, judged && topLevel && spans.length === 1 ? counts : new Map(), counts, push);
 		}
 	};
@@ -345,7 +345,7 @@ function checkPages(
 			// a With over the MultiPage can then reach it unnamed.
 			const spans = isLeafStatement(node) ? statementAndBranchSpans(node) : [blockHeaderLineSpan(source, node.span)];
 			for (const span of spans) {
-				const toks = statementTokens(source, span).filter((tok) => tok.kind !== 'comment');
+				const toks = statementTokens(source, span);
 				const withHeader = !isLeafStatement(node) && tokenText(toks[0]) === 'with';
 				for (let i = 0; i < toks.length; i++) {
 					const control = namedControl(toks, i, candidates);

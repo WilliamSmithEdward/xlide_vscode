@@ -82,7 +82,7 @@ export function checkLockedArrays(
 					}
 				}
 				if (node.kind === 'WithBlock') {
-					const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment');
+					const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span));
 					const lower = tokenName(header[1])?.toLowerCase();
 					if (tokenText(header[0]) === 'with' && lower && dynamic.has(lower) && header[2]?.rawText === '(' && header[header.length - 1]?.rawText === ')') {
 						reportUnlocks(source, node.body as BodyNode[], lower, false, 'the With on its element', activity, push);
@@ -112,7 +112,7 @@ function everyTime(source: string, body: readonly BodyNode[], activity: Conditio
 			}
 			continue;
 		}
-		const toks = statementTokensAfterLeadingLabel(source, node.span).filter((tok) => tok.kind !== 'comment');
+		const toks = statementTokensAfterLeadingLabel(source, node.span);
 		if (LEAVING_HEADS.has(tokenText(toks[0]))) {
 			return out;
 		}

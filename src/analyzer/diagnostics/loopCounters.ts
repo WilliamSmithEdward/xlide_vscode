@@ -152,7 +152,7 @@ function forCounter(
 	if (each || !controlVariable) {
 		return undefined;
 	}
-	const toks = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, span)).filter((tok) => tok.kind !== 'comment');
+	const toks = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, span));
 	const eq = toks.findIndex((tok) => tok.rawText === '=');
 	const to = topLevelWordIndex(toks, 'to', eq + 1);
 	if (eq < 0 || to < 0) {
@@ -203,7 +203,7 @@ function steppedCounter(
 	activity: ConditionalActivityTracker | undefined,
 	zeroAtStart?: (lower: string) => boolean,
 ): { counter: Omit<LoopCounter, 'loopNode'>; body: readonly BodyNode[] } | undefined {
-	const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, span)).filter((tok) => tok.kind !== 'comment');
+	const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, span));
 	let i = tokenText(header[0]) === 'do' ? 1 : tokenText(header[0]) === 'while' ? 0 : -1;
 	const test = tokenText(header[i]);
 	const tested = tokenName(header[i + 1]);

@@ -437,7 +437,7 @@ function firstUseMemberRead(
 		if (!isLeafStatement(node) || statementAndBranchSpans(node).length > 1 || statementLabelDeclarations(source, node.span).length > 0) {
 			return undefined;
 		}
-		const toks = statementTokensAfterLeadingLabel(source, node.span).filter((tok) => tok.kind !== 'comment');
+		const toks = statementTokensAfterLeadingLabel(source, node.span);
 		const head = tokenText(toks[0]);
 		if (STRAIGHT_LINE_ENDS.has(head)) {
 			return undefined;
@@ -1000,7 +1000,7 @@ function checkObjectVariableNotSetStatement(
 	// Nothing that raises 91 (issue #462, measured in Word and PowerPoint
 	// 16.0 on a Range, the Selection and a TextRange).
 	for (const span of branches) {
-		const operandToks = statementTokens(source, span).filter((tok) => tok.kind !== 'comment');
+		const operandToks = statementTokens(source, span);
 		// A Set's `=` is no operator: `Set x = y` reads neither value. Its
 		// value indexed, `Set p = o(1)`, calls o's default member, which
 		// needs o (issue #296, measured in Excel 16.0: 91).
@@ -1561,7 +1561,7 @@ function unsetWithObjectReceiver(
 	elements: ObjectArrayElements,
 ): { name: string; element?: string; span: Span } | undefined {
 	const header = blockHeaderLineSpan(source, node.span);
-	const toks = statementTokensAfterLeadingLabel(source, header).filter((tok) => tok.kind !== 'comment');
+	const toks = statementTokensAfterLeadingLabel(source, header);
 	if (tokenText(toks[0]) !== 'with') {
 		return undefined;
 	}

@@ -550,7 +550,7 @@ class CalleeReader {
 	}
 
 	private tokens(span: Span): VbaToken[] {
-		return statementTokensAfterLeadingLabel(this.source, span).filter((tok) => tok.kind !== 'comment');
+		return statementTokensAfterLeadingLabel(this.source, span);
 	}
 
 	/** Where the statement names the parameter itself, not a member or a named argument. */

@@ -347,7 +347,7 @@ function checkForEachFields(
 		}
 		if (node.kind === 'ForBlock' && node.each && node.sourceExpressionSpan) {
 			const span = node.sourceExpressionSpan;
-			const toks = statementTokens(source, span).filter((tok) => tok.kind !== 'comment');
+			const toks = statementTokens(source, span);
 			const root = typeRootAt(toks, 0, symbols, proc, types, undefined);
 			const step = root ? fieldChain(toks, root, types).at(-1) : undefined;
 			const kind = step && (step.close ?? step.at) === toks.length - 1 ? fieldKind(step, types, isObjectType) : undefined;

@@ -81,7 +81,7 @@ export function checkAddressOfUse(
 		]);
 		forEachStatement(member.body, (stmt) => {
 			for (const span of statementAndBranchSpans(stmt)) {
-				const toks = statementTokens(source, span).filter((tok) => tok.kind !== 'comment');
+				const toks = statementTokens(source, span);
 				toks.forEach((tok, i) => {
 					if (tokenText(tok) !== 'addressof') {
 						return;

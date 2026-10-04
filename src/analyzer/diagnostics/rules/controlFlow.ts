@@ -244,7 +244,7 @@ export function checkReservedLabels(
 			);
 		});
 		forEachStatement(member.body, (stmt) => {
-			const toks = statementTokens(source, stmt.span).filter((tok) => tok.kind !== 'comment');
+			const toks = statementTokens(source, stmt.span);
 			for (let k = 0; k + 1 < toks.length; k++) {
 				const word = tokenText(toks[k]);
 				const jumps = word === 'goto' || word === 'gosub' || (word === 'resume' && tokenText(toks[k + 1]) !== 'next');

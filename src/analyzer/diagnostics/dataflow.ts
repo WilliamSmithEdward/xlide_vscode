@@ -342,7 +342,7 @@ function statementTokensAfterLabel(source: string, node: LeafStatementNode): Vba
 }
 
 function tokensAfterLabel(source: string, span: Span): VbaToken[] {
-	let toks = tokensWithoutLeadingLineNumber(statementTokensCached(source, span)).filter((tok) => tok.kind !== 'comment');
+	let toks = tokensWithoutLeadingLineNumber(statementTokensCached(source, span));
 	if (statementLabelDeclarations(source, span).length > 0 && toks[1]?.rawText === ':') {
 		toks = toks.slice(2);
 	}

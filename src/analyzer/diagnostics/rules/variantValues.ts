@@ -210,7 +210,7 @@ export function checkVariantValueMisuse(
 				}
 				if (node.kind === 'WithBlock') {
 					const header = blockHeaderLineSpan(source, node.span);
-					const toks = statementTokens(source, header).filter((tok) => tok.kind !== 'comment');
+					const toks = statementTokens(source, header);
 					const lower = toks.length === 2 && tokenText(toks[0]) === 'with' ? tokenName(toks[1])?.toLowerCase() : undefined;
 					const first = (node.body as BodyNode[]).find((child) => !isInactiveNode(activity, child) && isLeafStatement(child));
 					const memberFirst = first !== undefined && statementTokens(source, first.span)[0]?.rawText === '.';
