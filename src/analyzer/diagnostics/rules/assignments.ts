@@ -1740,7 +1740,7 @@ function arrayElementTarget(
 	procSym: VbaSymbol | undefined,
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 ): { name: string; label: string; span: Span; valueTokens: VbaToken[]; usesSet: boolean } | undefined {
-	const toks = statementTokens(source, span).filter((tok) => tok.kind !== 'comment');
+	const toks = statementTokens(source, span);
 	let i = firstExecutableTokenIndex(toks);
 	const head = tokenText(toks[i]);
 	if (head === 'set' || head === 'let') {
@@ -1866,27 +1866,27 @@ export function checkSetAssignments(
 			// `Set t = Prompt` with t As MSForms.TextBox and Prompt a Label on
 			// this form (issue #315, measured in Excel 16.0: 13).
 			const controlClass = /^(?:msforms\.)?(textbox|label|listbox|combobox|checkbox|optionbutton|togglebutton|commandbutton|frame|multipage|tabstrip|scrollbar|spinbutton|image)$/i.exec(expected?.trim() ?? '')?.[1]?.toLowerCase();
-			const valueName = target.valueTokens.filter((tok) => tok.kind !== 'comment');
-			const valueControl = controlClass && valueName.length === 1 && tokenName(valueName[0]) && !env.has(tokenName(valueName[0])!.toLowerCase())
-				? formControl(tokenName(valueName[0])!.toLowerCase())
+			// Both target extractors slice significant statement tokens.
+			const value = target.valueTokens;
+			const valueControl = controlClass && value.length === 1 && tokenName(value[0]) && !env.has(tokenName(value[0])!.toLowerCase())
+				? formControl(tokenName(value[0])!.toLowerCase())
 				: undefined;
 			const valueClass = valueControl?.returns?.slice('MSForms.'.length).toLowerCase();
 			if (valueControl && valueClass && valueClass !== controlClass) {
 				push(
 					'assignmentObjectTypeMismatch',
-					`Object assignment to '${target.name}' expects ${expected}, but '${valueName[0].rawText}' is a control of class ${valueControl.returns}. This will raise Run-time error '13': Type mismatch.`,
-					{ start: span.start + valueName[0].start, end: span.start + valueName[0].end },
+					`Object assignment to '${target.name}' expects ${expected}, but '${value[0].rawText}' is a control of class ${valueControl.returns}. This will raise Run-time error '13': Type mismatch.`,
+					{ start: span.start + value[0].start, end: span.start + value[0].end },
 				);
 				return;
 			}
 			// `Set v = 5` is refused whatever v is: a literal is never an object
 			// reference ("Object required", issue #125, measured in Excel 16.0).
-			const literal = target.valueTokens.filter((tok) => tok.kind !== 'comment');
-			if ((!targetType || targetType === 'variant') && literal.length === 1 && isScalarLiteralToken(literal[0])) {
+			if ((!targetType || targetType === 'variant') && value.length === 1 && isScalarLiteralToken(value[0])) {
 				push(
 					'setRequiresObject',
-					`Set assigns an object reference, but ${literal[0].rawText} is a literal value. This is a VBE compile error: Object required.`,
-					{ start: span.start + literal[0].start, end: span.start + literal[0].end },
+					`Set assigns an object reference, but ${value[0].rawText} is a literal value. This is a VBE compile error: Object required.`,
+					{ start: span.start + value[0].start, end: span.start + value[0].end },
 				);
 				return;
 			}
@@ -1915,7 +1915,6 @@ export function checkSetAssignments(
 				);
 				// `Set o = New Flat1` then `Set c = o`: the class an Object holds
 				// is checked as the Set runs (issue #246, measured in Excel 16.0).
-				const value = target.valueTokens.filter((tok) => tok.kind !== 'comment');
 				if (!reason && value.length === 1 && tokenName(value[0])) {
 					heldAt ??= heldObjectsAt(source, member, symbols, activity);
 					const held = heldAt(stmt).classes.get(tokenName(value[0])!.toLowerCase());
@@ -2083,7 +2082,7 @@ function midStatementLiteralTargetViolation(
 	if (toks[close + 1]?.rawText !== '=') {
 		return undefined;
 	}
-	const argToks = toks.slice(parenIndex + 1, close).filter((tok) => tok.kind !== 'comment');
+	const argToks = toks.slice(parenIndex + 1, close);
 	const slots = splitTopLevelTokenGroups(argToks, 0, ',');
 	const target = slots[0];
 	// A number is no more a target than a string is: `Mid(5, 1) = "x"` is a
