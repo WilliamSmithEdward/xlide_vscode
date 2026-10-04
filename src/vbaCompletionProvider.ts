@@ -13,6 +13,7 @@
 // Extracted verbatim from vbaMemberCompletion.ts (audit #27).
 
 import * as vscode from 'vscode';
+import { completionLineCursorContext } from './analyzer/completion/cursorContext';
 import { macroNameStringMayResolveAt } from './analyzer/completion/macroNames';
 import { hasDocContent, renderDocMarkdown } from './analyzer/docs/docModel';
 import { isVbaDocument } from './xlideFileSystem';
@@ -36,7 +37,6 @@ import {
 	resolveKeywordCompletions,
 	resolveMemberCompletions,
 	memberCompletionStatus,
-	completionCursorContext,
 	resolveProcedureLabelCompletions,
 	resolveTypeCompletions,
 	spaceTriggerMayComplete,
@@ -195,7 +195,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 			if (!isCurrent()) { return; }
 			const source = document.getText();
 			const offset = document.offsetAt(expectedCaret);
-			const cursor = completionCursorContext(source, offset);
+			const cursor = completionLineCursorContext(source, offset);
 			if (cursor.inComment || cursor.inString) { return; }
 			const cachedProjectCtx = this._projectContext.cachedEditorProjectContext(document);
 			const projectCtx = cachedProjectCtx ?? this._projectContext.cheapEditorProjectContext(document);
@@ -299,15 +299,15 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 
 		const source = document.getText();
 		const offset = document.offsetAt(position);
-		if (completionCursorContext(source, offset).inComment) {
+		if (completionLineCursorContext(source, offset).inComment) {
 			return new vscode.CompletionList(directiveItems, false);
 		}
-		if (completionCursorContext(source, offset).inString && !macroNameStringMayResolveAt(source, offset)) {
+		if (completionLineCursorContext(source, offset).inString && !macroNameStringMayResolveAt(source, offset)) {
 			return new vscode.CompletionList([], false);
 		}
 		const range = this._completionRange(document, position, source, offset);
 		const bracketedMember = document.lineAt(range.start.line).text[range.start.character] === '['
-			&& completionCursorContext(source, offset).significantTokens.at(-2)?.rawText === '.';
+			&& completionLineCursorContext(source, offset).significantTokens.at(-2)?.rawText === '.';
 		let insertParens: boolean | undefined;
 		const shouldInsertParens = (): boolean =>
 			insertParens ??= !/^[ \t]*\(/.test(document.lineAt(range.end.line).text.slice(range.end.character))
@@ -316,7 +316,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 		const cachedProjectCtx = this._projectContext.cachedEditorProjectContext(document);
 		const bareIdentifierStatement = /^[ \t]*[\p{L}_][\p{L}\p{M}\p{N}_]*[$%&!#@^]?$/u.test(
 			document.lineAt(position.line).text.slice(0, position.character),
-		) && completionCursorContext(source, offset).statementStart === document.offsetAt(new vscode.Position(position.line, 0));
+		) && completionLineCursorContext(source, offset).statementStart === document.offsetAt(new vscode.Position(position.line, 0));
 		const fastProjectCtx = cachedProjectCtx ?? this._projectContext.localEditorProjectContext(document, source, bareIdentifierStatement);
 		if (!cachedProjectCtx) {
 			this._projectContext.warmEditorProjectContext(document, source);
@@ -347,7 +347,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 		}
 		// Ordinary strings are never code completion positions, including
 		// manual requests and typing within an already-open string.
-		if (completionCursorContext(source, offset).inString) {
+		if (completionLineCursorContext(source, offset).inString) {
 			return new vscode.CompletionList([], false);
 		}
 		// A quote opens or closes any other string, where nothing is offered.
@@ -677,7 +677,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 		offset: number,
 	): vscode.Range {
 		const line = document.lineAt(position.line).text;
-		const tokens = completionCursorContext(source, offset).significantTokens;
+		const tokens = completionLineCursorContext(source, offset).significantTokens;
 		const last = tokens[tokens.length - 1];
 		if (last?.kind === 'bracketedIdentifier' && last.end === offset) {
 			const start = position.character - (offset - last.start);
