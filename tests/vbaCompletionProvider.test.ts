@@ -166,3 +166,14 @@ describe('completion provider surface', () => {
         expect(callableCompletionShouldInsertParens).toHaveBeenCalledTimes(1);
     });
 });
+
+
+describe('ordinary string completion work', () => {
+    it.each(['value = "ordinary', 'obj.Caption = "ordinary', 'obj.Configure caption:="ordinary', 'Application.Run "Main.Go"'])('skips project context work at %s', async line => {
+        const request = prepareRequest(line);
+        expect((await request.run()).items).toEqual([]);
+        expect(request.projectContext.cachedEditorProjectContext).not.toHaveBeenCalled();
+        expect(request.projectContext.localEditorProjectContext).not.toHaveBeenCalled();
+        expect(request.projectContext.warmEditorProjectContext).not.toHaveBeenCalled();
+    });
+});

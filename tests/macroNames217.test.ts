@@ -2,7 +2,7 @@
 // and a framework's wiring such as ReDim's `.OnClick "Demo.BuildReport"`.
 
 import { describe, expect, it } from 'vitest';
-import { macroNameCandidates, macroNameStringAt, macroNameTarget, resolveMacroNameCompletions } from '../src/analyzer/completion/macroNames';
+import { macroNameStringMayResolveAt, macroNameCandidates, macroNameStringAt, macroNameTarget, resolveMacroNameCompletions } from '../src/analyzer/completion/macroNames';
 import { resolveHover } from '../src/analyzer/hover/resolveHover';
 import { buildVbaProjectIndex, projectAnalysisOptionsForModule, projectProcedureSignatures } from '../src/vbaProjectAnalysis';
 import { resolveSignatureHelp, type SignatureHelpContext } from '../src/analyzer/signature/signatureHelp';
@@ -89,4 +89,23 @@ describe('a string that names a procedure (issue #217)', () => {
 		expect(macroNameTarget('buildreport', ctx)?.moduleName).toBe('Demo');
 		expect(macroNameTarget('Other.BuildReport', ctx)).toBeUndefined();
 	});
+});
+
+
+describe('cheap macro string syntax classification', () => {
+    it.each([
+        ['value = "text', false],
+        ['Caption:="text', false],
+        ['handlerProc:="Go', true],
+        ['Procedure:="Go', true],
+        ['obj.OnAction = "Go', true],
+        ['Application.Run "Go', true],
+        ['obj.Configure "Go', true],
+        ['Application.Run "Go"', false],
+        ['Application.Run "Go"""', false],
+        ['Application.Run "Go""', true],
+    ])('classifies %s conservatively', (line, expected) => {
+        const source = 'Sub Demo()\n' + line + '\nEnd Sub';
+        expect(macroNameStringMayResolveAt(source, source.indexOf(line) + line.length)).toBe(expected);
+    });
 });

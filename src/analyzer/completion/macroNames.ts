@@ -85,6 +85,28 @@ export function macroNameStringAt(source: string, offset: number, ctx: Signature
 	return name && MACRO_PARAMETER.test(name) ? { text, contentSpan } : undefined;
 }
 
+/** Reject definite non-macro string positions before building editor project facts.
+ * Positional call arguments remain possible until their signature is known. */
+export function macroNameStringMayResolveAt(source: string, offset: number): boolean {
+	const tokens = tokenizeCached(source);
+	const index = firstTokenEndingAtOrAfter(tokens, offset);
+	const token = tokens[index];
+	if (!token || token.kind !== 'stringLiteral' || offset <= token.start || offset > token.end) {
+		return false;
+	}
+	const closed = /^"(?:[^"]|"")*"$/.test(token.rawText);
+	if (closed && offset > token.end - 1) { return false; }
+	const before = previous(tokens, index)?.rawText.toLowerCase();
+	if (before === '=') {
+		return previous(tokens, index - 1)?.rawText.toLowerCase() === 'onaction';
+	}
+	if (before === ':=') {
+		const parameter = previous(tokens, index - 1);
+		return !!parameter && MACRO_PARAMETER.test(parameter.rawText);
+	}
+	return true;
+}
+
 /** The project procedures a macro-name string can name, `Module.Proc`, Declares and class modules left out. */
 export function macroNameCandidates(ctx: SignatureHelpContext): MacroNameCandidate[] {
 	const out = new Map<string, MacroNameCandidate>();

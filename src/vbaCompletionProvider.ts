@@ -13,6 +13,7 @@
 // Extracted verbatim from vbaMemberCompletion.ts (audit #27).
 
 import * as vscode from 'vscode';
+import { macroNameStringMayResolveAt } from './analyzer/completion/macroNames';
 import { hasDocContent, renderDocMarkdown } from './analyzer/docs/docModel';
 import { isVbaDocument } from './xlideFileSystem';
 import { leadingWhitespace } from './vbaSourceScan';
@@ -295,6 +296,9 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 		const offset = document.offsetAt(position);
 		if (completionCursorContext(source, offset).inComment) {
 			return new vscode.CompletionList(directiveItems, false);
+		}
+		if (completionCursorContext(source, offset).inString && !macroNameStringMayResolveAt(source, offset)) {
+			return new vscode.CompletionList([], false);
 		}
 		const range = this._completionRange(document, position, source, offset);
 		const bracketedMember = document.lineAt(range.start.line).text[range.start.character] === '['
