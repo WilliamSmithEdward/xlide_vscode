@@ -24,6 +24,24 @@ beforeEach(() => {
 afterEach(() => explorers.forEach(explorer => explorer.dispose()));
 
 describe('module rows across targeted project relisting', () => {
+    it('refreshes git badges without reading 1000 modules in another project', async () => {
+        const other = 'C:/work/Other.vbp';
+        host.findFiles.mockResolvedValue([{ scheme: 'file', fsPath: BOOK }, { scheme: 'file', fsPath: other }]);
+        const list = vi.fn().mockResolvedValueOnce([{ name: 'Main', type: 'standard' }])
+            .mockResolvedValueOnce(Array.from({ length: 1000 }, (_, i) => ({ name: `Other${i}`, type: 'standard' })));
+        const explorer = create(list), [project, second] = await explorer.getChildren();
+        const own = await explorer.getChildren(project), unaffected = await explorer.getChildren(second);
+        const reads = vi.fn(() => other);
+        for (const module of unaffected) { Object.defineProperty(module, 'filePath', { get: reads }); }
+        const fired: unknown[] = [];
+        const listener = explorer.onDidChangeTreeData(node => fired.push(node));
+        explorer.refreshGitMarks(BOOK.toUpperCase().replaceAll('/', '\\'));
+        listener.dispose();
+        expect(fired).toEqual([...own, project]);
+        expect(reads).not.toHaveBeenCalled();
+        expect(list).toHaveBeenCalledTimes(2);
+    });
+
     it('does not inspect another project while pruning removed modules', async () => {
         const other = 'C:/work/Other.vbp';
         host.findFiles.mockResolvedValue([{ scheme: 'file', fsPath: BOOK }, { scheme: 'file', fsPath: other }]);
