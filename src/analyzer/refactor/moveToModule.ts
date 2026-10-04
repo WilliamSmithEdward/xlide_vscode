@@ -3,6 +3,7 @@ import type { ModuleNode, ProcedureNode, Span } from '../parser/nodes';
 import { procedureAtOffset } from '../parser/nodes';
 import { detectEol, lineStartAtAnyBreak, lineEndAtOrAfter, stripVba } from '../../vbaSourceScan';
 import {
+	applyVbaTextEdits,
 	refactor,
 	refuse,
 	type VbaRefactorModuleEdits,
@@ -74,8 +75,14 @@ export function moveToModule(input: MoveToModuleInput): VbaRefactorResult {
 	// Its doc comment and directives go with it: left behind, they would
 	// document the procedure that came next.
 	const start = attachedCommentsStart(source, procedure.span.start);
-	const moved = source.slice(start, procedure.span.end).replace(/\s+$/, '');
-	const edits: VbaTextEdit[] = [{ span: removalSpan(source, { start, end: procedure.span.end }), newText: '' }];
+	const here = qualifiedCallEdits(source, input.moduleName, procedure.name, input.targetModuleName);
+	// Repoint references inside the copied procedure before inserting it. Those
+	// edits belong to the destination text, not to the removed source range.
+	const movedEdits = here.filter(edit => edit.span.start >= start && edit.span.end <= procedure.span.end)
+		.map(edit => ({span: {start: edit.span.start - start, end: edit.span.end - start}, newText: edit.newText}));
+	const moved = applyVbaTextEdits(source.slice(start, procedure.span.end), movedEdits).replace(/\s+$/, '');
+	const removal = removalSpan(source, { start, end: procedure.span.end });
+	const edits: VbaTextEdit[] = [{ span: removal, newText: '' }, ...here.filter(edit => edit.span.end <= removal.start || edit.span.start >= removal.end)];
 
 	const otherModules: VbaRefactorModuleEdits[] = [{
 		moduleName: input.targetModuleName,
@@ -86,8 +93,6 @@ export function moveToModule(input: MoveToModuleInput): VbaRefactorResult {
 	}];
 
 	// Qualified calls, wherever they are, including the module it leaves.
-	const here = qualifiedCallEdits(source, input.moduleName, procedure.name, input.targetModuleName);
-	edits.push(...here);
 	for (const [name, otherSource] of Object.entries(input.otherModuleSources)) {
 		if (name.toLowerCase() === input.moduleName.toLowerCase()) {
 			continue;
@@ -127,9 +132,17 @@ function qualifiedCallEdits(
 		'gi',
 	);
 	const out: VbaTextEdit[] = [];
+	let cachedStart = -1, cachedEnd = -1;
+	let masked = '';
 	for (const match of source.matchAll(pattern)) {
 		const at = match.index ?? 0;
-		if (isInsideCommentOrString(source, at)) {
+		// Matches ascend, so every physical line is located and masked once.
+		if (at >= cachedEnd) {
+			cachedStart = lineStartAtAnyBreak(source, at);
+			cachedEnd = lineEndAtOrAfter(source, at);
+			masked = stripVba(source.slice(cachedStart, cachedEnd));
+		}
+		if (masked[at - cachedStart] === ' ') {
 			continue;
 		}
 		out.push({ span: { start: at, end: at + match[1].length }, newText: toModule });
@@ -187,15 +200,4 @@ function removalSpan(source: string, span: Span): Span {
 		end += after[0].length;
 	}
 	return { start, end };
-}
-
-/**
- * `stripVba` blanks comments and string bodies in place, keeping every column,
- * so a character that was there and is now a space was inside one of them.
- */
-function isInsideCommentOrString(source: string, offset: number): boolean {
-	const lineStart = lineStartAtAnyBreak(source, offset);
-	const line = source.slice(lineStart, lineEndAtOrAfter(source, offset));
-	const column = offset - lineStart;
-	return line[column] !== ' ' && stripVba(line)[column] === ' ';
 }
