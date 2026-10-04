@@ -33,7 +33,7 @@ function setup() {
 }
 
 beforeEach(() => { vi.mocked(buildLiveVbaProjectIndexAsync).mockReset(); vi.mocked(buildLiveVbaProjectIndex).mockClear(); });
-afterEach(() => { vi.restoreAllMocks(); });
+afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 
 describe('editor completion context loading races', () => {
     it('keeps current-module macros separate from external bare-call procedures', () => {
@@ -136,13 +136,16 @@ describe('editor completion context loading races', () => {
         expect(service.cachedEditorProjectContext(doc)?.projectTypes?.map(type => type.name)).toContain('NewType');
     });
     it('warms the latest document version even while a previous build is pending', async () => {
+        vi.useFakeTimers();
         const { doc, service } = setup();
         const oldLoad = pending<ReturnType<typeof project>>();
         const newLoad = pending<ReturnType<typeof project>>();
         vi.mocked(buildLiveVbaProjectIndexAsync).mockReturnValueOnce(oldLoad.promise).mockReturnValueOnce(newLoad.promise);
         service.warmEditorProjectContext(doc, 'old');
+        await vi.advanceTimersByTimeAsync(0);
         (doc as unknown as { version: number }).version++;
         service.warmEditorProjectContext(doc, 'new');
+        await vi.advanceTimersByTimeAsync(0);
         expect(buildLiveVbaProjectIndexAsync).toHaveBeenCalledTimes(2);
         oldLoad.resolve(project('OldType')); newLoad.resolve(project('NewType'));
         await service.buildEditorProjectContextWithin(doc, '', 1000);
