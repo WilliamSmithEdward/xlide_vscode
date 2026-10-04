@@ -10,6 +10,7 @@ import {
 } from './refactorTypes';
 import { assignmentAt, localDeclaration, localUsesIn, nameAt, walkBody, blankStringLiterals } from './shared';
 import { callSitesOf } from './callSites';
+import { procedureCallBinding } from './procedureCallBinding';
 import { statementRemovalSpan, mergeRemovals } from './shared';
 import { identifiersIn } from '../lexer/tokenHelpers';
 
@@ -106,7 +107,9 @@ export function introduceParameter(input: IntroduceParameterInput): VbaRefactorR
 		{ span: statementRemovalSpan(source, assignment.span), newText: '' },
 	];
 
-	const here = callSitesOf(source, procedure.name, { skip: procedure.span });
+	const accepts = procedureCallBinding(source, input.moduleName, procedure, input.otherModuleSources ?? {});
+	const here = callSitesOf(source, procedure.name, { skip: procedure.span })
+		.filter(site => accepts(input.moduleName, source, site));
 	for (const site of here) {
 		edits.push({ span: site.argumentInsert, newText: site.argumentText(value, name) });
 	}
@@ -116,7 +119,8 @@ export function introduceParameter(input: IntroduceParameterInput): VbaRefactorR
 		if (otherName.toLowerCase() === input.moduleName.toLowerCase()) {
 			continue;
 		}
-		const sites = callSitesOf(otherSource, procedure.name, { qualifier: input.moduleName });
+		const sites = callSitesOf(otherSource, procedure.name, { qualifier: input.moduleName })
+			.filter(site => accepts(otherName, otherSource, site));
 		if (sites.length > 0) {
 			otherModules.push({
 				moduleName: otherName,
