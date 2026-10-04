@@ -23,8 +23,16 @@ export function procedureContainingSpan(module: ModuleNode, span: Span): Procedu
 
 /** The identifier the caret is inside, if any. */
 export function nameAt(source: string, offset: number): string | undefined {
-	const before = /[\p{L}_][\p{L}\p{M}\p{N}_]*$/u.exec(source.slice(0, offset));
-	const after = /^[\p{L}\p{M}\p{N}_]*/u.exec(source.slice(offset));
+	// Identifiers cannot cross a physical line break. Bound both regex inputs
+	// to this line rather than scanning every earlier identifier in a large
+	// class whenever typing triggers code actions.
+	// Normalize exactly as String.slice does, including negative offsets.
+	const integerOffset = Math.trunc(offset) || 0;
+	const caret = integerOffset < 0 ? Math.max(0, source.length + integerOffset) : Math.min(source.length, integerOffset);
+	const start = lineStartAtAnyBreak(source, caret);
+	const end = lineEndAtOrAfter(source, caret);
+	const before = /[\p{L}_][\p{L}\p{M}\p{N}_]*$/u.exec(source.slice(start, caret));
+	const after = /^[\p{L}\p{M}\p{N}_]*/u.exec(source.slice(caret, end));
 	const name = `${before?.[0] ?? ''}${after?.[0] ?? ''}`;
 	return IDENT_RE.test(name) ? name : undefined;
 }

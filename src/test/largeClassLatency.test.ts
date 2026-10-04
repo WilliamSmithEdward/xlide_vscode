@@ -93,4 +93,25 @@ import { encodeModuleUri } from '../xlideFileSystem';
         assert.match(await hoverText(), /LatencyValue As Double/);
         console.log('Actual large class hover latency:', JSON.stringify({ warmMs, editAttempts, editToHoverMs: performance.now() - beforeEdit }));
     });
+    test('records code actions after typing at a large-class caret', async () => {
+        const actionsAtCaret = async () => {
+            const caret = document.lineAt(line).range.end;
+            const actions = await vscode.commands.executeCommand<vscode.CodeAction[]>(
+                'vscode.executeCodeActionProvider', document.uri, new vscode.Range(caret, caret));
+            assert.ok(actions?.some(action => action.command?.command === 'xlide.refactor.introduceParameter'));
+        };
+        const warmStart = performance.now();
+        await actionsAtCaret();
+        const warmMs = performance.now() - warmStart;
+        const editStart = performance.now();
+        let edited = false, editAttempts = 0;
+        for (; editAttempts < 3 && !edited; editAttempts++) {
+            const caret = document.lineAt(line).range.end;
+            edited = await vscode.window.activeTextEditor!.edit(edit => edit.insert(caret, ' '));
+        }
+        assert.ok(edited);
+        await actionsAtCaret();
+        console.log('Actual large class code action latency:', JSON.stringify({ warmMs, editAttempts, editToActionsMs: performance.now() - editStart }));
+    });
+
 });
