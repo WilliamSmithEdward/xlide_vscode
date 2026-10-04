@@ -259,6 +259,7 @@ export function toEventHandlerCompletionContext(ctx: EditorProjectContext): Even
 }
 
 export class VbaEditorProjectContextService {
+	private _localContextCache = new WeakMap<vscode.TextDocument, { version: number; source: string; context: EditorProjectContext }>();
 	private readonly _projectContextCache = new Map<string, CachedEditorProjectContext>();
 	private readonly _projectContextBuilds = new Map<string, EditorProjectContextBuild>();
 
@@ -266,6 +267,7 @@ export class VbaEditorProjectContextService {
 
 	/** Drop derived editor contexts for a project (e.g. after a project change). */
 	invalidate(projectPath?: string): void {
+		this._localContextCache = new WeakMap();
 		if (projectPath === undefined) {
 			this._projectContextCache.clear();
 			this._projectContextBuilds.clear();
@@ -492,6 +494,19 @@ export class VbaEditorProjectContextService {
 	}
 
 	localEditorProjectContext(
+		document: vscode.TextDocument,
+		source: string,
+	): EditorProjectContext {
+		const cached = this._localContextCache.get(document);
+		if (cached?.version === document.version && cached.source === source) {
+			return cached.context;
+		}
+		const context = this._computeLocalEditorProjectContext(document, source);
+		this._localContextCache.set(document, { version: document.version, source, context });
+		return context;
+	}
+
+	private _computeLocalEditorProjectContext(
 		document: vscode.TextDocument,
 		source: string,
 	): EditorProjectContext {

@@ -204,6 +204,10 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 		const source = document.getText();
 		const offset = document.offsetAt(position);
 		const range = this._completionRange(document, position);
+		// The insertion policy is identical for every row in this request.
+		let insertParens: boolean | undefined;
+		const shouldInsertParens = (): boolean =>
+			insertParens ??= callableCompletionShouldInsertParens(source, offset);
 
 		const quickTypes = resolveTypeCompletions(source, offset, {});
 		if (quickTypes.length > 0) {
@@ -250,7 +254,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 
 		const fastMembers = resolveMemberCompletions(source, offset, toMemberCompletionContext(fastProjectCtx));
 		if (fastMembers.length > 0) {
-			return list(fastMembers.map((mem) => this._toItem(mem, range, source, offset)));
+			return list(fastMembers.map((mem) => this._toItem(mem, range, shouldInsertParens)));
 		}
 
 		const fastEvents = resolveEventHandlerCompletions(source, offset, toEventHandlerCompletionContext(fastProjectCtx));
@@ -289,7 +293,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 		const memberCtx = toMemberCompletionContext(projectCtx);
 		const members = resolveMemberCompletions(source, offset, memberCtx);
 		if (members.length > 0) {
-			return list(members.map((mem) => this._toItem(mem, range, source, offset)));
+			return list(members.map((mem) => this._toItem(mem, range, shouldInsertParens)));
 		}
 
 		const eventCtx = toEventHandlerCompletionContext(projectCtx);
@@ -333,7 +337,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 			...(argumentValues?.constants ?? []).map(
 				(constant) => this._toArgumentValueItem(constant, argumentValues!, range),
 			),
-			...idents.map((id) => this._toIdentItem(id, range, source, offset)),
+			...idents.map((id) => this._toIdentItem(id, range, shouldInsertParens)),
 			...keywords.items.map((item) => this._toKeywordItem(item, range, document)),
 		]);
 	}
@@ -375,8 +379,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 	private _toItem(
 		mem: MemberCompletion,
 		range: vscode.Range,
-		source: string,
-		offset: number,
+		shouldInsertParens: () => boolean,
 	): vscode.CompletionItem {
 		const item = new vscode.CompletionItem(mem.name, this._memberItemKind(mem));
 		const ownerName = getHostType(mem.owner)?.displayName ?? mem.owner;
@@ -398,7 +401,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 			mem.name,
 			range,
 			mem.kind === 'method',
-			callableCompletionShouldInsertParens(source, offset),
+			mem.kind === 'method' && shouldInsertParens(),
 		);
 		if (mem.kind !== 'method') {
 			item.insertText = memberNameAsWritten(mem.name);
@@ -479,8 +482,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 	private _toIdentItem(
 		id: IdentifierCompletion,
 		range: vscode.Range,
-		source: string,
-		offset: number,
+		shouldInsertParens: () => boolean,
 	): vscode.CompletionItem {
 		const item = new vscode.CompletionItem(id.name, this._identItemKind(id));
 		item.detail = id.detail;
@@ -493,7 +495,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 			id.name,
 			range,
 			callable,
-			callableCompletionShouldInsertParens(source, offset),
+			callable && shouldInsertParens(),
 		);
 		return item;
 	}

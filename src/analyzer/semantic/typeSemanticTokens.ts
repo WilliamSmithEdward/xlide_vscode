@@ -478,8 +478,19 @@ export function typeReferenceLookupName(hit: TypeNameReference): string {
 	return hit.qualifier ? `${hit.qualifier}.${hit.name}` : hit.name;
 }
 
-export function collectTypeNameReferences(source: string): TypeNameReference[] {
-	return collectModule(source, parseModule(source));
+// Source-only facts follow the cached AST lifetime; project type resolution
+// still runs against the current context on every lookup.
+const TYPE_REFERENCES = new WeakMap<ModuleNode, readonly TypeNameReference[]>();
+
+/** Source-ordered type spans. Callers must not mutate the shared references. */
+export function collectTypeNameReferences(source: string): readonly TypeNameReference[] {
+	const module = parseModule(source);
+	let references = TYPE_REFERENCES.get(module);
+	if (!references) {
+		references = collectModule(source, module);
+		TYPE_REFERENCES.set(module, references);
+	}
+	return references;
 }
 
 // Token words that put the following identifier in a TYPE position, where a
@@ -876,9 +887,19 @@ export function resolveTypeReferenceAt(
 	offset: number,
 	ctx: TypeCompletionContext = {},
 ): ResolvedTypeReference | undefined {
-	const hit = collectTypeNameReferences(source).find(
-		(candidate) => offset >= candidate.span.start && offset <= candidate.span.end,
-	);
+	const references = collectTypeNameReferences(source);
+	let lo = 0;
+	let hi = references.length;
+	while (lo < hi) {
+		const mid = lo + Math.floor((hi - lo) / 2);
+		if (references[mid].span.end < offset) {
+			lo = mid + 1;
+		} else {
+			hi = mid;
+		}
+	}
+	const candidate = references[lo];
+	const hit = candidate && offset >= candidate.span.start ? candidate : undefined;
 	if (!hit) {
 		return undefined;
 	}
