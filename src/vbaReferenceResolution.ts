@@ -138,7 +138,10 @@ export function sourceMemberDefinitionsAt(
         codeNames: codeNamesForModules(modules),
         meType: meHostTypeForModule(currentModuleName, currentModuleType, currentDocumentType),
         meProjectType: meProjectTypeForModule(currentModuleName, currentModuleType),
-        projectClassMembers: project.projectMemberSurfaces(currentModuleName),
+        // Bare names return before the resolver needs project member surfaces.
+        get projectClassMembers() {
+            return project.projectMemberSurfaces(currentModuleName, { includeClassValueFacts: false });
+        },
     });
 }
 
@@ -148,8 +151,9 @@ export function projectClassMemberAtDefinition(
     moduleName: string,
     memberName: string,
     offset: number,
+    options: { includeClassValueFacts?: boolean } = {},
 ): VbaProjectClassMember | undefined {
-    for (const type of project.projectMemberSurfaces(moduleName)) {
+    for (const type of project.projectMemberSurfaces(moduleName, options)) {
         if (type.moduleName.toLowerCase() !== moduleName.toLowerCase()) {
             continue;
         }
@@ -209,7 +213,7 @@ function projectMemberDefinitionsForSymbols(
     const lower = name.toLowerCase();
     const out: VbaProjectClassMemberDefinition[] = [];
     const seen = new Set<string>();
-    for (const surface of project.projectMemberSurfaces(moduleName)) {
+    for (const surface of project.projectMemberSurfaces(moduleName, { includeClassValueFacts: false })) {
         for (const member of surface.members) {
             if (member.name.toLowerCase() !== lower) { continue; }
             for (const def of member.definitions ?? []) {
@@ -272,7 +276,7 @@ function memberAccessReferences(
             memberSurfaceCache: new Map(),
             meType: meHostTypeForModule(mod.moduleName, mod.type, mod.documentType),
             meProjectType: meProjectTypeForModule(mod.moduleName, mod.type),
-            projectClassMembers: project.projectMemberSurfaces(mod.moduleName),
+            projectClassMembers: project.projectMemberSurfaces(mod.moduleName, { includeClassValueFacts: false }),
             // Let the resolver copy only the current logical statement's tokens.
             sourceTokens: tokenizeCached(mod.source).filter((t) => t.kind !== 'comment'),
         };
@@ -371,6 +375,58 @@ function dedupeReferences(spans: readonly ReferenceSpan[]): ReferenceSpan[] {
     return out;
 }
 
+/** A procedure-local target never has source-backed member-access definitions. */
+function collectProcedureLocalReferences(
+    byModule: Map<string, VbaModuleSymbols>,
+    project: ProjectIndex,
+    source: string,
+    scope: ReferenceScope,
+    word: string,
+    includeDeclaration: boolean,
+): SymbolReferenceResult | undefined {
+    const span = scope.procedureSpan;
+    const mod = byModule.get(scope.searchModules[0]?.toLowerCase() ?? '');
+    if (!span || !mod || mod.source !== source
+        || span.start < 0 || span.end > source.length || span.start >= span.end) {
+        return undefined;
+    }
+    // A cached short substring may retain the entire module behind it. Keep
+    // its stripping ephemeral; the lexer cache already has a fixed entry cap.
+    const localSource = source.slice(span.start, span.end);
+    const starts = lineStartOffsets(source);
+    const baseLine = lineIndexOf(starts, span.start);
+    const baseColumn = span.start - starts[baseLine];
+    const wanted = new Set(scope.definitions.map(symbolKey));
+    const references: ReferenceSpan[] = [];
+    const offsets: number[] = [];
+    const ambiguous: ReferenceSpan[] = [];
+    const declarationOffsets = new Set(scope.definitions.map((definition) => definition.nameSpan.start));
+    for (const occurrence of findIdentifierOccurrences(localSource, word, undefined, { cacheStrippedSource: false })) {
+        const offset = span.start + occurrence.offset;
+        if (precededByMemberAccessDot(source, offset)) { continue; }
+        const resolved = project.resolveBareIdentifier(mod.moduleName, word, offset, 'expression');
+        const reference: ReferenceSpan = {
+            moduleName: mod.moduleName,
+            line: baseLine + occurrence.line,
+            column: occurrence.column + (occurrence.line === 0 ? baseColumn : 0),
+            length: word.length,
+        };
+        if (resolved.definitions.length === 0
+            || !resolved.definitions.every((definition) => wanted.has(symbolKey(definition)))) {
+            if (resolved.definitions.some((definition) => wanted.has(symbolKey(definition)))) {
+                ambiguous.push(reference);
+            }
+            continue;
+        }
+        if (!includeDeclaration && declarationOffsets.has(offset)) { continue; }
+        references.push(reference);
+        offsets.push(occurrence.offset);
+    }
+    const kinds = classifyReferenceKinds(localSource, offsets);
+    references.forEach((reference, index) => { reference.kind = kinds.get(offsets[index]) ?? 'read'; });
+    return { references, hasSymbol: scope.definitions.length > 0, ambiguous: dedupeReferences(ambiguous) };
+}
+
 /**
  * Unified reference/rename resolution. See the file header for the model.
  */
@@ -396,14 +452,24 @@ export function collectSymbolReferences(
         current?.type,
         current?.documentType,
     );
+    const scope = project.referenceScope(moduleName, word, positionOffset);
+    // Function/Property result variables share the callable's declaration;
+    // they must also collect member-access references to that callable.
+    if (entryMemberDefinitions.length === 0 && scope.kind === 'local'
+        && scope.definitions.length > 0
+        && scope.definitions.every((definition) => definition.kind === 'parameter'
+            || (definition.kind === 'localVariable'
+                && definition.name.toLowerCase() !== definition.containerName?.toLowerCase())
+            || definition.kind === 'constant')) {
+        const local = collectProcedureLocalReferences(byModule, project, source, scope, word, includeDeclaration);
+        if (local) { return local; }
+    }
     const memberAtDefinition = entryMemberDefinitions.length > 0
         ? undefined
-        : projectClassMemberAtDefinition(project, moduleName, word, positionOffset);
+        : projectClassMemberAtDefinition(project, moduleName, word, positionOffset, { includeClassValueFacts: false });
     const invocationMemberDefinitions = entryMemberDefinitions.length > 0
         ? entryMemberDefinitions
         : memberAtDefinition?.definitions ?? [];
-
-    const scope = project.referenceScope(moduleName, word, positionOffset);
 
     const targetMemberDefinitions = mergeMemberDefinitions(
         invocationMemberDefinitions,

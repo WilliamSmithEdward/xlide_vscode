@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { findIdentifierOccurrences, findIdentifierOccurrencesForNames } from '../src/vbaSourceScan';
 
 describe('identifier occurrence range', () => {
@@ -23,4 +23,30 @@ describe('identifier occurrence range', () => {
 		expect(findIdentifierOccurrences(source, 'target', {start: source.length, end: source.length + 20})).toEqual([]);
 		expect(findIdentifierOccurrences(source, 'target')).toHaveLength(3);
 	});
+});
+
+it('keeps whole-source stripping cached while scoped scans can opt out', () => {
+    const source = "' occurrence-cache control _\r\nTarget = 0\r\nTarget = Target + Other\r\n";
+    const range = { start: source.indexOf('Target = Target'), end: source.length };
+    const expected = [
+        { line: 2, column: 0, offset: range.start, text: 'Target' },
+        { line: 2, column: 9, offset: range.start + 9, text: 'Target' },
+    ];
+    const originalSplit = String.prototype.split;
+    let sourceSplits = 0;
+    const spy = vi.spyOn(String.prototype, 'split').mockImplementation(function (...args: Parameters<typeof originalSplit>) {
+        if (String(this) === source) { sourceSplits++; }
+        return Reflect.apply(originalSplit, this, args);
+    });
+    try {
+        expect(findIdentifierOccurrences(source, 'target', range)).toEqual(expected);
+        expect(findIdentifierOccurrences(source, 'target', range)).toEqual(expected);
+        expect(sourceSplits).toBe(1);
+        expect(findIdentifierOccurrences(source, 'target', range, { cacheStrippedSource: false })).toEqual(expected);
+        expect(findIdentifierOccurrencesForNames(source, ['target', 'missing'], range, { cacheStrippedSource: false }))
+            .toEqual(new Map([['target', expected], ['missing', []]]));
+        expect(sourceSplits).toBe(3);
+        expect(findIdentifierOccurrences(source, 'target', range)).toEqual(expected);
+        expect(sourceSplits).toBe(3);
+    } finally { spy.mockRestore(); }
 });
