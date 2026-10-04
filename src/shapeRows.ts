@@ -129,12 +129,19 @@ export class ShapeRows {
 	/** The rows under a workbook's folder of bare sheets: module rows for empty sheet modules, sheet rows for sheets with none. */
 	private readonly bareRows = new WeakMap<XlideNode, XlideNode[]>();
 	private generation = 0;
+	private disposed = false;
 
 	constructor(
 		private readonly bridge: ProjectEngine,
 		private readonly fire: (node?: XlideNode) => void,
 		private readonly out?: vscode.OutputChannel,
 	) {}
+
+	dispose(): void {
+		if (this.disposed) { return; }
+		this.disposed = true;
+		this.clear();
+	}
 
 	/** Forget every listing and row: the tree is being drawn again from the files. */
 	clear(): void {
@@ -208,6 +215,7 @@ export class ShapeRows {
 	 * always, since that is where a shape is added.
 	 */
 	async moduleFolder(module: XlideNode): Promise<XlideNode | undefined> {
+		if (this.disposed) { return undefined; }
 		const host = shapeHostForPath(module.filePath);
 		if (!module.moduleName || !host) {
 			return undefined;
@@ -223,7 +231,9 @@ export class ShapeRows {
 		if (host !== 'excel' || module.sheetName === undefined) {
 			return undefined;
 		}
-		const sheet = sheetOfModule(await this.surfacesIfAny(module.filePath), module.moduleName);
+		const surfaces = await this.surfacesIfAny(module.filePath);
+		if (this.disposed) { return undefined; }
+		const sheet = sheetOfModule(surfaces, module.moduleName);
 		if (!sheet || sheet.shapes.length === 0) {
 			return undefined;
 		}
@@ -243,12 +253,14 @@ export class ShapeRows {
 		project: XlideNode,
 		modules: readonly XlideNode[],
 	): Promise<{ folders: XlideNode[]; modules: XlideNode[] }> {
+		if (this.disposed) { return { folders: [], modules: [] }; }
 		if (shapeHostForPath(project.filePath) === 'powerpoint') {
 			const slides = this.folder(project.filePath, 'slides', 'Slides');
 			this.parents.set(slides, project);
 			return { folders: [slides], modules: [...modules] };
 		}
 		const catalog = await this.catalog(project.filePath);
+		if (this.disposed) { return { folders: [], modules: [] }; }
 		if (!catalog) {
 			return { folders: [], modules: [...modules] };
 		}
@@ -416,6 +428,7 @@ export class ShapeRows {
 
 	/** Every surface of a file with its shapes, read once per project until it changes. */
 	surfaces(filePath: string): Promise<ShapeSurface[]> {
+		if (this.disposed) { return Promise.resolve([]); }
 		const project = projectIdentityKey(filePath);
 		const cached = this.listings.get(project);
 		if (cached && !this.stale.has(project)) { return Promise.resolve(cached); }
@@ -426,6 +439,7 @@ export class ShapeRows {
 			const generation = this.generation;
 			const started = this.bridge.call<{ surfaces?: ShapeSurface[] }>('listShapes', { path: filePath }).then(
 				(result) => {
+					if (this.disposed) { return []; }
 					const surfaces = Array.isArray(result?.surfaces) ? result.surfaces : [];
 					if (this.generation === generation && this.loads.get(project) === started) {
 						this.listings.set(project, surfaces);
@@ -434,6 +448,7 @@ export class ShapeRows {
 					return surfaces;
 				},
 				(err: unknown) => {
+					if (this.disposed) { return []; }
 					const message = err instanceof Error ? err.message : String(err);
 					if (this.generation === generation && this.loads.get(project) === started) {
 						this.out?.appendLine(`[projectExplorer] The shapes of "${path.basename(filePath)}" could not be read: ${message}`);
@@ -456,6 +471,7 @@ export class ShapeRows {
 	 * which is said once in the output channel.
 	 */
 	catalog(filePath: string): Promise<WorkbookSheet[] | undefined> {
+		if (this.disposed) { return Promise.resolve(undefined); }
 		if (containerHostForPath(filePath) !== 'excel') { return Promise.resolve(undefined); }
 		const project = projectIdentityKey(filePath);
 		const cached = this.catalogs.get(project);
@@ -467,6 +483,7 @@ export class ShapeRows {
 			const started: Promise<WorkbookSheet[] | undefined> = this.bridge
 				.call<{ sheets?: WorkbookSheet[] }>('listWorkbookSheets', { path: filePath })
 				.then((result) => {
+					if (this.disposed) { return undefined; }
 					if (!Array.isArray(result?.sheets)) {
 						throw new Error('The sheet list did not come back as one.');
 					}

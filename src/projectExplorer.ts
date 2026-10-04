@@ -124,6 +124,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     // not write its now-stale result into the freshly-cleared cache (which would
     // leave a just-added module invisible until the next refresh).
     private _generation = 0;
+    private _disposed = false;
     private _subsListCache = new Map<string, Array<{ name: string; kind: string; line: number }>>();
     private _subsListLoads = new Map<string, Promise<Array<{ name: string; kind: string; line: number }>>>();
     private _subListVersions = new Map<string, number>();
@@ -176,6 +177,14 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     }
 
     dispose(): void {
+        if (this._disposed) { return; }
+        this._disposed = true;
+        this._generation++;
+        this._projectFilesLoad = undefined;
+        this._modulesListLoads.clear();
+        this._subsListLoads.clear();
+        this._protectionLoads.clear();
+        this._shapes.dispose();
         this._clearProtectionTimers();
         this._emitter.dispose();
         this._rowsReplaced.dispose();
@@ -924,7 +933,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         try {
             const result = await this._getChildren(node);
             trace.end('ok', node?.kind ?? 'root');
-            return result;
+            return this._disposed ? [] : result;
         } catch (err) {
             trace.end('failed', node?.kind ?? 'root');
             throw err;
@@ -932,6 +941,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     }
 
     private async _getChildren(node?: XlideNode): Promise<XlideNode[]> {
+        if (this._disposed) { return []; }
         if (!node) {
             return this._getProjectFiles();
         }
@@ -942,6 +952,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
             const stale = (): boolean => generation !== this._generation
                 || version !== (this._moduleListVersions.get(projectKey) ?? 0);
             const modules = await this._getModules(node.filePath);
+            if (this._disposed) { return []; }
             const failed = modules.some((m) => m.kind === 'loadError');
             // A presentation's slides, and a workbook's sheets, lead the
             // project's rows, and a sheet's module is drawn under Sheets; a
@@ -1128,6 +1139,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     }
 
     private async _getProjectFiles(): Promise<XlideNode[]> {
+        if (this._disposed) { return []; }
         if (this._projectFilesCache) {
             return this._projectFilesCache;
         }
@@ -1150,11 +1162,13 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         try {
             uris = await findMacroContainerFiles();
         } catch (err) {
+            if (this._disposed) { return []; }
             if (!isCurrent()) {
                 return this._getProjectFiles();
             }
             throw err;
         }
+        if (this._disposed) { return []; }
         // Root discovery has its own lifetime: forgetting a module's folder
         // changes module data, but does not invalidate this pending root load.
         if (!isCurrent()) {
@@ -1196,6 +1210,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     }
 
     private async _getModules(filePath: string): Promise<XlideNode[]> {
+        if (this._disposed) { return []; }
         this._cancelProtectionTimer(filePath);
         const cacheKey = projectNodeKey(filePath);
         const generation = this._generation;
@@ -1225,6 +1240,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
             // Overlapping expansion and follow share the sorted load. Once one
             // caller builds the rows, the others reuse those rows as well.
             const modules = await load;
+            if (this._disposed) { return []; }
             if (stale()) { return this._getModules(filePath); }
             const current = this._modulesListCache.get(cacheKey);
             if (current) {
@@ -1284,6 +1300,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
             this._scheduleProtectionLoad(filePath);
             return nodes;
         } catch (err) {
+            if (this._disposed) { return []; }
             if (stale()) { return this._getModules(filePath); }
             vscode.window.showErrorMessage(`XLIDE: Failed to list modules in "${fileNameForDisplay(filePath)}": ${err}`);
             // Return a retry placeholder, never [] - VS Code caches resolved
@@ -1299,6 +1316,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
      * shows the locked/signed badge. Best-effort: failures are ignored.
      */
     private async _loadProtection(filePath: string): Promise<void> {
+        if (this._disposed) { return; }
         const key = projectNodeKey(filePath);
         if (this._protectionCache.has(key)) { return; }
         const existing = this._protectionLoads.get(key);
@@ -1309,6 +1327,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         // Register the owner before bridge work starts, including a synchronous
         // bridge failure that must clear this pending entry rather than leak it.
         const load: Promise<void> = Promise.resolve().then(async () => {
+            if (this._disposed) { return; }
             try {
                 const info = await this._bridge.call<{ isPasswordProtected: boolean; isSigned: boolean }>(
                     'getProtectionInfo',
@@ -1337,6 +1356,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     }
 
     private async _getSubs(filePath: string, moduleName: string, moduleType?: string): Promise<XlideNode[]> {
+        if (this._disposed) { return []; }
         this._cancelProtectionTimer(filePath);
         const cacheKey = moduleNodeKey(filePath, moduleName);
         const generation = this._generation;
@@ -1373,6 +1393,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                 // otherwise the stale sub list would poison the freshly-cleared
                 // cache (mirrors the generation guard in _getModules).
                 subs = await load;
+                if (this._disposed) { return []; }
                 if (this._generation !== generation) {
                     // The rows built below are as stale as the list they come
                     // from, so they are handed back for this render and not
@@ -1403,6 +1424,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
             this._scheduleProtectionLoad(filePath);
             return cached.nodes;
         } catch (err) {
+            if (this._disposed) { return []; }
             if (superseded() && this._generation === generation) { return currentRows(); }
             if (this._generation !== generation) {
                 return this._getSubs(filePath, moduleName, moduleType);
@@ -1452,6 +1474,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     }
 
     private _scheduleProtectionLoad(filePath: string): void {
+        if (this._disposed) { return; }
         const key = projectNodeKey(filePath);
         if (this._protectionCache.has(key) || this._protectionLoads.has(key)) {
             return;
