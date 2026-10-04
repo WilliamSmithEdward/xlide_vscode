@@ -82,6 +82,31 @@ suite('Explorer lifetime in the extension host', () => {
 });
 
 suite('Explorer shape refresh in the extension host', () => {
+    test('a retained bare-sheet folder refreshes before Sheets redraws', async () => {
+        let name = 'Data', hasShapes = false;
+        const explorer = new ProjectExplorer({ call: (method: string) => {
+            if (method === 'listModules') { return Promise.resolve([]); }
+            if (method === 'listWorkbookSheets') { return Promise.resolve({ sheets: [{ name, kind: 'worksheet' }] }); }
+            if (method === 'listShapes') { return Promise.resolve({ surfaces: hasShapes
+                ? [{ surface: name, shapes: [{ name: 'Box', kind: 'shape' }] }] : [] }); }
+            return Promise.resolve([]);
+        } } as unknown as ConstructorParameters<typeof ProjectExplorer>[0]);
+        try {
+            const project = (await explorer.getChildren()).find(node => node.filePath === workbookPath());
+            assert.ok(project);
+            const [sheets] = await explorer.getChildren(project);
+            const [bare] = await explorer.getChildren(sheets);
+            assert.equal(bare.shapeFolder, 'bareSheets');
+            assert.deepEqual((await explorer.getChildren(bare)).map(node => node.label), ['Data']);
+            name = 'Renamed';
+            explorer.refreshShapes(workbookPath());
+            assert.deepEqual((await explorer.getChildren(bare)).map(node => node.label), ['Renamed']);
+            hasShapes = true;
+            explorer.refreshShapes(workbookPath(), { shapesChanged: true });
+            assert.deepEqual(await explorer.getChildren(bare), [], 'the sheet has moved directly under Sheets');
+        } finally { explorer.dispose(); }
+    });
+
     test('an overtaken sheet read cannot undo a newer rename', async () => {
         const old = deferred<{ sheets: Array<{ name: string; codeName: string; kind: string }> }>();
         let catalogCalls = 0;

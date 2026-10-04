@@ -127,7 +127,7 @@ export class ShapeRows {
 	/** The workbook sheet a sheet row stands for. */
 	private readonly sheetOfRow = new WeakMap<XlideNode, WorkbookSheet>();
 	/** The rows under a workbook's folder of bare sheets: module rows for empty sheet modules, sheet rows for sheets with none. */
-	private readonly bareRows = new WeakMap<XlideNode, XlideNode[]>();
+	private readonly bareRows = new WeakMap<XlideNode, { rows: XlideNode[]; current: () => boolean }>();
 	private generation = 0;
 	private readonly renderVersions = new Map<string, number>();
 	private disposed = false;
@@ -336,7 +336,15 @@ export class ShapeRows {
 			return this.sheetRows(node, modules, modulesOf);
 		}
 		if (node.shapeFolder === 'bareSheets') {
-			return this.bareRows.get(node) ?? [];
+			const sheets = this.parents.get(node);
+			// VS Code can expand a retained child before redrawing its parent.
+			// Rebuild classification after refresh, but never revive cleared rows.
+			if (!sheets || this.folders.get(folderKey(node.filePath, 'bareSheets', undefined)) !== node
+				|| this.folders.get(folderKey(node.filePath, 'sheets', undefined)) !== sheets) { return []; }
+			const cached = this.bareRows.get(node);
+			if (cached?.current()) { return cached.rows; }
+			await this.children(sheets, modulesOf);
+			return this.children(node, modulesOf);
 		}
 		const host = shapeHostForPath(node.filePath);
 		if (!host) { return []; }
@@ -626,14 +634,20 @@ export class ShapeRows {
 			const none = this.folder(folder.filePath, 'bareSheets', BARE_SHEETS_FOLDER_LABEL);
 			none.itemCount = bare.length;
 			this.parents.set(none, folder);
-			this.bareRows.set(none, bare.map(({ sheet, module }) => {
+			this.bareRows.set(none, { current, rows: bare.map(({ sheet, module }) => {
 				if (module) {
 					this.placeModuleRow(module, sheet, none);
 					return module;
 				}
 				return this.sheetRow(none, sheet, undefined);
-			}));
+			}) });
 			rows.push(none);
+		} else {
+			const none = this.folders.get(folderKey(folder.filePath, 'bareSheets', undefined));
+			if (none) {
+				none.itemCount = 0;
+				this.bareRows.set(none, { rows: [], current });
+			}
 		}
 		return rows;
 	}
