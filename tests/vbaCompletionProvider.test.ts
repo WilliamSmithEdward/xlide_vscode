@@ -1,0 +1,92 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type * as vscodeTypes from 'vscode';
+
+vi.mock('vscode', async () => {
+    const { vscodeMock, Position } = await import('./helpers/vscodeMock');
+    return vscodeMock({
+        workspace: { onDidCloseTextDocument: vi.fn(() => ({ dispose() {} })) },
+        CompletionItem: class { constructor(public label: string, public kind: number) {} },
+        CompletionList: class { constructor(public items: unknown[], public isIncomplete: boolean) {} },
+        CompletionItemKind: new Proxy({}, { get: () => 1 }),
+        CompletionTriggerKind: { Invoke: 0, TriggerCharacter: 1, TriggerForIncompleteCompletions: 2 },
+        SnippetString: class { constructor(public value: string) {} },
+        Range: class {
+            start: typeof Position.prototype;
+            end: typeof Position.prototype;
+            constructor(line: number, start: number, endLine: number, end: number) {
+                this.start = new Position(line, start); this.end = new Position(endLine, end);
+            }
+        },
+    });
+});
+vi.mock('../src/analyzer/call/callContext', async () => {
+    const actual = await vi.importActual<typeof import('../src/analyzer/call/callContext')>('../src/analyzer/call/callContext');
+    return { ...actual, callableCompletionShouldInsertParens: vi.fn(actual.callableCompletionShouldInsertParens) };
+});
+
+import * as vscode from 'vscode';
+import { VbaMemberCompletionProvider } from '../src/vbaCompletionProvider';
+import { callableCompletionShouldInsertParens } from '../src/analyzer/call/callContext';
+import { getWordObjectModel } from '../src/analyzer/host/wordObjectModel';
+import type { EditorProjectContext, VbaEditorProjectContextService } from '../src/vbaEditorProjectContext';
+
+function request(line: string, context: EditorProjectContext = {}, column = line.length, prelude = 'Sub Demo()\n') {
+    const source = prelude + line + '\nEnd Sub';
+    const lineIndex = prelude.split('\n').length - 1;
+    const document = {
+        uri: { scheme: 'file', path: '/Module1.bas', toString: () => 'file:/Module1.bas' },
+        version: 1, languageId: 'vba',
+        getText: () => source,
+        offsetAt: (position: vscode.Position) => source.split('\n').slice(0, position.line).reduce((total, text) => total + text.length + 1, 0) + position.character,
+        lineAt: (index: number) => ({ text: source.split('\n')[index] }),
+    };
+    const projectContext = {
+        cachedEditorProjectContext: vi.fn(() => context),
+        localEditorProjectContext: vi.fn(() => context),
+        warmEditorProjectContext: vi.fn(),
+        buildEditorProjectContextWithin: vi.fn(async () => context),
+    };
+    const provider = new VbaMemberCompletionProvider(projectContext as unknown as VbaEditorProjectContextService);
+    return provider.provideCompletionItems(document as unknown as vscodeTypes.TextDocument, new vscode.Position(lineIndex, column));
+}
+
+beforeEach(() => { vi.mocked(callableCompletionShouldInsertParens).mockClear(); });
+
+describe('completion provider surface', () => {
+    it('includes project classes alongside built-in types after As', async () => {
+        const result = await request('Dim thing As ', { projectTypes: [{ name: 'Widget', kind: 'class', moduleName: 'Widget' }] });
+        expect(result.items.map(item => item.label)).toContain('Widget');
+    });
+    it('uses the document host rather than Excel for type completion', async () => {
+        const result = await request('Dim thing As Range', { host: 'word', hostModel: getWordObjectModel() });
+        expect(result.items.find(item => item.label === 'Range')?.detail).toBe('Word type');
+    });
+    it.each(['caf\u00e9', '\u0915\u093e'])('replaces the whole Unicode member prefix %s including its suffix', async prefix => {
+        const result = await request(`obj.${prefix}tail`, {
+            projectClassMembers: [{ name: 'Widget', kind: 'class', moduleName: 'Widget',
+                members: [{ name: `${prefix}Value`, kind: 'property', moduleName: 'Widget' }] }],
+        }, 4 + prefix.length, 'Sub Demo()\nDim obj As Widget\n');
+        const item = result.items.find(item => item.label === `${prefix}Value`);
+        expect(item).toBeDefined();
+        expect(item?.range).toEqual(new vscode.Range(2, 4, 2, 4 + prefix.length + 4));
+    });
+    it.each([
+        ['Set value = Application.', 'Calculate($0)'],
+        ['Application.', 'Calculate'],
+    ])('preserves callable insertion for %s', async (line, expected) => {
+        const result = await request(line);
+        const item = result.items.find(item => item.label === 'Calculate');
+        const insert = item?.insertText;
+        expect(typeof insert === 'string' ? insert : insert?.value).toBe(expected);
+    });
+    it('skips callable classification for a property-only list', async () => {
+        const result = await request('ThisWorkbook.Sheets(1).ce');
+        expect(result.items.map(item => item.label)).toContain('Cells');
+        expect(callableCompletionShouldInsertParens).not.toHaveBeenCalled();
+    });
+    it('classifies callable insertion only once for a large member list', async () => {
+        const result = await request('Set value = Application.');
+        expect(result.items.length).toBeGreaterThan(100);
+        expect(callableCompletionShouldInsertParens).toHaveBeenCalledTimes(1);
+    });
+});

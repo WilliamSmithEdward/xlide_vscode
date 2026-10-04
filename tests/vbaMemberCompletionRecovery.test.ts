@@ -7,9 +7,9 @@ vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock(
 }));
 
 import * as vscode from 'vscode';
-import { resolveMemberCompletions } from '../src/analyzer';
+import { hasMemberCompletions, resolveMemberCompletions } from '../src/analyzer';
 import { VbaMemberCompletionProvider } from '../src/vbaCompletionProvider';
-import type { VbaEditorProjectContextService } from '../src/vbaEditorProjectContext';
+import type { EditorProjectContext, VbaEditorProjectContextService } from '../src/vbaEditorProjectContext';
 
 function deletion(line: string, options: { column?: number; prelude?: string } = {}) {
     const prelude = options.prelude ?? 'Sub Demo()\n';
@@ -35,7 +35,9 @@ function deletion(line: string, options: { column?: number; prelude?: string } =
     };
     const projectContext = {
         cachedEditorProjectContext: vi.fn(() => undefined),
-        localEditorProjectContext: vi.fn(() => ({})),
+        localEditorProjectContext: vi.fn((): EditorProjectContext => ({})),
+        cheapEditorProjectContext: vi.fn((): EditorProjectContext => ({})),
+        buildEditorProjectContextWithin: vi.fn(async (): Promise<EditorProjectContext> => ({})),
     };
     const provider = new VbaMemberCompletionProvider(projectContext as unknown as VbaEditorProjectContextService);
     return { provider, document, editor, event, projectContext,
@@ -46,7 +48,57 @@ beforeEach(() => { vi.useFakeTimers(); vi.mocked(vscode.commands.executeCommand)
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); });
 
 describe('member completion recovery on Backspace', () => {
-    it('reopens Cells after ThisWorkbook.Sheets(1).cez is shortened to .ce', () => {
+    it.each(['version', 'move', 'switch'])('drops recovery superseded during project loading: %s', async action => {
+        const edit = deletion('obj.He', { prelude: 'Sub Demo()\nDim obj As Widget\n' });
+        edit.projectContext.buildEditorProjectContextWithin.mockImplementation(async () => {
+            if (action === 'version') { edit.document.version++; }
+            if (action === 'move') { edit.editor.selection.active = new vscode.Position(2, 0); }
+            if (action === 'switch') { (vscode.window as unknown as { activeTextEditor: unknown }).activeTextEditor = undefined; }
+            return { projectClassMembers: [{ name: 'Widget', kind: 'class', moduleName: 'Widget',
+                members: [{ name: 'Hello', kind: 'method', moduleName: 'Widget' }] }] };
+        });
+        edit.send();
+        await vi.runAllTimersAsync();
+        expect(vscode.commands.executeCommand).not.toHaveBeenCalled();
+    });
+    it('recovers Unicode members ending in a combining mark', async () => {
+        const edit = deletion('obj.का', { prelude: 'Sub Demo()\nDim obj As Widget\n' });
+        edit.projectContext.buildEditorProjectContextWithin.mockResolvedValue({
+            projectClassMembers: [{ name: 'Widget', kind: 'class', moduleName: 'Widget',
+                members: [{ name: 'काम', kind: 'property', moduleName: 'Widget' }] }],
+        });
+        edit.send();
+        await vi.runAllTimersAsync();
+        expect(vscode.commands.executeCommand).toHaveBeenCalledOnce();
+    });
+    it('probes matching members without rendering completion documentation', () => {
+        const source = 'Sub Demo()\nMe.He\nEnd Sub';
+        const context = { meProjectType: 'Widget', projectClassMembers: [{ name: 'Widget', kind: 'class' as const,
+            moduleName: 'Widget', members: [{ name: 'Hello', kind: 'method' as const, moduleName: 'Widget',
+                get doc(): never { throw new Error('documentation should not be read'); } }] }] };
+        expect(hasMemberCompletions(source, source.indexOf('Me.He') + 5, context)).toBe(true);
+    });
+
+    it('recovers cross-module members when the full context is initially cold', async () => {
+        const edit = deletion('obj.He', { prelude: 'Sub Demo()\nDim obj As Widget\n' });
+        edit.projectContext.buildEditorProjectContextWithin.mockResolvedValue({
+            projectClassMembers: [{ name: 'Widget', kind: 'class', moduleName: 'Widget',
+                members: [{ name: 'Hello', kind: 'method', moduleName: 'Widget' }] }],
+        });
+        edit.send();
+        await vi.runAllTimersAsync();
+        expect(vscode.commands.executeCommand).toHaveBeenCalledWith('editor.action.triggerSuggest');
+    });
+    it('does not build full module/project contexts just to reopen host members', async () => {
+        const edit = deletion('ThisWorkbook.Sheets(1).ce');
+        edit.send();
+        await vi.runAllTimersAsync();
+        expect(vscode.commands.executeCommand).toHaveBeenCalledOnce();
+        expect(edit.projectContext.localEditorProjectContext).not.toHaveBeenCalled();
+        expect(edit.projectContext.buildEditorProjectContextWithin).not.toHaveBeenCalled();
+    });
+
+    it('reopens Cells after ThisWorkbook.Sheets(1).cez is shortened to .ce', async () => {
         const before = 'Sub Demo()\nThisWorkbook.Sheets(1).cez\nEnd Sub';
         expect(resolveMemberCompletions(before, before.indexOf('cez') + 3)).toEqual([]);
         const edit = deletion('ThisWorkbook.Sheets(1).ce');
@@ -58,7 +110,7 @@ describe('member completion recovery on Backspace', () => {
         edit.send();
         expect(vscode.commands.executeCommand).not.toHaveBeenCalled();
         edit.editor.selection.active = caret;
-        vi.runAllTimers();
+        await vi.runAllTimersAsync();
         expect(vscode.commands.executeCommand).toHaveBeenCalledWith('editor.action.triggerSuggest');
     });
 
@@ -66,9 +118,9 @@ describe('member completion recovery on Backspace', () => {
         ['ThisWorkbook.Sheets(1).', undefined],
         ['    .ce', 'Sub Demo()\nWith ThisWorkbook.Sheets(1)\n'],
         ['    sheet.ce', 'Sub Demo()\nDim sheet As Worksheet\n'],
-    ])('reopens members for %s', (line, prelude) => {
+    ])('reopens members for %s', async (line, prelude) => {
         deletion(line, { prelude }).send();
-        vi.runAllTimers();
+        await vi.runAllTimersAsync();
         expect(vscode.commands.executeCommand).toHaveBeenCalledOnce();
     });
 
@@ -79,13 +131,13 @@ describe('member completion recovery on Backspace', () => {
         'unknown.ce',
         'ce',
         'ThisWorkbook.Sheets(1)',
-    ])('does not open suggestions for %s', line => {
+    ])('does not open suggestions for %s', async line => {
         deletion(line).send();
-        vi.runAllTimers();
+        await vi.runAllTimersAsync();
         expect(vscode.commands.executeCommand).not.toHaveBeenCalled();
     });
 
-    it('ignores undo, multi-character deletion, replacement and multiple cursors', () => {
+    it('ignores undo, multi-character deletion, replacement and multiple cursors', async () => {
         const edit = deletion('ThisWorkbook.Sheets(1).ce');
         for (const patch of [
             { reason: 1 },
@@ -97,11 +149,11 @@ describe('member completion recovery on Backspace', () => {
         }
         edit.editor.selections.push(edit.editor.selection);
         edit.send();
-        vi.runAllTimers();
+        await vi.runAllTimersAsync();
         expect(vscode.commands.executeCommand).not.toHaveBeenCalled();
     });
 
-    it.each(['move', 'switch', 'version', 'close', 'select', 'delete'])('drops pending recovery after %s', action => {
+    it.each(['move', 'switch', 'version', 'close', 'select', 'delete'])('drops pending recovery after %s', async action => {
         const edit = deletion('ThisWorkbook.Sheets(1).ce');
         edit.send();
         if (action === 'move') { edit.editor.selection.active = new vscode.Position(1, 0); }
@@ -110,7 +162,7 @@ describe('member completion recovery on Backspace', () => {
         if (action === 'close') { edit.document.isClosed = true; }
         if (action === 'select') { edit.editor.selection.isEmpty = false; }
         if (action === 'delete') { edit.editor.selection.active = new vscode.Position(1, 24); }
-        vi.runAllTimers();
+        await vi.runAllTimersAsync();
         expect(vscode.commands.executeCommand).not.toHaveBeenCalled();
         expect(edit.projectContext.localEditorProjectContext).not.toHaveBeenCalled();
     });

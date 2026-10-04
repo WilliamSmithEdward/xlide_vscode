@@ -233,6 +233,18 @@ function isBoundary(token: VbaToken): boolean {
 	return token.kind === 'newline' || token.rawText === ':';
 }
 
+/** Whether suggestions exist, without materializing rows or rendering documentation. */
+export function hasMemberCompletions(
+	source: string,
+	offset: number,
+	ctx: MemberCompletionContext = {},
+): boolean {
+	const hit = memberSurfaceAtDot(source, offset, ctx);
+	if (!hit) { return false; }
+	const prefix = hit.typedPrefix.toLowerCase();
+	return hit.surface.members.some(mem => !mem.hidden && mem.name.toLowerCase().startsWith(prefix));
+}
+
 /**
  * Resolves the member completions available at `offset`. Returns an empty array
  * when the cursor is not in a member-access position or the receiver type

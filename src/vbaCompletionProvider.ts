@@ -34,6 +34,8 @@ import {
 	type HostConstant,
 	resolveKeywordCompletions,
 	resolveMemberCompletions,
+	hasMemberCompletions,
+	completionCursorContext,
 	resolveProcedureLabelCompletions,
 	resolveTypeCompletions,
 	spaceTriggerMayComplete,
@@ -175,26 +177,40 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 		}
 		const expectedCaret = change.range.start;
 		const prefix = document.lineAt(expectedCaret.line).text.slice(0, expectedCaret.character);
-		if (!/\.[\p{L}\p{N}_]*$/u.test(prefix)) {
+		if (!/\.[\p{L}\p{M}0-9_]*$/u.test(prefix)) {
 			return;
 		}
 		const version = document.version;
 		// The document event can precede the updated selection and suggest
 		// widget filtering. Wait for both, and discard superseded keystrokes.
-		setTimeout(() => {
+		const isCurrent = (): boolean => {
 			const caret = editor.selection.active;
-			if (document.isClosed || document.version !== version ||
-				vscode.window.activeTextEditor !== editor || editor.document !== document ||
-				editor.selections.length !== 1 || !editor.selection.isEmpty ||
-				caret.line !== expectedCaret.line || caret.character !== expectedCaret.character) {
-				return;
-			}
+			return !document.isClosed && document.version === version &&
+				vscode.window.activeTextEditor === editor && editor.document === document &&
+				editor.selections.length === 1 && editor.selection.isEmpty &&
+				caret.line === expectedCaret.line && caret.character === expectedCaret.character;
+		};
+		setTimeout(async () => {
+			if (!isCurrent()) { return; }
 			const source = document.getText();
+			const offset = document.offsetAt(expectedCaret);
+			const cursor = completionCursorContext(source, offset);
+			if (cursor.inComment || cursor.inString) { return; }
 			const projectCtx = this._projectContext.cachedEditorProjectContext(document)
-				?? this._projectContext.localEditorProjectContext(document, source);
-			// The shared resolver excludes comments, strings and unknown receivers.
-			if (resolveMemberCompletions(source, document.offsetAt(caret),
-				toMemberCompletionContext(projectCtx)).length > 0) {
+				?? this._projectContext.cheapEditorProjectContext(document);
+			// Probe host members without rebuilding module symbols or rendering
+			// every completion's documentation just to test whether a match exists.
+			let hasMatches = hasMemberCompletions(source, offset, toMemberCompletionContext(projectCtx));
+			if (!hasMatches) {
+				// Source-backed receivers need the full cross-module context, which
+				// a keystroke's version bump can make temporarily unavailable.
+				const built = await this._projectContext.buildEditorProjectContextWithin(
+					document, source, COMPLETION_PROJECT_CONTEXT_BUDGET_MS,
+				);
+				if (!isCurrent()) { return; }
+				hasMatches = Boolean(built && hasMemberCompletions(source, offset, toMemberCompletionContext(built)));
+			}
+			if (hasMatches && isCurrent()) {
 				void vscode.commands.executeCommand('editor.action.triggerSuggest');
 			}
 		}, 0);
@@ -246,11 +262,9 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 		const source = document.getText();
 		const offset = document.offsetAt(position);
 		const range = this._completionRange(document, position);
-
-		const quickTypes = resolveTypeCompletions(source, offset, {});
-		if (quickTypes.length > 0) {
-			return new vscode.CompletionList(quickTypes.map((t) => this._toTypeItem(t, range)), false);
-		}
+		let insertParens: boolean | undefined;
+		const shouldInsertParens = (): boolean =>
+			insertParens ??= callableCompletionShouldInsertParens(source, offset);
 
 		const cachedProjectCtx = this._projectContext.cachedEditorProjectContext(document);
 		const fastProjectCtx = cachedProjectCtx ?? this._projectContext.localEditorProjectContext(document, source);
@@ -292,7 +306,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 
 		const fastMembers = resolveMemberCompletions(source, offset, toMemberCompletionContext(fastProjectCtx));
 		if (fastMembers.length > 0) {
-			return list(fastMembers.map((mem) => this._toItem(mem, range, source, offset)));
+			return list(fastMembers.map((mem) => this._toItem(mem, range, mem.kind === 'method' && shouldInsertParens())));
 		}
 
 		const fastEvents = resolveEventHandlerCompletions(source, offset, toEventHandlerCompletionContext(fastProjectCtx));
@@ -331,7 +345,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 		const memberCtx = toMemberCompletionContext(projectCtx);
 		const members = resolveMemberCompletions(source, offset, memberCtx);
 		if (members.length > 0) {
-			return list(members.map((mem) => this._toItem(mem, range, source, offset)));
+			return list(members.map((mem) => this._toItem(mem, range, mem.kind === 'method' && shouldInsertParens())));
 		}
 
 		const eventCtx = toEventHandlerCompletionContext(projectCtx);
@@ -375,7 +389,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 			...(argumentValues?.constants ?? []).map(
 				(constant) => this._toArgumentValueItem(constant, argumentValues!, range),
 			),
-			...idents.map((id) => this._toIdentItem(id, range, source, offset)),
+			...idents.map((id) => this._toIdentItem(id, range, (id.kind === 'runtime' || id.kind === 'procedure') && shouldInsertParens())),
 			...keywords.items.map((item) => this._toKeywordItem(item, range, document)),
 		]);
 	}
@@ -417,8 +431,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 	private _toItem(
 		mem: MemberCompletion,
 		range: vscode.Range,
-		source: string,
-		offset: number,
+		insertParens: boolean,
 	): vscode.CompletionItem {
 		const item = new vscode.CompletionItem(mem.name, this._memberItemKind(mem));
 		const ownerName = getHostType(mem.owner)?.displayName ?? mem.owner;
@@ -440,7 +453,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 			mem.name,
 			range,
 			mem.kind === 'method',
-			callableCompletionShouldInsertParens(source, offset),
+			insertParens,
 		);
 		if (mem.kind !== 'method') {
 			item.insertText = memberNameAsWritten(mem.name);
@@ -521,8 +534,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 	private _toIdentItem(
 		id: IdentifierCompletion,
 		range: vscode.Range,
-		source: string,
-		offset: number,
+		insertParens: boolean,
 	): vscode.CompletionItem {
 		const item = new vscode.CompletionItem(id.name, this._identItemKind(id));
 		item.detail = id.detail;
@@ -535,7 +547,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 			id.name,
 			range,
 			callable,
-			callableCompletionShouldInsertParens(source, offset),
+			insertParens,
 		);
 		return item;
 	}
@@ -640,14 +652,14 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 	): vscode.Range {
 		const line = document.lineAt(position.line).text;
 		let start = position.character;
-		while (start > 0 && /[A-Za-z0-9_]/.test(line[start - 1])) {
+		while (start > 0 && /[\p{L}\p{M}0-9_]/u.test(line[start - 1])) {
 			start -= 1;
 		}
 		if (start === position.character && start > 0 && line[start - 1] === '#') {
 			start -= 1;
 		}
 		let end = position.character;
-		while (end < line.length && /[A-Za-z0-9_]/.test(line[end])) {
+		while (end < line.length && /[\p{L}\p{M}0-9_]/u.test(line[end])) {
 			end += 1;
 		}
 		return new vscode.Range(position.line, start, position.line, end);
