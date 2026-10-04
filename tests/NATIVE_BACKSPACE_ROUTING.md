@@ -40,3 +40,26 @@ Unit regressions cover the manifest gate, context event transitions, close,
 selection/multiple-caret routing, and zero whole-module reads/context traffic
 for ordinary typing. Existing continued-comment/whole-indent integration
 checks preserve those behaviors.
+
+## Observed results
+
+After integrating main at 49ed5c90, three VS Code 1.139.1 runs passed all eight
+cases. In 72 actual-class renderer cycles, visible Backspace medians were
+14/16/9 ms and maxima were 32/33/30 ms. Typing medians were 30/29/30 ms and maxima
+46/32/45 ms. Every recovery displayed Cells and every `.cez` miss cleared it.
+The first visible recovery in each run took an additional 136/124/133 ms after
+deletion; warm menu-update medians were 6/7/9 ms. These first-widget samples are
+reported separately and remain worth investigating.
+
+The deliberately blocked-host native probes updated the visible line in
+31/32/31 ms during the 1.2-second stall. Each extension-bound control remained
+unchanged throughout its 606-607 ms observation window, then deleted after the
+host resumed. The earlier isolated probe measured 13 ms on the native route.
+
+All 144 command-driven typing/Backspace pairs restored the actual class, and
+24 command-driven member recovery/hover cycles returned Cells and a hover.
+Typical command Backspace was 1.81/1.74/2.06 ms, with maxima 107.49/85.12/109.09 ms;
+maximum host heartbeat delays were 61.60/53.10/65.21 ms. Fresh declaration hover
+returned updated content in 16.57/31.96/31.37 ms. Command outliers and the first
+menu show remain distinct from successful native editing while the host stalls.
+The intermittent latency goal and issues #964/#985 remain open.
