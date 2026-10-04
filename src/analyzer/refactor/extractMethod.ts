@@ -1,8 +1,8 @@
 import { parseModule } from '../parser/parseModule';
 import type { BodyNode, ModuleNode, ProcedureNode, Span, VariableDeclNode, VariableGroupNode } from '../parser/nodes';
 import { classifyReferenceKinds } from '../references/referenceKinds';
-import { detectEol, findIdentifierOccurrencesForNames, leadingWhitespace, lineStartAtAnyBreak, wholeLineSpanAnyBreak, type VbaIdentifierOccurrence } from '../../vbaSourceScan';
-import { refactor, refuse, type VbaRefactorResult, type VbaTextEdit } from './refactorTypes';
+import { detectEol, findIdentifierOccurrencesForNames, leadingWhitespace, lineEndAtOrAfter, lineStartAtAnyBreak, wholeLineSpanAnyBreak, type VbaIdentifierOccurrence } from '../../vbaSourceScan';
+import { applyVbaTextEdits, refactor, refuse, type VbaRefactorResult, type VbaTextEdit } from './refactorTypes';
 import { procedureContainingSpan, walkBody } from './shared';
 
 /**
@@ -129,9 +129,29 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 
 	const eol = !source.includes('\n') && source.includes('\r') ? '\r' : detectEol(source);
 	const indent = leadingWhitespace(source.slice(block.start, selected[0].span.start));
-	const body = source.slice(block.start, block.end);
+	const movedDecls = new Set(moved.map((local) => local.declaration!.decl));
+	const resultDecl = asFunction ? outputs[0].declaration?.decl : undefined;
+	const callerDeclarations: string[] = [];
+	const bodyEdits: VbaTextEdit[] = [];
+	for (const group of walkBody(selected)) {
+		if (group.kind !== 'VariableGroup' || !containsSpan(block, group.span)) { continue; }
+		const inCaller = group.declarations.filter((decl) => !movedDecls.has(decl));
+		const inHelper = group.declarations.filter((decl) => movedDecls.has(decl) || decl === resultDecl);
+		if (inCaller.length > 0) {
+			callerDeclarations.push(indent + declarationText(source, group, inCaller));
+		}
+		if (inHelper.length !== group.declarations.length) {
+			const span = inHelper.length > 0 ? group.span : declarationRemovalSpan(source, group.span);
+			bodyEdits.push({
+				span: { start: Math.max(block.start, span.start) - block.start, end: Math.min(block.end, span.end) - block.start },
+				newText: inHelper.length > 0 ? declarationText(source, group, inHelper) : '',
+			});
+		}
+	}
+	const body = applyVbaTextEdits(source.slice(block.start, block.end), mergeDeclarationRemovals(bodyEdits));
 	const movedDeclarations = moved
-		.map((l) => `${indent}Dim ${l.name} As ${l.type}`)
+		.filter((l) => !containsSpan(block, l.declaration!.group.span))
+		.map((l) => `${indent}Dim ${source.slice(l.declaration!.decl.span.start, l.declaration!.decl.span.end)}`)
 		.join(eol);
 
 	const header = asFunction
@@ -151,10 +171,11 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 	].join(eol);
 
 	const argumentList = params.map((p) => p.local.name).join(', ');
-	const call = asFunction
+	const invocation = asFunction
 		? `${indent}${outputs[0].name} = ${name}(${argumentList})`
 		: `${indent}${name}${argumentList ? ` ${argumentList}` : ''}`;
 
+	const call = [...callerDeclarations, invocation].join(eol);
 	const edits: VbaTextEdit[] = [
 		{ span: block, newText: call },
 		// The new procedure goes below the one it came out of, which is where a
@@ -164,15 +185,76 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 			newText: eol + eol + newProcedure + eol,
 		},
 	];
-	// A moved Dim leaves the caller with it.
-	for (const local of moved) {
-		edits.push({ span: wholeLineSpanAnyBreak(source, local.declaration!.group.span), newText: '' });
-	}
+	// Edit each declaration group once: siblings may remain in the caller.
+	edits.push(...movedDeclarationEdits(source, moved, block));
 
 	return refactor(`Extract '${name}'`, edits, {
 		start: block.start + call.indexOf(name),
 		end: block.start + call.indexOf(name) + name.length,
 	});
+}
+
+/** Whether the selection includes an entire declaration statement. */
+function containsSpan(outer: Span, inner: Span): boolean {
+	return inner.start >= outer.start && inner.end <= outer.end;
+}
+
+function movedDeclarationEdits(source: string, moved: readonly LocalUse[], block: Span): VbaTextEdit[] {
+	const groups = new Map<VariableGroupNode, Set<VariableDeclNode>>();
+	for (const local of moved) {
+		const { group, decl } = local.declaration!;
+		if (containsSpan(block, group.span)) { continue; }
+		let declarations = groups.get(group);
+		if (!declarations) { groups.set(group, declarations = new Set()); }
+		declarations.add(decl);
+	}
+	const edits: VbaTextEdit[] = [];
+	const removals: Span[] = [];
+	for (const [group, declarations] of groups) {
+		const remaining = group.declarations.filter((decl) => !declarations.has(decl));
+		if (remaining.length === 0) {
+			removals.push(declarationRemovalSpan(source, group.span));
+		} else {
+			edits.push({ span: group.span, newText: declarationText(source, group, remaining) });
+		}
+	}
+	return mergeDeclarationRemovals([...edits, ...removals.map((span) => ({ span, newText: '' }))]);
+}
+
+function declarationText(source: string, group: VariableGroupNode, declarations: readonly VariableDeclNode[]): string {
+	const first = group.declarations[0], last = group.declarations[group.declarations.length - 1];
+	return source.slice(group.span.start, first.span.start)
+		+ declarations.map((decl) => source.slice(decl.span.start, decl.span.end)).join(', ')
+		+ source.slice(last.span.end, group.span.end);
+}
+
+/** Adjacent colon statements can share a deleted separator; union removals. */
+function mergeDeclarationRemovals(edits: readonly VbaTextEdit[]): VbaTextEdit[] {
+	const out = edits.filter((edit) => edit.newText !== '');
+	const removals = edits.filter((edit) => edit.newText === '').sort((a, b) => a.span.start - b.span.start);
+	let previous: Span | undefined;
+	for (const { span } of removals) {
+		if (previous && span.start <= previous.end) {
+			previous.end = Math.max(previous.end, span.end);
+		} else {
+			previous = { ...span };
+			out.push({ span: previous, newText: '' });
+		}
+	}
+	return out;
+}
+
+/** Remove a Dim without deleting other statements or its trailing comment. */
+function declarationRemovalSpan(source: string, span: Span): Span {
+	const start = lineStartAtAnyBreak(source, span.start);
+	const end = lineEndAtOrAfter(source, span.end);
+	const before = source.slice(start, span.start), after = source.slice(span.end, end);
+	if (!before.trim() && !after.trim()) { return wholeLineSpanAnyBreak(source, span); }
+	const followingColon = /^[ \t]*:/.exec(after);
+	if (followingColon) { return { start: span.start, end: span.end + followingColon[0].length }; }
+	const precedingColon = /:[ \t]*$/.exec(before);
+	if (precedingColon) { return { start: start + precedingColon.index, end: span.end }; }
+	return { ...span };
 }
 
 /** Every local and parameter the selection touches, typed by how it is used. */
