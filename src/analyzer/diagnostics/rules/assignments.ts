@@ -1774,6 +1774,7 @@ export function checkSetAssignments(
 	activity?: ConditionalActivityTracker,
 ): ProcedureStatementVisitor {
 	const isDocumentModule = projectTypeNameLookup(memberCtx, 'document', false);
+	const isProjectClass = projectTypeNameLookup(memberCtx, 'class', false);
 	// Form metadata is stable within this rule invocation; query only the names
 	// actually used, retaining the first matching control and missing results.
 	let formResolved = false;
@@ -1921,7 +1922,7 @@ export function checkSetAssignments(
 				// Collection or a class of the project (issue #306, measured in
 				// Excel 16.0: 13).
 				if (!reason && value.length === 1 && tokenText(value[0]) === 'activesheet' && !sourceNames.runtimeShadows.has('activesheet')
-					&& (targetType === 'collection' || (memberCtx.projectClassMembers ?? []).some((type) => type.kind === 'class' && type.name.toLowerCase() === targetType))) {
+					&& (targetType === 'collection' || (targetType !== undefined && isProjectClass(targetType)))) {
 					shown = { type: 'Object', label: 'ActiveSheet, a Worksheet or a Chart', span: { start: span.start + value[0].start, end: span.start + value[0].end } };
 					reason = `ActiveSheet holds a sheet, never a ${expected}.`;
 				}
