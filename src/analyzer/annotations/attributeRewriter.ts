@@ -107,6 +107,7 @@ export function applyAttributeAnnotations(
 
 interface ModuleLine {
 	text: string;
+	ending: string;
 	next?: ModuleLine;
 }
 
@@ -120,17 +121,27 @@ class ModuleText {
 	private readonly ownedAttributes = new WeakMap<ModuleLine, Map<string, ModuleLine>>();
 
 	constructor(source: string) {
-		this.eol = source.includes('\r\n') ? '\r\n' : '\n';
-		const lines = source.replace(/\r\n/g, '\n').split('\n');
+		const lines = source.split(/(\r\n|\r|\n)/);
+		this.eol = lines[1] ?? '\n';
 		let next: ModuleLine | undefined;
-		for (let i = lines.length - 1; i >= 0; i--) { next = { text: lines[i], next }; }
+		for (let i = lines.length - 1; i >= 0; i -= 2) {
+			next = { text: lines[i], ending: lines[i + 1] ?? '', next };
+		}
 		this.first = next!;
 	}
 
 	toString(): string {
 		const lines: string[] = [];
-		for (let line: ModuleLine | undefined = this.first; line; line = line.next) { lines.push(line.text); }
-		return lines.join(this.eol);
+		for (let line: ModuleLine | undefined = this.first; line; line = line.next) { lines.push(line.text, line.ending); }
+		return lines.join('');
+	}
+
+	/** Keep the original following separator; an EOF insertion needs a new one. */
+	private insertAfter(after: ModuleLine, text: string): ModuleLine {
+		const line = { text, ending: after.ending, next: after.next };
+		after.ending ||= this.eol;
+		after.next = line;
+		return line;
 	}
 
 	/** The final header line: the preamble and its attributes. */
@@ -173,7 +184,7 @@ class ModuleText {
 			skipped.push('the module has no header to put '+attribute+' in.');
 			return;
 		}
-		end.next = { text: 'Attribute '+attribute+' = '+value, next: end.next };
+		this.insertAfter(end, 'Attribute '+attribute+' = '+value);
 		changes.push({ target: 'module', attribute, to: value });
 	}
 
@@ -257,8 +268,7 @@ class ModuleText {
 			}
 			return;
 		}
-		const line = { text, next: after.next };
-		after.next = line;
+		const line = this.insertAfter(after, text);
 		attributes.set(key, line);
 		changes.push({ target: owner, attribute, to: value });
 	}
