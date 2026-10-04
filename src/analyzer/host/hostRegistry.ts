@@ -55,12 +55,20 @@ const MODELS_BY_TOKEN = new Map<string, () => HostObjectModel>([
 	['vb6', getVb6ObjectModel],
 ]);
 
+/** Merged models, keyed by the token list that produced them. */
+const MERGED_BY_KEY = new Map<string, HostObjectModel>();
+
 /**
- * Registers a host's model under its token. Called by each host model module
- * at load; exported so tests can register throwaway models.
+ * Registers or replaces a host's model under its token. Embedders and tests
+ * can supply models; merged snapshots containing this token are invalidated.
  */
 export function registerHostObjectModel(token: VbaHostToken, model: () => HostObjectModel): void {
 	MODELS_BY_TOKEN.set(token, model);
+	for (const key of MERGED_BY_KEY.keys()) {
+		if (key.split('+').includes(token)) {
+			MERGED_BY_KEY.delete(key);
+		}
+	}
 }
 
 /**
@@ -79,9 +87,6 @@ export function hostObjectModelForToken(host: string | undefined): HostObjectMod
 	}
 	return MODELS_BY_TOKEN.get(token)?.() ?? EMPTY_HOST_MODEL;
 }
-
-/** Merged models, keyed by the token list that produced them. */
-const MERGED_BY_KEY = new Map<string, HostObjectModel>();
 
 /**
  * One model answering for a project's own host and every library it
