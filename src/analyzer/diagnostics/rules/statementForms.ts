@@ -21,7 +21,7 @@ import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { VbaProcedureSignature } from '../../symbols/symbolModel';
 import { statementLabelDeclarations, statementLabelReferences } from '../../flow/procedureLabels';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
-import { argumentlessHostDefault, buildModuleTypeSignatures, isKnownScalarType, normalizeType, objectHoldingDefault, objectValueNeedsIndex, typeEnvironmentFor } from '../typeInference';
+import { createObjectDefaultQueries, argumentlessHostDefault, buildModuleTypeSignatures, isKnownScalarType, normalizeType, objectHoldingDefault, typeEnvironmentFor } from '../typeInference';
 import { projectClassMemberAt, type MemberCompletionContext } from '../../completion/memberAccess';
 import { resolveHostAlias } from '../../host/hostModel';
 import {
@@ -58,6 +58,7 @@ export function checkStatementForms(
 	// An Enum of the module, unless a Function, Property Get or Declare of
 	// the module shares its name: that one is read, and runs (issue #639,
 	// measured in Excel 16.0). A variable or a Sub of the name does not.
+	const defaultQueries = createObjectDefaultQueries(memberCtx);
 	const ownValues = new Set((symbols.root.children ?? [])
 		.filter((symbol) => symbol.kind === 'function' || symbol.kind === 'propertyGet' || symbol.kind === 'declare')
 		.map((symbol) => symbol.name.toLowerCase()));
@@ -143,7 +144,7 @@ export function checkStatementForms(
 				// A variable As Sheets or Worksheets too, though its default is
 				// typed Object: `s = o` and `o & "x"` do not compile (issue #369).
 				const sheets = type !== undefined && SHEETS_TYPES.has(resolveHostAlias(type, memberCtx.model)?.toLowerCase() ?? '');
-				answer = type !== undefined && (sheets || objectValueNeedsIndex(type, memberCtx));
+				answer = type !== undefined && (sheets || defaultQueries.needsIndex(type));
 				needsIndex.set(lower, answer);
 			}
 			return answer;
