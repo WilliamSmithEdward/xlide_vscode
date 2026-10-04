@@ -123,11 +123,14 @@ export class ShapeRows {
 	/** The rows whose shapes were drawn, and so are drawn again when the file changes. */
 	private readonly opened = new Set<XlideNode>();
 	private readonly parents = new WeakMap<XlideNode, XlideNode>();
+	private readonly modulePlacements = new WeakMap<XlideNode, {
+		parent: XlideNode; hasCode: boolean | undefined; current: () => boolean;
+	}>();
 	private readonly contexts = new WeakMap<XlideNode, ShapeRowContext>();
 	/** The workbook sheet a sheet row stands for. */
 	private readonly sheetOfRow = new WeakMap<XlideNode, WorkbookSheet>();
 	/** The rows under a workbook's folder of bare sheets: module rows for empty sheet modules, sheet rows for sheets with none. */
-	private readonly bareRows = new WeakMap<XlideNode, XlideNode[]>();
+	private readonly bareRows = new WeakMap<XlideNode, { rows: XlideNode[]; current: () => boolean }>();
 	private generation = 0;
 	private readonly renderVersions = new Map<string, number>();
 	private disposed = false;
@@ -221,6 +224,13 @@ export class ShapeRows {
 		return this.parents.get(node);
 	}
 
+	/** Whether Sheets has classified this module using the current shape listing. */
+	moduleParentReady(module: XlideNode): boolean {
+		const placement = this.modulePlacements.get(module);
+		return !!placement && placement.current() && placement.hasCode === module.hasCode
+			&& this.parents.get(module) === placement.parent;
+	}
+
 	/**
 	 * The Shapes folder that goes first under a module row: a worksheet's,
 	 * when the sheet has one or more shapes to show; a Word document's
@@ -294,7 +304,8 @@ export class ShapeRows {
 				? byCodeName.get(module.moduleName.toLowerCase())
 				: undefined;
 			if (sheet) {
-				this.placeModuleRow(module, sheet, sheets);
+				const placement = this.modulePlacements.get(module);
+				this.placeModuleRow(module, sheet, this.moduleParentReady(module) ? placement!.parent : sheets);
 			} else {
 				this.unplaceModuleRow(module);
 				rest.push(module);
@@ -307,6 +318,7 @@ export class ShapeRows {
 	private unplaceModuleRow(module: XlideNode): void {
 		if (module.kind !== 'module') { return; }
 		this.parents.delete(module);
+		this.modulePlacements.delete(module);
 		module.sheetName = undefined;
 		module.label = module.moduleName ?? module.label;
 	}
@@ -316,6 +328,11 @@ export class ShapeRows {
 		module.sheetName = sheet.name;
 		module.label = `${module.moduleName} (${sheet.name})`;
 		this.parents.set(module, sheets);
+	}
+
+	private confirmModuleRow(module: XlideNode, sheet: WorkbookSheet, parent: XlideNode, current: () => boolean): void {
+		this.placeModuleRow(module, sheet, parent);
+		this.modulePlacements.set(module, { parent, hasCode: module.hasCode, current });
 	}
 
 	/** The rows under a row made here. */
@@ -336,7 +353,15 @@ export class ShapeRows {
 			return this.sheetRows(node, modules, modulesOf);
 		}
 		if (node.shapeFolder === 'bareSheets') {
-			return this.bareRows.get(node) ?? [];
+			const sheets = this.parents.get(node);
+			// VS Code can expand a retained child before redrawing its parent.
+			// Rebuild classification after refresh, but never revive cleared rows.
+			if (!sheets || this.folders.get(folderKey(node.filePath, 'bareSheets', undefined)) !== node
+				|| this.folders.get(folderKey(node.filePath, 'sheets', undefined)) !== sheets) { return []; }
+			const cached = this.bareRows.get(node);
+			if (cached?.current()) { return cached.rows; }
+			await this.children(sheets, modulesOf);
+			return this.children(node, modulesOf);
 		}
 		const host = shapeHostForPath(node.filePath);
 		if (!host) { return []; }
@@ -612,7 +637,7 @@ export class ShapeRows {
 			if (module && (module.hasCode !== false || hasShapes)) {
 				// Named here as well: a Sheets folder drawn again on its own,
 				// after a sheet was renamed, shows the new name.
-				this.placeModuleRow(module, sheet, folder);
+				this.confirmModuleRow(module, sheet, folder, current);
 				rows.push(module);
 				continue;
 			}
@@ -626,14 +651,20 @@ export class ShapeRows {
 			const none = this.folder(folder.filePath, 'bareSheets', BARE_SHEETS_FOLDER_LABEL);
 			none.itemCount = bare.length;
 			this.parents.set(none, folder);
-			this.bareRows.set(none, bare.map(({ sheet, module }) => {
+			this.bareRows.set(none, { current, rows: bare.map(({ sheet, module }) => {
 				if (module) {
-					this.placeModuleRow(module, sheet, none);
+					this.confirmModuleRow(module, sheet, none, current);
 					return module;
 				}
 				return this.sheetRow(none, sheet, undefined);
-			}));
+			}) });
 			rows.push(none);
+		} else {
+			const none = this.folders.get(folderKey(folder.filePath, 'bareSheets', undefined));
+			if (none) {
+				none.itemCount = 0;
+				this.bareRows.set(none, { rows: [], current });
+			}
 		}
 		return rows;
 	}

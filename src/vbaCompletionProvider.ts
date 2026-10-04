@@ -14,7 +14,7 @@
 
 import * as vscode from 'vscode';
 import { hasDocContent, renderDocMarkdown } from './analyzer/docs/docModel';
-import { XLIDE_SCHEME, isVbaDocument } from './xlideFileSystem';
+import { isVbaDocument } from './xlideFileSystem';
 import { leadingWhitespace } from './vbaSourceScan';
 import { xlideEditorBlockLayoutFromConfig } from './globalSettings';
 import {
@@ -57,7 +57,6 @@ import { startPerformanceTrace } from './performanceTrace';
 
 export const KEYWORD_SNIPPET_ACCEPTED_COMMAND = 'xlide.vba.keywordSnippetAccepted';
 const KEYBOARD_NAV_TEXT_CHANGE_GRACE_MS = 150;
-const COMPLETION_PROJECT_CONTEXT_BUDGET_MS = 150;
 const COMPLETION_SELECTION_SETTLE_TIMEOUT_MS = 1000;
 
 /**
@@ -273,7 +272,6 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 		if (token?.isCancellationRequested) {
 			return new vscode.CompletionList([], false);
 		}
-		const requestVersion = document.version;
 		const directiveCompletions = this._testDirectiveCompletions(document, position);
 		const directiveItems = directiveCompletions.map(
 			(completion) => this._toTestDirectiveItem(completion, position.line),
@@ -308,7 +306,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 
 		const cachedProjectCtx = this._projectContext.cachedEditorProjectContext(document);
 		const fastProjectCtx = cachedProjectCtx ?? this._projectContext.localEditorProjectContext(document, source);
-		if (!cachedProjectCtx && document.uri.scheme === XLIDE_SCHEME) {
+		if (!cachedProjectCtx) {
 			this._projectContext.warmEditorProjectContext(document, source);
 		}
 
@@ -318,7 +316,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 		// context warms, instead of caching an early intra-only/empty result and
 		// never asking again. Once the full context is available the list is
 		// complete and VS Code filters it client-side.
-		let contextComplete = Boolean(cachedProjectCtx);
+		const contextComplete = Boolean(cachedProjectCtx);
 		const list = (items: vscode.CompletionItem[]): vscode.CompletionList =>
 			new vscode.CompletionList(items, !contextComplete);
 
@@ -355,54 +353,18 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 			return list(fastMembers.map((mem) => this._toItem(mem, range, shouldInsertParens, bracketedMember)));
 		}
 
+		// Unmatched bracketed names remain member positions, without bare globals.
+		if (bracketedMember) { return list([]); }
+
 		const fastEvents = resolveEventHandlerCompletions(source, offset, toEventHandlerCompletionContext(fastProjectCtx));
 		if (fastEvents.length > 0) {
 			return list(fastEvents.map((event) => this._toEventHandlerItem(event, range)));
 		}
 
-		let projectCtx = cachedProjectCtx;
-		if (!projectCtx) {
-			const built = await this._projectContext.buildEditorProjectContextWithin(
-				document,
-				source,
-				COMPLETION_PROJECT_CONTEXT_BUDGET_MS,
-			);
-			if (token?.isCancellationRequested || document.version !== requestVersion) {
-				// Superseded by newer input; ask again rather than caching this result.
-				return new vscode.CompletionList([], true);
-			}
-			if (built) {
-				projectCtx = built;
-				contextComplete = true;
-			} else {
-				// Cross-module context is still loading. Serve the synchronous
-				// intra-module results now (so same-module procedures appear without
-				// waiting) and let VS Code re-request for the cross-module set.
-				projectCtx = fastProjectCtx;
-				contextComplete = false;
-			}
-		}
-		const typeCtx = toTypeCompletionContext(projectCtx);
-		const types = resolveTypeCompletions(source, offset, typeCtx);
-		if (types.length > 0) {
-			return list(types.map((t) => this._toTypeItem(t, range)));
-		}
-
+		// Menu updates never wait for project loading. Serve local facts now;
+		// the incomplete list asks VS Code to requery as its background cache warms.
+		const projectCtx = fastProjectCtx;
 		const memberCtx = toMemberCompletionContext(projectCtx);
-		const members = resolveMemberCompletions(source, offset, memberCtx);
-		if (members.length > 0) {
-			return list(members.map((mem) => this._toItem(mem, range, shouldInsertParens, bracketedMember)));
-		}
-
-		// A bracketed name following a dot is exclusively a member position.
-		// An unmatched foreign-name prefix must not fall back to bare globals.
-		if (bracketedMember) { return list([]); }
-
-		const eventCtx = toEventHandlerCompletionContext(projectCtx);
-		const events = resolveEventHandlerCompletions(source, offset, eventCtx);
-		if (events.length > 0) {
-			return list(events.map((event) => this._toEventHandlerItem(event, range)));
-		}
 
 		const labels = resolveProcedureLabelCompletions(source, offset);
 		if (labels.length > 0) {
