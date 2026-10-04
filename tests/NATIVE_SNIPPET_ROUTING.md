@@ -41,3 +41,6 @@ manifest/lifecycle unit tests passed.
 
 The earlier large-class synthetic edit failures did not establish snippet
 mode at their failure points; this proven stall is not claimed as their cause.
+
+After rebasing onto main including #1123, compilation, all ten native cases,
+all 25 Completion editor surface cases and the 22 targeted unit tests passed.
