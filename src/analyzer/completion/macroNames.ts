@@ -63,6 +63,7 @@ export function macroNameStringAt(source: string, offset: number, ctx: Signature
 	if (!token || token.kind !== 'stringLiteral' || !(offset > token.start && offset <= token.end)) {
 		return undefined;
 	}
+	// Empty strings and strings ending in an escaped quote still have a closing delimiter.
 	const closed = /^"(?:[^"]|"")*"$/.test(token.rawText);
 	const contentSpan: Span = { start: token.start + 1, end: closed ? token.end - 1 : token.end };
 	const text = closed ? stringLiteralValue(token.rawText) : token.rawText.slice(1).replace(/""/g, '"');
