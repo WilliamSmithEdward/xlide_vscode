@@ -2,6 +2,7 @@ import * as assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
+import { VbaEditorProjectContextService } from '../vbaEditorProjectContext';
 import { VbaTypeSemanticTokensProvider } from '../vbaSemanticTokensProvider';
 import type { VbaProjectIndexService } from '../vbaProjectIndexService';
 import { activate, closeAllEditors, open, until, workspaceRoot } from './support';
@@ -64,6 +65,23 @@ suite('Completion editor surface', () => {
             assert.notEqual(after, before, 'closed document token cache should have been discarded');
             assert.deepEqual(Array.from(after.data), Array.from(before.data), 'unchanged source should retain its token positions');
         } finally { provider.dispose(); }
+    });
+    test('does not reuse completion contexts across real document close/open language events', async () => {
+        const service = new VbaEditorProjectContextService({} as VbaProjectIndexService);
+        const { document } = await probe('ContextReopen',
+            'Public Type ProbeType\nValue As Long\nEnd Type\n', 'ProbeType');
+        const before = await service.buildEditorProjectContext(document, document.getText());
+        assert.ok(before.projectTypes?.some(type => type.name === 'ProbeType'));
+        const version = document.version;
+        const language = document.languageId;
+        const plain = await vscode.languages.setTextDocumentLanguage(document, 'plaintext');
+        const reopened = await vscode.languages.setTextDocumentLanguage(plain, language);
+        assert.equal(reopened.version, version);
+        assert.equal(service.cachedEditorProjectContext(reopened), undefined);
+        const after = await service.buildEditorProjectContext(reopened, reopened.getText());
+        assert.notEqual(after, before);
+        assert.ok(after.projectTypes?.some(type => type.name === 'ProbeType'));
+        service.dispose();
     });
     test('serves repeated completion requests in a large unchanged module', async () => {
         const source = 'Sub Demo()\nDim value As Long\n' + 'value = value + 1\n'.repeat(3000) +

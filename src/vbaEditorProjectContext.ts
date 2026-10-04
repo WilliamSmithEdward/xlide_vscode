@@ -83,6 +83,7 @@ export interface EditorProjectContext {
 }
 
 interface CachedEditorProjectContext {
+	document: vscode.TextDocument;
 	documentVersion: number;
 	loadedAt: number;
 	context: EditorProjectContext;
@@ -93,6 +94,7 @@ interface CachedLocalEditorProjectContext extends CachedEditorProjectContext {
 }
 
 interface EditorProjectContextBuild {
+	document: vscode.TextDocument;
 	buildId: number;
 	documentVersion: number;
 	promise: Promise<EditorProjectContext>;
@@ -265,14 +267,33 @@ export function toEventHandlerCompletionContext(ctx: EditorProjectContext): Even
 	};
 }
 
-export class VbaEditorProjectContextService {
+export class VbaEditorProjectContextService implements vscode.Disposable {
 	private readonly _projectContextCache = new Map<string, CachedEditorProjectContext>();
 	private readonly _localContextCache = new Map<string, CachedLocalEditorProjectContext>();
 	private readonly _projectContextBuilds = new Map<string, EditorProjectContextBuild>();
 	private _nextBuildId = 0;
-	private readonly _projectContextWarmTimers = new Map<string, { timer: ReturnType<typeof setTimeout>; documentVersion: number }>();
+	private readonly _projectContextWarmTimers = new Map<string, { timer: ReturnType<typeof setTimeout>; document: vscode.TextDocument; documentVersion: number }>();
 
-	constructor(private readonly _projectIndexService: VbaProjectIndexService) {}
+	private readonly _documentCloseSubscription: vscode.Disposable;
+	private _disposed = false;
+
+	constructor(private readonly _projectIndexService: VbaProjectIndexService) {
+		this._documentCloseSubscription = vscode.workspace.onDidCloseTextDocument(document => {
+			const key = document.uri.toString();
+			this._projectContextCache.delete(key);
+			this._localContextCache.delete(key);
+			this._projectContextBuilds.delete(key);
+			const warm = this._projectContextWarmTimers.get(key);
+			if (warm) { clearTimeout(warm.timer); }
+			this._projectContextWarmTimers.delete(key);
+		});
+	}
+
+	dispose(): void {
+		this._disposed = true;
+		this._documentCloseSubscription.dispose();
+		this.invalidate();
+	}
 
 	/** Drop derived editor contexts for a project (e.g. after a project change). */
 	invalidate(projectPath?: string): void {
@@ -290,7 +311,7 @@ export class VbaEditorProjectContextService {
 	cachedEditorProjectContext(document: vscode.TextDocument): EditorProjectContext | undefined {
 		const cached = this._projectContextCache.get(document.uri.toString());
 		if (
-			!cached ||
+			!cached || this._disposed || document.isClosed || cached.document !== document ||
 			cached.documentVersion !== document.version ||
 			Date.now() - cached.loadedAt > EDITOR_PROJECT_CONTEXT_CACHE_TTL_MS
 		) {
@@ -306,10 +327,11 @@ export class VbaEditorProjectContextService {
 	): EditorProjectContext {
 		const key = document.uri.toString();
 		const existing = this._projectContextCache.get(key);
-		if (existing && existing.documentVersion > documentVersion) {
+		if (existing?.document === document && existing.documentVersion > documentVersion) {
 			return existing.context;
 		}
 		this._projectContextCache.set(key, {
+			document,
 			documentVersion,
 			loadedAt: Date.now(),
 			context,
@@ -321,7 +343,7 @@ export class VbaEditorProjectContextService {
 	private _isCurrentProjectContextBuild(document: vscode.TextDocument, documentVersion: number, buildId: number): boolean {
 		const build = this._projectContextBuilds.get(document.uri.toString());
 		return !document.isClosed && document.version === documentVersion &&
-			build?.buildId === buildId;
+			build?.document === document && build.buildId === buildId;
 	}
 
 	private _pruneEditorProjectContextCache(cache = this._projectContextCache): void {
@@ -369,13 +391,14 @@ export class VbaEditorProjectContextService {
 		document: vscode.TextDocument,
 		source: string,
 	): Promise<EditorProjectContext> {
+		if (this._disposed || document.isClosed) { return {}; }
 		const cached = this.cachedEditorProjectContext(document);
 		if (cached) {
 			return cached;
 		}
 		const buildKey = document.uri.toString();
 		const existingBuild = this._projectContextBuilds.get(buildKey);
-		if (existingBuild?.documentVersion === document.version) {
+		if (existingBuild?.document === document && existingBuild.documentVersion === document.version) {
 			return existingBuild.promise;
 		}
 		const documentVersion = document.version;
@@ -386,7 +409,7 @@ export class VbaEditorProjectContextService {
 					this._projectContextBuilds.delete(buildKey);
 				}
 			});
-		this._projectContextBuilds.set(buildKey, { buildId, documentVersion, promise: build });
+		this._projectContextBuilds.set(buildKey, { document, buildId, documentVersion, promise: build });
 		return build;
 	}
 
@@ -476,10 +499,13 @@ export class VbaEditorProjectContextService {
 	}
 
 	warmEditorProjectContext(document: vscode.TextDocument, source: string): void {
+		if (this._disposed || document.isClosed) { return; }
 		const key = document.uri.toString();
 		const documentVersion = document.version;
-		if (this._projectContextBuilds.get(key)?.documentVersion === documentVersion ||
-			this._projectContextWarmTimers.get(key)?.documentVersion === documentVersion) {
+		const build = this._projectContextBuilds.get(key);
+		const warm = this._projectContextWarmTimers.get(key);
+		if ((build?.document === document && build.documentVersion === documentVersion) ||
+			(warm?.document === document && warm.documentVersion === documentVersion)) {
 			return;
 		}
 		const pending = this._projectContextWarmTimers.get(key);
@@ -493,7 +519,7 @@ export class VbaEditorProjectContextService {
 				/* best-effort cache warm */
 			});
 		}, 0);
-		this._projectContextWarmTimers.set(key, { timer, documentVersion });
+		this._projectContextWarmTimers.set(key, { timer, document, documentVersion });
 	}
 
 	/** Await the shared load without a timeout; callers must discard superseded results. */
@@ -539,13 +565,13 @@ export class VbaEditorProjectContextService {
 	localEditorProjectContext(document: vscode.TextDocument, source: string): EditorProjectContext {
 		const key = document.uri.toString();
 		const cached = this._localContextCache.get(key);
-		if (!document.isClosed && cached?.documentVersion === document.version && cached.source === source &&
+		if (!document.isClosed && cached?.document === document && cached.documentVersion === document.version && cached.source === source &&
 			Date.now() - cached.loadedAt <= EDITOR_PROJECT_CONTEXT_CACHE_TTL_MS) {
 			return cached.context;
 		}
 		const context = this._buildLocalEditorProjectContext(document, source);
 		if (!document.isClosed) {
-			this._localContextCache.set(key, { documentVersion: document.version, source, loadedAt: Date.now(), context });
+			this._localContextCache.set(key, { document, documentVersion: document.version, source, loadedAt: Date.now(), context });
 			this._pruneEditorProjectContextCache(this._localContextCache);
 		}
 		return context;

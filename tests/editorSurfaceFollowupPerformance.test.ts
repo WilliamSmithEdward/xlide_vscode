@@ -392,3 +392,38 @@ describe('overlapping reopened semantic refresh', () => {
         } finally { vi.useRealTimers(); }
     });
 });
+
+
+describe('hover and call-tip document lifetimes', () => {
+    it.each(['hover', 'signature'] as const)('skips source reads for a closed %s document', async kind => {
+        const doc = documentFor('Sub Demo()\nRemoteCall(\nEnd Sub\n');
+        (doc as unknown as { isClosed: boolean }).isClosed = true;
+        const provider = new VbaHoverSignatureProvider({
+            cachedEditorProjectContext: () => ({}),
+        } as never);
+        const request = kind === 'hover' ? provider.provideHover.bind(provider) : provider.provideSignatureHelp.bind(provider);
+        await request(doc, new vscode.Position(1, 2), active);
+        expect(doc.getText).not.toHaveBeenCalled();
+    });
+
+    it.each(['hover', 'signature'] as const)('does not resolve %s against a context arriving after close', async kind => {
+        const doc = documentFor('Sub Demo()\nRemoteCall(\nEnd Sub\n');
+        let finish!: (value: {}) => void;
+        const loaded = new Promise<{}>(resolve => { finish = resolve; });
+        const resolver = kind === 'hover' ? vi.spyOn(analyzer, 'resolveHover') : vi.spyOn(analyzer, 'resolveSignatureHelp');
+        resolver.mockReturnValue(undefined);
+        const context = {
+            cachedEditorProjectContext: () => undefined, cheapEditorProjectContext: () => ({}),
+            localEditorProjectContext: () => ({}), warmEditorProjectContext() {},
+            buildEditorProjectContextWithin: () => loaded,
+        };
+        const provider = new VbaHoverSignatureProvider(context as never);
+        const request = kind === 'hover' ? provider.provideHover.bind(provider) : provider.provideSignatureHelp.bind(provider);
+        const result = request(doc, new vscode.Position(1, kind === 'hover' ? 2 : 11), active);
+        expect(resolver).toHaveBeenCalledTimes(2);
+        (doc as unknown as { isClosed: boolean }).isClosed = true;
+        finish({});
+        expect(await result).toBeUndefined();
+        expect(resolver).toHaveBeenCalledTimes(2);
+    });
+});

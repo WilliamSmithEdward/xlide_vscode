@@ -50,7 +50,7 @@ export class VbaHoverSignatureProvider
 		position: vscode.Position,
 		token?: vscode.CancellationToken,
 	): Promise<vscode.Hover | undefined> {
-		if (token?.isCancellationRequested) {
+		if (token?.isCancellationRequested || document.isClosed) {
 			return undefined;
 		}
 		const source = document.getText();
@@ -87,7 +87,7 @@ export class VbaHoverSignatureProvider
 		position: vscode.Position,
 		token?: vscode.CancellationToken,
 	): Promise<vscode.SignatureHelp | undefined> {
-		if (token?.isCancellationRequested) {
+		if (token?.isCancellationRequested || document.isClosed) {
 			return undefined;
 		}
 		const source = document.getText();
@@ -168,7 +168,7 @@ export class VbaHoverSignatureProvider
 		}
 		if (!info && !cached && document.uri.scheme === XLIDE_SCHEME) {
 			const projectCtx = await this._projectContext.buildEditorProjectContextWithin(document, source, budgetMs);
-			if (token?.isCancellationRequested || document.version !== requestVersion) {
+			if (token?.isCancellationRequested || document.isClosed || document.version !== requestVersion) {
 				return undefined;
 			}
 			if (projectCtx) {

@@ -46,6 +46,7 @@ export function registerVbaMemberCompletion(
 	});
 
 	context.subscriptions.push(
+		projectContext,
 		vscode.commands.registerCommand(
 			KEYWORD_SNIPPET_ACCEPTED_COMMAND,
 			() => keywordSnippets.handleSnippetAccepted(),
