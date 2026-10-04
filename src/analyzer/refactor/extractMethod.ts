@@ -40,6 +40,7 @@ export interface ExtractMethodInput {
 
 interface LocalUse {
 	name: string;
+	sourceOrder: number;
 	declaration?: { group: VariableGroupNode; decl: VariableDeclNode };
 	isParameter: boolean;
 	type: string;
@@ -212,6 +213,7 @@ function classifyLocals(source: string, procedure: ProcedureNode, block: Span): 
 
 		out.push({
 			name: display,
+			sourceOrder: selected.size > 1 ? source.indexOf(display) : 0,
 			...(declaration ? { declaration } : {}),
 			isParameter: parameter !== undefined,
 			type: declaration?.decl.asType ?? parameter?.asType ?? 'Variant',
@@ -223,8 +225,8 @@ function classifyLocals(source: string, procedure: ProcedureNode, block: Span): 
 			isStatic: /^static$/i.test(declaration?.group.modifier ?? ''),
 		});
 	}
-	// Source order, so a generated signature reads the way the code does.
-	return out.sort((a, b) => source.indexOf(a.name) - source.indexOf(b.name));
+	// Keep the original raw first-occurrence order without rescanning while sorting.
+	return out.sort((a, b) => a.sourceOrder - b.sourceOrder);
 }
 
 /**
