@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const host = vi.hoisted(() => ({ findFiles: vi.fn() }));
+const host = vi.hoisted(() => ({ findFiles: vi.fn(), platform: process.platform }));
+vi.mock('../src/util/osPlatformNode', () => ({ osPlatform: () => host.platform }));
 vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({
     workspace: { findFiles: host.findFiles, workspaceFolders: [{ uri: { fsPath: 'C:/work' } }] },
 }));
@@ -19,12 +20,14 @@ function create(list: () => Promise<Module[]>, subs = vi.fn(async () => [{ name:
 }
 beforeEach(() => {
     explorers = [];
+    host.platform = process.platform;
     host.findFiles.mockResolvedValue([{ scheme: 'file', fsPath: BOOK }]);
 });
 afterEach(() => explorers.forEach(explorer => explorer.dispose()));
 
 describe('module rows across targeted project relisting', () => {
-    it('refreshes git badges without reading 1000 modules in another project', async () => {
+    it.each(['win32', 'linux'] as const)('refreshes git badges without reading 1000 unrelated modules on %s', async platform => {
+        host.platform = platform;
         const other = 'C:/work/Other.vbp';
         host.findFiles.mockResolvedValue([{ scheme: 'file', fsPath: BOOK }, { scheme: 'file', fsPath: other }]);
         const list = vi.fn().mockResolvedValueOnce([{ name: 'Main', type: 'standard' }])
@@ -35,10 +38,17 @@ describe('module rows across targeted project relisting', () => {
         for (const module of unaffected) { Object.defineProperty(module, 'filePath', { get: reads }); }
         const fired: unknown[] = [];
         const listener = explorer.onDidChangeTreeData(node => fired.push(node));
-        explorer.refreshGitMarks(BOOK.toUpperCase().replaceAll('/', '\\'));
-        listener.dispose();
+        const alias = platform === 'win32' ? BOOK.toUpperCase().replaceAll('/', '\\')
+            : 'C:/work/../work/App.vbp';
+        explorer.refreshGitMarks(alias);
         expect(fired).toEqual([...own, project]);
-        expect(reads).not.toHaveBeenCalled();
+        if (platform === 'linux') {
+            fired.length = 0;
+            explorer.refreshGitMarks(BOOK.toUpperCase().replaceAll('/', '\\'));
+            expect(fired).toEqual([]);
+        }
+        listener.dispose();
+        expect(reads.mock.calls.length).toBe(0);
         expect(list).toHaveBeenCalledTimes(2);
     });
 
