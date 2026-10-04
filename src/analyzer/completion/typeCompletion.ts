@@ -14,7 +14,10 @@
 // is unit-tested directly. The VS Code provider supplies the project type names.
 
 import type { VbaToken } from '../lexer/tokenKinds';
+import { tokenize } from '../lexer/tokenize';
 import { completionTypeTokens } from './cursorContext';
+import { isWsc } from '../lexer/tokenKinds';
+import { lineStartAtAnyBreak } from '../../vbaSourceScan';
 import {
 	getExcelObjectModel,
 	type HostObjectModel,
@@ -579,6 +582,38 @@ function exactTypeNameIndex(ctx: TypeCompletionContext): Map<string, TypeComplet
 	return byLower;
 }
 
+// Type detection consumes the last five grammar tokens across logical lines.
+// Lex only the chunks needed to find them; offsets/trivia stay local because
+// the detector reads kind and token text alone. A sparse tail of comments or
+// blank rows uses the shared full stream after a small number of chunks instead
+// of independently re-lexing thousands of rows on every request.
+const TYPE_GRAMMAR_CHUNK_LIMIT = 32;
+
+function boundedTypeGrammarTokens(source: string, offset: number): VbaToken[] {
+	let end = Math.max(0, Math.min(offset, source.length));
+	if (Number.isNaN(end)) { return []; }
+	let suffix: VbaToken[] = [];
+	const beforeBreak = (start: number): number => source[start - 1] === '\n' && source[start - 2] === '\r' ? start - 2 : start - 1;
+	for (let chunks = 0; chunks < TYPE_GRAMMAR_CHUNK_LIMIT; chunks++) {
+		let start = lineStartAtAnyBreak(source, end);
+		while (start > 0) {
+			const priorEnd = beforeBreak(start);
+			const priorStart = lineStartAtAnyBreak(source, priorEnd);
+			let at = priorEnd;
+			while (at > priorStart && isWsc(source[at - 1])) { at--; }
+			// Conservatively include underscore-ended lines, even when an
+			// identifier rather than trivia. This also covers comment chains.
+			if (at <= priorStart || source[at - 1] !== '_') { break; }
+			start = priorStart;
+		}
+		const chunk = tokenize(source.slice(start, end)).filter(token => token.kind !== 'comment' && token.kind !== 'newline');
+		suffix = [...chunk, ...suffix].slice(-5);
+		if (suffix.length >= 5 || start === 0) { return suffix; }
+		end = beforeBreak(start);
+	}
+	return completionTypeTokens(source, offset);
+}
+
 /**
  * Resolves the type-name completions available at `offset` in `source`. Returns
  * an empty array when the cursor is not in a declaration type position.
@@ -592,7 +627,7 @@ export function resolveTypeCompletions(
 	ctx: TypeCompletionContext = {},
 ): TypeCompletion[] {
 	const pos = detectTypePosition(
-		completionTypeTokens(source, offset),
+		boundedTypeGrammarTokens(source, offset),
 	);
 	if (!pos) {
 		return [];
