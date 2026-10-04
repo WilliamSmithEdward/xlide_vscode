@@ -40,6 +40,8 @@ export interface ShapeEditorDeps {
 
 /** Open editor tabs, so asking for one already open brings it forward. */
 const openEditors = new Map<string, vscode.WebviewPanel>();
+/** Repeated clicks share the reads that happen before a tab is registered. */
+const openingEditors = new Map<string, Promise<void>>();
 
 function editorKey(filePath: string, surface: string, shapeName: string | undefined): string {
 	return `${projectIdentityKey(filePath)}::${surface.toLowerCase()}::${shapeName?.toLowerCase() ?? '+'}`;
@@ -108,6 +110,28 @@ export async function openShapeEditor(
 		open.reveal();
 		return;
 	}
+	const pending = openingEditors.get(key);
+	if (pending) {
+		await pending;
+		openEditors.get(key)?.reveal();
+		return;
+	}
+	const started = createShapeEditor(deps, context, filePath, target, key);
+	openingEditors.set(key, started);
+	try {
+		await started;
+	} finally {
+		if (openingEditors.get(key) === started) { openingEditors.delete(key); }
+	}
+}
+
+async function createShapeEditor(
+	deps: ShapeEditorDeps,
+	context: vscode.ExtensionContext,
+	filePath: string,
+	target: Omit<ShapeEditorTarget, 'fileName'> & { shapePath?: string[] },
+	key: string,
+): Promise<void> {
 	let fresh: ShapeEditorTarget = { ...target, fileName: path.basename(filePath) };
 	if (target.shape) {
 		const listing = await deps.bridge.call<{ surfaces: Array<{ surface: string; shapes: ShapeInfo[] }> }>(
