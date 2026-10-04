@@ -14,6 +14,7 @@ import { lookupModuleSource, blankStringLiterals } from './shared';
 import { identifiersIn, tokenName } from '../lexer/tokenHelpers';
 import { tokenizeCached } from '../lexer/tokenize';
 import { ProjectIndex } from '../symbols/projectIndex';
+import type { ModuleSymbolKind } from '../symbols/symbolModel';
 import { attachedCommentsStart } from '../docs/docComment';
 
 /**
@@ -40,10 +41,18 @@ export interface MoveToModuleInput {
 	targetModuleName: string;
 	/** Every other module in the project, keyed by name. */
 	otherModuleSources: Readonly<Record<string, string>>;
+	/** Host module roles; omitted entries retain the legacy standard-module default. */
+	moduleKinds?: Readonly<Record<string, ModuleSymbolKind>>;
 }
 
 export function moveToModule(input: MoveToModuleInput): VbaRefactorResult {
 	const { source } = input;
+	const kinds = new Map(Object.entries(input.moduleKinds ?? {}).map(([name, kind]) => [name.toLowerCase(), kind]));
+	for (const name of [input.moduleName, input.targetModuleName]) {
+		if ((kinds.get(name.toLowerCase()) ?? 'standard') !== 'standard') {
+			return refuse('Move to Module requires standard modules; ' + name + ' is not a standard module.');
+		}
+	}
 	const module: ModuleNode = parseModule(source);
 	const procedure = procedureAtOffset(module, input.offset);
 	if (!procedure) {
@@ -86,7 +95,7 @@ export function moveToModule(input: MoveToModuleInput): VbaRefactorResult {
 			project.setModule({moduleName: input.moduleName, moduleKind: 'standard', source});
 			for (const [moduleName, otherSource] of Object.entries(input.otherModuleSources)) {
 				if (moduleName.toLowerCase() !== input.moduleName.toLowerCase()) {
-					project.setModule({moduleName, moduleKind: 'standard', source: otherSource});
+					project.setModule({moduleName, moduleKind: kinds.get(moduleName.toLowerCase()) ?? 'standard', source: otherSource});
 				}
 			}
 		}
