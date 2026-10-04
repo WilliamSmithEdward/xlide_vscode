@@ -41,3 +41,5 @@ import './editorSurfaces.test';
 import './nativeBackspaceRouting.test';
 
 import './nativeSnippetRouting.test';
+
+import './nativeEnterCaretOwnership.test';
