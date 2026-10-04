@@ -75,12 +75,22 @@ import { encodeModuleUri } from '../xlideFileSystem';
         const beforeWarm = performance.now();
         assert.match(await hoverText(), /LatencyValue As Long/);
         const warmMs = performance.now() - beforeWarm;
-        const source = document.getText();
-        const start = source.lastIndexOf('Dim LatencyValue As Long') + 'Dim LatencyValue As '.length;
         const beforeEdit = performance.now();
-        assert.ok(await vscode.window.activeTextEditor!.edit(edit => edit.replace(
-            new vscode.Range(document.positionAt(start), document.positionAt(start + 4)), 'Double')));
+        let edited = false;
+        let editAttempts = 0;
+        // Automatic casing can update the document while VS Code applies the
+        // test edit. A rejected edit changed nothing; retry with fresh positions
+        // and include all attempts in the measured edit-to-hover duration.
+        for (; editAttempts < 3 && !edited; editAttempts++) {
+            const source = document.getText();
+            const declaration = source.lastIndexOf('Dim LatencyValue As Long');
+            assert.notEqual(declaration, -1);
+            const start = declaration + 'Dim LatencyValue As '.length;
+            edited = await vscode.window.activeTextEditor!.edit(edit => edit.replace(
+                new vscode.Range(document.positionAt(start), document.positionAt(start + 4)), 'Double'));
+        }
+        assert.ok(edited);
         assert.match(await hoverText(), /LatencyValue As Double/);
-        console.log('Actual large class hover latency:', JSON.stringify({ warmMs, editToHoverMs: performance.now() - beforeEdit }));
+        console.log('Actual large class hover latency:', JSON.stringify({ warmMs, editAttempts, editToHoverMs: performance.now() - beforeEdit }));
     });
 });
