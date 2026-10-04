@@ -9,12 +9,14 @@ import {
 	type VbaTextEdit,
 } from './refactorTypes';
 import { assignmentAt, localDeclaration, localUsesIn, nameAt, walkBody, blankStringLiterals } from './shared';
-import { callSitesOf } from './callSites';
+import { callSitesOf, type CallSite } from './callSites';
 import { procedureCallBinding } from './procedureCallBinding';
 import { statementRemovalSpan, mergeRemovals } from './shared';
-import { firstTokenAtOrAfter, identifiersIn, tokenName } from '../lexer/tokenHelpers';
+import { firstTokenAtOrAfter, identifiersIn, tokenName, splitTopLevelTokenGroups } from '../lexer/tokenHelpers';
+import { numberValue } from '../diagnostics/conditionValue';
+import { dateLiteralSerial } from '../constants/dateLiteral';
 import { tokenize, tokenizeCached } from '../lexer/tokenize';
-import { blockHeaderLineSpan } from '../diagnostics/walker';
+import { blockHeaderLineSpan, rawExpressionTokens } from '../diagnostics/walker';
 import { ProjectIndex } from '../symbols/projectIndex';
 import { resolveMemberDefinitionsAt, privateMemberOwnerAt, type MemberCompletionContext } from '../completion/memberAccess';
 import { resolveBareIdentifierBinding } from '../symbols/nameResolution';
@@ -22,7 +24,9 @@ import type { ModuleSymbols, VbaSymbol, ModuleSymbolKind } from '../symbols/symb
 
 /**
  * Introduce Parameter: a local becomes a `ByVal` parameter, and every call
- * site passes the value the local used to be assigned.
+ * site passes the value the local used to be assigned. An existing Optional
+ * list gets an Optional tail, explicitly supplied by each known caller, so
+ * parameter-order evaluation remains unchanged. A ParamArray remains last.
  *
  *     Public Sub Report()          Public Sub Report(ByVal limit As Long)
  *         Dim limit As Long            Debug.Print limit
@@ -114,7 +118,7 @@ export function introduceParameter(input: IntroduceParameterInput): VbaRefactorR
 	}
 
 	const type = decl.asType ?? 'Variant';
-	const parameter = parameterInsertion(source, procedure, name, type);
+	const parameter = parameterInsertion(source, procedure, name, type, value);
 	if (!parameter) { return refuse('The procedure header has no reliable parameter-list boundary.'); }
 	const edits: VbaTextEdit[] = [
 		parameter,
@@ -170,7 +174,9 @@ export function introduceParameter(input: IntroduceParameterInput): VbaRefactorR
 	if (unresolvedReceiver) { return refuse(`A member named '${procedure.name}' inside this procedure has an unresolved receiver, so its call cannot be updated reliably.`); }
 	if (initializerCallsSelf) { return refuse('The initializer calls the procedure whose signature would change, so it cannot be moved to its callers.'); }
 	for (const site of here) {
-		edits.push({ span: site.argumentInsert, newText: site.argumentText(value, name) });
+		const edit = parameterArgumentEdit(source, site, procedure, name, type, value);
+		if (typeof edit === 'string') { return refuse(edit); }
+		edits.push(...edit);
 	}
 
 	const otherModules: VbaRefactorModuleEdits[] = [];
@@ -181,12 +187,15 @@ export function introduceParameter(input: IntroduceParameterInput): VbaRefactorR
 		const sites = callSitesOf(otherSource, procedure.name)
 			.filter(site => accepts(otherName, otherSource, site));
 		if (sites.length > 0) {
+			const callEdits: VbaTextEdit[] = [];
+			for (const site of sites) {
+				const edit = parameterArgumentEdit(otherSource, site, procedure, name, type, value);
+				if (typeof edit === 'string') { return refuse(edit); }
+				callEdits.push(...edit);
+			}
 			otherModules.push({
 				moduleName: otherName,
-				edits: sites.map((site) => ({
-					span: site.argumentInsert,
-					newText: site.argumentText(value, name),
-				})),
+				edits: callEdits,
 			});
 		}
 	}
@@ -199,14 +208,74 @@ export function introduceParameter(input: IntroduceParameterInput): VbaRefactorR
 	);
 }
 
+/** Preserve parameter-order evaluation and independently editable nested calls. */
+function parameterArgumentEdit(source: string, site: CallSite, procedure: ProcedureNode, name: string, type: string, value: string): VbaTextEdit[] | string {
+	const at = procedure.params.findIndex(param => param.paramArray);
+	if (at < 0) {
+		// A named tail skips any unsupplied old Optional parameters.
+		const optional = procedure.params.some(param => param.optional);
+		return [{ span: site.argumentInsert, newText: optional ? site.argumentText(`${name}:=${value}`) : site.argumentText(value, name) }];
+	}
+	if (site.empty) {
+		if (at > 0) { return 'A call omits a required argument, so its parameter binding cannot be preserved.'; }
+		return [{ span: site.argumentInsert, newText: site.argumentText(value) }];
+	}
+	const text = source.slice(site.argumentsSpan.start, site.argumentsSpan.end);
+	const tokens = rawExpressionTokens(text);
+	const groups = splitTopLevelTokenGroups(tokens, 0, ',');
+	if (groups.some(group => group[1]?.rawText === ':=')) { return 'A ParamArray procedure cannot be called with named arguments.'; }
+	if (groups.length < at || groups.slice(0, at).some(group => !group.length)) { return 'A call omits a required argument, so its parameter binding cannot be preserved.'; }
+	if (groups.length > at && !safeLiteralArgument(value, type)) {
+		return 'Moving this initializer ahead of ParamArray arguments could change evaluation order or when conversion fails. Use a literal that safely fits the local type first.';
+	}
+	if (groups.length === at) { return [{ span: site.argumentInsert, newText: site.argumentText(value) }]; }
+	let insert = groups[at][0]?.start;
+	if (insert === undefined) {
+		insert = 0;
+		let depth = 0, commas = 0;
+		for (const token of tokens) {
+			if (token.rawText === '(') { depth++; }
+			else if (token.rawText === ')') { depth--; }
+			else if (token.rawText === ',' && depth === 0 && ++commas === at) { insert = token.end; break; }
+		}
+	}
+	insert += site.argumentsSpan.start;
+	return [{ span: { start: insert, end: insert }, newText: (at === 0 && !groups[0].length && !site.bracketed ? ' ' : '') + value + ', ' }];
+}
+
+/** Only conversions known safe can move ahead of existing ParamArray expressions. */
+function safeLiteralArgument(value: string, type: string): boolean {
+	const tokens = rawExpressionTokens(value);
+	const normalized = type.toLowerCase();
+	if (tokens.length === 1) {
+		const token = tokens[0];
+		if (token.kind === 'stringLiteral') { return normalized === 'string' || normalized === 'variant'; }
+		if (/^(True|False)$/i.test(token.rawText)) { return normalized === 'boolean' || normalized === 'variant'; }
+		if (token.kind === 'dateLiteral') { return (normalized === 'date' || normalized === 'variant') && dateLiteralSerial(token.rawText) !== undefined; }
+	}
+	const literal = tokens.length === 1 ? tokens[0] : tokens.length === 2 && /^[+-]$/.test(tokens[0].rawText) ? tokens[1] : undefined;
+	if (!literal || literal.kind !== 'integerLiteral' && literal.kind !== 'floatLiteral') { return false; }
+	const n = numberValue(tokens, { value: () => undefined });
+	if (n === undefined || !Number.isFinite(n)) { return false; }
+	if (normalized === 'variant' || normalized === 'double') { return true; }
+	if (normalized === 'single') { return Math.abs(n) <= 3.4028234663852886e38; }
+	const bounds: Record<string, readonly [number, number]> = { byte: [0, 255], integer: [-32768, 32767], long: [-2147483648, 2147483647] };
+	const bound = bounds[normalized];
+	return bound !== undefined && Number.isInteger(n) && n >= bound[0] && n <= bound[1];
+}
+
 /** One logical-header lookup supplies both the insertion point and punctuation. */
-function parameterInsertion(source: string, procedure: ProcedureNode, name: string, type: string): VbaTextEdit | undefined {
+function parameterInsertion(source: string, procedure: ProcedureNode, name: string, type: string, value: string): VbaTextEdit | undefined {
 	if (!procedure.nameSpan) { return undefined; }
 	const nameEnd = procedure.typeSuffixSpan?.end ?? procedure.nameSpan.end;
 	const header = blockHeaderLineSpan(source, procedure.span);
 	const tokens = tokenizeCached(source);
 	const open = firstTokenAtOrAfter(tokens, nameEnd);
-	const declared = `ByVal ${name} As ${type}`;
+	const optional = procedure.params.some(param => param.optional);
+	const declared = optional
+		? `Optional ByVal ${name} As ${type} = ${safeLiteralArgument(value, type) ? value : type.toLowerCase() === 'string' ? '""' : '0'}`
+		: `ByVal ${name} As ${type}`;
+	const before = procedure.params.find(param => param.paramArray);
 	if (tokens[open]?.start >= header.end || tokens[open]?.rawText !== '(') {
 		return { span: { start: nameEnd, end: nameEnd }, newText: `(${declared})` };
 	}
@@ -215,6 +284,10 @@ function parameterInsertion(source: string, procedure: ProcedureNode, name: stri
 		if (tokens[i].rawText === '(') { depth++; }
 		else if (tokens[i].rawText === ')' && --depth === 0) {
 			const at = tokens[i].start;
+			if (before) {
+				if (before.span.start < tokens[open].end || before.span.start >= at) { return undefined; }
+				return { span: { start: before.span.start, end: before.span.start }, newText: declared + ', ' };
+			}
 			return { span: { start: at, end: at }, newText: (procedure.params.length === 0 ? '' : ', ') + declared };
 		}
 	}

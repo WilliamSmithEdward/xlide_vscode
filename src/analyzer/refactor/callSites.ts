@@ -7,6 +7,8 @@ import { findIdentifierOccurrences, lineStartAtAnyBreak, lineEndAtOrAfter, strip
 export interface CallSite {
 	offset: number;
 	argumentInsert: Span;
+	/** Existing argument text, excluding call-list parentheses. */
+	argumentsSpan: Span;
 	/** Supply the new parameter name when extending a named-argument list. */
 	argumentText: (value: string, parameterName?: string) => string;
 	/** Arguments use a bracketed call-list form rather than a bare list. */
@@ -105,7 +107,7 @@ class CallLine {
 			if (!bare || empty) {
 				const insert = this.start + this.tokens[close].start;
 				const named = this.first(this.named, this.depths[index + 1] + 1, index + 2) < close;
-				return { offset, argumentInsert: { start: insert, end: insert }, argumentText: (value, name) => (empty ? '' : ', ') + (named && name ? name + ':=' : '') + value, bracketed: true, empty };
+				return { offset, argumentsSpan: { start: this.start + this.tokens[index + 1].end, end: insert }, argumentInsert: { start: insert, end: insert }, argumentText: (value, name) => (empty ? '' : ', ') + (named && name ? name + ':=' : '') + value, bracketed: true, empty };
 			}
 		}
 		if (!bare && !explicit) { return bracketedEmpty(offset, after); }
@@ -115,11 +117,11 @@ class CallLine {
 		if (explicit) { return empty ? bracketedEmpty(offset, after) : undefined; }
 		const insert = empty ? after : this.start + this.tokens[end - 1].end;
 		const named = this.first(this.named, this.depths[index], index + 1) < end;
-		return { offset, argumentInsert: { start: insert, end: insert }, argumentText: (value, name) => (empty ? ' ' : ', ') + (named && name ? name + ':=' : '') + value, bracketed: false, empty };
+		return { offset, argumentsSpan: { start: after, end: insert }, argumentInsert: { start: insert, end: insert }, argumentText: (value, name) => (empty ? ' ' : ', ') + (named && name ? name + ':=' : '') + value, bracketed: false, empty };
 	}
 }
 function bracketedEmpty(offset: number, after: number): CallSite {
-	return { offset, argumentInsert: { start: after, end: after }, argumentText: value => '(' + value + ')', bracketed: true, empty: true };
+	return { offset, argumentsSpan: { start: after, end: after }, argumentInsert: { start: after, end: after }, argumentText: value => '(' + value + ')', bracketed: true, empty: true };
 }
 
 /** A possible continuation marker; the lexer decides whether it belongs to trivia. */
@@ -180,7 +182,7 @@ export function callSitesOf(source: string, procedureName: string, options: Call
 			const empty = flat[1].trim() === '';
 			if (!bare || empty) {
 				const insert = after + lead.length + flat[0].length - 1;
-				out.push({ offset, argumentInsert: { start: insert, end: insert }, argumentText: value => (empty ? '' : ', ') + value, bracketed: true, empty });
+				out.push({ offset, argumentsSpan: { start: after + lead.length + 1, end: insert }, argumentInsert: { start: insert, end: insert }, argumentText: value => (empty ? '' : ', ') + value, bracketed: true, empty });
 				continue;
 			}
 		}
@@ -188,7 +190,7 @@ export function callSitesOf(source: string, procedureName: string, options: Call
 		if (next === '=' && (bare || /^(Call|Set|Let|For|LSet|RSet)$/i.test(context))) { continue; }
 		if (!bare) { if (!/^Call$/i.test(context) || empty) { out.push(bracketedEmpty(offset, after)); } continue; }
 		const insert = empty ? after : after + rest.trimEnd().length;
-		out.push({ offset, argumentInsert: { start: insert, end: insert }, argumentText: value => (empty ? ' ' : ', ') + value, bracketed: false, empty });
+		out.push({ offset, argumentsSpan: { start: after, end: insert }, argumentInsert: { start: insert, end: insert }, argumentText: value => (empty ? ' ' : ', ') + value, bracketed: false, empty });
 	}
 	return out;
 }
