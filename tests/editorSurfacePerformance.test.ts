@@ -43,6 +43,30 @@ function documentFor(source: string) {
 afterEach(() => vi.restoreAllMocks());
 
 describe('editor surface performance', () => {
+	it.each(['edited', 'closed', 'canceled'])('drops completion results %s before delivery', async invalidation => {
+		const line = 'ThisWorkbook.Sheets(1).';
+		const doc = documentFor('Sub Demo()\n' + line + '\nEnd Sub\n');
+		const provider = new VbaMemberCompletionProvider({ cachedEditorProjectContext: () => ({}) } as never);
+		const position = new vscode.Position(1, line.length);
+		expect((await provider.provideCompletionItems(doc, position)).items.length).toBeGreaterThan(20);
+		const token = { isCancellationRequested: false };
+		const result = provider.provideCompletionItems(doc, position, token as vscode.CancellationToken);
+		if (invalidation === 'edited') { (doc as unknown as { version: number }).version++; }
+		if (invalidation === 'closed') { (doc as unknown as { isClosed: boolean }).isClosed = true; }
+		if (invalidation === 'canceled') { token.isCancellationRequested = true; }
+		expect((await result).items).toHaveLength(0);
+	});
+
+	it('skips source reads and project analysis for closed completion documents', async () => {
+		const doc = documentFor('Sub Demo()\nThisWorkbook.Sheets(1).\nEnd Sub\n');
+		(doc as unknown as { isClosed: boolean }).isClosed = true;
+		const service = { cachedEditorProjectContext: vi.fn(() => ({})) };
+		const result = await new VbaMemberCompletionProvider(service as never).provideCompletionItems(doc, new vscode.Position(1, 22));
+		expect(result.items).toHaveLength(0);
+		expect(doc.getText).not.toHaveBeenCalled();
+		expect(service.cachedEditorProjectContext).not.toHaveBeenCalled();
+	});
+
 	it.each(['ThisWorkbook.Sheets(1).', 'Call ThisWorkbook.Sheets(1).', 'Set x = ThisWorkbook.Sheets(1).'])(
 		'classifies callable insertion once for all rows at %s', async expression => {
 			const source = 'Sub Demo()\n' + expression + '\nEnd Sub\n';

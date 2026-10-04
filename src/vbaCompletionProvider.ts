@@ -257,8 +257,11 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 		context?: vscode.CompletionContext,
 	): Promise<vscode.CompletionList> {
 		const trace = startPerformanceTrace('completion', document.uri.scheme);
+		const requestVersion = document.version;
 		try {
-			return await this._provideCompletionItems(document, position, token, context);
+			const result = await this._provideCompletionItems(document, position, token, context);
+			return token?.isCancellationRequested || document.isClosed || document.version !== requestVersion
+				? new vscode.CompletionList([], false) : result;
 		} finally {
 			trace.end(token?.isCancellationRequested ? 'canceled' : 'ok', document.uri.scheme);
 		}
@@ -270,7 +273,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 		token?: vscode.CancellationToken,
 		context?: vscode.CompletionContext,
 	): Promise<vscode.CompletionList> {
-		if (token?.isCancellationRequested) {
+		if (token?.isCancellationRequested || document.isClosed) {
 			return new vscode.CompletionList([], false);
 		}
 		const directiveCompletions = this._testDirectiveCompletions(document, position);
