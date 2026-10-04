@@ -308,15 +308,12 @@ export function projectEditorSymbolContextForModule(
     } catch (err) {
         analysisOptions.projectContextFailure = err;
     }
-    const currentLower = moduleName.toLowerCase();
     let externalProjectProcedures: VbaProcedureSignature[] = [];
     let externalProjectSymbols: VbaSymbol[] = [];
     try {
         // Both or neither, as with the analysis options above.
-        const procedures = project.visibleProcedureSignatures(moduleName)
-            .filter((procedure) => procedure.moduleName.toLowerCase() !== currentLower);
-        const symbols = project.visibleIdentifierSymbols(moduleName)
-            .filter((symbol) => symbol.moduleName.toLowerCase() !== currentLower);
+        const procedures = project.visibleProcedureSignatures(moduleName, { excludeCurrentModule: true });
+        const symbols = project.visibleIdentifierSymbols(moduleName, { excludeCurrentModule: true });
         externalProjectProcedures = procedures;
         externalProjectSymbols = symbols;
     } catch {
