@@ -82,6 +82,30 @@ suite('Explorer lifetime in the extension host', () => {
 });
 
 suite('Explorer shape refresh in the extension host', () => {
+    test('shape commands lose obsolete contexts until the row redraws', async () => {
+        let macro = 'Old';
+        const explorer = new ProjectExplorer({ call: () => Promise.resolve({ surfaces: [{ surface: 'Data', shapes: [
+            { name: 'Box', kind: 'shape', macro },
+        ] }] }) } as unknown as ConstructorParameters<typeof ProjectExplorer>[0]);
+        try {
+            const folder = { kind: 'shapes' as const, shapeFolder: 'surface' as const,
+                surface: 'Data', label: 'Shapes', filePath: workbookPath() };
+            const [box] = await explorer.getChildren(folder);
+            const original = explorer.shapeContextOf(box);
+            assert.ok(original);
+            explorer.refreshShapes(workbookPath() + '.other.xlsm');
+            assert.equal(explorer.shapeContextOf(box), original);
+            macro = 'New';
+            explorer.refreshShapes(workbookPath());
+            assert.equal(explorer.shapeContextOf(box), undefined);
+            await explorer.getChildren(box);
+            assert.equal(explorer.shapeContextOf(box)?.shape?.macro, 'New');
+            assert.notEqual(explorer.shapeContextOf(box), original);
+            explorer.dispose();
+            assert.equal(explorer.shapeContextOf(box), undefined);
+        } finally { explorer.dispose(); }
+    });
+
     test('renamed module-less sheets stop accumulating refresh notifications', async () => {
         let name = 'Data';
         const explorer = new ProjectExplorer({ call: (method: string) => {
