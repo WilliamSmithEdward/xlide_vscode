@@ -926,13 +926,15 @@ export class ProjectIndex {
 	 * Visible bare-call Sub/Function/Declare signatures from `moduleName`.
 	 * Same-module callables are visible to their own module. Other modules
 	 * contribute only exported standard-module callables, matching the
-	 * `visibleProcedureNames` rule used by diagnostics.
+	 * `visibleProcedureNames` rule used by diagnostics. Editor callers can exclude
+	 * the current module before signatures are materialized.
 	 */
-	visibleProcedureSignatures(moduleName: string): VbaProcedureSignature[] {
+	visibleProcedureSignatures(moduleName: string, options: { excludeCurrentModule?: boolean } = {}): VbaProcedureSignature[] {
 		const currentLower = moduleName.toLowerCase();
 		const out: VbaProcedureSignature[] = [];
 		for (const mod of this.modules.values()) {
 			const sameModule = mod.moduleName.toLowerCase() === currentLower;
+			if (sameModule && options.excludeCurrentModule) { continue; }
 			out.push(...this.contribution('procedureSignatures', mod, sameModule, () => {
 				const part: VbaProcedureSignature[] = [];
 				for (const symbol of mod.root.children ?? []) {
@@ -996,12 +998,14 @@ export class ProjectIndex {
 	 * `moduleName`. Document/UserForm code names are intentionally not included
 	 * here because they are object-module globals rather than source
 	 * declarations; callers that need them should use the project module list.
+	 * Editor callers can exclude current-module symbols before projecting them.
 	 */
-	visibleIdentifierSymbols(moduleName: string): VbaSymbol[] {
+	visibleIdentifierSymbols(moduleName: string, options: { excludeCurrentModule?: boolean } = {}): VbaSymbol[] {
 		const currentLower = moduleName.toLowerCase();
 		const out: VbaSymbol[] = [];
 		for (const mod of this.modules.values()) {
 			const sameModule = mod.moduleName.toLowerCase() === currentLower;
+			if (sameModule && options.excludeCurrentModule) { continue; }
 			out.push(...this.visibleModuleLevelIdentifierSymbols(mod, sameModule));
 		}
 		return out;

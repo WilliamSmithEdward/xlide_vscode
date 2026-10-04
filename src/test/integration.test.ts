@@ -11,6 +11,7 @@ import './prefixWindowSurfaces.test';
 import './deadCode.test';
 import './gitCompare.test';
 import './immediateCompletionSurfaces.test';
+import './largeClassLatency.test';
 import './officeIntegration.test';
 import './crossModuleDiagnostics.test';
 import './canonicalCasing.test';
