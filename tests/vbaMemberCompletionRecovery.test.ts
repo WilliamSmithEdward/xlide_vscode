@@ -7,6 +7,7 @@ vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock(
 }));
 
 import * as vscode from 'vscode';
+import * as lexer from '../src/analyzer/lexer/tokenize';
 import { hasMemberCompletions, resolveMemberCompletions } from '../src/analyzer';
 import { VbaMemberCompletionProvider } from '../src/vbaCompletionProvider';
 import type { EditorProjectContext, VbaEditorProjectContextService } from '../src/vbaEditorProjectContext';
@@ -46,7 +47,7 @@ function deletion(line: string, options: { column?: number; prelude?: string } =
 }
 
 beforeEach(() => { vi.useFakeTimers(); vi.mocked(vscode.commands.executeCommand).mockClear(); });
-afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); });
+afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.restoreAllMocks(); });
 
 describe('member completion recovery on Backspace', () => {
     it.each(['ThisWorkbook.Sheets(1).[Ce', 'ThisWorkbook.Sheets(1).[Ce]'])(
@@ -249,4 +250,26 @@ describe('member completion recovery on Backspace', () => {
         expect(vscode.commands.executeCommand).not.toHaveBeenCalled();
         expect(edit.projectContext.localEditorProjectContext).not.toHaveBeenCalled();
     });
+});
+
+it('bounds cursor work before rejecting recovery in a continued comment of a large module', async () => {
+    const prelude = Array.from({ length: 1200 }, (_, i) =>
+        'Sub RecoveryPadding' + i + '()\nDebug.Print ' + i + '\nEnd Sub\n').join('') +
+        "Sub Probe()\n' continued comment _\n";
+    const line = 'ThisWorkbook.Sheets(1).ce';
+    const edit = deletion(line, { prelude });
+    const tokens = lexer.tokenizeCached(prelude + line + '\nEnd Sub');
+    let reads = 0;
+    vi.spyOn(lexer, 'tokenizeCached').mockReturnValue(new Proxy(tokens, {
+        get(target, property, receiver) {
+            if (typeof property === 'string' && /^\d+$/.test(property)) { reads++; }
+            return Reflect.get(target, property, receiver);
+        },
+    }));
+    edit.send();
+    await vi.runAllTimersAsync();
+    expect(reads).toBeLessThan(100);
+    expect(vscode.commands.executeCommand).not.toHaveBeenCalled();
+    expect(edit.projectContext.cachedEditorProjectContext).not.toHaveBeenCalled();
+    expect(edit.projectContext.cheapEditorProjectContext).not.toHaveBeenCalled();
 });
