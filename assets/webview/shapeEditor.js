@@ -235,12 +235,17 @@
 
         form.addEventListener('submit', (event) => {
             event.preventDefault();
+            if ($('save').disabled) { return; }
             clearErrors();
             busy(model.mode === 'add' ? 'Adding...' : 'Saving...');
             vscode.postMessage({ type: 'save', values: values() });
         });
         $('cancel').addEventListener('click', () => vscode.postMessage({ type: 'cancel' }));
-        $('delete').addEventListener('click', () => vscode.postMessage({ type: 'delete' }));
+        $('delete').addEventListener('click', () => {
+            clearErrors();
+            busy('Deleting...');
+            vscode.postMessage({ type: 'delete' });
+        });
         $('goToMacro').addEventListener('click', () => vscode.postMessage({ type: 'goToMacro', macro: $('macro').value }));
         $('macro').addEventListener('change', updateGoTo);
         $('type').addEventListener('change', applyFields);
