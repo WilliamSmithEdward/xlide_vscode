@@ -728,22 +728,32 @@ function hasUnsafeDeclarationDelimiter(toks: ReturnType<typeof tokenize>, eqIdx:
 }
 
 function isInsideProcedureBefore(source: string, offset: number): boolean {
-	let inside = false;
-	let current = source.charCodeAt(0) === 0xfeff ? 1 : 0;
-	while (current < offset) {
-		const line = readPhysicalLine(source, current);
-		const text = line.text.trim();
+	// Only the last procedure boundary before this physical line decides the
+	// existing context heuristic. Search backward instead of rewalking the prefix.
+	let current = offset;
+	while (current > 0) {
+		let end = current;
+		while (end > 0) {
+			const code = source.charCodeAt(end - 1);
+			if (code !== 10 && code !== 13) { break; }
+			end--;
+		}
+		let start = end;
+		while (start > 0) {
+			const code = source.charCodeAt(start - 1);
+			if (code === 10 || code === 13) { break; }
+			start--;
+		}
+		const text = source.slice(start, end).trim();
 		if (/^(?:Public|Private|Friend|Static)?\s*(?:Sub|Function|Property\s+(?:Get|Let|Set))\b/i.test(text)) {
-			inside = true;
-		} else if (/^End\s+(?:Sub|Function|Property)\b/i.test(text)) {
-			inside = false;
+			return true;
 		}
-		if (line.next <= current) {
-			break;
+		if (/^End\s+(?:Sub|Function|Property)\b/i.test(text)) {
+			return false;
 		}
-		current = line.next;
+		current = start;
 	}
-	return inside;
+	return false;
 }
 
 function readPhysicalLine(
