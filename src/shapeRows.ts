@@ -204,6 +204,15 @@ export class ShapeRows {
 		});
 	}
 
+	/** Code edits change sheet placement without changing the catalog or shapes. */
+	moduleCodeChanged(filePath: string): void {
+		if (this.disposed) { return; }
+		const project = projectIdentityKey(filePath);
+		this.renderVersions.set(project, (this.renderVersions.get(project) ?? 0) + 1);
+		const sheets = this.folders.get(folderKey(filePath, 'sheets', undefined));
+		if (sheets) { this.fire(sheets); }
+	}
+
 	/** A refresh revokes derived rows as well as the reads that populate caches. */
 	private renderCurrent(filePath: string): () => boolean {
 		const project = projectIdentityKey(filePath);

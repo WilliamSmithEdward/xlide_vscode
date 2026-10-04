@@ -18,6 +18,7 @@ import {
     modulesWithNoTabLeft,
 } from './vbaDocumentLocation';
 import { readFolderAnnotation } from './vba/folderAnnotation';
+import { splitVbaSource } from './vba/moduleSource';
 import { setVb6CodePage } from './vba/vb6/vb6Project';
 import { platformFeatures } from './platformFeatures';
 import { registerCommands } from './commands';
@@ -346,6 +347,18 @@ export function activate(context: vscode.ExtensionContext): void {
         bridge,
     );
 
+    const updateModuleSourceMetadata = (projectPath: string, moduleName: string, source: string,
+        fromEditor = true): void => {
+        explorer.setModuleFolder(projectPath, moduleName, readFolderAnnotation(source).folder);
+        // Only document modules use code presence for sheet placement. Avoid
+        // splitting every standard module's source on each debounced edit.
+        const node = explorer.getModuleNode(projectPath, moduleName);
+        if (!node || node.moduleType === 'document') {
+            explorer.setModuleCodePresence(projectPath, moduleName, splitVbaSource(source).body.trim().length > 0,
+                { fromEditor });
+        }
+    };
+
     // When the symbol index updates (e.g. after a rename or save), refresh
     // the matching module's sub list in the explorer so renamed procedures
     // appear immediately. A module an agent or a command rewrote can have a
@@ -360,7 +373,7 @@ export function activate(context: vscode.ExtensionContext): void {
             explorer.refreshModuleSubs(projectPath, moduleName);
             const source = vbaIndex.peekModule(projectPath, moduleName)?.source;
             if (source !== undefined) {
-                explorer.setModuleFolder(projectPath, moduleName, readFolderAnnotation(source).folder);
+                updateModuleSourceMetadata(projectPath, moduleName, source, false);
             }
         }),
 
@@ -387,11 +400,7 @@ export function activate(context: vscode.ExtensionContext): void {
                     if (document.isClosed) { continue; }
                     const location = moduleLocationOfDocument(document);
                     if (!location) { continue; }
-                    explorer.setModuleFolder(
-                        location.projectPath,
-                        location.moduleName,
-                        readFolderAnnotation(analysisSourceForDocument(document)).folder,
-                    );
+                    updateModuleSourceMetadata(location.projectPath, location.moduleName, analysisSourceForDocument(document));
                 }
                 pending.clear();
             }, 300);
