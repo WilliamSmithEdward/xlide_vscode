@@ -1364,6 +1364,7 @@ export interface ArgumentObjectQueries {
 	resolveType: ReturnType<typeof createObjectAssignmentTypeResolver>;
 	shareInterfaces: ReturnType<typeof createProjectInterfaceSharingLookup>;
 	implementsType: ReturnType<typeof createObjectTypeImplementationLookup>;
+	needsIndex?: ReturnType<typeof createObjectDefaultQueries>['needsIndex'];
 }
 
 export function validateArgumentTypes(
@@ -1697,10 +1698,11 @@ function objectValueArgumentProblem(
 	}
 	const expectedType = normalizeType(expected);
 	if (expectedType && isKnownScalarType(expectedType)) {
+		const needsIndex = objectQueries?.needsIndex ?? ((type: string | undefined) => objectValueNeedsIndex(type, memberCtx));
 		if (toks.length === 1 && tokenText(toks[0]) === 'nothing') {
 			return { rule: 'argumentObjectTypeMismatch', what: 'Nothing', reason: 'This is a VBE compile error: Invalid use of object.', tokens: toks };
 		}
-		if (toks.length === 2 && tokenText(toks[0]) === 'new' && objectValueNeedsIndex(toks[1].rawText, memberCtx)) {
+		if (toks.length === 2 && tokenText(toks[0]) === 'new' && needsIndex(toks[1].rawText)) {
 			return { rule: 'argumentObjectTypeMismatch', what: `New ${toks[1].rawText}, whose default member Item needs an index`, reason: 'This is a VBE compile error: Argument not optional.', tokens: toks };
 		}
 		// A Collection variable passed by value is read for its value, the
@@ -1708,7 +1710,7 @@ function objectValueArgumentProblem(
 		// byref-argument-type-mismatch's.
 		const passedName = toks.length === 1 ? tokenName(toks[0])?.toLowerCase() : undefined;
 		const passedType = passedName ? env.get(passedName) : undefined;
-		if (byValue && passedType && isDeclared(toks[0].rawText) && objectValueNeedsIndex(passedType, memberCtx)) {
+		if (byValue && passedType && isDeclared(toks[0].rawText) && needsIndex(passedType)) {
 			return { rule: 'argumentObjectTypeMismatch', what: `'${toks[0].rawText}', declared ${passedType}, whose default member Item needs an index`, reason: 'This is a VBE compile error: Argument not optional.', tokens: toks };
 		}
 		const callee = tokenText(toks[0]);
@@ -3215,18 +3217,23 @@ interface ObjectDefaultTypeQueries {
 /** Lazy default-member facts for one public query, preserving first-surface lookup. */
 export function createObjectDefaultQueries(memberCtx: MemberCompletionContext) {
 	const resolveType = createObjectAssignmentTypeResolver(memberCtx);
-	const projectTypes = new Map<string, VbaProjectClassMembers>();
-	let projectIndex = 0;
-	const projectTypeNamed = (key: string): VbaProjectClassMembers | undefined => {
-		if (projectTypes.has(key)) { return projectTypes.get(key); }
-		const types = memberCtx.projectClassMembers ?? [];
-		while (projectIndex < types.length) {
-			const type = types[projectIndex++], lower = type.name.toLowerCase();
-			if (!projectTypes.has(lower)) { projectTypes.set(lower, type); }
-			if (lower === key) { return projectTypes.get(key); }
-		}
-		return undefined;
+	const projectLookup = (kind?: 'class') => {
+		const projectTypes = new Map<string, VbaProjectClassMembers>();
+		let projectIndex = 0;
+		return (key: string): VbaProjectClassMembers | undefined => {
+			if (projectTypes.has(key)) { return projectTypes.get(key); }
+			const types = memberCtx.projectClassMembers ?? [];
+			while (projectIndex < types.length) {
+				const type = types[projectIndex++];
+				if (kind && type.kind !== kind) { continue; }
+				const lower = type.name.toLowerCase();
+				if (!projectTypes.has(lower)) { projectTypes.set(lower, type); }
+				if (lower === key) { return projectTypes.get(key); }
+			}
+			return undefined;
+		};
 	};
+	const projectTypeNamed = projectLookup(), projectClassNamed = projectLookup('class');
 	const types = { resolveType, projectTypeNamed };
 	const verdicts = new Map<string | undefined, ReturnType<typeof objectLetAssignmentVerdict>>();
 	const verdictFor = (type: string | undefined): ReturnType<typeof objectLetAssignmentVerdict> => {
@@ -3240,7 +3247,7 @@ export function createObjectDefaultQueries(memberCtx: MemberCompletionContext) {
 		if (answer === undefined) { answer = objectValueNeedsIndex(type, memberCtx, verdictFor); indexes.set(type, answer); }
 		return answer;
 	};
-	return { resolveType, projectTypeNamed, verdictFor, needsIndex };
+	return { resolveType, projectTypeNamed, projectClassNamed, verdictFor, needsIndex };
 }
 
 /**

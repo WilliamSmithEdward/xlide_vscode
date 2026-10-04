@@ -55,6 +55,7 @@ import {
 import {
 	buildModuleTypeSignatures,
 	createObjectAssignmentTypeResolver,
+	createObjectDefaultQueries,
 	createObjectTypeImplementationLookup,
 	createProjectInterfaceSharingLookup,
 	callableSignatureForCall,
@@ -184,9 +185,9 @@ export function checkConstAssignment(
  * the name is its return value and binds locally, so it never reaches here.
  */
 /** The default member of a project class when it is a Property Get with no Property Let. */
-function readOnlyProjectDefault(type: string, memberCtx: MemberCompletionContext): string | undefined {
+function readOnlyProjectDefault(type: string, projectClassNamed: ReturnType<typeof createObjectDefaultQueries>['projectClassNamed']): string | undefined {
 	const lower = type.trim().split('.').pop()?.toLowerCase();
-	const cls = (memberCtx.projectClassMembers ?? []).find((candidate) => candidate.kind === 'class' && candidate.name.toLowerCase() === lower);
+	const cls = lower ? projectClassNamed(lower) : undefined;
 	const member = cls?.exhaustive === true ? cls.members.find((candidate) => candidate.defaultMember) : undefined;
 	return member && member.kind === 'property' && !member.letAccessor && member.writable !== true ? member.name : undefined;
 }
@@ -294,7 +295,8 @@ export function checkAssignmentTypes(
 ): void {
 	const isDocumentModule = projectTypeNameLookup(memberCtx, 'document', false);
 	const isFormOwner = projectTypeNameLookup(memberCtx, 'userform', true);
-	const resolveObjectType = createObjectAssignmentTypeResolver(memberCtx);
+	const defaultQueries = createObjectDefaultQueries(memberCtx);
+	const resolveObjectType = defaultQueries.resolveType;
 	const shareInterfaces = createProjectInterfaceSharingLookup(memberCtx);
 	const implementsType = createObjectTypeImplementationLookup();
 	const objectAssignmentReason = (expected: string | undefined, actual: ReturnType<typeof inferArgumentType>) =>
@@ -310,11 +312,11 @@ export function checkAssignmentTypes(
 	const objectFactsFor = (type: string) => {
 		let facts = objectTypes.get(type);
 		if (!facts) {
-			const isObject = isKnownObjectAssignmentType(type, memberCtx);
-			const verdict = isObject ? objectLetAssignmentVerdict(type, memberCtx) : 'unknown';
+			const isObject = resolveObjectType(type) !== undefined;
+			const verdict = isObject ? defaultQueries.verdictFor(type) : 'unknown';
 			const holding = isObject && verdict !== 'noDefault' ? objectHoldingDefault(type, memberCtx) : undefined;
 			const readOnlyDefault = isObject && verdict === 'lets' && !holding
-				? readOnlyProjectDefault(type, memberCtx) ?? readOnlyHostDefault(type, memberCtx)
+				? readOnlyProjectDefault(type, defaultQueries.projectClassNamed) ?? readOnlyHostDefault(type, memberCtx)
 				: undefined;
 			facts = { isObject, verdict, holding, readOnlyDefault };
 			objectTypes.set(type, facts);
@@ -607,7 +609,7 @@ export function checkAssignmentTypes(
 					// once it holds one (issue #193). The object-state walk says
 					// which; this rule owns the report either way, since the fix is
 					// the Set.
-					const state = objectLetStateAt(source, mod, procedure, symbols, memberCtx, activity, assignment.span.start);
+					const state = objectLetStateAt(source, mod, procedure, symbols, memberCtx, activity, assignment.span.start, defaultQueries);
 					const lower = assignment.name.toLowerCase();
 					const declared = procSym?.children?.find((child) => child.name.toLowerCase() === lower)
 						?? symbols.root.children?.find((child) => child.name.toLowerCase() === lower);

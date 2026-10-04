@@ -483,8 +483,9 @@ export function objectLetStateAt(
 	memberCtx: MemberCompletionContext,
 	activity: ConditionalActivityTracker | undefined,
 	offset: number,
+	defaultQueries?: ObjectDefaultQueries,
 ): 'set' | 'unset' | 'unknown' {
-	return objectStateWalk(source, mod, member, symbols, memberCtx, activity).lets.get(offset) ?? 'unknown';
+	return objectStateWalk(source, mod, member, symbols, memberCtx, activity, defaultQueries).lets.get(offset) ?? 'unknown';
 }
 
 function objectStateWalk(
