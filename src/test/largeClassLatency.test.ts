@@ -179,7 +179,39 @@ import { runRendererBackspaceProbe } from './rendererBackspaceProbe';
         const cycles = Number(process.env.XLIDE_PERF_RENDERER_CYCLES ?? 24);
         assert.ok(Number.isInteger(cycles) && cycles >= 24 && cycles <= 1000);
         this.timeout(Math.max(120000, cycles * 1200));
-        const result = await runRendererBackspaceProbe('stress', false, undefined, { cycles, hover: true, assertMissHidden: process.env.XLIDE_PERF_WORD_SUGGESTIONS === '0', freshSources: process.env.XLIDE_PERF_FRESH_SOURCES === '1', nonceStatement: document.lineAt(memberLine - 1).text.trim() });
+        const profiler = new Session();
+        const profileEnabled = process.env.XLIDE_PERF_CPU_PROFILE === '1';
+        const post = (method: string) => new Promise<any>((resolve, reject) => profiler.post(method, (error, value) => error ? reject(error) : resolve(value)));
+        const profileStartRequestedAt = Date.now();
+        if (profileEnabled) { profiler.connect(); await post('Profiler.enable'); await post('Profiler.start'); }
+        const profileStartedAt = Date.now();
+        const hostDelays: { at: number; delayMs: number }[] = [];
+        let expected = performance.now() + 10;
+        const heartbeat = profileEnabled ? setInterval(() => {
+            const now = performance.now();
+            if (now - expected >= 20) { hostDelays.push({ at: Date.now(), delayMs: now - expected }); }
+            expected = now + 10;
+        }, 10) : undefined;
+        let result;
+        try {
+            result = await runRendererBackspaceProbe('stress', false, undefined, { cycles, hover: true, assertMissHidden: process.env.XLIDE_PERF_WORD_SUGGESTIONS === '0', freshSources: process.env.XLIDE_PERF_FRESH_SOURCES === '1', nonceStatement: document.lineAt(memberLine - 1).text.trim() });
+        } catch (error) {
+            console.log('Renderer failure synthetic state:', JSON.stringify({ version: document.version,
+                caret: editor.selection.active, selectionEmpty: editor.selection.isEmpty,
+                memberLine, memberLength: document.lineAt(memberLine).text.length,
+                endsCe: document.lineAt(memberLine).text.endsWith('.ce'),
+                endsCez: document.lineAt(memberLine).text.endsWith('.cez') }));
+            throw error;
+        } finally {
+            if (heartbeat) { clearInterval(heartbeat); }
+            if (profileEnabled) {
+                const profileStopRequestedAt = Date.now();
+                const stopped = await post('Profiler.stop');
+                fs.writeFileSync(path.join(workspaceRoot(), 'renderer-stress-host.cpuprofile'), JSON.stringify(stopped.profile));
+                fs.writeFileSync(path.join(workspaceRoot(), 'renderer-stress-host-timings.json'), JSON.stringify({ profileStartRequestedAt, profileStartedAt, profileStopRequestedAt, profileStoppedAt: Date.now(), hostDelays }));
+                profiler.disconnect();
+            }
+        }
         assert.equal(result.samples?.length, cycles);
         assert.equal(result.hoverSamples?.length, Math.floor(cycles / 16));
         assert.ok(document.lineAt(memberLine).text.endsWith('.cez'));

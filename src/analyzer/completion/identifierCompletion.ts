@@ -11,7 +11,7 @@
 // host model. See docs/xlide_vba_language_service_roadmap.md (Phase 6).
 
 import { tokenize } from '../lexer/tokenize';
-import { completionCursorContext } from './cursorContext';
+import { completionLineCursorContext } from './cursorContext';
 import { HostObjectModel } from '../host/excelObjectModel';
 import {
 	bareTypeName,
@@ -183,7 +183,17 @@ function identifierCompletionsAt(
 	ctx: IdentifierCompletionContext,
 	getSymbols: () => ModuleSymbols,
 ): IdentifierCompletion[] {
-	const tokens = completionCursorContext(source, offset).significantTokens;
+	// Every grammar gate below is bounded by a logical newline or colon.
+	// Copying the full module prefix here made ordinary casing/identifier
+	// checks near the end of a large class pay for all preceding statements.
+	let tokens = completionLineCursorContext(source, offset).significantTokens;
+	if (tokens.length === 1 && tokens[0].kind === 'newline') {
+		// The existing blank-position policy skips one trailing newline and
+		// examines the preceding token (including As, operators and Call).
+		// Preserve that policy with one preceding logical line, not a module
+		// prefix. A second newline still acts as the original boundary.
+		tokens = [...completionLineCursorContext(source, tokens[0].start).significantTokens, tokens[0]];
+	}
 
 	// Identify the partial identifier being typed (if any) and the token that
 	// immediately precedes it.

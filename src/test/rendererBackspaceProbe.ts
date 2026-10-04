@@ -80,12 +80,21 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
     }
     if (mode === 'stress') {
         const samples = [];
+        const profileEnabled = process.env.XLIDE_PERF_CPU_PROFILE === '1';
+        const profileStartRequestedAt = Date.now();
+        if (profileEnabled) {
+            await call('Profiler.enable');
+            await call('Profiler.setSamplingInterval', { interval: 1000 });
+            await call('Profiler.start');
+        }
+        const profileStartedAt = Date.now();
         const until = async (check, phase) => {
             const deadline = Date.now() + 4000;
             while (!(await check())) {
                 if (Date.now() > deadline) {
                     const widgets = await evaluate("Array.from(document.querySelectorAll('.suggest-widget.visible')).map(node => ({ shown: node.checkVisibility({ visibilityProperty: true, opacityProperty: true }), classes: node.className, message: node.querySelector('.message')?.textContent, rows: node.querySelectorAll('.monaco-list-row').length, kinds: Array.from(node.querySelectorAll('.monaco-list-row')).map(row => row.querySelector('.suggest-icon')?.className) }))");
-                    throw new Error('Expected renderer update did not paint: ' + phase + '; widgets=' + JSON.stringify(widgets));
+                    const state = await evaluate("(() => { const input = document.activeElement; const row = Array.from(document.querySelectorAll('.monaco-editor .view-line')).find(row => row.textContent.includes('ThisWorkbook.Sheets(1).')); return { focused: input?.className, endsCe: row?.textContent.endsWith('.ce'), endsCez: row?.textContent.endsWith('.cez'), syntheticLength: row?.textContent.length }; })()");
+                    throw new Error('Expected renderer update did not paint: ' + phase + '; widgets=' + JSON.stringify(widgets) + '; state=' + JSON.stringify(state));
                 }
                 await delay(5);
             }
@@ -115,44 +124,53 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
             await call('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 1, y: 1 });
             await until(async () => !(await evaluate(visibleHover)).includes('LatencyValue'), 'resolved hover dismissal');
         };
-        for (let i = 0; i < stress.cycles; i++) {
-            const idleMs = [0, 30, 250, 350][i % 4];
-            await delay(idleMs);
-            const before = Date.now();
-            await deleteKey();
-            await until(async () => (await evaluate(readLine))?.endsWith('.ce'), 'Backspace cycle ' + i);
-            const deleted = Date.now();
-            await until(async () => await evaluate("Array.from(document.querySelectorAll('.suggest-widget.visible .monaco-list-row')).some(row => row.checkVisibility({ visibilityProperty: true, opacityProperty: true }) && row.textContent.includes('Cells'))"), 'menu recovery cycle ' + i);
-            const menuPaintMs = Date.now() - deleted;
-            const typed = Date.now();
-            await call('Input.insertText', { text: 'z' });
-            await until(async () => (await evaluate(readLine))?.endsWith('.cez'), 'typing cycle ' + i);
-            const typingPaintMs = Date.now() - typed;
-            const missed = Date.now();
-            // Do not count a stale Cells row from the preceding .ce cycle as
-            // successful recovery. The .cez miss must clear it first.
-            await until(async () => !(await evaluate("Array.from(document.querySelectorAll('.suggest-widget.visible .monaco-list-row')).some(row => row.checkVisibility({ visibilityProperty: true, opacityProperty: true }) && row.textContent.includes('Cells'))")), 'miss menu invalidation cycle ' + i);
-            // Other providers can have matching rows. They must not leave a
-            // loading/empty message after the keyboard-driven miss settles.
-            await until(async () => !(await evaluate("Array.from(document.querySelectorAll('.suggest-widget.visible.message')).some(node => node.checkVisibility({ visibilityProperty: true, opacityProperty: true }))")), 'miss status-message dismissal cycle ' + i);
-            if (stress.assertMissHidden) {
-                await until(async () => !(await evaluate("Array.from(document.querySelectorAll('.suggest-widget.visible')).some(node => node.checkVisibility({ visibilityProperty: true, opacityProperty: true }))")), 'miss widget dismissal cycle ' + i);
+        try {
+            for (let i = 0; i < stress.cycles; i++) {
+                const idleMs = [0, 30, 250, 350][i % 4];
+                await delay(idleMs);
+                const before = Date.now();
+                await deleteKey();
+                await until(async () => (await evaluate(readLine))?.endsWith('.ce'), 'Backspace cycle ' + i);
+                const deleted = Date.now();
+                await until(async () => await evaluate("Array.from(document.querySelectorAll('.suggest-widget.visible .monaco-list-row')).some(row => row.checkVisibility({ visibilityProperty: true, opacityProperty: true }) && row.textContent.includes('Cells'))"), 'menu recovery cycle ' + i);
+                const menuPaintMs = Date.now() - deleted;
+                const typed = Date.now();
+                await call('Input.insertText', { text: 'z' });
+                await until(async () => (await evaluate(readLine))?.endsWith('.cez'), 'typing cycle ' + i);
+                const typingPaintMs = Date.now() - typed;
+                const missed = Date.now();
+                // Do not count a stale Cells row from the preceding .ce cycle as
+                // successful recovery. The .cez miss must clear it first.
+                await until(async () => !(await evaluate("Array.from(document.querySelectorAll('.suggest-widget.visible .monaco-list-row')).some(row => row.checkVisibility({ visibilityProperty: true, opacityProperty: true }) && row.textContent.includes('Cells'))")), 'miss menu invalidation cycle ' + i);
+                // Other providers can have matching rows. They must not leave a
+                // loading/empty message after the keyboard-driven miss settles.
+                await until(async () => !(await evaluate("Array.from(document.querySelectorAll('.suggest-widget.visible.message')).some(node => node.checkVisibility({ visibilityProperty: true, opacityProperty: true }))")), 'miss status-message dismissal cycle ' + i);
+                if (stress.assertMissHidden) {
+                    await until(async () => !(await evaluate("Array.from(document.querySelectorAll('.suggest-widget.visible')).some(node => node.checkVisibility({ visibilityProperty: true, opacityProperty: true }))")), 'miss widget dismissal cycle ' + i);
+                }
+                samples.push({ ...(profileEnabled ? { startedAt: before } : {}), idleMs, backspacePaintMs: deleted - before, menuPaintMs, typingPaintMs, missClearMs: Date.now() - missed });
+                if (stress.hover && (i + 1) % 16 === 0) { await showHover(); }
+                if ((i + 1) % 100 === 0) fs.writeFileSync(readyFile, JSON.stringify({ completed: i + 1, cycles: stress.cycles }));
+                if (stress.freshSources) {
+                    // Change only the synthetic preceding statement, keeping the
+                    // member expression identical while defeating source-text reuse.
+                    await pressKey('Escape', 'Escape', 27);
+                    await pressKey('ArrowUp', 'ArrowUp', 38);
+                    await pressKey('End', 'End', 35);
+                    await pressKey('Home', 'Home', 36, 8); // select to first non-whitespace
+                    const nonce = " 'n" + i.toString(36).padStart(6, '0');
+                    await call('Input.insertText', { text: stress.nonceStatement + nonce });
+                    await until(async () => await evaluate("Array.from(document.querySelectorAll('.monaco-editor.focused .view-line')).some(row => row.textContent.endsWith(" + JSON.stringify(nonce.trimStart()) + "))"), 'fresh synthetic source cycle ' + i);
+                    await pressKey('ArrowDown', 'ArrowDown', 40);
+                    await pressKey('End', 'End', 35);
+                }
             }
-            samples.push({ idleMs, backspacePaintMs: deleted - before, menuPaintMs, typingPaintMs, missClearMs: Date.now() - missed });
-            if (stress.hover && (i + 1) % 16 === 0) { await showHover(); }
-            if ((i + 1) % 100 === 0) fs.writeFileSync(readyFile, JSON.stringify({ completed: i + 1, cycles: stress.cycles }));
-            if (stress.freshSources) {
-                // Change only the synthetic preceding statement, keeping the
-                // member expression identical while defeating source-text reuse.
-                await pressKey('Escape', 'Escape', 27);
-                await pressKey('ArrowUp', 'ArrowUp', 38);
-                await pressKey('End', 'End', 35);
-                await pressKey('Home', 'Home', 36, 8); // select to first non-whitespace
-                const nonce = " 'n" + i.toString(36).padStart(6, '0');
-                await call('Input.insertText', { text: stress.nonceStatement + nonce });
-                await until(async () => await evaluate("Array.from(document.querySelectorAll('.monaco-editor.focused .view-line')).some(row => row.textContent.endsWith(" + JSON.stringify(nonce.trimStart()) + "))"), 'fresh synthetic source cycle ' + i);
-                await pressKey('ArrowDown', 'ArrowDown', 40);
-                await pressKey('End', 'End', 35);
+        } finally {
+            if (profileEnabled) {
+                const profileStopRequestedAt = Date.now();
+                const stopped = await call('Profiler.stop');
+                fs.writeFileSync(busyFile + '.renderer.cpuprofile', JSON.stringify(stopped.profile));
+                fs.writeFileSync(busyFile + '.renderer-timings.json', JSON.stringify({ profileStartRequestedAt, profileStartedAt, profileStopRequestedAt, profileStoppedAt: Date.now(), samples, hoverSamples }));
             }
         }
         console.log(JSON.stringify({ samples, hoverSamples }));
