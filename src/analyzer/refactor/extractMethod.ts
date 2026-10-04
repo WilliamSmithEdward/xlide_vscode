@@ -3,7 +3,7 @@ import type { BodyNode, ModuleNode, ProcedureNode, Span, VariableDeclNode, Varia
 import { classifyReferenceKinds } from '../references/referenceKinds';
 import { detectEol, findIdentifierOccurrencesForNames, leadingWhitespace, lineStartAtAnyBreak, type VbaIdentifierOccurrence } from '../../vbaSourceScan';
 import { applyVbaTextEdits, refactor, refuse, type VbaRefactorResult, type VbaTextEdit } from './refactorTypes';
-import { procedureContainingSpan, walkBody, statementRemovalSpan, mergeRemovals } from './shared';
+import { procedureContainingSpan, walkBody, statementRemovalSpan, mergeRemovals, escapeForRegExp } from './shared';
 
 /**
  * Extract Method: selected whole statements become a Private procedure below
@@ -278,7 +278,7 @@ function classifyLocals(source: string, procedure: ProcedureNode, block: Span): 
 
 		out.push({
 			name: display,
-			sourceOrder: selected.size > 1 ? source.indexOf(display) : 0,
+			sourceOrder: 0,
 			...(declaration ? { declaration } : {}),
 			isParameter: parameter !== undefined,
 			type: declaration?.decl.asType ?? parameter?.asType ?? 'Variant',
@@ -290,6 +290,22 @@ function classifyLocals(source: string, procedure: ProcedureNode, block: Span): 
 			),
 			isStatic: /^static$/i.test(declaration?.group.modifier ?? ''),
 		});
+	}
+	if (out.length > 1) {
+		let rawOrder: Map<string, number> | undefined;
+		if (out.length >= 64) {
+			// Each declared spelling occurs by its name span. Unrelated suffix text
+			// must not make an otherwise small ordering query choose batching.
+			let searchEnd = 0;
+			for (const local of out) {
+				const span = local.declaration?.decl.nameSpan ?? parameters.get(local.name.toLowerCase())?.nameSpan;
+				searchEnd = Math.max(searchEnd, span?.end ?? source.length);
+			}
+			if (out.length * searchEnd >= 16_000_000) {
+				rawOrder = rawFirstOccurrences(source, out.map(local => local.name));
+			}
+		}
+		for (const local of out) { local.sourceOrder = rawOrder?.get(local.name) ?? source.indexOf(local.name); }
 	}
 	// Keep the original raw first-occurrence order without rescanning while sorting.
 	return out.sort((a, b) => a.sourceOrder - b.sourceOrder);
@@ -363,4 +379,62 @@ function uniqueName(base: string, module: ModuleNode): string {
 
 function within(offset: number, span: Span): boolean {
 	return offset >= span.start && offset <= span.end;
+}
+
+/** First raw UTF-16 substring positions, including overlaps and same-position prefixes. */
+function rawFirstOccurrences(source: string, names: readonly string[]): Map<string, number> {
+	const positions = new Map(names.map(name => [name, -1]));
+	const nativeFallback = (): Map<string, number> => {
+		for (const name of names) {
+			if (positions.get(name) === -1) { positions.set(name, source.indexOf(name)); }
+		}
+		return positions;
+	};
+	const patterns = new Map<string, string>();
+	let patternLength = 0;
+	for (const name of names) {
+		const pattern = escapeForRegExp(name);
+		patternLength += pattern.length + 1;
+		// Bound dictionary allocations and retain the native path for extreme inputs.
+		if (patternLength > 65_536) { return nativeFallback(); }
+		patterns.set(name, pattern);
+	}
+	interface PrefixNode { next: Map<string, PrefixNode>; name?: string; }
+	const root: PrefixNode = { next: new Map() };
+	for (const name of names) {
+		let node = root;
+		for (let i = 0; i < name.length; i++) {
+			let next = node.next.get(name[i]);
+			if (!next) { next = { next: new Map() }; node.next.set(name[i], next); }
+			node = next;
+		}
+		node.name = name;
+	}
+	try {
+		let matcher = new RegExp([...patterns.values()].join('|'), 'g');
+		let remaining = names.length, rebuildAt = 1;
+		let match: RegExpExecArray | null;
+		while ((match = matcher.exec(source)) !== null) {
+			let node: PrefixNode | undefined = root;
+			for (let i = match.index; i < source.length; i++) {
+				node = node.next.get(source[i]);
+				if (!node) { break; }
+				if (node.name !== undefined && positions.get(node.name) === -1) {
+					positions.set(node.name, match.index); remaining--;
+				}
+			}
+			if (remaining === 0) { break; }
+			// Drop resolved short/common names without recompiling after every hit.
+			if (names.length - remaining >= rebuildAt) {
+				matcher = new RegExp(names.filter(name => positions.get(name) === -1).map(name => patterns.get(name)!).join('|'), 'g');
+				while (rebuildAt <= names.length - remaining) { rebuildAt *= 2; }
+			}
+			// One code unit preserves matches that begin inside a longer match.
+			matcher.lastIndex = match.index + 1;
+		}
+	} catch (error) {
+		if (!(error instanceof SyntaxError || error instanceof RangeError)) { throw error; }
+		return nativeFallback(); // Preserve the result if an engine rejects the dictionary.
+	}
+	return positions;
 }
