@@ -23,24 +23,33 @@ import { tokenizeCached } from './tokenize';
  * through ` _` (MS-VBAL 3.3.1), and every line it covers is blanked.
  */
 export function lexerStrippedLines(source: string): string[] {
-	const chars = source.split(/\r\n|\r|\n/).map((line) => line.split(''));
+	const lines = source.split(/\r\n|\r|\n/);
+	// Only lines containing a string or comment need a replacement. Build each
+	// once from spans rather than allocating an array entry per character.
+	const replacements = new Map<number, { parts: string[]; end: number }>();
 	for (const token of tokenizeCached(source)) {
-		if (token.kind !== 'comment' && token.kind !== 'stringLiteral') {
-			continue;
-		}
+		if (token.kind !== 'comment' && token.kind !== 'stringLiteral') { continue; }
 		token.rawText.split(/\r\n|\r|\n/).forEach((segment, index) => {
-			const lineChars = chars[token.line + index];
-			if (!lineChars) {
-				return;
-			}
+			const lineIndex = token.line + index;
+			const line = lines[lineIndex];
+			if (line === undefined) { return; }
 			const from = index === 0 ? token.character : 0;
-			const end = Math.min(from + segment.length, lineChars.length);
-			for (let col = from; col < end; col++) {
-				lineChars[col] = ' ';
+			const end = Math.min(from + segment.length, line.length);
+			if (end <= from) { return; }
+			let replacement = replacements.get(lineIndex);
+			if (!replacement) {
+				replacement = { parts: [], end: 0 };
+				replacements.set(lineIndex, replacement);
 			}
+			replacement.parts.push(line.slice(replacement.end, from), ' '.repeat(end - from));
+			replacement.end = end;
 		});
 	}
-	return chars.map((lineChars) => lineChars.join(''));
+	for (const [lineIndex, replacement] of replacements) {
+		replacement.parts.push(lines[lineIndex].slice(replacement.end));
+		lines[lineIndex] = replacement.parts.join('');
+	}
+	return lines;
 }
 
 /**
