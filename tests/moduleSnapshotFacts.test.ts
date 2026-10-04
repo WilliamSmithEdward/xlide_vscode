@@ -39,7 +39,7 @@ describe('unchanged module snapshot facts', () => {
             }
             expect(moduleHasConditionalDirectives(module)).toBe(false);
             expect(moduleHasConditionalDirectives(module)).toBe(false);
-            expect(reads).toBeLessThan(10);
+            expect(reads).toBe(0);
         } finally {
             restore.forEach(run => run());
         }

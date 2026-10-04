@@ -196,9 +196,23 @@ import { runRendererBackspaceProbe } from './rendererBackspaceProbe';
         try {
             result = await runRendererBackspaceProbe('stress', false, undefined, { cycles, hover: true, assertMissHidden: process.env.XLIDE_PERF_WORD_SUGGESTIONS === '0', freshSources: process.env.XLIDE_PERF_FRESH_SOURCES === '1', nonceStatement: document.lineAt(memberLine - 1).text.trim() });
         } catch (error) {
+            const failedFreshCycle = /fresh synthetic source cycle (\d+)/.exec(String(error))?.[1];
+            const expectedNonce = failedFreshCycle === undefined ? undefined
+                : "'n" + Number(failedFreshCycle).toString(36).padStart(6, '0');
+            const nonceLine = document.lineAt(memberLine - 1).text;
+            const memberText = document.lineAt(memberLine).text;
+            const previousNonce = /cycle (\d+)/.exec(String(error))?.[1];
+            const precedingNonce = previousNonce === undefined ? undefined
+                : "'n" + (Number(previousNonce) - 1).toString(36).padStart(6, '0');
             console.log('Renderer failure synthetic state:', JSON.stringify({ version: document.version,
+                failedFreshCycle, nonceLength: nonceLine.length,
+                endsExpectedNonce: expectedNonce === undefined ? undefined : nonceLine.endsWith(expectedNonce),
+                endsExpectedNonceIgnoringCase: expectedNonce === undefined ? undefined
+                    : nonceLine.toLowerCase().endsWith(expectedNonce),
                 caret: editor.selection.active, selectionEmpty: editor.selection.isEmpty,
-                memberLine, memberLength: document.lineAt(memberLine).text.length,
+                memberLine, memberLength: memberText.length,
+                memberContainsNonceStatement: memberText.includes('LatencyValue'),
+                memberEndsPrecedingNonce: precedingNonce === undefined ? undefined : memberText.endsWith(precedingNonce),
                 endsCe: document.lineAt(memberLine).text.endsWith('.ce'),
                 endsCez: document.lineAt(memberLine).text.endsWith('.cez') }));
             throw error;
