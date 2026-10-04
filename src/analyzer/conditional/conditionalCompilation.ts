@@ -1,4 +1,5 @@
 import { tokenize } from '../lexer/tokenize';
+import { isKnownDirectiveFreeModule } from '../parser/moduleParseFacts';
 import type { VbaToken } from '../lexer/tokenKinds';
 import { relationalOperatorAt, tokenWord } from '../lexer/tokenHelpers';
 import { bankersRound, parseVbaIntegerLiteral } from '../constants/integerConstantExpression';
@@ -228,6 +229,7 @@ function collectConditionalActivityEvents(
 }
 
 export function moduleHasConditionalDirectives(module: ModuleNode): boolean {
+	if (isKnownDirectiveFreeModule(module)) { return false; }
 	for (const member of module.members) {
 		if (member.kind === 'ConditionalDirective') {
 			return true;
