@@ -8,6 +8,7 @@ Validation against main 37b23514:
 
 - 36 complete-output cases across LF/CRLF/CR: 30 fail before the change, six controls pass; all pass after it.
 - 129 focused tests across seven files pass; type checking passes.
+- Full unit suite: 716 files pass, six skipped; 14,306 tests pass, 30 skipped. No failures.
 - Frozen ASTs, lexer tokens and trivia: all 16,500 full results and rendered outputs across 8,256 corpus sources match the parent; 72 generated recursive moves have independently expected complete outputs. Explicit candidate bounds/overlap checks pass; no exceptions.
 - Binding work tests at 1/100/1,000 references in each of two callers require exactly one setModule call per input module and verify complete output. Comment/string/long-chain-only inputs construct no project index.
 
