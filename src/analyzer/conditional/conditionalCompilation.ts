@@ -163,15 +163,22 @@ interface ConditionalArm {
 /**
  * Whether the two arm stacks disagree about which arm of a shared chain they
  * are in - the branches then exclude each other, whatever the constants are
- * worth. Stacks are as deep as the source nests directives, so the walk is
- * short.
+ * worth. Parent paths descend by source-order chain ID, allowing a linear walk.
  */
 function armsDiverge(a: ConditionalArm | undefined, b: ConditionalArm | undefined): boolean {
-	for (let outer = a; outer; outer = outer.parent) {
-		for (let inner = b; inner; inner = inner.parent) {
-			if (outer.chain === inner.chain) {
-				return outer.index !== inner.index;
-			}
+	// Chain IDs increase in source order, so each parent path descends by ID.
+	// Merge the paths to find their innermost shared chain without a cross scan.
+	while (a && b) {
+		if (a === b) {
+			return false;
+		}
+		if (a.chain === b.chain) {
+			return a.index !== b.index;
+		}
+		if (a.chain > b.chain) {
+			a = a.parent;
+		} else {
+			b = b.parent;
 		}
 	}
 	return false;
