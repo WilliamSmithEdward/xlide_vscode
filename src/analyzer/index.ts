@@ -132,6 +132,7 @@ export {
 export {
 	HoverContext,
 	resolveHover,
+	hoverMayResolveAt,
 } from './hover/resolveHover';
 export {
 	resolveExpressionType,

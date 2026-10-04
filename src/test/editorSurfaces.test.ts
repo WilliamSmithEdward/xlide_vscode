@@ -121,4 +121,33 @@ suite('Editor surfaces', () => {
             if (large.isDirty) { await large.save(); }
         }
     });
+
+    test('non-symbol hover positions remain empty, including a continued comment', async () => {
+        const source = [
+            'Option Explicit', 'Public Counter As Long', 'Sub T()',
+            "    ' Counter _", '    Counter', '    Debug.Print 42',
+            '    Debug.Print #1/1/2026#', 'End Sub', '',
+        ].join('\r\n');
+        const probe = await open(await writeModule('SurfaceEmptyHover', source));
+        for (const [line, column] of [[3, 8], [4, 8], [5, 17], [6, 20], [5, 2]]) {
+            const hover = await vscode.commands.executeCommand<vscode.Hover[]>(
+                'vscode.executeHoverProvider', probe.uri, new vscode.Position(line, column));
+            assert.equal(hover?.length ?? 0, 0, 'non-symbol position ' + line + ':' + column);
+        }
+        const symbol = await vscode.commands.executeCommand<vscode.Hover[]>(
+            'vscode.executeHoverProvider', probe.uri, new vscode.Position(1, 9));
+        assert.ok(symbol?.length, 'a real symbol still has hover information');
+    });
+
+    test('macro-name strings still hover the cross-module procedure', async () => {
+        await writeModule('SurfaceMacroTarget', 'Public Sub Run()\r\nEnd Sub\r\n');
+        const source = 'Sub MacroProbe()\r\n    Application.Run "SurfaceMacroTarget.Run"\r\nEnd Sub\r\n';
+        const probe = await open(await writeModule('SurfaceMacroCaller', source));
+        await until(async () => {
+            const hover = await vscode.commands.executeCommand<vscode.Hover[]>(
+                'vscode.executeHoverProvider', probe.uri, new vscode.Position(1, source.split('\r\n')[1].indexOf('SurfaceMacroTarget') + 3));
+            return hover?.some(item => item.contents.some(content =>
+                typeof content === 'string' ? /Sub Run/.test(content) : /Sub Run/.test(content.value))) ? true : undefined;
+        }, 'a macro-name string should hover the target procedure in another module');
+    });
 });

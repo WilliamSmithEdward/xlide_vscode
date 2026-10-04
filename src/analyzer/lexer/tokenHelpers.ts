@@ -26,6 +26,18 @@ export function absoluteSpan(base: Span, token: VbaToken): Span {
 	return { start: base.start + token.start, end: base.start + token.end };
 }
 
+/** First token whose inclusive end reaches offset, or tokens.length.
+ * Lexer token spans are ordered; callers choose their own boundary policy. */
+export function firstTokenEndingAtOrAfter(tokens: readonly VbaToken[], offset: number): number {
+	let lo = 0, hi = tokens.length;
+	while (lo < hi) {
+		const mid = lo + Math.floor((hi - lo) / 2);
+		if (tokens[mid].end < offset) { lo = mid + 1; }
+		else { hi = mid; }
+	}
+	return lo;
+}
+
 export function isIdentLike(token: VbaToken): boolean {
 	return (
 		(token.kind === 'identifier' || token.kind === 'keyword') &&
