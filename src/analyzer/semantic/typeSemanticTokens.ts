@@ -588,6 +588,17 @@ export function collectHostGlobalTokens(
 		if (declared.has(lower)) {
 			continue;
 		}
+		// Member and type positions cannot be bare host values. Reject them
+		// before querying three host indexes for names we will discard.
+		const prev = tokens[i - 1];
+		if (prev) {
+			if (prev.rawText === '.' || prev.rawText === '!') {
+				continue; // member / bang access on another receiver
+			}
+			if (prev.kind === 'keyword' && TYPE_POSITION_LEADS.has(tokenWord(prev))) {
+				continue; // type position, owned by the type collector
+			}
+		}
 		// Resolved against the module's own host model (issue #24): Word's
 		// ActiveDocument paints in a Word module, and Excel's ActiveSheet
 		// does not. A name that is not an injected global may still be a
@@ -602,15 +613,6 @@ export function collectHostGlobalTokens(
 			: resolveHostConstant(tok.rawText, model);
 		if (!globalType && !globalMember && !constant) {
 			continue;
-		}
-		const prev = tokens[i - 1];
-		if (prev) {
-			if (prev.rawText === '.' || prev.rawText === '!') {
-				continue; // member / bang access on another receiver
-			}
-			if (prev.kind === 'keyword' && TYPE_POSITION_LEADS.has(tokenWord(prev))) {
-				continue; // type position, owned by the type collector
-			}
 		}
 		const span = { start: tok.start, end: tok.end };
 		if (constant) {
