@@ -375,6 +375,7 @@ function moduleObjectFacts(
 ): ModuleObjectFacts {
 	const cached = MODULE_OBJECT_FACTS.get(mod);
 	if (cached && cached.source === source && cached.activity === activity && cached.memberCtx === memberCtx) {
+		cached.source = source;
 		return cached.facts;
 	}
 	const memberFirst = new Map<string, Map<number, string>>();
@@ -492,6 +493,7 @@ function objectStateWalk(
 	let cache = OBJECT_STATE_WALKS.get(symbols);
 	const cached = cache?.get(member);
 	if (cached && cached.source === source && cached.mod === mod && cached.activity === activity && cached.memberCtx === memberCtx) {
+		cached.source = source;
 		return cached.walk;
 	}
 	const walk: ObjectStateWalk = { findings: [], lets: new Map() };
