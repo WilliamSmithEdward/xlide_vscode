@@ -46,6 +46,7 @@ export function registerVbaMemberCompletion(
 	});
 
 	context.subscriptions.push(
+		provider,
 		projectContext,
 		canonicalCase,
 		vscode.commands.registerCommand(

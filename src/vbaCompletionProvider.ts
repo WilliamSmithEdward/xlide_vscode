@@ -58,7 +58,6 @@ import { startPerformanceTrace } from './performanceTrace';
 
 export const KEYWORD_SNIPPET_ACCEPTED_COMMAND = 'xlide.vba.keywordSnippetAccepted';
 const KEYBOARD_NAV_TEXT_CHANGE_GRACE_MS = 150;
-const COMPLETION_SELECTION_SETTLE_TIMEOUT_MS = 1000;
 
 /**
  * A member's name as code has to write it. A name that is not an identifier,
@@ -151,10 +150,17 @@ export class VbaKeywordSnippetTracker {
 	}
 }
 
-export class VbaMemberCompletionProvider implements vscode.CompletionItemProvider {
+export class VbaMemberCompletionProvider implements vscode.CompletionItemProvider, vscode.Disposable {
+	private _disposed = false;
+	private _pendingRecovery: { document: vscode.TextDocument; stop: () => void } | undefined;
 	constructor(
 		private readonly _projectContext: VbaEditorProjectContextService,
 	) {}
+
+	dispose(): void {
+		this._disposed = true;
+		this._pendingRecovery?.stop();
+	}
 
 	/** Drop derived editor contexts for a project (e.g. after a project change). */
 	invalidate(projectPath?: string): void {
@@ -164,8 +170,11 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 	/** Reopen member suggestions when Backspace widens a prefix after a miss. */
 	handleTextDocumentChange(event: vscode.TextDocumentChangeEvent): void {
 		const document = event.document;
+		if (event.contentChanges.length > 0 && this._pendingRecovery?.document === document) {
+			this._pendingRecovery.stop();
+		}
 		const editor = vscode.window.activeTextEditor;
-		if (!isVbaDocument(document) || !editor || editor.document !== document ||
+		if (this._disposed || !isVbaDocument(document) || !editor || editor.document !== document ||
 			event.reason !== undefined || event.contentChanges.length !== 1 ||
 			editor.selections.length !== 1) {
 			return;
@@ -186,7 +195,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 		// widget filtering. Wait for both, and discard superseded keystrokes.
 		const isCurrent = (): boolean => {
 			const caret = editor.selection.active;
-			return !document.isClosed && document.version === version &&
+			return !this._disposed && !document.isClosed && document.version === version &&
 				vscode.window.activeTextEditor === editor && editor.document === document &&
 				editor.selections.length === 1 && editor.selection.isEmpty &&
 				caret.line === expectedCaret.line && caret.character === expectedCaret.character;
@@ -222,20 +231,24 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 				void vscode.commands.executeCommand('editor.action.triggerSuggest', { auto: true });
 			}
 		};
-		// The extension host can receive the edit before the new selection.
-		// A zero-delay timer alone may still see the old caret. Observe the
-		// pending selection update, disposing on recovery, navigation or expiry.
+		// A busy host can deliver the native caret update after a wall-clock
+		// timeout. Keep one pending recovery until that update or a later action;
+		// unrelated dirty-state notifications do not supersede the deletion.
+		this._pendingRecovery?.stop();
 		let settled = false;
-		let selectionWait: vscode.Disposable | undefined;
-		let expiry: ReturnType<typeof setTimeout> | undefined;
+		const subscriptions: vscode.Disposable[] = [];
+		let initialTry: ReturnType<typeof setTimeout> | undefined;
 		const stopWaiting = (): void => {
+			if (settled) { return; }
 			settled = true;
-			selectionWait?.dispose();
-			if (expiry !== undefined) { clearTimeout(expiry); }
+			for (const subscription of subscriptions) { subscription.dispose(); }
+			if (initialTry !== undefined) { clearTimeout(initialTry); }
+			if (this._pendingRecovery?.stop === stopWaiting) { this._pendingRecovery = undefined; }
 		};
+		this._pendingRecovery = { document, stop: stopWaiting };
 		const tryRecover = (): void => {
 			if (settled) { return; }
-			if (document.isClosed || document.version !== version || vscode.window.activeTextEditor !== editor) {
+			if (this._disposed || document.isClosed || document.version !== version || vscode.window.activeTextEditor !== editor) {
 				stopWaiting();
 				return;
 			}
@@ -243,13 +256,20 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 			stopWaiting();
 			void recover();
 		};
-		selectionWait = vscode.window.onDidChangeTextEditorSelection(event => {
-			if (event.textEditor !== editor) { return; }
-			if (!isCurrent()) { stopWaiting(); return; }
-			tryRecover();
-		});
-		expiry = setTimeout(stopWaiting, COMPLETION_SELECTION_SETTLE_TIMEOUT_MS);
-		setTimeout(tryRecover, 0);
+		subscriptions.push(
+			vscode.window.onDidChangeTextEditorSelection(event => {
+				if (event.textEditor !== editor) { return; }
+				if (!isCurrent()) { stopWaiting(); return; }
+				tryRecover();
+			}),
+			vscode.window.onDidChangeActiveTextEditor(active => {
+				if (active !== editor) { stopWaiting(); }
+			}),
+			vscode.workspace.onDidCloseTextDocument(closed => {
+				if (closed === document) { stopWaiting(); }
+			}),
+		);
+		initialTry = setTimeout(tryRecover, 0);
 	}
 
 	async provideCompletionItems(
