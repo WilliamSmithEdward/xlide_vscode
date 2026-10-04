@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import { isVbaDocument } from './xlideFileSystem';
 import { lexerStrippedLine, lexerStrippedLines } from './analyzer/lexer/strippedLines';
 import {
-    commentContinuationText,
+    commentContinuationForLine,
     detectSmartBlockOpener,
     isSmartBlockClosedAhead,
     procedureHeaderParensEdit,
@@ -183,7 +183,7 @@ async function maybeContinueCommentLine(
     if (!/^[ \t]*$/.test(bodyLine)) { return false; }
 
     const mirrorSpacing = xlideEditorMirrorCommentSpacingFromConfig(config).value;
-    const lineText = commentContinuationText(doc.getText(), previousLineIndex, mirrorSpacing);
+    const lineText = commentContinuationForLine(doc.lineAt(previousLineIndex).text, mirrorSpacing);
     if (lineText === undefined) { return false; }
 
     return (await replaceBodyLine(doc, bodyLineIndex, bodyLine, lineText)) !== undefined;
@@ -199,6 +199,9 @@ async function maybeContinueWithMemberLine(
     const bodyLine = doc.lineAt(bodyLineIndex).text;
     if (!/^[ \t]*$/.test(bodyLine)) { return; }
 
+    // Ordinary Enter cannot continue a With member. Inspect the one line
+    // before materializing and scanning the whole module for an open With.
+    if (!/^[ \t]*\./.test(lexerStrippedLine(doc.lineAt(previousLineIndex).text))) { return; }
     const lineText = withMemberContinuationText(doc.getText(), previousLineIndex);
     if (!lineText) { return; }
 
