@@ -11,6 +11,8 @@ const root=dirname(dirname(fileURLToPath(import.meta.url)));
 const baseline=process.argv.find(a=>a.startsWith('--baseline='))?.slice(11);
 const rounds=Number(process.argv.find(a=>a.startsWith('--rounds='))?.slice(9)??15);
 if(!Number.isInteger(rounds)||rounds<3||rounds>100)throw Error('rounds must be 3 to 100');
+const warmExpansions=Number(process.argv.find(a=>a.startsWith('--warm-expansions='))?.slice(18)??1);
+if(!Number.isInteger(warmExpansions)||warmExpansions<1||warmExpansions>500)throw Error('warm-expansions must be 1 to 500');
 const scratch=mkdtempSync(join(tmpdir(),'xlide-folder-expand-')),file=join(scratch,'provider.cjs');let api;
 try{
  const plugins=[{name:'provider-host',setup(b){
@@ -40,20 +42,20 @@ for(const count of [50,1000,3000])for(const [mode,callers] of [['cold',1],['cold
    const [project]=await explorer.getChildren();
    if(mode==='warm'){const ready=explorer.getChildren(project);release(modules);await ready;}
    const start=performance.now();
-   const expansions=[explorer.getChildren(project)];
+   const expansions=(async()=>{const result=[];for(let i=0;i<(mode==='warm'?warmExpansions:1);i++)result.push(await explorer.getChildren(project));return result;})();
    const follows=Array.from({length:callers-1},()=>explorer.resolveModuleNode(book,modules[0].name));
    // Let tab-follow traverse the cached project root before releasing the RPC.
    // This is JavaScript work only: no Office, VS Code renderer or network delay.
    await Promise.resolve();await Promise.resolve();release(modules);
-   const [children,nodes]=await Promise.all([Promise.all(expansions),Promise.all(follows)]);
+   const [children,nodes]=await Promise.all([expansions,Promise.all(follows)]);
    const elapsed=performance.now()-start;
-   assert.deepEqual(children[0].map(n=>n.moduleName),expected);
+   for(const group of children)assert.deepEqual(group.map(n=>n.moduleName),expected);
    for(const node of nodes)assert.equal(node,children[0].find(n=>n.moduleName===modules[0].name));
    assert.equal(calls,1);assert.deepEqual(modules.map(m=>m.name),Array.from({length:count},(_,i)=>'M'+String((i*317)%count).padStart(5,'0')));
    if(round>=3)samples.push(elapsed);
   }finally{explorer.dispose();}
  }
  samples.sort((a,b)=>a-b);
- rows.push({modules:count,mode,callers,medianMs:+samples[Math.floor(rounds/2)].toFixed(3),p95Ms:+samples[Math.ceil(rounds*.95)-1].toFixed(3)});
+ rows.push({modules:count,mode,callers,expansions:mode==='warm'?warmExpansions:1,medianMs:+samples[Math.floor(rounds/2)].toFixed(3),p95Ms:+samples[Math.ceil(rounds*.95)-1].toFixed(3)});
 }
-console.log(JSON.stringify({node:process.version,cpu:cpus()[0]?.model,baseline:baseline??null,rounds,rows},null,2));
+console.log(JSON.stringify({node:process.version,cpu:cpus()[0]?.model,baseline:baseline??null,rounds,warmExpansions,rows},null,2));
