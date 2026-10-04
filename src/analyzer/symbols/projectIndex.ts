@@ -1238,10 +1238,12 @@ export class ProjectIndex {
 	 * members are deliberately hidden. Public fields are represented as properties;
 	 * Property Get/Let/Set declarations collapse to one property item. Public
 	 * constants are intentionally excluded because VBE rejects them in object
-	 * modules.
+	 * modules. Editors can omit diagnostic-only class value facts; existing
+	 * callers include them by default. The two snapshots never share member rows.
 	 */
-	projectClassMembers(): VbaProjectClassMembers[] {
-		return this.cached('projectClassMembers', () => {
+	projectClassMembers(options: { includeClassValueFacts?: boolean } = {}): VbaProjectClassMembers[] {
+		const includeValueFacts = options.includeClassValueFacts !== false;
+		return this.cached(includeValueFacts ? 'projectClassMembers' : 'projectClassMembers:noValueFacts', () => {
 			const out: VbaProjectClassMembers[] = [];
 			for (const mod of this.modules.values()) {
 				const kind = moduleKindAsTypeName(mod.moduleKind);
@@ -1249,7 +1251,7 @@ export class ProjectIndex {
 					continue;
 				}
 				const members = this.visibleObjectMembers(mod);
-				if (kind === 'class') {
+				if (kind === 'class' && includeValueFacts) {
 					const values = classMemberValues(this.moduleSources.get(mod.moduleName.toLowerCase()) ?? '', mod.root.children ?? []);
 					for (const member of members) {
 						const value = values.get(member.name.toLowerCase());
@@ -1347,10 +1349,11 @@ export class ProjectIndex {
 	 * modules, standard module-qualified members, plus visible `Type ... End Type`
 	 * declarations. UDT fields are exhaustive, writable property-like members.
 	 */
-	projectMemberSurfaces(moduleName: string): VbaProjectClassMembers[] {
+	projectMemberSurfaces(moduleName: string, options: { includeClassValueFacts?: boolean } = {}): VbaProjectClassMembers[] {
 		const currentLower = moduleName.toLowerCase();
-		return this.cached(`memberSurfaces:${currentLower}`, () => [
-			...this.projectClassMembers(),
+		const valueFactsKey = options.includeClassValueFacts === false ? ':noValueFacts' : '';
+		return this.cached(`memberSurfaces:${currentLower}${valueFactsKey}`, () => [
+			...this.projectClassMembers(options),
 			...this.projectStandardModuleMembers(moduleName),
 			...this.projectUserTypeMembers(moduleName),
 			...this.projectEnumMembers(moduleName),

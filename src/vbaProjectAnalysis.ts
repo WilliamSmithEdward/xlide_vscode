@@ -296,13 +296,13 @@ export function projectEditorSymbolContextForModule(
     moduleName: string,
 ): VbaProjectEditorSymbolContext {
     // Editor requests need symbol surfaces, not diagnostic facts such as
-    // writes, sheet changes, or file handles. Those scan project bodies and
+    // writes, sheet changes, file handles, or inferred class member values. Those scan project bodies and
     // used to run synchronously after each completion-triggering edit.
     const analysisOptions: VbaProjectAnalysisOptions = {};
     try {
         Object.assign(analysisOptions, {
             projectTypes: project.visibleTypeNames(moduleName),
-            projectClassMembers: project.projectMemberSurfaces(moduleName),
+            projectClassMembers: project.projectMemberSurfaces(moduleName, { includeClassValueFacts: false }),
             implicitMembers: project.moduleImplicitMembers?.(moduleName),
         });
     } catch (err) {
