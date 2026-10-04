@@ -23,7 +23,9 @@ case covers a comment continued onto the next physical line. Existing all-offset
 prefix-window equivalence and completion/recovery suites pass.
 
 Compilation and the full local suite passed: 14,673 tests across 750 files,
-with 33 skipped tests. The suite used four workers.
+with 33 skipped tests. The suite used four workers. After rebasing onto main's host member-name index
+reuse (#1100), compilation, 73 targeted tests, 25 completion editor cases and
+all 12 native/workbook cases with 64 fresh-source cycles passed again.
 
 ## Private component comparison
 
