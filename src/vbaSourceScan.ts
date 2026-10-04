@@ -197,7 +197,15 @@ export function lineStartAtAnyBreak(source: string, offset: number): number {
     if (offset <= 0) {
         return 0;
     }
-    return Math.max(source.lastIndexOf('\n', offset - 1), source.lastIndexOf('\r', offset - 1)) + 1;
+    // Stop at the nearest break: separate LF/CR searches rescan the prefix
+    // whenever a file uses only one of those terminators.
+    const from = offset - 1;
+    const start = Number.isNaN(from) ? source.length - 1
+        : Math.min(source.length - 1, Math.max(0, Math.trunc(from)));
+    for (let i = start; i >= 0; i--) {
+        if (source[i] === '\n' || source[i] === '\r') { return i + 1; }
+    }
+    return 0;
 }
 
 /** Offset of the first CR or LF at or after `from`, or source.length at EOF. */
@@ -214,6 +222,13 @@ export function lineEndAtOrAfter(source: string, from: number): number {
 export function wholeLineSpan(source: string, span: Span): Span {
     const next = source.indexOf('\n', span.end);
     return { start: lineStartAt(source, span.start), end: next === -1 ? source.length : next + 1 };
+}
+
+/** Like wholeLineSpan, for text whose lines may also break at a lone CR. */
+export function wholeLineSpanAnyBreak(source: string, span: Span): Span {
+    const end = lineEndAtOrAfter(source, span.end);
+    const breakLength = end < source.length ? (source[end] === '\r' && source[end + 1] === '\n' ? 2 : 1) : 0;
+    return { start: lineStartAtAnyBreak(source, span.start), end: end + breakLength };
 }
 
 /** The physical line around `offset`: after the previous LF up to the next, minus a trailing CR. */
