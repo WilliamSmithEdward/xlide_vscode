@@ -44,7 +44,7 @@ const openEditors = new Map<string, vscode.WebviewPanel>();
 const openingEditors = new Map<string, Promise<void>>();
 
 function editorKey(filePath: string, surface: string, shapeName: string | undefined): string {
-	return `${projectIdentityKey(filePath)}::${surface.toLowerCase()}::${shapeName?.toLowerCase() ?? '+'}`;
+	return JSON.stringify([projectIdentityKey(filePath), surface.toLowerCase(), shapeName?.toLowerCase() ?? null]);
 }
 
 /** The Subs a shape in this file can run; none when they cannot be read. */

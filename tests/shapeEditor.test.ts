@@ -166,6 +166,22 @@ describe('the shape editor tab', () => {
         expect(vscode.window.createWebviewPanel).toHaveBeenCalledTimes(1);
     });
 
+    it.each(['existing', 'new'] as const)('keeps Add Shape separate from a shape named + when opening %s first', async first => {
+        editShape(deck, 'Slide 1', { action: 'update', name: 'Badge', newName: '+' });
+        const existing = { host: 'powerpoint' as const, surface: 'Slide 1', shape: shape('Slide 1', '+')! };
+        const adding = { host: 'powerpoint' as const, surface: 'Slide 1' };
+        await openShapeEditor(deps, context, deck, first === 'existing' ? existing : adding);
+        const firstPanel = panel;
+        panel = fakePanel();
+        vi.mocked(vscode.window.createWebviewPanel).mockReturnValue(panel as unknown as vscode.WebviewPanel);
+        try {
+            await openShapeEditor(deps, context, deck, first === 'existing' ? adding : existing);
+            expect(vscode.window.createWebviewPanel).toHaveBeenCalledTimes(2);
+            expect(pageModel().mode).toBe(first === 'existing' ? 'add' : 'edit');
+            if (first === 'new') { expect(pageModel().shape?.name).toBe('+'); }
+        } finally { firstPanel.dispose(); }
+    });
+
     it('opens on what the file holds now, not on the tree\'s older listing', async () => {
         const listedEarlier = shape('Slide 1', 'ClickMe')!;
         editShape(deck, 'Slide 1', { action: 'update', name: 'ClickMe', text: 'Changed outside' });
