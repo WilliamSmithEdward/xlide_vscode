@@ -128,7 +128,7 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 		...byRefOut.map((l) => ({ local: l, text: `ByRef ${l.name} As ${l.type}` })),
 	];
 
-	const eol = !source.includes('\n') && source.includes('\r') ? '\r' : detectEol(source);
+	const eol = detectEol(source);
 	const indent = leadingWhitespace(source.slice(block.start, selected[0].span.start));
 	const movedDecls = new Set(moved.map((local) => local.declaration!.decl));
 	const resultDecl = asFunction ? outputs[0].declaration?.decl : undefined;

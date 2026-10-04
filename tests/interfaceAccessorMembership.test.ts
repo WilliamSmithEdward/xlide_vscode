@@ -15,7 +15,7 @@ for (const { type, setter } of pairs) for (const declaration of ['field', 'prope
 		const existing = present === 'Get' ? getter : writer;
 		const missing = present === 'Get' ? writer : getter;
 		const source = ['Implements IData', 'Private ' + existing.replace('Value', 'idata_value'), 'End Property', ''].join(eol);
-		const generatedEol = eol === '\r' ? '\n' : eol;
+		const generatedEol = eol;
 		const text = (source.endsWith(generatedEol) ? '' : generatedEol) + generatedEol + 'Private ' + missing.replace('Value', 'IData_Value') + generatedEol + "    Err.Raise 5 'TODO: implement this interface member" + generatedEol + 'End Property' + generatedEol;
 		const expected = { ok: true, title: "Implement 1 member of 'IData'", edits: [{ span: { start: source.length, end: source.length }, newText: text }] };
 		const result = implementInterface({ source, moduleSources: { idata: interfaceSource } });

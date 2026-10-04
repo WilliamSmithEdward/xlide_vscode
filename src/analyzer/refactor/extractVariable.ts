@@ -1,7 +1,7 @@
 import { parseModule } from '../parser/parseModule';
 import type { BodyNode, ModuleNode, ProcedureNode, Span } from '../parser/nodes';
 import { resolveExpressionType, type ExpressionTypeContext } from '../expression/resolveExpressionType';
-import { detectEol, leadingWhitespace, lineStartAt } from '../../vbaSourceScan';
+import { detectEol, leadingWhitespace, lineStartAtAnyBreak } from '../../vbaSourceScan';
 import { refactor, refuse, type VbaRefactorResult } from './refactorTypes';
 import { procedureContainingSpan, blankStringLiterals, walkBody } from './shared';
 import { identifiersIn, statementTokensCached, splitTopLevelTokenGroups, tokenName, tokenWord, tokensWithoutLeadingLineNumber } from '../lexer/tokenHelpers';
@@ -69,7 +69,7 @@ export function extractVariable(input: ExtractVariableInput): VbaRefactorResult 
 	}
 
 	const eol = detectEol(source);
-	const lineStart = lineStartAt(source, statement.span.start);
+	const lineStart = lineStartAtAnyBreak(source, statement.span.start);
 	const indent = leadingWhitespace(source.slice(lineStart, statement.span.start));
 	const name = input.name ?? uniqueName(nameFor(source.slice(span.start, span.end)), procedure, module, source);
 	const set = typed.isObject ? 'Set ' : '';

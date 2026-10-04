@@ -316,7 +316,7 @@ class DocBlock {
 		readonly lines: readonly DocBlockLine[],
 		readonly tags: readonly DocTagOccurrence[],
 	) {
-		this.eol = source.includes('\n') ? detectEol(source) : source.includes('\r') ? '\r' : '\n';
+		this.eol = detectEol(source);
 	}
 
 	insertLineBefore(offset: number, content: string): TextEdit {

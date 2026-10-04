@@ -259,7 +259,8 @@ export function normalizeEol(text: string): string {
 
 /** Line terminator to use when re-serializing edits to `source`. */
 export function detectEol(source: string): string {
-    return source.includes('\r\n') ? '\r\n' : '\n';
+    if (source.includes('\r\n')) { return '\r\n'; }
+    return source.includes('\n') || !source.includes('\r') ? '\n' : '\r';
 }
 
 /** True for VBE attribute header lines such as `Attribute VB_Name = "..."`. */
