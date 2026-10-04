@@ -280,6 +280,31 @@ describe('ordinary typing reuses procedure ranges', () => {
         expect(tracker?.current?.label).toBe('Sub Post');
     });
 
+    it('updates current range spans even when the procedure label stays the same', () => {
+        const one = editor(3);
+        setActiveEditor(one);
+        track();
+        const previous = tracker?.current?.procedure;
+        change(one, SOURCE.replace('End Sub\n\nFunction', 'End Sub\nx = 1\nFunction'), 6, 'x = 1', 6, false);
+        expect(tracker?.current?.label).toBe('Sub Post');
+        expect(tracker?.current?.procedure).not.toBe(previous);
+        expect(tracker?.current?.procedure?.lastLine).toBe(6);
+        expect(seen).toEqual([]);
+        expect(one.document.getText).toHaveBeenCalledTimes(1);
+    });
+
+    it('restores lead-in ownership after Backspace without rescanning source', () => {
+        const one = editor(6);
+        setActiveEditor(one);
+        track();
+        change(one, SOURCE.replace('End Sub\n\nFunction', 'End Sub\nx\nFunction'), 6, 'x', 6, false);
+        expect(tracker?.current?.label).toBe('Sub Post');
+        change(one, SOURCE, 6, '', 6, false);
+        expect(tracker?.current?.label).toBe('Function Total');
+        expect(seen.map(position => position?.label)).toEqual(['Sub Post', 'Function Total']);
+        expect(one.document.getText).toHaveBeenCalledTimes(1);
+    });
+
     it('keeps ordinary body edits cached and quiet without selection events', () => {
         const one = editor(3);
         setActiveEditor(one);
@@ -323,13 +348,13 @@ describe('ordinary typing reuses procedure ranges', () => {
         expect(tracker?.current?.label).toBe('Sub Posted');
     });
 
-    it('rescans changes that move the next procedure lead-in boundary', () => {
+    it('updates the next procedure lead-in boundary without a full source read', () => {
         const one = editor(6);
         setActiveEditor(one);
         track();
         expect(tracker?.current?.label).toBe('Function Total');
         change(one, SOURCE.replace('End Sub\n\nFunction', 'End Sub\nx = 1\nFunction'), 6, 'x = 1');
-        expect(one.document.getText).toHaveBeenCalledTimes(2);
+        expect(one.document.getText).toHaveBeenCalledTimes(1);
         expect(tracker?.current?.label).toBe('Sub Post');
     });
 

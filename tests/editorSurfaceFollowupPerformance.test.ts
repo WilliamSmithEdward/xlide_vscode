@@ -96,6 +96,61 @@ function projectFixture(siblings = 2) {
 }
 
 describe('semantic token provider work', () => {
+	it('preserves semantic output when yielding between large-module passes', async () => {
+		const doc = documentFor('Sub Demo()\nDebug.Print ThisWorkbook.Name\nEnd Sub\n');
+		(vscode.workspace as { textDocuments: readonly vscode.TextDocument[] }).textDocuments = [doc];
+		const provider = new VbaTypeSemanticTokensProvider({ contextForProject: vi.fn() } as never);
+		disposables.push(provider);
+		const original = await provider.provideDocumentSemanticTokens(doc, active);
+		Object.defineProperty(doc, 'lineCount', { value: 9000 });
+		(doc as unknown as { version: number }).version++;
+		vi.useFakeTimers();
+		try {
+			const result = provider.provideDocumentSemanticTokens(doc, active);
+			await vi.advanceTimersByTimeAsync(10);
+			expect(await result).toEqual(original);
+		} finally { vi.useRealTimers(); }
+	});
+
+	it('stops the remaining collectors when input invalidates a large request between passes', async () => {
+		const doc = documentFor('Sub Demo()\nDebug.Print ThisWorkbook.Name\nEnd Sub\n');
+		Object.defineProperty(doc, 'lineCount', { value: 9000 });
+		(vscode.workspace as { textDocuments: readonly vscode.TextDocument[] }).textDocuments = [doc];
+		const provider = new VbaTypeSemanticTokensProvider({ contextForProject: vi.fn() } as never);
+		disposables.push(provider);
+		const token = { isCancellationRequested: false };
+		vi.spyOn(analyzer, 'resolveTypeSemanticTokens').mockImplementationOnce(() => { token.isCancellationRequested = true; return []; });
+		const next = vi.spyOn(analyzer, 'collectHostGlobalTokens');
+		vi.useFakeTimers();
+		try {
+			const result = provider.provideDocumentSemanticTokens(doc, token as vscode.CancellationToken);
+			await vi.advanceTimersByTimeAsync(10);
+			expect((await result).data).toHaveLength(0);
+			expect(next).not.toHaveBeenCalled();
+		} finally { vi.useRealTimers(); }
+	});
+
+	it.each(['edited', 'closed', 'canceled'] as const)('yields to input and discards large semantic requests %s before scanning', async invalidation => {
+		const doc = documentFor('Sub Demo()\nDebug.Print ThisWorkbook.Name\nEnd Sub\n');
+		Object.defineProperty(doc, 'lineCount', { value: 9000 });
+		(vscode.workspace as { textDocuments: readonly vscode.TextDocument[] }).textDocuments = [doc];
+		const provider = new VbaTypeSemanticTokensProvider({ contextForProject: vi.fn() } as never);
+		disposables.push(provider);
+		const token = { isCancellationRequested: false };
+		const collect = vi.spyOn(analyzer, 'resolveTypeSemanticTokens');
+		vi.useFakeTimers();
+		try {
+			const result = provider.provideDocumentSemanticTokens(doc, token as vscode.CancellationToken);
+			expect(collect).not.toHaveBeenCalled();
+			if (invalidation === 'edited') { (doc as unknown as { version: number }).version++; }
+			if (invalidation === 'closed') { (doc as unknown as { isClosed: boolean }).isClosed = true; }
+			if (invalidation === 'canceled') { token.isCancellationRequested = true; }
+			await vi.advanceTimersByTimeAsync(1);
+			expect((await result).data).toHaveLength(0);
+			expect(collect).not.toHaveBeenCalled();
+		} finally { vi.useRealTimers(); }
+	});
+
 	it('skips source reads for canceled requests and cache hits', async () => {
 		const doc = documentFor('Sub Demo()\nDebug.Print ThisWorkbook.Name\nEnd Sub\n');
 		(vscode.workspace as { textDocuments: readonly vscode.TextDocument[] }).textDocuments = [doc];

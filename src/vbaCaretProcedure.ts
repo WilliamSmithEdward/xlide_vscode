@@ -37,17 +37,17 @@ export class VbaCaretProcedureTracker implements vscode.Disposable {
      * them; an edit rescans only that document. Weak keys do not keep closed
      * documents alive, and a reopened document starts with a fresh entry.
      */
-    private readonly _ranges = new WeakMap<vscode.TextDocument, { version: number; ranges: VbaProcedureRange[]; lineStructures: string[] }>();
+    private readonly _ranges = new WeakMap<vscode.TextDocument, { version: number; ranges: VbaProcedureRange[]; lineStructures: string[]; headerLines: number[] }>();
 
     constructor() {
         this._disposables.push(
             this._emitter,
             vscode.workspace.onDidChangeTextDocument((event) => {
-                this._acceptNonStructuralEdit(event);
+                const ownershipChanged = this._acceptNonStructuralEdit(event);
                 // Edits applied by a command need not move the caret. Update
                 // structural changes now; ordinary typing keeps its cached ranges.
                 if (event.contentChanges.length > 0 && event.document === vscode.window.activeTextEditor?.document
-                    && this._ranges.get(event.document)?.version !== event.document.version) {
+                    && (ownershipChanged || this._ranges.get(event.document)?.version !== event.document.version)) {
                     this._update();
                 }
             }),
@@ -68,10 +68,9 @@ export class VbaCaretProcedureTracker implements vscode.Disposable {
 
     private _update(): void {
         const next = this._read();
-        if (samePosition(this._current, next)) {
-            return;
-        }
+        const changed = !samePosition(this._current, next);
         this._current = next;
+        if (!changed) { return; }
         this._emitter.fire(next);
     }
 
@@ -88,10 +87,12 @@ export class VbaCaretProcedureTracker implements vscode.Disposable {
         let cached = this._ranges.get(document);
         if (cached?.version !== document.version) {
             const source = document.getText();
+            const lineStructures = source.split(/\r\n|\r|\n/).map(vbaProcedureLineStructure);
             cached = {
                 version: document.version,
                 ranges: vbaProcedureRanges(source),
-                lineStructures: source.split(/\r\n|\r|\n/).map(vbaProcedureLineStructure),
+                lineStructures,
+                headerLines: lineStructures.flatMap((structure, line) => structure.startsWith('[') ? [line] : []),
             };
             this._ranges.set(document, cached);
         }
@@ -106,20 +107,43 @@ export class VbaCaretProcedureTracker implements vscode.Disposable {
     }
 
     /** Reuse ranges when an edit cannot change headers or their leading lines. */
-    private _acceptNonStructuralEdit(event: vscode.TextDocumentChangeEvent): void {
-        if (event.contentChanges.length === 0) { return; }
+    private _acceptNonStructuralEdit(event: vscode.TextDocumentChangeEvent): boolean {
+        if (event.contentChanges.length === 0) { return false; }
         const document = event.document;
         const cached = this._ranges.get(document);
         if (!cached || cached.version !== document.version - 1 ||
-            cached.lineStructures.length !== document.lineCount) { return; }
+            cached.lineStructures.length !== document.lineCount) { return false; }
+        const changes = new Map<number, string>();
         for (const change of event.contentChanges) {
             const line = change.range.start.line;
-            if (line !== change.range.end.line || /[\r\n]/.test(change.text) ||
-                cached.lineStructures[line] !== vbaProcedureLineStructure(document.lineAt(line).text)) {
-                return;
+            if (line !== change.range.end.line || /[\r\n]/.test(change.text)) { return false; }
+            const next = vbaProcedureLineStructure(document.lineAt(line).text);
+            const previous = cached.lineStructures[line];
+            // Header creation/removal/renaming still uses the full scanner.
+            if (previous !== next && (previous?.startsWith('[') || next.startsWith('['))) { return false; }
+            changes.set(line, next);
+        }
+        const affected = new Set<number>();
+        for (const [line, next] of changes) {
+            if (cached.lineStructures[line] !== next) {
+                const index = cached.headerLines.findIndex(header => header > line);
+                if (index >= 0) { affected.add(index); }
+                cached.lineStructures[line] = next;
+            }
+        }
+        let ownershipChanged = false;
+        for (const index of affected) {
+            const floor = index === 0 ? 0 : cached.headerLines[index - 1] + 1;
+            let first = cached.headerLines[index];
+            while (first > floor && cached.lineStructures[first - 1] === 'leadIn') { first--; }
+            if (cached.ranges[index].firstLine !== first) {
+                cached.ranges[index] = { ...cached.ranges[index], firstLine: first };
+                if (index > 0) { cached.ranges[index - 1] = { ...cached.ranges[index - 1], lastLine: first - 1 }; }
+                ownershipChanged = true;
             }
         }
         cached.version = document.version;
+        return ownershipChanged;
     }
 
     dispose(): void {

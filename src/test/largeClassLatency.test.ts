@@ -61,6 +61,96 @@ import { encodeModuleUri } from '../xlideFileSystem';
         }
     });
 
+    test('records sustained typing and smart Backspace stalls in the actual class', async () => {
+        const editor = vscode.window.activeTextEditor!;
+        // Probe both the original reported area and the appended procedure.
+        const samples: { line: number; idleMs: number; typingMs: number; backspaceMs: number }[] = [];
+        const profiler = new Session();
+        const profileEnabled = process.env.XLIDE_PERF_CPU_PROFILE === '1';
+        const post = (method: string) => new Promise<any>((resolve, reject) => profiler.post(method, (error, value) => error ? reject(error) : resolve(value)));
+        if (profileEnabled) { profiler.connect(); await post('Profiler.enable'); await post('Profiler.start'); }
+        let expected = performance.now() + 10;
+        let maxHostDelayMs = 0;
+        const heartbeat = setInterval(() => {
+            const now = performance.now();
+            maxHostDelayMs = Math.max(maxHostDelayMs, now - expected);
+            expected = now + 10;
+        }, 10);
+        try {
+            for (const probeLine of [Math.min(1500, document.lineCount - 1), line]) {
+                const end = document.lineAt(probeLine).range.end;
+                editor.selection = new vscode.Selection(end, end);
+                await new Promise(resolve => setTimeout(resolve, 300));
+                await vscode.commands.executeCommand('workbench.action.focusActiveEditorGroup');
+                const before = document.getText();
+                for (let i = 0; i < 24; i++) {
+                    const idleMs = [0, 30, 250, 350][i % 4];
+                    await new Promise(resolve => setTimeout(resolve, idleMs));
+                    await vscode.commands.executeCommand('workbench.action.focusActiveEditorGroup');
+                    const originalLine = document.lineAt(probeLine).text;
+                    const start = performance.now();
+                    await vscode.commands.executeCommand('type', { text: 'z' });
+                    const typed = performance.now();
+                    assert.ok(document.lineAt(probeLine).text === originalLine + 'z',
+                        'Keyboard typing must insert before measuring Backspace: ' + JSON.stringify({
+                            probeLine, idleMs, beforeLength: originalLine.length,
+                            afterLength: document.lineAt(probeLine).text.length, caret: editor.selection.active }));
+                    await vscode.commands.executeCommand('xlide.vba.smartBackspace');
+                    samples.push({ line: probeLine, idleMs, typingMs: typed - start, backspaceMs: performance.now() - typed });
+                }
+                const after = document.getText();
+                if (after !== before) {
+                    let first = 0;
+                    while (first < Math.min(before.length, after.length) && before[first] === after[first]) { first++; }
+                    console.log('Typing restoration difference:', JSON.stringify({ probeLine,
+                        beforeLength: before.length, afterLength: after.length, first: document.positionAt(first),
+                        caseOnly: before.toLowerCase() === after.toLowerCase(), caret: editor.selection.active }));
+                }
+                assert.ok(after === before, 'Typing and Backspace must restore the document');
+            }
+            console.log('Actual sustained typing latency:', JSON.stringify({ samples, maxHostDelayMs }));
+        } finally {
+            clearInterval(heartbeat);
+            if (profileEnabled) {
+                const stopped = await post('Profiler.stop');
+                fs.writeFileSync(path.join(workspaceRoot(), 'sustained-typing.cpuprofile'), JSON.stringify(stopped.profile));
+                profiler.disconnect();
+            }
+        }
+    });
+
+    test('keeps member completion and hover working across repeated missed prefixes and Backspace', async () => {
+        const editor = vscode.window.activeTextEditor!;
+        const memberLine = line + 1;
+        const original = document.lineAt(memberLine).text;
+        assert.ok(original.endsWith('ThisWorkbook.Sheets(1).'));
+        editor.selection = new vscode.Selection(document.lineAt(memberLine).range.end, document.lineAt(memberLine).range.end);
+        await vscode.commands.executeCommand('workbench.action.focusActiveEditorGroup');
+        const samples: { backspaceMs: number; completionMs: number; hoverMs: number }[] = [];
+        for (let i = 0; i < 8; i++) {
+            await vscode.commands.executeCommand('type', { text: 'cez' });
+            assert.ok(document.lineAt(memberLine).text.endsWith('.cez'), 'Keyboard typing must reach the member prefix');
+            const start = performance.now();
+            await vscode.commands.executeCommand('xlide.vba.smartBackspace');
+            const deleted = performance.now();
+            assert.ok(document.lineAt(memberLine).text.endsWith('.ce'));
+            const result = await vscode.commands.executeCommand<vscode.CompletionList>(
+                'vscode.executeCompletionItemProvider', document.uri, document.lineAt(memberLine).range.end);
+            const completed = performance.now();
+            assert.ok(result?.items.some(item => (typeof item.label === 'string' ? item.label : item.label.label) === 'Cells'));
+            const offset = document.getText().toLowerCase().lastIndexOf('latencyvalue') + 2;
+            const hovers = await vscode.commands.executeCommand<vscode.Hover[]>(
+                'vscode.executeHoverProvider', document.uri, document.positionAt(offset));
+            assert.ok(hovers?.length, 'Hover must still respond after Backspace');
+            samples.push({ backspaceMs: deleted - start, completionMs: completed - deleted, hoverMs: performance.now() - completed });
+            await vscode.commands.executeCommand('hideSuggestWidget');
+            await vscode.commands.executeCommand('xlide.vba.smartBackspace');
+            await vscode.commands.executeCommand('xlide.vba.smartBackspace');
+            assert.ok(document.lineAt(memberLine).text === original, 'Repeated Backspace must restore the member line');
+        }
+        console.log('Actual member recovery latency:', JSON.stringify(samples));
+    });
+
     test('records hover after a declaration edit in the actual large class', async () => {
         const hoverText = async () => {
             const source = document.getText();
