@@ -39,8 +39,11 @@ export function conditionOperands(toks: readonly VbaToken[]): ConditionOperand[]
 	const ends = (tok: VbaToken | undefined): boolean => !tok || [')', ','].includes(tok.rawText) || tokenText(tok) === 'then' || LOGICAL.has(tokenText(tok));
 	const starts = (tok: VbaToken | undefined): boolean => !tok || ['(', ',', '='].includes(tok.rawText)
 		|| ['then', 'if', 'elseif', 'while', 'until', 'case', 'not', 'else'].includes(tokenText(tok)) || LOGICAL.has(tokenText(tok));
+	// Statement heads are mutually exclusive and add at most one operand.
+	// Each later token index is visited once, so only that head can duplicate it.
+	const headOperandIndex = out[0]?.index;
 	for (let i = 1; i < toks.length; i++) {
-		if (!bare(i) || out.some((hit) => hit.index === i)) {
+		if (!bare(i) || i === headOperandIndex) {
 			continue;
 		}
 		if (tokenText(toks[i - 1]) === 'not' && ends(toks[i + 1])) {
