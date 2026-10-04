@@ -53,6 +53,7 @@ export function knownFunctionResults(
 ): ReadonlyMap<string, FunctionResult> {
 	const cached = RESULTS.get(mod);
 	if (cached && cached.source === source && cached.activity === activity) {
+		cached.source = source;
 		return cached.result;
 	}
 	const procedures = new Map<string, ProcedureNode | null>();
