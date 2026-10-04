@@ -5,6 +5,7 @@
 // not only that its internals were exercised.
 
 import './formatting.test';
+import './hoverSnapshotSurfaces.test';
 import './deadCode.test';
 import './gitCompare.test';
 import './officeIntegration.test';

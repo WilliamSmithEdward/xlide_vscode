@@ -11,7 +11,7 @@
 import { tokenizeCached } from '../lexer/tokenize';
 import { VbaToken } from '../lexer/tokenKinds';
 import { firstTokenEndingAtOrAfter, isIdentLike } from '../lexer/tokenHelpers';
-import { buildModuleSymbols } from '../symbols/buildModuleSymbols';
+import { editorModuleSymbols } from '../symbols/editorModuleSymbols';
 import {
 	ModuleSymbolKind,
 	VbaProcedureSignature,
@@ -583,7 +583,7 @@ function findUserSymbol(
 ): VbaSymbol | undefined {
 	let mod;
 	try {
-		mod = buildModuleSymbols(moduleName, ctx.moduleKind ?? 'standard', source);
+		mod = editorModuleSymbols(moduleName, ctx.moduleKind ?? 'standard', source);
 	} catch {
 		return undefined;
 	}
