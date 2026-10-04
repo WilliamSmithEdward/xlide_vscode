@@ -224,8 +224,12 @@ export function checkCollectionState(
 			if (replays) {
 				for (const [lower, calls] of replays) {
 					for (const call of calls) {
-						let raised = false;
-						checkStatement(node.span, call, states, () => { raised = true; }, isEmpty, indexOf, optionBase, lookup, scalarLocal, keyOf);
+						let raised: Replayed | undefined;
+						checkStatement(node.span, call, states, (rule, message) => { raised ??= { rule, message }; }, isEmpty, indexOf, optionBase, lookup, scalarLocal, keyOf);
+						if (raised) {
+							const hit = replayedDiagnostic(node.span, toks, lower, call, raised);
+							push(hit.rule, hit.message, hit.span);
+						}
 						if (raised || !states.has(lower)) {
 							forgetCollection(states, lower);
 							break;
@@ -334,6 +338,28 @@ export function replayedCalls(
 	}
 	const replays = calleeCalls(toks);
 	return mentioned.every((tok) => replays.has(tokenName(tok)!.toLowerCase())) ? replays : undefined;
+}
+
+/** What a replayed callee statement raised. */
+export interface Replayed {
+	rule: Parameters<PushFn>[0];
+	message: string;
+}
+
+/**
+ * A callee statement that raises, reported at the call on the object passed
+ * to it: `AddK d` twice, AddK doing `p.Add "k", 1`, raises 457 the second
+ * time (issue #685, measured in Excel 16.0).
+ */
+export function replayedDiagnostic(base: Span, toks: readonly VbaToken[], lower: string, call: readonly VbaToken[], raised: Replayed): Replayed & { span: Span } {
+	const at = tokenText(toks[0]) === 'call' ? 1 : 0;
+	const arg = toks.find((tok, i) => i > at && tokenName(tok)?.toLowerCase() === lower) ?? toks[at];
+	let text = '';
+	call.forEach((tok, i) => {
+		const tight = i === 0 || tok.rawText === '.' || tok.rawText === ',' || tok.rawText === ')' || call[i - 1].rawText === '.' || call[i - 1].rawText === '(';
+		text += (tight ? '' : ' ') + tok.rawText;
+	});
+	return { rule: raised.rule, message: `'${toks[at].rawText}' runs ${text} here. ${raised.message}`, span: { start: base.start + arg.start, end: base.start + arg.end } };
 }
 
 /** A With block's subject: a name, or the tokens of an element, `c ( 1 )`. */

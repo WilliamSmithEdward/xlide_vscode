@@ -37,7 +37,7 @@ import {
 	tokenName,
 	tokenText,
 } from '../walker';
-import { replayedCalls, withReceiver } from './collectionState';
+import { replayedCalls, replayedDiagnostic, withReceiver, type Replayed } from './collectionState';
 import { calleeMemberCalls } from '../calleeArguments';
 import { namesIn } from './shared';
 
@@ -111,8 +111,12 @@ export function checkDictionaryState(
 			if (replays) {
 				for (const [lower, calls] of replays) {
 					for (const call of calls) {
-						let raised = false;
-						checkStatement(node.span, call, states, () => { raised = true; });
+						let raised: Replayed | undefined;
+						checkStatement(node.span, call, states, (rule, message) => { raised ??= { rule, message }; });
+						if (raised) {
+							const hit = replayedDiagnostic(node.span, toks, lower, call, raised);
+							push(hit.rule, hit.message, hit.span);
+						}
 						if (raised || !states.has(lower)) {
 							states.delete(lower);
 							break;

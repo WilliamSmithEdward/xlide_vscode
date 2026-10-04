@@ -310,4 +310,36 @@ describe('a host object read as a value (#415)', () => {
 		expect(read('v = CStr(Range("A1"))')).toEqual([]);
 		expect(read('Dim o As Object\n    Set o = ActiveSheet\n    v = o.Name & ""')).toEqual([]);
 	});
+
+	it('reads WorksheetFunction and a Comment as 438, which the model does not close', () => {
+		expect(read('v = WorksheetFunction')).toEqual(['object-default-value']);
+		expect(read('v = CStr(Application.WorksheetFunction)')).toEqual(['object-default-value']);
+		expect(read('v = Range("A1").Comment & ""')).toEqual(['object-default-value']);
+		expect(read('Dim o As Object\n    Set o = Range("A1").Comment\n    v = o')).toEqual(['object-default-value']);
+		expect(read('v = WorksheetFunction.Sum(1, 2)')).toEqual([]);
+		expect(read('v = Range("A1").Comment.Text')).toEqual([]);
+		expect(read('v = Range("A1").Comment Is Nothing')).toEqual([]);
+	});
+});
+
+describe('a callee that raises on the object passed to it (#685)', () => {
+	const C = 'Dim c As Collection\n    Set c = New Collection\n    ';
+	const D = 'Dim d As Object\n    Set d = CreateObject("Scripting.Dictionary")\n    ';
+	const sub = (name: string, param: string, line: string): string => `Private Sub ${name}(${param})\n    ${line}\nEnd Sub\n`;
+	it('is reported at the call', () => {
+		const src = `Option Explicit\nFunction Main() As Variant\n    ${D}AddK d\n    AddK d\nEnd Function\n${sub('AddK', 'ByVal p As Object', 'p.Add "k", 1')}`;
+		const diags = analyzeModule(src).filter((diag) => diag.severity === 'error');
+		expect(diags.map((diag) => diag.code)).toEqual(['collection-key-in-use']);
+		expect(diags[0].message).toContain(`'AddK' runs d.Add "k", 1 here.`);
+		// The second call's argument.
+		expect(diags[0].span.start).toBe(src.lastIndexOf('AddK d') + 5);
+		expect(src.slice(diags[0].span.start, diags[0].span.end)).toBe('d');
+		expect(errors(`${C}R1 c`, sub('R1', 'ByVal p As Collection', 'p.Remove 1'))).toEqual(['collection-index-out-of-range']);
+		expect(errors(`${D}RemK d`, sub('RemK', 'ByVal p As Object', 'p.Remove "k"'))).toEqual(['collection-key-not-found']);
+	});
+
+	it('is quiet where the call runs', () => {
+		expect(errors(`${C}c.Add 1\n    R1 c\n    Main = c.Count`, sub('R1', 'ByVal p As Collection', 'p.Remove 1'))).toEqual([]);
+		expect(errors(`${D}AddK d\n    Main = d.Count`, sub('AddK', 'ByVal p As Object', 'p.Add "k", 1'))).toEqual([]);
+	});
 });

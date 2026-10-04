@@ -349,6 +349,14 @@ function hostDefaultReads(
 }
 
 /**
+ * Excel types with no default member that the model does not list in full,
+ * so it cannot tell: WorksheetFunction, and Comment, which Range.Comment
+ * gives as Nothing where the cell has none (issue #685, each read as a
+ * value measured in Excel 16.0: 438, and 91 with no comment).
+ */
+const EXCEL_NO_DEFAULT: ReadonlySet<string> = new Set(['worksheetfunction', 'comment']);
+
+/**
  * What reading an Object as a value raises when it holds this class: a
  * Collection, Sheets, a Dictionary or Hyperlinks need an index or key, 450;
  * Names its argument, 449; a type with no default member, 438 (issues #415
@@ -373,6 +381,10 @@ function heldValueError(held: string, memberCtx: MemberCompletionContext): { wha
 		case 'application':
 		case 'document':
 			return undefined;
+	}
+	if (EXCEL_NO_DEFAULT.has(key)) {
+		const none = key === 'comment' ? ", or '91' while it holds no comment" : '';
+		return { what: `${article(held)} ${held}, which has no default member`, error: `This will raise Run-time error '438': Object doesn't support this property or method${none}.` };
 	}
 	// A class of the project has rules of its own (issue #256).
 	const name = held.split('.').pop()!.toLowerCase();
@@ -587,7 +599,8 @@ function hostChainType(
 		return undefined;
 	}
 	if (chain.length === 1) {
-		return head === 'activesheet' ? ACTIVE_SHEET_HELD : head === 'activeworkbook' || head === 'thisworkbook' ? 'Workbook' : undefined;
+		return head === 'activesheet' ? ACTIVE_SHEET_HELD : head === 'activeworkbook' || head === 'thisworkbook' ? 'Workbook'
+			: head === 'worksheetfunction' ? 'WorksheetFunction' : undefined;
 	}
 	return chain.some((tok) => tok.rawText === '.') ? inferMemberExpressionType(source, [...chain], offset, memberCtx)?.type : undefined;
 }
@@ -663,10 +676,11 @@ function hostChainReads(
 		// Through ActiveSheet, an Object, the rest is bound late: what would
 		// not compile raises when it runs.
 		const late = tokenText(chain[0]) === 'activesheet' && chain.length > 1;
-		const verdict = normalized === 'worksheet or chart' ? 'noDefault' : normalized === 'sheets' ? 'argument' : objectLetAssignmentVerdict(type, memberCtx);
+		const verdict = normalized === 'worksheet or chart' || EXCEL_NO_DEFAULT.has(normalized) ? 'noDefault' : normalized === 'sheets' ? 'argument' : objectLetAssignmentVerdict(type, memberCtx);
 		if (verdict === 'noDefault') {
 			const what = normalized === 'worksheet or chart' ? 'a Worksheet or a Chart, neither of which has' : `${article(type)} ${type}, which has`;
-			out.push({ ...at, rule: 'objectDefaultValue', message: `'${shown}' is ${what} no default member, so it has no value to read here. This will raise Run-time error '438': Object doesn't support this property or method.` });
+			const none = normalized === 'comment' ? ", or '91' where the cell has no comment" : '';
+			out.push({ ...at, rule: 'objectDefaultValue', message: `'${shown}' is ${what} no default member, so it has no value to read here. This will raise Run-time error '438': Object doesn't support this property or method${none}.` });
 		} else if (normalized === 'names') {
 			out.push(whole || late
 				? { ...at, rule: 'objectDefaultValue', message: `'${shown}' is a Names collection, whose default member Item needs its argument, so it has no value to read here. This will raise Run-time error '449': Argument not optional.` }
