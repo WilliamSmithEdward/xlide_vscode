@@ -6,6 +6,7 @@
 
 import './typeLookbackSurfaces.test';
 import './formatting.test';
+import './hoverSnapshotSurfaces.test';
 import './deadCode.test';
 import './gitCompare.test';
 import './officeIntegration.test';
