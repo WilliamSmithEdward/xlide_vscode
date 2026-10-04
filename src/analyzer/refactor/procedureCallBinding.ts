@@ -2,6 +2,7 @@ import { ProjectIndex } from '../symbols/projectIndex';
 import { tokenizeCached } from '../lexer/tokenize';
 import { firstTokenAtOrAfter, tokenName } from '../lexer/tokenHelpers';
 import type { ProcedureNode } from '../parser/nodes';
+import type { VbaSymbol } from '../symbols/symbolModel';
 import type { CallSite } from './callSites';
 
 /** A query-local source index: textual call candidates must bind to the changed procedure. */
@@ -14,6 +15,8 @@ export function procedureCallBinding(
 	projectForBinding?: () => ProjectIndex,
 ): (callerName: string, callerSource: string, site: CallSite) => boolean {
 	let project: ProjectIndex | undefined;
+	let qualifiedTarget: VbaSymbol | undefined;
+	let qualifiedTargetResolved = false;
 	const tokensByModule = new Map<string, ReturnType<typeof tokenizeCached>>();
 	return (callerName, callerSource, site) => {
 		if (!project) {
@@ -50,9 +53,15 @@ export function procedureCallBinding(
 				|| /^(GoTo|GoSub|Resume|AddressOf)$/i.test(tokens[index - 3]?.rawText ?? '')) { return false; }
 			const binding = project.resolveBareIdentifier(callerName, receiverName, receiver.start, 'memberReceiver');
 			if (binding.scope !== 'unresolved') { return false; }
-			const owner = project.getModule(moduleName)!;
-			const target = owner.root.children?.find(symbol => symbol.fullSpan.start === procedure.span.start && symbol.name.toLowerCase() === procedure.name.toLowerCase());
-			return !!target && (callerName.toLowerCase() === moduleName.toLowerCase() || target.visibility !== 'Private');
+			// The declaration is fixed in this query-owned project; receiver binding
+			// and visibility checks still run for each call site. Resolve lazily so
+			// bare calls and shadowed qualifiers never trigger this module scan.
+			if (!qualifiedTargetResolved) {
+				const owner = project.getModule(moduleName)!;
+				qualifiedTarget = owner.root.children?.find(symbol => symbol.fullSpan.start === procedure.span.start && symbol.name.toLowerCase() === procedure.name.toLowerCase());
+				qualifiedTargetResolved = true;
+			}
+			return !!qualifiedTarget && (callerName.toLowerCase() === moduleName.toLowerCase() || qualifiedTarget.visibility !== 'Private');
 		}
 		const call = next?.rawText === '(' || before === undefined || before.kind === 'newline' || before.kind === 'colon'
 			|| /^(Then|Else|Call)$/i.test(before.rawText);

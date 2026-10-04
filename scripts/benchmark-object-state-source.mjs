@@ -1,0 +1,20 @@
+// Run: node scripts/benchmark-object-state-source.mjs [--baseline=COMMIT] [--rounds=9]
+import {build} from 'esbuild';import {execFileSync} from 'node:child_process';import {readFileSync,writeFileSync,mkdtempSync,unlinkSync,rmdirSync} from 'node:fs';import {createRequire} from 'node:module';import {tmpdir,cpus} from 'node:os';import {dirname,join} from 'node:path';import {fileURLToPath} from 'node:url';import {performance} from 'node:perf_hooks';import assert from 'node:assert/strict';
+const root=dirname(dirname(fileURLToPath(import.meta.url))),baseline=process.argv.find(a=>a.startsWith('--baseline='))?.slice(11),rounds=Number(process.argv.find(a=>a.startsWith('--rounds='))?.slice(9)??9);if(!Number.isInteger(rounds)||rounds<3||rounds>100)throw Error('rounds must be 3..100');
+const scratch=mkdtempSync(join(tmpdir(),'xlide-object-state-source-')),file=join(scratch,'api.cjs');let api;
+try{const plugins=[{name:'object-state-query',setup(builder){builder.onLoad({filter:/[\\/]rules[\\/]objectState\.ts$/},args=>({contents:(baseline?execFileSync('git',['show',baseline+':src/analyzer/diagnostics/rules/objectState.ts'],{cwd:root,encoding:'utf8'}):readFileSync(args.path,'utf8'))+'\nexport {moduleObjectFacts,objectStateWalk};',loader:'ts',resolveDir:dirname(args.path)}));}}];const built=await build({plugins,stdin:{contents:"export {moduleObjectFacts,objectStateWalk} from './src/analyzer/diagnostics/rules/objectState';export {parseModule} from './src/analyzer/parser/parseModule';export {buildModuleSymbols} from './src/analyzer/symbols/buildModuleSymbols';",resolveDir:root,loader:'ts'},bundle:true,platform:'node',format:'cjs',write:false});writeFileSync(file,built.outputFiles[0].contents);api=createRequire(import.meta.url)(file);}finally{try{unlinkSync(file);}catch(error){if(error.code!=='ENOENT')throw error;}rmdirSync(scratch);}
+
+const rows=[];
+for(const bytes of [1000,100000,1000000])for(const mode of ['same','copied'])for(const consumer of ['moduleFacts','procedureWalk']) {
+ const samples=[];
+ for(let round=-3;round<rounds;round++) {
+  const source='Function Fn() As Object\nEnd Function\nSub ReadItem(ByVal item As Object)\nDebug.Print item.Name\nEnd Sub\nSub Run()\nDim item As Object\nitem = 3\nEnd Sub\n'+"' unique round "+round+'\n'+"' filler\n".repeat(Math.ceil(bytes/9));
+  const caller=mode==='same'?source:('x'+source).slice(1),mod=api.parseModule(source),symbols=api.buildModuleSymbols('M','standard',source,{parsedModule:mod}),proc=mod.members.find(m=>m.kind==='Procedure'&&m.name==='Run'),ctx={};
+  const query=s=>consumer==='moduleFacts'?api.moduleObjectFacts(s,mod,ctx,undefined):api.objectStateWalk(s,mod,proc,symbols,ctx,undefined),expected=query(source);
+  if(consumer==='moduleFacts') {assert.deepEqual([...expected.nothingFunctions].map(([name,proc])=>[name,proc.name]),[['fn','Fn']]);assert.deepEqual([...expected.memberFirst].map(([n,m])=>[n,[...m]]),[['readitem',[[0,'item.Name']]]]);assert.deepEqual([...expected.excelRangeMethods],['intersect','union']);}
+  else {const start=source.indexOf('item =');assert.deepEqual([...expected.lets],[[start,'unset']]);assert.deepEqual(expected.findings,[['objectVariableNotSet',"Object variable 'item' is Nothing before the default-member assignment. This will raise Run-time error '91': Object variable or With block variable not set.",{start,end:start+4}]]);}
+  const start=performance.now();for(let i=0;i<1000;i++)assert.equal(query(caller),expected);const elapsed=performance.now()-start;if(round>=0)samples.push(elapsed);
+ }
+ samples.sort((a,b)=>a-b);rows.push({bytes,mode,consumer,calls:1000,allAnswersCorrect:true,medianMs:+samples[Math.floor(rounds/2)].toFixed(5),p95Ms:+samples[Math.ceil(rounds*.95)-1].toFixed(5)});
+}
+console.log(JSON.stringify({baseline:baseline??null,node:process.version,cpu:cpus()[0]?.model,rounds,scope:'1000 warm object-state queries; independently expected complete facts/findings/Let states and identity checks; construction/parse/binding/priming excluded; private helpers exposed only in benchmark bundle',rows},null,2));

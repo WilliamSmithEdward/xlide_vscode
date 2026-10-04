@@ -1,7 +1,7 @@
 import { parseModule } from '../parser/parseModule';
 import type { ModuleNode, ProcedureNode, Span } from '../parser/nodes';
 import { procedureAtOffset } from '../parser/nodes';
-import { detectEol, lineStartAtAnyBreak, lineEndAtOrAfter, stripVba } from '../../vbaSourceScan';
+import { detectEol, lineStartAtAnyBreak, stripVba } from '../../vbaSourceScan';
 import {
 	applyVbaTextEdits,
 	refactor,
@@ -10,8 +10,11 @@ import {
 	type VbaRefactorResult,
 	type VbaTextEdit,
 } from './refactorTypes';
-import { escapeForRegExp, lookupModuleSource, blankStringLiterals } from './shared';
-import { identifiersIn } from '../lexer/tokenHelpers';
+import { lookupModuleSource, blankStringLiterals } from './shared';
+import { identifiersIn, tokenName } from '../lexer/tokenHelpers';
+import { tokenizeCached } from '../lexer/tokenize';
+import { ProjectIndex } from '../symbols/projectIndex';
+import type { ModuleSymbolKind } from '../symbols/symbolModel';
 import { attachedCommentsStart } from '../docs/docComment';
 
 /**
@@ -38,10 +41,18 @@ export interface MoveToModuleInput {
 	targetModuleName: string;
 	/** Every other module in the project, keyed by name. */
 	otherModuleSources: Readonly<Record<string, string>>;
+	/** Host module roles; omitted entries retain the legacy standard-module default. */
+	moduleKinds?: Readonly<Record<string, ModuleSymbolKind>>;
 }
 
 export function moveToModule(input: MoveToModuleInput): VbaRefactorResult {
 	const { source } = input;
+	const kinds = new Map(Object.entries(input.moduleKinds ?? {}).map(([name, kind]) => [name.toLowerCase(), kind]));
+	for (const name of [input.moduleName, input.targetModuleName]) {
+		if ((kinds.get(name.toLowerCase()) ?? 'standard') !== 'standard') {
+			return refuse('Move to Module requires standard modules; ' + name + ' is not a standard module.');
+		}
+	}
 	const module: ModuleNode = parseModule(source);
 	const procedure = procedureAtOffset(module, input.offset);
 	if (!procedure) {
@@ -71,11 +82,26 @@ export function moveToModule(input: MoveToModuleInput): VbaRefactorResult {
 		);
 	}
 
-	const eol = source.includes('\n') ? detectEol(source) : source.includes('\r') ? '\r' : '\n';
+	const eol = detectEol(source);
 	// Its doc comment and directives go with it: left behind, they would
 	// document the procedure that came next.
 	const start = attachedCommentsStart(source, procedure.span.start);
-	const here = qualifiedCallEdits(source, input.moduleName, procedure.name, input.targetModuleName);
+	// One lazy index belongs to this refactor; candidate references in every
+	// caller share it rather than rebuilding project bindings per occurrence.
+	let project: ProjectIndex | undefined;
+	const bindingProject = (): ProjectIndex => {
+		if (!project) {
+			project = new ProjectIndex();
+			project.setModule({moduleName: input.moduleName, moduleKind: 'standard', source});
+			for (const [moduleName, otherSource] of Object.entries(input.otherModuleSources)) {
+				if (moduleName.toLowerCase() !== input.moduleName.toLowerCase()) {
+					project.setModule({moduleName, moduleKind: kinds.get(moduleName.toLowerCase()) ?? 'standard', source: otherSource});
+				}
+			}
+		}
+		return project;
+	};
+	const here = qualifiedCallEdits(source, input.moduleName, input.moduleName, procedure.name, input.targetModuleName, bindingProject);
 	// Repoint references inside the copied procedure before inserting it. Those
 	// edits belong to the destination text, not to the removed source range.
 	const movedEdits = here.filter(edit => edit.span.start >= start && edit.span.end <= procedure.span.end)
@@ -97,7 +123,7 @@ export function moveToModule(input: MoveToModuleInput): VbaRefactorResult {
 		if (name.toLowerCase() === input.moduleName.toLowerCase()) {
 			continue;
 		}
-		const repoints = qualifiedCallEdits(otherSource, input.moduleName, procedure.name, input.targetModuleName);
+		const repoints = qualifiedCallEdits(otherSource, name, input.moduleName, procedure.name, input.targetModuleName, bindingProject);
 		if (repoints.length === 0) {
 			continue;
 		}
@@ -123,29 +149,30 @@ export function moveToModule(input: MoveToModuleInput): VbaRefactorResult {
  */
 function qualifiedCallEdits(
 	source: string,
+	callerName: string,
 	fromModule: string,
 	procedureName: string,
 	toModule: string,
+	bindingProject: () => ProjectIndex,
 ): VbaTextEdit[] {
-	const pattern = new RegExp(
-		`\\b(${escapeForRegExp(fromModule)})\\s*\\.\\s*${escapeForRegExp(procedureName)}\\b`,
-		'gi',
-	);
+	const tokens = tokenizeCached(source);
+	const ownerName = fromModule.toLowerCase();
+	const memberName = procedureName.toLowerCase();
 	const out: VbaTextEdit[] = [];
-	let cachedStart = -1, cachedEnd = -1;
-	let masked = '';
-	for (const match of source.matchAll(pattern)) {
-		const at = match.index ?? 0;
-		// Matches ascend, so every physical line is located and masked once.
-		if (at >= cachedEnd) {
-			cachedStart = lineStartAtAnyBreak(source, at);
-			cachedEnd = lineEndAtOrAfter(source, at);
-			masked = stripVba(source.slice(cachedStart, cachedEnd));
-		}
-		if (masked[at - cachedStart] === ' ') {
-			continue;
-		}
-		out.push({ span: { start: at, end: at + match[1].length }, newText: toModule });
+	for (let i = 0; i + 2 < tokens.length; i++) {
+		const receiver = tokens[i];
+		if (tokenName(receiver)?.toLowerCase() !== ownerName
+			|| tokens[i + 1].rawText !== '.'
+			|| tokenName(tokens[i + 2])?.toLowerCase() !== memberName
+			|| ['.', '!'].includes(tokens[i - 1]?.rawText)) { continue; }
+		// A local, parameter, field or function-result name owns this receiver.
+		// Only an unresolved bare name denotes the standard module qualifier.
+		const binding = bindingProject().resolveBareIdentifier(callerName, fromModule, receiver.start, 'memberReceiver');
+		if (binding.scope !== 'unresolved') { continue; }
+		out.push({
+			span: {start: receiver.start, end: receiver.end},
+			newText: receiver.kind === 'bracketedIdentifier' ? '[' + toModule + ']' : toModule,
+		});
 	}
 	return out;
 }

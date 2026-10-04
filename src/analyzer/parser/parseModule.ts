@@ -29,6 +29,8 @@
 //     are captured as StatementNode with their raw text. Expression parsing is
 //     a later phase.
 
+import { incrementalModuleParseFromCache } from './incrementalModuleParse';
+import { rememberDirectiveFreeModule } from './moduleParseFacts';
 import { VbaToken } from '../lexer/tokenKinds';
 import { tokenizeCached } from '../lexer/tokenize';
 import {
@@ -165,19 +167,32 @@ export function parseModule(source: string): ModuleNode {
 			return hit.module;
 		}
 	}
-	const tokens = tokenizeCached(source);
-	const previous = source.length >= 4096
-		? parseCache.find(entry => Math.abs(entry.source.length - source.length) <= 128)
-		: undefined;
-	const prefix = unchangedModulePrefix(source, tokens, previous);
-	const remaining = prefix ? tokens.slice(prefix.tokenIndex) : tokens;
-	const module = new Parser(source, remaining).parse(prefix?.members);
-	const hasDirectives = remaining.some(token => token.kind === 'directive');
+	// Attempt one compatible body snapshot. Broader edits retain main's safe
+	// parser-prefix reuse, then parse the affected suffix with full recovery.
+	const body = incrementalModuleParseFromCache(source, parseCache, parseModuleFreshForTests);
+	let module = body?.module;
+	let hasDirectives = body?.snapshot.hasDirectives ?? false;
+	if (!module) {
+		const tokens = tokenizeCached(source);
+		const previous = source.length >= 4096
+			? parseCache.find(entry => Math.abs(entry.source.length - source.length) <= 128)
+			: undefined;
+		const prefix = unchangedModulePrefix(source, tokens, previous);
+		const remaining = prefix ? tokens.slice(prefix.tokenIndex) : tokens;
+		module = new Parser(source, remaining).parse(prefix?.members);
+		hasDirectives = remaining.some(token => token.kind === 'directive');
+	}
+	if (!hasDirectives) { rememberDirectiveFreeModule(module); }
 	parseCache.unshift({ source, module, hasDirectives });
 	if (parseCache.length > PARSE_CACHE_MAX) {
 		parseCache.pop();
 	}
 	return module;
+}
+
+/** Uncached reference parser for differential validation of editor cache reuse. */
+export function parseModuleFreshForTests(source: string): ModuleNode {
+	return new Parser(source, tokenizeCached(source)).parse();
 }
 
 // Only complete logical lines before the first changed character/diagnostic

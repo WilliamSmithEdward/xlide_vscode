@@ -516,7 +516,7 @@ class ConditionParser {
 		if (close < 0 || this.toks[open - 2]?.rawText === '.') {
 			return NOT_A_CALL;
 		}
-		const groups = splitTopLevelTokenGroups(this.toks, open + 1, ',', close).map((group) => group.filter((tok) => tok.kind !== 'comment'));
+		const groups = splitTopLevelTokenGroups(this.toks, open + 1, ',', close);
 		// A one-token Len is read below, as it was.
 		if (word === 'len' && groups[0]?.length === 1) {
 			return NOT_A_CALL;
@@ -617,7 +617,7 @@ class ConditionParser {
 
 	/** An argument's value: a condition operand, and vbBinaryCompare or vbTextCompare as 0 or 1. */
 	private argumentValue(arg: readonly VbaToken[]): Value {
-		const toks = arg.filter((tok) => tok.kind !== 'comment');
+		const toks = arg;
 		const word = toks.length === 1 ? tokenText(toks[0]) : '';
 		if (word === 'vbbinarycompare' || word === 'vbtextcompare') {
 			return word === 'vbtextcompare' ? 1 : 0;

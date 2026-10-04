@@ -12,7 +12,7 @@
 // rule that reads these facts follows the instance's own uses.
 
 import { tokenizeCached } from '../lexer/tokenize';
-import { firstTokenAtOrAfter } from '../lexer/tokenHelpers';
+import { firstTokenAtOrAfter, tokenName } from '../lexer/tokenHelpers';
 import type { VbaToken } from '../lexer/tokenKinds';
 import type { VbaSymbol } from './symbolModel';
 
@@ -38,12 +38,13 @@ export function classMemberValues(source: string, children: readonly VbaSymbol[]
 	const out = new Map<string, ClassMemberValue>();
 	const toks = tokenizeCached(source).filter((tok) => tok.kind !== 'comment');
 	const word = (tok: VbaToken | undefined): string => (tok?.rawText ?? '').toLowerCase();
+	const name = (tok: VbaToken | undefined): string | undefined => tokenName(tok)?.toLowerCase();
 	// Only the earliest/latest mention is needed to decide whether a name
 	// occurs outside its declaration. Build that index once, not per field.
 	const mentionsByName = new Map<string, { first: number; last: number }>();
 	for (const tok of toks) {
-		if (tok.kind !== 'identifier') { continue; }
-		const lower = word(tok);
+		if (tok.kind !== 'identifier' && tok.kind !== 'bracketedIdentifier') { continue; }
+		const lower = name(tok)!;
 		const mentions = mentionsByName.get(lower);
 		if (mentions) {
 			mentions.last = tok.start;
@@ -89,10 +90,10 @@ export function classMemberValues(source: string, children: readonly VbaSymbol[]
 		const statements = splitStatements(body.slice(headerEnd + 1));
 		// The last statement is End Function or End Property.
 		const inner = statements.filter((stmt) => !(word(stmt[0]) === 'end' && ['function', 'property'].includes(word(stmt[1]))));
-		const mentions = inner.filter((stmt) => stmt.some((tok, i) => tok.kind === 'identifier' && word(tok) === lower && stmt[i - 1]?.rawText !== '.'));
+		const mentions = inner.filter((stmt) => stmt.some((tok, i) => (tok.kind === 'identifier' || tok.kind === 'bracketedIdentifier') && name(tok) === lower && stmt[i - 1]?.rawText !== '.'));
 		if (type !== undefined && type !== 'variant' && !isKnownScalarType(type)) {
 			// An object result never set, or set only to Nothing, is Nothing.
-			if (mentions.every((stmt) => stmt.length === 4 && word(stmt[0]) === 'set' && word(stmt[1]) === lower && stmt[2].rawText === '=' && word(stmt[3]) === 'nothing')) {
+			if (mentions.every((stmt) => stmt.length === 4 && word(stmt[0]) === 'set' && name(stmt[1]) === lower && stmt[2].rawText === '=' && word(stmt[3]) === 'nothing')) {
 				out.set(lower, 'nothing');
 			}
 			continue;
@@ -107,7 +108,7 @@ export function classMemberValues(source: string, children: readonly VbaSymbol[]
 			const stmt = mentions[0];
 			const value = stmt.slice(2);
 			const literal = value.length === 1 || (value.length === 2 && value[0].rawText === '-') ? value[value.length - 1] : undefined;
-			if (word(stmt[0]) === lower && stmt[1]?.rawText === '=' && literal && ['integerLiteral', 'floatLiteral', 'stringLiteral'].includes(literal.kind)) {
+			if (name(stmt[0]) === lower && stmt[1]?.rawText === '=' && literal && ['integerLiteral', 'floatLiteral', 'stringLiteral'].includes(literal.kind)) {
 				out.set(lower, 'scalar');
 			}
 		}

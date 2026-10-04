@@ -1,5 +1,5 @@
 import { parseModule } from '../parser/parseModule';
-import type { ModuleNode, ProcedureNode, Span } from '../parser/nodes';
+import type { ModuleNode, ProcedureNode } from '../parser/nodes';
 import { procedureAtOffset } from '../parser/nodes';
 import {
 	refactor,
@@ -12,8 +12,9 @@ import { assignmentAt, localDeclaration, localUsesIn, nameAt, walkBody, blankStr
 import { callSitesOf } from './callSites';
 import { procedureCallBinding } from './procedureCallBinding';
 import { statementRemovalSpan, mergeRemovals } from './shared';
-import { identifiersIn, tokenName } from '../lexer/tokenHelpers';
+import { firstTokenAtOrAfter, identifiersIn, tokenName } from '../lexer/tokenHelpers';
 import { tokenize, tokenizeCached } from '../lexer/tokenize';
+import { blockHeaderLineSpan } from '../diagnostics/walker';
 import { ProjectIndex } from '../symbols/projectIndex';
 import { resolveMemberDefinitionsAt, privateMemberOwnerAt, type MemberCompletionContext } from '../completion/memberAccess';
 import { resolveBareIdentifierBinding } from '../symbols/nameResolution';
@@ -113,8 +114,10 @@ export function introduceParameter(input: IntroduceParameterInput): VbaRefactorR
 	}
 
 	const type = decl.asType ?? 'Variant';
+	const parameter = parameterInsertion(source, procedure, name, type);
+	if (!parameter) { return refuse('The procedure header has no reliable parameter-list boundary.'); }
 	const edits: VbaTextEdit[] = [
-		{ span: paramInsertSpan(source, procedure), newText: paramText(source, procedure, name, type) },
+		parameter,
 		{ span: statementRemovalSpan(source, declaration.span), newText: '' },
 		{ span: statementRemovalSpan(source, assignment.span), newText: '' },
 	];
@@ -175,7 +178,7 @@ export function introduceParameter(input: IntroduceParameterInput): VbaRefactorR
 		if (otherName.toLowerCase() === input.moduleName.toLowerCase()) {
 			continue;
 		}
-		const sites = callSitesOf(otherSource, procedure.name, { qualifier: input.moduleName })
+		const sites = callSitesOf(otherSource, procedure.name)
 			.filter(site => accepts(otherName, otherSource, site));
 		if (sites.length > 0) {
 			otherModules.push({
@@ -196,27 +199,26 @@ export function introduceParameter(input: IntroduceParameterInput): VbaRefactorR
 	);
 }
 
-/** Where a new parameter goes, and what it looks like when others are there. */
-function paramInsertSpan(source: string, procedure: ProcedureNode): Span {
-	const header = source.slice(procedure.span.start, procedure.span.end);
-	const close = header.indexOf(')');
-	if (close === -1) {
-		// `Sub Go` with no brackets at all: the whole name gets a list.
-		const nameAt = header.search(new RegExp(`\\b${procedure.name}\\b`));
-		const after = procedure.span.start + nameAt + procedure.name.length;
-		return { start: after, end: after };
-	}
-	const at = procedure.span.start + close;
-	return { start: at, end: at };
-}
-
-function paramText(source: string, procedure: ProcedureNode, name: string, type: string): string {
+/** One logical-header lookup supplies both the insertion point and punctuation. */
+function parameterInsertion(source: string, procedure: ProcedureNode, name: string, type: string): VbaTextEdit | undefined {
+	if (!procedure.nameSpan) { return undefined; }
+	const nameEnd = procedure.typeSuffixSpan?.end ?? procedure.nameSpan.end;
+	const header = blockHeaderLineSpan(source, procedure.span);
+	const tokens = tokenizeCached(source);
+	const open = firstTokenAtOrAfter(tokens, nameEnd);
 	const declared = `ByVal ${name} As ${type}`;
-	const header = source.slice(procedure.span.start, procedure.span.end);
-	if (header.indexOf(')') === -1) {
-		return `(${declared})`;
+	if (tokens[open]?.start >= header.end || tokens[open]?.rawText !== '(') {
+		return { span: { start: nameEnd, end: nameEnd }, newText: `(${declared})` };
 	}
-	return procedure.params.length === 0 ? declared : `, ${declared}`;
+	let depth = 0;
+	for (let i = open; i < tokens.length && tokens[i].start < header.end; i++) {
+		if (tokens[i].rawText === '(') { depth++; }
+		else if (tokens[i].rawText === ')' && --depth === 0) {
+			const at = tokens[i].start;
+			return { span: { start: at, end: at }, newText: (procedure.params.length === 0 ? '' : ', ') + declared };
+		}
+	}
+	return undefined;
 }
 
 /**
@@ -243,9 +245,12 @@ function strandedNames(value: string, procedure: ProcedureNode, module: ModuleNo
 	}
 
 	const out: string[] = [];
+	let seen: Set<string> | undefined;
 	for (const name of identifiersIn(blankStringLiterals(value))) {
 		const lower = name.toLowerCase();
-		if ((locals.has(lower) || privates.has(lower)) && !out.includes(name)) {
+		if ((locals.has(lower) || privates.has(lower)) && !seen?.has(name)) {
+			// Preserve the first exact spelling without re-scanning every prior hit.
+			(seen ??= new Set()).add(name);
 			out.push(name);
 		}
 	}

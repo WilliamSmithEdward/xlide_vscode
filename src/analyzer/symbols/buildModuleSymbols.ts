@@ -586,12 +586,24 @@ const DEF_TYPE_NAMES: Readonly<Record<string, string>> = {
 	sng: 'Single', dbl: 'Double', dec: 'Decimal', date: 'Date', str: 'String', obj: 'Object', var: 'Variant',
 };
 
+const DEF_TYPES_CACHE_MAX = 8;
+const defTypesCache: { source: string; types: ReadonlyMap<string, string> }[] = [];
+
 /**
  * The type each first letter gives a name declared with no type, from the
  * module's DefType lines: `DefInt A-Z`, `DefStr S, T-U` (MS-VBAL 5.2.2;
  * issue #285, measured in Excel 16.0).
  */
 function moduleDefTypes(source: string): Map<string, string> {
+	const index = defTypesCache.findIndex(entry => entry.source === source);
+	if (index >= 0) {
+		const [entry] = defTypesCache.splice(index, 1);
+		entry.source = source;
+		defTypesCache.unshift(entry);
+		// Each symbol projection still owns its public map. Cached facts must
+		// not change if a consumer casts its ReadonlyMap and mutates it.
+		return new Map(entry.types);
+	}
 	const out = new Map<string, string>();
 	for (const match of source.matchAll(/^[ \t]*Def(Bool|Byte|Int|LngLng|LngPtr|Lng|Cur|Sng|Dbl|Dec|Date|Str|Obj|Var)[ \t]+([A-Za-z][A-Za-z \t,-]*)/gim)) {
 		const type = DEF_TYPE_NAMES[match[1].toLowerCase()];
@@ -607,5 +619,7 @@ function moduleDefTypes(source: string): Map<string, string> {
 			}
 		}
 	}
-	return out;
+	defTypesCache.unshift({ source, types: out });
+	if (defTypesCache.length > DEF_TYPES_CACHE_MAX) { defTypesCache.pop(); }
+	return new Map(out);
 }

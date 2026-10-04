@@ -109,6 +109,30 @@ suite('Explorer shape refresh in the extension host', () => {
         } finally { explorer.dispose(); }
     });
 
+    test('shape commands lose obsolete contexts until the row redraws', async () => {
+        let macro = 'Old';
+        const explorer = new ProjectExplorer({ call: () => Promise.resolve({ surfaces: [{ surface: 'Data', shapes: [
+            { name: 'Box', kind: 'shape', macro },
+        ] }] }) } as unknown as ConstructorParameters<typeof ProjectExplorer>[0]);
+        try {
+            const folder = { kind: 'shapes' as const, shapeFolder: 'surface' as const,
+                surface: 'Data', label: 'Shapes', filePath: workbookPath() };
+            const [box] = await explorer.getChildren(folder);
+            const original = explorer.shapeContextOf(box);
+            assert.ok(original);
+            explorer.refreshShapes(workbookPath() + '.other.xlsm');
+            assert.equal(explorer.shapeContextOf(box), original);
+            macro = 'New';
+            explorer.refreshShapes(workbookPath());
+            assert.equal(explorer.shapeContextOf(box), undefined);
+            await explorer.getChildren(box);
+            assert.equal(explorer.shapeContextOf(box)?.shape?.macro, 'New');
+            assert.notEqual(explorer.shapeContextOf(box), original);
+            explorer.dispose();
+            assert.equal(explorer.shapeContextOf(box), undefined);
+        } finally { explorer.dispose(); }
+    });
+
     test('renamed module-less sheets stop accumulating refresh notifications', async () => {
         let name = 'Data';
         const explorer = new ProjectExplorer({ call: (method: string) => {
@@ -311,15 +335,34 @@ suite('Explorer sheet context in the extension host', () => {
             const [sheets] = await explorer.getChildren(project);
             const [sheet] = await explorer.getChildren(sheets);
             const [folder] = await explorer.getChildren(sheet);
-            assert.deepEqual((await explorer.getChildren(folder)).map(node => node.label), ['Box']);
+            const [box] = await explorer.getChildren(folder);
+            const ids = [sheet, folder, box].map(node => explorer.getTreeItem(node).id);
             name = 'DATA';
             explorer.refreshShapes(workbookPath());
             const [renamed] = await explorer.getChildren(sheets);
             assert.equal(renamed, sheet);
             const [retained] = await explorer.getChildren(renamed);
             assert.equal(retained, folder);
-            assert.deepEqual((await explorer.getChildren(retained)).map(node => node.label), ['Box']);
+            const [retainedBox] = await explorer.getChildren(retained);
+            assert.equal(retainedBox.label, 'Box');
+            assert.deepEqual([renamed, retained, retainedBox].map(node => explorer.getTreeItem(node).id), ids);
             assert.deepEqual(await explorer.shapeSurfaceOf(retained), { host: 'excel', surface: 'DATA' });
+        } finally { explorer.dispose(); }
+    });
+
+    test('a slash-named shape and a nested group have distinct tree identities', async () => {
+        const explorer = new ProjectExplorer({ call: () => Promise.resolve({ surfaces: [{ surface: 'Data', shapes: [
+            { name: 'A/B', kind: 'group', shapes: [{ name: 'Top member', kind: 'shape' }] },
+            { name: 'A', kind: 'group', shapes: [{ name: 'B', kind: 'group', shapes: [{ name: 'Nested member', kind: 'shape' }] }] },
+        ] }] }) } as unknown as ConstructorParameters<typeof ProjectExplorer>[0]);
+        try {
+            const folder = { kind: 'shapes' as const, shapeFolder: 'surface' as const,
+                surface: 'Data', label: 'Shapes', filePath: workbookPath() };
+            const [top, group] = await explorer.getChildren(folder);
+            const [nested] = await explorer.getChildren(group);
+            assert.notEqual(explorer.getTreeItem(top).id, explorer.getTreeItem(nested).id);
+            assert.equal((await explorer.getChildren(top))[0].label, 'Top member');
+            assert.equal((await explorer.getChildren(nested))[0].label, 'Nested member');
         } finally { explorer.dispose(); }
     });
 

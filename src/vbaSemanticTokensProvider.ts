@@ -33,6 +33,7 @@ import {
 import type { HostObjectModel } from './analyzer/host/excelObjectModel';
 import { moduleIdentityKey } from './projectIdentity';
 import { startPerformanceTrace } from './performanceTrace';
+import { yieldToExtensionHost } from './util/async';
 
 const TYPE_TOKEN_TYPES: TypeSemanticTokenType[] = [
     'class',
@@ -157,18 +158,18 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
             }
             const projectTypes = projectContext?.projectTypes ?? [];
 
-            const items = [
-                ...resolveTypeSemanticTokens(source, { projectTypes }),
-                ...collectHostGlobalTokens(
+            const passes = [
+                () => resolveTypeSemanticTokens(source, { projectTypes }),
+                () => collectHostGlobalTokens(
                     source,
                     projectContext?.hostModel,
                     projectContext?.implicitMembers,
                 ),
-                ...collectImplicitMemberMethodTokens(source, {
+                () => collectImplicitMemberMethodTokens(source, {
                     implicitMembers: projectContext?.implicitMembers,
                     meType: projectContext?.meType,
                 }),
-                ...collectHostMemberMethodTokens(source, {
+                () => collectHostMemberMethodTokens(source, {
                     model: projectContext?.hostModel,
                     codeNames: projectContext?.codeNames,
                     implicitMembers: projectContext?.implicitMembers,
@@ -177,6 +178,18 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
                     projectTypes,
                 }),
             ];
+            const items: ReturnType<typeof resolveTypeSemanticTokens> = [];
+            for (const pass of passes) {
+                // Do not chain all whole-module collectors into one uninterrupted
+                // host task. Let input and cancellation run between large passes.
+                if (document.lineCount >= 8000) {
+                    await yieldToExtensionHost();
+                    if (token.isCancellationRequested || !this._isCurrentDocument(document, documentVersion)) {
+                        return builder.build();
+                    }
+                }
+                items.push(...pass());
+            }
             for (const item of items) {
                 if (token.isCancellationRequested) { break; }
                 builder.push(

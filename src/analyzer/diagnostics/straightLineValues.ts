@@ -183,17 +183,15 @@ function cachedWalk(
 	activity: ConditionalActivityTracker | undefined,
 	initial: ReachingAssignments,
 ): CachedWalk {
-	// Six rules ask for the same procedure in one pass; a parse makes a new
-	// body, so the body is the key, with what holds at the start.
-	let key = START_KEYS.get(initial);
-	if (key === undefined) {
-		key = [...initial].map(([name, value]) => `${name}=${value.map((tok) => tok.rawText).join(' ')}`).sort().join('\n');
-		START_KEYS.set(initial, key);
-	}
-	const byStart = WALKS.get(body) ?? new Map<string, CachedWalk>();
+	// Rules share the same retained start within one bound analysis. Weak keys
+	// prevent calls with different arguments from retaining every prior walk.
+	const byStart = WALKS.get(body) ?? new WeakMap<ReachingAssignments, CachedWalk>();
 	WALKS.set(body, byStart);
-	const cached = byStart.get(key);
-	if (cached && cached.source === source && cached.activity === activity) {
+	const callEffects = CALL_EFFECTS.get(initial);
+	const declaredFacts = DECLARED_FACTS.get(initial);
+	const cached = byStart.get(initial);
+	if (cached && cached.source === source && cached.activity === activity
+		&& cached.callEffects === callEffects && cached.declaredFacts === declaredFacts) {
 		return cached;
 	}
 	const out = new Map<BodyNode, ReachingAssignments>();
@@ -210,8 +208,8 @@ function cachedWalk(
 	const outerCollections = walkCollections;
 	walkCollections = localCollectionNames(body, activity);
 	walkArrays = localArrayNames(body, activity);
-	walkCallEffects = CALL_EFFECTS.get(initial);
-	walkDeclared = DECLARED_FACTS.get(initial);
+	walkCallEffects = callEffects;
+	walkDeclared = declaredFacts;
 	let exit: ReachingAssignments;
 	walkProcedures = moduleProcedureNames(source);
 	walkElements = /\)\s*=\s*null\b/i.test(text);
@@ -225,12 +223,14 @@ function cachedWalk(
 		walkDeclared = outerDeclared;
 		walkCollections = outerCollections;
 	}
-	const walk: CachedWalk = { source, activity, result: out, dead, deadSpans, exit: exit === UNREACHED ? undefined : exit };
-	byStart.set(key, walk);
+	const walk: CachedWalk = { source, activity, callEffects, declaredFacts, result: out, dead, deadSpans, exit: exit === UNREACHED ? undefined : exit };
+	byStart.set(initial, walk);
 	return walk;
 }
 
 interface CachedWalk {
+	callEffects: CallEffects | undefined;
+	declaredFacts: DeclaredFacts | undefined;
 	source: string;
 	activity: ConditionalActivityTracker | undefined;
 	result: ReadonlyMap<BodyNode, ReachingAssignments>;
@@ -255,10 +255,7 @@ interface WalkOut {
 /** The end of a statement list no path reaches. */
 const UNREACHED: ReachingAssignments = new Map();
 
-const WALKS = new WeakMap<readonly BodyNode[], Map<string, CachedWalk>>();
-
-/** Each start's cache key, by identity: a kept start is asked for by several rules. */
-const START_KEYS = new WeakMap<ReachingAssignments, string>();
+const WALKS = new WeakMap<readonly BodyNode[], WeakMap<ReachingAssignments, CachedWalk>>();
 
 /**
  * Walks one statement list from `entry` and returns what holds after it. The
@@ -1385,7 +1382,7 @@ function datePartRange(value: readonly VbaToken[] | undefined): readonly [number
 			part = [n, n];
 			i++;
 		} else if (DATE_PART_RANGES[word] && toks[i + 1]?.rawText === '(' && toks[i - 1]?.rawText !== '.') {
-			const close = matchParenFrom([...toks], i + 1);
+			const close = matchParenFrom(toks, i + 1);
 			if (close < 0) {
 				return undefined;
 			}

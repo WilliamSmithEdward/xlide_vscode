@@ -23,8 +23,9 @@ const NAMES: Readonly<Record<string, string>> = {
 
 /** The type names of a library by the name a project reference records, lowercased; undefined for a library not read. */
 export function libraryTypeNames(library: string): ReadonlySet<string> | undefined {
-	const names = NAMES[library.toLowerCase()];
-	return names === undefined ? undefined : (CACHE[library.toLowerCase()] ??= new Set(names.split(' ')));
+	const key = library.toLowerCase();
+	if (!Object.hasOwn(NAMES, key)) { return undefined; }
+	return CACHE[key] ??= new Set(NAMES[key].split(' '));
 }
 
 const CACHE: Record<string, Set<string>> = {};

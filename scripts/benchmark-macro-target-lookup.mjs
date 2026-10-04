@@ -1,0 +1,14 @@
+// Run: node scripts/benchmark-macro-target-lookup.mjs [--baseline=COMMIT]
+import {build} from 'esbuild';import {execFileSync} from 'node:child_process';import {mkdtempSync,writeFileSync,unlinkSync,rmdirSync} from 'node:fs';import {createRequire} from 'node:module';import {tmpdir,cpus} from 'node:os';import {dirname,join} from 'node:path';import {fileURLToPath} from 'node:url';import {performance} from 'node:perf_hooks';import assert from 'node:assert/strict';
+const root=dirname(dirname(fileURLToPath(import.meta.url))),baseline=process.argv.find(a=>a.startsWith('--baseline='))?.slice(11),scratch=mkdtempSync(join(tmpdir(),'xlide-macro-target-')),file=join(scratch,'api.cjs');let api;
+try{const plugins=baseline?[{name:'baseline',setup(builder){builder.onLoad({filter:/macroNames\.ts$/},args=>({contents:execFileSync('git',['show',baseline+':src/analyzer/completion/macroNames.ts'],{cwd:root,encoding:'utf8'}),loader:'ts',resolveDir:dirname(args.path)}));}}]:[];const built=await build({plugins,stdin:{contents:"export {macroNameTarget} from './src/analyzer/completion/macroNames';",resolveDir:root,loader:'ts'},bundle:true,platform:'node',format:'cjs',write:false});writeFileSync(file,built.outputFiles[0].contents);api=createRequire(import.meta.url)(file);}finally{try{unlinkSync(file);}catch(error){if(error.code!=='ENOENT')throw error;}rmdirSync(scratch);}
+const rows=[];
+for(const count of [1,100,10000])for(const scenario of ['qualified-first','qualified-middle','qualified-last','qualified-missing','bare-unique','bare-ambiguous']){
+ const procedures=Array.from({length:count},(_,i)=>({name:'P'+i,moduleName:'Module',kind:'sub',params:[]})),index=scenario==='qualified-first'?0:scenario==='qualified-middle'?Math.floor(count/2):count-1;
+ const text=scenario==='qualified-missing'?'Missing.P0':scenario.startsWith('qualified')?'Module.P'+index:'P0';
+ if(scenario==='bare-ambiguous')procedures.push({...procedures[0],moduleName:'Other'});
+ const ctx={macroProcedures:procedures},expected=scenario==='qualified-missing'||scenario==='bare-ambiguous'?undefined:scenario==='bare-unique'?procedures[0]:procedures[index],requests=count===10000?10:100,samples=[];
+ for(let round=-3;round<9;round++){const start=performance.now();const results=Array.from({length:requests},()=>api.macroNameTarget(text,ctx));const elapsed=performance.now()-start;for(const result of results)assert.equal(result,expected);if(round>=0)samples.push(elapsed);}
+ samples.sort((a,b)=>a-b);rows.push({count,scenario,requests,medianMs:samples[4],p95Ms:samples[8],returnedOriginalTarget:true});
+}
+console.log(JSON.stringify({baseline:baseline??null,node:process.version,cpu:cpus()[0]?.model,rounds:9,warmups:3,scope:'Actual macro string target resolver; signature construction/assertions excluded; no parsing or editor latency claim',rows},null,2));

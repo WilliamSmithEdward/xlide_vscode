@@ -1,10 +1,10 @@
 import { parseModule } from '../parser/parseModule';
 import type { BodyNode, ModuleNode, ProcedureNode, Span } from '../parser/nodes';
 import { resolveExpressionType, type ExpressionTypeContext } from '../expression/resolveExpressionType';
-import { detectEol, leadingWhitespace, lineStartAt } from '../../vbaSourceScan';
+import { detectEol, leadingWhitespace, lineStartAtAnyBreak } from '../../vbaSourceScan';
 import { refactor, refuse, type VbaRefactorResult } from './refactorTypes';
-import { procedureContainingSpan, blankStringLiterals } from './shared';
-import { identifiersIn } from '../lexer/tokenHelpers';
+import { procedureContainingSpan, blankStringLiterals, walkBody } from './shared';
+import { identifiersIn, statementTokensCached, splitTopLevelTokenGroups, tokenName, tokenWord, tokensWithoutLeadingLineNumber } from '../lexer/tokenHelpers';
 
 /**
  * Extract Variable: a selected expression is declared and assigned above its
@@ -69,7 +69,7 @@ export function extractVariable(input: ExtractVariableInput): VbaRefactorResult 
 	}
 
 	const eol = detectEol(source);
-	const lineStart = lineStartAt(source, statement.span.start);
+	const lineStart = lineStartAtAnyBreak(source, statement.span.start);
 	const indent = leadingWhitespace(source.slice(lineStart, statement.span.start));
 	const name = input.name ?? uniqueName(nameFor(source.slice(span.start, span.end)), procedure, module, source);
 	const set = typed.isObject ? 'Set ' : '';
@@ -161,11 +161,23 @@ function uniqueName(base: string, procedure: ProcedureNode, module: ModuleNode, 
 			taken.add(member.name.toLowerCase());
 		}
 	}
-	// Locals are declared inside the body, which the module walk above does not
-	// reach; the procedure's own text is the cheapest complete answer.
-	const body = source.slice(procedure.span.start, procedure.span.end);
-	for (const match of body.matchAll(/\b(?:Dim|Static|Const|ReDim)\s+([\p{L}_][\p{L}\p{M}\p{N}_]*)/giu)) {
-		taken.add(match[1].toLowerCase());
+	// Parsed groups include every comma-separated and bracketed local name.
+	// Raw statements also cover implicit ReDim names and single-line branches.
+	for (const node of walkBody(procedure.body)) {
+		if (node.kind === 'VariableGroup') {
+			for (const decl of node.declarations) { taken.add(decl.name.toLowerCase()); }
+		} else if (node.kind === 'Statement') {
+			for (const span of node.singleLineIfBranches ?? [node.span]) {
+				if (!/^[ \t]*(?:\d+[ \t]+)?(?:Dim|Static|Const|ReDim)\b/i.test(source.slice(span.start, span.end))) { continue; }
+				const tokens = tokensWithoutLeadingLineNumber(statementTokensCached(source, span));
+				const from = tokenWord(tokens[0]) === 'redim' && tokenWord(tokens[1]) === 'preserve' ? 2 : 1;
+				for (const group of splitTopLevelTokenGroups(tokens, from, ',')) {
+					const name = tokenName(group[0]);
+					// A qualified ReDim target is an existing member, not a local.
+					if (name && group[1]?.rawText !== '.' && group[1]?.rawText !== '!') { taken.add(name.toLowerCase()); }
+				}
+			}
+		}
 	}
 
 	if (!taken.has(base.toLowerCase())) {

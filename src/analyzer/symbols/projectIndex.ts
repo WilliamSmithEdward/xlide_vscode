@@ -558,16 +558,17 @@ export class ProjectIndex {
 	private readonly moduleResolvedConstants = new Map<string, Map<string, number | undefined>>();
 	/** Lazily scanned per-module Implements lists, dropped on module change. */
 	private readonly moduleImplementsLists = new Map<string, string[]>();
-	/**
-	 * Identifier-shaped words inside each module's string literals, taken
-	 * from the token stream while it is still hot from the module's own
-	 * parse. The whole-project set unions these; re-tokenizing every module
-	 * for it was one full lex per module per project build (issue #139).
-	 */
+	/** Literal-word facts are queried lazily and retained for unchanged source. */
 	private readonly moduleStringLiteralWords = new Map<string, ReadonlySet<string>>();
 	/** The names each module's code may write (issue #241), computed when first asked. */
 	private readonly moduleWrittenNames = new Map<string, ReadonlySet<string>>();
+	/** Open-file facts of unchanged modules survive edits elsewhere in the project. */
+	private readonly moduleOpenedFileNumbers = new Map<string, OpenedFileNumbers>();
+	/** Worksheet-change facts are retained only for the current source of each module. */
+	private readonly moduleSheetChanges = new Map<string, SheetChanges>();
 	private readonly moduleMentionedNames = new Map<string, ReadonlySet<string>>();
+	/** Local visibility contributions survive edits to other modules. */
+	private readonly moduleContributions = new Map<string, Map<string, unknown>>();
 	/** Whole-project query memo for the current index revision. */
 	private readonly queryCache = new Map<string, unknown>();
 
@@ -586,9 +587,12 @@ export class ProjectIndex {
 		);
 		const key = input.moduleName.toLowerCase();
 		this.modules.set(key, symbols);
+		const previousSource = this.moduleSources.get(key);
 		this.moduleSources.set(key, input.source);
-		this.moduleStringLiteralWords.set(key, stringLiteralWordsIn(input.source));
+		if (previousSource !== input.source) { this.moduleStringLiteralWords.delete(key); }
 		this.moduleWrittenNames.delete(key);
+		this.moduleOpenedFileNumbers.delete(key);
+		this.moduleSheetChanges.delete(key);
 		this.moduleMentionedNames.delete(key);
 		if (input.implicitMembers !== undefined) {
 			this.moduleImplicitMembersByName.set(key, input.implicitMembers);
@@ -615,6 +619,8 @@ export class ProjectIndex {
 		this.moduleSources.delete(key);
 		this.moduleStringLiteralWords.delete(key);
 		this.moduleWrittenNames.delete(key);
+		this.moduleOpenedFileNumbers.delete(key);
+		this.moduleSheetChanges.delete(key);
 		this.moduleMentionedNames.delete(key);
 		this.moduleImplicitMembersByName.delete(key);
 		this.modulePredeclaredIdByName.delete(key);
@@ -624,6 +630,7 @@ export class ProjectIndex {
 
 	/** Drops module-derived artifacts and every whole-project query memo. */
 	private invalidate(key: string): void {
+		this.moduleContributions.delete(key);
 		this.moduleResolvedConstants.delete(key);
 		this.moduleImplementsLists.delete(key);
 		this.queryCache.clear();
@@ -641,7 +648,7 @@ export class ProjectIndex {
 
 	/**
 	 * Memoizes one module's part of a per-module visibility query until the
-	 * indexed modules change. A module contributes one of two answers - to
+	 * contributing module changes. A module contributes one of two answers - to
 	 * its own queries, or to every other module's - so asking a query for
 	 * each of N modules no longer walks every module's symbols N times.
 	 * Callers keep their loop over modules, so answers and their order are
@@ -658,8 +665,17 @@ export class ProjectIndex {
 		sameModule: boolean,
 		compute: () => T,
 	): T {
-		const side = sameModule ? 'own' : 'other';
-		return this.cached(`contribution:${query}:${side}:${mod.moduleName.toLowerCase()}`, compute);
+		const moduleKey = mod.moduleName.toLowerCase();
+		let parts = this.moduleContributions.get(moduleKey);
+		if (!parts) {
+			parts = new Map<string, unknown>();
+			this.moduleContributions.set(moduleKey, parts);
+		}
+		const key = `${query}:${sameModule ? 'own' : 'other'}`;
+		if (!parts.has(key)) {
+			parts.set(key, compute());
+		}
+		return parts.get(key) as T;
 	}
 
 	/** Resolved integer constant values of one module, computed at most once. */
@@ -791,7 +807,12 @@ export class ProjectIndex {
 	stringLiteralWords(): ReadonlySet<string> {
 		return this.cached('stringLiteralWords', () => {
 			const words = new Set<string>();
-			for (const moduleWords of this.moduleStringLiteralWords.values()) {
+			for (const [key, source] of this.moduleSources) {
+				let moduleWords = this.moduleStringLiteralWords.get(key);
+				if (!moduleWords) {
+					moduleWords = stringLiteralWordsIn(source);
+					this.moduleStringLiteralWords.set(key, moduleWords);
+				}
 				for (const word of moduleWords) {
 					words.add(word);
 				}
@@ -877,7 +898,18 @@ export class ProjectIndex {
 	 * lacks may be one of these.
 	 */
 	sheetChanges(): SheetChanges {
-		return this.cached('sheetChanges', () => mergeSheetChanges([...this.moduleSources.values()].map(sheetChangesIn)));
+		return this.cached('sheetChanges', () => {
+			const parts: SheetChanges[] = [];
+			for (const [key, source] of this.moduleSources) {
+				let part = this.moduleSheetChanges.get(key);
+				if (!part) {
+					part = sheetChangesIn(source);
+					this.moduleSheetChanges.set(key, part);
+				}
+				parts.push(part);
+			}
+			return mergeSheetChanges(parts);
+		});
 	}
 
 	/**
@@ -885,7 +917,18 @@ export class ProjectIndex {
 	 * names a number that is no literal (issue #419).
 	 */
 	openedFileNumbers(): OpenedFileNumbers {
-		return this.cached('openedFileNumbers', () => mergeOpenedFileNumbers([...this.moduleSources.values()].map(openedFileNumbersIn)));
+		return this.cached('openedFileNumbers', () => {
+			const parts: OpenedFileNumbers[] = [];
+			for (const [key, source] of this.moduleSources) {
+				let part = this.moduleOpenedFileNumbers.get(key);
+				if (!part) {
+					part = openedFileNumbersIn(source);
+					this.moduleOpenedFileNumbers.set(key, part);
+				}
+				parts.push(part);
+			}
+			return mergeOpenedFileNumbers(parts);
+		});
 	}
 
 	/**
@@ -1252,7 +1295,8 @@ export class ProjectIndex {
 				}
 				const members = this.visibleObjectMembers(mod);
 				if (kind === 'class' && includeValueFacts) {
-					const values = classMemberValues(this.moduleSources.get(mod.moduleName.toLowerCase()) ?? '', mod.root.children ?? []);
+					const values = this.contribution('classMemberValues', mod, false, () =>
+						classMemberValues(this.moduleSources.get(mod.moduleName.toLowerCase()) ?? '', mod.root.children ?? []));
 					for (const member of members) {
 						const value = values.get(member.name.toLowerCase());
 						if (value) {

@@ -21,7 +21,7 @@ import type { VbaToken } from '../../lexer/tokenKinds';
 import type { ModuleNode, Span } from '../../parser/nodes';
 import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { PushFn } from '../analysisContext';
-import { normalizeType, objectValueNeedsIndex, typeEnvironmentFor } from '../typeInference';
+import { normalizeType, createObjectDefaultQueries, typeEnvironmentFor } from '../typeInference';
 import {
 	activeModuleMembers,
 	firstExecutableTokenIndex,
@@ -49,6 +49,7 @@ export function checkParentheses(
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
+	const defaultQueries = createObjectDefaultQueries(memberCtx);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
@@ -58,7 +59,7 @@ export function checkParentheses(
 			// `New Collection`, or a variable of such a type.
 			const type = to - from === 2 && tokenText(toks[from]) === 'new' ? tokenName(toks[from + 1])
 				: to - from === 1 ? env.get(tokenName(toks[from])?.toLowerCase() ?? '') : undefined;
-			return type && objectValueNeedsIndex(type, memberCtx) ? type : undefined;
+			return type && defaultQueries.needsIndex(type) ? type : undefined;
 		};
 		forEachStatementWithHeaders(source, member.body, (stmt) => {
 			checkStatement(source, stmt.span, needsIndex, push);

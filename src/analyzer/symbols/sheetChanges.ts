@@ -76,6 +76,8 @@ function scanStatement(toks: readonly VbaToken[], names: Set<string>): { addsShe
 	let addsSheets = false;
 	let assignsComputedName = false;
 	const lower = (i: number): string => toks[i]?.rawText.toLowerCase() ?? '';
+	// Every Copy member asks the same statement-wide range-word question.
+	let hasRangeWords: boolean | undefined;
 	for (let i = 0; i < toks.length; i++) {
 		if (toks[i].rawText !== '.') {
 			continue;
@@ -87,14 +89,14 @@ function scanStatement(toks: readonly VbaToken[], names: Set<string>): { addsShe
 			if (!before || before.kind === 'keyword' || SHEET_COLLECTIONS.has(before.rawText.toLowerCase())) {
 				addsSheets = true;
 			}
-		} else if (member === 'copy' && i + 2 < toks.length && !toks.some((t) => RANGE_WORDS.has(t.rawText.toLowerCase()))) {
+		} else if (member === 'copy' && i + 2 < toks.length && !(hasRangeWords ??= toks.some((t) => RANGE_WORDS.has(t.rawText.toLowerCase())))) {
 			// `ws.Copy After:=...` makes a sheet; `ws.Copy` alone makes a workbook.
 			addsSheets = true;
 		} else if (member === 'name' && toks[i + 2]?.rawText === '=') {
-			const rhs = toks.slice(i + 3);
+			const value = toks[i + 3];
 			// A lone literal, maybe followed by a single-line If's Else.
-			if (rhs[0]?.kind === 'stringLiteral' && (rhs.length === 1 || STATEMENT_OPENERS.has(rhs[1].rawText.toLowerCase()))) {
-				names.add(rhs[0].rawText.slice(1, -1).replace(/""/g, '"').toLowerCase());
+			if (value?.kind === 'stringLiteral' && (i + 4 === toks.length || STATEMENT_OPENERS.has(lower(i + 4)))) {
+				names.add(value.rawText.slice(1, -1).replace(/""/g, '"').toLowerCase());
 			} else if (startsStatement(toks, i)) {
 				assignsComputedName = true;
 			}

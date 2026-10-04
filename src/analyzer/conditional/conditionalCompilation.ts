@@ -1,4 +1,6 @@
 import { tokenize } from '../lexer/tokenize';
+import { MAX_EXPRESSION_DEPTH } from '../parser/expressionLimits';
+import { isKnownDirectiveFreeModule } from '../parser/moduleParseFacts';
 import type { VbaToken } from '../lexer/tokenKinds';
 import { relationalOperatorAt, tokenWord } from '../lexer/tokenHelpers';
 import { bankersRound, parseVbaIntegerLiteral } from '../constants/integerConstantExpression';
@@ -162,15 +164,22 @@ interface ConditionalArm {
 /**
  * Whether the two arm stacks disagree about which arm of a shared chain they
  * are in - the branches then exclude each other, whatever the constants are
- * worth. Stacks are as deep as the source nests directives, so the walk is
- * short.
+ * worth. Parent paths descend by source-order chain ID, allowing a linear walk.
  */
 function armsDiverge(a: ConditionalArm | undefined, b: ConditionalArm | undefined): boolean {
-	for (let outer = a; outer; outer = outer.parent) {
-		for (let inner = b; inner; inner = inner.parent) {
-			if (outer.chain === inner.chain) {
-				return outer.index !== inner.index;
-			}
+	// Chain IDs increase in source order, so each parent path descends by ID.
+	// Merge the paths to find their innermost shared chain without a cross scan.
+	while (a && b) {
+		if (a === b) {
+			return false;
+		}
+		if (a.chain === b.chain) {
+			return a.index !== b.index;
+		}
+		if (a.chain > b.chain) {
+			a = a.parent;
+		} else {
+			b = b.parent;
 		}
 	}
 	return false;
@@ -197,13 +206,14 @@ function collectConditionalActivityEvents(
 ): ConditionalActivityEvent[] {
 	const directives = collectConditionalDirectives(module);
 	const projectConstants = projectConstantsOf(effectiveEnv);
+	const evaluate = createConditionalExpressionEvaluator(effectiveEnv, projectConstants);
 	const stack: ConditionalFrame[] = [];
 	let current: ConditionalActivity = 'active';
 	let branch: ConditionalArm | undefined;
 	let chains = 0;
 	const events: ConditionalActivityEvent[] = [];
 	for (const { directive } of directives) {
-		current = applyConditionalDirective(directive, effectiveEnv, projectConstants, stack, current);
+		current = applyConditionalDirective(directive, evaluate, projectConstants, stack, current);
 		switch (directive.directiveKind) {
 			case 'If':
 				branch = { chain: chains++, index: 0, parent: branch };
@@ -228,6 +238,7 @@ function collectConditionalActivityEvents(
 }
 
 export function moduleHasConditionalDirectives(module: ModuleNode): boolean {
+	if (isKnownDirectiveFreeModule(module)) { return false; }
 	for (const member of module.members) {
 		if (member.kind === 'ConditionalDirective') {
 			return true;
@@ -364,6 +375,7 @@ export function conditionalActivityAtOffset(
 	const effectiveEnv = effectiveConditionalCompilationEnvironment(env);
 	const directives = collectConditionalDirectives(module);
 	const projectConstants = projectConstantsOf(effectiveEnv);
+	const evaluate = createConditionalExpressionEvaluator(effectiveEnv, projectConstants);
 	const stack: ConditionalFrame[] = [];
 	let current: ConditionalActivity = 'active';
 
@@ -371,7 +383,7 @@ export function conditionalActivityAtOffset(
 		if (directive.span.start >= offset) {
 			break;
 		}
-		current = applyConditionalDirective(directive, effectiveEnv, projectConstants, stack, current);
+		current = applyConditionalDirective(directive, evaluate, projectConstants, stack, current);
 	}
 	return current;
 }
@@ -392,6 +404,7 @@ export function nullConditionDirectives(
 	}
 	const effectiveEnv = effectiveConditionalCompilationEnvironment(env);
 	const projectConstants = projectConstantsOf(effectiveEnv);
+	const evaluate = createConditionalExpressionEvaluator(effectiveEnv, projectConstants);
 	const stack: ConditionalFrame[] = [];
 	let current: ConditionalActivity = 'active';
 	const out: ConditionalDirectiveNode[] = [];
@@ -402,19 +415,19 @@ export function nullConditionDirectives(
 			: directive.directiveKind === 'ElseIf'
 				&& frame?.parent === 'active' && !frame.seenTrue && !frame.seenUnknown;
 		if (evaluated) {
-			const value = evaluateWithProjectConstants(directive.conditionRaw, effectiveEnv, projectConstants);
+			const value = evaluate(directive.conditionRaw);
 			if (value !== undefined && isNull(value)) {
 				out.push(directive);
 			}
 		}
-		current = applyConditionalDirective(directive, effectiveEnv, projectConstants, stack, current);
+		current = applyConditionalDirective(directive, evaluate, projectConstants, stack, current);
 	}
 	return out;
 }
 
 function applyConditionalDirective(
 	directive: ConditionalDirectiveNode,
-	env: ConditionalCompilationEnvironment,
+	evaluate: ConditionalExpressionEvaluator,
 	projectConstants: Map<string, ConditionalValue>,
 	stack: ConditionalFrame[],
 	current: ConditionalActivity,
@@ -424,7 +437,7 @@ function applyConditionalDirective(
 			// A #Const defines its constant even inside a #If False: the VBE
 			// reads every #Const line (issue #192, measured in Excel 16.0).
 			if (directive.name) {
-				const value = evaluateWithProjectConstants(directive.valueRaw, env, projectConstants);
+				const value = evaluate(directive.valueRaw);
 				if (value !== undefined) {
 					projectConstants.set(directive.name.toLowerCase(), value);
 				}
@@ -432,7 +445,8 @@ function applyConditionalDirective(
 			return current;
 		}
 		case 'If': {
-			const condition = conditionActivity(directive, env, projectConstants);
+			const condition = current === 'inactive'
+				? 'inactive' : conditionActivity(directive, evaluate);
 			const frame: ConditionalFrame = {
 				parent: current,
 				current: combineActivity(current, condition),
@@ -447,10 +461,13 @@ function applyConditionalDirective(
 			if (!frame) {
 				return current;
 			}
-			const condition = conditionActivity(directive, env, projectConstants);
-			if (frame.seenTrue) {
+			if (frame.seenTrue || frame.parent === 'inactive') {
+				// Constants still replay, but this arm cannot change activity.
 				frame.current = 'inactive';
-			} else if (frame.seenUnknown && condition !== 'inactive') {
+				return frame.current;
+			}
+			const condition = conditionActivity(directive, evaluate);
+			if (frame.seenUnknown && condition !== 'inactive') {
 				frame.current = combineActivity(frame.parent, 'unknown');
 			} else {
 				frame.current = combineActivity(frame.parent, condition);
@@ -520,10 +537,8 @@ function collectConditionalConstants(
 	directives: readonly ConditionalDirectiveOccurrence[],
 	env: ConditionalCompilationEnvironment,
 ): ConditionalConstDefinition[] {
-	const projectConstants = new Map<string, ConditionalValue>();
-	for (const [name, value] of Object.entries(env.projectConstants ?? {})) {
-		projectConstants.set(name.toLowerCase(), value);
-	}
+	const projectConstants = projectConstantsOf(env);
+	const evaluate = createConditionalExpressionEvaluator(env, projectConstants, true);
 	const constants: ConditionalConstDefinition[] = [];
 	for (const { directive } of directives) {
 		if (directive.directiveKind !== 'Const' || !directive.name || !directive.nameSpan) {
@@ -531,7 +546,7 @@ function collectConditionalConstants(
 		}
 		// The index historically supplies a project table even when the caller
 		// did not, so an absent name is zero on this path.
-		const value = evaluateWithProjectConstants(directive.valueRaw, env, projectConstants, true);
+		const value = evaluate(directive.valueRaw);
 		if (value !== undefined) {
 			projectConstants.set(directive.name.toLowerCase(), value);
 		}
@@ -555,10 +570,9 @@ interface ConditionalFrame {
 
 function conditionActivity(
 	directive: ConditionalDirectiveNode,
-	env: ConditionalCompilationEnvironment,
-	projectConstants: ReadonlyMap<string, ConditionalValue>,
+	evaluate: ConditionalExpressionEvaluator,
 ): ConditionalActivity {
-	const value = evaluateWithProjectConstants(directive.conditionRaw, env, projectConstants);
+	const value = evaluate(directive.conditionRaw);
 	const holds = value === undefined ? undefined : truthy(value);
 	if (holds === undefined) {
 		return 'unknown';
@@ -566,30 +580,31 @@ function conditionActivity(
 	return holds ? 'active' : 'inactive';
 }
 
-function evaluateWithProjectConstants(
-	expression: string | undefined,
+type ConditionalExpressionEvaluator = (expression: string | undefined) => ConditionalValue | undefined;
+
+function createConditionalExpressionEvaluator(
 	env: ConditionalCompilationEnvironment,
 	projectConstants: ReadonlyMap<string, ConditionalValue>,
 	undefinedIsZero = env.projectConstants !== undefined,
-): ConditionalValue | undefined {
-	if (!expression?.trim()) {
-		return undefined;
-	}
-	// The module's own `#Const` values ride in `projectConstants` whether or
-	// not the caller supplied the project's; only the caller's presence says
-	// an absent name is provably undefined (issue #102).
-	const compilerConstants = conditionalCompilerConstants({ compilerConstants: env.compilerConstants });
-	// The parser only needs lookup. Copying all preceding #Const values here
-	// for every directive makes a forward replay quadratic.
+): ConditionalExpressionEvaluator {
+	// Compiler values stay fixed during a replay; module #Const values evolve.
+	// Keep the lookup query-local and lazy for replays with no expressions.
+	let compilerConstants: ReadonlyMap<string, ConditionalValue> | undefined;
 	const constants = {
 		get: (name: string): ConditionalValue | undefined => projectConstants.has(name)
-			? projectConstants.get(name) : compilerConstants.get(name),
+			? projectConstants.get(name) : compilerConstants?.get(name),
 	};
-	return new ConditionalExpressionParser(
-		directiveExpressionTokens(expression),
-		constants,
-		undefinedIsZero,
-	).parse();
+	return (expression) => {
+		if (!expression?.trim()) {
+			return undefined;
+		}
+		compilerConstants ??= conditionalCompilerConstants({ compilerConstants: env.compilerConstants });
+		return new ConditionalExpressionParser(
+			directiveExpressionTokens(expression),
+			constants,
+			undefinedIsZero,
+		).parse();
+	};
 }
 
 function combineActivity(
@@ -655,6 +670,7 @@ function truthy(value: ConditionalValue): boolean | undefined {
  */
 class ConditionalExpressionParser {
 	private index = 0;
+	private parenthesisDepth = 0;
 
 	constructor(
 		private readonly tokens: readonly VbaToken[],
@@ -691,18 +707,22 @@ class ConditionalExpressionParser {
 
 	/** `Not` binds looser than a comparison: `Not 1 = 2` is `Not (1 = 2)`. */
 	private parseNot(): ConditionalValue | undefined {
-		if (this.matchWord('not')) {
-			const value = this.parseNot();
-			if (typeof value === 'boolean') {
-				return !value;
-			}
-			if (value !== undefined && isNull(value)) {
-				return NULL;
-			}
-			const number = value === undefined ? undefined : wholeNumber(value);
-			return number === undefined ? undefined : ~number;
+		let count = 0;
+		while (this.matchWord('not')) {
+			count++;
 		}
-		return this.parseComparison();
+		let value = this.parseComparison();
+		while (count-- > 0) {
+			if (typeof value === 'boolean') {
+				value = !value;
+			} else if (value !== undefined && isNull(value)) {
+				value = NULL;
+			} else {
+				const number = value === undefined ? undefined : wholeNumber(value);
+				value = number === undefined ? undefined : ~number;
+			}
+		}
+		return value;
 	}
 
 	private parseComparison(): ConditionalValue | undefined {
@@ -782,12 +802,16 @@ class ConditionalExpressionParser {
 
 	/** Unary minus binds looser than ^: `-2 ^ 2` is -4. */
 	private parseNegation(): ConditionalValue | undefined {
-		const op = this.peek()?.rawText;
-		if (op === '-' || op === '+') {
+		const start = this.index;
+		while (this.peek()?.rawText === '-' || this.peek()?.rawText === '+') {
 			this.index++;
-			return signed(op, this.parseNegation());
 		}
-		return this.parsePower();
+		const end = this.index;
+		let value = this.parsePower();
+		for (let i = end - 1; i >= start; i--) {
+			value = signed(this.tokens[i].rawText, value);
+		}
+		return value;
 	}
 
 	private parsePower(): ConditionalValue | undefined {
@@ -816,8 +840,15 @@ class ConditionalExpressionParser {
 			return undefined;
 		}
 		if (token.rawText === '(') {
+			if (this.parenthesisDepth >= MAX_EXPRESSION_DEPTH) {
+				// Leave an over-nested directive unknown rather than exhaust the stack.
+				this.index = this.tokens.length;
+				return undefined;
+			}
 			this.index++;
+			this.parenthesisDepth++;
 			const value = this.parseLogical(0);
+			this.parenthesisDepth--;
 			if (this.peek()?.rawText !== ')') {
 				return undefined;
 			}

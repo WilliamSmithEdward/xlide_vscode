@@ -296,7 +296,7 @@ function nonStringValueType(
 		? [...(procedureSymbolFor(symbols, proc)?.children ?? []), ...(symbols.root.children ?? [])].find((child) => child.name.toLowerCase() === name.toLowerCase())
 		: undefined;
 	if (constant?.kind === 'constant') {
-		const type = normalizeType(constant.asType) ?? normalizeType(valueType(rawExpressionTokens(constant.defaultRaw ?? '').filter((tok) => tok.kind !== 'comment')));
+		const type = normalizeType(constant.asType) ?? normalizeType(valueType(rawExpressionTokens(constant.defaultRaw ?? '')));
 		return type && type !== 'string' && type !== 'variant' && isKnownScalarType(type) ? type[0].toUpperCase() + type.slice(1) : undefined;
 	}
 	// A call names a project Function or a typed VBA function; any other
@@ -440,7 +440,7 @@ function settledType(
 	if (value.length === 1) {
 		const symbol = [...(procedureSymbolFor(symbols, proc)?.children ?? []), ...(symbols.root.children ?? [])].find((child) => child.name.toLowerCase() === lower);
 		if (symbol?.kind === 'constant') {
-			return normalizeType(symbol.asType) ?? normalizeType(valueType(rawExpressionTokens(symbol.defaultRaw ?? '').filter((tok) => tok.kind !== 'comment')));
+			return normalizeType(symbol.asType) ?? normalizeType(valueType(rawExpressionTokens(symbol.defaultRaw ?? '')));
 		}
 		const type = normalizeType(variableSymbolIn(symbols, proc, lower)?.asType);
 		return type && type !== 'variant' ? type : undefined;

@@ -1200,9 +1200,10 @@
         "when": "editorLangId =~ /^(vba|xlide-vba)$/"
       },
       {
-        "command": "xlide.vba.smartBackspace",
+        "command": "runCommands",
+        "args": { "commands": ["deleteLeft", "xlide.vba.finishBackspaceCleanup"] },
         "key": "backspace",
-        "when": "editorTextFocus && editorLangId =~ /^(vba|xlide-vba)$/ && !suggestWidgetVisible && !inSnippetMode"
+        "when": "editorTextFocus && editorLangId =~ /^(vba|xlide-vba)$/ && xlide.vba.backspaceNeedsExtension && !suggestWidgetVisible && !inSnippetMode"
       },
       {
         "command": "xlide.vba.smartTab",
@@ -1210,27 +1211,47 @@
         "when": "editorTextFocus && editorLangId =~ /^(vba|xlide-vba)$/ && !suggestWidgetVisible && !inSnippetMode && !editorTabMovesFocus && !inlineSuggestionVisible"
       },
       {
-        "command": "xlide.vba.leaveSnippetAndCursorMove",
+        "command": "runCommands",
+        "args": {
+          "commands": [
+            "leaveSnippet",
+            { "command": "cursorMove", "args": { "to": "down", "by": "line", "value": 1 } }
+          ]
+        },
         "key": "down",
-        "args": "down",
         "when": "editorTextFocus && editorLangId =~ /^(vba|xlide-vba)$/ && inSnippetMode && !suggestWidgetVisible"
       },
       {
-        "command": "xlide.vba.leaveSnippetAndCursorMove",
+        "command": "runCommands",
+        "args": {
+          "commands": [
+            "leaveSnippet",
+            { "command": "cursorMove", "args": { "to": "up", "by": "line", "value": 1 } }
+          ]
+        },
         "key": "up",
-        "args": "up",
         "when": "editorTextFocus && editorLangId =~ /^(vba|xlide-vba)$/ && inSnippetMode && !suggestWidgetVisible"
       },
       {
-        "command": "xlide.vba.leaveSnippetAndCursorMove",
+        "command": "runCommands",
+        "args": {
+          "commands": [
+            "leaveSnippet",
+            { "command": "cursorMove", "args": { "to": "left", "by": "character", "value": 1 } }
+          ]
+        },
         "key": "left",
-        "args": "left",
         "when": "editorTextFocus && editorLangId =~ /^(vba|xlide-vba)$/ && inSnippetMode && !suggestWidgetVisible"
       },
       {
-        "command": "xlide.vba.leaveSnippetAndCursorMove",
+        "command": "runCommands",
+        "args": {
+          "commands": [
+            "leaveSnippet",
+            { "command": "cursorMove", "args": { "to": "right", "by": "character", "value": 1 } }
+          ]
+        },
         "key": "right",
-        "args": "right",
         "when": "editorTextFocus && editorLangId =~ /^(vba|xlide-vba)$/ && inSnippetMode && !suggestWidgetVisible"
       },
       {

@@ -84,6 +84,43 @@ describe('editor surface performance', () => {
 			expect(list.isIncomplete).toBe(false);
 		});
 
+	it.each(['Local', 'Doc', 'Point', 'Color', 'Abs', 'demo', 'Module', 'GoTo', 'If'])(
+		'preserves bare identifier completion for %s without a full local project index', async prefix => {
+			const source = "' @description Module docs\nPublic Const LocalConstant As Long = 2\nPublic Type Point\nx As Long\nEnd Type\nPublic Enum Color\nRed\nEnd Enum\nPrivate Function Abs() As Long\nEnd Function\nSub Demo()\nDim LocalValue As Long\nDocLabel:\n    " + prefix + '\nEnd Sub\n';
+			const doc = documentFor(source);
+			const service = new VbaEditorProjectContextService({} as never);
+			try {
+				const full = service.localEditorProjectContext(doc, source);
+				const position = new vscode.Position(doc.lineCount - 3, 4 + prefix.length);
+				const expected = await new VbaMemberCompletionProvider({ cachedEditorProjectContext: () => full } as never)
+					.provideCompletionItems(doc, position);
+				const build = vi.spyOn(projectAnalysis, 'buildLiveVbaProjectIndex');
+				vi.spyOn(service, 'warmEditorProjectContext').mockImplementation(() => {});
+				const actual = await new VbaMemberCompletionProvider(service).provideCompletionItems(doc, position);
+				expect(JSON.parse(JSON.stringify(actual.items))).toEqual(JSON.parse(JSON.stringify(expected.items)));
+				expect(actual.isIncomplete).toBe(true);
+				expect(build).not.toHaveBeenCalled();
+			} finally { service.dispose(); }
+		});
+
+	it.each([
+		['Dim item As Point', ''],
+		['item.', 'Dim item As Point\n'],
+		['Point', 'Dim item As _\n'],
+		['Red', 'Call ChooseColor( _\n'],
+	])('keeps local type/member/continued statement context for %s', async (line, prelude) => {
+		const source = 'Public Type Point\nx As Long\nEnd Type\nSub Demo()\n' + prelude + line + '\nEnd Sub\n';
+		const doc = documentFor(source);
+		const service = new VbaEditorProjectContextService({} as never);
+		try {
+			vi.spyOn(service, 'warmEditorProjectContext').mockImplementation(() => {});
+			const build = vi.spyOn(projectAnalysis, 'buildLiveVbaProjectIndex');
+			await new VbaMemberCompletionProvider(service).provideCompletionItems(doc,
+				new vscode.Position(doc.lineCount - 3, line.length));
+			expect(build).toHaveBeenCalledTimes(1);
+		} finally { service.dispose(); }
+	});
+
 	it('reuses local project facts across requests and discards them after edits or invalidation', () => {
 		const source = 'Public Type Point\nx As Long\nEnd Type\nSub Demo()\nEnd Sub\n';
 		const doc = documentFor(source);

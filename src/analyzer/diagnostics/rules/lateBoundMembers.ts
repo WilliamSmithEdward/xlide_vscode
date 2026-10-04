@@ -31,8 +31,10 @@ import { isLeafStatement } from '../../parser/nodes';
 import { walkEnteringBlocks } from '../dataflow';
 import { bodyMayLeaveLoop, namesIn } from './shared';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
+import type { VbaProjectClassMembers } from '../../symbols/symbolModel';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
-import { buildModuleTypeSignatures, inferExpressionType, isKnownScalarType, normalizeType, objectAssignmentIncompatibilityReason, sourceNameScopeFor, stringLiteralValue, typeEnvironmentFor } from '../typeInference';
+import type { InferredArgumentType } from '../callExtraction';
+import { buildModuleTypeSignatures, createObjectAssignmentTypeResolver, createObjectTypeImplementationLookup, createProjectInterfaceSharingLookup, inferExpressionType, isKnownScalarType, normalizeType, objectAssignmentIncompatibilityReason, sourceNameScopeFor, stringLiteralValue, typeEnvironmentFor } from '../typeInference';
 import {
 	activeModuleMembers,
 	forEachStatement,
@@ -143,6 +145,11 @@ interface KnownClass {
 	pattern?: string;
 }
 
+interface CollectionQueries {
+	classNamed: ReturnType<typeof createKnownClassLookup>;
+	itemIncompatible(expected: string | undefined, actual: InferredArgumentType): boolean;
+}
+
 interface KnownParam {
 	name: string;
 	optional: boolean;
@@ -177,9 +184,9 @@ function argumentRefusal(toks: readonly VbaToken[], at: number, params: readonly
 		if (close < 0) {
 			return undefined;
 		}
-		args = close === open + 1 ? [] : splitTopLevelTokenGroups([...toks], open + 1, ',', close);
+		args = close === open + 1 ? [] : splitTopLevelTokenGroups(toks, open + 1, ',', close);
 	} else if (at === 0 && toks.length > open && toks[open].rawText !== '=' && toks[open].rawText !== '.') {
-		args = splitTopLevelTokenGroups([...toks].filter((tok) => tok.kind !== 'comment'), open, ',', toks.filter((tok) => tok.kind !== 'comment').length);
+		args = splitTopLevelTokenGroups(toks, open, ',', toks.length);
 	} else if (at === 0 && toks.length === open) {
 		args = [];
 	} else if (at > 0 && toks[open]?.rawText !== '=' && toks[open]?.rawText !== '.' && toks[open]?.rawText !== '!') {
@@ -204,7 +211,7 @@ function argumentRefusal(toks: readonly VbaToken[], at: number, params: readonly
 	}
 	const given = new Set(named.map((arg) => arg[0].rawText.toLowerCase()));
 	const missing = params.find((param, k) => !param.optional && !param.paramArray && !given.has(param.name.toLowerCase())
-		&& (k >= positional || (args![k] !== undefined && args![k].filter((tok) => tok.kind !== 'comment').length === 0)));
+		&& (k >= positional || (args![k] !== undefined && args![k].length === 0)));
 	return missing ? `its ${memberName} needs '${missing.name}', which is not passed. This will raise Run-time error '449': Argument not optional` : undefined;
 }
 
@@ -267,8 +274,8 @@ function checkProgIdObjects(base: number, toks: readonly VbaToken[], held: Reado
 	for (let i = 0; i + 2 < toks.length; i++) {
 		const word = tokenText(toks[i]);
 		if ((word === 'createobject' || word === 'getobject') && toks[i + 1].rawText === '(' && toks[i - 1]?.rawText !== '.') {
-			const close = matchParenFrom([...toks], i + 1);
-			const args = close > i + 1 ? splitTopLevelTokenGroups([...toks], i + 2, ',', close) : [];
+			const close = matchParenFrom(toks, i + 1);
+			const args = close > i + 1 ? splitTopLevelTokenGroups(toks, i + 2, ',', close) : [];
 			const arg = word === 'createobject' ? args[0] : args[1];
 			const literal = arg?.length === 1 && arg[0].kind === 'stringLiteral' ? arg[0] : undefined;
 			const problem = literal ? progIdProblem(stringLiteralValue(literal.rawText)) : undefined;
@@ -285,8 +292,8 @@ function checkProgIdObjects(base: number, toks: readonly VbaToken[], held: Reado
 		if (known.display === 'RegExp') {
 			if (['test', 'execute', 'replace'].includes(member) && toks[i + 3]?.rawText === '(') {
 				const problem = known.pattern !== undefined ? regExpPatternProblem(known.pattern) : undefined;
-				const close = matchParenFrom([...toks], i + 3);
-				const first = close > i + 4 ? splitTopLevelTokenGroups([...toks], i + 4, ',', close)[0] : undefined;
+				const close = matchParenFrom(toks, i + 3);
+				const first = close > i + 4 ? splitTopLevelTokenGroups(toks, i + 4, ',', close)[0] : undefined;
 				if (problem) {
 					push('runtimeArgumentValue', `The pattern "${known.pattern}" has ${problem.text}. This will raise Run-time error ${problem.error}.`, at(toks[i + 2]));
 				} else if (first?.length === 1 && tokenText(first[0]) === 'null') {
@@ -313,6 +320,16 @@ export function checkRuntimeMemberNotFound(
 	const model = memberCtx.model;
 	const applicationSurface = excelApplicationSurface(model);
 	const rangeSurface = applicationSurface ? excelRangeSurface(model) : undefined;
+	const memberQueries = createRuntimeMemberQueries(memberCtx);
+	const classNamed = createKnownClassLookup(memberCtx);
+	const objectType = createObjectAssignmentTypeResolver(memberCtx);
+	const shareInterfaces = createProjectInterfaceSharingLookup(memberCtx);
+	const implementsType = createObjectTypeImplementationLookup();
+	const collectionQueries: CollectionQueries = {
+		classNamed,
+		// The resolver's omitted-model default is Excel, matching the host-item path.
+		itemIncompatible: (expected, actual) => objectAssignmentIncompatibilityReason(expected, actual, memberCtx, objectType, shareInterfaces, implementsType) !== undefined,
+	};
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
@@ -322,11 +339,11 @@ export function checkRuntimeMemberNotFound(
 		forEachStatement(member.body, (stmt) => {
 			for (const span of statementAndBranchSpans(stmt)) {
 				const toks = statementTokens(source, span);
-				checkFormControlNames(source, span.start, toks, memberCtx, added, push);
-				checkOpenTypeMembers(source, span.start, toks, env, applicationSurface, rangeSurface, memberCtx, push);
+				checkFormControlNames(source, span.start, toks, memberCtx, added, memberQueries, push);
+				checkOpenTypeMembers(source, span.start, toks, env, applicationSurface, rangeSurface, memberCtx, memberQueries, push);
 			}
 		}, activity);
-		checkCollectionItems(source, member, symbols, env, memberCtx, activity, push);
+		checkCollectionItems(source, member, symbols, env, memberCtx, collectionQueries, activity, push);
 		const autoInstanced = new Set<string>();
 		for (const child of procedureSymbolFor(symbols, member)?.children ?? []) {
 			if (child.isAutoInstantiated) {
@@ -357,7 +374,7 @@ export function checkRuntimeMemberNotFound(
 				return;
 			}
 			checkProgIdObjects(node.span.start, toks, held, push);
-			checkStatement(source, node.span.start, toks, held, applicationSurface, memberCtx, push);
+			checkStatement(source, node.span.start, toks, held, applicationSurface, memberCtx, memberQueries, push);
 			// `re.Pattern = "(a"`: the pattern a later Test or Execute reads.
 			const target = tokenName(toks[0])?.toLowerCase();
 			const regExp = target ? held.get(target) : undefined;
@@ -371,12 +388,12 @@ export function checkRuntimeMemberNotFound(
 				const lower = set.name.toLowerCase();
 				const value = toks.slice(toks.findIndex((tok) => tok.rawText === '=') + 1);
 				const source1 = value.length === 1 ? tokenName(value[0])?.toLowerCase() : undefined;
-				const fromVariable = source1 !== undefined && !isLateBound(source1) ? knownClassNamed(env.get(source1), memberCtx) : undefined;
+				const fromVariable = source1 !== undefined && !isLateBound(source1) ? classNamed(env.get(source1)) : undefined;
 				const created = value.length === 4 && tokenText(value[0]) === 'createobject' && value[1].rawText === '(' && value[2].kind === 'stringLiteral' && value[3].rawText === ')'
 					? progIdClass(stringLiteralValue(value[2].rawText))
 					: undefined;
 				const known = created ?? (value.length === 2 && tokenText(value[0]) === 'new'
-					? knownClassNamed(tokenName(value[1]), memberCtx)
+					? classNamed(tokenName(value[1]))
 					: fromVariable && { ...fromVariable, mayBeNothing: !autoInstanced.has(source1!) });
 				if (known) {
 					held.set(lower, known);
@@ -417,6 +434,7 @@ function checkCollectionItems(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	env: ReadonlyMap<string, string>,
 	memberCtx: MemberCompletionContext,
+	queries: CollectionQueries,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
@@ -442,7 +460,7 @@ function checkCollectionItems(
 			const index = close === open + 2 && toks[open + 1].kind === 'integerLiteral' ? Number(toks[open + 1].rawText) : undefined;
 			const className = index !== undefined && index >= 1 && index <= held.length ? held[index - 1]
 				: held.every((name) => name.toLowerCase() === held[0].toLowerCase()) ? held[0] : undefined;
-			const known = knownClassNamed(className, memberCtx);
+			const known = queries.classNamed(className);
 			const memberName = tokenName(toks[close + 2])!;
 			if (!known || known.members.has(memberName.toLowerCase())) {
 				continue;
@@ -466,7 +484,7 @@ function checkCollectionItems(
 		if (element && loop.sourceExpressionSpan) {
 			const bare = element.replace(/^\w+\./, '');
 			const label = `the items of '${loop.sourceExpression!.trim()}', each ${/^[AEIOU]/.test(bare) ? 'an' : 'a'} ${bare}`;
-			if (objectAssignmentIncompatibilityReason(expected!, { type: element, label, span: loop.sourceExpressionSpan }, { ...memberCtx, model: memberCtx.model ?? getExcelObjectModel() })) {
+			if (queries.itemIncompatible(expected!, { type: element, label, span: loop.sourceExpressionSpan })) {
 				push('assignmentObjectTypeMismatch', `For Each Sets ${label}, into '${loop.controlVariable}', a ${expected}. This will raise Run-time error '13': Type mismatch.`, loop.sourceExpressionSpan);
 				return;
 			}
@@ -482,7 +500,7 @@ function checkCollectionItems(
 		const objectControl = normalizeType(expected) !== 'variant' && !isKnownScalarType(normalizeType(expected) ?? '');
 		const position = reached.findIndex((name) => (name === HELD_VALUE
 			? objectControl
-			: objectAssignmentIncompatibilityReason(expected, { type: name, label: name, span: loop.sourceExpressionSpan! }, memberCtx) !== undefined));
+			: queries.itemIncompatible(expected, { type: name, label: name, span: loop.sourceExpressionSpan! })));
 		if (position >= 0 && held[position] === HELD_VALUE) {
 			push('assignmentObjectTypeMismatch', `For Each Sets each item of '${loop.sourceExpression!.trim()}' into '${loop.controlVariable}', a ${expected}, and item ${position + 1} is a number or string, no object. This will raise Run-time error '424': Object required.`, loop.sourceExpressionSpan);
 			return;
@@ -508,7 +526,7 @@ function hostElementType(
 	sourceNames: ReturnType<typeof sourceNameScopeFor>,
 	memberCtx: MemberCompletionContext,
 ): string | undefined {
-	const toks = rawExpressionTokens(source.slice(span.start, span.end)).filter((tok) => tok.kind !== 'comment');
+	const toks = rawExpressionTokens(source.slice(span.start, span.end));
 	// The analyzer's default host is Excel: with no model given, its globals still resolve.
 	const model = memberCtx.model ?? getExcelObjectModel();
 	// The model's keys keep their case: Excel.Worksheets, not excel.worksheets.
@@ -538,19 +556,40 @@ function forEachLoopIn(body: readonly BodyNode[], activity: ConditionalActivityT
 	}
 }
 
-function knownClassNamed(name: string | undefined, memberCtx: MemberCompletionContext): KnownClass | undefined {
-	if (!name) {
-		return undefined;
-	}
-	if (name.toLowerCase() === 'collection') {
-		return { display: 'Collection', members: COLLECTION_MEMBERS, params: COLLECTION_PARAMS };
-	}
-	const projectType = (memberCtx.projectClassMembers ?? []).find(
-		(type) => type.kind === 'class' && type.exhaustive === true && type.name.toLowerCase() === name.toLowerCase(),
-	);
-	if (!projectType) {
-		return undefined;
-	}
+/** Class surfaces are stable for one public query; only consulted members are projected. */
+function createKnownClassLookup(memberCtx: MemberCompletionContext): (name: string | undefined) => KnownClass | undefined {
+	const classes = new Map<string, KnownClass | undefined>();
+	let projectTypes: Map<string, VbaProjectClassMembers> | undefined;
+	return (name) => {
+		if (!name) {
+			return undefined;
+		}
+		const lower = name.toLowerCase();
+		if (lower === 'collection') {
+			return { display: 'Collection', members: COLLECTION_MEMBERS, params: COLLECTION_PARAMS };
+		}
+		if (!classes.has(lower)) {
+			if (!projectTypes) {
+				projectTypes = new Map();
+				for (const type of memberCtx.projectClassMembers ?? []) {
+					if (type.kind !== 'class' || type.exhaustive !== true) {
+						continue;
+					}
+					const key = type.name.toLowerCase();
+					// The former find selected the first eligible case-insensitive duplicate.
+					if (!projectTypes.has(key)) {
+						projectTypes.set(key, type);
+					}
+				}
+			}
+			const type = projectTypes.get(lower);
+			classes.set(lower, type ? knownClassForSurface(type) : undefined);
+		}
+		return classes.get(lower);
+	};
+}
+
+function knownClassForSurface(projectType: VbaProjectClassMembers): KnownClass {
 	const properties = projectType.members.filter((m) => m.kind === 'property' && m.signature !== undefined);
 	const params = new Map<string, readonly KnownParam[]>();
 	for (const m of projectType.members) {
@@ -572,6 +611,35 @@ function knownClassNamed(name: string | undefined, memberCtx: MemberCompletionCo
 		scalarFields: new Map(projectType.members
 			.filter((m) => m.kind === 'property' && m.signature === undefined && !m.letAccessor && !m.setAccessor && m.returns !== undefined && SCALAR_FIELD_TYPES.has(m.returns.toLowerCase()))
 			.map((m) => [m.name.toLowerCase(), m.returns!])),
+	};
+}
+
+interface RuntimeMemberQueries {
+	worksheetFunctions(): ReadonlySet<string>;
+	sheetNames(): ReadonlySet<string>;
+	formControls(form: VbaProjectClassMembers): { count: number; hasName(name: string): boolean };
+}
+
+function createRuntimeMemberQueries(ctx: MemberCompletionContext): RuntimeMemberQueries {
+	let functions: ReadonlySet<string> | undefined;
+	let sheets: ReadonlySet<string> | undefined;
+	const forms = new Map<VbaProjectClassMembers, ReturnType<RuntimeMemberQueries['formControls']>>();
+	return {
+		worksheetFunctions: () => functions ??= worksheetFunctionNames(ctx.model),
+		sheetNames: () => sheets ??= sheetSurface(ctx.model, ctx.projectClassMembers ?? []),
+		formControls: (form) => {
+			let query = forms.get(form);
+			if (!query) {
+				const controls = form.members.filter((member) => /^MSForms\./i.test(member.returns ?? ''));
+				let names: ReadonlySet<string> | undefined;
+				query = {
+					count: controls.length,
+					hasName: (name) => (names ??= new Set(controls.map((control) => control.name.toLowerCase()))).has(name.toLowerCase()),
+				};
+				forms.set(form, query);
+			}
+			return query;
+		},
 	};
 }
 
@@ -617,6 +685,7 @@ function checkStatement(
 	held: ReadonlyMap<string, KnownClass>,
 	applicationSurface: ReadonlySet<string> | undefined,
 	memberCtx: MemberCompletionContext,
+	queries: RuntimeMemberQueries,
 	push: PushFn,
 ): void {
 	for (let i = 0; i + 2 < toks.length; i++) {
@@ -625,7 +694,7 @@ function checkStatement(
 		// function raises 438 (issue #442, measured in Excel 16.0).
 		if (applicationSurface && tokenText(toks[i]) === 'worksheetfunction' && toks[i + 1].rawText === '.') {
 			const name = tokenName(toks[i + 2]);
-			const functions = name ? worksheetFunctionNames(memberCtx.model) : undefined;
+			const functions = name ? queries.worksheetFunctions() : undefined;
 			if (name && functions && !functions.has(name.toLowerCase())
 				&& resolveReceiverTypeAt(source, base + toks[i + 1].end, memberCtx) === 'Excel.WorksheetFunction') {
 				push('runtimeMemberNotFound', `WorksheetFunction has no function '${name}'. The VBE compiles the name; this will raise Run-time error '438': Object doesn't support this property or method.`, { start: base + toks[i + 2].start, end: base + toks[i + 2].end });
@@ -728,11 +797,10 @@ function checkOpenTypeMembers(
 	applicationSurface: ReadonlySet<string> | undefined,
 	rangeNames: ReadonlySet<string> | undefined,
 	memberCtx: MemberCompletionContext,
+	queries: RuntimeMemberQueries,
 	push: PushFn,
 ): void {
-	const model = memberCtx.model;
 	const projectTypes = memberCtx.projectClassMembers ?? [];
-	let sheetNames: ReadonlySet<string> | undefined;
 	for (let i = 1; i + 1 < toks.length; i++) {
 		const name = toks[i].rawText === '.' ? tokenName(toks[i + 1]) : undefined;
 		if (!name || (tokenName(toks[i - 1]) === undefined && toks[i - 1].rawText !== ')') || toks[i - 1].kind === 'keyword') {
@@ -757,7 +825,7 @@ function checkOpenTypeMembers(
 			continue;
 		}
 		if (receiver && tokenText(toks[i - 1]) === 'activesheet' && !env.has('activesheet')) {
-			sheetNames ??= sheetSurface(model, projectTypes);
+			const sheetNames = queries.sheetNames();
 			if (!sheetNames.has(lower)) {
 				push('runtimeMemberNotFound', `ActiveSheet has no member '${name}': neither a Worksheet nor a Chart has one, and no document module of the project declares it. ${MEMBER_NOT_SUPPORTED}`, at);
 			}
@@ -799,6 +867,7 @@ function checkFormControlNames(
 	toks: readonly VbaToken[],
 	memberCtx: MemberCompletionContext,
 	added: ReadonlySet<string> | 'any',
+	queries: RuntimeMemberQueries,
 	push: PushFn,
 ): void {
 	for (let i = 1; i + 3 < toks.length; i++) {
@@ -810,15 +879,15 @@ function checkFormControlNames(
 		if (form?.kind !== 'userform' || form.exhaustive !== true || added === 'any') {
 			continue;
 		}
-		const controls = form.members.filter((member) => /^MSForms\./i.test(member.returns ?? ''));
+		const controls = queries.formControls(form);
 		// `Me.Controls(99)`: Controls counts from 0 (issue #315, measured in
 		// Excel 16.0). A procedure that adds a control is not judged.
 		if (toks[i + 2].kind === 'integerLiteral') {
 			const index = Number(toks[i + 2].rawText);
-			if (added.size === 0 && index >= controls.length) {
+			if (added.size === 0 && index >= controls.count) {
 				push(
 					'runtimeMemberNotFound',
-					`The form ${form.name} has ${controls.length} control${controls.length === 1 ? '' : 's'}, indexed 0 to ${controls.length - 1}; ${index} is none of them. This will raise Run-time error '-2147024809': Invalid argument.`,
+					`The form ${form.name} has ${controls.count} control${controls.count === 1 ? '' : 's'}, indexed 0 to ${controls.count - 1}; ${index} is none of them. This will raise Run-time error '-2147024809': Invalid argument.`,
 					{ start: base + toks[i + 2].start, end: base + toks[i + 2].end },
 				);
 			}
@@ -829,7 +898,7 @@ function checkFormControlNames(
 		if (added.has(name.toLowerCase())) {
 			continue;
 		}
-		if (!controls.some((control) => control.name.toLowerCase() === name.toLowerCase())) {
+		if (!controls.hasName(name)) {
 			push(
 				'runtimeMemberNotFound',
 				`The form ${form.name} has no control named "${name}". This will raise Run-time error '-2147024809': Could not find the specified object.`,
@@ -855,8 +924,8 @@ function controlsAddedIn(source: string, body: BodyNode[], activity: Conditional
 					continue;
 				}
 				const open = toks[i + 1]?.rawText === '(' ? i + 1 : -1;
-				const close = open > 0 ? matchParenFrom([...toks], open) : toks.length;
-				const args = splitTopLevelTokenGroups([...toks], open > 0 ? open + 1 : i + 1, ',', close);
+				const close = open > 0 ? matchParenFrom(toks, open) : toks.length;
+				const args = splitTopLevelTokenGroups(toks, open > 0 ? open + 1 : i + 1, ',', close);
 				const named = args.find((arg) => arg[1]?.rawText === ':=' && tokenText(arg[0]) === 'name');
 				const arg = named ? named.slice(2) : args[1]?.[1]?.rawText === ':=' ? undefined : args[1];
 				if (arg?.length === 1 && arg[0].kind === 'stringLiteral') {

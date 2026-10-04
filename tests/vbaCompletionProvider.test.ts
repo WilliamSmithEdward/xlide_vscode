@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as vscodeTypes from 'vscode';
 
 vi.mock('vscode', async () => {
@@ -25,6 +25,7 @@ vi.mock('../src/analyzer/call/callContext', async () => {
 });
 
 import * as vscode from 'vscode';
+import * as lexer from '../src/analyzer/lexer/tokenize';
 import { VbaMemberCompletionProvider } from '../src/vbaCompletionProvider';
 import { callableCompletionShouldInsertParens } from '../src/analyzer/call/callContext';
 import { getWordObjectModel } from '../src/analyzer/host/wordObjectModel';
@@ -55,6 +56,7 @@ function request(line: string, context: EditorProjectContext = {}, column = line
 }
 
 beforeEach(() => { vi.mocked(callableCompletionShouldInsertParens).mockClear(); });
+afterEach(() => vi.restoreAllMocks());
 
 describe('completion provider surface', () => {
     it('skips project lookups for ordinary comments while preserving directive suggestions', async () => {
@@ -175,5 +177,33 @@ describe('ordinary string completion work', () => {
         expect(request.projectContext.cachedEditorProjectContext).not.toHaveBeenCalled();
         expect(request.projectContext.localEditorProjectContext).not.toHaveBeenCalled();
         expect(request.projectContext.warmEditorProjectContext).not.toHaveBeenCalled();
+    });
+});
+
+describe('completion provider cursor work', () => {
+    it.each(["' ordinary comment", 'value = "ordinary', 'Application.Run "Main.Go"'])(
+        'does not copy preceding procedures to classify %s', async line => {
+            const prelude = Array.from({ length: 1200 }, (_, i) =>
+                'Sub Padding' + i + '()\nDebug.Print ' + i + '\nEnd Sub\n').join('') + 'Sub Probe()\n';
+            const prepared = prepareRequest(line, {}, line.length, prelude);
+            const tokens = lexer.tokenizeCached(prelude + line + '\nEnd Sub');
+            let reads = 0;
+            vi.spyOn(lexer, 'tokenizeCached').mockReturnValue(new Proxy(tokens, {
+                get(target, property, receiver) {
+                    if (typeof property === 'string' && /^\d+$/.test(property)) { reads++; }
+                    return Reflect.get(target, property, receiver);
+                },
+            }));
+            expect((await prepared.run()).items).toEqual([]);
+            expect(reads).toBeLessThan(100);
+            expect(prepared.projectContext.cachedEditorProjectContext).not.toHaveBeenCalled();
+            expect(prepared.projectContext.localEditorProjectContext).not.toHaveBeenCalled();
+        });
+
+    it('preserves comment continuations when the caret is on the following physical line', async () => {
+        const prepared = prepareRequest('ThisWorkbook.Sheets(1).ce', {}, undefined,
+            "Sub Probe()\n' continued note _\n");
+        expect((await prepared.run()).items).toEqual([]);
+        expect(prepared.projectContext.cachedEditorProjectContext).not.toHaveBeenCalled();
     });
 });

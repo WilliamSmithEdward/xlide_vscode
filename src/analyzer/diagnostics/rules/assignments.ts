@@ -55,6 +55,8 @@ import {
 import {
 	buildModuleTypeSignatures,
 	createObjectAssignmentTypeResolver,
+	createObjectDefaultQueries,
+	createObjectTypeImplementationLookup,
 	createProjectInterfaceSharingLookup,
 	callableSignatureForCall,
 	callableTypeSignaturesFor,
@@ -183,9 +185,9 @@ export function checkConstAssignment(
  * the name is its return value and binds locally, so it never reaches here.
  */
 /** The default member of a project class when it is a Property Get with no Property Let. */
-function readOnlyProjectDefault(type: string, memberCtx: MemberCompletionContext): string | undefined {
+function readOnlyProjectDefault(type: string, projectClassNamed: ReturnType<typeof createObjectDefaultQueries>['projectClassNamed']): string | undefined {
 	const lower = type.trim().split('.').pop()?.toLowerCase();
-	const cls = (memberCtx.projectClassMembers ?? []).find((candidate) => candidate.kind === 'class' && candidate.name.toLowerCase() === lower);
+	const cls = lower ? projectClassNamed(lower) : undefined;
 	const member = cls?.exhaustive === true ? cls.members.find((candidate) => candidate.defaultMember) : undefined;
 	return member && member.kind === 'property' && !member.letAccessor && member.writable !== true ? member.name : undefined;
 }
@@ -293,6 +295,12 @@ export function checkAssignmentTypes(
 ): void {
 	const isDocumentModule = projectTypeNameLookup(memberCtx, 'document', false);
 	const isFormOwner = projectTypeNameLookup(memberCtx, 'userform', true);
+	const defaultQueries = createObjectDefaultQueries(memberCtx);
+	const resolveObjectType = defaultQueries.resolveType;
+	const shareInterfaces = createProjectInterfaceSharingLookup(memberCtx);
+	const implementsType = createObjectTypeImplementationLookup();
+	const objectAssignmentReason = (expected: string | undefined, actual: ReturnType<typeof inferArgumentType>) =>
+		objectAssignmentIncompatibilityReason(expected, actual, memberCtx, resolveObjectType, shareInterfaces, implementsType);
 	// Declared-type facts are stable within this rule invocation. Value and
 	// object-state facts below still depend on the individual statement.
 	const objectTypes = new Map<string, {
@@ -304,11 +312,11 @@ export function checkAssignmentTypes(
 	const objectFactsFor = (type: string) => {
 		let facts = objectTypes.get(type);
 		if (!facts) {
-			const isObject = isKnownObjectAssignmentType(type, memberCtx);
-			const verdict = isObject ? objectLetAssignmentVerdict(type, memberCtx) : 'unknown';
+			const isObject = resolveObjectType(type) !== undefined;
+			const verdict = isObject ? defaultQueries.verdictFor(type) : 'unknown';
 			const holding = isObject && verdict !== 'noDefault' ? objectHoldingDefault(type, memberCtx) : undefined;
 			const readOnlyDefault = isObject && verdict === 'lets' && !holding
-				? readOnlyProjectDefault(type, memberCtx) ?? readOnlyHostDefault(type, memberCtx)
+				? readOnlyProjectDefault(type, defaultQueries.projectClassNamed) ?? readOnlyHostDefault(type, memberCtx)
 				: undefined;
 			facts = { isObject, verdict, holding, readOnlyDefault };
 			objectTypes.set(type, facts);
@@ -601,7 +609,7 @@ export function checkAssignmentTypes(
 					// once it holds one (issue #193). The object-state walk says
 					// which; this rule owns the report either way, since the fix is
 					// the Set.
-					const state = objectLetStateAt(source, mod, procedure, symbols, memberCtx, activity, assignment.span.start);
+					const state = objectLetStateAt(source, mod, procedure, symbols, memberCtx, activity, assignment.span.start, defaultQueries);
 					const lower = assignment.name.toLowerCase();
 					const declared = procSym?.children?.find((child) => child.name.toLowerCase() === lower)
 						?? symbols.root.children?.find((child) => child.name.toLowerCase() === lower);
@@ -773,6 +781,8 @@ export function checkAssignmentTypes(
 			push,
 			projectDeclaresCollection,
 			isFormOwner,
+			objectAssignmentReason,
+			resolveObjectType,
 			resolveExpressionType,
 			resolveQualifiedExpressionType,
 			symbols,
@@ -1493,6 +1503,8 @@ function checkMemberAssignmentTypes(
 	push: PushFn,
 	projectDeclaresCollection: () => boolean,
 	isFormOwner: (name: string) => boolean,
+	objectAssignmentReason: (expected: string | undefined, actual: ReturnType<typeof inferArgumentType>) => string | undefined,
+	resolveObjectType: ReturnType<typeof createObjectAssignmentTypeResolver>,
 	resolveExpressionType?: SourceDeclaredTypeResolver,
 	resolveQualifiedExpressionType?: SourceQualifiedDeclaredTypeResolver,
 	symbols?: ReturnType<typeof buildModuleSymbols>,
@@ -1646,11 +1658,7 @@ function checkMemberAssignmentTypes(
 				resolveExpressionType,
 				resolveQualifiedExpressionType,
 			);
-			const reason = objectAssignmentIncompatibilityReason(
-				expected,
-				actual,
-				memberCtx,
-			);
+			const reason = objectAssignmentReason(expected, actual);
 			if (reason) {
 				pushObjectAssignmentMismatch(push, assignment.label, expected, actual, reason, assignment.memberSpan, 'Object required');
 			}
@@ -1668,7 +1676,7 @@ function checkMemberAssignmentTypes(
 			);
 			return;
 		}
-		if (!target.letAccessor && isKnownObjectAssignmentType(expected, memberCtx)) {
+		if (!target.letAccessor && isKnownObjectAssignmentType(expected, memberCtx, resolveObjectType)) {
 			push(
 				'setRequired',
 				`Object assignment to '${assignment.label}' requires Set because it expects ${expected}.`,
@@ -1779,6 +1787,7 @@ export function checkSetAssignments(
 	const isProjectClass = projectTypeNameLookup(memberCtx, 'class', false);
 	const resolveObjectType = createObjectAssignmentTypeResolver(memberCtx);
 	const shareInterfaces = createProjectInterfaceSharingLookup(memberCtx);
+	const implementsType = createObjectTypeImplementationLookup();
 	// Form metadata is stable within this rule invocation; query only the names
 	// actually used, retaining the first matching control and missing results.
 	let formResolved = false;
@@ -1912,6 +1921,7 @@ export function checkSetAssignments(
 					memberCtx,
 					resolveObjectType,
 					shareInterfaces,
+					implementsType,
 				);
 				// `Set o = New Flat1` then `Set c = o`: the class an Object holds
 				// is checked as the Set runs (issue #246, measured in Excel 16.0).
@@ -1920,7 +1930,7 @@ export function checkSetAssignments(
 					const held = heldAt(stmt).classes.get(tokenName(value[0])!.toLowerCase());
 					if (held) {
 						shown = { type: held, label: `'${value[0].rawText}', which holds a ${held} here`, span: { start: span.start + value[0].start, end: span.start + value[0].end } };
-						reason = objectAssignmentIncompatibilityReason(expected, shown, memberCtx, resolveObjectType, shareInterfaces);
+						reason = objectAssignmentIncompatibilityReason(expected, shown, memberCtx, resolveObjectType, shareInterfaces, implementsType);
 					}
 				}
 				// `Set c = ActiveSheet`: a Worksheet or a Chart, never a

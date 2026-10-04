@@ -65,7 +65,8 @@ export function registerRefactorCommands(deps: CommandDeps): vscode.Disposable[]
         registerXlideCommand('xlide.refactor.moveToModule', () => runProjectWide(
             deps,
             async (source, editor, project) => {
-                const target = await pickModule(Object.keys(project.sources), project.moduleName);
+                const targets = Object.keys(project.sources).filter(name => project.moduleKinds[name] === 'standard');
+                const target = await pickModule(targets, project.moduleName);
                 if (!target) {
                     return undefined;
                 }
@@ -75,6 +76,7 @@ export function registerRefactorCommands(deps: CommandDeps): vscode.Disposable[]
                     moduleName: project.moduleName,
                     targetModuleName: target,
                     otherModuleSources: project.sources,
+                    moduleKinds: project.moduleKinds,
                 });
             },
         )),
@@ -242,7 +244,7 @@ async function pickInterface(source: string): Promise<{ interfaceName: string } 
 async function pickModule(names: string[], exclude: string): Promise<string | undefined> {
     const choices = names.filter((name) => name.toLowerCase() !== exclude.toLowerCase()).sort();
     if (choices.length === 0) {
-        vscode.window.showInformationMessage('XLIDE: the project has no other module to move this to.');
+        vscode.window.showInformationMessage('XLIDE: the project has no other standard module to move this to.');
         return undefined;
     }
     return vscode.window.showQuickPick(choices, { title: 'Move the procedure to which module?' });

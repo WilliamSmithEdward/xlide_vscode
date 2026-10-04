@@ -71,7 +71,12 @@ function isIdentPart(ch: string): boolean {
 // a project pass touching sibling modules does not evict the active one.
 // Callers must not mutate the returned array or its tokens.
 const TOKENIZE_CACHE_MAX = 8;
-const tokenizeCache: { src: string; tokens: VbaToken[] }[] = [];
+const TOKENIZE_MODULE_MIN_LENGTH = 4096;
+// Short lookup strings must not evict full modules needed for the next edit.
+// Each pool keeps the existing entry cap; short strings are below the same
+// threshold used by incremental module lexing.
+const moduleTokenizeCache: { src: string; tokens: VbaToken[] }[] = [];
+const shortTokenizeCache: { src: string; tokens: VbaToken[] }[] = [];
 
 // Test hook (issue #139): the lengths of sources or edit windows lexed from
 // scratch in one pass. A module lexed in full more than once was evicted
@@ -90,6 +95,7 @@ export function stopTokenizeMissLogForTests(): number[] {
 
 /** Cached variant of {@link tokenize} for read-only consumers on hot paths. */
 export function tokenizeCached(src: string): VbaToken[] {
+	const tokenizeCache = src.length >= TOKENIZE_MODULE_MIN_LENGTH ? moduleTokenizeCache : shortTokenizeCache;
 	for (let i = 0; i < tokenizeCache.length; i += 1) {
 		if (tokenizeCache[i].src === src) {
 			const hit = tokenizeCache[i];
@@ -103,10 +109,9 @@ export function tokenizeCached(src: string): VbaToken[] {
 			return hit.tokens;
 		}
 	}
-	// Expression lookups can sit ahead of the active module in the cache.
-	// Try only the newest entry of a compatible size; do not compare edit
-	// windows against every cached module.
-	const previous = src.length >= 4096
+	// Try only the newest module snapshot of a compatible size; do not
+	// compare edit windows against every cached module.
+	const previous = src.length >= TOKENIZE_MODULE_MIN_LENGTH
 		? tokenizeCache.find(entry => Math.abs(entry.src.length - src.length) <= 128)
 		: undefined;
 	let tokens = editedLineTokens(src, previous);
@@ -122,10 +127,11 @@ export function tokenizeCached(src: string): VbaToken[] {
 }
 
 // Limit reuse to a small edit in a large source. Re-lex complete logical lines,
-// whose newline tokens reset lexical/contextual-keyword state. Newline edits,
-// large replacements, and a lost trailing boundary use the full lexer.
+// whose newline tokens reset lexical/contextual-keyword state. Changes to the
+// physical line-break sequence, large replacements, or a lost trailing boundary
+// use the full lexer.
 function editedLineTokens(src: string, previous: { src: string; tokens: VbaToken[] } | undefined): VbaToken[] | undefined {
-	if (!previous || src.length < 4096 || Math.abs(src.length - previous.src.length) > 128) {
+	if (!previous || src.length < TOKENIZE_MODULE_MIN_LENGTH || Math.abs(src.length - previous.src.length) > 128) {
 		return undefined;
 	}
 	const old = previous.src;
@@ -138,9 +144,16 @@ function editedLineTokens(src: string, previous: { src: string; tokens: VbaToken
 		oldEnd--;
 		newEnd--;
 	}
-	if ((start > 0 && old[start - 1] === '\r' && old[oldEnd] === '\n') ||
-		Math.max(oldEnd - start, newEnd - start) > 128 ||
-		/[\r\n]/.test(old.slice(start, oldEnd)) || /[\r\n]/.test(src.slice(start, newEnd))) {
+	if (Math.max(oldEnd - start, newEnd - start) > 128) {
+		return undefined;
+	}
+	// Include both boundary neighbours: an edit can split or join a CRLF
+	// without containing either complete physical line break in its own span.
+	// Preserve the line coordinates of cached suffix tokens.
+	const contextStart = Math.max(0, start - 1);
+	const oldBreaks = old.slice(contextStart, oldEnd + 1).match(/\r\n|\r|\n/g) ?? [];
+	const newBreaks = src.slice(contextStart, newEnd + 1).match(/\r\n|\r|\n/g) ?? [];
+	if (oldBreaks.length !== newBreaks.length || oldBreaks.some((eol, index) => eol !== newBreaks[index])) {
 		return undefined;
 	}
 	const all = previous.tokens;

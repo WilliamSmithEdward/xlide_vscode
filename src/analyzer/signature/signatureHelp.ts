@@ -20,7 +20,7 @@
 // with no known signature simply yields no tip.
 
 import { parseModule } from '../parser/parseModule';
-import { DeclareNode, ParameterNode, ProcedureNode } from '../parser/nodes';
+import { DeclareNode, ModuleNode, ParameterNode, ProcedureNode } from '../parser/nodes';
 import { resolveMemberCompletionNamed, MemberCompletionContext } from '../completion/memberAccess';
 import { bareTypeName, getHostType, resolveHostGlobalMember } from '../host/hostModel';
 import { resolveRuntimeFunction, runtimeAllowsExplicitCall } from '../runtime/vbaRuntime';
@@ -143,26 +143,40 @@ function userDeclareSignature(declare: DeclareNode): string {
 	});
 }
 
-function findUserProc(source: string, name: string): ProcedureNode | undefined {
-	const lower = name.toLowerCase();
+interface LocalDeclarations {
+	procedures: ReadonlyMap<string, ProcedureNode>;
+	declares: ReadonlyMap<string, DeclareNode>;
+}
+
+const LOCAL_DECLARATIONS = new WeakMap<ModuleNode, LocalDeclarations>();
+
+/** Retains only declaration nodes; documentation and project context stay live. */
+function localDeclarations(source: string): LocalDeclarations {
 	const module = parseModule(source);
+	const cached = LOCAL_DECLARATIONS.get(module);
+	if (cached) { return cached; }
+	const procedures = new Map<string, ProcedureNode>();
+	const declares = new Map<string, DeclareNode>();
 	for (const member of module.members) {
-		if (member.kind === 'Procedure' && member.name.toLowerCase() === lower) {
-			return member;
+		if (member.kind === 'Procedure') {
+			const key = member.name.toLowerCase();
+			if (!procedures.has(key)) { procedures.set(key, member); }
+		} else if (member.kind === 'Declare') {
+			const key = member.name.toLowerCase();
+			if (!declares.has(key)) { declares.set(key, member); }
 		}
 	}
-	return undefined;
+	const declarations = { procedures, declares };
+	LOCAL_DECLARATIONS.set(module, declarations);
+	return declarations;
+}
+
+function findUserProc(source: string, name: string): ProcedureNode | undefined {
+	return localDeclarations(source).procedures.get(name.toLowerCase());
 }
 
 function findUserDeclare(source: string, name: string): DeclareNode | undefined {
-	const lower = name.toLowerCase();
-	const module = parseModule(source);
-	for (const member of module.members) {
-		if (member.kind === 'Declare' && member.name.toLowerCase() === lower) {
-			return member;
-		}
-	}
-	return undefined;
+	return localDeclarations(source).declares.get(name.toLowerCase());
 }
 
 /**

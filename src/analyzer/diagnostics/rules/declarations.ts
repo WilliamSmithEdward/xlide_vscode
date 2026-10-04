@@ -66,7 +66,7 @@ import {
 	inferArgumentType,
 	isKnownScalarType,
 	normalizeType,
-	resolveKnownObjectAssignmentType,
+	createObjectAssignmentTypeResolver,
 	spanForTokens,
 } from '../typeInference';
 import {
@@ -1526,6 +1526,7 @@ export function checkInvalidAsTypeNames(
 	const withEventsNewDeclarationSpans = collectWithEventsNewDeclarationSpans(mod, activity);
 	let variables: Set<string> | undefined;
 	let ownTypes: Set<string> | undefined;
+	let libraries: readonly (ReadonlySet<string> | undefined)[] | undefined;
 	for (const ref of collectTypeNameReferences(source)) {
 		if (activity?.isInactive(ref.span)) {
 			continue;
@@ -1605,7 +1606,7 @@ export function checkInvalidAsTypeNames(
 		// all known (issue #234, measured in Excel 16.0).
 		// The Scripting Runtime's own types are missing-library-reference's, which
 		// names the reference to add.
-		const libraries = opts.referencedLibraries?.map((library) => libraryTypeNames(library));
+		libraries ??= opts.referencedLibraries?.map((library) => libraryTypeNames(library));
 		ownTypes ??= new Set(activeModuleMembers(mod, activity).filter((member) => member.kind === 'Type' || member.kind === 'Enum').map((member) => member.name.toLowerCase()));
 		if (!ref.qualifier && !SCRIPTING_TYPE_NAMES.has(ref.name.toLowerCase()) && !ownTypes.has(ref.name.toLowerCase()) && libraries !== undefined && libraries.length > 0 && libraries.every((names) => names !== undefined && !names.has(ref.name.toLowerCase()))) {
 			push(
@@ -1824,6 +1825,7 @@ export function checkParameterDefaultValues(
 	memberCtx: MemberCompletionContext,
 	push: PushFn,
 ): void {
+	const objectType = createObjectAssignmentTypeResolver(memberCtx);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
@@ -1840,7 +1842,7 @@ export function checkParameterDefaultValues(
 			if (!actual) {
 				continue;
 			}
-			const reason = parameterDefaultIncompatibilityReason(param, actual, memberCtx);
+			const reason = parameterDefaultIncompatibilityReason(param, actual, objectType);
 			if (!reason) {
 				continue;
 			}
@@ -1870,6 +1872,7 @@ export function checkNonConstantParameterDefaults(
 	memberCtx: MemberCompletionContext,
 	push: PushFn,
 ): void {
+	const objectType = createObjectAssignmentTypeResolver(memberCtx);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
@@ -1878,7 +1881,7 @@ export function checkNonConstantParameterDefaults(
 			if (!param.defaultRaw) {
 				continue;
 			}
-			if (resolveKnownObjectAssignmentType(param.asType, memberCtx)) {
+			if (objectType(param.asType)) {
 				continue;
 			}
 			const defaultTokens = parameterDefaultTokens(source, param);
@@ -2188,7 +2191,7 @@ function valueTokensAfterEquals(
 function parameterDefaultIncompatibilityReason(
 	param: ParameterNode,
 	actual: InferredArgumentType,
-	memberCtx: MemberCompletionContext,
+	objectType: ReturnType<typeof createObjectAssignmentTypeResolver>,
 ): string | undefined {
 	if (param.isArray && isKnownScalarDefaultType(actual.type)) {
 		return 'Optional array parameter defaults cannot be scalar values.';
@@ -2197,7 +2200,7 @@ function parameterDefaultIncompatibilityReason(
 	if (!expectedRaw) {
 		return undefined;
 	}
-	const expectedObject = resolveKnownObjectAssignmentType(expectedRaw, memberCtx);
+	const expectedObject = objectType(expectedRaw);
 	if (expectedObject) {
 		return normalizeType(actual.type) === 'nothing'
 			? undefined

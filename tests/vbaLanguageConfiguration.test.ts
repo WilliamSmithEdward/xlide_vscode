@@ -213,7 +213,7 @@ describe('VBA language configuration', () => {
 			expect.objectContaining({ language: 'vba', scopeName: 'source.vba' }),
 			expect.objectContaining({ language: 'xlide-vba', scopeName: 'source.vba' }),
 		]));
-		expect(contributes?.keybindings?.find((entry) => entry.command === 'xlide.vba.smartBackspace')?.when)
+		expect(contributes?.keybindings?.find((entry) => entry.key === 'backspace' && entry.when?.includes('xlide.vba.backspaceNeedsExtension'))?.when)
 			.toContain('xlide-vba');
 	});
 

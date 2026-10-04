@@ -248,7 +248,7 @@ export function checkCollectionState(
 		const enterWith = (node: BodyNode): void => {
 			const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span));
 			const name = header.length === 2 ? tokenName(header[1]) : undefined;
-			const element = header.length >= 5 && header[2].rawText === '(' && matchParenFrom([...header], 2) === header.length - 1 ? tokenName(header[1]) : undefined;
+			const element = header.length >= 5 && header[2].rawText === '(' && matchParenFrom(header, 2) === header.length - 1 ? tokenName(header[1]) : undefined;
 			if (name && states.has(name.toLowerCase())) {
 				withSubjects.push(name);
 			} else if (element && states.has(element.toLowerCase())) {
@@ -711,7 +711,7 @@ function simulateFillingLoop(
 
 /** The elements of `Split("a,b", ",")` or `Array("a", "b")` written with literals, as Strings (issue #350). */
 function literalElements(expression: string): string[] | undefined {
-	const toks = rawExpressionTokens(expression).filter((tok) => tok.kind !== 'comment');
+	const toks = rawExpressionTokens(expression);
 	const callee = tokenText(toks[0]);
 	if ((callee !== 'split' && callee !== 'array') || toks[1]?.rawText !== '(' || matchParenFrom(toks, 1) !== toks.length - 1) {
 		return undefined;

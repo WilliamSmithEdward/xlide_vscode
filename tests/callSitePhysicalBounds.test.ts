@@ -32,7 +32,7 @@ for (const eol of ['\n', '\r\n', '\r']) {
   });
   it('preserves trailing comments and qualified calls', () => {
    const source = ['Option Explicit', 'Sub Caller()', "Module1.Go 1 'note", 'Debug.Print 2', 'End Sub', ''].join(eol);
-   const sites = callSitesOf(source, 'Go', {qualifier:'Module1'});
+   const sites = callSitesOf(source, 'Go');
    expect(sites).toHaveLength(1);
    expect(applyVbaTextEdits(source, sites.map(site => ({span:site.argumentInsert,newText:site.argumentText('3')}))))
     .toBe(source.replace('Go 1', 'Go 1, 3'));
