@@ -12,7 +12,12 @@ import { assignmentAt, localDeclaration, localUsesIn, nameAt, walkBody, blankStr
 import { callSitesOf } from './callSites';
 import { procedureCallBinding } from './procedureCallBinding';
 import { statementRemovalSpan, mergeRemovals } from './shared';
-import { identifiersIn } from '../lexer/tokenHelpers';
+import { identifiersIn, tokenName } from '../lexer/tokenHelpers';
+import { tokenize, tokenizeCached } from '../lexer/tokenize';
+import { ProjectIndex } from '../symbols/projectIndex';
+import { resolveMemberDefinitionsAt, privateMemberOwnerAt, type MemberCompletionContext } from '../completion/memberAccess';
+import { resolveBareIdentifierBinding } from '../symbols/nameResolution';
+import type { ModuleSymbols, VbaSymbol, ModuleSymbolKind } from '../symbols/symbolModel';
 
 /**
  * Introduce Parameter: a local becomes a `ByVal` parameter, and every call
@@ -39,6 +44,8 @@ export interface IntroduceParameterInput {
 	moduleName: string;
 	/** Every other module in the project, keyed by name, for its call sites. */
 	otherModuleSources?: Readonly<Record<string, string>>;
+	/** Host module roles, keyed by module name; omitted roles retain standard-module behavior. */
+	moduleKinds?: Readonly<Record<string, ModuleSymbolKind>>;
 }
 
 export function introduceParameter(input: IntroduceParameterInput): VbaRefactorResult {
@@ -47,6 +54,11 @@ export function introduceParameter(input: IntroduceParameterInput): VbaRefactorR
 	const procedure = procedureAtOffset(module, input.offset);
 	if (!procedure) {
 		return refuse('Introduce Parameter works on a local, inside a procedure.');
+	}
+
+	if (procedure.procKind === 'PropertyLet' || procedure.procKind === 'PropertySet'
+		|| procedure.procKind === 'PropertyGet' && module.members.some(member => member.kind === 'Procedure' && member !== procedure && member.name.toLowerCase() === procedure.name.toLowerCase() && (member.procKind === 'PropertyLet' || member.procKind === 'PropertySet'))) {
+		return refuse('Changing this property parameter list also requires updating its assignment sites and paired accessors.');
 	}
 
 	const name = nameAt(source, input.offset);
@@ -108,8 +120,43 @@ export function introduceParameter(input: IntroduceParameterInput): VbaRefactorR
 	];
 
 	const accepts = procedureCallBinding(source, input.moduleName, procedure, input.otherModuleSources ?? {});
-	const here = callSitesOf(source, procedure.name, { skip: procedure.span })
-		.filter(site => accepts(input.moduleName, source, site));
+	const kinds = new Map(Object.entries(input.moduleKinds ?? {}).map(([key, kind]) => [key.toLowerCase(), kind]));
+	let memberContext: MemberCompletionContext | undefined;
+	let initializerCallsSelf = false;
+	let unresolvedReceiver = false;
+	let project: ProjectIndex | undefined;
+	let symbols: ModuleSymbols | undefined;
+	let owner: VbaSymbol | undefined;
+	const here = callSitesOf(source, procedure.name, { accept: (offset, call, qualifier, nameSpan) => {
+		if (offset < procedure.span.start || offset >= procedure.span.end) { return true; }
+		if (!symbols) {
+			project = new ProjectIndex();
+			project.setModule({moduleName: input.moduleName, moduleKind: kinds.get(input.moduleName.toLowerCase()) ?? 'standard', source});
+			symbols = project.getModule(input.moduleName)!;
+			owner = symbols.root.children?.find(symbol => symbol.fullSpan.start === procedure.span.start && symbol.name.toLowerCase() === procedure.name.toLowerCase());
+		}
+		let target: boolean;
+		if (qualifier) {
+			if (!memberContext) {
+				for (const [moduleName, otherSource] of Object.entries(input.otherModuleSources ?? {})) {
+					if (moduleName.toLowerCase() !== input.moduleName.toLowerCase()) { project!.setModule({moduleName, moduleKind: kinds.get(moduleName.toLowerCase()) ?? 'standard', source: otherSource}); }
+				}
+				memberContext = {parsedModule: module, sourceTokens: tokenizeCached(source).filter(token => token.kind !== 'comment'), projectClassMembers: project!.projectMemberSurfaces(input.moduleName), meProjectType: symbols.moduleKind === 'standard' ? undefined : input.moduleName, withScanCache: new Map(), receiverTypeCache: new Map(), receiverChainCache: new Map(), memberSurfaceCache: new Map()};
+			}
+			const calledName = source.slice(nameSpan.start, nameSpan.end).replace(/^\[([^\]]+)\]$/, '$1');
+			const definitions = resolveMemberDefinitionsAt(source, nameSpan.end, calledName, memberContext);
+			const privateOwner = definitions.length === 0 ? privateMemberOwnerAt(source, nameSpan.end, calledName, memberContext) : undefined;
+			if (definitions.length === 0 && privateOwner === undefined) { unresolvedReceiver = true; }
+			target = privateOwner?.toLowerCase() === input.moduleName.toLowerCase() || definitions.length === 1 && definitions[0].moduleName.toLowerCase() === input.moduleName.toLowerCase() && definitions[0].fullSpan.start === procedure.span.start;
+		} else {
+			const binding = resolveBareIdentifierBinding({currentModule: symbols, name: procedure.name, context: call ? 'call' : 'expression', enclosingProcedure: owner, offset});
+			target = binding.scope !== 'ambiguous' && binding.definitions.length === 1 && binding.definitions[0] === owner;
+		}
+		if (target && offset >= assignment.span.start && offset < assignment.span.end) { initializerCallsSelf = true; }
+		return target && !edits.some(edit => edit.newText === '' && offset >= edit.span.start && offset < edit.span.end);
+	} }).filter(site => site.offset >= procedure.span.start && site.offset < procedure.span.end || accepts(input.moduleName, source, site));
+	if (unresolvedReceiver) { return refuse(`A member named '${procedure.name}' inside this procedure has an unresolved receiver, so its call cannot be updated reliably.`); }
+	if (initializerCallsSelf) { return refuse('The initializer calls the procedure whose signature would change, so it cannot be moved to its callers.'); }
 	for (const site of here) {
 		edits.push({ span: site.argumentInsert, newText: site.argumentText(value, name) });
 	}
@@ -191,6 +238,13 @@ function strandedNames(value: string, procedure: ProcedureNode, module: ModuleNo
 		const lower = name.toLowerCase();
 		if ((locals.has(lower) || privates.has(lower)) && !out.includes(name)) {
 			out.push(name);
+		}
+	}
+	if ((procedure.procKind === 'Function' || procedure.procKind === 'PropertyGet') && value.toLowerCase().includes(procedure.name.toLowerCase())) {
+		const tokens = tokenize(value);
+		if (tokens.some((token, index) => tokenName(token)?.toLowerCase() === procedure.name.toLowerCase()
+			&& tokens[index - 1]?.rawText !== '.' && tokens[index + 1]?.rawText !== '(' && tokens[index + 1]?.rawText !== ':=')) {
+			out.push(procedure.name);
 		}
 	}
 	return out;
