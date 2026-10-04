@@ -143,7 +143,35 @@ export function macroNameTarget(text: string, ctx: SignatureHelpContext): VbaPro
 	const dot = trimmed.lastIndexOf('.');
 	const moduleName = dot > 0 ? trimmed.slice(0, dot).toLowerCase() : undefined;
 	const name = (dot > 0 ? trimmed.slice(dot + 1) : trimmed).toLowerCase();
-	const matches = macroNameCandidates(ctx).filter((candidate) => candidate.procedure.name.toLowerCase() === name
-		&& (moduleName === undefined || candidate.procedure.moduleName.toLowerCase() === moduleName));
-	return matches.length === 1 ? matches[0].procedure : undefined;
+	// Target lookup needs one procedure, not the complete completion rows.
+	// A qualified name has one deduplication key, so its first entry decides.
+	const qualifiedKey = moduleName === undefined ? undefined : `${moduleName}.${name}`;
+	const seen = qualifiedKey === undefined ? new Set<string>() : undefined;
+	let target: VbaProcedureSignature | undefined;
+	for (const procedure of ctx.macroProcedures ?? ctx.projectProcedures ?? []) {
+		if (procedure.external) {
+			continue;
+		}
+		const procedureName = procedure.name;
+		const key = `${procedure.moduleName}.${procedureName}`.toLowerCase();
+		if (qualifiedKey !== undefined) {
+			if (key !== qualifiedKey) {
+				continue;
+			}
+			return procedureName.toLowerCase() === name && procedure.moduleName.toLowerCase() === moduleName
+				? procedure : undefined;
+		}
+		if (seen!.has(key)) {
+			continue;
+		}
+		seen!.add(key);
+		if (procedureName.toLowerCase() !== name) {
+			continue;
+		}
+		if (target) {
+			return undefined;
+		}
+		target = procedure;
+	}
+	return target;
 }
