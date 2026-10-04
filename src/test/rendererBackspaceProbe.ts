@@ -103,20 +103,24 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
                 if (Date.now() > deadline) {
                     const widgets = await evaluate("Array.from(document.querySelectorAll('.suggest-widget.visible')).map(node => ({ shown: node.checkVisibility({ visibilityProperty: true, opacityProperty: true }), classes: node.className, message: node.querySelector('.message')?.textContent, rows: node.querySelectorAll('.monaco-list-row').length, kinds: Array.from(node.querySelectorAll('.monaco-list-row')).map(row => row.querySelector('.suggest-icon')?.className) }))");
                     const state = await evaluate("((expectedNonce) => { const input = document.activeElement; const rows = Array.from(document.querySelectorAll('.monaco-editor .view-line')); const row = rows.find(row => row.textContent.includes('ThisWorkbook.Sheets(1).')); return { focused: input?.className, documentFocused: document.hasFocus(), visibility: document.visibilityState, focusedEditors: document.querySelectorAll('.monaco-editor.focused').length, endsCe: row?.textContent.endsWith('.ce'), endsCez: row?.textContent.endsWith('.cez'), syntheticLength: row?.textContent.length, nonceRows: rows.filter(row => row.textContent.includes('LatencyValue')).map(row => ({ length: row.textContent.length, endsExpected: expectedNonce ? row.textContent.endsWith(expectedNonce) : undefined, normalizedEndsExpected: expectedNonce ? row.textContent.replace(/\\u00a0/g, ' ').replace(/\\u200b/g, '').endsWith(expectedNonce) : undefined, ghostNodes: row.querySelectorAll('.ghost-text').length })) }; })(" + JSON.stringify(expectedNonce ?? null) + ")");
-                    throw new Error('Expected renderer update did not paint: ' + phase + '; widgets=' + JSON.stringify(widgets) + '; state=' + JSON.stringify(state) + '; navigation=' + JSON.stringify(navigationSamples));
+                    const hoverGeometry = phase.includes('hover') ? await evaluate("(() => { const editor = document.querySelector('.monaco-editor.focused'); const viewport = editor?.querySelector('.editor-scrollable')?.getBoundingClientRect(); return { viewport: viewport?.toJSON(), targets: Array.from(editor?.querySelectorAll('.view-line') ?? []).filter(row => row.textContent.includes('LatencyValue')).map(row => ({ length: row.textContent.length, rect: row.getBoundingClientRect().toJSON() })) }; })()") : undefined;
+                    throw new Error('Expected renderer update did not paint: ' + phase + '; widgets=' + JSON.stringify(widgets) + '; state=' + JSON.stringify(state) + '; navigation=' + JSON.stringify(navigationSamples) + '; hoverGeometry=' + JSON.stringify(hoverGeometry));
                 }
                 await delay(5);
             }
         };
         const visibleHover = "Array.from(document.querySelectorAll('.monaco-hover')).filter(node => node.checkVisibility({ visibilityProperty: true, opacityProperty: true })).map(node => node.textContent).join(' ')";
         const hoverSamples = [];
-        const readHoverPoint = () => evaluate("(() => { for (const row of document.querySelectorAll('.monaco-editor.focused .view-line')) { const walker = document.createTreeWalker(row, NodeFilter.SHOW_TEXT); let text; while ((text = walker.nextNode())) { const start = text.textContent.indexOf('LatencyValue'); if (start < 0) continue; const range = document.createRange(); range.setStart(text, start + 2); range.setEnd(text, start + 3); const box = range.getBoundingClientRect(); return { x: box.x + box.width / 2, y: box.y + box.height / 2 }; } } })()");
+        // Monaco retains offscreen rows in the DOM; choose a visible symbol
+        // rather than repeatedly waiting for the first occurrence to scroll in.
+        const readHoverPoint = () => evaluate("(() => { const editor = document.querySelector('.monaco-editor.focused'); const viewport = editor?.querySelector('.editor-scrollable')?.getBoundingClientRect(); if (!viewport) return; for (const row of editor.querySelectorAll('.view-line')) { const walker = document.createTreeWalker(row, NodeFilter.SHOW_TEXT); let text; while ((text = walker.nextNode())) { const start = text.textContent.indexOf('LatencyValue'); if (start < 0) continue; const range = document.createRange(); range.setStart(text, start + 2); range.setEnd(text, start + 3); const box = range.getBoundingClientRect(); const x = box.x + box.width / 2, y = box.y + box.height / 2; if (box.width > 0 && box.height > 0 && x >= viewport.left && x <= viewport.right && y >= viewport.top && y <= viewport.bottom) return { x, y }; } } })()");
         const showHover = async () => {
-            // Navigation can leave the viewport scrolled. Clear the list and
-            // reveal the short member line before testing a mouse hit above it.
+            // Reveal the variable's own line: a short editor viewport need
+            // not show the preceding statement while the member caret is visible.
             await pressKey('Escape', 'Escape', 27);
+            await pressKey('ArrowUp', 'ArrowUp', 38);
+            await until(async () => (await evaluate(readSyntheticCaret)).caretOnNonce, 'hover target caret');
             await pressKey('Home', 'Home', 36);
-            await pressKey('End', 'End', 35);
             await call('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 1, y: 1 });
             await until(async () => !(await evaluate(visibleHover)).includes('LatencyValue'), 'old hover dismissal');
             const viewport = await evaluate("(() => { const rect = document.querySelector('.monaco-editor.focused .editor-scrollable').getBoundingClientRect(); return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom }; })()");
@@ -132,6 +136,9 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
             hoverSamples.push(Date.now() - started);
             await call('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 1, y: 1 });
             await until(async () => !(await evaluate(visibleHover)).includes('LatencyValue'), 'resolved hover dismissal');
+            await pressKey('ArrowDown', 'ArrowDown', 40);
+            await pressKey('End', 'End', 35);
+            await until(async () => { const caret = await evaluate(readSyntheticCaret); return caret.caretOnMember && caret.caretAtEnd; }, 'member caret after hover');
         };
         try {
             for (let i = 0; i < stress.cycles; i++) {
