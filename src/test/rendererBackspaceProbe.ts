@@ -54,10 +54,11 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
         await delay(10);
     }
     const { busyUntil, cleanup, stress } = JSON.parse(fs.readFileSync(busyFile, 'utf8'));
-    const deleteKey = async () => {
-        await call('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Backspace', code: 'Backspace', windowsVirtualKeyCode: 8, nativeVirtualKeyCode: 8 });
-        await call('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Backspace', code: 'Backspace', windowsVirtualKeyCode: 8, nativeVirtualKeyCode: 8 });
+    const pressKey = async (key, code, virtualKey, modifiers = 0) => {
+        await call('Input.dispatchKeyEvent', { type: 'keyDown', key, code, modifiers, windowsVirtualKeyCode: virtualKey, nativeVirtualKeyCode: virtualKey });
+        await call('Input.dispatchKeyEvent', { type: 'keyUp', key, code, modifiers, windowsVirtualKeyCode: virtualKey, nativeVirtualKeyCode: virtualKey });
     };
+    const deleteKey = () => pressKey('Backspace', 'Backspace', 8);
     if (mode === 'cleanup') {
         const readRow = "Array.from(document.querySelectorAll('.monaco-editor.focused .view-line')).map(row => row.textContent.replace(/\\u00a0/g, ' ').replace(/\\u200b/g, ''))[" + cleanup.line + "]";
         if ((await evaluate(readRow)) !== cleanup.before) throw new Error('Cleanup fixture is not visible');
@@ -91,11 +92,22 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
         };
         const visibleHover = "Array.from(document.querySelectorAll('.monaco-hover')).filter(node => node.checkVisibility({ visibilityProperty: true, opacityProperty: true })).map(node => node.textContent).join(' ')";
         const hoverSamples = [];
+        const readHoverPoint = () => evaluate("(() => { for (const row of document.querySelectorAll('.monaco-editor.focused .view-line')) { const walker = document.createTreeWalker(row, NodeFilter.SHOW_TEXT); let text; while ((text = walker.nextNode())) { const start = text.textContent.indexOf('LatencyValue'); if (start < 0) continue; const range = document.createRange(); range.setStart(text, start + 2); range.setEnd(text, start + 3); const box = range.getBoundingClientRect(); return { x: box.x + box.width / 2, y: box.y + box.height / 2 }; } } })()");
         const showHover = async () => {
+            // Navigation can leave the viewport scrolled. Clear the list and
+            // reveal the short member line before testing a mouse hit above it.
+            await pressKey('Escape', 'Escape', 27);
+            await pressKey('Home', 'Home', 36);
+            await pressKey('End', 'End', 35);
             await call('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 1, y: 1 });
             await until(async () => !(await evaluate(visibleHover)).includes('LatencyValue'), 'old hover dismissal');
-            const point = await evaluate("(() => { const rows = document.querySelectorAll('.monaco-editor.focused .view-line'); for (const row of rows) { const walker = document.createTreeWalker(row, NodeFilter.SHOW_TEXT); let text; while ((text = walker.nextNode())) { const start = text.textContent.indexOf('LatencyValue'); if (start < 0) continue; const range = document.createRange(); range.setStart(text, start + 2); range.setEnd(text, start + 3); const box = range.getBoundingClientRect(); return { x: box.x + box.width / 2, y: box.y + box.height / 2 }; } } })()");
-            if (!point) throw new Error('Synthetic hover variable is not visible');
+            const viewport = await evaluate("(() => { const rect = document.querySelector('.monaco-editor.focused .editor-scrollable').getBoundingClientRect(); return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom }; })()");
+            let point;
+            await until(async () => {
+                point = await readHoverPoint();
+                return point && point.x >= viewport.left && point.x <= viewport.right &&
+                    point.y >= viewport.top && point.y <= viewport.bottom;
+            }, 'hover target viewport visibility');
             const started = Date.now();
             await call('Input.dispatchMouseEvent', { type: 'mouseMoved', ...point });
             await until(async () => (await evaluate(visibleHover)).includes('LatencyValue As Long'), 'resolved mouse hover');
@@ -128,6 +140,20 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
             }
             samples.push({ idleMs, backspacePaintMs: deleted - before, menuPaintMs, typingPaintMs, missClearMs: Date.now() - missed });
             if (stress.hover && (i + 1) % 16 === 0) { await showHover(); }
+            if ((i + 1) % 100 === 0) fs.writeFileSync(readyFile, JSON.stringify({ completed: i + 1, cycles: stress.cycles }));
+            if (stress.freshSources) {
+                // Change only the synthetic preceding statement, keeping the
+                // member expression identical while defeating source-text reuse.
+                await pressKey('Escape', 'Escape', 27);
+                await pressKey('ArrowUp', 'ArrowUp', 38);
+                await pressKey('End', 'End', 35);
+                await pressKey('Home', 'Home', 36, 8); // select to first non-whitespace
+                const nonce = " 'n" + i.toString(36).padStart(6, '0');
+                await call('Input.insertText', { text: stress.nonceStatement + nonce });
+                await until(async () => await evaluate("Array.from(document.querySelectorAll('.monaco-editor.focused .view-line')).some(row => row.textContent.endsWith(" + JSON.stringify(nonce.trimStart()) + "))"), 'fresh synthetic source cycle ' + i);
+                await pressKey('ArrowDown', 'ArrowDown', 40);
+                await pressKey('End', 'End', 35);
+            }
         }
         console.log(JSON.stringify({ samples, hoverSamples }));
         socket.close();
@@ -162,7 +188,7 @@ export interface RendererBackspaceResult {
     samples?: { idleMs: number; backspacePaintMs: number; menuPaintMs: number; typingPaintMs: number; missClearMs: number }[];
 }
 
-export async function runRendererBackspaceProbe(mode: 'busy' | 'stress' | 'transition' | 'cleanup', staleCleanupContext = false, cleanup?: { line: number; before: string; after: string[] }, stress = { cycles: 24, hover: false, assertMissHidden: false }): Promise<RendererBackspaceResult> {
+export async function runRendererBackspaceProbe(mode: 'busy' | 'stress' | 'transition' | 'cleanup', staleCleanupContext = false, cleanup?: { line: number; before: string; after: string[] }, stress = { cycles: 24, hover: false, assertMissHidden: false, freshSources: false, nonceStatement: '' }): Promise<RendererBackspaceResult> {
     const port = Number(process.env.XLIDE_UI_DEBUG_PORT);
     assert.ok(Number.isInteger(port) && port >= 1024 && port <= 65535, 'an owned integration renderer debugger port is required');
     const root = workspaceRoot();

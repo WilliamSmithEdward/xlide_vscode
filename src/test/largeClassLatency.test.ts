@@ -179,10 +179,14 @@ import { runRendererBackspaceProbe } from './rendererBackspaceProbe';
         const cycles = Number(process.env.XLIDE_PERF_RENDERER_CYCLES ?? 24);
         assert.ok(Number.isInteger(cycles) && cycles >= 24 && cycles <= 1000);
         this.timeout(Math.max(120000, cycles * 1200));
-        const result = await runRendererBackspaceProbe('stress', false, undefined, { cycles, hover: true, assertMissHidden: process.env.XLIDE_PERF_WORD_SUGGESTIONS === '0' });
+        const result = await runRendererBackspaceProbe('stress', false, undefined, { cycles, hover: true, assertMissHidden: process.env.XLIDE_PERF_WORD_SUGGESTIONS === '0', freshSources: process.env.XLIDE_PERF_FRESH_SOURCES === '1', nonceStatement: document.lineAt(memberLine - 1).text.trim() });
         assert.equal(result.samples?.length, cycles);
         assert.equal(result.hoverSamples?.length, Math.floor(cycles / 16));
         assert.ok(document.lineAt(memberLine).text.endsWith('.cez'));
+        if (process.env.XLIDE_PERF_FRESH_SOURCES === '1') {
+            assert.ok(document.lineAt(memberLine - 1).text.endsWith(" 'n" + (cycles - 1).toString(36).padStart(6, '0')),
+                'each cycle must produce a different source through the synthetic statement');
+        }
         console.log('Actual renderer typing latency:', JSON.stringify(result));
         for (let i = 0; i < 3; i++) { await vscode.commands.executeCommand('deleteLeft'); }
         assert.equal(document.lineAt(memberLine).text, original);
