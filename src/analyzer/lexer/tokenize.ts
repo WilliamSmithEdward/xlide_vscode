@@ -14,6 +14,7 @@
 // source exactly. Reserved keywords carry canonical capitalization, and so do
 // contextual keywords inside the statement that makes them keywords.
 
+import { incrementalTokenize } from './incrementalTokenize';
 import { settleContextualKeywords } from './contextualKeywords';
 import { canonicalKeyword } from './keywordTable';
 import { isLineTerminator, isWsc, TokenKind, Trivia, VbaToken } from './tokenKinds';
@@ -104,7 +105,12 @@ export function tokenizeCached(src: string): VbaToken[] {
 		}
 	}
 	tokenizeMissLog?.push(src.length);
-	const tokens = tokenize(src);
+	let tokens: VbaToken[] | undefined;
+	for (const previous of tokenizeCache) {
+		tokens = incrementalTokenize(src, previous.src, previous.tokens, tokenize);
+		if (tokens) { break; }
+	}
+	tokens ??= tokenize(src);
 	tokenizeCache.unshift({ src, tokens });
 	if (tokenizeCache.length > TOKENIZE_CACHE_MAX) {
 		tokenizeCache.pop();

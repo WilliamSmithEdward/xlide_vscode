@@ -63,6 +63,49 @@ import { encodeModuleUri } from '../xlideFileSystem';
         }
     });
 
+    test('records sustained typing and smart Backspace stalls in the actual class', async () => {
+        const editor = vscode.window.activeTextEditor!;
+        // Probe both the original reported area and the appended procedure.
+        const samples: { line: number; idleMs: number; typingMs: number; backspaceMs: number }[] = [];
+        let expected = performance.now() + 10;
+        let maxHostDelayMs = 0;
+        const heartbeat = setInterval(() => {
+            const now = performance.now();
+            maxHostDelayMs = Math.max(maxHostDelayMs, now - expected);
+            expected = now + 10;
+        }, 10);
+        const profiler = new Session();
+        const profileEnabled = process.env.XLIDE_PERF_CPU_PROFILE === '1';
+        const post = (method: string) => new Promise<any>((resolve, reject) => profiler.post(method, (error, value) => error ? reject(error) : resolve(value)));
+        if (profileEnabled) { profiler.connect(); await post('Profiler.enable'); await post('Profiler.start'); }
+        try {
+            for (const probeLine of [Math.min(1500, document.lineCount - 1), line]) {
+                const end = document.lineAt(probeLine).range.end;
+                editor.selection = new vscode.Selection(end, end);
+                await new Promise(resolve => setTimeout(resolve, 300));
+                const before = document.getText();
+                for (let i = 0; i < 16; i++) {
+                    const idleMs = [0, 30, 250, 350][i % 4];
+                    await new Promise(resolve => setTimeout(resolve, idleMs));
+                    const start = performance.now();
+                    await vscode.commands.executeCommand('type', { text: 'z' });
+                    const typed = performance.now();
+                    await vscode.commands.executeCommand('xlide.vba.smartBackspace');
+                    samples.push({ line: probeLine, idleMs, typingMs: typed - start, backspaceMs: performance.now() - typed });
+                }
+                assert.equal(document.getText(), before, 'Typing and Backspace must restore the document');
+            }
+            console.log('Actual sustained typing latency:', JSON.stringify({ samples, maxHostDelayMs }));
+        } finally {
+            clearInterval(heartbeat);
+            if (profileEnabled) {
+                const stopped = await post('Profiler.stop');
+                fs.writeFileSync(path.join(workspaceRoot(), 'sustained-typing.cpuprofile'), JSON.stringify(stopped.profile));
+                profiler.disconnect();
+            }
+        }
+    });
+
     test('records hover after a declaration edit in the actual large class', async () => {
         const hoverText = async () => {
             const source = document.getText();
