@@ -86,8 +86,9 @@ export function macroNameStringAt(source: string, offset: number, ctx: Signature
 }
 
 /** Reject definite non-macro string positions before building editor project facts.
- * Positional call arguments remain possible until their signature is known. */
-export function macroNameStringMayResolveAt(source: string, offset: number): boolean {
+ * Positional call arguments remain possible until their signature is known.
+ * Hovers may include the closing delimiter; completion requests may not. */
+export function macroNameStringMayResolveAt(source: string, offset: number, includeClosingQuote = false): boolean {
 	const tokens = tokenizeCached(source);
 	const index = firstTokenEndingAtOrAfter(tokens, offset);
 	const token = tokens[index];
@@ -95,7 +96,7 @@ export function macroNameStringMayResolveAt(source: string, offset: number): boo
 		return false;
 	}
 	const closed = /^"(?:[^"]|"")*"$/.test(token.rawText);
-	if (closed && offset > token.end - 1) { return false; }
+	if (closed && !includeClosingQuote && offset > token.end - 1) { return false; }
 	const before = previous(tokens, index)?.rawText.toLowerCase();
 	if (before === '=') {
 		return previous(tokens, index - 1)?.rawText.toLowerCase() === 'onaction';

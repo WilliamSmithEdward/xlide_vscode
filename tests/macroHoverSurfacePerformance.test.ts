@@ -80,6 +80,16 @@ describe('bounded macro string lookup', () => {
 });
 
 describe('hover preflight', () => {
+    it.each(['value = "ordinary text"', 'obj.Caption = "ordinary text"', 'obj.Configure caption:="ordinary text"'])(
+        'skips context work for a definite ordinary string in %s', async line => {
+            const source = prefix + '\nSub Active()\n' + line + '\nEnd Sub';
+            const ctx = context();
+            const offset = source.lastIndexOf('ordinary') + 3;
+            expect(await new VbaHoverSignatureProvider(ctx as never).provideHover(
+                documentFor(source), new vscode.Position(0, offset))).toBeUndefined();
+            for (const spy of Object.values(ctx)) expect(spy).not.toHaveBeenCalled();
+        });
+
     it.each(["' Counter", '42', '#1/1/2026#', '+', '    ', "' note _\nCounter"])(
         'avoids all project context work for %j', async fragment => {
             const source = prefix + '\n' + fragment + '\n';
@@ -124,7 +134,7 @@ describe('hover preflight', () => {
 });
 
 it.skipIf(!process.env.XLIDE_MACRO_HOVER_BENCHMARK_OUTPUT)('measures macro lookup and empty hover work', async () => {
-    const source = prefix + "\nSub Active()\n    ThisWorkbook.Sheets(1).\n    ' comment\nEnd Sub\n";
+    const source = prefix + "\nSub Active()\n    ThisWorkbook.Sheets(1).\n    value = \"ordinary text\"\n    ' comment\nEnd Sub\n";
     const dot = source.lastIndexOf('Sheets(1).') + 'Sheets(1).'.length;
     const comment = source.lastIndexOf("' comment") + 3;
     const doc = documentFor(source);
@@ -145,6 +155,7 @@ it.skipIf(!process.env.XLIDE_MACRO_HOVER_BENCHMARK_OUTPUT)('measures macro looku
     };
     await measure('nonStringMacroLookupMs', () => macroNameStringAt(source, dot));
     await measure('emptyHoverMs', () => provider.provideHover(doc, new vscode.Position(0, comment)));
+    await measure('ordinaryStringHoverMs', () => provider.provideHover(doc, new vscode.Position(0, source.lastIndexOf('ordinary') + 3)));
     writeFileSync(process.env.XLIDE_MACRO_HOVER_BENCHMARK_OUTPUT!, JSON.stringify({
         procedures: 1200, bytes: source.length, samples: 21, medians,
         hoverContextBuilds: ctx.buildEditorProjectContextWithin.mock.calls.length,
