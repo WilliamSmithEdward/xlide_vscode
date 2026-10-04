@@ -320,6 +320,7 @@ export function checkRuntimeMemberNotFound(
 	const model = memberCtx.model;
 	const applicationSurface = excelApplicationSurface(model);
 	const rangeSurface = applicationSurface ? excelRangeSurface(model) : undefined;
+	const memberQueries = createRuntimeMemberQueries(memberCtx);
 	const classNamed = createKnownClassLookup(memberCtx);
 	const objectType = createObjectAssignmentTypeResolver(memberCtx);
 	const shareInterfaces = createProjectInterfaceSharingLookup(memberCtx);
@@ -338,8 +339,8 @@ export function checkRuntimeMemberNotFound(
 		forEachStatement(member.body, (stmt) => {
 			for (const span of statementAndBranchSpans(stmt)) {
 				const toks = statementTokens(source, span);
-				checkFormControlNames(source, span.start, toks, memberCtx, added, push);
-				checkOpenTypeMembers(source, span.start, toks, env, applicationSurface, rangeSurface, memberCtx, push);
+				checkFormControlNames(source, span.start, toks, memberCtx, added, memberQueries, push);
+				checkOpenTypeMembers(source, span.start, toks, env, applicationSurface, rangeSurface, memberCtx, memberQueries, push);
 			}
 		}, activity);
 		checkCollectionItems(source, member, symbols, env, memberCtx, collectionQueries, activity, push);
@@ -373,7 +374,7 @@ export function checkRuntimeMemberNotFound(
 				return;
 			}
 			checkProgIdObjects(node.span.start, toks, held, push);
-			checkStatement(source, node.span.start, toks, held, applicationSurface, memberCtx, push);
+			checkStatement(source, node.span.start, toks, held, applicationSurface, memberCtx, memberQueries, push);
 			// `re.Pattern = "(a"`: the pattern a later Test or Execute reads.
 			const target = tokenName(toks[0])?.toLowerCase();
 			const regExp = target ? held.get(target) : undefined;
@@ -613,6 +614,35 @@ function knownClassForSurface(projectType: VbaProjectClassMembers): KnownClass {
 	};
 }
 
+interface RuntimeMemberQueries {
+	worksheetFunctions(): ReadonlySet<string>;
+	sheetNames(): ReadonlySet<string>;
+	formControls(form: VbaProjectClassMembers): { count: number; hasName(name: string): boolean };
+}
+
+function createRuntimeMemberQueries(ctx: MemberCompletionContext): RuntimeMemberQueries {
+	let functions: ReadonlySet<string> | undefined;
+	let sheets: ReadonlySet<string> | undefined;
+	const forms = new Map<VbaProjectClassMembers, ReturnType<RuntimeMemberQueries['formControls']>>();
+	return {
+		worksheetFunctions: () => functions ??= worksheetFunctionNames(ctx.model),
+		sheetNames: () => sheets ??= sheetSurface(ctx.model, ctx.projectClassMembers ?? []),
+		formControls: (form) => {
+			let query = forms.get(form);
+			if (!query) {
+				const controls = form.members.filter((member) => /^MSForms\./i.test(member.returns ?? ''));
+				let names: ReadonlySet<string> | undefined;
+				query = {
+					count: controls.length,
+					hasName: (name) => (names ??= new Set(controls.map((control) => control.name.toLowerCase()))).has(name.toLowerCase()),
+				};
+				forms.set(form, query);
+			}
+			return query;
+		},
+	};
+}
+
 /**
  * The members of Excel's WorksheetFunction, lowercased. The list is the type
  * library's, the one Application's check already reads as complete: Ifs,
@@ -655,6 +685,7 @@ function checkStatement(
 	held: ReadonlyMap<string, KnownClass>,
 	applicationSurface: ReadonlySet<string> | undefined,
 	memberCtx: MemberCompletionContext,
+	queries: RuntimeMemberQueries,
 	push: PushFn,
 ): void {
 	for (let i = 0; i + 2 < toks.length; i++) {
@@ -663,7 +694,7 @@ function checkStatement(
 		// function raises 438 (issue #442, measured in Excel 16.0).
 		if (applicationSurface && tokenText(toks[i]) === 'worksheetfunction' && toks[i + 1].rawText === '.') {
 			const name = tokenName(toks[i + 2]);
-			const functions = name ? worksheetFunctionNames(memberCtx.model) : undefined;
+			const functions = name ? queries.worksheetFunctions() : undefined;
 			if (name && functions && !functions.has(name.toLowerCase())
 				&& resolveReceiverTypeAt(source, base + toks[i + 1].end, memberCtx) === 'Excel.WorksheetFunction') {
 				push('runtimeMemberNotFound', `WorksheetFunction has no function '${name}'. The VBE compiles the name; this will raise Run-time error '438': Object doesn't support this property or method.`, { start: base + toks[i + 2].start, end: base + toks[i + 2].end });
@@ -766,11 +797,10 @@ function checkOpenTypeMembers(
 	applicationSurface: ReadonlySet<string> | undefined,
 	rangeNames: ReadonlySet<string> | undefined,
 	memberCtx: MemberCompletionContext,
+	queries: RuntimeMemberQueries,
 	push: PushFn,
 ): void {
-	const model = memberCtx.model;
 	const projectTypes = memberCtx.projectClassMembers ?? [];
-	let sheetNames: ReadonlySet<string> | undefined;
 	for (let i = 1; i + 1 < toks.length; i++) {
 		const name = toks[i].rawText === '.' ? tokenName(toks[i + 1]) : undefined;
 		if (!name || (tokenName(toks[i - 1]) === undefined && toks[i - 1].rawText !== ')') || toks[i - 1].kind === 'keyword') {
@@ -795,7 +825,7 @@ function checkOpenTypeMembers(
 			continue;
 		}
 		if (receiver && tokenText(toks[i - 1]) === 'activesheet' && !env.has('activesheet')) {
-			sheetNames ??= sheetSurface(model, projectTypes);
+			const sheetNames = queries.sheetNames();
 			if (!sheetNames.has(lower)) {
 				push('runtimeMemberNotFound', `ActiveSheet has no member '${name}': neither a Worksheet nor a Chart has one, and no document module of the project declares it. ${MEMBER_NOT_SUPPORTED}`, at);
 			}
@@ -837,6 +867,7 @@ function checkFormControlNames(
 	toks: readonly VbaToken[],
 	memberCtx: MemberCompletionContext,
 	added: ReadonlySet<string> | 'any',
+	queries: RuntimeMemberQueries,
 	push: PushFn,
 ): void {
 	for (let i = 1; i + 3 < toks.length; i++) {
@@ -848,15 +879,15 @@ function checkFormControlNames(
 		if (form?.kind !== 'userform' || form.exhaustive !== true || added === 'any') {
 			continue;
 		}
-		const controls = form.members.filter((member) => /^MSForms\./i.test(member.returns ?? ''));
+		const controls = queries.formControls(form);
 		// `Me.Controls(99)`: Controls counts from 0 (issue #315, measured in
 		// Excel 16.0). A procedure that adds a control is not judged.
 		if (toks[i + 2].kind === 'integerLiteral') {
 			const index = Number(toks[i + 2].rawText);
-			if (added.size === 0 && index >= controls.length) {
+			if (added.size === 0 && index >= controls.count) {
 				push(
 					'runtimeMemberNotFound',
-					`The form ${form.name} has ${controls.length} control${controls.length === 1 ? '' : 's'}, indexed 0 to ${controls.length - 1}; ${index} is none of them. This will raise Run-time error '-2147024809': Invalid argument.`,
+					`The form ${form.name} has ${controls.count} control${controls.count === 1 ? '' : 's'}, indexed 0 to ${controls.count - 1}; ${index} is none of them. This will raise Run-time error '-2147024809': Invalid argument.`,
 					{ start: base + toks[i + 2].start, end: base + toks[i + 2].end },
 				);
 			}
@@ -867,7 +898,7 @@ function checkFormControlNames(
 		if (added.has(name.toLowerCase())) {
 			continue;
 		}
-		if (!controls.some((control) => control.name.toLowerCase() === name.toLowerCase())) {
+		if (!controls.hasName(name)) {
 			push(
 				'runtimeMemberNotFound',
 				`The form ${form.name} has no control named "${name}". This will raise Run-time error '-2147024809': Could not find the specified object.`,
