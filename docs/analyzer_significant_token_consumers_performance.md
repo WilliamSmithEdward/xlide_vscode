@@ -40,26 +40,26 @@ Node v24.18.0; AMD Ryzen 7 9800X3D 8-Core Processor           ; measured locally
 
 | Fixture / mode | Diagnostics | Before median | After median | Before p95 | After p95 |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| many-warm | 150 | 58.757 | 49.841 | 73.549 | 64.116 |
-| many-fresh | 150 | 91.550 | 56.772 | 101.115 | 74.008 |
-| body-warm | 1 | 163.750 | 141.010 | 237.806 | 172.931 |
-| body-fresh | 1 | 188.676 | 186.092 | 273.263 | 256.822 |
-| branches-warm | 0 | 62.552 | 60.588 | 78.371 | 72.681 |
-| branches-fresh | 0 | 63.142 | 64.684 | 92.174 | 67.981 |
-| types-warm | 500 | 29.865 | 25.885 | 34.205 | 45.363 |
-| types-fresh | 500 | 31.907 | 30.110 | 56.376 | 35.631 |
-| loops-warm | 0 | 48.571 | 46.132 | 55.193 | 54.086 |
-| loops-fresh | 0 | 52.906 | 50.300 | 108.598 | 55.637 |
-| short-warm | 1 | 0.351 | 0.444 | 0.485 | 0.549 |
-| short-fresh | 1 | 0.351 | 0.454 | 0.509 | 0.486 |
+| many-warm | 150 | 49.327 | 48.464 | 62.198 | 61.602 |
+| many-fresh | 150 | 57.653 | 58.980 | 79.380 | 74.428 |
+| body-warm | 1 | 120.866 | 116.468 | 126.138 | 126.741 |
+| body-fresh | 1 | 139.528 | 136.701 | 176.917 | 185.417 |
+| branches-warm | 0 | 41.264 | 39.707 | 49.618 | 43.287 |
+| branches-fresh | 0 | 45.657 | 41.401 | 72.636 | 45.230 |
+| types-warm | 500 | 20.910 | 19.806 | 22.174 | 20.659 |
+| types-fresh | 500 | 20.925 | 21.102 | 39.296 | 22.778 |
+| loops-warm | 0 | 31.039 | 31.392 | 36.030 | 36.212 |
+| loops-fresh | 0 | 35.102 | 35.224 | 36.511 | 40.593 |
+| short-warm | 1 | 0.300 | 0.307 | 0.381 | 0.353 |
+| short-fresh | 1 | 0.312 | 0.326 | 0.335 | 0.435 |
 
-Many-procedure medians improve about 15 percent warm and 38 percent with fresh bodies; the warm long-body median improves about 14 percent. Other results are small or mixed: fresh branches median rises from 63.142 to 64.684 ms, warm types p95 rises from 34.205 to 45.363 ms, and short-module medians rise from 0.351 to 0.444/0.454 ms. The deterministic redundant copies are removed, but other allocation, binding, traversal and dataflow work remains. These measurements do not establish a universal latency improvement.
+The table reports the complete integrated-tree measurements, including controls and p95 values. Results vary by fixture and cache mode; the deterministic redundant copies are removed, but other allocation, binding, traversal and dataflow work remains. These measurements do not establish a universal latency improvement.
 
 ## Validation and remaining finding
 
 - Type check passed.
-- 45 focused ownership/file/late-bound/assignment tests passed, including nine new full-analyzer frozen-cache regressions. The functional Else filter is exercised with the actual project file-state option.
-- Full suite: 627 files, 12,865 tests passed, 13 skipped.
+- 45 focused ownership/file/late-bound/assignment tests passed before integration; 36 ownership/file/late-bound/doc-closing tests passed on the integrated tree, including nine new full-analyzer frozen-cache regressions. The functional Else filter is exercised with the actual project file-state option.
+- Full suite: 628 files, 12,869 tests passed, 13 skipped.
 - 24 instrumented frozen-cache fixture/host comparisons preserve complete outputs with no internal errors.
 - Native deep comparison of complete diagnostics on 8,229 source-bearing oracle cases across four hosts passes: 32,916 analyzer runs, with every cached statement array/token frozen in both bundles. All diagnostics and internal-error lists match. The remaining 816 oracle records lack a single source field and are not covered by this comparison.
 - Eight runs on two reserved-label corpus cases retain the identical pre-existing statementForms exception in both bundles (issue272_01_compile and issue272_02_compile under four hosts). No new or changed internal errors occur. That separate missing-token failure is filed as issue #853, which also covers bare Call; it is not silenced or attributed to this cleanup.
