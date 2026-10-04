@@ -633,6 +633,10 @@ function enclosingHoverProcedure(index: HoverSymbolIndex, offset: number): VbaSy
 	return symbol && contains(symbol.fullSpan, offset) ? symbol : undefined;
 }
 
+// Only read-only editor snapshots reach buildSymbolHover. Keep the immutable
+// signature with its symbol; details, documentation and spans stay request-local.
+const PROCEDURE_HOVER_SIGNATURES = new WeakMap<VbaSymbol, string>();
+
 /** Finds the user symbol the cursor resolves to, or undefined. */
 function findUserSymbol(
 	source: string,
@@ -681,13 +685,19 @@ function buildSymbolHover(
 	let signature: string;
 
 	if (isProcedureKind(symbol.kind)) {
-		const keyword = PROC_KEYWORD[symbol.kind] ?? 'Sub';
-		const params = (symbol.children ?? [])
-			.filter((c) => c.kind === 'parameter')
-			.map((p) => (p.asType ? `${p.name} As ${p.asType}` : p.name))
-			.join(', ');
-		const ret = symbol.asType ? ` As ${symbol.asType}` : '';
-		signature = `${keyword} ${symbol.name}(${params})${ret}`;
+		const cached = PROCEDURE_HOVER_SIGNATURES.get(symbol);
+		if (cached !== undefined) {
+			signature = cached;
+		} else {
+			const keyword = PROC_KEYWORD[symbol.kind] ?? 'Sub';
+			const params = (symbol.children ?? [])
+				.filter((c) => c.kind === 'parameter')
+				.map((p) => (p.asType ? `${p.name} As ${p.asType}` : p.name))
+				.join(', ');
+			const ret = symbol.asType ? ` As ${symbol.asType}` : '';
+			signature = `${keyword} ${symbol.name}(${params})${ret}`;
+			PROCEDURE_HOVER_SIGNATURES.set(symbol, signature);
+		}
 		details.push(`Declared in Module: ${moduleName}`);
 		details.push(`Visibility: ${symbol.visibility ?? 'Public'}`);
 	} else if (symbol.kind === 'declare') {
