@@ -83,8 +83,8 @@ const shapesOn = (surface: string): ShapeInfo[] => listShapes(deck, surface).sur
 const shape = (surface: string, name: string) => shapesOn(surface).find((s) => s.name === name);
 
 /** The model the page was drawn from, as its script holds it. */
-function pageModel(): ShapeEditorModel {
-    const json = /const model = (\{.*\});/.exec(panel.webview.html)?.[1];
+function pageModel(targetPanel: FakePanel = panel): ShapeEditorModel {
+    const json = /const model = (\{.*\});/.exec(targetPanel.webview.html)?.[1];
     expect(json, 'the page carries its model').toBeDefined();
     return JSON.parse(json!) as ShapeEditorModel;
 }
@@ -95,6 +95,40 @@ async function openOn(name: string): Promise<ShapeFormValues> {
 }
 
 describe('the shape editor tab', () => {
+    it.each(['sequential', 'concurrent'] as const)('keeps same-named shape paths separate for %s requests', async mode => {
+        const top = { name: 'Shared', kind: 'shape' as const, text: 'Top level' };
+        const left = { ...top, text: 'Left group' }, right = { ...top, text: 'Right group' };
+        const call = vi.fn(async (method: string) => method === 'listShapes' ? { surfaces: [{ surface: 'Slide 1', shapes: [
+            top, { name: 'Left', kind: 'group', shapes: [left] }, { name: 'Right', kind: 'group', shapes: [right] },
+        ] }] } : { macros: [] });
+        deps.bridge = { call } as unknown as ProjectEngine;
+        const panels: FakePanel[] = [];
+        vi.mocked(vscode.window.createWebviewPanel).mockImplementation(() => {
+            const created = fakePanel();
+            panels.push(created);
+            return created as unknown as vscode.WebviewPanel;
+        });
+        const targets = [
+            { host: 'powerpoint' as const, surface: 'Slide 1', shape: top },
+            { host: 'powerpoint' as const, surface: 'Slide 1', shape: left, shapePath: ['Left', 'Shared'], inGroup: true },
+            { host: 'powerpoint' as const, surface: 'Slide 1', shape: right, shapePath: ['Right', 'Shared'], inGroup: true },
+        ];
+        try {
+            if (mode === 'concurrent') { await Promise.all(targets.map(target => openShapeEditor(deps, context, deck, target))); }
+            else { for (const target of targets) { await openShapeEditor(deps, context, deck, target); } }
+            expect(panels).toHaveLength(3);
+            expect(panels.map(created => pageModel(created).values.text).sort()).toEqual(['Left group', 'Right group', 'Top level']);
+            const reads = call.mock.calls.length;
+            for (const target of targets) {
+                await openShapeEditor(deps, context, deck, { ...target,
+                    shapePath: (target.shapePath ?? [target.shape.name]).map(name => name.toUpperCase()),
+                });
+            }
+            expect(panels).toHaveLength(3);
+            expect(call).toHaveBeenCalledTimes(reads);
+        } finally { for (const created of panels) { created.dispose(); } }
+    });
+
     it.each(['existing', 'new'] as const)('coalesces concurrent requests for the %s shape editor', async mode => {
         let release!: () => void;
         const ready = new Promise<void>(yes => { release = yes; });
