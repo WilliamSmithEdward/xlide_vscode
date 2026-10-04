@@ -365,6 +365,61 @@ describe('an editor that closes under a pending recase', () => {
 
 
 describe('canonical casing lifecycle and idle work', () => {
+	it('drops queued casing for an older document version before reading source', async () => {
+		const document = fakeDocument(SOURCE);
+		const editor = fakeEditor(document);
+		show(editor);
+		const casing = controller();
+		const read = vi.spyOn(document, 'getText');
+		let finish!: (value: boolean) => void;
+		editor.edit.mockImplementationOnce(() => new Promise<boolean>(resolve => { finish = resolve; }));
+		const first = casing.applyCanonicalCaseForLine(document as never, 0, editor as never);
+		await casing.applyCanonicalCaseForLine(document as never, 1, editor as never);
+		const readsBeforeTyping = read.mock.calls.length;
+		// A keystroke or line deletion makes the queued line/position stale.
+		document.version++;
+		finish(false);
+		await first;
+		await Promise.resolve();
+		expect(editor.edit).toHaveBeenCalledTimes(1);
+		expect(read).toHaveBeenCalledTimes(readsBeforeTyping);
+	});
+
+	it('continues past stale requests to casing queued by later typing', async () => {
+		const document = fakeDocument(SOURCE);
+		const editor = fakeEditor(document);
+		show(editor);
+		const casing = controller();
+		const read = vi.spyOn(document, 'getText');
+		let finish!: (value: boolean) => void;
+		editor.edit.mockImplementationOnce(() => new Promise<boolean>(resolve => { finish = resolve; }));
+		const first = casing.applyCanonicalCaseForLine(document as never, 0, editor as never);
+		await casing.applyCanonicalCaseForLine(document as never, 1, editor as never);
+		document.version++;
+		await casing.applyCanonicalCaseForLine(document as never, 2, editor as never);
+		finish(false);
+		await first;
+		await Promise.resolve();
+		expect(editor.replaced).toEqual(['End', 'Sub']);
+		expect(read.mock.calls.filter(args => args.length === 0)).toHaveLength(2);
+	});
+
+	it('keeps queued casing for the current document version', async () => {
+		const document = fakeDocument(SOURCE);
+		const editor = fakeEditor(document);
+		show(editor);
+		const casing = controller();
+		let finish!: (value: boolean) => void;
+		editor.edit.mockImplementationOnce(() => new Promise<boolean>(resolve => { finish = resolve; }));
+		const first = casing.applyCanonicalCaseForLine(document as never, 0, editor as never);
+		await casing.applyCanonicalCaseForLine(document as never, 1, editor as never);
+		finish(false);
+		await first;
+		await Promise.resolve();
+		expect(editor.replaced).toEqual(['Sub']);
+		expect(editor.edit).toHaveBeenCalledTimes(2);
+	});
+
 	it.each([1, 2])('drops queued recases when history changes during a pending edit (reason %s)', async (reason) => {
 		const document = fakeDocument(SOURCE);
 		document.isDirty = true;

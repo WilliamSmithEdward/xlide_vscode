@@ -28,6 +28,7 @@ const CANONICAL_LINE_IDLE_DELAY_MS = 200;
 
 type CanonicalCaseRequest = {
 	document: vscode.TextDocument;
+	documentVersion: number;
 	editorHint?: vscode.TextEditor;
 	resolveEdits: (source: string, ctx: CanonicalCaseContext) => CanonicalCaseEdit[];
 };
@@ -121,7 +122,7 @@ export class VbaCanonicalCaseController implements vscode.Disposable {
 	): Promise<void> {
 		if (this._disposed || document.isClosed) { return; }
 		if (this._applyingCanonicalCase) {
-			this._enqueueCanonicalCaseRequest({ document, editorHint, resolveEdits });
+			this._enqueueCanonicalCaseRequest({ document, documentVersion: document.version, editorHint, resolveEdits });
 			return;
 		}
 		this._applyingCanonicalCase = true;
@@ -172,9 +173,16 @@ export class VbaCanonicalCaseController implements vscode.Disposable {
 			}
 		} finally {
 			this._applyingCanonicalCase = false;
-			const next = this._pendingCanonicalCaseRequests.shift();
-			if (next) {
+			let next: CanonicalCaseRequest | undefined;
+			while ((next = this._pendingCanonicalCaseRequests.shift())) {
+				// Captured line numbers and caret offsets belong to this version.
+				// Newer content changes schedule their own pass; do not scan or
+				// edit newer text using a request from an earlier typing state.
+				if (next.document.isClosed || next.document.version !== next.documentVersion) {
+					continue;
+				}
 				void this._applyCanonicalCaseEdits(next.document, next.editorHint, next.resolveEdits);
+				break;
 			}
 		}
 	}
