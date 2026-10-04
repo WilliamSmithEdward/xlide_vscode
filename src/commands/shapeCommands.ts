@@ -21,6 +21,12 @@ export function registerShapeCommands(deps: CommandDeps): vscode.Disposable[] {
 		out,
 		goToMacro: (filePath, macro) => goToMacro(deps, filePath, macro),
 	};
+	/** A dialog must not turn a retired tree snapshot into a write target. */
+	const stillCurrent = (node: XlideNode, row: NonNullable<ReturnType<typeof explorer.shapeContextOf>>): boolean => {
+		if (explorer.shapeContextOf(node) === row) { return true; }
+		void vscode.window.showWarningMessage('XLIDE: The shape row changed while this action was open. Select it again and retry.');
+		return false;
+	};
 
 	/** Run a shape command, saying why it failed the way module writes do. */
 	const guarded = (what: string, run: (node: XlideNode) => Promise<void>) => async (node: XlideNode): Promise<void> => {
@@ -79,7 +85,7 @@ export function registerShapeCommands(deps: CommandDeps): vscode.Disposable[] {
 				{ modal: true },
 				'Delete',
 			);
-			if (choice !== 'Delete') { return; }
+			if (choice !== 'Delete' || !stillCurrent(node, row)) { return; }
 			await writeShapeEdit(editor, node.filePath, row.surface, { action: 'delete', name: row.shape.name }, 'xlide.deleteShape');
 			vscode.window.setStatusBarMessage(`XLIDE: Deleted shape "${row.shape.name}" from ${row.surface}.`, 6000);
 		})),
@@ -88,6 +94,7 @@ export function registerShapeCommands(deps: CommandDeps): vscode.Disposable[] {
 			const row = explorer.shapeContextOf(node);
 			if (!row?.shape) { return; }
 			const { macros } = await bridge.call<{ macros: ShapeMacro[] }>('shapeMacros', { path: node.filePath });
+			if (!stillCurrent(node, row)) { return; }
 			if (macros.length === 0) {
 				void vscode.window.showInformationMessage(
 					'XLIDE: The project has no Public Sub without required parameters for a shape to run. Write one first.',
@@ -104,7 +111,7 @@ export function registerShapeCommands(deps: CommandDeps): vscode.Disposable[] {
 				})),
 				{ title: `Link "${row.shape.name}" to a Sub`, placeHolder: 'The Sub a click on the shape runs' },
 			);
-			if (!pick) { return; }
+			if (!pick || !stillCurrent(node, row)) { return; }
 			await writeShapeEdit(editor, node.filePath, row.surface, { action: 'update', name: row.shape.name, macro: pick.macro }, 'xlide.linkShapeMacro');
 			vscode.window.setStatusBarMessage(`XLIDE: "${row.shape.name}" runs ${pick.macro}.`, 6000);
 		})),

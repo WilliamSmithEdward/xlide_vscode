@@ -229,7 +229,9 @@ export class ShapeRows {
 
 	/** The surface and shape a row stands for, for the commands on it. */
 	contextOf(node: XlideNode): ShapeRowContext | undefined {
-		return this.retired(node) ? undefined : this.contexts.get(node);
+		if (this.disposed || this.retired(node)
+			|| (node.kind === 'shape' && !this.shapeRenders.get(node)?.())) { return undefined; }
+		return this.contexts.get(node);
 	}
 
 	/** The row a row made here sits under, and the Sheets folder a sheet's module row sits under. */
