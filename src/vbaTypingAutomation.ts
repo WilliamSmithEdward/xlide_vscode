@@ -36,11 +36,11 @@ function soleVbaChange(e: vscode.TextDocumentChangeEvent): vscode.TextDocumentCo
  * start immediately.
  */
 export function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
-    let applying = false;
+    const applying = new WeakSet<vscode.TextDocument>();
 
     const sub = vscode.workspace.onDidChangeTextDocument(async (e) => {
-        if (applying) { return; }
         const doc = e.document;
+        if (applying.has(doc)) { return; }
         const change = soleVbaChange(e);
         if (!change) { return; }
         // React only to a plain Enter (newline plus optional auto-indent),
@@ -60,12 +60,12 @@ export function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
             // Hold the re-entrancy guard across the continuation edits too, so a
             // second change event (the edit itself, or a fast follow-up keystroke)
             // cannot start a concurrent continuation on the same line.
-            applying = true;
+            applying.add(doc);
             try {
                 if (await maybeContinueCommentLine(doc, openerLineIndex)) { return; }
                 await maybeContinueWithMemberLine(doc, openerLineIndex);
             } finally {
-                applying = false;
+                applying.delete(doc);
             }
             return;
         }
@@ -90,7 +90,7 @@ export function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
             new vscode.Position(bodyLineIndex, bodyLine.length),
         );
 
-        applying = true;
+        applying.add(doc);
         try {
             const applied = await editor.edit(
                 (eb) => {
@@ -109,7 +109,7 @@ export function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
             );
             if (!applied) { return; }
         } finally {
-            applying = false;
+            applying.delete(doc);
         }
 
         // Keep the caret on the indented body line, above the inserted End. The
@@ -277,11 +277,11 @@ async function replaceBodyLine(
  * behavior as completed loops.
  */
 export function registerVbaLoopIteratorSync(context: vscode.ExtensionContext): void {
-    let applying = false;
+    const applying = new WeakSet<vscode.TextDocument>();
 
     const sub = vscode.workspace.onDidChangeTextDocument(async (e) => {
-        if (applying) { return; }
         const doc = e.document;
+        if (applying.has(doc)) { return; }
         const change = soleVbaChange(e);
         if (!change) { return; }
         if (/[\r\n]/.test(change.text)) { return; }
@@ -297,7 +297,7 @@ export function registerVbaLoopIteratorSync(context: vscode.ExtensionContext): v
         const syncEdit = resolveLoopIteratorSyncEdit(doc.getText(), offset);
         if (!syncEdit) { return; }
 
-        applying = true;
+        applying.add(doc);
         try {
             await editor.edit(
                 (eb) => eb.replace(
@@ -310,7 +310,7 @@ export function registerVbaLoopIteratorSync(context: vscode.ExtensionContext): v
                 { undoStopBefore: false, undoStopAfter: false },
             );
         } finally {
-            applying = false;
+            applying.delete(doc);
         }
     });
 

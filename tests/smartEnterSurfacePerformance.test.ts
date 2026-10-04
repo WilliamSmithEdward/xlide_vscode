@@ -9,7 +9,7 @@ vi.mock('vscode', async () => ({
     Selection: class { constructor(public anchor: unknown, public active: unknown) {} },
 }));
 import * as vscode from 'vscode';
-import { registerVbaAutoBlock } from '../src/vbaTypingAutomation';
+import { registerVbaAutoBlock, registerVbaLoopIteratorSync } from '../src/vbaTypingAutomation';
 
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 
@@ -19,6 +19,12 @@ function enterScenario(source: string, previousLine: number) {
         uri: vscode.Uri.file('/enter.bas'), languageId: 'vba', eol: vscode.EndOfLine.LF,
         lineCount: lines.length, lineAt: (line: number) => ({ text: lines[line] }),
         getText: vi.fn(() => lines.join('\n')),
+        offsetAt: (position: vscode.Position) => lines.slice(0, position.line).reduce((total, line) => total + line.length + 1, 0) + position.character,
+        positionAt: (offset: number) => {
+            let line = 0;
+            while (line + 1 < lines.length && offset > lines[line].length) { offset -= lines[line++].length + 1; }
+            return new vscode.Position(line, offset);
+        },
     } as unknown as vscode.TextDocument;
     const replacements: string[] = [];
     const editor = {
@@ -40,11 +46,52 @@ function enterScenario(source: string, previousLine: number) {
             text: '\n',
         }],
     } as unknown as vscode.TextDocumentChangeEvent;
-    return { document, editor, replacements, lines, event, invoke: async () => { await listener(event); },
+    return { document, editor, replacements, lines, event, listener, invoke: async () => { await listener(event); },
         dispose: () => context.subscriptions.forEach(item => item.dispose()) };
 }
 
 describe('Smart Enter surface work', () => {
+    it('continues processing a different module while an earlier module edit is pending', async () => {
+        const first = enterScenario('Sub A()\n    If ready Then\n\nEnd Sub\n', 1);
+        const second = enterScenario('Sub B()\n    While ready\n\nEnd Sub\n', 1);
+        let finish!: (value: boolean) => void;
+        first.editor.edit.mockImplementationOnce(() => new Promise<boolean>(resolve => { finish = resolve; }));
+        Object.assign(vscode.window, { activeTextEditor: first.editor });
+        const pending = first.invoke();
+        try {
+            await first.invoke();
+            expect(first.editor.edit).toHaveBeenCalledTimes(1);
+            Object.assign(vscode.window, { activeTextEditor: second.editor });
+            await first.listener(second.event);
+            expect(second.editor.edit).toHaveBeenCalledTimes(1);
+            expect(second.replacements[0]).toContain('Wend');
+        } finally { finish(true); await pending; first.dispose(); second.dispose(); }
+    });
+
+    it('synchronizes another module while an earlier loop rename edit is pending', async () => {
+        const first = enterScenario('Sub A()\n    For i = 1 To 10\n    Next j\nEnd Sub\n', 1);
+        const second = enterScenario('Sub B()\n    For k = 1 To 10\n    Next j\nEnd Sub\n', 1);
+        const context = { subscriptions: [] } as unknown as vscode.ExtensionContext;
+        registerVbaLoopIteratorSync(context);
+        const listener = vi.mocked(vscode.workspace.onDidChangeTextDocument).mock.calls.at(-1)![0];
+        const eventFor = (document: vscode.TextDocument, letter: string) => ({
+            document, contentChanges: [{ text: letter, range: new vscode.Range(new vscode.Position(1, 8), new vscode.Position(1, 9)) }],
+        }) as unknown as vscode.TextDocumentChangeEvent;
+        let finish!: (value: boolean) => void;
+        first.editor.edit.mockImplementationOnce(() => new Promise<boolean>(resolve => { finish = resolve; }));
+        Object.assign(vscode.window, { activeTextEditor: first.editor });
+        const pending = listener(eventFor(first.document, 'i'));
+        try {
+            expect(first.editor.edit).toHaveBeenCalledTimes(1);
+            await listener(eventFor(first.document, 'i'));
+            expect(first.editor.edit).toHaveBeenCalledTimes(1);
+            Object.assign(vscode.window, { activeTextEditor: second.editor });
+            await listener(eventFor(second.document, 'k'));
+            expect(second.editor.edit).toHaveBeenCalledTimes(1);
+            expect(second.replacements).toEqual(['k']);
+        } finally { finish(true); await pending; context.subscriptions.forEach(item => item.dispose()); first.dispose(); second.dispose(); }
+    });
+
     it('does not scan an inactive module after a block-opener newline', async () => {
         const scenario = enterScenario('Sub T()\n    If ready Then\n\nEnd Sub\n', 1);
         try {
