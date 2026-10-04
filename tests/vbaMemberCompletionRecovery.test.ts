@@ -252,7 +252,6 @@ describe('member completion recovery on Backspace', () => {
     });
 });
 
-
 it('bounds cursor work before rejecting recovery in a continued comment of a large module', async () => {
     const prelude = Array.from({ length: 1200 }, (_, i) =>
         'Sub RecoveryPadding' + i + '()\nDebug.Print ' + i + '\nEnd Sub\n').join('') +

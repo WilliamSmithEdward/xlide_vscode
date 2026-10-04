@@ -180,7 +180,6 @@ describe('ordinary string completion work', () => {
     });
 });
 
-
 describe('completion provider cursor work', () => {
     it.each(["' ordinary comment", 'value = "ordinary', 'Application.Run "Main.Go"'])(
         'does not copy preceding procedures to classify %s', async line => {
