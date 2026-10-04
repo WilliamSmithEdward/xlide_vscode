@@ -2,6 +2,8 @@ import * as assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
+import { VbaTypeSemanticTokensProvider } from '../vbaSemanticTokensProvider';
+import type { VbaProjectIndexService } from '../vbaProjectIndexService';
 import { activate, closeAllEditors, open, until, workspaceRoot } from './support';
 
 async function probe(name: string, source: string, marker: string): Promise<{ document: vscode.TextDocument; editor: vscode.TextEditor; caret: vscode.Position }> {
@@ -41,6 +43,27 @@ suite('Completion editor surface', () => {
         await vscode.commands.executeCommand('hideSuggestWidget');
         await vscode.commands.executeCommand('workbench.action.revertAndCloseActiveEditor');
         await closeAllEditors();
+    });
+    test('invalidates semantic tokens across real document close/open language events', async () => {
+        const provider = new VbaTypeSemanticTokensProvider({} as VbaProjectIndexService);
+        const token = { isCancellationRequested: false } as vscode.CancellationToken;
+        try {
+            const { document } = await probe('SemanticReopen',
+                'Sub Demo()\n    Debug.Print ThisWorkbook.Name\nEnd Sub\n', 'ThisWorkbook');
+            const before = await provider.provideDocumentSemanticTokens(document, token);
+            assert.ok(before.data.length, 'initial file should have semantic tokens');
+            const version = document.version;
+            const language = document.languageId;
+            // Language changes emit close/open document events even when the
+            // workbench retains the file model after a tab closes.
+            const plain = await vscode.languages.setTextDocumentLanguage(document, 'plaintext');
+            const reopened = await vscode.languages.setTextDocumentLanguage(plain, language);
+            assert.equal(reopened.version, version, 'document lifecycle should preserve the same cache version');
+            const after = await provider.provideDocumentSemanticTokens(reopened, token);
+            assert.ok(after.data.length, 'reopened VBA document should have semantic tokens');
+            assert.notEqual(after, before, 'closed document token cache should have been discarded');
+            assert.deepEqual(Array.from(after.data), Array.from(before.data), 'unchanged source should retain its token positions');
+        } finally { provider.dispose(); }
     });
     test('serves repeated completion requests in a large unchanged module', async () => {
         const source = 'Sub Demo()\nDim value As Long\n' + 'value = value + 1\n'.repeat(3000) +

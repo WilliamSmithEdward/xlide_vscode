@@ -635,20 +635,24 @@ export function registerVbaDiagnostics(
         // and keeps per-document incremental state, so the follow-up full pass
         // of the same generation re-analyzes only what changed. Any failure
         // falls through to the identical in-host pass below.
-        if (workerClient?.available && projectPath && projectRecord) {
+        if (workerClient?.available && (!projectPath || projectRecord)) {
             try {
+                // Standalone exports do not need a project seed, but their
+                // analysis still belongs on the worker rather than the host.
                 const record = projectRecord;
-                const wbKey = projectKey(projectPath);
-                const crossGeneration = record.crossModuleGeneration(moduleName);
-                workerClient.ensureSeeded(wbKey, crossGeneration, () => record.modules.map((m) => ({
-                    moduleName: m.moduleName,
-                    source: m.source,
-                    type: m.type,
-                    documentType: m.documentType,
-                    implicitMembers: m.implicitMembers,
-                    predeclaredId: m.predeclaredId,
-                    designerClass: m.designerClass,
-                })));
+                const wbKey = projectPath ? projectKey(projectPath) : undefined;
+                const crossGeneration = record?.crossModuleGeneration(moduleName);
+                if (record && wbKey !== undefined && crossGeneration !== undefined) {
+                    workerClient.ensureSeeded(wbKey, crossGeneration, () => record.modules.map((m) => ({
+                        moduleName: m.moduleName,
+                        source: m.source,
+                        type: m.type,
+                        documentType: m.documentType,
+                        implicitMembers: m.implicitMembers,
+                        predeclaredId: m.predeclaredId,
+                        designerClass: m.designerClass,
+                    })));
+                }
                 const workerResult = await workerClient.analyze({
                     latestOnly: true,
                     docKey: key,
@@ -662,10 +666,10 @@ export function registerVbaDiagnostics(
                     severityOverrides: analysisSettings.ruleSeverityOverrides,
                     activeIncompleteExpressionOffset,
                     host: projectPath ? hostTokenForFileName(projectPath) : undefined,
-                    referencedHosts: referencedHostsByProject.get(wbKey),
-                    referencedLibraries: referencedLibrariesByProject.get(wbKey),
+                    referencedHosts: wbKey ? referencedHostsByProject.get(wbKey) : undefined,
+                    referencedLibraries: wbKey ? referencedLibrariesByProject.get(wbKey) : undefined,
                     designerClass,
-                    workbookSheets: workbookSheetsByProject.get(wbKey),
+                    workbookSheets: wbKey ? workbookSheetsByProject.get(wbKey) : undefined,
                 });
                 if (!scheduler.isCurrentRun(document, key, generation, documentVersion)) { return; }
                 const diagnostics = diagnosticsFromModuleAnalysis(
