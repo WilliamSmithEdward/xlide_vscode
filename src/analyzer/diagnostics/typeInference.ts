@@ -4406,6 +4406,7 @@ function mayLeaveEarly(
 function callEffectsFor(source: string, symbols: ReturnType<typeof buildModuleSymbols>, activity: ConditionalActivityTracker | undefined): CallEffects {
 	const kept = CALL_EFFECT_READERS.get(symbols);
 	if (kept && kept.source === source && kept.activity === activity) {
+		kept.source = source;
 		return kept.effects;
 	}
 	let procedures: Map<string, ProcedureNode | null> | undefined;
@@ -4513,6 +4514,7 @@ function declaredFactsFor(source: string, symbols: ReturnType<typeof buildModule
 	const cache = perProcedureCache(DECLARED_FACT_READERS, symbols);
 	const kept = cache.get(proc);
 	if (kept?.source === source) {
+		kept.source = source;
 		return kept.facts;
 	}
 	const types = new Map<string, string>();
