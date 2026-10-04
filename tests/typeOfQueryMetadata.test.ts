@@ -79,3 +79,18 @@ it('does not scan unused project metadata for a generic operand', () => {
 	const classes: VbaProjectClassMembers[] = [{ ...surface('Class1'), get name(): string { throw new Error('unused project lookup'); }, get implements(): string[] { throw new Error('unused interface lookup'); } }];
 	expect(run('Sub Go(ByVal actor As Object)\nIf TypeOf actor Is Collection Then\nDebug.Print 1\nEnd If\nEnd Sub\n', classes)).toEqual([]);
 });
+
+for (const kind of ['repeated-missing', 'distinct-missing', 'host-direct', 'host-reverse'] as const) {
+ it.each([10, 100, 1000])('bounds long Implements list reads at %i TypeOf expressions: ' + kind, count => {
+  let reads = 0;
+  const implemented = new Proxy(Array.from({ length: count }, (_, i) => i === count - 1 && kind.startsWith('host-') ? 'Worksheet' : 'Other' + i), {
+   get(target, key, receiver) { if (typeof key === 'string' && /^(0|[1-9]\d*)$/.test(key)) { reads++; } return Reflect.get(target, key, receiver); },
+  });
+  const classes = [surface('Class1', implemented), ...Array.from({ length: count }, (_, i) => surface('Class' + (i + 2)))];
+  const targets = Array.from({ length: count }, (_, i) => kind === 'host-direct' ? 'Worksheet' : kind === 'host-reverse' ? 'Class1' : 'Class' + (kind === 'distinct-missing' ? i + 2 : 2));
+  const source = sourceFor(targets).replace('actor As Class1', 'actor As ' + (kind === 'host-reverse' ? 'Worksheet' : 'Class1'));
+  expect(run(source, classes)).toEqual(kind.startsWith('host-') ? [] : expected(source, targets));
+  // One exclusion index, one shared-interface index and one membership index.
+  expect(reads).toBeLessThanOrEqual(count * 3);
+ });
+}

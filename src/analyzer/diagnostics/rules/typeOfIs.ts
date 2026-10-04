@@ -35,6 +35,7 @@ import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { PushFn } from '../analysisContext';
 import {
 	createObjectAssignmentTypeResolver,
+	createObjectTypeImplementationLookup,
 	createProjectInterfaceSharingLookup,
 	isKnownScalarType,
 	objectAssignmentIncompatibilityReason,
@@ -80,6 +81,7 @@ export function checkTypeOfMissingOperand(
 interface TypeOfQueries {
 	resolveType: ReturnType<typeof createObjectAssignmentTypeResolver>;
 	shareInterfaces: ReturnType<typeof createProjectInterfaceSharingLookup>;
+	implementsType: ReturnType<typeof createObjectTypeImplementationLookup>;
 	isImplemented: (key: string, display: string) => boolean;
 }
 
@@ -94,6 +96,7 @@ export function checkTypeOfIsCompatibility(
 	const queries: TypeOfQueries = {
 		resolveType: createObjectAssignmentTypeResolver(memberCtx),
 		shareInterfaces: createProjectInterfaceSharingLookup(memberCtx),
+		implementsType: createObjectTypeImplementationLookup(),
 		isImplemented: (key, display) => {
 			if (!implementedNames) {
 				implementedNames = new Set();
@@ -156,6 +159,7 @@ function checkTypeOfIs(
 		memberCtx,
 		queries.resolveType,
 		queries.shareInterfaces,
+		queries.implementsType,
 	) === undefined;
 	const targetCanBeOperand = objectAssignmentIncompatibilityReason(
 		declared,
@@ -163,6 +167,7 @@ function checkTypeOfIs(
 		memberCtx,
 		queries.resolveType,
 		queries.shareInterfaces,
+		queries.implementsType,
 	) === undefined;
 	if (operandCanBeTarget || targetCanBeOperand) {
 		return;
