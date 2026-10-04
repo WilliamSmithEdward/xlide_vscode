@@ -50,6 +50,27 @@ describe('resolved module readiness', () => {
         expect(explorer.getParent((await follow)!)).toMatchObject({ shapeFolder: 'sheets' });
     });
 
+    it('starts a current render after sheet refresh while an old catalog remains pending', async () => {
+        let resolve!: (value: unknown) => void, catalogCalls = 0;
+        const old = new Promise(yes => { resolve = yes; });
+        const call = vi.fn((method: string) => method === 'listModules'
+            ? Promise.resolve([{ name: 'Sheet1', type: 'document' }])
+            : ++catalogCalls === 1 ? old : Promise.resolve({ sheets: [{ name: 'New', codeName: 'Sheet1', kind: 'worksheet' }] }));
+        const explorer = create(call), [project] = await explorer.getChildren();
+        const drawing = explorer.getChildren(project);
+        await flush();
+        explorer.refreshShapes(BOOK);
+        let settled = false;
+        const fresh = explorer.getChildren(project).then(rows => { settled = true; return rows; });
+        await flush();
+        const completedBeforeOldRead = settled;
+        resolve({ sheets: [{ name: 'Old', codeName: 'Sheet1', kind: 'worksheet' }] });
+        await Promise.all([drawing, fresh]);
+        expect(completedBeforeOldRead).toBe(true);
+        expect(explorer.getModuleNode(BOOK, 'Sheet1')?.label).toBe('Sheet1 (New)');
+        expect(catalogCalls).toBe(2);
+    });
+
     it.each(['removed', 'failed'] as const)('does not resolve retained module objects when the new listing is %s', async outcome => {
         const call = vi.fn(async (method: string) => method === 'listModules'
             ? [{ name: 'M', type: 'standard' }] : { sheets: [] });

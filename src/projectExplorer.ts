@@ -250,6 +250,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
      * the tree moves.
      */
     refreshShapes(filePath: string, options: { shapesChanged?: boolean } = {}): void {
+        this._projectRenderLoads.delete(projectNodeKey(filePath));
         this._shapes.refresh(filePath, options);
     }
 
