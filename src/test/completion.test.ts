@@ -145,6 +145,63 @@ suite('Completion editor surface', () => {
             return document.lineAt(1).text.endsWith('.[Cells]') ? true : undefined;
         }, 'Backspace must reopen the bracketed member menu', 4000);
     });
+    test('inserts Err as an object rather than an empty function call', async () => {
+        const { document, editor, caret } = await probe('CompletionRuntimeObject', 'Sub Demo()\nSet obj = Er\nEnd Sub\n', 'Set obj = Er');
+        const item = (await completions(document, caret)).items.find(candidate => candidate.label === 'Err');
+        assert.ok(item);
+        const range = item.range instanceof vscode.Range ? item.range : item.range?.replacing;
+        assert.ok(range);
+        const insertText = item.insertText;
+        if (insertText instanceof vscode.SnippetString) {
+            await editor.insertSnippet(insertText, range);
+        } else {
+            await editor.edit(edit => edit.replace(range, insertText ?? 'Err'));
+        }
+        assert.equal(document.lineAt(1).text, 'Set obj = Err');
+    });
+    test('inserts parentheses for a bare host method in an expression', async () => {
+        const { document, editor, caret } = await probe('CompletionGlobalMethod', 'Sub Demo()\nSet obj = Uni\nEnd Sub\n', 'Set obj = Uni');
+        const item = (await completions(document, caret)).items.find(candidate => candidate.label === 'Union');
+        assert.ok(item);
+        assert.ok(item.insertText instanceof vscode.SnippetString);
+        const range = item.range instanceof vscode.Range ? item.range : item.range?.replacing;
+        assert.ok(range);
+        await editor.insertSnippet(item.insertText, range);
+        assert.equal(document.lineAt(1).text, 'Set obj = Union()');
+    });
+    test('keeps deleting through member prefixes with the smart Backspace command', async () => {
+        const expression = 'ThisWorkbook.Sheets(1).az';
+        const source = 'Public Property Get Demo() As Variant\nIf True Then\nEnd If\n' + expression + '\nEnd Property\n';
+        const { document } = await probe('CompletionRepeatedBackspace', source, expression);
+        for (let removed = 1; removed <= 10; removed++) {
+            await vscode.commands.executeCommand('xlide.vba.smartBackspace');
+            assert.equal(document.lineAt(3).text, expression.slice(0, -removed), `Backspace ${removed} must delete another character`);
+        }
+    });
+    test('keeps smart Backspace working while joining trailing blank lines', async () => {
+        const source = 'Sub Demo()\nEnd Sub\n' + '\n'.repeat(12);
+        const { document } = await probe('CompletionBackspaceLineJoin', source, 'End Sub');
+        await vscode.commands.executeCommand('cursorBottom');
+        for (let removed = 1; removed <= 12; removed++) {
+            await vscode.commands.executeCommand('xlide.vba.smartBackspace');
+            assert.equal(document.getText(), source.slice(0, -removed), `Backspace ${removed} must join the next blank line`);
+        }
+    });
+    test('measures typing and smart Backspace in a large module', async () => {
+        const source = 'Sub Demo()\nDim value As Long\n' + 'value = value + 1\n'.repeat(3000) + 'value = 12345\nEnd Sub\n';
+        const { document } = await probe('CompletionTypingWork', source, 'value = 12345');
+        const times: number[] = [];
+        for (const text of ['6', '7', '8', '9', '0']) {
+            const start = performance.now();
+            await vscode.commands.executeCommand('type', { text });
+            times.push(performance.now() - start);
+        }
+        for (let removed = 0; removed < 5; removed++) {
+            await vscode.commands.executeCommand('xlide.vba.smartBackspace');
+        }
+        assert.equal(document.lineAt(3002).text, 'value = 12345');
+        console.log(`Typing large module ms: [${times.map(time => time.toFixed(1)).join(',')}]`);
+    });
     test('does not offer code completions inside an ordinary string', async () => {
         const { document, caret } = await probe('CompletionString', 'Sub Demo()\nDebug.Print "hello"\nEnd Sub\n', 'hello');
         assert.equal((await completions(document, caret)).items.length, 0);

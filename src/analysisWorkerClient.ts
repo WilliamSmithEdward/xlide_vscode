@@ -1,5 +1,5 @@
 // Extension-host client for the analysis worker thread. Spawns lazily, tracks
-// per-project seed generations, and degrades permanently to the caller's
+// per-project seed generations, serializes requests, and degrades permanently to the caller's
 // in-host fallback path when the worker cannot start or dies: analysis
 // correctness never depends on the worker being alive.
 
@@ -15,6 +15,8 @@ import type { VbaModuleAnalysisDiagnostic, VbaModuleAnalysisFailure } from './vb
 import type { WorkbookSheetInfo } from './analyzer/symbols/sheetChanges';
 
 export interface WorkerAnalyzeRequest {
+	/** Live diagnostics may replace queued snapshots of the same document. */
+	latestOnly?: boolean;
 	docKey: string;
 	projectKey?: string;
 	generation?: number;
@@ -51,6 +53,7 @@ interface PendingRequest {
 	reject: (err: Error) => void;
 	request: WorkerAnalyzeRequest;
 	retried: boolean;
+	seedProvider?: () => WorkerSeedModule[];
 	watchdog: ReturnType<typeof setTimeout>;
 }
 
@@ -60,12 +63,14 @@ interface PendingRequest {
 // in-host fallback never engages. Far beyond any legitimate analysis (the
 // giant-module corpus completes in single-digit seconds), so firing means
 // the worker is gone: fail it and let callers take the in-host path.
+// Only the dispatched request is timed; queue waiting is not analysis time.
 const WORKER_REQUEST_TIMEOUT_MS = 30_000;
 
 export class AnalysisWorkerClient {
 	private _worker: Worker | undefined;
 	private _failed = false;
 	private _nextRequestId = 1;
+	private readonly _queue: Omit<PendingRequest, 'watchdog'>[] = [];
 	private readonly _pending = new Map<number, PendingRequest>();
 	private readonly _seededGenerations = new Map<string, number>();
 
@@ -78,16 +83,13 @@ export class AnalysisWorkerClient {
 	) {}
 
 	/**
-	 * Ensures the worker holds this project's module sources at `generation`.
-	 * The provider is retained so a needSeed round-trip can reseed on its own.
+	 * Retains the seed provider for dispatch and a needSeed retry. Each queued
+	 * request captures its provider, so a newer project cannot change its seed.
 	 */
-	ensureSeeded(projectKey: string, generation: number, modules: () => WorkerSeedModule[]): void {
+	ensureSeeded(projectKey: string, _generation: number, modules: () => WorkerSeedModule[]): void {
 		this._seedProviders.set(projectKey, modules);
-		const worker = this._ensureWorker();
-		if (!worker) {
-			return;
-		}
-		this._postSeed(worker, projectKey, generation);
+		// Seed immediately before dispatch so queued generations cannot interfere.
+		this._ensureWorker();
 	}
 
 	/** False once the worker failed to start or died; callers use the sync path. */
@@ -107,14 +109,35 @@ export class AnalysisWorkerClient {
 		if (!worker) {
 			return Promise.reject(new Error('Analysis worker unavailable.'));
 		}
-		if (request.projectKey !== undefined && request.generation !== undefined) {
-			this._postSeed(worker, request.projectKey, request.generation);
-		}
 		return new Promise<WorkerAnalyzeResult>((resolve, reject) => {
-			const requestId = this._nextRequestId++;
-			this._track(requestId, { resolve, reject, request, retried: false });
-			worker.postMessage({ kind: 'analyze', requestId, ...request } satisfies AnalysisWorkerRequest);
+			if (request.latestOnly) {
+				for (let i = this._queue.length - 1; i >= 0; i--) {
+					const queued = this._queue[i];
+					if (queued.request.latestOnly && queued.request.docKey === request.docKey) {
+						this._queue.splice(i, 1);
+						const error = new Error('Analysis snapshot superseded.');
+						error.name = 'AnalysisSnapshotSuperseded';
+						queued.reject(error);
+					}
+				}
+			}
+			this._queue.push({ resolve, reject, request, retried: false,
+				seedProvider: request.projectKey ? this._seedProviders.get(request.projectKey) : undefined });
+			this._dispatchNext();
 		});
+	}
+
+	private _dispatchNext(): void {
+		if (this._failed || this._pending.size > 0) { return; }
+		const next = this._queue.shift();
+		const worker = this._worker;
+		if (!next || !worker) { return; }
+		if (next.request.projectKey !== undefined && next.request.generation !== undefined) {
+			this._postSeed(worker, next.request.projectKey, next.request.generation, next.seedProvider);
+		}
+		const requestId = this._nextRequestId++;
+		this._track(requestId, next);
+		worker.postMessage({ kind: 'analyze', requestId, ...next.request } satisfies AnalysisWorkerRequest);
 	}
 
 	private _track(requestId: number, base: Omit<PendingRequest, 'watchdog'>): void {
@@ -133,11 +156,11 @@ export class AnalysisWorkerClient {
 		}
 	}
 
-	private _postSeed(worker: Worker, projectKey: string, generation: number): void {
+	private _postSeed(worker: Worker, projectKey: string, generation: number, provider = this._seedProviders.get(projectKey)): void {
 		if (this._seededGenerations.get(projectKey) === generation) {
 			return;
 		}
-		const modules = this._seedProviders.get(projectKey)?.();
+		const modules = provider?.();
 		if (!modules) {
 			return;
 		}
@@ -185,11 +208,12 @@ export class AnalysisWorkerClient {
 			clearTimeout(pending.watchdog);
 			if (pending.retried) {
 				pending.reject(new Error('Analysis worker seed mismatch.'));
+				this._dispatchNext();
 				return;
 			}
 			this._seededGenerations.delete(response.projectKey);
 			if (pending.request.projectKey !== undefined && pending.request.generation !== undefined) {
-				this._postSeed(worker, pending.request.projectKey, pending.request.generation);
+				this._postSeed(worker, pending.request.projectKey, pending.request.generation, pending.seedProvider);
 			}
 			const requestId = this._nextRequestId++;
 			this._track(requestId, { ...pending, retried: true });
@@ -200,6 +224,7 @@ export class AnalysisWorkerClient {
 		clearTimeout(pending.watchdog);
 		if (response.kind === 'error') {
 			pending.reject(new Error(response.message));
+			this._dispatchNext();
 			return;
 		}
 		pending.resolve({
@@ -208,6 +233,7 @@ export class AnalysisWorkerClient {
 			incrementalMode: response.incrementalMode,
 			...(response.analysisFailures ? { analysisFailures: response.analysisFailures } : {}),
 		});
+		this._dispatchNext();
 	}
 
 	private _fail(reason: string): void {
@@ -227,5 +253,6 @@ export class AnalysisWorkerClient {
 			pending.reject(err);
 		}
 		this._pending.clear();
+		for (const queued of this._queue.splice(0)) { queued.reject(err); }
 	}
 }

@@ -147,6 +147,23 @@ afterEach(() => {
 });
 
 describe('what the canonical-case controller counts as typing', () => {
+	it('defers canonical analysis during caret updates caused by typing or Backspace', async () => {
+		const document = fakeDocument(SOURCE);
+		document.isDirty = true;
+		const editor = fakeEditor(document);
+		show(editor);
+		const casing = controller();
+		const read = vi.spyOn(document, 'getText');
+		for (let character = 1; character <= 10; character++) {
+			casing.handleTextDocumentChange(changed(document, 0, character - 1, character - 1, 'x'));
+			editor.selection = { active: new vscode.Position(0, character) };
+			casing.handleSelectionChange({ textEditor: editor } as unknown as vscodeTypes.TextEditorSelectionChangeEvent);
+		}
+		expect(read).not.toHaveBeenCalled();
+		await vi.advanceTimersByTimeAsync(250);
+		expect(editor.replaced).toEqual(['Option', 'Explicit']);
+	});
+
 	it('leaves a reloaded line alone: the change left the document matching its file', async () => {
 		const document = fakeDocument(SOURCE);
 		const editor = fakeEditor(document);

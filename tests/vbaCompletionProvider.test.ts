@@ -138,6 +138,23 @@ describe('completion provider surface', () => {
         expect(item?.range).toEqual(new vscode.Range(1, 8, 1, 12));
         expect(typeof item?.insertText === 'string' ? item.insertText : item?.insertText?.value).toBe('Left$($0)');
     });
+    it.each(['Err', 'Debug', 'UserForms'])('inserts the runtime object %s without call parentheses', async name => {
+        const line = `Set obj = ${name.slice(0, -1)}`;
+        const result = await request(line);
+        const item = result.items.find(item => item.label === name);
+        expect(item).toBeDefined();
+        expect(item?.insertText).toBe(name);
+        if (name !== 'Err') { expect(callableCompletionShouldInsertParens).not.toHaveBeenCalled(); }
+    });
+    it.each([
+        ['Set obj = Uni', 'Union', 'Union($0)'],
+        ['Call Uni', 'Union', 'Union($0)'],
+        ['Uni', 'Union', 'Union'],
+    ])('preserves callable host globals for %s', async (line, name, expected) => {
+        const item = (await request(line)).items.find(item => item.label === name);
+        expect(item).toBeDefined();
+        expect(typeof item?.insertText === 'string' ? item.insertText : item?.insertText?.value).toBe(expected);
+    });
     it('skips callable classification for a property-only list', async () => {
         const result = await request('ThisWorkbook.Sheets(1).ce');
         expect(result.items.map(item => item.label)).toContain('Cells');

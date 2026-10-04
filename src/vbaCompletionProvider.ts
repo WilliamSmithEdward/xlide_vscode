@@ -591,7 +591,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 		if (id.documentation) {
 			item.documentation = new vscode.MarkdownString(id.documentation);
 		}
-		const callable = id.kind === 'runtime' || id.kind === 'procedure';
+		const callable = id.callable ?? (id.kind === 'runtime' || id.kind === 'procedure');
 		this._applyCompletionInsert(
 			item,
 			id.name,
@@ -733,6 +733,8 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 	}
 
 	private _identItemKind(id: IdentifierCompletion): vscode.CompletionItemKind {
+		if (id.callable === false && id.kind === 'runtime') { return vscode.CompletionItemKind.Variable; }
+		if (id.callable === true && id.kind === 'global') { return vscode.CompletionItemKind.Function; }
 		switch (id.kind) {
 			case 'procedure':
 				return vscode.CompletionItemKind.Method;

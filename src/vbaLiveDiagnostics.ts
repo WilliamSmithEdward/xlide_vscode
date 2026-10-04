@@ -627,6 +627,7 @@ export function registerVbaDiagnostics(
         fullPassMetadataRetries.delete(key);
 
         const analysisSettings = await analysisSettingsForDiagnostics(projectPath);
+        if (!scheduler.isCurrentRun(document, key, generation, documentVersion)) { return; }
         const activeEditor = vscode.window.activeTextEditor;
         const activeIncompleteExpressionOffset = activeEditor?.document === document
             ? document.offsetAt(activeEditor.selection.active)
@@ -654,6 +655,7 @@ export function registerVbaDiagnostics(
                     designerClass: m.designerClass,
                 })));
                 const workerResult = await workerClient.analyze({
+                    latestOnly: true,
                     docKey: key,
                     projectKey: wbKey,
                     generation: crossGeneration,
@@ -678,12 +680,15 @@ export function registerVbaDiagnostics(
                 );
                 publishDiagnosticsIfCurrent(document, key, generation, documentVersion, pass, diagnostics);
                 return;
-            } catch {
+            } catch (err) {
+                if (err instanceof Error && err.name === 'AnalysisSnapshotSuperseded') { return; }
                 // Worker unavailable or died mid-request: fall through to the
                 // in-host pass, which produces identical results.
             }
         }
 
+        // A failed or superseded worker request must not analyze an obsolete snapshot.
+        if (!scheduler.isCurrentRun(document, key, generation, documentVersion)) { return; }
         const moduleAnalysis = analyzeVbaModuleSource({
             source: text,
             moduleName,

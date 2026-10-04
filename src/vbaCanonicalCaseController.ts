@@ -38,11 +38,11 @@ interface CanonicalLineOptions {
 
 function canonicalCandidateFromEditor(
 	editor: vscode.TextEditor | undefined,
-): { editor: vscode.TextEditor; position: vscode.Position } | undefined {
+): { editor: vscode.TextEditor; position: vscode.Position; documentVersion: number } | undefined {
 	if (!editor || !isVbaDocument(editor.document)) {
 		return undefined;
 	}
-	return { editor, position: editor.selection.active };
+	return { editor, position: editor.selection.active, documentVersion: editor.document.version };
 }
 
 export class VbaCanonicalCaseController {
@@ -294,6 +294,13 @@ export class VbaCanonicalCaseController {
 				{ completeProcedureHeader: true },
 			);
 		} else if (previous?.editor === event.textEditor) {
+			// Caret movement following an edit is part of typing/Backspace, not
+			// navigation. The content-change handler already scheduled an idle
+			// line pass; do not analyze the changing module on every keystroke.
+			if (previous.documentVersion !== event.textEditor.document.version) {
+				this._lastCanonicalCandidate = canonicalCandidateFromEditor(event.textEditor);
+				return;
+			}
 			const nextPosition = event.textEditor.selection.active;
 			if (previous.position.line !== nextPosition.line) {
 				this._applyCanonicalLine(

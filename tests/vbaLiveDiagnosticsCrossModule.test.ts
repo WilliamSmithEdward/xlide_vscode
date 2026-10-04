@@ -48,6 +48,8 @@ vi.mock('vscode', async () => {
 });
 
 import * as vscode from 'vscode';
+import * as moduleAnalysis from '../src/vbaModuleAnalysis';
+import type { AnalysisWorker } from '../src/vbaProjectWideAnalysis';
 import { registerVbaDiagnostics } from '../src/vbaLiveDiagnostics';
 import { VbaSymbolIndex } from '../src/vbaSymbolIndex';
 import { VbaProjectIndexService } from '../src/vbaProjectIndexService';
@@ -184,5 +186,30 @@ describe('diagnostics across modules', () => {
         // HelperMod's run shows the change was taken in and analyzed.
         await until(() => expect(publishes(helper)).toBe(helperBefore + 1));
         expect(publishes(caller)).toBe(callerBefore);
+    });
+});
+
+
+describe('obsolete worker snapshots', () => {
+    it('does not run synchronous fallback for a stale failed request', async () => {
+        const caller = moduleDocument('CallerMod', CALLER);
+        documents().push(caller);
+        const analyze = vi.spyOn(moduleAnalysis, 'analyzeVbaModuleSource');
+        let reject!: (err: Error) => void;
+        const worker = {
+            available: true, ensureSeeded: () => undefined, forget: () => undefined,
+            analyze: vi.fn(() => new Promise<never>((_resolve, fail) => { reject = fail; })),
+        } as unknown as AnalysisWorker;
+        registerVbaDiagnostics({ subscriptions: [] } as unknown as vscodeTypes.ExtensionContext,
+            new VbaProjectIndexService(new VbaSymbolIndex(fakeProjectEngine([
+                { name: 'CallerMod', type: 'standard', source: CALLER },
+            ]))), worker);
+        await until(() => expect(worker.analyze).toHaveBeenCalled());
+        Object.defineProperty(caller, 'version', { value: 2 });
+        reject(new Error('worker timeout'));
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(analyze).not.toHaveBeenCalled();
+        analyze.mockRestore();
     });
 });

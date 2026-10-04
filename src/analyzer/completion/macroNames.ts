@@ -57,11 +57,19 @@ function previous(tokens: readonly VbaToken[], i: number): VbaToken | undefined 
  */
 export function macroNameStringAt(source: string, offset: number, ctx: SignatureHelpContext = {}): MacroNameString | undefined {
 	const tokens = tokenizeCached(source);
-	const index = tokens.findIndex((tok) => tok.kind === 'stringLiteral' && offset > tok.start && offset <= tok.end);
-	if (index < 0) {
+	// Tokens are ordered and do not overlap. Locate the first token whose
+	// end reaches the caret instead of scanning the full module per request.
+	let lo = 0;
+	let hi = tokens.length;
+	while (lo < hi) {
+		const mid = (lo + hi) >> 1;
+		if (tokens[mid].end < offset) { lo = mid + 1; } else { hi = mid; }
+	}
+	const index = lo;
+	const token = tokens[index];
+	if (!token || token.kind !== 'stringLiteral' || offset <= token.start || offset > token.end) {
 		return undefined;
 	}
-	const token = tokens[index];
 	// Empty strings and strings ending in an escaped quote still have a closing delimiter.
 	const closed = /^"(?:[^"]|"")*"$/.test(token.rawText);
 	const contentSpan: Span = { start: token.start + 1, end: closed ? token.end - 1 : token.end };
@@ -70,12 +78,12 @@ export function macroNameStringAt(source: string, offset: number, ctx: Signature
 	const word = before?.rawText.toLowerCase();
 	// `shp.OnAction = "Proc"` and `.OnAction = "Proc"`.
 	if (word === '=') {
-		const target = previous(tokens, tokens.indexOf(before!));
+		const target = previous(tokens, index - 1);
 		return target?.rawText.toLowerCase() === 'onaction' ? { text, contentSpan } : undefined;
 	}
 	// `handlerProc:="Proc"`, a named argument.
 	if (word === ':=') {
-		const named = previous(tokens, tokens.indexOf(before!));
+		const named = previous(tokens, index - 1);
 		return named && MACRO_PARAMETER.test(named.rawText) ? { text, contentSpan } : undefined;
 	}
 	const help = resolveSignatureHelp(source, token.start + 1, ctx);
