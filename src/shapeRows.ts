@@ -129,6 +129,7 @@ export class ShapeRows {
 	/** The rows under a workbook's folder of bare sheets: module rows for empty sheet modules, sheet rows for sheets with none. */
 	private readonly bareRows = new WeakMap<XlideNode, XlideNode[]>();
 	private generation = 0;
+	private readonly renderVersions = new Map<string, number>();
 	private disposed = false;
 
 	constructor(
@@ -146,6 +147,7 @@ export class ShapeRows {
 	/** Forget every listing and row: the tree is being drawn again from the files. */
 	clear(): void {
 		this.generation++;
+		this.renderVersions.clear();
 		this.listings.clear();
 		this.stale.clear();
 		this.loads.clear();
@@ -169,7 +171,9 @@ export class ShapeRows {
 	 * screen.
 	 */
 	refresh(filePath: string, options: { shapesChanged?: boolean } = {}): void {
+		if (this.disposed) { return; }
 		const project = projectIdentityKey(filePath);
+		this.renderVersions.set(project, (this.renderVersions.get(project) ?? 0) + 1);
 		this.failures.delete(project);
 		this.loads.delete(project);
 		if (this.listings.has(project)) { this.stale.add(project); }
@@ -199,6 +203,14 @@ export class ShapeRows {
 		});
 	}
 
+	/** A refresh revokes derived rows as well as the reads that populate caches. */
+	private renderCurrent(filePath: string): () => boolean {
+		const project = projectIdentityKey(filePath);
+		const generation = this.generation;
+		const version = this.renderVersions.get(project) ?? 0;
+		return () => generation === this.generation && version === (this.renderVersions.get(project) ?? 0);
+	}
+
 	/** The surface and shape a row stands for, for the commands on it. */
 	contextOf(node: XlideNode): ShapeRowContext | undefined {
 		return this.contexts.get(node);
@@ -216,6 +228,7 @@ export class ShapeRows {
 	 */
 	async moduleFolder(module: XlideNode): Promise<XlideNode | undefined> {
 		if (this.disposed) { return undefined; }
+		const current = this.renderCurrent(module.filePath);
 		const host = shapeHostForPath(module.filePath);
 		if (!module.moduleName || !host) {
 			return undefined;
@@ -233,6 +246,7 @@ export class ShapeRows {
 		}
 		const surfaces = await this.surfacesIfAny(module.filePath);
 		if (this.disposed) { return undefined; }
+		if (!current()) { return this.moduleFolder(module); }
 		const sheet = sheetOfModule(surfaces, module.moduleName);
 		if (!sheet || sheet.shapes.length === 0) {
 			return undefined;
@@ -254,6 +268,7 @@ export class ShapeRows {
 		modules: readonly XlideNode[],
 	): Promise<{ folders: XlideNode[]; modules: XlideNode[] }> {
 		if (this.disposed) { return { folders: [], modules: [] }; }
+		const current = this.renderCurrent(project.filePath);
 		if (shapeHostForPath(project.filePath) === 'powerpoint') {
 			const slides = this.folder(project.filePath, 'slides', 'Slides');
 			this.parents.set(slides, project);
@@ -261,6 +276,7 @@ export class ShapeRows {
 		}
 		const catalog = await this.catalog(project.filePath);
 		if (this.disposed) { return { folders: [], modules: [] }; }
+		if (!current()) { return this.projectRows(project, modules); }
 		if (!catalog) {
 			return { folders: [], modules: [...modules] };
 		}
@@ -294,6 +310,8 @@ export class ShapeRows {
 
 	/** The rows under a row made here. */
 	async children(node: XlideNode, modulesOf: () => Promise<readonly XlideNode[]>): Promise<XlideNode[]> {
+		if (this.disposed) { return []; }
+		const current = this.renderCurrent(node.filePath);
 		if (node.kind === 'shape') {
 			const context = this.contexts.get(node);
 			return context
@@ -302,7 +320,10 @@ export class ShapeRows {
 		}
 		if (node.kind !== 'shapes' && node.kind !== 'surface') { return []; }
 		if (node.shapeFolder === 'sheets') {
-			return this.sheetRows(node, await modulesOf());
+			const modules = await modulesOf();
+			if (this.disposed) { return []; }
+			if (!current()) { return this.children(node, modulesOf); }
+			return this.sheetRows(node, modules, modulesOf);
 		}
 		if (node.shapeFolder === 'bareSheets') {
 			return this.bareRows.get(node) ?? [];
@@ -314,8 +335,12 @@ export class ShapeRows {
 		try {
 			surfaces = await this.surfaces(node.filePath);
 		} catch (err) {
+			if (this.disposed) { return []; }
+			if (!current()) { return this.children(node, modulesOf); }
 			return [this.infoRow(node, 'Shapes could not be read', err instanceof Error ? err.message : String(err))];
 		}
+		if (this.disposed) { return []; }
+		if (!current()) { return this.children(node, modulesOf); }
 		if (node.kind === 'surface') {
 			const surface = surfaces.find((s) => s.surface === node.surface);
 			if (host !== 'excel') {
@@ -531,10 +556,15 @@ export class ShapeRows {
 	 * format it does not read, a drawing that would not parse - counts as no
 	 * shapes, so the sheet is still listed, in that folder.
 	 */
-	private async sheetRows(folder: XlideNode, modules: readonly XlideNode[]): Promise<XlideNode[]> {
+	private async sheetRows(folder: XlideNode, modules: readonly XlideNode[], modulesOf: () => Promise<readonly XlideNode[]>): Promise<XlideNode[]> {
+		const current = this.renderCurrent(folder.filePath);
 		const catalog = (await this.catalog(folder.filePath)) ?? [];
-		this.sheetsDrawn.set(projectIdentityKey(folder.filePath), catalogSignature(catalog));
+		if (this.disposed) { return []; }
+		if (!current()) { return this.children(folder, modulesOf); }
 		const surfaces = await this.surfacesIfAny(folder.filePath);
+		if (this.disposed) { return []; }
+		if (!current()) { return this.children(folder, modulesOf); }
+		this.sheetsDrawn.set(projectIdentityKey(folder.filePath), catalogSignature(catalog));
 		const bySurface = new Map<string, ShapeSurface>();
 		for (const surface of surfaces) {
 			const name = surface.surface;
@@ -640,6 +670,9 @@ export class ShapeRows {
 		if (!node) {
 			node = { kind: 'surface', label: surface, filePath, surface };
 			this.folders.set(key, node);
+		} else {
+			node.label = surface;
+			node.surface = surface;
 		}
 		return node;
 	}
