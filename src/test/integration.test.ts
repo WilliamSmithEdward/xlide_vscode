@@ -8,6 +8,7 @@ import './typeLookbackSurfaces.test';
 import './formatting.test';
 import './deadCode.test';
 import './gitCompare.test';
+import './immediateCompletionSurfaces.test';
 import './officeIntegration.test';
 import './crossModuleDiagnostics.test';
 import './canonicalCasing.test';
