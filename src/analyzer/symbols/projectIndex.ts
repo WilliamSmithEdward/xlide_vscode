@@ -570,6 +570,8 @@ export class ProjectIndex {
 	/** Open-file facts of unchanged modules survive edits elsewhere in the project. */
 	private readonly moduleOpenedFileNumbers = new Map<string, OpenedFileNumbers>();
 	private readonly moduleMentionedNames = new Map<string, ReadonlySet<string>>();
+	/** Local visibility contributions survive edits to other modules. */
+	private readonly moduleContributions = new Map<string, Map<string, unknown>>();
 	/** Whole-project query memo for the current index revision. */
 	private readonly queryCache = new Map<string, unknown>();
 
@@ -628,6 +630,7 @@ export class ProjectIndex {
 
 	/** Drops module-derived artifacts and every whole-project query memo. */
 	private invalidate(key: string): void {
+		this.moduleContributions.delete(key);
 		this.moduleResolvedConstants.delete(key);
 		this.moduleImplementsLists.delete(key);
 		this.queryCache.clear();
@@ -645,7 +648,7 @@ export class ProjectIndex {
 
 	/**
 	 * Memoizes one module's part of a per-module visibility query until the
-	 * indexed modules change. A module contributes one of two answers - to
+	 * contributing module changes. A module contributes one of two answers - to
 	 * its own queries, or to every other module's - so asking a query for
 	 * each of N modules no longer walks every module's symbols N times.
 	 * Callers keep their loop over modules, so answers and their order are
@@ -662,8 +665,17 @@ export class ProjectIndex {
 		sameModule: boolean,
 		compute: () => T,
 	): T {
-		const side = sameModule ? 'own' : 'other';
-		return this.cached(`contribution:${query}:${side}:${mod.moduleName.toLowerCase()}`, compute);
+		const moduleKey = mod.moduleName.toLowerCase();
+		let parts = this.moduleContributions.get(moduleKey);
+		if (!parts) {
+			parts = new Map<string, unknown>();
+			this.moduleContributions.set(moduleKey, parts);
+		}
+		const key = `${query}:${sameModule ? 'own' : 'other'}`;
+		if (!parts.has(key)) {
+			parts.set(key, compute());
+		}
+		return parts.get(key) as T;
 	}
 
 	/** Resolved integer constant values of one module, computed at most once. */
