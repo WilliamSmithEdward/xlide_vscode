@@ -23,6 +23,7 @@ import './deleteModule.test';
 import './docComments.test';
 import './identifierSurfaces.test';
 import './projectReferences.test';
+import './identifierSnapshotSurfaces.test';
 import './shapes.test';
 import './smartEnterSurfaces.test';
 import './grammar.test';
