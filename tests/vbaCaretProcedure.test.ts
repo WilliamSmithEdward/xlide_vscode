@@ -171,3 +171,63 @@ describe('what it costs', () => {
         expect(seen.map((p) => p?.label)).toEqual(['Sub Posted']);
     });
 });
+
+function switchTo(value: ReturnType<typeof editor> | undefined): void {
+    setActiveEditor(value);
+    (mock.editorChanged as { fire: (v: unknown) => void }).fire(value);
+}
+
+describe('procedure ranges across tab switches', () => {
+    it('scans each unchanged document only once while alternating tabs', () => {
+        const a = editor(3);
+        const b = editor(8);
+        b.document.uri.toString = () => 'xlide-vba:/Book.xlsm/Other.bas';
+        setActiveEditor(a);
+        track();
+        for (let i = 0; i < 100; i++) {
+            switchTo(b);
+            expect(tracker?.current?.label).toBe('Function Total');
+            switchTo(a);
+            expect(tracker?.current?.label).toBe('Sub Post');
+        }
+        expect(a.document.getText).toHaveBeenCalledTimes(1);
+        expect(b.document.getText).toHaveBeenCalledTimes(1);
+    });
+
+    it('rescans an edited inactive document and keeps the other cache entry', () => {
+        const a = editor(3);
+        const b = editor(8);
+        b.document.uri.toString = () => 'xlide-vba:/Book.xlsm/Other.bas';
+        setActiveEditor(a);
+        track();
+        switchTo(b);
+        a.document.version++;
+        a.document.getText.mockReturnValue(SOURCE.replace('Sub Post()', 'Sub Posted()'));
+        switchTo(a);
+        expect(tracker?.current?.label).toBe('Sub Posted');
+        switchTo(b);
+        switchTo(a);
+        expect(a.document.getText).toHaveBeenCalledTimes(2);
+        expect(b.document.getText).toHaveBeenCalledTimes(1);
+    });
+
+    it('rescans a reopened document even when its URI and version repeat', () => {
+        setActiveEditor(editor(3));
+        track();
+        const reopened = editor(3, SOURCE.replace('Sub Post()', 'Sub Reopened()'));
+        switchTo(reopened);
+        expect(tracker?.current?.label).toBe('Sub Reopened');
+        expect(reopened.document.getText).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps cached ranges when focus leaves the editor and returns', () => {
+        const one = editor(3);
+        setActiveEditor(one);
+        track();
+        switchTo(undefined);
+        expect(tracker?.current).toBeUndefined();
+        switchTo(one);
+        expect(tracker?.current?.label).toBe('Sub Post');
+        expect(one.document.getText).toHaveBeenCalledTimes(1);
+    });
+});

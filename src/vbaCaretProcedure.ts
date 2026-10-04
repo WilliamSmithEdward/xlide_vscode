@@ -33,11 +33,11 @@ export class VbaCaretProcedureTracker implements vscode.Disposable {
     private readonly _disposables: vscode.Disposable[] = [];
     private _current: VbaCaretPosition | undefined;
     /**
-     * The active document's procedure ranges, keyed by document and version.
-     * Rescanning a large module on every caret move would be the whole cost of
-     * this; the version makes an edit, and only an edit, pay for it.
+     * Procedure ranges for each document's current version. Tab switches reuse
+     * them; an edit rescans only that document. Weak keys do not keep closed
+     * documents alive, and a reopened document starts with a fresh entry.
      */
-    private _ranges: { key: string; ranges: VbaProcedureRange[] } | undefined;
+    private readonly _ranges = new WeakMap<vscode.TextDocument, { version: number; ranges: VbaProcedureRange[] }>();
 
     constructor() {
         this._disposables.push(
@@ -75,11 +75,13 @@ export class VbaCaretProcedureTracker implements vscode.Disposable {
         if (!location) {
             return undefined;
         }
-        const key = `${editor.document.uri.toString()}@${editor.document.version}`;
-        if (this._ranges?.key !== key) {
-            this._ranges = { key, ranges: vbaProcedureRanges(editor.document.getText()) };
+        const document = editor.document;
+        let cached = this._ranges.get(document);
+        if (cached?.version !== document.version) {
+            cached = { version: document.version, ranges: vbaProcedureRanges(document.getText()) };
+            this._ranges.set(document, cached);
         }
-        const procedure = vbaProcedureAtLine(this._ranges.ranges, editor.selection.active.line);
+        const procedure = vbaProcedureAtLine(cached.ranges, editor.selection.active.line);
         return {
             projectPath: location.projectPath,
             moduleName: location.moduleName,
