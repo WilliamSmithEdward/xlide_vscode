@@ -14,6 +14,7 @@ const vscodeMock = vi.hoisted(() => ({
 vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({
     EventEmitter: class {
         event = vi.fn();
+        dispose = vi.fn();
         fire = vi.fn((node?: unknown) => {
             vscodeMock.treeEvents.push(node);
         });
@@ -758,5 +759,51 @@ describe('a module that differs from the last commit stands out', () => {
         expect(redrawn).toContain('module:Loose');
         expect(redrawn).toContain('project:');
         expect(explorer.getTreeItem(explorer.getModuleNode(BOOK, 'Ledger')!).id).toBe(before);
+    });
+});
+
+
+describe('indexed folder layout ownership and paths', () => {
+    it('keeps first-spelling paths and existing noncanonical path normalization', async () => {
+        const explorer = await foldersExplorer([
+            { name: 'First', type: 'standard', folder: 'Accounts.Ledger' },
+            { name: 'Second', type: 'standard', folder: 'accounts.ledger' },
+        ]);
+        try {
+            const [project] = await explorer.getChildren();
+            await explorer.getChildren(project);
+            const folder = explorer.getFolderNode(BOOK, 'accounts.ledger')!;
+            expect(folder.folder).toBe('Accounts.Ledger');
+            expect((await explorer.getChildren(folder)).map((m) => m.moduleName)).toEqual(['First', 'Second']);
+            expect((await explorer.getChildren({ ...folder, folder: '..Accounts..Ledger..' })).map((m) => m.moduleName)).toEqual(['First', 'Second']);
+            expect(await explorer.getChildren({ ...folder, folder: 'accounts.ledger' })).toEqual([]);
+            expect(await explorer.getChildren({ ...folder, folder: 'Absent' })).toEqual([]);
+        } finally { explorer.dispose(); }
+    });
+
+    it('keeps identical folder paths separate across project refreshes', async () => {
+        const other = 'C:\\work\\Other.xlsm';
+        vscodeMock.findFiles.mockResolvedValue([{ scheme: 'file', fsPath: BOOK }, { scheme: 'file', fsPath: other }]);
+        const bridge = { call: vi.fn(async (method: string, args: { path: string }) => method === 'listModules'
+            ? [{ name: args.path === BOOK ? 'FirstBook' : 'OtherBook', type: 'standard', folder: 'Shared.Leaf' }]
+            : { isPasswordProtected: false, isSigned: false }) };
+        const explorer = new ProjectExplorer(bridge as unknown as ConstructorParameters<typeof ProjectExplorer>[0]);
+        explorer.setView('folders');
+        try {
+            let projects = await explorer.getChildren();
+            for (const project of projects) { await explorer.getChildren(project); }
+            const children = async (file: string) => (await explorer.getChildren(explorer.getFolderNode(file, 'Shared.Leaf')!)).map((m) => m.moduleName);
+            expect(await children(BOOK)).toEqual(['FirstBook']);
+            expect(await children(other)).toEqual(['OtherBook']);
+            explorer.setModuleFolder(BOOK, 'FirstBook', 'Moved');
+            await explorer.getChildren(projects[0]);
+            expect(await explorer.getChildren(explorer.getFolderNode(BOOK, 'Shared.Leaf')!)).toEqual([]);
+            expect(await children(other)).toEqual(['OtherBook']);
+            explorer.refresh();
+            projects = await explorer.getChildren();
+            for (const project of projects) { await explorer.getChildren(project); }
+            expect(await children(other)).toEqual(['OtherBook']);
+            expect((await explorer.getChildren(explorer.getFolderNode(BOOK, 'Moved')!)).map((m) => m.moduleName)).toEqual(['FirstBook']);
+        } finally { explorer.dispose(); }
     });
 });
