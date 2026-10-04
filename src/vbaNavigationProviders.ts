@@ -523,8 +523,13 @@ export class VbaDocumentHighlightProvider implements vscode.DocumentHighlightPro
         if (token?.isCancellationRequested || document.version !== documentVersion) { return undefined; }
         const { modules, project, byModule } = navigation;
         const current = byModule.get(moduleIdentityKey(moduleName));
+        // Highlighting paints only this document. Keep the full project and
+        // module metadata for binding, but search occurrences only here.
+        const highlightModules = current
+            ? new Map([[moduleIdentityKey(moduleName), current]])
+            : new Map<string, VbaModuleSymbols>();
         const { references } = collectSymbolReferences(
-            byModule,
+            highlightModules,
             project,
             modules,
             source,
