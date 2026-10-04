@@ -23,8 +23,24 @@ export function procedureContainingSpan(module: ModuleNode, span: Span): Procedu
 
 /** The identifier the caret is inside, if any. */
 export function nameAt(source: string, offset: number): string | undefined {
-	const before = /[\p{L}_][\p{L}\p{M}\p{N}_]*$/u.exec(source.slice(0, offset));
-	const after = /^[\p{L}\p{M}\p{N}_]*/u.exec(source.slice(offset));
+	// Limit regex input to the word touching the caret. The previous suffix
+	// regex searched the entire module prefix on every automatic code action.
+	const integer = Number.isNaN(offset) ? 0 : Math.trunc(offset);
+	const cursor = Math.min(source.length, Math.max(0, integer < 0 ? source.length + integer : integer));
+	let start = cursor, end = cursor;
+	const continues = (text: string): boolean => /^[\p{L}\p{M}\p{N}_]$/u.test(text);
+	while (start > 0) {
+		const width = start > 1 && /[\uDC00-\uDFFF]/.test(source[start - 1]) && /[\uD800-\uDBFF]/.test(source[start - 2]) ? 2 : 1;
+		if (!continues(source.slice(start - width, start))) { break; }
+		start -= width;
+	}
+	while (end < source.length) {
+		const width = (source.codePointAt(end) ?? 0) > 0xFFFF ? 2 : 1;
+		if (!continues(source.slice(end, end + width))) { break; }
+		end += width;
+	}
+	const before = /[\p{L}_][\p{L}\p{M}\p{N}_]*$/u.exec(source.slice(start, cursor));
+	const after = /^[\p{L}\p{M}\p{N}_]*/u.exec(source.slice(cursor, end));
 	const name = `${before?.[0] ?? ''}${after?.[0] ?? ''}`;
 	return IDENT_RE.test(name) ? name : undefined;
 }

@@ -84,7 +84,7 @@ import { encodeModuleUri } from '../xlideFileSystem';
                 editor.selection = new vscode.Selection(end, end);
                 await new Promise(resolve => setTimeout(resolve, 300));
                 const before = document.getText();
-                for (let i = 0; i < 16; i++) {
+                for (let i = 0; i < 24; i++) {
                     const idleMs = [0, 30, 250, 350][i % 4];
                     await new Promise(resolve => setTimeout(resolve, idleMs));
                     const start = performance.now();
@@ -93,7 +93,7 @@ import { encodeModuleUri } from '../xlideFileSystem';
                     await vscode.commands.executeCommand('xlide.vba.smartBackspace');
                     samples.push({ line: probeLine, idleMs, typingMs: typed - start, backspaceMs: performance.now() - typed });
                 }
-                assert.equal(document.getText(), before, 'Typing and Backspace must restore the document');
+                assert.ok(document.getText() === before, 'Typing and Backspace must restore the document');
             }
             console.log('Actual sustained typing latency:', JSON.stringify({ samples, maxHostDelayMs }));
         } finally {
