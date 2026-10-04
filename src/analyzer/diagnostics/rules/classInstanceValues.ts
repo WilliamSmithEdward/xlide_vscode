@@ -47,6 +47,26 @@ export function checkClassInstanceValues(
 	if (classes.size === 0) {
 		return;
 	}
+	// Only consulted class surfaces need an index. Keep it within this query so
+	// later project metadata changes cannot reuse stale members.
+	const memberIndexes = new Map<VbaProjectClassMembers, ReadonlyMap<string, VbaProjectClassMember>>();
+	const findMember = (type: VbaProjectClassMembers, name: string): VbaProjectClassMember | undefined => {
+		// A bounded linear scan avoids allocating an index for tiny classes.
+		if (type.members.length <= 8) {
+			return type.members.find((candidate) => candidate.name.toLowerCase() === name);
+		}
+		let index = memberIndexes.get(type);
+		if (!index) {
+			const built = new Map<string, VbaProjectClassMember>();
+			for (const candidate of type.members) {
+				const key = candidate.name.toLowerCase();
+				if (!built.has(key)) { built.set(key, candidate); }
+			}
+			index = built;
+			memberIndexes.set(type, index);
+		}
+		return index.get(name);
+	};
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
@@ -124,12 +144,12 @@ export function checkClassInstanceValues(
 			}
 		}
 		for (const { span, toks } of statements) {
-			checkStatement(span, toks, instances, assigned, push);
+			checkStatement(span, toks, instances, assigned, findMember, push);
 		}
 	}
 }
 
-function checkStatement(span: Span, toks: readonly VbaToken[], instances: ReadonlyMap<string, Instance>, assigned: ReadonlySet<string>, push: PushFn): void {
+function checkStatement(span: Span, toks: readonly VbaToken[], instances: ReadonlyMap<string, Instance>, assigned: ReadonlySet<string>, findMember: (type: VbaProjectClassMembers, name: string) => VbaProjectClassMember | undefined, push: PushFn): void {
 	const head = tokenText(toks[0]);
 	for (let i = 0; i + 2 < toks.length; i++) {
 		const lower = tokenName(toks[i])?.toLowerCase();
@@ -138,7 +158,7 @@ function checkStatement(span: Span, toks: readonly VbaToken[], instances: Readon
 			continue;
 		}
 		const name = tokenName(toks[i + 2])!.toLowerCase();
-		const member = instance.type.members.find((candidate) => candidate.name.toLowerCase() === name);
+		const member = findMember(instance.type, name);
 		if (!member) {
 			continue;
 		}
