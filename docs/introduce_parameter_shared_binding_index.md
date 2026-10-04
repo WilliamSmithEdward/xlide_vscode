@@ -36,4 +36,4 @@ Node v24.18.0, AMD Ryzen 7 9800X3D 8-Core Processor           ; three warmups an
 | 1000/WithMe/fresh | 10.859–12.790 | 10.817–16.367 |
 
 
-Full repository validation passes: 705 files passed, two skipped; 14,158 tests passed and 26 skipped. The linked PR is stacked on #1011 until that prerequisite merges.
+Full repository validation passes: 705 files passed, two skipped; 14,158 tests passed and 26 skipped. After #1011 merged, the PR was rebased onto main 0bcc2ae5. Integrated types and 99 focused checks pass; full integration validation passes 707 files / four skipped, 14,189 tests / 28 skipped.
