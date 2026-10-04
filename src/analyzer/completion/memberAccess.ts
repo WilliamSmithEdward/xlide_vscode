@@ -25,6 +25,7 @@ import {
 	LeafStatementNode,
 	ModuleNode,
 	ProcedureNode,
+	procedureAtOffset,
 	VariableGroupNode,
 } from '../parser/nodes';
 import type {
@@ -1532,12 +1533,7 @@ function activeWithScanWindow(
 ): { text: string; sliceStart: number; procedureStart: number; windowEnd: number } {
 	const safeOffset = Math.max(0, offset);
 	const module: ModuleNode = ctx.parsedModule ?? parseModule(source);
-	const enclosing = module.members.find(
-		(mem): mem is ProcedureNode =>
-			mem.kind === 'Procedure' &&
-			safeOffset >= mem.span.start &&
-			safeOffset <= mem.span.end,
-	);
+	const enclosing = procedureAtOffset(module, safeOffset);
 	if (!enclosing) {
 		// Module level: the window is everything before the offset, and there is
 		// no procedure to key an index on.
@@ -2198,12 +2194,7 @@ function findSetAssignedObjectType(
 ): string | undefined {
 	const module: ModuleNode = ctx.parsedModule ?? parseModule(source);
 	const lower = name.toLowerCase();
-	const enclosing = module.members.find(
-		(mem): mem is ProcedureNode =>
-			mem.kind === 'Procedure' &&
-			offset >= mem.span.start &&
-			offset <= mem.span.end,
-	);
+	const enclosing = procedureAtOffset(module, offset);
 
 	if (enclosing) {
 		const hit = latestSetAssignmentInBody(enclosing.body, source, offset, lower);
@@ -2306,33 +2297,33 @@ function findDeclaredBinding(
 	const module: ModuleNode = ctx.parsedModule ?? parseModule(source);
 	const lower = name.toLowerCase();
 
-	const enclosing = module.members.find(
-		(mem): mem is ProcedureNode =>
-			mem.kind === 'Procedure' &&
-			offset >= mem.span.start &&
-			offset <= mem.span.end,
-	);
+	const enclosing = procedureAtOffset(module, offset);
 
 	if (enclosing) {
-		for (const param of enclosing.params) {
-			if (param.name.toLowerCase() === lower) {
-				return { asType: param.asType };
+		let locals = PROCEDURE_DECLARED_BINDINGS.get(enclosing);
+		if (!locals) {
+			locals = new Map();
+			for (const param of enclosing.params) {
+				const key = param.name.toLowerCase();
+				if (!locals.has(key)) { locals.set(key, { asType: param.asType }); }
 			}
+			addBodyBindings(enclosing.body, locals);
+			PROCEDURE_DECLARED_BINDINGS.set(enclosing, locals);
 		}
-		const local = findInBody(enclosing.body, lower);
-		if (local) {
-			return local;
-		}
+		const local = locals.get(lower);
+		if (local) { return local; }
 	}
+	let fields = MODULE_DECLARED_BINDINGS.get(module);
+	if (!fields) {
+		fields = new Map();
+		for (const member of module.members) {
+			if (member.kind === 'VariableGroup') { addGroupBindings(member, fields); }
+		}
+		MODULE_DECLARED_BINDINGS.set(module, fields);
+	}
+	const field = fields.get(lower);
+	if (field) { return field; }
 
-	for (const mem of module.members) {
-		if (mem.kind === 'VariableGroup') {
-			const hit = matchGroup(mem, lower);
-			if (hit) {
-				return hit;
-			}
-		}
-	}
 	return moduleProcedureBinding(module, lower);
 }
 
@@ -2383,29 +2374,25 @@ function moduleProcedureBinding(module: ModuleNode, lower: string): DeclaredBind
 	return index.get(lower);
 }
 
-/** Searches a procedure body (recursing into block nodes) for a declaration. */
-function findInBody(body: BodyNode[], lower: string): DeclaredBinding | undefined {
+// Receiver walks ask about many names in the same immutable AST. Index each
+// scope once, retaining parameter/local/module precedence and the first
+// declaration in the existing depth-first body traversal.
+const PROCEDURE_DECLARED_BINDINGS = new WeakMap<ProcedureNode, Map<string, DeclaredBinding>>();
+const MODULE_DECLARED_BINDINGS = new WeakMap<ModuleNode, Map<string, DeclaredBinding>>();
+
+function addBodyBindings(body: BodyNode[], bindings: Map<string, DeclaredBinding>): void {
 	for (const node of body) {
 		if (node.kind === 'VariableGroup') {
-			const hit = matchGroup(node, lower);
-			if (hit) {
-				return hit;
-			}
+			addGroupBindings(node, bindings);
 		} else if ('body' in node && Array.isArray(node.body)) {
-			const hit = findInBody(node.body, lower);
-			if (hit) {
-				return hit;
-			}
+			addBodyBindings(node.body, bindings);
 		}
 	}
-	return undefined;
 }
 
-function matchGroup(group: VariableGroupNode, lower: string): DeclaredBinding | undefined {
+function addGroupBindings(group: VariableGroupNode, bindings: Map<string, DeclaredBinding>): void {
 	for (const decl of group.declarations) {
-		if (decl.name.toLowerCase() === lower) {
-			return { asType: decl.asType };
-		}
+		const key = decl.name.toLowerCase();
+		if (!bindings.has(key)) { bindings.set(key, { asType: decl.asType }); }
 	}
-	return undefined;
 }
