@@ -95,6 +95,77 @@ async function openOn(name: string): Promise<ShapeFormValues> {
 }
 
 describe('the shape editor tab', () => {
+    it.each(['existing', 'new'] as const)('coalesces concurrent requests for the %s shape editor', async mode => {
+        let release!: () => void;
+        const ready = new Promise<void>(yes => { release = yes; });
+        const current = shape('Slide 1', 'Badge')!;
+        const call = vi.fn(async (method: string) => {
+            await ready;
+            return method === 'listShapes' ? { surfaces: [{ surface: 'Slide 1', shapes: [current] }] } : { macros: [] };
+        });
+        deps.bridge = { call } as unknown as ProjectEngine;
+        const target = { host: 'powerpoint' as const, surface: 'Slide 1', ...(mode === 'existing' ? { shape: current } : {}) };
+        const first = openShapeEditor(deps, context, deck, target);
+        const second = openShapeEditor(deps, context, deck, { ...target, surface: 'SLIDE 1' });
+        release();
+        await Promise.all([first, second]);
+        expect(vscode.window.createWebviewPanel).toHaveBeenCalledTimes(1);
+        expect(call.mock.calls.filter(([method]) => method === 'listShapes')).toHaveLength(mode === 'existing' ? 1 : 0);
+        expect(call.mock.calls.filter(([method]) => method === 'shapeMacros')).toHaveLength(1);
+        expect(panel.reveal).toHaveBeenCalledTimes(1);
+    });
+
+    it('lets a failed opening be retried after concurrent callers share the failure', async () => {
+        const call = vi.fn().mockRejectedValue(new Error('Read failed'));
+        deps.bridge = { call } as unknown as ProjectEngine;
+        const target = { host: 'powerpoint' as const, surface: 'Slide 1', shape: shape('Slide 1', 'Badge')! };
+        const attempts = await Promise.allSettled([
+            openShapeEditor(deps, context, deck, target),
+            openShapeEditor(deps, context, deck, target),
+        ]);
+        expect(attempts.map(result => result.status)).toEqual(['rejected', 'rejected']);
+        expect(call).toHaveBeenCalledTimes(1);
+        call.mockImplementation(async (method: string) => method === 'listShapes'
+            ? { surfaces: [{ surface: 'Slide 1', shapes: [target.shape] }] } : { macros: [] });
+        await openShapeEditor(deps, context, deck, target);
+        expect(vscode.window.createWebviewPanel).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not block a different surface behind an opening editor', async () => {
+        let release!: () => void;
+        const ready = new Promise<void>(yes => { release = yes; });
+        deps.bridge = { call: async (method: string, args: { surface?: string }) => {
+            if (method === 'listShapes') {
+                await ready;
+                return { surfaces: [{ surface: args.surface, shapes: [shape('Slide 1', 'Badge')!] }] };
+            }
+            return { macros: [] };
+        } } as unknown as ProjectEngine;
+        const other = fakePanel();
+        vi.mocked(vscode.window.createWebviewPanel)
+            .mockReturnValueOnce(other as unknown as vscode.WebviewPanel)
+            .mockReturnValue(panel as unknown as vscode.WebviewPanel);
+        const first = openShapeEditor(deps, context, deck, { host: 'powerpoint', surface: 'Slide 1', shape: shape('Slide 1', 'Badge')! });
+        try {
+            await openShapeEditor(deps, context, deck, { host: 'powerpoint', surface: 'Slide 2' });
+            expect(vscode.window.createWebviewPanel).toHaveBeenCalledTimes(1);
+        } finally { release(); await first; other.dispose(); }
+        expect(vscode.window.createWebviewPanel).toHaveBeenCalledTimes(2);
+    });
+
+    it('releases an opening that finds the shape missing', async () => {
+        const call = vi.fn(async (method: string) => method === 'listShapes' ? { surfaces: [] } : { macros: [] });
+        deps.bridge = { call } as unknown as ProjectEngine;
+        const target = { host: 'powerpoint' as const, surface: 'Slide 1', shape: shape('Slide 1', 'Badge')! };
+        await Promise.all([openShapeEditor(deps, context, deck, target), openShapeEditor(deps, context, deck, target)]);
+        expect(vscode.window.showWarningMessage).toHaveBeenCalledTimes(1);
+        expect(vscode.window.createWebviewPanel).not.toHaveBeenCalled();
+        call.mockImplementation(async (method: string) => method === 'listShapes'
+            ? { surfaces: [{ surface: 'Slide 1', shapes: [target.shape] }] } : { macros: [] });
+        await openShapeEditor(deps, context, deck, target);
+        expect(vscode.window.createWebviewPanel).toHaveBeenCalledTimes(1);
+    });
+
     it('opens on what the file holds now, not on the tree\'s older listing', async () => {
         const listedEarlier = shape('Slide 1', 'ClickMe')!;
         editShape(deck, 'Slide 1', { action: 'update', name: 'ClickMe', text: 'Changed outside' });
@@ -175,6 +246,16 @@ describe('the shape editor tab', () => {
         await openOn('Badge');
         expect(vscode.window.createWebviewPanel).toHaveBeenCalledTimes(1);
         expect(panel.reveal).toHaveBeenCalled();
+    });
+
+    it('can reopen a shape after its shared editor is closed', async () => {
+        await Promise.all([openOn('Badge'), openOn('Badge')]);
+        panel.dispose();
+        panel = fakePanel();
+        vi.mocked(vscode.window.createWebviewPanel).mockReturnValue(panel as unknown as vscode.WebviewPanel);
+        await openOn('Badge');
+        expect(vscode.window.createWebviewPanel).toHaveBeenCalledTimes(2);
+        expect(pageModel().shape?.name).toBe('Badge');
     });
 
     it('opens the Sub the form names', async () => {

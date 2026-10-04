@@ -30,6 +30,7 @@ import './identifierSurfaces.test';
 import './projectReferences.test';
 import './identifierSnapshotSurfaces.test';
 import './shapes.test';
+import './shapeEditorLifetime.test';
 import './smartEnterSurfaces.test';
 import './grammar.test';
 
