@@ -15,7 +15,7 @@ it.each([10, 1000].flatMap(count => ['\n', '\r\n', '\r'].map(eol => ({count, eol
 	});
 	expect(resolveDiagnosticCodeActions(source, {code: 'dim-initializer', span: {start: offset, end: offset + 1}})).toEqual([{
 		title: 'Split declaration initializer', kind: 'quickfix', isPreferred: true,
-		edits: [{span: {start: offset - 1, end: source.indexOf(eol, offset)}, newText: (eol === '\r' ? '\n' : eol) + '  value = 42'}],
+		edits: [{span: {start: offset - 1, end: source.indexOf(eol, offset)}, newText: eol + '  value = 42'}],
 	}]);
 	expect(reads).toBe(1);
 });

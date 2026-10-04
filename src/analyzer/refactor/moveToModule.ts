@@ -82,7 +82,7 @@ export function moveToModule(input: MoveToModuleInput): VbaRefactorResult {
 		);
 	}
 
-	const eol = source.includes('\n') ? detectEol(source) : source.includes('\r') ? '\r' : '\n';
+	const eol = detectEol(source);
 	// Its doc comment and directives go with it: left behind, they would
 	// document the procedure that came next.
 	const start = attachedCommentsStart(source, procedure.span.start);
