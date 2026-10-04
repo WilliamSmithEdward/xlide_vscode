@@ -1210,7 +1210,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                     load = this._bridge.call<ModuleListing[]>(
                         'listModules',
                         { path: filePath },
-                    );
+                    ).then(modules => [...modules].sort(compareVbaModulesForTreeOrder));
                     this._modulesListLoads.set(cacheKey, load);
                     load.then(
                         () => {
@@ -1225,12 +1225,12 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                         },
                     );
                 }
-                // Sort once, on a copy, before caching: the cached list is then
-                // already in tree order, so re-renders (cache hits) skip the sort
-                // and never mutate the shared cache.
+                // The pending load owns the sorted copy, so overlapping expansion
+                // and tab-follow callers share sorting as well as the backend call.
+                // Cache hits also reuse it; the bridge's input is never mutated.
                 const generation = this._generation;
                 loadGeneration = generation;
-                modules = [...await load].sort(compareVbaModulesForTreeOrder);
+                modules = await load;
                 // Only cache when no refresh() raced this load to completion;
                 // otherwise the post-refresh render will re-fetch the fresh list.
                 if (this._generation === generation) {
