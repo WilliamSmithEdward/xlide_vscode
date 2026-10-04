@@ -29,6 +29,7 @@
 //     are captured as StatementNode with their raw text. Expression parsing is
 //     a later phase.
 
+import { incrementalModuleParse } from './incrementalModuleParse';
 import { VbaToken } from '../lexer/tokenKinds';
 import { tokenizeCached } from '../lexer/tokenize';
 import {
@@ -160,12 +161,22 @@ export function parseModule(source: string): ModuleNode {
 			return hit.module;
 		}
 	}
-	const module = new Parser(source, tokenizeCached(source)).parse();
+	let module: ModuleNode | undefined;
+	for (const previous of parseCache) {
+		module = incrementalModuleParse(source, previous.source, previous.module, parseModuleFreshForTests);
+		if (module) { break; }
+	}
+	module ??= parseModuleFreshForTests(source);
 	parseCache.unshift({ source, module });
 	if (parseCache.length > PARSE_CACHE_MAX) {
 		parseCache.pop();
 	}
 	return module;
+}
+
+/** Uncached reference parser for differential validation of editor cache reuse. */
+export function parseModuleFreshForTests(source: string): ModuleNode {
+	return new Parser(source, tokenizeCached(source)).parse();
 }
 
 class Parser {
