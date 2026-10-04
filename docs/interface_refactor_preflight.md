@@ -45,3 +45,5 @@ Node 24.18.0, AMD Ryzen 7 9800X3D; three warmups, nine measured rounds. Source c
 | warmNoImplements | 0.04920–0.04930 | 0.04530–0.04570 |
 
 Successful generation, already-complete and fully warmed controls show run-to-run variation; parser deferral does not remove their required work. Tiny results can be mixed. Maximum changed-body no-interface samples were 55.6820–62.9744 ms before and 0.1529–0.1711 ms after. Incrementally reused no-interface medians were 2.2580–2.2814 ms before and 0.1094–0.1156 ms after. No heap-byte measurement or general analyzer speedup is claimed.
+
+Tiny successful controls are slower in these runs: one-procedure changed-body generation medians are 0.01470–0.01500 ms before versus 0.04740–0.04830 ms after; already-complete medians are 0.01710–0.01980 versus 0.03700–0.04710 ms. Default trailing-comment generation is 0.01440 versus 0.05120–0.05350 ms. Earlier refusal scenarios execute the parser on baseline but skip it in the repair, so their parser warmup histories differ; these tiny measurements do not isolate a general per-call overhead. The recorded slow controls remain part of the benchmark rather than being omitted.
