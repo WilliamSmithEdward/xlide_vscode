@@ -268,6 +268,7 @@ function memberAccessReferences(
         if (occurrences.length === 0) { continue; }
         const ctx: MemberCompletionContext = {
             codeNames,
+            withScanCache: new Map(),
             meType: meHostTypeForModule(mod.moduleName, mod.type, mod.documentType),
             meProjectType: meProjectTypeForModule(mod.moduleName, mod.type),
             projectClassMembers: project.projectMemberSurfaces(mod.moduleName),

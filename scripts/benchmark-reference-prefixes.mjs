@@ -24,10 +24,10 @@ try {
     const api = createRequire(import.meta.url)(path);
     const rows = [];
     for (const count of [1, 10, 100, 1000]) {
-        for (const style of ['qualified', 'bare', 'continued', 'with']) {
-            const statement = { qualified: '    Library.Greet', bare: '    Greet', continued: '    Library. _\n        Greet', with: '    .Greet' }[style];
-            const caller = 'Sub UseIt()\n' + (style === 'with' ? '    With Library\n' : '') + Array(count).fill(statement).join('\n') + '\n' + (style === 'with' ? '    End With\n' : '') + 'End Sub\n';
-            const modules = [{ moduleName: 'Library', source: 'Public Sub Greet()\nEnd Sub\n' }, { moduleName: 'Caller', source: caller }];
+        for (const style of ['qualified', 'bare', 'continued', 'with', 'typed-with']) {
+            const statement = { qualified: '    Library.Greet', bare: '    Greet', continued: '    Library. _\n        Greet', with: '    .Greet', 'typed-with': '    .Greet' }[style];
+            const caller = 'Sub UseIt()\n' + (style === 'with' ? '    With Library\n' : style === 'typed-with' ? '    Dim receiver As Library\n    Set receiver = New Library\n    With receiver\n' : '') + Array(count).fill(statement).join('\n') + '\n' + (style.endsWith('with') ? '    End With\n' : '') + 'End Sub\n';
+            const modules = [{ moduleName: 'Library', type: style === 'typed-with' ? 'class' : undefined, source: 'Public Sub Greet()\nEnd Sub\n' }, { moduleName: 'Caller', source: caller }];
             const project = api.buildVbaProjectIndex(modules);
             const byModule = new Map(modules.map(mod => [mod.moduleName.toLowerCase(), mod]));
             const at = modules[0].source.indexOf('Greet');
