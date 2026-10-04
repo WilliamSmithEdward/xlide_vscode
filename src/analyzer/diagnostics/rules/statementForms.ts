@@ -155,12 +155,16 @@ export function checkStatementForms(
 				// #369, measured in Excel 16.0). `Foo.Foo` compiles.
 				// A line label is its own namespace: `Foo:`, `GoTo Foo` and
 				// `Resume Foo` compile beside a module Foo (issue #403).
-				const labels = new Set([...statementLabelDeclarations(source, span), ...statementLabelReferences(source, span)].map((label) => label.span.start));
-				const isLabel = (i: number): boolean => toks[i] !== undefined && labels.has(span.start + toks[i].start);
+				let labels: Set<number> | undefined;
+				const isLabel = (i: number): boolean => {
+					if (toks[i] === undefined) { return false; }
+					labels ??= new Set([...statementLabelDeclarations(source, span), ...statementLabelReferences(source, span)].map((label) => label.span.start));
+					return labels.has(span.start + toks[i].start);
+				};
 				const callee = tokenText(toks[first]) === 'call' ? first + 1 : first;
-				const calleeName = target === undefined && !isLabel(callee) ? tokenName(toks[callee])?.toLowerCase() : undefined;
+				const calleeName = target === undefined ? tokenName(toks[callee])?.toLowerCase() : undefined;
 				if (calleeName && toks[callee + 1]?.rawText !== '.' && toks[callee + 1]?.rawText !== '=' && otherModules.has(calleeName)
-					&& !locals.has(calleeName) && !ownNames.has(calleeName)) {
+					&& !locals.has(calleeName) && !ownNames.has(calleeName) && !isLabel(callee)) {
 					push('malformedStatement', `'${toks[callee].rawText}' names a module of this project before any procedure in it, so it cannot be called bare from another module; write ${toks[callee].rawText}.${toks[callee].rawText}. This is a VBE compile error: Expected variable or procedure, not module.`, at(callee));
 				}
 				const assigns = target !== undefined || tokenText(toks[first]) === 'set';
