@@ -45,7 +45,7 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
         return response.result.value;
     };
     const readLine = "Array.from(document.querySelectorAll('.monaco-editor .view-line')).map(line => line.textContent).find(text => text.includes('ThisWorkbook.Sheets(1).ce'))";
-    if (!(await evaluate(readLine))?.endsWith('.cez')) throw new Error('Synthetic test line is not visible');
+    if (mode !== 'transition' && !(await evaluate(readLine))?.endsWith('.cez')) throw new Error('Synthetic test line is not visible');
     await evaluate("(() => { const input = document.querySelector('.monaco-editor.focused .inputarea') || document.querySelector('.monaco-editor .inputarea'); if (input) input.focus(); return document.activeElement?.className; })()");
     fs.writeFileSync(readyFile, 'ready');
     const deadline = Date.now() + 15000;
@@ -90,6 +90,10 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
         socket.close();
         return;
     }
+    if (mode === 'transition') {
+        await call('Input.insertText', { text: 'Debug.Print ThisWorkbook.Sheets(1).cez' });
+        if (!(await evaluate(readLine))?.endsWith('.cez')) throw new Error('Native typing did not reach the transition probe');
+    }
     const started = Date.now();
     await deleteKey();
     let deletedAt;
@@ -109,7 +113,7 @@ export interface RendererBackspaceResult {
     samples?: { idleMs: number; backspacePaintMs: number; menuPaintMs: number; typingPaintMs: number; missClearMs: number }[];
 }
 
-export async function runRendererBackspaceProbe(mode: 'busy' | 'stress', routedThroughHost = false): Promise<RendererBackspaceResult> {
+export async function runRendererBackspaceProbe(mode: 'busy' | 'stress' | 'transition', routedThroughHost = false): Promise<RendererBackspaceResult> {
     const port = Number(process.env.XLIDE_UI_DEBUG_PORT);
     assert.ok(Number.isInteger(port) && port >= 1024 && port <= 65535, 'an owned integration renderer debugger port is required');
     const root = workspaceRoot();
@@ -136,9 +140,9 @@ export async function runRendererBackspaceProbe(mode: 'busy' | 'stress', routedT
             // Positive control models the former always-bound keybinding.
             await vscode.commands.executeCommand('setContext', BACKSPACE_NEEDS_EXTENSION_CONTEXT, true);
         }
-        const busyUntil = Date.now() + (mode === 'busy' ? 1200 : 0);
+        const busyUntil = Date.now() + (mode !== 'stress' ? 1200 : 0);
         fs.writeFileSync(busyFile, JSON.stringify({ busyUntil }));
-        if (mode === 'busy') {
+        if (mode !== 'stress') {
             // Deliberate test-only stall. The separate renderer must continue
             // deleting ordinary code throughout this occupied-host interval.
             while (Date.now() < busyUntil) { /* occupy the extension-host event loop */ }
