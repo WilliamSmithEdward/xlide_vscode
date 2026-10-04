@@ -20,7 +20,11 @@ try {
 if(process.argv.includes('--rule-only')) {
 const src=(n,body)=>'Option Explicit\nSub P()\nDim total As Long\n'+Array.from({length:n},(_,i)=>body(i)).join('\n')+'\nEnd Sub';
 const project={projectClassMembers:[{name:'Foo',moduleName:'Foo',kind:'standardModule',members:[]}]};
-const cases=[['assignments',src(1000,i=>'total='+i),{}],['long-body',src(5000,i=>'total='+i),{}],['project-no-hit',src(1000,i=>'total='+i),project],['qualified',src(1000,()=> 'total=Foo.Bar()'),project],['label-hit',src(200,()=> 'Foo: total=1\nGoTo Foo\ntotal=Foo()+Foo()'),project],['short',src(1,()=> 'total=1'),{}]];
+const ordinaryCases=[['assignments',src(1000,i=>'total='+i),{}],['long-body',src(5000,i=>'total='+i),{}],['project-no-hit',src(1000,i=>'total='+i),project],['qualified',src(1000,()=> 'total=Foo.Bar()'),project],['label-hit',src(200,()=> 'Foo: total=1\nGoTo Foo\ntotal=Foo()+Foo()'),project],['short',src(1,()=> 'total=1'),{}]];
+const classes=process.argv.includes('--sub-member-controls')?Array.from({length:1000},(_,i)=>({name:i===0?'C':'Other'+i,moduleName:i===0?'C':'Other'+i,kind:'class',members:Array.from({length:100},(_,j)=>({name:j===0?'DoIt':'Value'+j,moduleName:i===0?'C':'Other'+i,kind:'method',sub:j===0,returns:j===0?undefined:'Long'}))})):[];
+const subContext={projectClassMembers:classes};
+const classSource=(n,name)=>'Option Explicit\nSub P()\nDim c As C\nDim result As Long\n'+Array.from({length:n},()=> 'result=c.'+name+'()').join('\n')+'\nEnd Sub';
+const cases=process.argv.includes('--sub-member-controls')?[['large-project-negative-short',classSource(1,'Missing'),subContext],['large-project-negative-many',classSource(1000,'Missing'),subContext],['large-project-sub-short',classSource(1,'DoIt'),subContext],['large-project-sub-many',classSource(1000,'DoIt'),subContext]]:ordinaryCases;
 let salt=0;const rows=[];
 for(const [name,base,context] of cases)for(const mode of ['warm','fresh']){
  function prepare(){const source=mode==='fresh'?base+"\n' sample "+(++salt):base,mod=api.parseModule(source),symbols=api.buildModuleSymbols('M','standard',source,{parsedModule:mod});return()=>{const diagnostics=[];api.checkStatementForms(source,mod,symbols,undefined,undefined,(code,message,span)=>diagnostics.push({code,message,span}),context);return diagnostics;};}
