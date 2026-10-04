@@ -215,9 +215,7 @@ function isProcedureLabelCompletionContext(
 }
 
 function isLabelTargetPrefix(tokens: readonly VbaToken[], prefixLength: number): boolean {
-	let toks = tokensWithoutLeadingLineNumber(
-		tokens.filter((tok) => tok.kind !== 'comment' && tok.kind !== 'newline'),
-	);
+	let toks = tokensWithoutLeadingLineNumber(tokens);
 	if (toks.length === 0) {
 		return false;
 	}
@@ -477,7 +475,7 @@ function labelReferenceGroup(
 	base: Span,
 	statementKind: VbaProcedureLabelReference['statementKind'],
 ): VbaProcedureLabelReference | undefined {
-	const content = group.filter((tok) => tok.kind !== 'comment');
+	const content = group;
 	if (content.length !== 1) {
 		return undefined;
 	}
