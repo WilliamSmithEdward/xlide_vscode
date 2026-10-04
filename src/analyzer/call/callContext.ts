@@ -326,12 +326,34 @@ function* statementEndingParenthesizedCalls(
 	if (tokenWord(toks[0]) === 'call' || topLevelTokenIndex(toks, '=') >= 0) {
 		return;
 	}
+	let searched = false;
+	let closes: Map<number, number> | undefined;
 	for (let i = 0; i < toks.length - 2; i += 1) {
 		const name = tokenName(toks[i]);
 		if (!name || toks[i + 1]?.rawText !== '(') {
 			continue;
 		}
-		const close = matchParenFrom(toks, i + 1);
+		// A single candidate needs no index; later candidates otherwise rescan
+		// overlapping nested ranges. Keep the map local to this statement scan.
+		let close: number;
+		if (!searched) {
+			searched = true;
+			close = matchParenFrom(toks, i + 1);
+		} else {
+			if (!closes) {
+				closes = new Map();
+				const opens: number[] = [];
+				for (let k = 0; k < toks.length; k++) {
+					const raw = toks[k].rawText;
+					if (raw === '(') { opens.push(k); }
+					else if (raw === ')') {
+						const open = opens.pop();
+						if (open !== undefined) { closes.set(open, k); }
+					}
+				}
+			}
+			close = closes.get(i + 1) ?? -1;
+		}
 		if (close !== toks.length - 1 || !isCompleteStatementChainThroughEmptyCall(toks, i, close)) {
 			continue;
 		}
