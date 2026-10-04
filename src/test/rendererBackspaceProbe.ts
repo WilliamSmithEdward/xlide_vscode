@@ -90,6 +90,7 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
         const profileStartedAt = Date.now();
         let expectedNonce;
         const navigationSamples = [];
+        const readSyntheticCaret = "(() => { const editor = document.querySelector('.monaco-editor.focused'); const rows = Array.from(editor?.querySelectorAll('.view-line') ?? []); const cursor = Array.from(editor?.querySelectorAll('.cursors-layer .cursor') ?? []).find(node => node.getBoundingClientRect().height > 0); const caret = cursor?.getBoundingClientRect(); const row = rows.find(node => { const box = node.getBoundingClientRect(); return caret && caret.top >= box.top && caret.top < box.bottom; }); const end = row && document.createRange(); if (end) end.selectNodeContents(row); return { caretOnMember: row?.textContent.includes('ThisWorkbook.Sheets(1).'), caretOnNonce: row?.textContent.includes('LatencyValue'), caretAtEnd: !!caret && !!end && Math.abs(caret.left - end.getBoundingClientRect().right) < 3 }; })()";
         const captureNavigation = async (cycle, phase) => {
             if (process.env.XLIDE_PERF_NAV_DIAGNOSTICS !== '1') return;
             const state = await evaluate("(() => { const editor = document.querySelector('.monaco-editor.focused'); const rows = Array.from(editor?.querySelectorAll('.view-line') ?? []); const cursor = Array.from(editor?.querySelectorAll('.cursors-layer .cursor') ?? []).find(node => node.getBoundingClientRect().height > 0); const caret = cursor?.getBoundingClientRect(); const row = rows.find(node => { const box = node.getBoundingClientRect(); return caret && caret.top >= box.top && caret.top < box.bottom; }); return { documentFocused: document.hasFocus(), focusedEditors: document.querySelectorAll('.monaco-editor.focused').length, caretOnMember: row?.textContent.includes('ThisWorkbook.Sheets(1).'), caretOnNonce: row?.textContent.includes('LatencyValue'), caretRowLength: row?.textContent.length, visibleWidgets: Array.from(document.querySelectorAll('.suggest-widget.visible')).filter(node => node.checkVisibility({ visibilityProperty: true, opacityProperty: true })).length, memberRows: rows.filter(node => node.textContent.includes('ThisWorkbook.Sheets(1).')).length }; })()");
@@ -166,19 +167,25 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
                     await pressKey('Escape', 'Escape', 27);
                     await captureNavigation(i, 'after Escape');
                     await pressKey('ArrowUp', 'ArrowUp', 38);
+                    await until(async () => (await evaluate(readSyntheticCaret)).caretOnNonce, 'fresh source caret after ArrowUp cycle ' + i);
                     await captureNavigation(i, 'after ArrowUp');
                     await pressKey('End', 'End', 35);
+                    await until(async () => { const caret = await evaluate(readSyntheticCaret); return caret.caretOnNonce && caret.caretAtEnd; }, 'fresh source caret at statement end cycle ' + i);
                     await captureNavigation(i, 'after End');
                     await pressKey('Home', 'Home', 36, 8); // select to first non-whitespace
+                    await until(async () => { const caret = await evaluate(readSyntheticCaret); return caret.caretOnNonce && !caret.caretAtEnd; }, 'fresh source selection cycle ' + i);
                     await captureNavigation(i, 'after ShiftHome');
                     const nonce = " 'n" + i.toString(36).padStart(6, '0');
                     expectedNonce = nonce.trimStart();
                     await call('Input.insertText', { text: stress.nonceStatement + nonce });
-                    await until(async () => await evaluate("Array.from(document.querySelectorAll('.monaco-editor.focused .view-line')).some(row => row.textContent.endsWith(" + JSON.stringify(nonce.trimStart()) + "))"), 'fresh synthetic source cycle ' + i);
+                    const expectedStatement = (stress.nonceStatement + nonce).trim().toLowerCase();
+                    await until(async () => await evaluate("(() => { const rows = Array.from(document.querySelectorAll('.monaco-editor.focused .view-line')); const member = rows.findIndex(row => row.textContent.includes('ThisWorkbook.Sheets(1).')); return member > 0 && rows[member - 1].textContent.replace(/\\u00a0/g, ' ').replace(/\\u200b/g, '').trim().toLowerCase() === " + JSON.stringify(expectedStatement) + "; })()"), 'fresh synthetic source cycle ' + i);
                     await captureNavigation(i, 'after nonce');
                     await pressKey('ArrowDown', 'ArrowDown', 40);
+                    await until(async () => (await evaluate(readSyntheticCaret)).caretOnMember, 'fresh source caret after ArrowDown cycle ' + i);
                     await captureNavigation(i, 'after ArrowDown');
                     await pressKey('End', 'End', 35);
+                    await until(async () => { const caret = await evaluate(readSyntheticCaret); return caret.caretOnMember && caret.caretAtEnd; }, 'fresh source caret at member end cycle ' + i);
                     await captureNavigation(i, 'after final End');
                 }
             }

@@ -74,3 +74,23 @@ The opt-in XLIDE_PERF_NAV_DIAGNOSTICS capture records only caret-row matching,
 row lengths, focus and widget counts after each synthetic navigation key.
 Partial samples are retained even when the capture fails. No private source or
 module labels are recorded.
+
+A repeat with navigation diagnostics and both CPU profiles enabled passed all
+12 integration cases, including 1,000 fresh-source recovery cycles and 62 mouse
+hovers. Median/p95/max observations were Backspace 16/35/53 ms, menu recovery
+117/139/187 ms, typing 16/45/75 ms, miss clearing 1/13/51 ms and hover
+375/406/417 ms. The additional observations alter timing; this is diagnostic
+validation, not an isolated before/after UI comparison. Profiles and the exact
+bundle/source map were retained locally.
+
+The retained navigation sequence shows that cursor DOM geometry can still
+reflect the old row after navigation events have been dispatched. Fresh-source
+setup now waits for the visible caret on the preceding statement, its End and
+Shift+Home positions, then the return to the member expression and its end.
+The nonce check verifies the entire synthetic statement on the row immediately
+above the member expression, ignoring legitimate casing and display whitespace.
+These are setup conditions outside the measured Backspace/typing response;
+there are no new product waits. This prevents a wrong-line synthetic edit from
+being reported later as a missing Backspace paint. Compilation and the 64-cycle
+short run passed all 12 cases with these stronger checks. A sustained unprofiled
+repeat of the final probe is pending.
