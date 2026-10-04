@@ -33,7 +33,8 @@ import { bodyMayLeaveLoop, namesIn } from './shared';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { VbaProjectClassMembers } from '../../symbols/symbolModel';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
-import { buildModuleTypeSignatures, inferExpressionType, isKnownScalarType, normalizeType, objectAssignmentIncompatibilityReason, sourceNameScopeFor, stringLiteralValue, typeEnvironmentFor } from '../typeInference';
+import type { InferredArgumentType } from '../callExtraction';
+import { buildModuleTypeSignatures, createObjectAssignmentTypeResolver, createObjectTypeImplementationLookup, createProjectInterfaceSharingLookup, inferExpressionType, isKnownScalarType, normalizeType, objectAssignmentIncompatibilityReason, sourceNameScopeFor, stringLiteralValue, typeEnvironmentFor } from '../typeInference';
 import {
 	activeModuleMembers,
 	forEachStatement,
@@ -142,6 +143,11 @@ interface KnownClass {
 	params?: ReadonlyMap<string, readonly KnownParam[]>;
 	/** A RegExp's pattern, where the code set it to a literal (issue #477). */
 	pattern?: string;
+}
+
+interface CollectionQueries {
+	classNamed: ReturnType<typeof createKnownClassLookup>;
+	itemIncompatible(expected: string | undefined, actual: InferredArgumentType): boolean;
 }
 
 interface KnownParam {
@@ -315,6 +321,14 @@ export function checkRuntimeMemberNotFound(
 	const applicationSurface = excelApplicationSurface(model);
 	const rangeSurface = applicationSurface ? excelRangeSurface(model) : undefined;
 	const classNamed = createKnownClassLookup(memberCtx);
+	const objectType = createObjectAssignmentTypeResolver(memberCtx);
+	const shareInterfaces = createProjectInterfaceSharingLookup(memberCtx);
+	const implementsType = createObjectTypeImplementationLookup();
+	const collectionQueries: CollectionQueries = {
+		classNamed,
+		// The resolver's omitted-model default is Excel, matching the host-item path.
+		itemIncompatible: (expected, actual) => objectAssignmentIncompatibilityReason(expected, actual, memberCtx, objectType, shareInterfaces, implementsType) !== undefined,
+	};
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
@@ -328,7 +342,7 @@ export function checkRuntimeMemberNotFound(
 				checkOpenTypeMembers(source, span.start, toks, env, applicationSurface, rangeSurface, memberCtx, push);
 			}
 		}, activity);
-		checkCollectionItems(source, member, symbols, env, memberCtx, classNamed, activity, push);
+		checkCollectionItems(source, member, symbols, env, memberCtx, collectionQueries, activity, push);
 		const autoInstanced = new Set<string>();
 		for (const child of procedureSymbolFor(symbols, member)?.children ?? []) {
 			if (child.isAutoInstantiated) {
@@ -419,7 +433,7 @@ function checkCollectionItems(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	env: ReadonlyMap<string, string>,
 	memberCtx: MemberCompletionContext,
-	classNamed: ReturnType<typeof createKnownClassLookup>,
+	queries: CollectionQueries,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
@@ -445,7 +459,7 @@ function checkCollectionItems(
 			const index = close === open + 2 && toks[open + 1].kind === 'integerLiteral' ? Number(toks[open + 1].rawText) : undefined;
 			const className = index !== undefined && index >= 1 && index <= held.length ? held[index - 1]
 				: held.every((name) => name.toLowerCase() === held[0].toLowerCase()) ? held[0] : undefined;
-			const known = classNamed(className);
+			const known = queries.classNamed(className);
 			const memberName = tokenName(toks[close + 2])!;
 			if (!known || known.members.has(memberName.toLowerCase())) {
 				continue;
@@ -469,7 +483,7 @@ function checkCollectionItems(
 		if (element && loop.sourceExpressionSpan) {
 			const bare = element.replace(/^\w+\./, '');
 			const label = `the items of '${loop.sourceExpression!.trim()}', each ${/^[AEIOU]/.test(bare) ? 'an' : 'a'} ${bare}`;
-			if (objectAssignmentIncompatibilityReason(expected!, { type: element, label, span: loop.sourceExpressionSpan }, { ...memberCtx, model: memberCtx.model ?? getExcelObjectModel() })) {
+			if (queries.itemIncompatible(expected!, { type: element, label, span: loop.sourceExpressionSpan })) {
 				push('assignmentObjectTypeMismatch', `For Each Sets ${label}, into '${loop.controlVariable}', a ${expected}. This will raise Run-time error '13': Type mismatch.`, loop.sourceExpressionSpan);
 				return;
 			}
@@ -485,7 +499,7 @@ function checkCollectionItems(
 		const objectControl = normalizeType(expected) !== 'variant' && !isKnownScalarType(normalizeType(expected) ?? '');
 		const position = reached.findIndex((name) => (name === HELD_VALUE
 			? objectControl
-			: objectAssignmentIncompatibilityReason(expected, { type: name, label: name, span: loop.sourceExpressionSpan! }, memberCtx) !== undefined));
+			: queries.itemIncompatible(expected, { type: name, label: name, span: loop.sourceExpressionSpan! })));
 		if (position >= 0 && held[position] === HELD_VALUE) {
 			push('assignmentObjectTypeMismatch', `For Each Sets each item of '${loop.sourceExpression!.trim()}' into '${loop.controlVariable}', a ${expected}, and item ${position + 1} is a number or string, no object. This will raise Run-time error '424': Object required.`, loop.sourceExpressionSpan);
 			return;
