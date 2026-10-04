@@ -33,6 +33,35 @@ export interface UserFormControl {
 const BEGIN_RE = /^\s*Begin\s+(\{[^}]*\}|[\w.]+)\s+([\p{L}_][\p{L}\p{M}\p{N}_]*)/u;
 const END_RE = /^\s*End\s*$/i;
 
+/** Designer lines after VERSION, without allocating the module's code lines. */
+function* designerHeaderLines(source: string): Generator<string, void> {
+    // trim() and \s recognize the same whitespace as the former blank-line
+    // search. Only the first nonblank line may open a designer header.
+    const first = source.search(/\S/);
+    if (first < 0 || !/^VERSION\b/i.test(source.slice(first, first + 8))) {
+        return;
+    }
+    let newline = source.indexOf('\n', first);
+    if (newline < 0) { return; }
+    let start = newline + 1;
+    while (start <= source.length) {
+        newline = source.indexOf('\n', start);
+        let end = newline < 0 ? source.length : newline;
+        // Preserve split(/\r?\n/) exactly, including bare CR and a trailing
+        // empty line. Consumers stop the generator at the designer boundary.
+        if (newline >= 0 && end > start && source[end - 1] === '\r') { end--; }
+        yield source.slice(start, end);
+        if (newline < 0) { return; }
+        start = newline + 1;
+    }
+}
+
+/** A blank, a property assignment or a property group: all a header holds besides its blocks. */
+function isDesignerHeaderLine(line: string): boolean {
+    return line.trim() === '' || /^\s*[\w.()]+\s*=/.test(line)
+        || /^\s*(?:BeginProperty|EndProperty)\b/i.test(line);
+}
+
 /**
  * True when the source carries a `.frm` designer header whose control list
  * this parser can actually see - distinguishing "this form declares no
@@ -44,30 +73,9 @@ const END_RE = /^\s*End\s*$/i;
  * `Begin` control blocks appear only in sources that spell the controls
  * out, and those are authoritative even when the list is empty.
  */
-/** Index of the `VERSION` line a designer header opens with, past any blank lines. */
-function versionLineIndex(lines: readonly string[]): number | undefined {
-    let index = 0;
-    while (index < lines.length && lines[index].trim() === '') {
-        index += 1;
-    }
-    return index < lines.length && /^\s*VERSION\b/i.test(lines[index]) ? index : undefined;
-}
-
-/** A blank, a property assignment or a property group: all a header holds besides its blocks. */
-function isDesignerHeaderLine(line: string): boolean {
-    return line.trim() === '' || /^\s*[\w.()]+\s*=/.test(line)
-        || /^\s*(?:BeginProperty|EndProperty)\b/i.test(line);
-}
-
 export function hasAuthoritativeDesignerHeader(source: string): boolean {
-    const lines = source.split(/\r?\n/);
-    let index = versionLineIndex(lines);
-    if (index === undefined) {
-        return false;
-    }
     let depth = 0;
-    for (index += 1; index < lines.length; index += 1) {
-        const line = lines[index];
+    for (const line of designerHeaderLines(source)) {
         if (/^\s*OleObjectBlob\s*=/i.test(line)) {
             return false;
         }
@@ -94,16 +102,9 @@ export function hasAuthoritativeDesignerHeader(source: string): boolean {
  * for source that is not a form header, so callers can pass any module.
  */
 export function parseUserFormControls(source: string): UserFormControl[] {
-    const lines = source.split(/\r?\n/);
-    let index = versionLineIndex(lines);
-    if (index === undefined) {
-        return [];
-    }
-
     const out: UserFormControl[] = [];
     let depth = 0;
-    for (index += 1; index < lines.length; index += 1) {
-        const line = lines[index];
+    for (const line of designerHeaderLines(source)) {
         const begin = BEGIN_RE.exec(line);
         if (begin) {
             depth += 1;
