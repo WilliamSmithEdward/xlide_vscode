@@ -183,8 +183,12 @@ export class ShapeRows {
 			this.fire(sheets);
 			return;
 		}
+		const generation = this.generation;
 		void this.catalog(filePath).then((catalog) => {
-			if (catalog && catalogSignature(catalog) !== drawn) { this.fire(sheets); }
+			if (this.generation === generation && catalog && this.catalogs.get(project) === catalog
+				&& catalogSignature(catalog) !== drawn) {
+				this.fire(sheets);
+			}
 		});
 	}
 
@@ -431,8 +435,8 @@ export class ShapeRows {
 				},
 				(err: unknown) => {
 					const message = err instanceof Error ? err.message : String(err);
-					this.out?.appendLine(`[projectExplorer] The shapes of "${path.basename(filePath)}" could not be read: ${message}`);
 					if (this.generation === generation && this.loads.get(project) === started) {
+						this.out?.appendLine(`[projectExplorer] The shapes of "${path.basename(filePath)}" could not be read: ${message}`);
 						this.failures.set(project, message);
 					}
 					throw err;
@@ -476,11 +480,11 @@ export class ShapeRows {
 					// no answer: the workbook keeps its flat listing. Said once
 					// per reason, not on every save of a file that never reads.
 					const message = err instanceof Error ? err.message : String(err);
-					if (this.catalogFailureSaid.get(project) !== message) {
-						this.catalogFailureSaid.set(project, message);
-						this.out?.appendLine(`[projectExplorer] The sheets of "${path.basename(filePath)}" could not be listed: ${message}`);
-					}
 					if (this.generation === generation && this.catalogLoads.get(project) === started) {
+						if (this.catalogFailureSaid.get(project) !== message) {
+							this.catalogFailureSaid.set(project, message);
+							this.out?.appendLine(`[projectExplorer] The sheets of "${path.basename(filePath)}" could not be listed: ${message}`);
+						}
 						this.catalogFailures.add(project);
 					}
 					return undefined;
