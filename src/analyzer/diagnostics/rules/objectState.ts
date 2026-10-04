@@ -33,7 +33,6 @@ import {
 	createObjectAssignmentTypeResolver,
 	defTypeOf,
 	functionResultFor,
-	isKnownObjectAssignmentType,
 	sourceIdentifierBinding,
 	isKnownScalarType,
 	normalizeType,
@@ -168,6 +167,8 @@ interface LocalObjectVariable {
 
 type ObjectVariableState = 'unset' | 'set' | 'unknown';
 
+type ObjectTypeResolver = ReturnType<typeof createObjectAssignmentTypeResolver>;
+
 export function checkObjectVariableNotSet(
 	source: string,
 	mod: ModuleNode,
@@ -176,11 +177,12 @@ export function checkObjectVariableNotSet(
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
-	const nothingFunctions = functionsReturningNothing(source, mod, memberCtx, activity);
+	const resolveObjectType = createObjectAssignmentTypeResolver(memberCtx);
+	const nothingFunctions = functionsReturningNothing(source, mod, resolveObjectType, activity);
 	const objectFunctions = new Map(activeModuleMembers(mod, activity)
 		.filter((member): member is ProcedureNode => member.kind === 'Procedure' && member.procKind === 'Function' && member.params.length > 0
 			&& !nothingFunctions.has(member.name.toLowerCase()) && !!member.returnType && !/\(\s*\)\s*$/.test(member.returnType)
-			&& isKnownObjectAssignmentType(member.returnType, memberCtx))
+			&& resolveObjectType(member.returnType) !== undefined)
 		.map((member) => [member.name.toLowerCase(), member]));
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
@@ -200,10 +202,10 @@ export function checkObjectVariableNotSet(
 			}, activity);
 		}
 		checkGoToIntoWith(source, member, activity, push);
-		checkForEachOverEmptyObjectArray(source, member, symbols, memberCtx, activity, push);
+		checkForEachOverEmptyObjectArray(source, member, symbols, resolveObjectType, activity, push);
 		// A module variable nothing ever sets is Nothing in every procedure (issue #241).
 		const unset = [...untouchedModuleVariablesIn(source, symbols, member)].filter(([, variable]) =>
-			variable.asType !== undefined && isKnownObjectAssignmentType(variable.asType, memberCtx));
+			variable.asType !== undefined && resolveObjectType(variable.asType) !== undefined);
 		if (unset.length > 0) {
 			const objects = new Map(unset);
 			forEachStatement(member.body, (stmt) => {
@@ -224,7 +226,7 @@ export function checkObjectVariableNotSet(
 				}
 			}, activity);
 		}
-		for (const finding of objectStateWalk(source, mod, member, symbols, memberCtx, activity).findings) {
+		for (const finding of objectStateWalk(source, mod, member, symbols, memberCtx, activity, resolveObjectType).findings) {
 			push(...finding);
 		}
 	}
@@ -242,7 +244,7 @@ const PREEMPTING_WORDS: ReadonlySet<string> = new Set(['raise', 'error', 'stop']
 function functionsReturningNothing(
 	source: string,
 	mod: ModuleNode,
-	memberCtx: MemberCompletionContext,
+	resolveObjectType: ObjectTypeResolver,
 	activity: ConditionalActivityTracker | undefined,
 ): Map<string, ProcedureNode> {
 	const out = new Map<string, ProcedureNode>();
@@ -250,7 +252,7 @@ function functionsReturningNothing(
 		if (member.kind !== 'Procedure' || member.procKind !== 'Function' || !member.returnType || /\(\s*\)\s*$/.test(member.returnType)) {
 			continue;
 		}
-		if (!isKnownObjectAssignmentType(member.returnType, memberCtx)) {
+		if (resolveObjectType(member.returnType) === undefined) {
 			continue;
 		}
 		const lower = member.name.toLowerCase();
@@ -414,7 +416,7 @@ function moduleObjectFacts(
 			}
 		}
 	}
-	const facts = { nothingFunctions: functionsReturningNothing(source, mod, memberCtx, activity), memberFirst, excelRangeMethods };
+	const facts = { nothingFunctions: functionsReturningNothing(source, mod, resolveObjectType, activity), memberFirst, excelRangeMethods };
 	MODULE_OBJECT_FACTS.set(mod, { source, activity, memberCtx, facts });
 	return facts;
 }
@@ -491,6 +493,7 @@ function objectStateWalk(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	memberCtx: MemberCompletionContext,
 	activity: ConditionalActivityTracker | undefined,
+	resolveObjectType?: ObjectTypeResolver,
 ): ObjectStateWalk {
 	let cache = OBJECT_STATE_WALKS.get(symbols);
 	const cached = cache?.get(member);
@@ -502,7 +505,7 @@ function objectStateWalk(
 	const push: PushFn = (...finding) => {
 		walk.findings.push(finding);
 	};
-	walkObjectState(source, moduleObjectFacts(source, mod, memberCtx, activity), member, symbols, memberCtx, activity, push, walk.lets);
+	walkObjectState(source, moduleObjectFacts(source, mod, memberCtx, activity), member, symbols, memberCtx, activity, push, walk.lets, resolveObjectType ?? createObjectAssignmentTypeResolver(memberCtx));
 	if (!cache) {
 		cache = new WeakMap();
 		OBJECT_STATE_WALKS.set(symbols, cache);
@@ -520,9 +523,10 @@ function walkObjectState(
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 	lets: Map<number, ObjectVariableState>,
+	resolveObjectType: ObjectTypeResolver,
 ): void {
-	const locals = localObjectVariablesFor(source, symbols, member, memberCtx);
-	const elements = objectArrayElements(source, symbols, member, memberCtx, activity);
+	const locals = localObjectVariablesFor(source, symbols, member, resolveObjectType);
+	const elements = objectArrayElements(source, symbols, member, resolveObjectType, activity);
 	if (locals.size === 0 && elements.keys.size === 0) {
 		return;
 	}
@@ -1237,14 +1241,14 @@ function objectArrayElements(
 	source: string,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	proc: ProcedureNode,
-	memberCtx: MemberCompletionContext,
+	resolveObjectType: ObjectTypeResolver,
 	activity: ConditionalActivityTracker | undefined,
 ): ObjectArrayElements {
 	const arrays = new Map<string, { name: string; fixed: boolean }>();
 	for (const child of procedureSymbolFor(symbols, proc)?.children ?? []) {
 		const elementType = child.asType?.replace(/\(\s*\)\s*$/, '');
 		if (child.kind === 'localVariable' && child.isArray && child.visibility !== 'Static' && !child.isAutoInstantiated
-			&& elementType && isKnownObjectAssignmentType(elementType, memberCtx)) {
+			&& elementType && resolveObjectType(elementType) !== undefined) {
 			arrays.set(child.name.toLowerCase(), { name: child.name, fixed: child.arrayBounds !== undefined });
 		}
 	}
@@ -1297,11 +1301,11 @@ function checkForEachOverEmptyObjectArray(
 	source: string,
 	member: ProcedureNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
-	memberCtx: MemberCompletionContext,
+	resolveObjectType: ObjectTypeResolver,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
-	const { arrays } = objectArrayElements(source, symbols, member, memberCtx, activity);
+	const { arrays } = objectArrayElements(source, symbols, member, resolveObjectType, activity);
 	const empty = new Set([...arrays].filter(([, array]) => array.fixed).map(([lower]) => lower));
 	if (empty.size === 0) {
 		return;
@@ -1452,7 +1456,7 @@ function localObjectVariablesFor(
 	source: string,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	proc: ProcedureNode,
-	memberCtx: MemberCompletionContext,
+	resolveObjectType: ObjectTypeResolver,
 ): Map<string, LocalObjectVariable> {
 	const out = new Map<string, LocalObjectVariable>();
 	const procSym = procedureSymbolFor(symbols, proc);
@@ -1468,7 +1472,7 @@ function localObjectVariablesFor(
 			// never be Nothing when a member is touched. Tracking it produced
 			// error 91 warnings on code that runs.
 			child.isAutoInstantiated === true ||
-			!isKnownObjectAssignmentType(asType, memberCtx) ||
+			resolveObjectType(asType) === undefined ||
 			!asType
 		) {
 			continue;
@@ -1500,12 +1504,12 @@ function localObjectVariablesFor(
 	const hidden = new Set([...(procSym?.children ?? []).map((child) => child.name.toLowerCase()), proc.name.toLowerCase()]);
 	for (const child of symbols.root.children ?? []) {
 		if (child.kind === 'moduleVariable' && !child.isArray && !child.isAutoInstantiated && !hidden.has(child.name.toLowerCase()) && child.asType
-			&& isKnownObjectAssignmentType(child.asType, memberCtx) && new RegExp(`\\bset\\s+${child.name}\\s*=\\s*nothing\\b`, 'i').test(text)) {
+			&& resolveObjectType(child.asType) !== undefined && new RegExp(`\\bset\\s+${child.name}\\s*=\\s*nothing\\b`, 'i').test(text)) {
 			out.set(child.name.toLowerCase(), { name: child.name, asType: child.asType, module: true });
 		}
 	}
 	const result = returnAssignmentTypeFor(proc);
-	if (result && isKnownObjectAssignmentType(result, memberCtx) && !out.has(proc.name.toLowerCase())) {
+	if (result && resolveObjectType(result) !== undefined && !out.has(proc.name.toLowerCase())) {
 		out.set(proc.name.toLowerCase(), { name: proc.name, asType: result, letOnly: true });
 	}
 	return out;
