@@ -262,6 +262,7 @@ export class VbaEditorProjectContextService {
 	private _localContextCache = new WeakMap<vscode.TextDocument, { version: number; source: string; context: EditorProjectContext }>();
 	private readonly _projectContextCache = new Map<string, CachedEditorProjectContext>();
 	private readonly _projectContextBuilds = new Map<string, EditorProjectContextBuild>();
+	private readonly _projectContextWarmTimers = new Map<string, { timer: ReturnType<typeof setTimeout>; documentVersion: number }>();
 
 	constructor(private readonly _projectIndexService: VbaProjectIndexService) {}
 
@@ -271,6 +272,8 @@ export class VbaEditorProjectContextService {
 		if (projectPath === undefined) {
 			this._projectContextCache.clear();
 			this._projectContextBuilds.clear();
+			for (const pending of this._projectContextWarmTimers.values()) { clearTimeout(pending.timer); }
+			this._projectContextWarmTimers.clear();
 		} else {
 			this._clearProjectContextCacheForPath(projectPath);
 		}
@@ -334,6 +337,13 @@ export class VbaEditorProjectContextService {
 			const location = moduleLocationOfUri(vscode.Uri.parse(key));
 			if (!location || projectIdentityKey(location.projectPath) === projectKey) {
 				this._projectContextCache.delete(key);
+			}
+		}
+		for (const [key, pending] of this._projectContextWarmTimers) {
+			const location = moduleLocationOfUri(vscode.Uri.parse(key));
+			if (!location || projectIdentityKey(location.projectPath) === projectKey) {
+				clearTimeout(pending.timer);
+				this._projectContextWarmTimers.delete(key);
 			}
 		}
 		for (const key of [...this._projectContextBuilds.keys()]) {
@@ -451,12 +461,24 @@ export class VbaEditorProjectContextService {
 	}
 
 	warmEditorProjectContext(document: vscode.TextDocument, source: string): void {
-		if (this._projectContextBuilds.has(document.uri.toString())) {
+		const key = document.uri.toString();
+		const documentVersion = document.version;
+		if (this._projectContextBuilds.get(key)?.documentVersion === documentVersion ||
+			this._projectContextWarmTimers.get(key)?.documentVersion === documentVersion) {
 			return;
 		}
-		void this._buildEditorProjectContext(document, source).catch(() => {
-			/* best-effort cache warm */
-		});
+		const pending = this._projectContextWarmTimers.get(key);
+		if (pending) { clearTimeout(pending.timer); }
+		// Start after the provider response, so project-index work cannot run
+		// synchronously in front of results already available from the module.
+		const timer = setTimeout(() => {
+			this._projectContextWarmTimers.delete(key);
+			if (document.isClosed || document.version !== documentVersion) { return; }
+			void this._buildEditorProjectContext(document, source).catch(() => {
+				/* best-effort cache warm */
+			});
+		}, 0);
+		this._projectContextWarmTimers.set(key, { timer, documentVersion });
 	}
 
 	async buildEditorProjectContextWithin(

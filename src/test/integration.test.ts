@@ -9,6 +9,7 @@ import './formatting.test';
 import './hoverSnapshotSurfaces.test';
 import './deadCode.test';
 import './gitCompare.test';
+import './immediateCompletionSurfaces.test';
 import './officeIntegration.test';
 import './crossModuleDiagnostics.test';
 import './canonicalCasing.test';
