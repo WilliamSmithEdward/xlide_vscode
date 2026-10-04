@@ -360,6 +360,9 @@ export function resolveMemberDefinitionsAt(
 	if (!hit) {
 		return [];
 	}
+	if (ctx.memberSurfaceCache) {
+		return surfaceMemberNamed(hit.surface, memberName)?.definitions ?? [];
+	}
 	const lowerName = memberName.toLowerCase();
 	return hit.surface.members.find((m) => m.name.toLowerCase() === lowerName)
 		?.definitions ?? [];
