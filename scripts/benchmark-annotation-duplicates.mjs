@@ -8,6 +8,9 @@ import { performance } from 'node:perf_hooks';
 import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
 const baseline = process.argv.find(arg => arg.startsWith('--baseline='))?.slice(11);
+const ending = process.argv.find(arg => arg.startsWith('--eol='))?.slice(6) ?? 'lf';
+if (!['lf', 'crlf'].includes(ending)) { throw new Error('Expected --eol=lf or --eol=crlf'); }
+const eol = ending === 'crlf' ? '\r\n' : '\n';
 const root = process.cwd(), scratch = mkdtempSync(join(tmpdir(), 'xlide-annotation-duplicates-'));
 const path = join(scratch, 'api.cjs');
 try {
@@ -32,7 +35,7 @@ try {
             'no-annotations': declarations,
         };
         for (const shape of Object.keys(sources)) {
-            const source = 'Attribute VB_Name = "M"\n' + sources[shape];
+            const source = ('Attribute VB_Name = "M"\n' + sources[shape]).replace(/\n/g, eol);
             for (const scope of ['reader', 'reader-writer']) {
                 const times = [];
                 let expected;
@@ -58,7 +61,7 @@ try {
             }
         }
     }
-    console.log(JSON.stringify({ baseline: baseline ?? 'working-tree', node: process.version, rounds: 15, warmups: 3, scope: 'Actual annotation reader and optionally guarded attribute writer APIs; LF sources prepared outside timer; complete output comparisons outside timer; excludes save IO/message formatting and Office/UI execution', rows }, null, 2));
+    console.log(JSON.stringify({ baseline: baseline ?? 'working-tree', node: process.version, ending, rounds: 15, warmups: 3, scope: 'Actual annotation reader and optionally guarded attribute writer APIs; Selected line endings prepared outside timer; complete output comparisons outside timer; excludes save IO/message formatting and Office/UI execution', rows }, null, 2));
 } finally {
     if (existsSync(path)) { unlinkSync(path); }
     rmdirSync(scratch);

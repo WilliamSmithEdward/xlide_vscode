@@ -131,9 +131,9 @@ export function readAttributeAnnotations(source: string | undefined): ModuleAnno
 	const moduleKinds = new Set<AnnotationKind>();
 	const variableTargets = new Set<string>();
 
-	const lines = source.split('\n');
+	const lines = source.split(/\r\n|\r|\n/);
 	for (let at = 0; at < lines.length; at += 1) {
-		const line = lines[at].replace(/\r$/, '');
+		const line = lines[at];
 		const number = at + 1;
 
 		const match = ANNOTATION_LINE.exec(line);
