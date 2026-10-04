@@ -1295,7 +1295,8 @@ export class ProjectIndex {
 				}
 				const members = this.visibleObjectMembers(mod);
 				if (kind === 'class' && includeValueFacts) {
-					const values = classMemberValues(this.moduleSources.get(mod.moduleName.toLowerCase()) ?? '', mod.root.children ?? []);
+					const values = this.contribution('classMemberValues', mod, false, () =>
+						classMemberValues(this.moduleSources.get(mod.moduleName.toLowerCase()) ?? '', mod.root.children ?? []));
 					for (const member of members) {
 						const value = values.get(member.name.toLowerCase());
 						if (value) {
