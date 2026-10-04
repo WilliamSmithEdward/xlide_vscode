@@ -509,6 +509,36 @@ export interface ExhaustiveMemberSurface {
 	hasMember: (memberName: string) => boolean;
 }
 
+/** A lightweight presence check, retaining whether absence can be proven. */
+export interface MemberPresenceSurface extends ExhaustiveMemberSurface {
+	exhaustive: boolean;
+}
+
+/** Known public members, including non-exhaustive host/designer surfaces. */
+export function resolveMemberPresenceSurfaceAt(
+	source: string,
+	offset: number,
+	ctx: MemberCompletionContext = {},
+): MemberPresenceSurface | undefined {
+	const surface = memberPresenceSurfaceAt(source, offset, ctx, false);
+	return surface ? {
+		owner: surface.owner,
+		exhaustive: surface.exhaustive,
+		hasMember: (memberName) => surfaceMemberNamed(surface, memberName) !== undefined,
+	} : undefined;
+}
+
+function memberPresenceSurfaceAt(
+	source: string,
+	offset: number,
+	ctx: MemberCompletionContext,
+	exhaustiveOnly: boolean,
+): MemberSurface | undefined {
+	const currentType = resolveReceiverTypeAt(source, offset, ctx);
+	const surface = currentType ? memberSurfaceForType(currentType, ctx) : undefined;
+	return surface && (!exhaustiveOnly || surface.exhaustive) ? surface : undefined;
+}
+
 /**
  * The member surface of the receiver ending at `offset` when the surface can
  * prove a member absent, without building a completion row for every member
@@ -520,12 +550,8 @@ export function resolveExhaustiveMemberSurfaceAt(
 	offset: number,
 	ctx: MemberCompletionContext = {},
 ): ExhaustiveMemberSurface | undefined {
-	const currentType = resolveReceiverTypeAt(source, offset, ctx);
-	if (!currentType) {
-		return undefined;
-	}
-	const surface = memberSurfaceForType(currentType, ctx);
-	if (!surface?.exhaustive) {
+	const surface = memberPresenceSurfaceAt(source, offset, ctx, true);
+	if (!surface) {
 		return undefined;
 	}
 	return {
