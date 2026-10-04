@@ -138,7 +138,7 @@ export function callSitesOf(source: string, procedureName: string, options: Call
 				if (comment >= 0 && !text.slice(0, comment).includes('"')) { end = start + comment; }
 			}
 			line = undefined; seen = false;
-			if (start !== offset - occurrence.column || /[\r\n]/.test(source.slice(start, end)) || /[:'\[]|\b(?:Rem|Else)\b/i.test(source.slice(start, end))) { line = new CallLine(source, start, end); }
+			if (start !== offset - occurrence.column || /[\r\n]/.test(source.slice(start, end)) || /[:'#\[]|\b(?:Rem|Else)\b/i.test(source.slice(start, end))) { line = new CallLine(source, start, end); }
 		} else if (seen && !line) { line = new CallLine(source, start, end); }
 		seen = true;
 		if (line) { const site = line.site(offset, wanted); if (site) { out.push(site); } continue; }
