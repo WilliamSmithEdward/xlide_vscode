@@ -10,6 +10,11 @@ vi.mock('vscode', async () => {
 	const base = (await import('./helpers/vscodeMock')).vscodeMock();
 	return {
 		...base,
+		Range: class extends base.Range {
+			constructor(line: number, start: number, endLine: number, end: number) {
+				super(new base.Position(line, start), new base.Position(endLine, end));
+			}
+		},
 		CompletionItem: class { constructor(public label: string, public kind: number) {} },
 		CompletionList: class { constructor(public items: unknown[], public isIncomplete: boolean) {} },
 		SnippetString: class { constructor(public value: string) {} },
@@ -58,6 +63,7 @@ describe('editor surface performance', () => {
 	it('reuses local project facts across requests and discards them after edits or invalidation', () => {
 		const source = 'Public Type Point\nx As Long\nEnd Type\nSub Demo()\nEnd Sub\n';
 		const doc = documentFor(source);
+		vi.spyOn(vscode.workspace, 'textDocuments', 'get').mockReturnValue([doc]);
 		const service = new VbaEditorProjectContextService({} as never);
 		const spy = vi.spyOn(projectAnalysis, 'buildLiveVbaProjectIndex');
 		const first = service.localEditorProjectContext(doc, source);

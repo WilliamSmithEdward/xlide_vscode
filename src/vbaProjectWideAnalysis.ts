@@ -1,3 +1,4 @@
+import { isAnalysisWorkerTimeoutError } from './analysisWorkerErrors';
 // Workbook-wide VBA analysis. Reads every module's source from a project and
 // runs the same two analysis passes the live editor uses - the structural
 // block-balance analyzer (analyzeVbaStructure) and the high-confidence semantic rule
@@ -635,7 +636,7 @@ async function runProjectAnalysis(
                             ),
                         };
                     } catch (err) {
-                        if (err instanceof vscode.CancellationError) {
+                        if (err instanceof vscode.CancellationError || isAnalysisWorkerTimeoutError(err)) {
                             throw err;
                         }
                         // Worker died or rejected: identical in-host pass below.

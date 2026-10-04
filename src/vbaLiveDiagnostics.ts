@@ -1,3 +1,4 @@
+import { isAnalysisWorkerTimeoutError } from './analysisWorkerErrors';
 // Live VBA diagnostics engine: runs the analyzer's module analysis on open,
 // (debounced) on every edit, and when another module of the project changes.
 // Local/full pass scheduling and generation
@@ -403,6 +404,7 @@ export function registerVbaDiagnostics(
         generation: number,
         pass: DiagnosticPassKind,
     ): void => {
+        const documentVersion = document.version;
         const trace = startPerformanceTrace(`liveDiagnostics.${pass}`, document.uri.scheme);
         void runPassAsync(document, generation, pass).then(() => {
             trace.end('ok', document.uri.scheme);
@@ -412,7 +414,7 @@ export function registerVbaDiagnostics(
                 return;
             }
             const key = document.uri.toString();
-            if (!scheduler.isCurrentRun(document, key, generation, document.version)) {
+            if (!scheduler.isCurrentRun(document, key, generation, documentVersion)) {
                 return;
             }
             // Gate with shouldPublish too: a failed local pass must not overwrite a
@@ -420,7 +422,7 @@ export function registerVbaDiagnostics(
             if (!scheduler.shouldPublish(key, generation, pass)) {
                 return;
             }
-            publish(document.uri, document.version, [diagnosticForAnalysisRunError(document, err)]);
+            publish(document.uri, documentVersion, [diagnosticForAnalysisRunError(document, err)]);
         });
     };
 
@@ -587,13 +589,6 @@ export function registerVbaDiagnostics(
                         designerClass = current.designerClass;
                         moduleMetaByDoc.set(key, { moduleType, moduleKind, documentType, designerClass });
                     }
-                    const project = diagnosticProject.project;
-                    diagnosticProject.projectProcedures ??= projectProcedureSignatures(project);
-                    projectOptions = projectAnalysisOptionsForModule(
-                        project,
-                        moduleName,
-                        diagnosticProject.projectProcedures,
-                    );
                 } else {
                     const cached = moduleMetaByDoc.get(key);
                     if (cached) {
@@ -627,6 +622,7 @@ export function registerVbaDiagnostics(
         fullPassMetadataRetries.delete(key);
 
         const analysisSettings = await analysisSettingsForDiagnostics(projectPath);
+        if (!scheduler.isCurrentRun(document, key, generation, documentVersion)) { return; }
         const activeEditor = vscode.window.activeTextEditor;
         const activeIncompleteExpressionOffset = activeEditor?.document === document
             ? document.offsetAt(activeEditor.selection.active)
@@ -639,21 +635,26 @@ export function registerVbaDiagnostics(
         // and keeps per-document incremental state, so the follow-up full pass
         // of the same generation re-analyzes only what changed. Any failure
         // falls through to the identical in-host pass below.
-        if (workerClient?.available && projectPath && projectRecord) {
+        if (workerClient?.available && (!projectPath || projectRecord)) {
             try {
+                // Standalone exports do not need a project seed, but their
+                // analysis still belongs on the worker rather than the host.
                 const record = projectRecord;
-                const wbKey = projectKey(projectPath);
-                const crossGeneration = record.crossModuleGeneration(moduleName);
-                workerClient.ensureSeeded(wbKey, crossGeneration, () => record.modules.map((m) => ({
-                    moduleName: m.moduleName,
-                    source: m.source,
-                    type: m.type,
-                    documentType: m.documentType,
-                    implicitMembers: m.implicitMembers,
-                    predeclaredId: m.predeclaredId,
-                    designerClass: m.designerClass,
-                })));
+                const wbKey = projectPath ? projectKey(projectPath) : undefined;
+                const crossGeneration = record?.crossModuleGeneration(moduleName);
+                if (record && wbKey !== undefined && crossGeneration !== undefined) {
+                    workerClient.ensureSeeded(wbKey, crossGeneration, () => record.modules.map((m) => ({
+                        moduleName: m.moduleName,
+                        source: m.source,
+                        type: m.type,
+                        documentType: m.documentType,
+                        implicitMembers: m.implicitMembers,
+                        predeclaredId: m.predeclaredId,
+                        designerClass: m.designerClass,
+                    })));
+                }
                 const workerResult = await workerClient.analyze({
+                    latestOnly: true,
                     docKey: key,
                     projectKey: wbKey,
                     generation: crossGeneration,
@@ -665,11 +666,12 @@ export function registerVbaDiagnostics(
                     severityOverrides: analysisSettings.ruleSeverityOverrides,
                     activeIncompleteExpressionOffset,
                     host: projectPath ? hostTokenForFileName(projectPath) : undefined,
-                    referencedHosts: referencedHostsByProject.get(wbKey),
-                    referencedLibraries: referencedLibrariesByProject.get(wbKey),
+                    referencedHosts: wbKey ? referencedHostsByProject.get(wbKey) : undefined,
+                    referencedLibraries: wbKey ? referencedLibrariesByProject.get(wbKey) : undefined,
                     designerClass,
-                    workbookSheets: workbookSheetsByProject.get(wbKey),
+                    workbookSheets: wbKey ? workbookSheetsByProject.get(wbKey) : undefined,
                 });
+                if (!scheduler.isCurrentRun(document, key, generation, documentVersion)) { return; }
                 const diagnostics = diagnosticsFromModuleAnalysis(
                     document,
                     workerResult,
@@ -678,12 +680,25 @@ export function registerVbaDiagnostics(
                 );
                 publishDiagnosticsIfCurrent(document, key, generation, documentVersion, pass, diagnostics);
                 return;
-            } catch {
+            } catch (err) {
+                if (err instanceof Error && err.name === 'AnalysisSnapshotSuperseded') { return; }
+                if (isAnalysisWorkerTimeoutError(err)) { throw err; }
                 // Worker unavailable or died mid-request: fall through to the
                 // in-host pass, which produces identical results.
             }
         }
 
+        // A failed or superseded worker request must not analyze an obsolete snapshot.
+        if (!scheduler.isCurrentRun(document, key, generation, documentVersion)) { return; }
+        // Project facts are only consumed by the synchronous fallback. Building
+        // them for healthy worker passes duplicates expensive whole-project work
+        // on the editor host before dispatching the off-thread analysis.
+        if (projectRecord) {
+            projectRecord.projectProcedures ??= projectProcedureSignatures(projectRecord.project);
+            projectOptions = projectAnalysisOptionsForModule(
+                projectRecord.project, moduleName, projectRecord.projectProcedures,
+            );
+        }
         const moduleAnalysis = analyzeVbaModuleSource({
             source: text,
             moduleName,

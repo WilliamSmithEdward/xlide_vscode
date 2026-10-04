@@ -49,7 +49,7 @@ import {
 import { DocRegistry } from '../docs/docRegistry';
 import { VbaDoc, hasDocContent, renderDocMarkdown } from '../docs/docModel';
 import type { VbaProjectClassMembers } from '../symbols/symbolModel';
-import { macroNameStringAt, macroNameTarget } from '../completion/macroNames';
+import { macroNameStringAt, macroNameStringMayResolveAt, macroNameTarget } from '../completion/macroNames';
 
 /** A resolved hover description for the identifier under the cursor. */
 export interface HoverInfo {
@@ -89,6 +89,8 @@ export interface HoverContext {
 	projectTypes?: readonly ProjectTypeName[];
 	/** Exported project procedures/Declares visible as bare calls from this module. */
 	projectProcedures?: readonly VbaProcedureSignature[];
+	/** Visible procedures including the current standard module, for procedure-name strings. */
+	macroProcedures?: readonly VbaProcedureSignature[];
 	/** Developer-defined external documentation (overrides the curated library). */
 	docRegistry?: DocRegistry;
 }
@@ -117,8 +119,7 @@ function contains(span: Span, offset: number): boolean {
 export function hoverMayResolveAt(source: string, offset: number): boolean {
 	const tokens = tokenizeCached(source);
 	if (findIdentTokenIndex(tokens, offset) >= 0) { return true; }
-	const token = tokens[firstTokenEndingAtOrAfter(tokens, offset)];
-	return !!token && token.kind === 'stringLiteral' && offset > token.start && offset <= token.end;
+	return macroNameStringMayResolveAt(source, offset, true);
 }
 
 /**

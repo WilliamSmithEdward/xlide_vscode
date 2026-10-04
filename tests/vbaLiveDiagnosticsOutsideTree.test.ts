@@ -66,6 +66,8 @@ vi.mock('vscode', async () => {
 });
 
 import * as vscode from 'vscode';
+import * as moduleAnalysis from '../src/vbaModuleAnalysis';
+import type { AnalysisWorker } from '../src/vbaProjectWideAnalysis';
 import { registerVbaDiagnostics } from '../src/vbaLiveDiagnostics';
 
 /** A module saved on disk that no project claims, the way an export leaves one. */
@@ -169,4 +171,34 @@ describe('files outside the XLIDE tree', () => {
         expect(state.published.has(document.uri.toString())).toBe(false);
         expect(state.deleted).toContain(document.uri.toString());
     });
+});
+
+
+describe('standalone worker routing', () => {
+    it.each([['Module1.bas', 'standard'], ['Class1.cls', 'class']])(
+        'keeps enabled standalone %s analysis off the editor host', async (file, kind) => {
+            state.ignoreOutsideTree = false;
+            const document = looseDocument(WITH_A_FINDING, file);
+            documents().push(document);
+            const hostAnalysis = vi.spyOn(moduleAnalysis, 'analyzeVbaModuleSource');
+            const worker = {
+                available: true, ensureSeeded: vi.fn(), forget: () => undefined,
+                analyze: vi.fn(async () => ({ diagnostics: [], suppressedDiagnostics: [] })),
+            } as unknown as AnalysisWorker;
+            const context = { subscriptions: [] } as unknown as vscodeTypes.ExtensionContext;
+            try {
+                registerVbaDiagnostics(context,
+                    { onDidChangeProject: () => ({ dispose: () => undefined }) } as never, worker);
+                await vi.advanceTimersByTimeAsync(10_000);
+                expect(worker.analyze).toHaveBeenCalledWith(expect.objectContaining({
+                    docKey: document.uri.toString(), source: WITH_A_FINDING,
+                    moduleKind: kind, latestOnly: true,
+                }));
+                expect(worker.ensureSeeded).not.toHaveBeenCalled();
+                expect(hostAnalysis).not.toHaveBeenCalled();
+            } finally {
+                for (const subscription of context.subscriptions) { subscription.dispose(); }
+                hostAnalysis.mockRestore();
+            }
+        });
 });

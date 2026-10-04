@@ -2,7 +2,7 @@
 // and a framework's wiring such as ReDim's `.OnClick "Demo.BuildReport"`.
 
 import { describe, expect, it } from 'vitest';
-import { macroNameCandidates, macroNameStringAt, macroNameTarget, resolveMacroNameCompletions } from '../src/analyzer/completion/macroNames';
+import { macroNameStringMayResolveAt, macroNameCandidates, macroNameStringAt, macroNameTarget, resolveMacroNameCompletions } from '../src/analyzer/completion/macroNames';
 import { resolveHover } from '../src/analyzer/hover/resolveHover';
 import { buildVbaProjectIndex, projectAnalysisOptionsForModule, projectProcedureSignatures } from '../src/vbaProjectAnalysis';
 import { resolveSignatureHelp, type SignatureHelpContext } from '../src/analyzer/signature/signatureHelp';
@@ -29,6 +29,20 @@ function at(source: string, marker: string): number {
 }
 
 describe('a string that names a procedure (issue #217)', () => {
+    it.each([
+        ['""', '', true],
+        ['""""', '"', true],
+        ['"a"""', 'a"', true],
+        ['"a""', 'a"', false],
+    ])('preserves quote boundaries for %s', (raw, text, closed) => {
+        const source = 'Sub Demo()\nApplication.Run ' + raw + '\nEnd Sub';
+        const start = source.indexOf(raw);
+        const macro = macroNameStringAt(source, start + 1, contextFor(source));
+        expect(macro?.text).toBe(text);
+        expect(macro?.contentSpan).toEqual({ start: start + 1, end: start + raw.length - (closed ? 1 : 0) });
+        if (closed) { expect(resolveMacroNameCompletions(source, start + raw.length, contextFor(source))).toBeUndefined(); }
+    });
+
 	it('is found where the parameter is named for one', () => {
 		const wiring = 'Option Explicit\nSub Wire()\n    Dim b As New Btn\n    b.Text("Run").OnClick "Demo.Bu"\nEnd Sub\n';
 		expect(macroNameStringAt(wiring, at(wiring, '"Demo.Bu'), contextFor(wiring))?.text).toBe('Demo.Bu');
@@ -75,4 +89,23 @@ describe('a string that names a procedure (issue #217)', () => {
 		expect(macroNameTarget('buildreport', ctx)?.moduleName).toBe('Demo');
 		expect(macroNameTarget('Other.BuildReport', ctx)).toBeUndefined();
 	});
+});
+
+
+describe('cheap macro string syntax classification', () => {
+    it.each([
+        ['value = "text', false],
+        ['Caption:="text', false],
+        ['handlerProc:="Go', true],
+        ['Procedure:="Go', true],
+        ['obj.OnAction = "Go', true],
+        ['Application.Run "Go', true],
+        ['obj.Configure "Go', true],
+        ['Application.Run "Go"', false],
+        ['Application.Run "Go"""', false],
+        ['Application.Run "Go""', true],
+    ])('classifies %s conservatively', (line, expected) => {
+        const source = 'Sub Demo()\n' + line + '\nEnd Sub';
+        expect(macroNameStringMayResolveAt(source, source.indexOf(line) + line.length)).toBe(expected);
+    });
 });

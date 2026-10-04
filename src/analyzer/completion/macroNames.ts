@@ -63,7 +63,8 @@ export function macroNameStringAt(source: string, offset: number, ctx: Signature
 	if (!token || token.kind !== 'stringLiteral' || !(offset > token.start && offset <= token.end)) {
 		return undefined;
 	}
-	const closed = token.rawText.length >= 2 && token.rawText.endsWith('"') && !token.rawText.endsWith('""');
+	// Empty strings and strings ending in an escaped quote still have a closing delimiter.
+	const closed = /^"(?:[^"]|"")*"$/.test(token.rawText);
 	const contentSpan: Span = { start: token.start + 1, end: closed ? token.end - 1 : token.end };
 	const text = closed ? stringLiteralValue(token.rawText) : token.rawText.slice(1).replace(/""/g, '"');
 	const before = previous(tokens, index);
@@ -84,10 +85,33 @@ export function macroNameStringAt(source: string, offset: number, ctx: Signature
 	return name && MACRO_PARAMETER.test(name) ? { text, contentSpan } : undefined;
 }
 
+/** Reject definite non-macro string positions before building editor project facts.
+ * Positional call arguments remain possible until their signature is known.
+ * Hovers may include the closing delimiter; completion requests may not. */
+export function macroNameStringMayResolveAt(source: string, offset: number, includeClosingQuote = false): boolean {
+	const tokens = tokenizeCached(source);
+	const index = firstTokenEndingAtOrAfter(tokens, offset);
+	const token = tokens[index];
+	if (!token || token.kind !== 'stringLiteral' || offset <= token.start || offset > token.end) {
+		return false;
+	}
+	const closed = /^"(?:[^"]|"")*"$/.test(token.rawText);
+	if (closed && !includeClosingQuote && offset > token.end - 1) { return false; }
+	const before = previous(tokens, index)?.rawText.toLowerCase();
+	if (before === '=') {
+		return previous(tokens, index - 1)?.rawText.toLowerCase() === 'onaction';
+	}
+	if (before === ':=') {
+		const parameter = previous(tokens, index - 1);
+		return !!parameter && MACRO_PARAMETER.test(parameter.rawText);
+	}
+	return true;
+}
+
 /** The project procedures a macro-name string can name, `Module.Proc`, Declares and class modules left out. */
 export function macroNameCandidates(ctx: SignatureHelpContext): MacroNameCandidate[] {
 	const out = new Map<string, MacroNameCandidate>();
-	for (const procedure of ctx.projectProcedures ?? []) {
+	for (const procedure of ctx.macroProcedures ?? ctx.projectProcedures ?? []) {
 		const name = `${procedure.moduleName}.${procedure.name}`;
 		if (!procedure.external && !out.has(name.toLowerCase())) {
 			out.set(name.toLowerCase(), { name, procedure });

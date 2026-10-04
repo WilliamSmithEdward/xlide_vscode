@@ -77,17 +77,31 @@ interface CachedTypeSemanticTokens {
 }
 
 export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTokensProvider, vscode.Disposable {
+    private _disposed = false;
     private readonly _onDidChangeSemanticTokens = new vscode.EventEmitter<void>();
     private readonly _projectTypesCache = new Map<string, CachedTypeSemanticProjectTypes>();
     private readonly _semanticTokensCache = new Map<string, CachedTypeSemanticTokens>();
-    private readonly _projectTypeRefreshes = new Set<string>();
+    private readonly _projectTypeRefreshes = new Map<string, vscode.TextDocument>();
+    private readonly _documentCloseSubscription: vscode.Disposable;
     private readonly _projectTypeRefreshTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
     readonly onDidChangeSemanticTokens = this._onDidChangeSemanticTokens.event;
 
-    constructor(private readonly _projectIndexService: VbaProjectIndexService) {}
+    constructor(private readonly _projectIndexService: VbaProjectIndexService) {
+        this._documentCloseSubscription = vscode.workspace.onDidCloseTextDocument(document => {
+            const key = document.uri.toString();
+            this._projectTypesCache.delete(key);
+            this._semanticTokensCache.delete(key);
+            if (this._projectTypeRefreshes.get(key) === document) { this._projectTypeRefreshes.delete(key); }
+            const timer = this._projectTypeRefreshTimers.get(key);
+            if (timer) { clearTimeout(timer); }
+            this._projectTypeRefreshTimers.delete(key);
+        });
+    }
 
     dispose(): void {
+        this._disposed = true;
+        this._documentCloseSubscription.dispose();
         this._onDidChangeSemanticTokens.dispose();
         for (const timer of this._projectTypeRefreshTimers.values()) {
             clearTimeout(timer);
@@ -105,7 +119,7 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
         const trace = startPerformanceTrace('semanticTokens', document.uri.scheme);
         const builder = new vscode.SemanticTokensBuilder(TYPE_TOKEN_LEGEND);
         try {
-            if (!isVbaDocument(document)) { return builder.build(); }
+            if (this._disposed || document.isClosed || !isVbaDocument(document)) { return builder.build(); }
 
             if (token.isCancellationRequested) { return builder.build(); }
             const documentVersion = document.version;
@@ -132,7 +146,7 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
                 projectContext = await this._projectTypesForDocument(document, source, moduleName, token);
                 projectTypesLoadedAt = this._projectTypesCache.get(key)?.at ?? 0;
             }
-            if (token.isCancellationRequested || document.version !== documentVersion) {
+            if (token.isCancellationRequested || !this._isCurrentDocument(document, documentVersion)) {
                 return builder.build();
             }
             // A failed refresh retains the previous context. Reuse its tokens
@@ -208,7 +222,7 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
 
     private _scheduleProjectTypesRefresh(document: vscode.TextDocument): void {
         const key = document.uri.toString();
-        if (this._projectTypeRefreshes.has(key)) {
+        if (this._projectTypeRefreshes.get(key) === document) {
             return;
         }
         const existingTimer = this._projectTypeRefreshTimers.get(key);
@@ -217,7 +231,7 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
         }
         const timer = setTimeout(() => {
             this._projectTypeRefreshTimers.delete(key);
-            if (!vscode.workspace.textDocuments.includes(document)) {
+            if (this._disposed || document.isClosed || !vscode.workspace.textDocuments.includes(document)) {
                 return;
             }
             this._refreshProjectTypesInBackground(
@@ -235,16 +249,21 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
         moduleName: string,
     ): void {
         const key = document.uri.toString();
-        if (this._projectTypeRefreshes.has(key)) {
+        if (this._projectTypeRefreshes.get(key) === document) {
             return;
         }
-        this._projectTypeRefreshes.add(key);
+        this._projectTypeRefreshes.set(key, document);
+        const documentVersion = document.version;
+        const previous = this._projectTypesCache.get(key);
         void this._projectTypesForDocument(document, source, moduleName)
-            .then(() => {
+            .then((updated) => {
+                if (!this._isCurrentDocument(document, documentVersion) || !updated || updated === previous) { return; }
                 this._semanticTokensCache.delete(key);
                 this._onDidChangeSemanticTokens.fire();
             })
-            .finally(() => this._projectTypeRefreshes.delete(key));
+            .finally(() => {
+                if (this._projectTypeRefreshes.get(key) === document) { this._projectTypeRefreshes.delete(key); }
+            });
     }
 
     private _pruneSemanticTokenCaches(): void {
@@ -263,6 +282,11 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
             this._semanticTokensCache.delete(key);
             this._projectTypesCache.delete(key);
         }
+    }
+
+    private _isCurrentDocument(document: vscode.TextDocument, version: number): boolean {
+        return !this._disposed && !document.isClosed && document.version === version
+            && vscode.workspace.textDocuments.includes(document);
     }
 
     private async _projectTypesForDocument(
@@ -288,7 +312,7 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
             const project = context?.project ?? await liveProjectIndexForDocument(
                 this._projectIndexService, document, source, moduleName, token,
             );
-            if (token?.isCancellationRequested || document.version !== documentVersion) { return previous; }
+            if (token?.isCancellationRequested || !this._isCurrentDocument(document, documentVersion)) { return previous; }
             // Painting needs types and designer controls only.
             const projectTypes = project.visibleTypeNames(moduleName);
             const implicitMembers = project.moduleImplicitMembers?.(moduleName);
@@ -320,7 +344,7 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
                 meHostType: codeNames?.[moduleName.toLowerCase()] ?? accessDesignClass,
                 meProjectType: accessDesignClass ? moduleName : undefined,
             };
-            if (token?.isCancellationRequested || document.version !== documentVersion) { return previous; }
+            if (token?.isCancellationRequested || !this._isCurrentDocument(document, documentVersion)) { return previous; }
             this._projectTypesCache.set(key, entry);
             return entry;
         } catch {

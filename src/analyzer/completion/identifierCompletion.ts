@@ -73,6 +73,8 @@ export interface IdentifierCompletion {
 	kind: IdentifierCompletionKind;
 	detail: string;
 	documentation?: string;
+	/** Explicit insertion behavior when the origin kind alone cannot distinguish methods from objects. */
+	callable?: boolean;
 }
 
 /** Project/module facts the identifier resolver needs from outside the source. */
@@ -218,7 +220,7 @@ function identifierCompletionsAt(
 	const explicitCallTargetContext = isExplicitCallTargetCompletionContext(tokens, last);
 	const out: IdentifierCompletion[] = [];
 	const seen = new Set<string>();
-	const add: AddFn = (name, kind, detail, documentation): void => {
+	const add: AddFn = (name, kind, detail, documentation, callable): void => {
 		if (!name || !IDENT_RE.test(name)) {
 			return;
 		}
@@ -229,7 +231,7 @@ function identifierCompletionsAt(
 		seen.add(key);
 		// Formatting is paid only for rows that survive prefix and shadowing checks.
 		out.push({
-			name, kind,
+			name, kind, ...(callable === undefined ? {} : { callable }),
 			detail: typeof detail === 'function' ? detail() : detail,
 			documentation: typeof documentation === 'function' ? documentation() : documentation,
 		});
@@ -266,6 +268,7 @@ function identifierCompletionsAt(
 				'global',
 				hostGlobalMemberDetail(member, globalMemberHost),
 				() => hasDocContent(member.doc) ? renderDocMarkdown(member.doc) : undefined,
+				member.kind === 'method',
 			);
 		}
 	}
@@ -278,7 +281,7 @@ function identifierCompletionsAt(
 			add(f.name, 'runtime', f.signature, () => runtimeDocumentation(f));
 		}
 		for (const object of VBA_RUNTIME_OBJECTS) {
-			add(object.name, 'runtime', runtimeObjectDetail(object), () => runtimeObjectDocumentation(object));
+			add(object.name, 'runtime', runtimeObjectDetail(object), () => runtimeObjectDocumentation(object), false);
 		}
 		if (lowerPartial.length >= 2) {
 			for (const constant of VBA_RUNTIME_CONSTANTS) {
@@ -309,6 +312,7 @@ type AddFn = (
 	kind: IdentifierCompletionKind,
 	detail: string | (() => string),
 	documentation?: string | (() => string | undefined),
+	callable?: boolean,
 ) => void;
 
 /** Adds in-scope declared symbols (params/locals of the enclosing procedure plus

@@ -1,6 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 vi.mock('vscode', async () => ({
     ...(await import('./helpers/vscodeMock')).vscodeMock(),
+    Range: class {
+        start: { line: number; character: number };
+        end: { line: number; character: number };
+        constructor(line: number, start: number, endLine: number, end: number) {
+            this.start = { line, character: start };
+            this.end = { line: endLine, character: end };
+        }
+    },
     CompletionItem: class { constructor(public label: string, public kind: number) {} },
     CompletionList: class { constructor(public items: unknown[], public isIncomplete: boolean) {} },
     SnippetString: class { constructor(public value: string) {} },

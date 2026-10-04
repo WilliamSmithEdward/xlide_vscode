@@ -233,6 +233,27 @@ function isBoundary(token: VbaToken): boolean {
 	return token.kind === 'newline' || token.rawText === ':';
 }
 
+/** Whether suggestions exist, without materializing rows or rendering documentation. */
+export function hasMemberCompletions(
+	source: string,
+	offset: number,
+	ctx: MemberCompletionContext = {},
+): boolean {
+	return memberCompletionStatus(source, offset, ctx) === true;
+}
+
+/** True/false for a known surface; undefined when the receiver still needs context. */
+export function memberCompletionStatus(
+	source: string,
+	offset: number,
+	ctx: MemberCompletionContext = {},
+): boolean | undefined {
+	const hit = memberSurfaceAtDot(source, offset, ctx);
+	if (!hit) { return undefined; }
+	const prefix = hit.typedPrefix.toLowerCase();
+	return hit.surface.members.some(mem => !mem.hidden && mem.name.toLowerCase().startsWith(prefix));
+}
+
 /**
  * Resolves the member completions available at `offset`. Returns an empty array
  * when the cursor is not in a member-access position or the receiver type
@@ -447,6 +468,15 @@ function prefixSignificantTokens(
 	return completionLineCursorContext(source, offset).significantTokens;
 }
 
+/** Bracketed foreign names are prefixes too, including an unfinished escape. */
+function completionMemberPrefix(token: VbaToken): string | undefined {
+	if (isIdentLike(token)) { return token.rawText; }
+	if (token.kind === 'bracketedIdentifier') {
+		return token.rawText.slice(1).replace(/\]$/, '');
+	}
+	return undefined;
+}
+
 function memberSurfaceAtDot(
 	source: string,
 	offset: number,
@@ -463,8 +493,9 @@ function memberSurfaceAtDot(
 	// Identify the typed member prefix (text after the dot) and the dot itself.
 	let i = tokens.length - 1;
 	let typedPrefix = '';
-	if (isIdentLike(tokens[i]) && i > 0 && tokens[i - 1].rawText === '.') {
-		typedPrefix = tokens[i].rawText;
+	const memberPrefix = completionMemberPrefix(tokens[i]);
+	if (memberPrefix !== undefined && i > 0 && tokens[i - 1].rawText === '.') {
+		typedPrefix = memberPrefix;
 		i -= 1;
 	}
 	if (i < 0 || tokens[i].rawText !== '.') {
@@ -820,7 +851,7 @@ export function resolveReceiverTypeAt(
 		return undefined;
 	}
 	let i = tokens.length - 1;
-	if (isIdentLike(tokens[i]) && i > 0 && tokens[i - 1].rawText === '.') {
+	if (completionMemberPrefix(tokens[i]) !== undefined && i > 0 && tokens[i - 1].rawText === '.') {
 		i -= 1;
 	}
 	if (i < 0 || tokens[i].rawText !== '.') {

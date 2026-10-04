@@ -1,7 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+const semanticEvents = vi.hoisted(() => ({ close: [] as Array<(document: import('vscode').TextDocument) => void> }));
+
 vi.mock('vscode', async () => ({
 	...(await import('./helpers/vscodeMock')).vscodeMock({
+        workspace: {
+            onDidCloseTextDocument: (listener: (document: import('vscode').TextDocument) => void) => {
+                semanticEvents.close.push(listener);
+                return { dispose() { const index = semanticEvents.close.indexOf(listener); if (index >= 0) semanticEvents.close.splice(index, 1); } };
+            },
+        },
         window: {
             onDidChangeTextEditorSelection: vi.fn(() => ({ dispose() {} })),
             onDidChangeActiveTextEditor: vi.fn(() => ({ dispose() {} })),
@@ -270,4 +278,152 @@ it.skipIf(!process.env.XLIDE_SURFACE_BENCHMARK_OUTPUT)('measures highlighting an
     writeFileSync(process.env.XLIDE_SURFACE_BENCHMARK_OUTPUT!, JSON.stringify({
         samples: 21, procedures: 1200, projectModules: fixture.modules.length, medianMs: results,
     }, null, 2));
+});
+
+
+describe('semantic background refresh lifetime', () => {
+    it.each(['disposed', 'closed', 'edited'])('drops a refresh after its document/provider is %s', async reason => {
+        const fixture = projectFixture();
+        const doc = documentFor(fixture.modules[0].source);
+        (vscode.workspace as { textDocuments: readonly vscode.TextDocument[] }).textDocuments = [doc];
+        let finish!: (fixture: ReturnType<typeof projectFixture>) => void;
+        const service = { contextForProject: vi.fn(() => new Promise<ReturnType<typeof projectFixture>>(resolve => { finish = resolve; })) };
+        const types = vi.spyOn(fixture.project, 'visibleTypeNames');
+        const provider = new VbaTypeSemanticTokensProvider(service as never);
+        disposables.push(provider);
+        const refreshed = vi.fn();
+        provider.onDidChangeSemanticTokens(refreshed);
+        vi.useFakeTimers();
+        try {
+            await provider.provideDocumentSemanticTokens(doc, active);
+            await vi.advanceTimersByTimeAsync(400);
+            expect(service.contextForProject).toHaveBeenCalledTimes(1);
+            if (reason === 'disposed') { provider.dispose(); }
+            if (reason === 'closed') {
+                Object.defineProperty(doc, 'isClosed', { value: true });
+                (vscode.workspace as { textDocuments: readonly vscode.TextDocument[] }).textDocuments = [];
+            }
+            if (reason === 'edited') { (doc as { version: number }).version++; }
+            finish(fixture);
+            await vi.advanceTimersByTimeAsync(0);
+            expect(types).not.toHaveBeenCalled();
+            expect(refreshed).not.toHaveBeenCalled();
+        } finally { vi.useRealTimers(); }
+    });
+});
+
+
+describe('failed background semantic refresh', () => {
+    it('preserves cached tokens without firing another workspace repaint', async () => {
+        const fixture = projectFixture();
+        const doc = documentFor(fixture.modules[0].source);
+        (vscode.workspace as { textDocuments: readonly vscode.TextDocument[] }).textDocuments = [doc];
+        const service = { contextForProject: vi.fn(async () => fixture) };
+        const provider = new VbaTypeSemanticTokensProvider(service as never);
+        disposables.push(provider);
+        const refreshed = vi.fn();
+        provider.onDidChangeSemanticTokens(refreshed);
+        vi.useFakeTimers();
+        try {
+            await provider.provideDocumentSemanticTokens(doc, active);
+            await vi.advanceTimersByTimeAsync(400);
+            expect(refreshed).toHaveBeenCalledTimes(1);
+            const cached = await provider.provideDocumentSemanticTokens(doc, active);
+            refreshed.mockClear();
+            await vi.advanceTimersByTimeAsync(5001);
+            service.contextForProject.mockRejectedValueOnce(new Error('temporarily unavailable'));
+            expect(await provider.provideDocumentSemanticTokens(doc, active)).toBe(cached);
+            await vi.advanceTimersByTimeAsync(400);
+            expect(service.contextForProject).toHaveBeenCalledTimes(2);
+            expect(refreshed).not.toHaveBeenCalled();
+            expect(await provider.provideDocumentSemanticTokens(doc, active)).toBe(cached);
+        } finally { vi.useRealTimers(); }
+    });
+});
+
+
+describe('semantic reopened-document cache', () => {
+    it('does not return old tokens when a reopened URI starts at version one again', async () => {
+        const fixture = projectFixture();
+        const original = documentFor('Sub Demo()\nDebug.Print ThisWorkbook.Name\nEnd Sub\n', 'file');
+        (vscode.workspace as { textDocuments: readonly vscode.TextDocument[] }).textDocuments = [original];
+        const provider = new VbaTypeSemanticTokensProvider({ contextForProject: async () => fixture } as never);
+        disposables.push(provider);
+        const oldTokens = await provider.provideDocumentSemanticTokens(original, active);
+        expect(oldTokens.data.length).toBeGreaterThan(0);
+        (vscode.workspace as { textDocuments: readonly vscode.TextDocument[] }).textDocuments = [];
+        for (const listener of [...semanticEvents.close]) { listener(original); }
+        const reopened = documentFor('Sub Demo()\nDebug.Print ActiveSheet.Name\nEnd Sub\n', 'file');
+        (vscode.workspace as { textDocuments: readonly vscode.TextDocument[] }).textDocuments = [reopened];
+        const newTokens = await provider.provideDocumentSemanticTokens(reopened, active);
+        expect(newTokens).not.toBe(oldTokens);
+        expect(reopened.getText).toHaveBeenCalled();
+    });
+});
+
+
+describe('overlapping reopened semantic refresh', () => {
+    it('does not let the old completion unlock a newer pending refresh for the same URI', async () => {
+        const fixture = projectFixture();
+        const original = documentFor(fixture.modules[0].source);
+        (vscode.workspace as { textDocuments: readonly vscode.TextDocument[] }).textDocuments = [original];
+        const finish: Array<(fixture: ReturnType<typeof projectFixture>) => void> = [];
+        const service = { contextForProject: vi.fn(() => new Promise<ReturnType<typeof projectFixture>>(resolve => { finish.push(resolve); })) };
+        const provider = new VbaTypeSemanticTokensProvider(service as never);
+        disposables.push(provider);
+        vi.useFakeTimers();
+        try {
+            await provider.provideDocumentSemanticTokens(original, active);
+            await vi.advanceTimersByTimeAsync(400);
+            (vscode.workspace as { textDocuments: readonly vscode.TextDocument[] }).textDocuments = [];
+            for (const listener of [...semanticEvents.close]) { listener(original); }
+            const reopened = documentFor(fixture.modules[0].source);
+            (vscode.workspace as { textDocuments: readonly vscode.TextDocument[] }).textDocuments = [reopened];
+            await provider.provideDocumentSemanticTokens(reopened, active);
+            await vi.advanceTimersByTimeAsync(400);
+            expect(service.contextForProject).toHaveBeenCalledTimes(2);
+            finish[0](fixture);
+            await vi.advanceTimersByTimeAsync(0);
+            await provider.provideDocumentSemanticTokens(reopened, active);
+            await vi.advanceTimersByTimeAsync(400);
+            expect(service.contextForProject).toHaveBeenCalledTimes(2);
+            finish[1](fixture);
+            await vi.advanceTimersByTimeAsync(0);
+        } finally { vi.useRealTimers(); }
+    });
+});
+
+
+describe('hover and call-tip document lifetimes', () => {
+    it.each(['hover', 'signature'] as const)('skips source reads for a closed %s document', async kind => {
+        const doc = documentFor('Sub Demo()\nRemoteCall(\nEnd Sub\n');
+        (doc as unknown as { isClosed: boolean }).isClosed = true;
+        const provider = new VbaHoverSignatureProvider({
+            cachedEditorProjectContext: () => ({}),
+        } as never);
+        const request = kind === 'hover' ? provider.provideHover.bind(provider) : provider.provideSignatureHelp.bind(provider);
+        await request(doc, new vscode.Position(1, 2), active);
+        expect(doc.getText).not.toHaveBeenCalled();
+    });
+
+    it.each(['hover', 'signature'] as const)('does not resolve %s against a context arriving after close', async kind => {
+        const doc = documentFor('Sub Demo()\nRemoteCall(\nEnd Sub\n');
+        let finish!: (value: {}) => void;
+        const loaded = new Promise<{}>(resolve => { finish = resolve; });
+        const resolver = kind === 'hover' ? vi.spyOn(analyzer, 'resolveHover') : vi.spyOn(analyzer, 'resolveSignatureHelp');
+        resolver.mockReturnValue(undefined);
+        const context = {
+            cachedEditorProjectContext: () => undefined, cheapEditorProjectContext: () => ({}),
+            localEditorProjectContext: () => ({}), warmEditorProjectContext() {},
+            buildEditorProjectContextWithin: () => loaded,
+        };
+        const provider = new VbaHoverSignatureProvider(context as never);
+        const request = kind === 'hover' ? provider.provideHover.bind(provider) : provider.provideSignatureHelp.bind(provider);
+        const result = request(doc, new vscode.Position(1, kind === 'hover' ? 2 : 11), active);
+        expect(resolver).toHaveBeenCalledTimes(2);
+        (doc as unknown as { isClosed: boolean }).isClosed = true;
+        finish({});
+        expect(await result).toBeUndefined();
+        expect(resolver).toHaveBeenCalledTimes(2);
+    });
 });
