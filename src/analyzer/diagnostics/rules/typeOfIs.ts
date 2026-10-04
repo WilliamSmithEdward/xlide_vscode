@@ -231,15 +231,15 @@ export function checkIsOperandsInConditions(
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
+	const checkOperands = checkIsOperatorOperands(symbols, push);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
-		const env = typeEnvironmentFor(symbols, member);
+		const checkExpression = checkOperands(member);
 		const check = (span: Span, from: number, to: (toks: readonly VbaToken[]) => number): void => {
 			// Absolute offsets, so the parsed nodes carry the source's spans.
 			const toks = statementTokens(source, span)
-				.filter((tok) => tok.kind !== 'comment')
 				.map((tok) => ({ ...tok, start: span.start + tok.start, end: span.start + tok.end }));
 			const end = to(toks);
 			if (end <= from) {
@@ -249,15 +249,7 @@ export function checkIsOperandsInConditions(
 			if (!parsed) {
 				return;
 			}
-			forEachSubExpression(parsed, (expr) => {
-				if (expr.exprKind !== 'BinaryExpr' || expr.operator !== 'Is') {
-					return;
-				}
-				const offender = nonObjectOperand(expr.left, env) ?? nonObjectOperand(expr.right, env);
-				if (offender) {
-					push('isOperatorNonObject', `The 'Is' operator requires object operands, but ${offender.detail}, which is not an object.`, offender.span);
-				}
-			});
+			forEachSubExpression(parsed, checkExpression);
 		};
 		const visit = (body: readonly BodyNode[]): void => {
 			for (const node of body) {
