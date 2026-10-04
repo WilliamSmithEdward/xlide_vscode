@@ -1355,8 +1355,7 @@ function constantLookup(
 			return undefined;
 		}
 		resolving.add(lower);
-		const toks = rawExpressionTokens(symbol.defaultRaw!)
-			.filter((tok) => tok.kind !== 'comment');
+		const toks = rawExpressionTokens(symbol.defaultRaw!);
 		const value = new TypedFolder(toks, 0, resolve).fold();
 		resolving.delete(lower);
 		if (value === undefined || isOverflow(value)) {
@@ -1389,7 +1388,7 @@ function constantLookup(
 			}
 			const value: Folded = member.defaultRaw === undefined
 				? (next === undefined ? undefined : { value: next, type: 'long' })
-				: new TypedFolder(rawExpressionTokens(member.defaultRaw).filter((tok) => tok.kind !== 'comment'), 0, resolve).fold();
+				: new TypedFolder(rawExpressionTokens(member.defaultRaw), 0, resolve).fold();
 			if (value === undefined || isOverflow(value) || !Number.isInteger(value.value) || !inRange(value.value, 'long')) {
 				next = undefined;
 				continue;

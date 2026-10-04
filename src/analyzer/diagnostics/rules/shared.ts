@@ -768,7 +768,7 @@ export function sourceExpressionSyntaxProblem(sourceExpression: string): string 
 	if (/^#[^#]*#$/.test(text)) {
 		return `the literal ${text}`;
 	}
-	const significant = rawExpressionTokens(text).filter((tok) => tok.kind !== 'comment' && tok.kind !== 'newline');
+	const significant = rawExpressionTokens(text);
 	const first = significant[0];
 	if (!first) {
 		return undefined;

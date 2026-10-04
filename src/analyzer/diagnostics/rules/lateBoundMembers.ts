@@ -526,7 +526,7 @@ function hostElementType(
 	sourceNames: ReturnType<typeof sourceNameScopeFor>,
 	memberCtx: MemberCompletionContext,
 ): string | undefined {
-	const toks = rawExpressionTokens(source.slice(span.start, span.end)).filter((tok) => tok.kind !== 'comment');
+	const toks = rawExpressionTokens(source.slice(span.start, span.end));
 	// The analyzer's default host is Excel: with no model given, its globals still resolve.
 	const model = memberCtx.model ?? getExcelObjectModel();
 	// The model's keys keep their case: Excel.Worksheets, not excel.worksheets.

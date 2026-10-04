@@ -574,7 +574,7 @@ export function constantStringValue(symbol: VbaSymbol): string | undefined {
 	if (symbol.kind !== 'constant' || symbol.defaultRaw === undefined) {
 		return undefined;
 	}
-	const toks = rawExpressionTokens(symbol.defaultRaw).filter((tok) => tok.kind !== 'comment');
+	const toks = rawExpressionTokens(symbol.defaultRaw);
 	return toks.length === 1 && toks[0].kind === 'stringLiteral' ? stringLiteralValue(toks[0].rawText) : undefined;
 }
 
@@ -4730,7 +4730,7 @@ function conditionConstants(symbols: ReturnType<typeof buildModuleSymbols>, proc
 	const out = new Map<string, readonly VbaToken[]>();
 	for (const symbol of [...(symbols.root.children ?? []), ...children]) {
 		const toks = symbol.kind === 'constant' && symbol.defaultRaw !== undefined
-			? rawExpressionTokens(symbol.defaultRaw).filter((tok) => tok.kind !== 'comment')
+			? rawExpressionTokens(symbol.defaultRaw)
 			: [];
 		const word = toks.length === 1 ? tokenText(toks[0]) : '';
 		const value = word === 'true' ? CONSTANT_TRUE
