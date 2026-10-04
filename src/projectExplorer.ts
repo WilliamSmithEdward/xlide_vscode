@@ -116,7 +116,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     private _projectFilesLoad: Promise<XlideNode[]> | undefined;
     // listModules cache: avoids repeated bridge round-trips while the tree is
     // expanded.  Cleared on refresh() so edits always re-fetch.
-    private _modulesListCache = new Map<string, ModuleListing[]>();
+    private _modulesListCache = new Map<string, XlideNode[]>();
     private _modulesListLoads = new Map<string, Promise<ModuleListing[]>>();
     // Bumped on every refresh(). An in-flight load captured before a refresh must
     // not write its now-stale result into the freshly-cleared cache (which would
@@ -1202,45 +1202,36 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         this._cancelProtectionTimer(filePath);
         try {
             const cacheKey = projectNodeKey(filePath);
-            let modules = this._modulesListCache.get(cacheKey);
-            let loadGeneration: number | undefined;
-            if (!modules) {
-                let load = this._modulesListLoads.get(cacheKey);
-                if (!load) {
-                    load = this._bridge.call<ModuleListing[]>(
-                        'listModules',
-                        { path: filePath },
-                    ).then(modules => [...modules].sort(compareVbaModulesForTreeOrder));
-                    this._modulesListLoads.set(cacheKey, load);
-                    load.then(
-                        () => {
-                            if (this._modulesListLoads.get(cacheKey) === load) {
-                                this._modulesListLoads.delete(cacheKey);
-                            }
-                        },
-                        () => {
-                            if (this._modulesListLoads.get(cacheKey) === load) {
-                                this._modulesListLoads.delete(cacheKey);
-                            }
-                        },
-                    );
-                }
-                // The pending load owns the sorted copy, so overlapping expansion
-                // and tab-follow callers share sorting as well as the backend call.
-                // Cache hits also reuse it; the bridge's input is never mutated.
-                const generation = this._generation;
-                loadGeneration = generation;
-                modules = await load;
-                // Only cache when no refresh() raced this load to completion;
-                // otherwise the post-refresh render will re-fetch the fresh list.
-                if (this._generation === generation) {
-                    this._modulesListCache.set(cacheKey, modules);
-                }
+            const cached = this._modulesListCache.get(cacheKey);
+            if (cached) {
+                this._scheduleProtectionLoad(filePath);
+                return cached;
             }
-            // Only populate the shared node-identity map when this render is not a
-            // stale fresh-load that a refresh() raced to completion; otherwise it
-            // would re-insert old-generation node identities into the cleared map.
-            const populateNodeMap = loadGeneration === undefined || this._generation === loadGeneration;
+            let load = this._modulesListLoads.get(cacheKey);
+            if (!load) {
+                load = this._bridge.call<ModuleListing[]>(
+                    'listModules',
+                    { path: filePath },
+                ).then(modules => [...modules].sort(compareVbaModulesForTreeOrder));
+                this._modulesListLoads.set(cacheKey, load);
+                const settled = (): void => {
+                    if (this._modulesListLoads.get(cacheKey) === load) {
+                        this._modulesListLoads.delete(cacheKey);
+                    }
+                };
+                load.then(settled, settled);
+            }
+            // Overlapping expansion and follow share the sorted load. Once one
+            // caller builds the rows, the others reuse those rows as well.
+            const generation = this._generation;
+            const modules = await load;
+            const populateNodeMap = this._generation === generation;
+            const current = populateNodeMap ? this._modulesListCache.get(cacheKey) : undefined;
+            if (current) {
+                this._scheduleProtectionLoad(filePath);
+                return current;
+            }
+            // A stale load must not modify nodes that a newer render registered.
             const nodes = modules
                 .map((m) => {
                     const key = moduleNodeKey(filePath, m.name);
@@ -1250,7 +1241,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                     const folder = this._editorFolders.has(key)
                         ? this._editorFolders.get(key)
                         : (m.folder || undefined);
-                    let node = this._moduleNodes.get(key);
+                    let node = populateNodeMap ? this._moduleNodes.get(key) : undefined;
                     if (!node) {
                         node = {
                             kind: 'module',
@@ -1272,6 +1263,9 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                     }
                     return node;
                 });
+            if (populateNodeMap) {
+                this._modulesListCache.set(cacheKey, nodes);
+            }
             this._scheduleProtectionLoad(filePath);
             return nodes;
         } catch (err) {
