@@ -1,4 +1,5 @@
 import { tokenize } from '../lexer/tokenize';
+import { MAX_EXPRESSION_DEPTH } from '../parser/expressionLimits';
 import { isKnownDirectiveFreeModule } from '../parser/moduleParseFacts';
 import type { VbaToken } from '../lexer/tokenKinds';
 import { relationalOperatorAt, tokenWord } from '../lexer/tokenHelpers';
@@ -657,6 +658,7 @@ function truthy(value: ConditionalValue): boolean | undefined {
  */
 class ConditionalExpressionParser {
 	private index = 0;
+	private parenthesisDepth = 0;
 
 	constructor(
 		private readonly tokens: readonly VbaToken[],
@@ -693,18 +695,22 @@ class ConditionalExpressionParser {
 
 	/** `Not` binds looser than a comparison: `Not 1 = 2` is `Not (1 = 2)`. */
 	private parseNot(): ConditionalValue | undefined {
-		if (this.matchWord('not')) {
-			const value = this.parseNot();
-			if (typeof value === 'boolean') {
-				return !value;
-			}
-			if (value !== undefined && isNull(value)) {
-				return NULL;
-			}
-			const number = value === undefined ? undefined : wholeNumber(value);
-			return number === undefined ? undefined : ~number;
+		let count = 0;
+		while (this.matchWord('not')) {
+			count++;
 		}
-		return this.parseComparison();
+		let value = this.parseComparison();
+		while (count-- > 0) {
+			if (typeof value === 'boolean') {
+				value = !value;
+			} else if (value !== undefined && isNull(value)) {
+				value = NULL;
+			} else {
+				const number = value === undefined ? undefined : wholeNumber(value);
+				value = number === undefined ? undefined : ~number;
+			}
+		}
+		return value;
 	}
 
 	private parseComparison(): ConditionalValue | undefined {
@@ -784,12 +790,16 @@ class ConditionalExpressionParser {
 
 	/** Unary minus binds looser than ^: `-2 ^ 2` is -4. */
 	private parseNegation(): ConditionalValue | undefined {
-		const op = this.peek()?.rawText;
-		if (op === '-' || op === '+') {
+		const start = this.index;
+		while (this.peek()?.rawText === '-' || this.peek()?.rawText === '+') {
 			this.index++;
-			return signed(op, this.parseNegation());
 		}
-		return this.parsePower();
+		const end = this.index;
+		let value = this.parsePower();
+		for (let i = end - 1; i >= start; i--) {
+			value = signed(this.tokens[i].rawText, value);
+		}
+		return value;
 	}
 
 	private parsePower(): ConditionalValue | undefined {
@@ -818,8 +828,15 @@ class ConditionalExpressionParser {
 			return undefined;
 		}
 		if (token.rawText === '(') {
+			if (this.parenthesisDepth >= MAX_EXPRESSION_DEPTH) {
+				// Leave an over-nested directive unknown rather than exhaust the stack.
+				this.index = this.tokens.length;
+				return undefined;
+			}
 			this.index++;
+			this.parenthesisDepth++;
 			const value = this.parseLogical(0);
+			this.parenthesisDepth--;
 			if (this.peek()?.rawText !== ')') {
 				return undefined;
 			}
