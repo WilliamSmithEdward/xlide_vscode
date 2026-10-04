@@ -12,8 +12,10 @@
             <div>
                 <h1>XLIDE Analysis Results</h1>
                 <div class="subtle">{{projectName}}</div>
+                <div class="subtle" aria-live="polite">Last analysis: <time id="lastAnalyzedAt" datetime="{{lastAnalyzedAt}}">{{lastAnalysisLabel}}</time></div>
             </div>
             <div class="headerActions">
+                <button class="actionButton" id="runAnalysis" type="button" {{runAnalysisDisabled}}>Run Analysis</button>
                 <button class="actionButton" id="analysisSettings" type="button">Analysis Settings</button>
                 <button class="actionButton" id="copyReport" type="button">Copy Report</button>
                 <button class="actionButton" id="copyJson" type="button">Copy JSON</button>

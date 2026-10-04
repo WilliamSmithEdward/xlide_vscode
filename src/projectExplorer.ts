@@ -110,6 +110,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     // two entries.
     private _projectNodes = new Map<string, XlideNode>(); // key: projectNodeKey
     private _moduleNodes = new Map<string, XlideNode>(); // key: moduleNodeKey
+    private _projectModuleKeys = new Map<string, Set<string>>();
     private _projectRenderVersions = new Map<string, number>();
     private _moduleRenderVersions = new Map<string, number>();
     private _projectFilesCache: XlideNode[] | undefined;
@@ -118,12 +119,14 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     // expanded.  Cleared on refresh() so edits always re-fetch.
     private _modulesListCache = new Map<string, XlideNode[]>();
     private _modulesListLoads = new Map<string, Promise<ModuleListing[]>>();
+    private _moduleListVersions = new Map<string, number>();
     // Bumped on every refresh(). An in-flight load captured before a refresh must
     // not write its now-stale result into the freshly-cleared cache (which would
     // leave a just-added module invisible until the next refresh).
     private _generation = 0;
     private _subsListCache = new Map<string, Array<{ name: string; kind: string; line: number }>>();
     private _subsListLoads = new Map<string, Promise<Array<{ name: string; kind: string; line: number }>>>();
+    private _subListVersions = new Map<string, number>();
     // The drawn sub/designer rows of a module, kept so reveal() can name one.
     private _subNodes = new Map<string, { nodes: XlideNode[]; byLabel: Map<string, XlideNode> }>();
     // Protection-state cache: {isPasswordProtected, isSigned} per projectNodeKey.
@@ -205,14 +208,17 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         this._generation++;
         this._projectNodes.clear();
         this._moduleNodes.clear();
+        this._projectModuleKeys.clear();
         this._folderNodes.clear();
         this._folderTrees.clear();
         this._projectFilesCache = undefined;
         this._projectFilesLoad = undefined;
         this._modulesListCache.clear();
         this._modulesListLoads.clear();
+        this._moduleListVersions.clear();
         this._subsListCache.clear();
         this._subsListLoads.clear();
+        this._subListVersions.clear();
         this._subNodes.clear();
         this._protectionCache.clear();
         this._protectionLoads.clear();
@@ -254,9 +260,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
      */
     refreshModuleSubs(filePath: string, moduleName: string): void {
         const key = moduleNodeKey(filePath, moduleName);
-        this._subsListCache.delete(key);
-        this._subsListLoads.delete(key);
-        this._subNodes.delete(key);
+        this._invalidateSubListing(key);
         const node = this._moduleNodes.get(key);
         if (node) {
             this._emitter.fire(node);
@@ -372,9 +376,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
             this.refreshModuleSubs(node.filePath, node.moduleName);
             return;
         }
-        const key = projectNodeKey(node.filePath);
-        this._modulesListCache.delete(key);
-        this._modulesListLoads.delete(key);
+        this._invalidateModuleListing(node.filePath);
         const project = this._projectNodes.get(projectNodeKey(node.filePath));
         if (project) {
             this._emitter.fire(project);
@@ -585,7 +587,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     foldModuleUnlessActive(filePath: string, moduleName: string): void {
         const key = moduleNodeKey(filePath, moduleName);
         if (key !== this._activeModuleKey) {
-            this._refreshModuleExpansion(key);
+            this._refreshModuleExpansion(key, true);
         }
     }
 
@@ -594,7 +596,10 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         const key = moduleNodeKey(filePath, moduleName);
         if (this._activeModuleKey !== key) { return; }
         this._activeModuleKey = undefined;
-        this._refreshModuleExpansion(key);
+        // An in-place refresh can retain the expanded row even with a new
+        // render id. Re-read its parent's children so VS Code replaces the
+        // row and applies Collapsed, without waiting for a full redraw.
+        this._refreshModuleExpansion(key, true);
         this.collapseAllFolders();
     }
 
@@ -931,7 +936,11 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
             return this._getProjectFiles();
         }
         if (node.kind === 'project') {
+            const projectKey = projectNodeKey(node.filePath);
             const generation = this._generation;
+            const version = this._moduleListVersions.get(projectKey) ?? 0;
+            const stale = (): boolean => generation !== this._generation
+                || version !== (this._moduleListVersions.get(projectKey) ?? 0);
             const modules = await this._getModules(node.filePath);
             const failed = modules.some((m) => m.kind === 'loadError');
             // A presentation's slides, and a workbook's sheets, lead the
@@ -940,12 +949,12 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
             const rows = failed ? { folders: [], modules } : await this._shapes.projectRows(node, modules);
             // A refreshed module listing must also own the derived layout.
             // Older renders join the current load before registering any rows.
-            if (generation !== this._generation) {
+            if (stale()) {
                 return this._getChildren(node);
             }
             if (modules.length === 0) {
                 const hasVbaProject = await this._hasVbaProject(node.filePath);
-                if (generation !== this._generation) {
+                if (stale()) {
                     return this._getChildren(node);
                 }
                 return [...rows.folders, this._emptyNode(node.filePath, hasVbaProject)];
@@ -964,10 +973,14 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
             return [...this._folderNodesOf(node.filePath, folder.folders), ...folder.modules];
         }
         if (node.kind === 'module') {
-            const subs = await this._getSubs(node.filePath, node.moduleName!, node.moduleType);
+            const key = moduleNodeKey(node.filePath, node.moduleName!);
+            const listed = this._projectModuleKeys.get(projectNodeKey(node.filePath));
+            if (listed && !listed.has(key)) { return []; }
+            const current = this._moduleNodes.get(key) ?? node;
+            const subs = await this._getSubs(current.filePath, current.moduleName!, current.moduleType);
             // A worksheet's or Word document's shapes, above its procedures,
             // where a form's Designer row sits.
-            const shapes = await this._shapes.moduleFolder(node);
+            const shapes = await this._shapes.moduleFolder(current);
             return shapes ? [shapes, ...subs] : subs;
         }
         if (isShapeRow(node)) {
@@ -1070,15 +1083,24 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         if (!this._editorFolders.delete(moduleNodeKey(filePath, moduleName))) {
             return;
         }
-        // A listing already in flight was read before the editor closed, so it
-        // must not land in the cache this is clearing - the same reason
-        // refresh() bumps the generation.
-        this._generation++;
+        this._invalidateModuleListing(filePath);
+        this._emitter.fire();
+    }
+
+    /** Invalidates one project's modules without discarding unrelated loads. */
+    private _invalidateModuleListing(filePath: string): void {
         const projectKey = projectNodeKey(filePath);
+        this._moduleListVersions.set(projectKey, (this._moduleListVersions.get(projectKey) ?? 0) + 1);
         this._modulesListCache.delete(projectKey);
         this._modulesListLoads.delete(projectKey);
         this._folderTrees.delete(projectKey);
-        this._emitter.fire();
+    }
+
+    private _invalidateSubListing(key: string): void {
+        this._subListVersions.set(key, (this._subListVersions.get(key) ?? 0) + 1);
+        this._subsListCache.delete(key);
+        this._subsListLoads.delete(key);
+        this._subNodes.delete(key);
     }
 
     /** One folder in a project's layout, found by its dotted path. */
@@ -1175,8 +1197,12 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
 
     private async _getModules(filePath: string): Promise<XlideNode[]> {
         this._cancelProtectionTimer(filePath);
+        const cacheKey = projectNodeKey(filePath);
+        const generation = this._generation;
+        const version = this._moduleListVersions.get(cacheKey) ?? 0;
+        const stale = (): boolean => generation !== this._generation
+            || version !== (this._moduleListVersions.get(cacheKey) ?? 0);
         try {
-            const cacheKey = projectNodeKey(filePath);
             const cached = this._modulesListCache.get(cacheKey);
             if (cached) {
                 this._scheduleProtectionLoad(filePath);
@@ -1198,25 +1224,26 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
             }
             // Overlapping expansion and follow share the sorted load. Once one
             // caller builds the rows, the others reuse those rows as well.
-            const generation = this._generation;
             const modules = await load;
-            const populateNodeMap = this._generation === generation;
-            const current = populateNodeMap ? this._modulesListCache.get(cacheKey) : undefined;
+            if (stale()) { return this._getModules(filePath); }
+            const current = this._modulesListCache.get(cacheKey);
             if (current) {
                 this._scheduleProtectionLoad(filePath);
                 return current;
             }
-            // A stale load must not modify nodes that a newer render registered.
+            // Only the current listing can register or update stable nodes.
+            const moduleKeys = new Set<string>();
             const nodes = modules
                 .map((m) => {
                     const key = moduleNodeKey(filePath, m.name);
+                    moduleKeys.add(key);
                     // An open editor's annotation outranks the container's,
                     // and is re-applied on every listing so a refresh does not
                     // snap the module back to where it was saved.
                     const folder = this._editorFolders.has(key)
                         ? this._editorFolders.get(key)
                         : (m.folder || undefined);
-                    let node = populateNodeMap ? this._moduleNodes.get(key) : undefined;
+                    let node = this._moduleNodes.get(key);
                     if (!node) {
                         node = {
                             kind: 'module',
@@ -1229,21 +1256,35 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                             ...(folder ? { folder } : {}),
                             ...(m.hasCode !== undefined ? { hasCode: m.hasCode } : {}),
                         };
-                        if (populateNodeMap) {
-                            this._moduleNodes.set(key, node);
-                        }
+                        this._moduleNodes.set(key, node);
                     } else {
+                        if (node.moduleType !== m.type || node.moduleName !== m.name || node.moduleFilePath !== m.filePath) {
+                            this._invalidateSubListing(key);
+                        }
+                        node.label = m.name;
+                        node.moduleName = m.name;
+                        node.moduleType = m.type;
+                        node.documentType = m.documentType;
+                        node.moduleFilePath = m.filePath;
                         node.folder = folder;
                         node.hasCode = m.hasCode;
                     }
                     return node;
                 });
-            if (populateNodeMap) {
-                this._modulesListCache.set(cacheKey, nodes);
+            // Prune just this project's previous rows, without walking other
+            // projects or replacing the stable nodes that still exist.
+            for (const key of this._projectModuleKeys.get(cacheKey) ?? []) {
+                if (!moduleKeys.has(key)) {
+                    this._moduleNodes.delete(key);
+                    this._invalidateSubListing(key);
+                }
             }
+            this._projectModuleKeys.set(cacheKey, moduleKeys);
+            this._modulesListCache.set(cacheKey, nodes);
             this._scheduleProtectionLoad(filePath);
             return nodes;
         } catch (err) {
+            if (stale()) { return this._getModules(filePath); }
             vscode.window.showErrorMessage(`XLIDE: Failed to list modules in "${fileNameForDisplay(filePath)}": ${err}`);
             // Return a retry placeholder, never [] - VS Code caches resolved
             // children, so an empty result would leave the project permanently
@@ -1298,6 +1339,13 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     private async _getSubs(filePath: string, moduleName: string, moduleType?: string): Promise<XlideNode[]> {
         this._cancelProtectionTimer(filePath);
         const cacheKey = moduleNodeKey(filePath, moduleName);
+        const generation = this._generation;
+        const version = this._subListVersions.get(cacheKey) ?? 0;
+        const superseded = (): boolean => version !== (this._subListVersions.get(cacheKey) ?? 0);
+        const currentRows = (): Promise<XlideNode[]> => {
+            const module = this._moduleNodes.get(cacheKey);
+            return module ? this._getSubs(filePath, module.moduleName!, module.moduleType) : Promise.resolve([]);
+        };
         try {
             let subs = this._subsListCache.get(cacheKey);
             if (!subs) {
@@ -1324,7 +1372,6 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                 // Only cache when no refresh() raced this load to completion;
                 // otherwise the stale sub list would poison the freshly-cleared
                 // cache (mirrors the generation guard in _getModules).
-                const generation = this._generation;
                 subs = await load;
                 if (this._generation !== generation) {
                     // The rows built below are as stale as the list they come
@@ -1334,6 +1381,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                     this._scheduleProtectionLoad(filePath);
                     return this._buildSubNodes(subs, filePath, moduleName, moduleType);
                 }
+                if (superseded()) { return currentRows(); }
                 this._subsListCache.set(cacheKey, subs);
             }
             // Built once and kept: treeView.reveal() matches the element it is
@@ -1355,6 +1403,10 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
             this._scheduleProtectionLoad(filePath);
             return cached.nodes;
         } catch (err) {
+            if (superseded() && this._generation === generation) { return currentRows(); }
+            if (this._generation !== generation) {
+                return this._getSubs(filePath, moduleName, moduleType);
+            }
             vscode.window.showErrorMessage(`XLIDE: Failed to list procedures in "${moduleName}" (${fileNameForDisplay(filePath)}): ${err}`);
             return [this._loadErrorNode(filePath, moduleName, err)];
         }
@@ -1390,12 +1442,12 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         return nodes;
     }
 
-    private _refreshModuleExpansion(key: string | undefined): void {
+    private _refreshModuleExpansion(key: string | undefined, refreshParent = false): void {
         if (!key) { return; }
         this._moduleRenderVersions.set(key, (this._moduleRenderVersions.get(key) ?? 0) + 1);
         const node = this._moduleNodes.get(key);
         if (node) {
-            this._emitter.fire(node);
+            this._emitter.fire(refreshParent ? this.getParent(node) : node);
         }
     }
 

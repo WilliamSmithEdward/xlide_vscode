@@ -195,6 +195,12 @@ export function openSmartBlockClosersBefore(
     return stack.map((open) => open.closer);
 }
 
+/** Whether an edited line/column can need loop synchronization, without module text. */
+export function loopIteratorSyncMayApply(lineText: string, character: number): boolean {
+    const info = parseLoopLine({ text: lineText, start: 0, end: lineText.length });
+    return Boolean(info?.iterator && offsetTouchesSpan(character, info.iterator.span));
+}
+
 /**
  * When the edit position is on a simple `For` / `For Each` iterator or its
  * matching `Next name`, returns the paired iterator replacement.

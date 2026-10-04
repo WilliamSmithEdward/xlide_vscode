@@ -13,6 +13,7 @@ import {
     isSmartBlockClosedAhead,
     procedureHeaderParensEdit,
     resolveLoopIteratorSyncEdit,
+    loopIteratorSyncMayApply,
     smartBlockInsertion,
     withMemberContinuationText,
 } from './vbaSmartEnter';
@@ -264,8 +265,9 @@ export function registerVbaLoopIteratorSync(context: vscode.ExtensionContext): v
         if (!editor || editor.document !== doc) { return; }
 
         const lineIndex = Math.min(change.range.start.line, doc.lineCount - 1);
-        const lineLength = doc.lineAt(lineIndex).text.length;
-        const character = Math.min(lineLength, change.range.start.character + change.text.length);
+        const lineText = doc.lineAt(lineIndex).text;
+        const character = Math.min(lineText.length, change.range.start.character + change.text.length);
+        if (!loopIteratorSyncMayApply(lineText, character)) { return; }
         const offset = doc.offsetAt(new vscode.Position(lineIndex, character));
         const syncEdit = resolveLoopIteratorSyncEdit(doc.getText(), offset);
         if (!syncEdit) { return; }

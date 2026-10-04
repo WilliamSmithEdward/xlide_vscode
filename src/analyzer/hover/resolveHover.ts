@@ -425,8 +425,20 @@ function externalDocMarkdown(
 
 /** Finds the index of the identifier-like token whose span covers `offset`. */
 function findIdentTokenIndex(tokens: VbaToken[], offset: number): number {
+	// Jump to the first token that can touch the offset. At a shared boundary
+	// inspect both neighbors to preserve the identifier preference below.
+	let lo = 0;
+	let hi = tokens.length;
+	while (lo < hi) {
+		const mid = lo + Math.floor((hi - lo) / 2);
+		if (tokens[mid].end < offset) {
+			lo = mid + 1;
+		} else {
+			hi = mid;
+		}
+	}
 	let fallback = -1;
-	for (let i = 0; i < tokens.length; i += 1) {
+	for (let i = lo; i < tokens.length && tokens[i].start <= offset; i += 1) {
 		const t = tokens[i];
 		if (offset >= t.start && offset <= t.end && isIdentLike(t)) {
 			// Prefer a token that strictly contains the offset over one that only

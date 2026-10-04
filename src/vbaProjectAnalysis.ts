@@ -295,7 +295,19 @@ export function projectEditorSymbolContextForModule(
     project: ProjectIndex,
     moduleName: string,
 ): VbaProjectEditorSymbolContext {
-    const analysisOptions = projectAnalysisOptionsForModule(project, moduleName);
+    // Editor requests need symbol surfaces, not diagnostic facts such as
+    // writes, sheet changes, or file handles. Those scan project bodies and
+    // used to run synchronously after each completion-triggering edit.
+    const analysisOptions: VbaProjectAnalysisOptions = {};
+    try {
+        Object.assign(analysisOptions, {
+            projectTypes: project.visibleTypeNames(moduleName),
+            projectClassMembers: project.projectMemberSurfaces(moduleName),
+            implicitMembers: project.moduleImplicitMembers?.(moduleName),
+        });
+    } catch (err) {
+        analysisOptions.projectContextFailure = err;
+    }
     const currentLower = moduleName.toLowerCase();
     let externalProjectProcedures: VbaProcedureSignature[] = [];
     let externalProjectSymbols: VbaSymbol[] = [];
