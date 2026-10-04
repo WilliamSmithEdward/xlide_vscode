@@ -110,6 +110,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     // two entries.
     private _projectNodes = new Map<string, XlideNode>(); // key: projectNodeKey
     private _moduleNodes = new Map<string, XlideNode>(); // key: moduleNodeKey
+    private _projectModuleKeys = new Map<string, Set<string>>();
     private _projectRenderVersions = new Map<string, number>();
     private _moduleRenderVersions = new Map<string, number>();
     private _projectFilesCache: XlideNode[] | undefined;
@@ -207,6 +208,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         this._generation++;
         this._projectNodes.clear();
         this._moduleNodes.clear();
+        this._projectModuleKeys.clear();
         this._folderNodes.clear();
         this._folderTrees.clear();
         this._projectFilesCache = undefined;
@@ -258,10 +260,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
      */
     refreshModuleSubs(filePath: string, moduleName: string): void {
         const key = moduleNodeKey(filePath, moduleName);
-        this._subListVersions.set(key, (this._subListVersions.get(key) ?? 0) + 1);
-        this._subsListCache.delete(key);
-        this._subsListLoads.delete(key);
-        this._subNodes.delete(key);
+        this._invalidateSubListing(key);
         const node = this._moduleNodes.get(key);
         if (node) {
             this._emitter.fire(node);
@@ -974,10 +973,14 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
             return [...this._folderNodesOf(node.filePath, folder.folders), ...folder.modules];
         }
         if (node.kind === 'module') {
-            const subs = await this._getSubs(node.filePath, node.moduleName!, node.moduleType);
+            const key = moduleNodeKey(node.filePath, node.moduleName!);
+            const listed = this._projectModuleKeys.get(projectNodeKey(node.filePath));
+            if (listed && !listed.has(key)) { return []; }
+            const current = this._moduleNodes.get(key) ?? node;
+            const subs = await this._getSubs(current.filePath, current.moduleName!, current.moduleType);
             // A worksheet's or Word document's shapes, above its procedures,
             // where a form's Designer row sits.
-            const shapes = await this._shapes.moduleFolder(node);
+            const shapes = await this._shapes.moduleFolder(current);
             return shapes ? [shapes, ...subs] : subs;
         }
         if (isShapeRow(node)) {
@@ -1091,6 +1094,13 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         this._modulesListCache.delete(projectKey);
         this._modulesListLoads.delete(projectKey);
         this._folderTrees.delete(projectKey);
+    }
+
+    private _invalidateSubListing(key: string): void {
+        this._subListVersions.set(key, (this._subListVersions.get(key) ?? 0) + 1);
+        this._subsListCache.delete(key);
+        this._subsListLoads.delete(key);
+        this._subNodes.delete(key);
     }
 
     /** One folder in a project's layout, found by its dotted path. */
@@ -1222,9 +1232,11 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                 return current;
             }
             // Only the current listing can register or update stable nodes.
+            const moduleKeys = new Set<string>();
             const nodes = modules
                 .map((m) => {
                     const key = moduleNodeKey(filePath, m.name);
+                    moduleKeys.add(key);
                     // An open editor's annotation outranks the container's,
                     // and is re-applied on every listing so a refresh does not
                     // snap the module back to where it was saved.
@@ -1246,11 +1258,28 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                         };
                         this._moduleNodes.set(key, node);
                     } else {
+                        if (node.moduleType !== m.type || node.moduleName !== m.name || node.moduleFilePath !== m.filePath) {
+                            this._invalidateSubListing(key);
+                        }
+                        node.label = m.name;
+                        node.moduleName = m.name;
+                        node.moduleType = m.type;
+                        node.documentType = m.documentType;
+                        node.moduleFilePath = m.filePath;
                         node.folder = folder;
                         node.hasCode = m.hasCode;
                     }
                     return node;
                 });
+            // Prune just this project's previous rows, without walking other
+            // projects or replacing the stable nodes that still exist.
+            for (const key of this._projectModuleKeys.get(cacheKey) ?? []) {
+                if (!moduleKeys.has(key)) {
+                    this._moduleNodes.delete(key);
+                    this._invalidateSubListing(key);
+                }
+            }
+            this._projectModuleKeys.set(cacheKey, moduleKeys);
             this._modulesListCache.set(cacheKey, nodes);
             this._scheduleProtectionLoad(filePath);
             return nodes;
@@ -1313,6 +1342,10 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         const generation = this._generation;
         const version = this._subListVersions.get(cacheKey) ?? 0;
         const superseded = (): boolean => version !== (this._subListVersions.get(cacheKey) ?? 0);
+        const currentRows = (): Promise<XlideNode[]> => {
+            const module = this._moduleNodes.get(cacheKey);
+            return module ? this._getSubs(filePath, module.moduleName!, module.moduleType) : Promise.resolve([]);
+        };
         try {
             let subs = this._subsListCache.get(cacheKey);
             if (!subs) {
@@ -1348,7 +1381,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                     this._scheduleProtectionLoad(filePath);
                     return this._buildSubNodes(subs, filePath, moduleName, moduleType);
                 }
-                if (superseded()) { return this._getSubs(filePath, moduleName, moduleType); }
+                if (superseded()) { return currentRows(); }
                 this._subsListCache.set(cacheKey, subs);
             }
             // Built once and kept: treeView.reveal() matches the element it is
@@ -1370,7 +1403,8 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
             this._scheduleProtectionLoad(filePath);
             return cached.nodes;
         } catch (err) {
-            if (this._generation !== generation || superseded()) {
+            if (superseded() && this._generation === generation) { return currentRows(); }
+            if (this._generation !== generation) {
                 return this._getSubs(filePath, moduleName, moduleType);
             }
             vscode.window.showErrorMessage(`XLIDE: Failed to list procedures in "${moduleName}" (${fileNameForDisplay(filePath)}): ${err}`);
