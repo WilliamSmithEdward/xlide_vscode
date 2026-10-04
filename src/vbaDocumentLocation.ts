@@ -104,24 +104,25 @@ export function modulesWithNoTabLeft(
 	closed: readonly vscode.Tab[],
 	open: readonly vscode.Tab[] | (() => readonly vscode.Tab[]),
 ): ModuleLocation[] {
-	const candidates: Array<{ uri: vscode.Uri; location: ModuleLocation }> = [];
+	const keyOf = (location: ModuleLocation): string =>
+		`${projectIdentityKey(location.projectPath)}::${moduleIdentityKey(location.moduleName)}`;
+	const candidates = new Map<string, ModuleLocation>();
 	for (const uri of closed.flatMap(tabUris)) {
 		const location = moduleLocationOfUri(uri);
-		if (location) { candidates.push({ uri, location }); }
+		if (!location) { continue; }
+		const key = keyOf(location);
+		if (!candidates.has(key)) { candidates.set(key, location); }
 	}
-	if (candidates.length === 0) { return []; }
+	// Code, markup and a designer have different URIs but keep the same
+	// module open. Only scan remaining tabs if a module actually closed.
+	if (candidates.size === 0) { return []; }
 	const openTabs = typeof open === 'function' ? open() : open;
-	const stillOpen = new Set(openTabs.flatMap(tabUris).map((uri) => uri.toString()));
-	const out: ModuleLocation[] = [];
-	const seen = new Set<string>();
-	for (const { uri, location } of candidates) {
-		if (stillOpen.has(uri.toString())) { continue; }
-		// A form closes its code, its markup and its designer at once, and
-		// they are one module between them.
-		const key = `${projectIdentityKey(location.projectPath)}::${moduleIdentityKey(location.moduleName)}`;
-		if (seen.has(key)) { continue; }
-		seen.add(key);
-		out.push(location);
+	for (const tab of openTabs) {
+		for (const uri of tabUris(tab)) {
+			const location = moduleLocationOfUri(uri);
+			if (location) { candidates.delete(keyOf(location)); }
+		}
+		if (candidates.size === 0) { return []; }
 	}
-	return out;
+	return [...candidates.values()];
 }
