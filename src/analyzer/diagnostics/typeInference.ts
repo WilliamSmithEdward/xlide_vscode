@@ -4505,7 +4505,14 @@ const OPTION_BASE_ONE = /^[ \t]*Option[ \t]+Base[ \t]+1\b/im;
  * its declared type ("long", "long()" for an array), and a fixed
  * one-dimension array's bounds.
  */
+const DECLARED_FACT_READERS = new WeakMap<ReturnType<typeof buildModuleSymbols>, WeakMap<ProcedureNode, { source: string; facts: DeclaredFacts }>>();
+
 function declaredFactsFor(source: string, symbols: ReturnType<typeof buildModuleSymbols>, proc: ProcedureNode): DeclaredFacts {
+	const cache = perProcedureCache(DECLARED_FACT_READERS, symbols);
+	const kept = cache.get(proc);
+	if (kept?.source === source) {
+		return kept.facts;
+	}
 	const types = new Map<string, string>();
 	const bounds = new Map<string, readonly [number, number]>();
 	let base: number | undefined;
@@ -4525,12 +4532,14 @@ function declaredFactsFor(source: string, symbols: ReturnType<typeof buildModule
 	// The module's Consts and Enum members, which a local or parameter of the same name hides.
 	let constants: ReadonlyMap<string, number | undefined> | undefined;
 	const params = new Set(proc.params.map((param) => param.name.toLowerCase()));
-	return {
+	const facts: DeclaredFacts = {
 		type: (lower) => types.get(lower),
 		bounds: (lower) => bounds.get(lower),
 		constant: (lower) => (types.has(lower) || params.has(lower) ? undefined
 			: (constants ??= collectModuleLiteralIntegerConstants(parseModule(source), undefined)).get(lower)),
 	};
+	cache.set(proc, { source, facts });
+	return facts;
 }
 
 /** Statement heads after which a Function may end before its last line. */
