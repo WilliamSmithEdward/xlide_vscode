@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as vscodeTypes from 'vscode';
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
+vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({ window: {
+    onDidChangeActiveTextEditor: vi.fn(() => ({ dispose() {} })),
+    onDidChangeTextEditorSelection: vi.fn(() => ({ dispose() {} })),
+} }));
 import * as vscode from 'vscode';
 import { registerVbaEditorCommands } from '../src/vbaEditorCommands';
 
@@ -27,6 +30,7 @@ beforeEach(() => {
     vi.mocked(vscode.commands.executeCommand).mockReset();
     context = { subscriptions: [] } as unknown as vscodeTypes.ExtensionContext;
     registerVbaEditorCommands(context);
+    vi.mocked(vscode.commands.executeCommand).mockClear();
 });
 afterEach(() => { context.subscriptions.forEach(item => item.dispose()); vi.restoreAllMocks(); });
 

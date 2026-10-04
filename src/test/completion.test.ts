@@ -5,6 +5,7 @@ import * as vscode from 'vscode';
 import { VbaEditorProjectContextService } from '../vbaEditorProjectContext';
 import { VbaTypeSemanticTokensProvider } from '../vbaSemanticTokensProvider';
 import type { VbaProjectIndexService } from '../vbaProjectIndexService';
+import { backspaceNeedsExtension } from '../vbaEditorCommands';
 import { activate, closeAllEditors, open, until, workspaceRoot } from './support';
 
 async function probe(name: string, source: string, marker: string): Promise<{ document: vscode.TextDocument; editor: vscode.TextEditor; caret: vscode.Position }> {
@@ -101,8 +102,9 @@ suite('Completion editor surface', () => {
         }
     });
     test('Smart Backspace clears a continued comment then its remaining indent', async () => {
-        const { document } = await probe('CommentBackspace',
+        const { document, editor } = await probe('CommentBackspace',
             "Sub Demo()\n    'note\n    ' \nEnd Sub\n", "    ' ");
+        assert.equal(backspaceNeedsExtension(editor), true);
         await vscode.commands.executeCommand('xlide.vba.smartBackspace');
         assert.equal(document.lineAt(2).text, '    ');
         await vscode.commands.executeCommand('xlide.vba.smartBackspace');
@@ -242,12 +244,13 @@ suite('Completion editor surface', () => {
         await editor.insertSnippet(item.insertText, range);
         assert.equal(document.lineAt(1).text, 'Set obj = Union()');
     });
-    test('keeps deleting through member prefixes with the smart Backspace command', async () => {
+    test('keeps ordinary member-prefix deletion on the native Backspace route', async () => {
         const expression = 'ThisWorkbook.Sheets(1).az';
         const source = 'Public Property Get Demo() As Variant\nIf True Then\nEnd If\n' + expression + '\nEnd Property\n';
-        const { document } = await probe('CompletionRepeatedBackspace', source, expression);
+        const { document, editor } = await probe('CompletionRepeatedBackspace', source, expression);
         for (let removed = 1; removed <= 10; removed++) {
-            await vscode.commands.executeCommand('xlide.vba.smartBackspace');
+            assert.equal(backspaceNeedsExtension(editor), false);
+            await vscode.commands.executeCommand('deleteLeft');
             assert.equal(document.lineAt(3).text, expression.slice(0, -removed), `Backspace ${removed} must delete another character`);
         }
     });
