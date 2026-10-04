@@ -341,3 +341,54 @@ describe('an editor that closes under a pending recase', () => {
 			.rejects.toThrow('the edit failed for another reason');
 	});
 });
+
+
+describe('canonical casing lifecycle and idle work', () => {
+    it('does not read an untouched module during save', () => {
+        const document = fakeDocument(SOURCE);
+        const read = vi.spyOn(document, 'getText');
+        expect(controller().pendingEditsForSave(document as never)).toEqual([]);
+        expect(read).not.toHaveBeenCalled();
+    });
+
+    it('drops queued recases when the document closes and reopens before an edit completes', async () => {
+        const document = fakeDocument(SOURCE);
+        const editor = fakeEditor(document);
+        show(editor);
+        const casing = controller();
+        let finish!: (value: boolean) => void;
+        editor.edit.mockImplementationOnce(() => new Promise<boolean>(resolve => { finish = resolve; }));
+        const first = casing.applyCanonicalCaseForLine(document as never, 0, editor as never);
+        await casing.applyCanonicalCaseForLine(document as never, 1, editor as never);
+        document.isClosed = true;
+        casing.handleDocumentClose(document as never);
+        document.isClosed = false;
+        finish(true);
+        await first;
+        await Promise.resolve();
+        expect(editor.edit).toHaveBeenCalledTimes(1);
+    });
+
+    it('cancels idle recases when the controller is disposed', async () => {
+        const document = fakeDocument(SOURCE);
+        document.isDirty = true;
+        const editor = fakeEditor(document);
+        show(editor);
+        const casing = controller();
+        casing.handleTextDocumentChange(changed(document, 0, 15, 15, ' '));
+        casing.dispose();
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(editor.edit).not.toHaveBeenCalled();
+    });
+
+    it('does not read a closed document even if an editor still shows it', async () => {
+        const document = fakeDocument(SOURCE);
+        const editor = fakeEditor(document);
+        show(editor);
+        document.isClosed = true;
+        const read = vi.spyOn(document, 'getText');
+        await controller().applyCanonicalCaseForLine(document as never, 0, editor as never);
+        expect(read).not.toHaveBeenCalled();
+        expect(editor.edit).not.toHaveBeenCalled();
+    });
+});

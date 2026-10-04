@@ -45,7 +45,8 @@ function canonicalCandidateFromEditor(
 	return { editor, position: editor.selection.active, documentVersion: editor.document.version };
 }
 
-export class VbaCanonicalCaseController {
+export class VbaCanonicalCaseController implements vscode.Disposable {
+	private _disposed = false;
 	private readonly _pendingCanonicalCaseRequests: CanonicalCaseRequest[] = [];
 	private _applyingCanonicalCase = false;
 	private _lastCanonicalCandidate = canonicalCandidateFromEditor(vscode.window.activeTextEditor);
@@ -59,6 +60,16 @@ export class VbaCanonicalCaseController {
 	constructor(
 		private readonly _projectContext: VbaEditorProjectContextService,
 	) {}
+
+	dispose(): void {
+		this._disposed = true;
+		for (const timer of this._canonicalLineTimers.values()) { clearTimeout(timer); }
+		this._canonicalLineTimers.clear();
+		this._pendingCanonicalCaseRequests.length = 0;
+		this._userTouchedCanonicalLines.clear();
+		this._unconfirmedCanonicalLines.clear();
+		this._lastCanonicalCandidate = undefined;
+	}
 
 	async applyCanonicalCase(
 		document: vscode.TextDocument,
@@ -108,6 +119,7 @@ export class VbaCanonicalCaseController {
 		editorHint: vscode.TextEditor | undefined,
 		resolveEdits: (source: string, ctx: CanonicalCaseContext) => CanonicalCaseEdit[],
 	): Promise<void> {
+		if (this._disposed || document.isClosed) { return; }
 		if (this._applyingCanonicalCase) {
 			this._enqueueCanonicalCaseRequest({ document, editorHint, resolveEdits });
 			return;
@@ -185,6 +197,7 @@ export class VbaCanonicalCaseController {
 	 * document dirty again.
 	 */
 	pendingEditsForSave(document: vscode.TextDocument): vscode.TextEdit[] {
+		if (this._disposed || document.isClosed) { return []; }
 		const prefix = `${document.uri.toString()}\n`;
 		const lines: number[] = [];
 		for (const key of [...this._userTouchedCanonicalLines]) {
@@ -201,6 +214,7 @@ export class VbaCanonicalCaseController {
 				lines.push(Number(key.slice(prefix.length)));
 			}
 		}
+		if (lines.length === 0) { return []; }
 		const source = document.getText();
 		const ctx = this._canonicalCaseContext(document);
 		const edits: vscode.TextEdit[] = [];
@@ -233,7 +247,7 @@ export class VbaCanonicalCaseController {
 	// -----------------------------------------------------------------------
 
 	handleTextDocumentChange(event: vscode.TextDocumentChangeEvent): void {
-		if (!isVbaDocument(event.document)) {
+		if (this._disposed || event.document.isClosed || !isVbaDocument(event.document)) {
 			return;
 		}
 		// A reload - an agent's write to an open module, a restore from git, a
@@ -285,6 +299,7 @@ export class VbaCanonicalCaseController {
 	}
 
 	handleSelectionChange(event: vscode.TextEditorSelectionChangeEvent): void {
+		if (this._disposed) { return; }
 		const previous = this._lastCanonicalCandidate;
 		if (previous && previous.editor !== event.textEditor) {
 			this._applyCanonicalLine(
@@ -321,17 +336,27 @@ export class VbaCanonicalCaseController {
 	}
 
 	handleActiveEditorChange(editor: vscode.TextEditor | undefined): void {
+		if (this._disposed) { return; }
 		this._flushCanonicalLine();
 		this._lastCanonicalCandidate = canonicalCandidateFromEditor(editor);
 	}
 
 	handleWindowStateChange(state: vscode.WindowState): void {
+		if (this._disposed) { return; }
 		if (!state.focused) {
 			this._flushCanonicalLine();
 		}
 	}
 
 	handleDocumentClose(document: vscode.TextDocument): void {
+		for (let index = this._pendingCanonicalCaseRequests.length - 1; index >= 0; index--) {
+			if (this._pendingCanonicalCaseRequests[index].document === document) {
+				this._pendingCanonicalCaseRequests.splice(index, 1);
+			}
+		}
+		if (this._lastCanonicalCandidate?.editor.document === document) {
+			this._lastCanonicalCandidate = undefined;
+		}
 		const prefix = `${document.uri.toString()}\n`;
 		for (const [key, timer] of this._canonicalLineTimers) {
 			if (!key.startsWith(prefix)) {
