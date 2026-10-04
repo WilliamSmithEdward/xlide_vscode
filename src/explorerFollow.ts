@@ -161,7 +161,9 @@ export class ExplorerFollow implements vscode.Disposable {
                 }
             }),
             vscode.window.tabGroups.onDidChangeTabs((event) => {
-                if (!_deps.enabled() || !_deps.modulesClosedBy) {
+                // Active-state and opening changes cannot close a module; do
+                // not enumerate all open tabs to prove that on every switch.
+                if (event.closed.length === 0 || !_deps.enabled() || !_deps.modulesClosedBy) {
                     return;
                 }
                 const closed = _deps.modulesClosedBy(event);

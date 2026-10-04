@@ -27,7 +27,7 @@ const PROJECT = 'C:\\work\\Book.xlsm';
 const project: XlideNode = { kind: 'project', label: 'Book.xlsm', filePath: PROJECT };
 
 /** Project Book.xlsm with modules A and B, each holding Sub <name>First and Sub <name>Second. */
-function world(options: { enabled?: () => boolean } = {}) {
+function world(options: { enabled?: () => boolean; modulesClosedBy?: ExplorerFollowDeps['modulesClosedBy'] } = {}) {
     const modules = new Map<string, XlideNode>();
     const procedures = new Map<string, XlideNode>();
     for (const name of ['A', 'B']) {
@@ -100,15 +100,16 @@ function world(options: { enabled?: () => boolean } = {}) {
         },
     };
 
+    const modulesClosedBy = vi.fn(options.modulesClosedBy ?? ((event) => event.closed.length > 0 ? [{ projectPath: PROJECT, moduleName: 'A' }] : []));
     const follow = new ExplorerFollow({
         explorer,
         treeView: treeView as unknown as ExplorerFollowDeps['treeView'],
         caret,
         enabled: options.enabled ?? (() => true),
-        modulesClosedBy: () => [{ projectPath: PROJECT, moduleName: 'A' }],
+        modulesClosedBy,
     });
     return {
-        modules, procedures, listed, explorer, rowsReplaced, treeView, caret, follow,
+        modules, procedures, listed, explorer, rowsReplaced, treeView, caret, follow, modulesClosedBy,
         expand: (element: XlideNode) => expanded.fire({ element }),
         revealed: () => treeView.reveal.mock.calls.map(([node]) => node.label),
     };
@@ -135,7 +136,7 @@ describe('the explorer following the editor', () => {
         vi.useRealTimers();
     });
 
-    function make(options?: { enabled?: () => boolean }) {
+    function make(options?: { enabled?: () => boolean; modulesClosedBy?: ExplorerFollowDeps['modulesClosedBy'] }) {
         const made = world(options);
         follows.push(made.follow);
         return made;
@@ -213,7 +214,7 @@ describe('the explorer following the editor', () => {
         caret.moveTo('A', 'First');
         await settle();
         caret.current = undefined;
-        host.tabsChanged?.({ closed: [], opened: [], changed: [] });
+        host.tabsChanged?.({ closed: [{ input: undefined }], opened: [], changed: [] });
         release();
         await settle();
 
@@ -338,7 +339,7 @@ describe('the explorer following the editor', () => {
         await settle();
         caret.current = { ...caret.current!, moduleName: 'B', label: 'Sub BFirst' };
 
-        host.tabsChanged?.({ closed: [], opened: [], changed: [] });
+        host.tabsChanged?.({ closed: [{ input: undefined }], opened: [], changed: [] });
         await settle();
         expect(explorer.clearActiveModule).toHaveBeenCalledWith(PROJECT, 'A');
         expect(revealed()).toEqual(['Sub AFirst', 'Sub BFirst']);
@@ -357,6 +358,22 @@ describe('the explorer following the editor', () => {
         // So that the fold which runs once the setting is turned on knows.
         expect(explorer.noteFolderExpanded).toHaveBeenCalledWith(modules.get('B'), true);
         expect(explorer.notifyFolderExpansion).not.toHaveBeenCalled();
+    });
+
+    it.each(['opened', 'changed', 'empty'])('does not enumerate open tabs for a %s event with no closures', async (kind) => {
+        const enumerateOpenTabs = vi.fn(() => []);
+        const { caret, explorer, revealed, modulesClosedBy } = make({ modulesClosedBy: enumerateOpenTabs });
+        caret.moveTo('A', 'First');
+        await settle();
+        const tab = { input: undefined };
+        for (let i = 0; i < 200; i++) {
+            host.tabsChanged?.({ closed: [], opened: kind === 'opened' ? [tab] : [], changed: kind === 'changed' ? [tab] : [] });
+        }
+        await settle();
+        expect(modulesClosedBy).not.toHaveBeenCalled();
+        expect(enumerateOpenTabs).not.toHaveBeenCalled();
+        expect(explorer.clearActiveModule).not.toHaveBeenCalled();
+        expect(revealed()).toEqual(['Sub AFirst']);
     });
 
     it('leaves the tree as it is when no module is in front', async () => {
