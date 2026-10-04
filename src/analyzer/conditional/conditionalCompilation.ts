@@ -434,7 +434,8 @@ function applyConditionalDirective(
 			return current;
 		}
 		case 'If': {
-			const condition = conditionActivity(directive, env, projectConstants);
+			const condition = current === 'inactive'
+				? 'inactive' : conditionActivity(directive, env, projectConstants);
 			const frame: ConditionalFrame = {
 				parent: current,
 				current: combineActivity(current, condition),
@@ -449,10 +450,13 @@ function applyConditionalDirective(
 			if (!frame) {
 				return current;
 			}
-			const condition = conditionActivity(directive, env, projectConstants);
-			if (frame.seenTrue) {
+			if (frame.seenTrue || frame.parent === 'inactive') {
+				// Constants still replay, but this arm cannot change activity.
 				frame.current = 'inactive';
-			} else if (frame.seenUnknown && condition !== 'inactive') {
+				return frame.current;
+			}
+			const condition = conditionActivity(directive, env, projectConstants);
+			if (frame.seenUnknown && condition !== 'inactive') {
 				frame.current = combineActivity(frame.parent, 'unknown');
 			} else {
 				frame.current = combineActivity(frame.parent, condition);
