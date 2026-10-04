@@ -105,6 +105,7 @@ export function openProjectAnalysisResults(
         return existing.panel;
     }
 
+    let lastAnalyzedAt = new Date().toISOString();
     let currentResult = result;
     let currentModel = buildProjectAnalysisResultsModel(currentResult);
     let disposed = false;
@@ -124,6 +125,7 @@ export function openProjectAnalysisResults(
     );
 
     const updateResult = (nextResult: ProjectAnalysisResult): void => {
+        lastAnalyzedAt = new Date().toISOString();
         currentResult = nextResult;
         currentModel = buildProjectAnalysisResultsModel(currentResult);
     };
@@ -137,6 +139,7 @@ export function openProjectAnalysisResults(
         panel.webview.html = renderProjectAnalysisResultsHtml(
             currentModel,
             analysisSettings,
+            { lastAnalyzedAt, canRunAnalysis: !!entry.options.onRefreshResult },
         );
         htmlRendered = true;
         });
@@ -150,7 +153,9 @@ export function openProjectAnalysisResults(
         panel.title = `XLIDE Analysis: ${currentModel.projectName}`;
         await panel.webview.postMessage({
             type: 'model',
-            model: buildProjectAnalysisClientModel(currentModel, analysisSettings),
+            model: buildProjectAnalysisClientModel(currentModel, analysisSettings, {
+                lastAnalyzedAt, canRunAnalysis: !!entry.options.onRefreshResult,
+            }),
         });
         });
     };
@@ -173,13 +178,20 @@ export function openProjectAnalysisResults(
 
     const refresher = new DebouncedRefresher({
         refresh: async () => {
-            if (entry.options.onRefreshResult) {
-                const nextResult = await entry.options.onRefreshResult();
-                if (disposed) { return; }
-                updateResult(nextResult);
-            }
-            if (!disposed) {
-                await refreshView();
+            await panel.webview.postMessage({ type: 'analysisRunning', running: true });
+            try {
+                if (entry.options.onRefreshResult) {
+                    const nextResult = await entry.options.onRefreshResult();
+                    if (disposed) { return; }
+                    updateResult(nextResult);
+                }
+                if (!disposed) {
+                    await refreshView();
+                }
+            } finally {
+                if (!disposed) {
+                    await panel.webview.postMessage({ type: 'analysisRunning', running: false });
+                }
             }
         },
         onError: (err) => {
@@ -256,6 +268,12 @@ export function openProjectAnalysisResults(
     const messageSub = bridgeWebviewMessages(
         panel.webview,
         async (message: ProjectAnalysisMessage) => {
+            if (message.type === 'runAnalysis') {
+                if (entry.options.onRefreshResult) {
+                    await refresher.refreshNow();
+                }
+                return;
+            }
             if (message.type === 'openProblem') {
                 const problem = problemForOpenMessage(message);
                 if (problem && entry.options.onOpenProblem) {
@@ -445,7 +463,14 @@ interface ProjectAnalysisClientRow {
     location: string;
 }
 
+interface ProjectAnalysisRunState {
+    lastAnalyzedAt?: string;
+    canRunAnalysis?: boolean;
+}
+
 interface ProjectAnalysisClientModel {
+    lastAnalyzedAt?: string;
+    canRunAnalysis: boolean;
     projectName: string;
     totalProblems: number;
     errorCount: number;
@@ -467,6 +492,7 @@ interface ProjectAnalysisClientModel {
 function buildProjectAnalysisClientModel(
     model: ProjectAnalysisResultsModel,
     analysisSettings: EffectiveProjectAnalysisSettings,
+    runState: ProjectAnalysisRunState = {},
 ): ProjectAnalysisClientModel {
     const untrackedRules = analysisSettings.untrackedRules;
     const moduleOrder = new Map(model.groups.map((group, index) => [group.moduleName.toLowerCase(), index]));
@@ -504,6 +530,8 @@ function buildProjectAnalysisClientModel(
         };
     });
     return {
+        lastAnalyzedAt: runState.lastAnalyzedAt,
+        canRunAnalysis: runState.canRunAnalysis === true,
         projectName: model.projectName,
         totalProblems: model.totalProblems,
         // Derive all three counts uniformly from the same row set so the
@@ -534,9 +562,10 @@ function buildProjectAnalysisClientModel(
 export function renderProjectAnalysisResultsHtml(
     model: ProjectAnalysisResultsModel,
     analysisSettings: EffectiveProjectAnalysisSettings,
+    runState: ProjectAnalysisRunState = {},
 ): string {
     const nonce = randomNonce();
-    const clientModel = buildProjectAnalysisClientModel(model, analysisSettings);
+    const clientModel = buildProjectAnalysisClientModel(model, analysisSettings, runState);
     const modelJson = scriptJson(clientModel);
     const rowsHtml = clientModel.rows.length === 0
         ? '<div class="empty">No analysis findings.</div>'
@@ -608,6 +637,11 @@ export function renderProjectAnalysisResultsHtml(
             toastCss: WEBVIEW_TOAST_CSS,
         }),
         projectName: escapeHtml(model.projectName),
+        lastAnalyzedAt: escapeAttr(clientModel.lastAnalyzedAt ?? ''),
+        lastAnalysisLabel: escapeHtml(clientModel.lastAnalyzedAt
+            ? new Date(clientModel.lastAnalyzedAt).toLocaleString()
+            : 'Unavailable'),
+        runAnalysisDisabled: clientModel.canRunAnalysis ? '' : 'disabled',
         summaryStats: summaryStatsHtml,
         moduleButtons,
         filterButtons,

@@ -53,6 +53,10 @@
         .secondaryButton:hover {
             background: var(--vscode-button-secondaryHoverBackground);
         }
+        .actionButton:disabled {
+            opacity: 0.5;
+            cursor: default;
+        }
         .secondaryButton {
             color: var(--vscode-foreground);
             background: transparent;
