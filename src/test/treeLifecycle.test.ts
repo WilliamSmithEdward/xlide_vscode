@@ -214,6 +214,31 @@ suite('Explorer shape refresh in the extension host', () => {
 });
 
 suite('Explorer sheet context in the extension host', () => {
+    test('module-less Add Shape targets are checked before the tree redraws', async () => {
+        let name = 'Data', removed = false;
+        const explorer = new ProjectExplorer({ call: (method: string) => {
+            if (method === 'listModules') { return Promise.resolve([]); }
+            if (method === 'listWorkbookSheets') { return Promise.resolve({ sheets: removed ? [] : [{ name, kind: 'worksheet' }] }); }
+            if (method === 'listShapes') { return Promise.resolve({ surfaces: [{ surface: name, shapes: [{ name: 'Box', kind: 'shape' }] }] }); }
+            return Promise.resolve([]);
+        } } as unknown as ConstructorParameters<typeof ProjectExplorer>[0]);
+        try {
+            const project = (await explorer.getChildren()).find(node => node.filePath === workbookPath());
+            assert.ok(project);
+            const [sheets] = await explorer.getChildren(project);
+            const [sheet] = await explorer.getChildren(sheets);
+            const [folder] = await explorer.getChildren(sheet);
+            name = 'DATA';
+            explorer.refreshShapes(workbookPath());
+            for (const node of [sheet, folder]) {
+                assert.deepEqual(await explorer.shapeSurfaceOf(node), { host: 'excel', surface: 'DATA' });
+            }
+            removed = true;
+            explorer.refreshShapes(workbookPath());
+            for (const node of [sheet, folder]) { assert.equal(await explorer.shapeSurfaceOf(node), undefined); }
+        } finally { explorer.dispose(); }
+    });
+
     test('an opened module-less Shapes folder survives a case-only sheet rename', async () => {
         let name = 'Data';
         const explorer = new ProjectExplorer({ call: (method: string) => {

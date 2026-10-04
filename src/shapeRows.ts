@@ -449,12 +449,28 @@ export class ShapeRows {
 
 	/**
 	 * The surface a folder or surface row adds a shape to: the row's own, or
-	 * for a worksheet module's Shapes folder the sheet the module stands for,
-	 * read now when the folder has never been opened.
+	 * for a worksheet module's Shapes folder the sheet the module stands for.
+	 * Sheet rows and their folders resolve the current worksheet catalog,
+	 * including empty sheets that have no entry in the shape listing.
 	 */
 	async surfaceOf(node: XlideNode): Promise<ShapeRowContext | undefined> {
 		if (this.disposed) { return undefined; }
 		const host = shapeHostForPath(node.filePath);
+		if (host === 'excel' && (node.kind === 'surface' || node.shapeFolder === 'surface')) {
+			const current = this.renderCurrent(node.filePath);
+			const catalog = await this.catalog(node.filePath);
+			if (this.disposed) { return undefined; }
+			if (!current()) { return this.surfaceOf(node); }
+			const row = node.kind === 'surface' ? node : this.parents.get(node);
+			const previous = row ? this.sheetOfRow.get(row) : undefined;
+			const sheet = catalog?.find(candidate => previous?.codeName
+				? candidate.codeName?.toLowerCase() === previous.codeName.toLowerCase()
+				: candidate.name.toLowerCase() === node.surface?.toLowerCase());
+			const context = sheet?.kind === 'worksheet' ? { host, surface: sheet.name } : undefined;
+			if (context) { this.contexts.set(node, context); }
+			else { this.contexts.delete(node); }
+			return context;
+		}
 		if (!host || node.kind !== 'shapes' || node.shapeFolder !== 'module') { return this.contexts.get(node); }
 		// A module folder survives a sheet rename. Its last drawn context is
 		// only presentation state; commands resolve the current cached listing.
