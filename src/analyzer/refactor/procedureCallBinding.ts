@@ -10,17 +10,21 @@ export function procedureCallBinding(
 	moduleName: string,
 	procedure: ProcedureNode,
 	others: Readonly<Record<string, string>>,
+	/** Reuse the caller's complete, query-owned project when supplied. */
+	projectForBinding?: () => ProjectIndex,
 ): (callerName: string, callerSource: string, site: CallSite) => boolean {
 	let project: ProjectIndex | undefined;
 	const tokensByModule = new Map<string, ReturnType<typeof tokenizeCached>>();
 	return (callerName, callerSource, site) => {
 		if (!project) {
-			project = new ProjectIndex();
-			project.setModule({moduleName, moduleKind: 'standard', source});
-			for (const [otherName, otherSource] of Object.entries(others)) {
-				if (otherName.toLowerCase() !== moduleName.toLowerCase()) {
-					project.setModule({moduleName: otherName, moduleKind: 'standard', source: otherSource});
-				}
+			project = projectForBinding?.() ?? new ProjectIndex();
+			if (!projectForBinding) {
+				project.setModule({moduleName, moduleKind: 'standard', source});
+				for (const [otherName, otherSource] of Object.entries(others)) {
+					if (otherName.toLowerCase() !== moduleName.toLowerCase()) {
+						project.setModule({moduleName: otherName, moduleKind: 'standard', source: otherSource});
+					}
+			}
 			}
 		}
 		let tokens = tokensByModule.get(callerName);
