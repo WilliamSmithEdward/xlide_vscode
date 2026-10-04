@@ -1,7 +1,7 @@
 import { parseModule } from '../parser/parseModule';
 import type { ModuleNode, ProcedureNode, Span } from '../parser/nodes';
 import { procedureAtOffset } from '../parser/nodes';
-import { detectEol, lineStartAt, stripVba } from '../../vbaSourceScan';
+import { detectEol, lineStartAtAnyBreak, lineEndAtOrAfter, stripVba } from '../../vbaSourceScan';
 import {
 	refactor,
 	refuse,
@@ -70,7 +70,7 @@ export function moveToModule(input: MoveToModuleInput): VbaRefactorResult {
 		);
 	}
 
-	const eol = detectEol(source);
+	const eol = source.includes('\n') ? detectEol(source) : source.includes('\r') ? '\r' : '\n';
 	// Its doc comment and directives go with it: left behind, they would
 	// document the procedure that came next.
 	const start = attachedCommentsStart(source, procedure.span.start);
@@ -180,9 +180,9 @@ function strandedNames(source: string, module: ModuleNode, procedure: ProcedureN
 
 /** The procedure plus the blank line under it, so the gap does not grow. */
 function removalSpan(source: string, span: Span): Span {
-	const start = lineStartAt(source, span.start);
+	const start = lineStartAtAnyBreak(source, span.start);
 	let end = span.end;
-	const after = /^[ \t]*\r?\n(?:[ \t]*\r?\n)?/.exec(source.slice(end));
+	const after = /^[ \t]*(?:\r\n|\r|\n)(?:[ \t]*(?:\r\n|\r|\n))?/.exec(source.slice(end));
 	if (after) {
 		end += after[0].length;
 	}
@@ -194,9 +194,8 @@ function removalSpan(source: string, span: Span): Span {
  * so a character that was there and is now a space was inside one of them.
  */
 function isInsideCommentOrString(source: string, offset: number): boolean {
-	const lineStart = lineStartAt(source, offset);
-	const found = source.indexOf('\n', offset);
-	const line = source.slice(lineStart, found === -1 ? source.length : found);
+	const lineStart = lineStartAtAnyBreak(source, offset);
+	const line = source.slice(lineStart, lineEndAtOrAfter(source, offset));
 	const column = offset - lineStart;
 	return line[column] !== ' ' && stripVba(line)[column] === ' ';
 }
