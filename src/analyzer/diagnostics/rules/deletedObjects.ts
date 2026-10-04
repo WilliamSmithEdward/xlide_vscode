@@ -139,7 +139,7 @@ export function checkDeletedObjects(
 					ended.clear();
 					rangesOf.clear();
 				}
-				const toks = statementTokensAfterLeadingLabel(source, node.span).filter((tok) => tok.kind !== 'comment');
+				const toks = statementTokensAfterLeadingLabel(source, node.span);
 				const line = source.slice(0, node.span.start).split('\n').length;
 				const head = tokenText(toks[0]);
 				// `Set x = ...` gives x a new object.

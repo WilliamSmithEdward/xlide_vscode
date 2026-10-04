@@ -299,7 +299,7 @@ function checkSelectHead(ctx: Context, body: readonly BodyNode[]): void {
 		if (isInactiveNode(ctx.activity, node) || node.kind === 'ConditionalDirective') {
 			continue;
 		}
-		const toks = statementTokens(ctx.source, node.span).filter((tok) => tok.kind !== 'comment' && tok.kind !== 'newline');
+		const toks = statementTokens(ctx.source, node.span);
 		if (toks.length === 0) {
 			continue;
 		}
@@ -386,7 +386,7 @@ function udtCoercion(ctx: Context, name: string, span: Span): void {
 }
 
 function checkStatement(ctx: Context, procSym: VbaSymbol | undefined, span: Span): void {
-	const toks = statementTokensAfterLeadingLabel(ctx.source, span).filter((tok) => tok.kind !== 'comment');
+	const toks = statementTokensAfterLeadingLabel(ctx.source, span);
 	if (toks.length === 0) {
 		return;
 	}

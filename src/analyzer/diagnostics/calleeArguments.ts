@@ -206,7 +206,7 @@ function memberCallsOn(source: string, proc: ProcedureNode, lower: string): read
 			known = false;
 			break;
 		}
-		const toks = statementTokensAfterLeadingLabel(source, node.span).filter((tok) => tok.kind !== 'comment');
+		const toks = statementTokensAfterLeadingLabel(source, node.span);
 		if (LEAVING_HEADS.has(tokenText(toks[0]))) {
 			known = false;
 			break;

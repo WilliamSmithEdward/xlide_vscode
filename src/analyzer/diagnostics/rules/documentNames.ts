@@ -131,7 +131,7 @@ export function checkDocumentNames(
 			if (!isLeafStatement(node)) {
 				return;
 			}
-			const toks = statementTokensAfterLeadingLabel(source, node.span).filter((tok) => tok.kind !== 'comment');
+			const toks = statementTokensAfterLeadingLabel(source, node.span);
 			if (statementLabelDeclaration(source, node.span) || tokenText(toks[0]) === 'gosub'
 				|| toks.some((tok) => tokenName(tok) !== undefined && callables.has(tokenText(tok)))) {
 				state.clear();

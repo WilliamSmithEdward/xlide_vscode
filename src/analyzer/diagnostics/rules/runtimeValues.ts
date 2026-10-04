@@ -359,7 +359,7 @@ function dateDiffPastDateRange(
 	stringCalls: KnownStringCallContext,
 	constants: IntegerConstantLookup,
 ): Array<{ message: string; span: Span }> {
-	const toks = statementTokensAfterLeadingLabel(source, span).filter((tok) => tok.kind !== 'comment');
+	const toks = statementTokensAfterLeadingLabel(source, span);
 	const out: Array<{ message: string; span: Span }> = [];
 	for (let i = 0; i + 1 < toks.length; i++) {
 		if (tokenText(toks[i]) !== 'cdate' || toks[i + 1].rawText !== '(' || !isBareOrVbaQualifiedIntrinsicCall(toks, i) || stringCalls.shadowed('cdate')) {

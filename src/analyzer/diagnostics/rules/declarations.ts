@@ -1388,7 +1388,7 @@ function declarationJunk(
 	span: Span,
 	isConst: boolean,
 ): { text: string; span: Span; why: string; error?: string } | undefined {
-	const toks = statementTokens(source, span).filter((tok) => tok.kind !== 'comment');
+	const toks = statementTokens(source, span);
 	let i = tokenText(toks[0]) === 'withevents' ? 1 : 0;
 	const name = toks[i];
 	// A name that is no identifier, or runs on into what follows (`_name`,
@@ -2405,8 +2405,7 @@ export function checkOptionStatementForm(
 		}
 		// A trailing comment is not trailing junk, and a line continuation is
 		// trivia the lexer already attached to the token that follows it.
-		const toks = statementTokens(source, member.span)
-			.filter((tok) => tok.kind !== 'comment' && tok.kind !== 'newline');
+		const toks = statementTokens(source, member.span);
 		const report = (index: number, message: string): void => {
 			const tok = toks[index];
 			push(

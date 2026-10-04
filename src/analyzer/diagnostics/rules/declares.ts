@@ -42,7 +42,7 @@ export function checkDeclareStatements(
 }
 
 function checkDeclareLine(source: string, declare: DeclareNode, push: PushFn): void {
-	const toks = statementTokens(source, declare.span).filter((tok) => tok.kind !== 'comment');
+	const toks = statementTokens(source, declare.span);
 	const at = (tok: VbaToken): Span => ({ start: declare.span.start + tok.start, end: declare.span.start + tok.end });
 	const refuse = (tok: VbaToken, what: string, error: string): void => {
 		push('invalidProcedureHeader', `Declare '${declare.name}': ${what}. This is a VBE compile error: ${error}.`, at(tok));
@@ -90,7 +90,7 @@ function checkFixedLengthParameter(source: string, param: ParameterNode, push: P
 
 /** Why every call of a Declare fails, or undefined. */
 function failure(source: string, declare: DeclareNode): string | undefined {
-	const toks = statementTokens(source, declare.span).filter((tok) => tok.kind !== 'comment');
+	const toks = statementTokens(source, declare.span);
 	const valueAfter = (word: string): string | undefined => {
 		const i = toks.findIndex((tok) => tokenText(tok) === word);
 		return i >= 0 && toks[i + 1]?.kind === 'stringLiteral' ? stringLiteralValue(toks[i + 1].rawText) : undefined;

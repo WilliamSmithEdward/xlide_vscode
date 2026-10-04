@@ -244,7 +244,7 @@ export function checkErrorValues(
 						const header = blockHeaderLineSpan(source, node.span);
 						// A Case of a number or text compares the subject with a value.
 						const literalCase = node.kind === 'SelectBlock' && (node.body as BodyNode[]).some((item) => isLeafStatement(item) && literalCaseItem(statementTokens(source, item.span)));
-						check(header, statementTokens(source, header).filter((tok) => tok.kind !== 'comment'), reaching.get(node), true, literalCase);
+						check(header, statementTokens(source, header), reaching.get(node), true, literalCase);
 						visit(node.body as BodyNode[]);
 						errorCells = new Map();
 					}
@@ -257,14 +257,14 @@ export function checkErrorValues(
 				// then each branch as a statement of its own.
 				const branches = node.kind === 'Statement' && node.singleLineIfBranches !== undefined;
 				for (const span of statementAndBranchSpans(node)) {
-					const toks = statementTokens(source, span).filter((tok) => tok.kind !== 'comment');
+					const toks = statementTokens(source, span);
 					if (branches && span === node.span) {
 						check(span, toks.slice(0, toks.findIndex((tok) => tokenText(tok) === 'then') + 1), reaching.get(node), true);
 					} else {
 						check(span, toks, reaching.get(node), false);
 					}
 				}
-				const own = statementTokens(source, node.span).filter((tok) => tok.kind !== 'comment');
+				const own = statementTokens(source, node.span);
 				noteGiven(own, reaching.get(node));
 				errorCells = nextErrorCells(own, errorCells);
 			}

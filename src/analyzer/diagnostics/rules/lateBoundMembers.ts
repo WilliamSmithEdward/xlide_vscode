@@ -849,7 +849,7 @@ function controlsAddedIn(source: string, body: BodyNode[], activity: Conditional
 	let any = false;
 	forEachStatement(body, (stmt) => {
 		for (const span of statementAndBranchSpans(stmt)) {
-			const toks = statementTokens(source, span).filter((tok) => tok.kind !== 'comment');
+			const toks = statementTokens(source, span);
 			for (let i = 2; i < toks.length; i++) {
 				if (tokenText(toks[i]) !== 'add' || toks[i - 1].rawText !== '.' || tokenText(toks[i - 2]) !== 'controls') {
 					continue;

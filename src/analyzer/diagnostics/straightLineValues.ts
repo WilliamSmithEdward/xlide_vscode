@@ -452,7 +452,7 @@ function walkBlock(
 	// `With k`, k a Collection: `.Add a` inside reads a (issue #665).
 	const outerWith = walkWithCollection;
 	if (node.kind === 'WithBlock') {
-		const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment');
+		const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span));
 		walkWithCollection = header.length === 2 && walkCollections.has(tokenName(header[1])?.toLowerCase() ?? '');
 	}
 	try {
@@ -511,8 +511,8 @@ function doCounterFinalValue(
 	}
 	const body = (node.body as BodyNode[]).filter((stmt) => !isInactiveNode(activity, stmt));
 	// The condition: on the header, or on the footer of a Do.
-	const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment');
-	const footer = node.kind === 'DoBlock' ? statementTokensAfterLeadingLabel(source, blockFooterLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment') : [];
+	const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span));
+	const footer = node.kind === 'DoBlock' ? statementTokensAfterLeadingLabel(source, blockFooterLineSpan(source, node.span)) : [];
 	const headWord = tokenText(header[node.kind === 'DoBlock' ? 1 : 0]);
 	const footWord = tokenText(footer[1]);
 	const atHead = headWord === 'while' || headWord === 'until';
@@ -599,7 +599,7 @@ function forCounterFinalValue(
 	if (node.kind !== 'ForBlock' || node.each || !node.controlVariable) {
 		return undefined;
 	}
-	const toks = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment');
+	const toks = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span));
 	const eq = toks.findIndex((tok) => tok.rawText === '=');
 	const to = toks.findIndex((tok) => tokenText(tok) === 'to');
 	const stepAt = toks.findIndex((tok) => tokenText(tok) === 'step');
@@ -627,7 +627,7 @@ function loopRunsNoPass(source: string, node: BodyNode, entry: ReachingAssignmen
 	if (!isLoopBlock(node)) {
 		return undefined;
 	}
-	const toks = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment');
+	const toks = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span));
 	const facts = factsFrom(entry, source);
 	if (node.kind === 'ForBlock' && node.each) {
 		const inAt = toks.findIndex((tok) => tokenText(tok) === 'in');
@@ -779,11 +779,11 @@ function forwardGoTo(source: string, node: LeafStatementNode, next: BodyNode | u
 	}
 	const branches = node.kind === 'Statement' ? node.singleLineIfBranches : undefined;
 	if (branches) {
-		const then = branches.length === 1 ? statementTokensAfterLeadingLabel(source, branches[0]).filter((tok) => tok.kind !== 'comment') : [];
+		const then = branches.length === 1 ? statementTokensAfterLeadingLabel(source, branches[0]) : [];
 		const tail = next && isLeafStatement(next) && next.singleLineIfTail;
 		return !tail && then.length === 2 && tokenText(then[0]) === 'goto' ? refs[0].key : undefined;
 	}
-	const toks = statementTokensAfterLeadingLabel(source, node.span).filter((tok) => tok.kind !== 'comment');
+	const toks = statementTokensAfterLeadingLabel(source, node.span);
 	return toks.length === 2 && tokenText(toks[0]) === 'goto' ? refs[0].key : undefined;
 }
 
@@ -1452,7 +1452,7 @@ function knownArm(source: string, node: BodyNode, entry: ReachingAssignments): {
 		return undefined;
 	}
 	// `Select Case d` with d known: the first Case whose values match.
-	const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment');
+	const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span));
 	const selector = header.length === 3 && tokenText(header[1]) === 'case' ? literalOf(header.slice(2)) ?? factsFrom(entry, source).value(tokenName(header[2])?.toLowerCase() ?? '') : undefined;
 	if (selector === undefined) {
 		return undefined;
@@ -1465,7 +1465,7 @@ function knownArm(source: string, node: BodyNode, entry: ReachingAssignments): {
 		if (!caseLine) {
 			continue;
 		}
-		const matched = caseMatches(statementTokensAfterLeadingLabel(source, caseLine.span).filter((tok) => tok.kind !== 'comment'), selector, compare);
+		const matched = caseMatches(statementTokensAfterLeadingLabel(source, caseLine.span), selector, compare);
 		if (matched === undefined) {
 			return undefined;
 		}

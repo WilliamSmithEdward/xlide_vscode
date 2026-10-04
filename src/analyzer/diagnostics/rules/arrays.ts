@@ -136,7 +136,7 @@ function scalarLocalsIndexed(
 	proc: ProcedureNode,
 	shapes: ReadonlyMap<string, DeclaredValueShape>,
 ): Array<{ name: string; asType: string; span: Span }> {
-	const toks = statementTokensAfterLeadingLabel(source, span).filter((tok) => tok.kind !== 'comment');
+	const toks = statementTokensAfterLeadingLabel(source, span);
 	const lead = tokenText(toks[0]);
 	if (['dim', 'redim', 'static', 'const', 'private', 'public', 'global', 'erase'].includes(lead)) {
 		return [];
@@ -1171,7 +1171,7 @@ function arraysErasedByCalls(source: string, mod: ModuleNode, activity: Conditio
 		forEachStatement(member.body, (stmt) => {
 			if (leaves) { return; }
 			for (const span of statementAndBranchSpans(stmt)) {
-				const toks = statementTokens(source, span).filter((tok) => tok.kind !== 'comment' && tok.kind !== 'integerLiteral');
+				const toks = statementTokens(source, span).filter((tok) => tok.kind !== 'integerLiteral');
 				const head = tokenText(toks[0]);
 				leaves ||= ERASE_LEAVING_HEADS.has(head) || (head === 'err' && tokenText(toks[2]) === 'raise');
 			}
@@ -1197,7 +1197,7 @@ function arraysErasedByCalls(source: string, mod: ModuleNode, activity: Conditio
 		for (const [index, param] of params) {
 			const lower = param.name.toLowerCase();
 			const last = lastNamed.get(lower);
-			const lastToks = last && isLeafStatement(last) ? statementTokens(source, last.span).filter((tok) => tok.kind !== 'comment') : [];
+			const lastToks = last && isLeafStatement(last) ? statementTokens(source, last.span) : [];
 			if (!nested.has(lower) && lastToks.length === 2 && tokenText(lastToks[0]) === 'erase' && tokenName(lastToks[1])?.toLowerCase() === lower
 				&& !(last?.kind === 'Statement' && last.singleLineIfBranches)) {
 				const set = erasing.get(member.name.toLowerCase()) ?? new Set<number>();
@@ -1311,7 +1311,7 @@ function checkUnallocatedDynamicArrayAccessStatement(
 	}
 	// `Free a`, whose callee ends by erasing its parameter, leaves a
 	// unallocated (issue #449, measured in Excel 16.0).
-	const erasedThere = passedWhole.size > 0 ? erasedByCall(statementTokens(source, stmt.span).filter((tok) => tok.kind !== 'comment')) : new Set<string>();
+	const erasedThere = passedWhole.size > 0 ? erasedByCall(statementTokens(source, stmt.span)) : new Set<string>();
 	for (const lower of passedWhole.keys()) {
 		if (erasedThere.has(lower) && arrays.get(lower)?.variant !== true) {
 			state.set(lower, 'unallocated');
@@ -2469,7 +2469,7 @@ export function elementsWrittenIn(source: string, proc: ProcedureNode, activity:
 	const out = new Set<string>();
 	forEachStatement(proc.body as BodyNode[], (stmt) => {
 		for (const span of statementAndBranchSpans(stmt)) {
-			const toks = statementTokensAfterLeadingLabel(source, span).filter((tok) => tok.kind !== 'comment');
+			const toks = statementTokensAfterLeadingLabel(source, span);
 			const head = tokenText(toks[0]);
 			if (ELEMENT_WRITING_HEADS.has(head)) {
 				for (const tok of toks) {

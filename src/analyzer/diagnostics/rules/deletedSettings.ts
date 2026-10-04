@@ -65,7 +65,7 @@ export function checkDeletedSettings(
 				if (statementLabelDeclaration(source, node.span)) {
 					gone.clear();
 				}
-				const toks = statementTokensAfterLeadingLabel(source, node.span).filter((tok) => tok.kind !== 'comment');
+				const toks = statementTokensAfterLeadingLabel(source, node.span);
 				const head = tokenText(toks[0]);
 				if (head === 'on' && tokenText(toks[1]) === 'error') {
 					resumeNext = tokenText(toks[2]) === 'resume';

@@ -175,7 +175,7 @@ export function checkObjectDefaultValues(
 				}
 			}
 			// `If c Then` on a Collection is condition-values' (issues #268, #424).
-			const condition = statementTokens(source, stmt.span).filter((tok) => tok.kind !== 'comment');
+			const condition = statementTokens(source, stmt.span);
 			// `If ws Then`, `ws(1)`, `CStr(ws)`: a type with no default member
 			// has no value there either (issue #415, measured in Excel 16.0 on
 			// a Worksheet, a Workbook and a Font).
@@ -283,7 +283,7 @@ function hostDefaultReads(
 	typed: ReadonlyMap<string, string>,
 	held: (lower: string) => string | undefined,
 ): Array<{ tok: VbaToken; rule: 'objectDefaultValue' | 'argumentCount' | 'assignmentTypeMismatch'; message: string }> {
-	const toks = statementTokens(source, span).filter((tok) => tok.kind !== 'comment');
+	const toks = statementTokens(source, span);
 	const first = firstExecutableTokenIndex(toks);
 	if (tokenText(toks[first]) === 'set') {
 		return [];
@@ -394,7 +394,7 @@ function checkHeldObjects(
 	memberCtx: MemberCompletionContext,
 	push: PushFn,
 ): void {
-	const toks = statementTokens(source, stmt.span).filter((tok) => tok.kind !== 'comment');
+	const toks = statementTokens(source, stmt.span);
 	if (!toks.some((tok) => lateBound.has(tokenName(tok)?.toLowerCase() ?? '')) || tokenText(toks[0]) === 'set') {
 		return;
 	}
@@ -614,7 +614,7 @@ function hostChainReads(
 	declared: (lower: string) => boolean,
 	isObjectVariable: (name: string) => boolean,
 ): Array<{ start: number; end: number; rule: 'objectDefaultValue' | 'collectionOperand'; message: string }> {
-	const toks = statementTokens(source, span).filter((tok) => tok.kind !== 'comment');
+	const toks = statementTokens(source, span);
 	const first = firstExecutableTokenIndex(toks);
 	if (tokenText(toks[first]) === 'set' || (memberCtx.model?.hostName ?? 'Excel') !== 'Excel') {
 		return [];

@@ -81,7 +81,7 @@ export function checkDictionaryState(
 				forget(namesIn(source, node.span));
 				return;
 			}
-			const own = statementTokensAfterLeadingLabel(source, node.span).filter((tok) => tok.kind !== 'comment');
+			const own = statementTokensAfterLeadingLabel(source, node.span);
 			// Inside `With d`, `.Add "a", 1` is d's (issue #295, measured in Excel 16.0).
 			const subject = withSubjects[withSubjects.length - 1];
 			const toks = subject ? withReceiver(own, subject) : own;
@@ -135,7 +135,7 @@ export function checkDictionaryState(
 			},
 			forget,
 			touches: (stmt) => {
-				const toks = statementTokensAfterLeadingLabel(source, stmt.span).filter((tok) => tok.kind !== 'comment');
+				const toks = statementTokensAfterLeadingLabel(source, stmt.span);
 				if (tokenText(toks[0]) === 'with' && (toks.length === 2 || createsDictionary(toks.slice(1)))) {
 					return new Set<string>();
 				}
@@ -149,7 +149,7 @@ export function checkDictionaryState(
 				if (node.kind !== 'WithBlock') {
 					return;
 				}
-				const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment');
+				const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span));
 				const name = header.length === 2 ? tokenName(header[1]) : undefined;
 				if (name && states.has(name.toLowerCase())) {
 					withSubjects.push(name);

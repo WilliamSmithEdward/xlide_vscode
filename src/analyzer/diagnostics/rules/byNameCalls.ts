@@ -62,7 +62,7 @@ export function checkByNameCalls(
 		const env = typeEnvironmentFor(symbols, member);
 		forEachStatement(member.body, (stmt) => {
 			for (const span of statementAndBranchSpans(stmt)) {
-				const toks = statementTokens(source, span).filter((tok) => tok.kind !== 'comment');
+				const toks = statementTokens(source, span);
 				for (let i = 0; i < toks.length; i++) {
 					const word = tokenText(toks[i]);
 					if (word === 'callbyname' && toks[i - 1]?.rawText !== '.' && !moduleNames.has('callbyname')) {

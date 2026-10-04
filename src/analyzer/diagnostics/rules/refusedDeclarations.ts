@@ -108,7 +108,7 @@ export function checkRefusedDeclarations(
 				if (moduleKind === 'standard') {
 					break;
 				}
-				const toks = statementTokens(source, member.span).filter((tok) => tok.kind !== 'comment');
+				const toks = statementTokens(source, member.span);
 				const head = tokenText(toks[0]);
 				if (head === 'private' || head === 'friend') {
 					push(

@@ -58,7 +58,7 @@ export function checkConditionValues(
 		const holdsOne = (stmt: LeafStatementNode, lower: string): boolean =>
 			collections.get(lower) === true || (heldAt ??= heldObjectsAt(source, member, symbols, activity))(stmt).classes.get(lower)?.toLowerCase() === 'collection';
 		const check = (stmt: LeafStatementNode): void => {
-			const toks = statementTokensAfterLeadingLabel(source, stmt.span).filter((tok) => tok.kind !== 'comment');
+			const toks = statementTokensAfterLeadingLabel(source, stmt.span);
 			for (const { index, form } of conditionOperands(toks)) {
 				const tok = toks[index];
 				const lower = tok.rawText.toLowerCase();

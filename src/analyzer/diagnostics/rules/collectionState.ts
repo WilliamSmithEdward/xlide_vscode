@@ -242,7 +242,7 @@ export function checkCollectionState(
 		// undefined for anything else.
 		const withSubjects: Array<WithSubject | undefined> = [];
 		const enterWith = (node: BodyNode): void => {
-			const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment');
+			const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span));
 			const name = header.length === 2 ? tokenName(header[1]) : undefined;
 			const element = header.length >= 5 && header[2].rawText === '(' && matchParenFrom([...header], 2) === header.length - 1 ? tokenName(header[1]) : undefined;
 			if (name && states.has(name.toLowerCase())) {
@@ -274,7 +274,7 @@ export function checkCollectionState(
 			// `With c` reads c and changes nothing; its body's lines say what they do,
 			// a `.Add` among them naming the subject (issue #584).
 			touches: (stmt) => {
-				const toks = statementTokensAfterLeadingLabel(source, stmt.span).filter((tok) => tok.kind !== 'comment');
+				const toks = statementTokensAfterLeadingLabel(source, stmt.span);
 				// `With c(1)` reads one element, by a literal, and changes nothing.
 				if (tokenText(toks[0]) === 'with' && (toks.length === 2
 					|| (toks.length === 5 && toks[2].rawText === '(' && (toks[3].kind === 'integerLiteral' || toks[3].kind === 'stringLiteral') && toks[4].rawText === ')'))) {
@@ -373,7 +373,7 @@ function checkScalarElements(source: string, node: BodyNode, states: ReadonlyMap
 			}
 			continue;
 		}
-		const toks = statementTokensAfterLeadingLabel(source, child.span).filter((tok) => tok.kind !== 'comment');
+		const toks = statementTokensAfterLeadingLabel(source, child.span);
 		const at = toks.findIndex((tok, i) => tokenName(tok)?.toLowerCase() === lower && toks[i - 1]?.rawText !== '.');
 		if (at < 0) {
 			continue;
@@ -435,7 +435,7 @@ function simulateCountedLoop(
 		return;
 	}
 	const counter = node.controlVariable.toLowerCase();
-	const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment');
+	const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span));
 	const eq = header.findIndex((tok) => tok.rawText === '=');
 	const to = header.findIndex((tok) => tokenText(tok) === 'to');
 	const stepAt = header.findIndex((tok) => tokenText(tok) === 'step');
@@ -471,7 +471,7 @@ function simulateCountedLoop(
 		if (!isLeafStatement(stmt) || (stmt.kind === 'Statement' && stmt.singleLineIfBranches)) {
 			return;
 		}
-		const toks = statementTokensAfterLeadingLabel(source, stmt.span).filter((tok) => tok.kind !== 'comment');
+		const toks = statementTokensAfterLeadingLabel(source, stmt.span);
 		const head = tokenText(toks[0]);
 		if (['exit', 'goto', 'gosub', 'resume', 'return', 'end', 'on', 'stop'].includes(head) || jumpTargetLabelDeclaration(source, stmt.span)) {
 			return;
@@ -586,7 +586,7 @@ function simulateFillingLoop(
 		}
 		values.push(...elements);
 	} else {
-		const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment');
+		const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span));
 		const eq = header.findIndex((tok) => tok.rawText === '=');
 		const to = header.findIndex((tok) => tokenText(tok) === 'to');
 		const stepAt = header.findIndex((tok) => tokenText(tok) === 'step');
@@ -612,7 +612,7 @@ function simulateFillingLoop(
 		if (!isLeafStatement(stmt) || (stmt.kind === 'Statement' && stmt.singleLineIfBranches) || jumpTargetLabelDeclaration(source, stmt.span)) {
 			return undefined;
 		}
-		const toks = statementTokensAfterLeadingLabel(source, stmt.span).filter((tok) => tok.kind !== 'comment');
+		const toks = statementTokensAfterLeadingLabel(source, stmt.span);
 		if (['exit', 'goto', 'gosub', 'resume', 'return', 'end', 'on', 'stop'].includes(tokenText(toks[0]))) {
 			return undefined;
 		}

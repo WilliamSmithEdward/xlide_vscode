@@ -246,7 +246,7 @@ function checkUnopenedNumbers(source: string, mod: ModuleNode, activity: Conditi
 		}
 		forEachStatement(member.body, (stmt) => {
 			for (const span of statementAndBranchSpans(stmt)) {
-				const toks = statementTokensAfterLeadingLabel(source, span).filter((tok) => tok.kind !== 'comment' && tokenText(tok) !== 'else');
+				const toks = statementTokensAfterLeadingLabel(source, span).filter((tok) => tokenText(tok) !== 'else');
 				const head = tokenText(toks[0]);
 				const numberAt = head === 'line' ? (tokenText(toks[1]) === 'input' ? 2 : -1) : NUMBERED_STATEMENTS.has(head) ? 1 : -1;
 				if (numberAt > 0 && toks[numberAt]?.rawText === '#') {

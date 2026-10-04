@@ -96,7 +96,7 @@ export function checkEmptyFilePaths(
 				push('emptyFilePath', `${errors.display} is given ${given}. This will raise Run-time error '${error}': ${ERROR_TEXT[error]}.`, span);
 			};
 			for (const span of statementAndBranchSpans(stmt)) {
-				const toks = statementTokensAfterLeadingLabel(source, span).filter((tok) => tok.kind !== 'comment');
+				const toks = statementTokensAfterLeadingLabel(source, span);
 				const head = tokenText(toks[0]);
 				for (const path of statementPaths(head, toks)) {
 					check(span.start, head, path);

@@ -904,7 +904,7 @@ export function checkStringArithmeticOperands(
 				// Null: a bound must be a number (issue #332, measured: 94).
 				if (node.kind === 'ForBlock' && !node.each) {
 					const header = blockHeaderLineSpan(source, node.span);
-					const headToks = statementTokens(source, header).filter((tok) => tok.kind !== 'comment');
+					const headToks = statementTokens(source, header);
 					const to = headToks.findIndex((tok) => tokenText(tok) === 'to');
 					const step = headToks.findIndex((tok) => tokenText(tok) === 'step');
 					const eq = headToks.findIndex((tok) => tok.rawText === '=');

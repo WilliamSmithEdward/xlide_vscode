@@ -39,7 +39,7 @@ export function checkInvalidPropertyUse(
 		return () => undefined;
 	}
 	const check = (span: Span, conditionOnly: boolean): void => {
-		const all = statementTokensAfterLeadingLabel(source, span).filter((tok) => tok.kind !== 'comment');
+		const all = statementTokensAfterLeadingLabel(source, span);
 		// A single-line If is read up to Then: its branches are statements of
 		// their own, checked as such.
 		const toks = conditionOnly ? all.slice(0, all.findIndex((tok) => tokenText(tok) === 'then') + 1) : all;

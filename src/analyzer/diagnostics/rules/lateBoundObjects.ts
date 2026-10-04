@@ -90,7 +90,7 @@ export function checkLateBoundObjects(
 			if (!isLeafStatement(node)) {
 				return;
 			}
-			const toks = statementTokensAfterLeadingLabel(source, node.span).filter((tok) => tok.kind !== 'comment');
+			const toks = statementTokensAfterLeadingLabel(source, node.span);
 			if (statementLabelDeclaration(source, node.span) || tokenText(toks[0]) === 'gosub') {
 				states.clear();
 			}
@@ -114,7 +114,7 @@ export function checkLateBoundObjects(
 						forget(namesIn(source, branch));
 						continue;
 					}
-					const armToks = statementTokensAfterLeadingLabel(source, branch).filter((tok) => tok.kind !== 'comment' && tokenText(tok) !== 'else');
+					const armToks = statementTokensAfterLeadingLabel(source, branch).filter((tok) => tokenText(tok) !== 'else');
 					// `If fso.FileExists(p) Then fso.DeleteFile p` deletes only what
 					// is there, and leaves no p either way.
 					const guarded = [...states].find(([lower, state]) => state.kind === 'fso' && deletesWhatItTests(toks.slice(1, then), armToks, lower) !== undefined);

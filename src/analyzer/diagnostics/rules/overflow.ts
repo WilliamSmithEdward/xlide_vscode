@@ -1496,7 +1496,7 @@ function wholeSheetCellLocals(
 	const ruled = new Set<string>();
 	forEachStatement(member.body, (stmt) => {
 		for (const span of statementAndBranchSpans(stmt)) {
-			const toks = statementTokens(source, span).filter((tok) => tok.kind !== 'comment');
+			const toks = statementTokens(source, span);
 			const target = setAssignmentTarget(source, span)?.name.toLowerCase();
 			if (target && candidates.has(target)) {
 				sets.set(target, [...(sets.get(target) ?? []), toks.slice(toks.findIndex((tok) => tok.rawText === '=') + 1)]);
@@ -1779,7 +1779,7 @@ function checkByValArguments(
 			let inner = within;
 			if (node.kind === 'WithBlock') {
 				const header = blockHeaderStatements(source, node).before;
-				const toks = header ? statementTokens(source, header.span).filter((tok) => tok.kind !== 'comment') : [];
+				const toks = header ? statementTokens(source, header.span) : [];
 				const segments = tokenText(toks[0]) === 'with' && !toks[1]?.rawText.startsWith('.') ? chainSegments(toks.slice(1)) : undefined;
 				inner = { sheet: segments !== undefined && segments.length > 0 && namesSheet(segments, names), subject: segments };
 			}
@@ -1805,7 +1805,7 @@ function checkByValArguments(
 	forEachStatement(proc.body, (stmt) => {
 		const stmtNames = namesAt(stmt);
 		for (const span of statementAndBranchSpans(stmt)) {
-			const toks = statementTokens(source, span).filter((tok) => tok.kind !== 'comment');
+			const toks = statementTokens(source, span);
 			for (let i = 0; i < toks.length; i++) {
 				const lower = tokenName(toks[i])?.toLowerCase();
 				const signature = lower && !own.has(lower) && toks[i - 1]?.rawText !== '.' ? signatures.get(lower) : undefined;
@@ -1921,7 +1921,7 @@ function loopStepIn(
 		if (!isLeafStatement(node) || (node.kind === 'Statement' && node.singleLineIfBranches)) {
 			return undefined;
 		}
-		const toks = statementTokens(source, node.span).filter((tok) => tok.kind !== 'comment');
+		const toks = statementTokens(source, node.span);
 		if (LOOP_LEAVING_HEADS.has(tokenText(toks[0])) || (tokenText(toks[0]) === 'end' && toks.length === 1) || jumpTargetLabelDeclaration(source, node.span)) {
 			return undefined;
 		}
@@ -1973,7 +1973,7 @@ function accumulateFor(
 		return;
 	}
 	const counter = node.controlVariable.toLowerCase();
-	const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment');
+	const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span));
 	const eq = header.findIndex((tok) => tok.rawText === '=');
 	const to = header.findIndex((tok) => tokenText(tok) === 'to');
 	const stepAt = header.findIndex((tok) => tokenText(tok) === 'step');
@@ -2024,8 +2024,8 @@ function endlessStep(
 	startValues: ReadonlyMap<string, KnownLocalValue>,
 ): void {
 	// The test: `Do While x`, `Do Until x`, `Loop While x`, `Loop Until x`, `While x`.
-	const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment');
-	const footer = statementTokensAfterLeadingLabel(source, blockFooterLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment');
+	const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span));
+	const footer = statementTokensAfterLeadingLabel(source, blockFooterLineSpan(source, node.span));
 	const tests: Array<{ keyword: string; condition: readonly VbaToken[] }> = [];
 	for (const line of [header, footer]) {
 		const head = tokenText(line[0]);
@@ -2224,14 +2224,14 @@ function checkProcedureBody(
 	);
 	const withSubjectOf = (node: BodyNode): readonly ChainSegment[] | undefined => {
 		const header = blockHeaderStatements(source, node).before;
-		const toks = header ? statementTokens(source, header.span).filter((tok) => tok.kind !== 'comment') : [];
+		const toks = header ? statementTokens(source, header.span) : [];
 		const segments = tokenText(toks[0]) === 'with' ? chainSegments(toks.slice(1)) : undefined;
 		// Only a chain from the sheet or Application: a leading `.` would read an outer With.
 		return segments && segments.length > 0 && !toks[1]?.rawText.startsWith('.') ? segments : undefined;
 	};
 	const withNamesSheet = (node: BodyNode): boolean => {
 		const header = blockHeaderStatements(source, node).before;
-		const toks = header ? statementTokens(source, header.span).filter((tok) => tok.kind !== 'comment') : [];
+		const toks = header ? statementTokens(source, header.span) : [];
 		const segments = tokenText(toks[0]) === 'with' ? chainSegments(toks.slice(1)) : undefined;
 		return segments !== undefined && segments.length > 0 && namesSheet(segments, names);
 	};
