@@ -455,7 +455,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         const cached = this.getModuleNode(filePath, moduleName);
         if (cached && this._modulesListCache.has(projectKey)
             && (this._view !== 'folders' || this._folderTrees.has(projectKey))) {
-            return cached;
+            return this._resolveModuleParent(filePath, moduleName);
         }
         const project = (await this._getProjectFiles())
             .find((node) => projectNodeKey(node.filePath) === projectNodeKey(filePath));
@@ -464,6 +464,20 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         }
         await this._getChildren(project);
         return this._disposed || !this._modulesListCache.has(projectKey)
+            ? undefined : this._resolveModuleParent(filePath, moduleName);
+    }
+
+    private async _resolveModuleParent(filePath: string, moduleName: string): Promise<XlideNode | undefined> {
+        const module = this.getModuleNode(filePath, moduleName);
+        const parent = module && this._shapes.parentOf(module);
+        const sheets = parent?.shapeFolder === 'bareSheets' ? this._shapes.parentOf(parent) : parent;
+        // Empty sheet modules may live inside the bare-sheets folder. Classify
+        // them before reveal walks the parent path; ordinary modules need no shapes read.
+        if (module?.hasCode === false && sheets?.shapeFolder === 'sheets'
+            && !this._shapes.moduleParentReady(module)) {
+            await this._getChildren(sheets);
+        }
+        return this._disposed || !this._modulesListCache.has(projectNodeKey(filePath))
             ? undefined : this.getModuleNode(filePath, moduleName);
     }
 

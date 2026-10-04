@@ -223,6 +223,17 @@ suite('The explorer following the editor', () => {
 		}
 	});
 
+	test('reveals an empty sheet module under Sheets With No Code or Shapes', async () => {
+		await agentWrite(workbookPath(), 'Sheet1', '');
+		await vscode.commands.executeCommand('xlide.refreshExplorer');
+		await vscode.window.showTextDocument(moduleUri('Sheet1'), { preview: false });
+		await settle();
+		const state = await viewState();
+		assert.ok(state.expanded.includes('shapes:Sheets With No Code or Shapes'), JSON.stringify(state));
+		assert.deepEqual(modules(state), ['module:Sheet1'], JSON.stringify(state));
+		assert.deepEqual(state.selected, ['module:Sheet1'], JSON.stringify(state));
+	});
+
 	test('reveals a sheet module under the workbook s Sheets folder', async () => {
 		// The module row sits under Sheets, not the project, so the reveal
 		// has to walk up through that folder.
