@@ -154,6 +154,15 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 		.map((l) => `${indent}Dim ${source.slice(l.declaration!.decl.span.start, l.declaration!.decl.span.end)}`)
 		.join(eol);
 
+	const output = asFunction ? outputs[0] : undefined;
+	const outputDeclaration = output && output.name.toLowerCase() !== name.toLowerCase()
+		&& (!output.declaration || output.declaration.group.span.start < block.start
+			|| output.declaration.group.span.end > block.end)
+		? indent + 'Dim ' + (output.declaration
+			? source.slice(output.declaration.decl.span.start, output.declaration.decl.span.end)
+			: `${output.name} As ${output.type}`)
+		: '';
+
 	const header = asFunction
 		? `Private Function ${name}(${params.map((p) => p.text).join(', ')}) As ${outputs[0].type}`
 		: `Private Sub ${name}(${params.map((p) => p.text).join(', ')})`;
@@ -164,6 +173,7 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 
 	const newProcedure = [
 		header,
+		...(outputDeclaration ? [outputDeclaration] : []),
 		...(movedDeclarations ? [movedDeclarations] : []),
 		body.replace(/\s+$/, ''),
 		...(returnLine ? [returnLine] : []),
