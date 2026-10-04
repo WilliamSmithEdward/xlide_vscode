@@ -2894,6 +2894,7 @@ function functionReturnShapes(
 	// Parse nodes survive analysis passes; facts also depend on the active branch.
 	const cached = RETURN_SHAPES.get(mod);
 	if (cached && cached.source === source && cached.activity === activity && cached.optionBase === optionBase) {
+		cached.source = source;
 		return cached.result;
 	}
 	const out = new Map<string, FixedArrayBound>();
