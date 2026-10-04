@@ -558,12 +558,7 @@ export class ProjectIndex {
 	private readonly moduleResolvedConstants = new Map<string, Map<string, number | undefined>>();
 	/** Lazily scanned per-module Implements lists, dropped on module change. */
 	private readonly moduleImplementsLists = new Map<string, string[]>();
-	/**
-	 * Identifier-shaped words inside each module's string literals, taken
-	 * from the token stream while it is still hot from the module's own
-	 * parse. The whole-project set unions these; re-tokenizing every module
-	 * for it was one full lex per module per project build (issue #139).
-	 */
+	/** Literal-word facts are queried lazily and retained for unchanged source. */
 	private readonly moduleStringLiteralWords = new Map<string, ReadonlySet<string>>();
 	/** The names each module's code may write (issue #241), computed when first asked. */
 	private readonly moduleWrittenNames = new Map<string, ReadonlySet<string>>();
@@ -592,8 +587,9 @@ export class ProjectIndex {
 		);
 		const key = input.moduleName.toLowerCase();
 		this.modules.set(key, symbols);
+		const previousSource = this.moduleSources.get(key);
 		this.moduleSources.set(key, input.source);
-		this.moduleStringLiteralWords.set(key, stringLiteralWordsIn(input.source));
+		if (previousSource !== input.source) { this.moduleStringLiteralWords.delete(key); }
 		this.moduleWrittenNames.delete(key);
 		this.moduleOpenedFileNumbers.delete(key);
 		this.moduleSheetChanges.delete(key);
@@ -811,7 +807,12 @@ export class ProjectIndex {
 	stringLiteralWords(): ReadonlySet<string> {
 		return this.cached('stringLiteralWords', () => {
 			const words = new Set<string>();
-			for (const moduleWords of this.moduleStringLiteralWords.values()) {
+			for (const [key, source] of this.moduleSources) {
+				let moduleWords = this.moduleStringLiteralWords.get(key);
+				if (!moduleWords) {
+					moduleWords = stringLiteralWordsIn(source);
+					this.moduleStringLiteralWords.set(key, moduleWords);
+				}
 				for (const word of moduleWords) {
 					words.add(word);
 				}
