@@ -28,7 +28,10 @@ standalone modules, turn off `xlide.analysis.ignoreFilesOutsideTree`, shown as
 
 File analysis opens a dedicated results panel. It groups findings by module,
 shows counts, supports severity filters, can show suppressed diagnostics, and
-links each finding back to the module and source line.
+links each finding back to the module and source line. Use **Run Analysis** in
+the panel to check the same target file again. **Last analysis** shows the local
+date and time of the last successful check, including automatic refreshes. A
+failed check leaves the previous timestamp and findings in place.
 
 ## Understand Results
 

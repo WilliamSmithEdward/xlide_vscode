@@ -89,6 +89,60 @@ describe('project analysis webview', () => {
         panel.disposePanel();
     });
 
+    it('reruns the panel target and updates its last successful analysis time', async () => {
+        vi.useFakeTimers({ toFake: ['Date'] });
+        const panel = fakeWebviewPanel();
+        vi.mocked(vscode.window.createWebviewPanel).mockReturnValue(panel);
+        const context = { subscriptions: [] } as unknown as vscode.ExtensionContext;
+        const initialTime = '2026-10-04T01:00:00.000Z';
+        const nextTime = '2026-10-04T01:05:00.000Z';
+        vi.setSystemTime(new Date(initialTime));
+        const refreshed = { ...resultFixture(), problems: [], errorCount: 0 };
+        const onRefreshResult = vi.fn().mockResolvedValue(refreshed);
+        try {
+            openProjectAnalysisResults(context, resultFixture(), { onRefreshResult });
+            await vi.waitFor(() => expect(panel.webview.html).toContain(initialTime));
+            expect(panel.webview.html).toContain('id="runAnalysis" type="button" >Run Analysis');
+            expect(panel.webview.html).toContain('Last analysis:');
+            const receive = vi.mocked(panel.webview.onDidReceiveMessage).mock.calls[0][0];
+            vi.setSystemTime(new Date(nextTime));
+            await receive({ type: 'runAnalysis' });
+            expect(onRefreshResult).toHaveBeenCalledTimes(1);
+            expect(panel.webview.postMessage).toHaveBeenCalledWith({ type: 'analysisRunning', running: true });
+            expect(panel.webview.postMessage).toHaveBeenCalledWith({
+                type: 'model',
+                model: expect.objectContaining({
+                    projectName: 'Book.xlsm', totalProblems: 0,
+                    lastAnalyzedAt: nextTime, canRunAnalysis: true,
+                }),
+            });
+            expect(panel.webview.postMessage).toHaveBeenLastCalledWith({ type: 'analysisRunning', running: false });
+        } finally {
+            panel.disposePanel();
+            vi.useRealTimers();
+        }
+    });
+
+    it('keeps the previous timestamp and reenables running after a failed analysis', async () => {
+        const panel = fakeWebviewPanel();
+        vi.mocked(vscode.window.createWebviewPanel).mockReturnValue(panel);
+        const context = { subscriptions: [] } as unknown as vscode.ExtensionContext;
+        const onRefreshResult = vi.fn().mockRejectedValue(new Error('Cannot read target'));
+        try {
+            openProjectAnalysisResults(context, resultFixture(), { onRefreshResult });
+            await vi.waitFor(() => expect(panel.webview.html).toContain('id="lastAnalyzedAt"'));
+            const originalHtml = panel.webview.html;
+            const receive = vi.mocked(panel.webview.onDidReceiveMessage).mock.calls[0][0];
+            await receive({ type: 'runAnalysis' });
+            expect(panel.webview.html).toBe(originalHtml);
+            expect(panel.webview.postMessage).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'model' }));
+            expect(panel.webview.postMessage).toHaveBeenCalledWith({ type: 'analysisRunning', running: false });
+            expect(panel.webview.postMessage).toHaveBeenCalledWith({ type: 'error', error: 'Cannot read target' });
+        } finally {
+            panel.disposePanel();
+        }
+    });
+
     it('renders scope-explicit rule tracking controls', () => {
         const html = renderProjectAnalysisResultsHtml(
             buildProjectAnalysisResultsModel(resultFixture()),
