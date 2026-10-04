@@ -80,7 +80,7 @@ export function checkClassInstanceValues(
 			}
 			// Kept to itself: every other mention is `c.Member`.
 			const own = statements.every(({ toks }) => toks.every((tok, i) => {
-				if (tok.kind !== 'identifier' || tok.rawText.toLowerCase() !== lower || toks[i - 1]?.rawText === '.') {
+				if ((tok.kind !== 'identifier' && tok.kind !== 'bracketedIdentifier') || tokenName(tok)?.toLowerCase() !== lower || toks[i - 1]?.rawText === '.') {
 					return true;
 				}
 				return toks[i + 1]?.rawText === '.' || (sets.length === 1 && toks === sets[0].toks && i === 1) || tokenText(toks[0]) === 'dim';
@@ -100,7 +100,7 @@ export function checkClassInstanceValues(
 			if (lower && instances.has(lower) && toks[first + 1]?.rawText === '.' && tokenName(toks[first + 2])) {
 				const close = toks[first + 3]?.rawText === '(' ? matchParenFrom(toks, first + 3) : first + 2;
 				if (toks[close + 1]?.rawText === '=') {
-					assigned.add(`${lower}.${tokenText(toks[first + 2])}`);
+					assigned.add(`${lower}.${tokenName(toks[first + 2])!.toLowerCase()}`);
 				}
 			}
 		}
@@ -118,7 +118,7 @@ function checkStatement(span: Span, toks: readonly VbaToken[], instances: Readon
 		if (!instance || toks[i - 1]?.rawText === '.' || toks[i + 1].rawText !== '.' || !tokenName(toks[i + 2])) {
 			continue;
 		}
-		const name = tokenText(toks[i + 2]);
+		const name = tokenName(toks[i + 2])!.toLowerCase();
 		const member = instance.type.members.find((candidate) => candidate.name.toLowerCase() === name);
 		if (!member) {
 			continue;
