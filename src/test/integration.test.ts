@@ -18,6 +18,7 @@ import './saveConflicts.test';
 import './renameModule.test';
 import './vbeRename.test';
 import './treeFollow.test';
+import './treeLifecycle.test';
 import './deleteModule.test';
 import './docComments.test';
 import './projectReferences.test';
