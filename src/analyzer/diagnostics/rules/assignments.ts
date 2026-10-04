@@ -782,6 +782,7 @@ export function checkAssignmentTypes(
 			projectDeclaresCollection,
 			isFormOwner,
 			objectAssignmentReason,
+			resolveObjectType,
 			resolveExpressionType,
 			resolveQualifiedExpressionType,
 			symbols,
@@ -1503,6 +1504,7 @@ function checkMemberAssignmentTypes(
 	projectDeclaresCollection: () => boolean,
 	isFormOwner: (name: string) => boolean,
 	objectAssignmentReason: (expected: string | undefined, actual: ReturnType<typeof inferArgumentType>) => string | undefined,
+	resolveObjectType: ReturnType<typeof createObjectAssignmentTypeResolver>,
 	resolveExpressionType?: SourceDeclaredTypeResolver,
 	resolveQualifiedExpressionType?: SourceQualifiedDeclaredTypeResolver,
 	symbols?: ReturnType<typeof buildModuleSymbols>,
@@ -1674,7 +1676,7 @@ function checkMemberAssignmentTypes(
 			);
 			return;
 		}
-		if (!target.letAccessor && isKnownObjectAssignmentType(expected, memberCtx)) {
+		if (!target.letAccessor && isKnownObjectAssignmentType(expected, memberCtx, resolveObjectType)) {
 			push(
 				'setRequired',
 				`Object assignment to '${assignment.label}' requires Set because it expects ${expected}.`,
