@@ -514,6 +514,12 @@ export class ShapeRows {
 		const catalog = (await this.catalog(folder.filePath)) ?? [];
 		this.sheetsDrawn.set(projectIdentityKey(folder.filePath), catalogSignature(catalog));
 		const surfaces = await this.surfacesIfAny(folder.filePath);
+		const bySurface = new Map<string, ShapeSurface>();
+		for (const surface of surfaces) {
+			const name = surface.surface;
+			// Match Array.find: the first exact name wins, even without shapes.
+			if (!bySurface.has(name)) { bySurface.set(name, surface); }
+		}
 		const byName = new Map<string, XlideNode>();
 		for (const module of modules) {
 			if (module.kind === 'module' && module.moduleName) { byName.set(module.moduleName.toLowerCase(), module); }
@@ -526,7 +532,7 @@ export class ShapeRows {
 		const bare: Array<{ sheet: WorkbookSheet; module?: XlideNode }> = [];
 		for (const sheet of catalog) {
 			const module = sheet.codeName ? byName.get(sheet.codeName.toLowerCase()) : undefined;
-			const surface = surfaces.find((s) => s.surface === sheet.name);
+			const surface = bySurface.get(sheet.name);
 			const hasShapes = surface !== undefined && surface.shapes.length > 0;
 			if (module && (module.hasCode !== false || hasShapes)) {
 				// Named here as well: a Sheets folder drawn again on its own,
