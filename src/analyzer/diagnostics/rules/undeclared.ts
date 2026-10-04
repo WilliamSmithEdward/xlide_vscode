@@ -13,7 +13,7 @@ import type { HostObjectModel } from '../../host/excelObjectModel';
 import { HOST_LIBRARY_NAMES } from '../../host/hostLibraries';
 import type { VbaHostToken } from '../../host/hostRegistry';
 import { bareCallStatementTarget as callStatementTarget } from '../../call/callContext';
-import { privateMemberOwnerAt, projectClassMemberAt, projectTypeAt, type MemberCompletionContext } from '../../completion/memberAccess';
+import { privateMemberOwnerAt, projectClassMemberAt, projectTypeAt, resolveMemberPresenceSurfaceAt, type MemberCompletionContext } from '../../completion/memberAccess';
 import { MSFORMS_FORM_CONTROL_MEMBERS } from '../../host/msFormsFormControlMembers';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import {
@@ -65,7 +65,6 @@ import {
 } from '../callExtraction';
 import {
 	forEachUndeclaredReferenceSpan,
-	resolveExhaustiveMemberSurface,
 	valueReadReferences,
 } from '../rules/shared';
 import {
@@ -205,12 +204,13 @@ export function checkMemberNotFound(
 		});
 		return (stmt) => {
 		for (const ref of memberAccessReferences(source, stmt.span)) {
-			const surface = resolveExhaustiveMemberSurface(
+			const surface = resolveMemberPresenceSurfaceAt(
 				source,
 				ref.dotEndOffset,
 				memberCtx,
 			);
-			if (!surface || surface.hasMember(ref.member)) {
+			const hasMember = surface?.hasMember(ref.member) === true;
+			if (!surface?.exhaustive || hasMember) {
 				const form = projectMemberFormProblem(source, ref, memberCtx);
 				if (form) {
 					push('argumentCount', form, ref.memberSpan);
@@ -225,7 +225,9 @@ export function checkMemberNotFound(
 					);
 					continue;
 				}
-				const owner = privateMemberOwnerAt(source, ref.dotEndOffset, ref.member, memberCtx);
+				// A known public member cannot be private, even on a partial surface.
+				const owner = hasMember ? undefined
+					: privateMemberOwnerAt(source, ref.dotEndOffset, ref.member, memberCtx);
 				if (owner) {
 					push(
 						'memberNotFound',
