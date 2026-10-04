@@ -82,6 +82,37 @@ suite('Explorer lifetime in the extension host', () => {
 });
 
 suite('Explorer shape refresh in the extension host', () => {
+    test('renamed module-less sheets stop accumulating refresh notifications', async () => {
+        let name = 'Data';
+        const explorer = new ProjectExplorer({ call: (method: string) => {
+            if (method === 'listModules') { return Promise.resolve([]); }
+            if (method === 'listWorkbookSheets') { return Promise.resolve({ sheets: [{ name, kind: 'worksheet' }] }); }
+            if (method === 'listShapes') { return Promise.resolve({ surfaces: [{ surface: name, shapes: [{ name: 'Box', kind: 'shape' }] }] }); }
+            return Promise.resolve([]);
+        } } as unknown as ConstructorParameters<typeof ProjectExplorer>[0]);
+        const notified: unknown[] = [];
+        const subscription = explorer.onDidChangeTreeData(node => notified.push(node));
+        try {
+            const project = (await explorer.getChildren()).find(node => node.filePath === workbookPath());
+            assert.ok(project);
+            const [sheets] = await explorer.getChildren(project);
+            let current: unknown[] = [];
+            for (let i = 0; i < 25; i++) {
+                name = `Data ${i}`;
+                explorer.refreshShapes(workbookPath(), { shapesChanged: true });
+                const [sheet] = await explorer.getChildren(sheets);
+                const [folder] = await explorer.getChildren(sheet);
+                await explorer.getChildren(folder);
+                current = [sheet, folder];
+            }
+            notified.length = 0;
+            for (let i = 0; i < 10; i++) { explorer.refreshShapes(workbookPath(), { shapesChanged: true }); }
+            const shapeNotifications = notified.filter(node => node !== sheets);
+            assert.equal(shapeNotifications.length, 20);
+            assert.ok(shapeNotifications.every(node => current.includes(node)));
+        } finally { subscription.dispose(); explorer.dispose(); }
+    });
+
     test('retained nested groups refresh without waiting for their parent folder', async () => {
         let name = 'Old', removed = false, reads = 0;
         const explorer = new ProjectExplorer({ call: () => {
