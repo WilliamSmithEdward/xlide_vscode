@@ -8,7 +8,7 @@ The qualified-reference scanner previously located and masked the entire physica
 
 ## Validation
 
-Eighteen new tests cover recursive bare/Call forms, multiple colon calls, spacing/case, different-length destination names, attached docs, comments/strings and primary/target full text across LF, CRLF and CR. Six work cases span 1, 100 and 1,000 calls on one or many physical lines. Baseline 82de7a08 fails 14 and passes four controls. Candidate focused validation passes 77 tests across five files; types pass.
+Twelve source-fidelity tests cover recursive bare/Call forms, multiple colon calls, spacing/case, different-length destination names, attached docs, comments/strings and primary/target full text across LF, CRLF and CR. Six work cases span 1, 100 and 1,000 calls on one or many physical lines. Baseline 82de7a08 fails 14 and passes four controls. Candidate focused validation passes 77 tests across five files; types pass.
 
 With frozen parser ASTs and lexer tokens/trivia, 8,256 corpus sources produce 16,500 complete Move results and full primary/destination outputs identical to baseline. Those corpus queries do not exercise the specific qualified recursion. An additional 72 independently expected full refactors vary recursive form/count, EOL and empty/occupied target modules: baseline matches 24, candidate matches all 72. Every candidate edit set has explicit bounds and non-overlap checks; there are no uncaught exceptions.
 
@@ -38,4 +38,4 @@ Run node scripts/benchmark-move-to-module.mjs --rounds=9, with --baseline=82de7a
 | 1000/comments/fresh | 0.620–0.638 | 0.331–0.332 |
 
 
-This patch retains the existing qualified-name matching/binding behavior. Bracketed and continued receiver forms, shadowing, visibility and destination-name capture still require the remaining Move surface audit. Full repository validation is running before marking this fix ready.
+This patch retains the existing qualified-name matching/binding behavior. Bracketed and continued receiver forms, shadowing, visibility and destination-name capture still require the remaining Move surface audit. Original full validation passed 702 files / three skipped and 14,037 tests / 27 skipped. On main 0bcc2ae5, types and 78 focused tests pass. Parallel integration runs encountered an unchanged security-script timeout and timing-ratio failures; all 27 tests in those control files pass unchanged with one worker. The complete integration run with --maxWorkers=1 passes: 709 files passed / four skipped; 14,201 tests passed / 28 skipped. Assertions and included tests are unchanged. The benchmark smoke run also verifies all 18 candidate layouts after its temporary-file cleanup repair.
