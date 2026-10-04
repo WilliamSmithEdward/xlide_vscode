@@ -97,6 +97,36 @@ function markAssignmentTarget(
 	}
 }
 
+/** First depth-zero Then tail, or end when this conditional has none. */
+function inlineThenTail(seg: readonly VbaToken[], head: number, end: number): number {
+	let depth = 0;
+	for (let i = head + 1; i < end; i++) {
+		const raw = seg[i].rawText;
+		if (raw === '(') { depth++; }
+		else if (raw === ')') { depth--; }
+		else if (depth === 0 && tokenWord(seg[i]) === 'then') { return i + 1; }
+	}
+	return end;
+}
+
+/** The caller has already split every depth-zero Else in this fragment. */
+function classifyInlineFragment(
+	seg: readonly VbaToken[], from: number, end: number,
+	wanted: ReadonlySet<number>, out: Map<number, ReferenceKind>,
+): void {
+	while (from < end) {
+		const head = tokenWord(seg[from]);
+		if (head === 'if' || head === 'elseif') {
+			// A depth-zero Then leaves the same parenthesis depth as the fragment's
+			// start, so its tail cannot contain an Else the caller did not split.
+			from = inlineThenTail(seg, from, end);
+		} else {
+			classifySegment(seg.slice(from, end), wanted, out);
+			return;
+		}
+	}
+}
+
 function classifySegment(
 	seg: readonly VbaToken[],
 	wanted: ReadonlySet<number>,
@@ -238,23 +268,14 @@ function classifySegment(
 	// logical line: `If x = 1 Then y = 2 Else z = 3` reads its condition and
 	// writes both targets. Each tail classifies as its own statement.
 	if (headWord === 'if' || headWord === 'elseif' || headWord === 'else') {
-		const from = headWord === 'else' ? head + 1 : (() => {
-			let depth = 0;
-			for (let i = head + 1; i < seg.length; i++) {
-				const raw = seg[i].rawText;
-				if (raw === '(') { depth++; }
-				else if (raw === ')') { depth--; }
-				else if (depth === 0 && tokenWord(seg[i]) === 'then') { return i + 1; }
-			}
-			return seg.length;
-		})();
+		const from = headWord === 'else' ? head + 1 : inlineThenTail(seg, head, seg.length);
 		if (from < seg.length) {
 			let start = from;
 			let depth = 0;
 			for (let i = from; i <= seg.length; i++) {
 				const atElse = i < seg.length && depth === 0 && tokenWord(seg[i]) === 'else';
 				if (i === seg.length || atElse) {
-					if (i > start) { classifySegment(seg.slice(start, i), wanted, out); }
+					if (i > start) { classifyInlineFragment(seg, start, i, wanted, out); }
 					start = i + 1;
 					continue;
 				}
