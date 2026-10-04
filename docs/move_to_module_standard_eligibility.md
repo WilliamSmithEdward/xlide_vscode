@@ -9,6 +9,7 @@ Validation against 8381e9ba:
 - 18 analyzer eligibility failures and six independently expected full-output controls across LF/CRLF/CR before the fix.
 - Seven actual-command baseline failures and one unchanged legacy control: unsafe object moves reach applyEdit/writeProjectModule, and the picker includes invalid destinations.
 - All 120 focused checks across eight files pass with the fix. Command tests cover class, document, userform, usercontrol, propertypage, designer, accessform and accessreport module types; refused moves perform no workspace edit, project write or refresh.
+- Full unit suite passes: 718 files, six skipped; 14,348 tests passed, 30 skipped. No failures.
 - Type checking passes. Frozen-input corpus comparison against the preceding merged-main snapshot preserves 16,500 full results and outputs from 8,256 sources and 72 generated recursive moves. Corpus calls omit role metadata and are compatibility evidence; explicit metadata behavior is covered by the dedicated engine/command tests.
 
 This fix enforces endpoint eligibility, not private-procedure visibility or destination name capture. Those remain separate audits. No runtime speedup is claimed.
