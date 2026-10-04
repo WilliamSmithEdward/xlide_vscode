@@ -48,6 +48,7 @@ vi.mock('vscode', async () => {
 });
 
 import * as vscode from 'vscode';
+import { AnalysisWorkerTimeoutError } from '../src/analysisWorkerErrors';
 import * as moduleAnalysis from '../src/vbaModuleAnalysis';
 import * as projectAnalysis from '../src/vbaProjectAnalysis';
 import type { AnalysisWorker } from '../src/vbaProjectWideAnalysis';
@@ -264,6 +265,61 @@ describe('worker fallback context', () => {
         } finally {
             for (const subscription of context.subscriptions) { subscription.dispose(); }
             prepare.mockRestore();
+        }
+    });
+});
+
+
+describe('worker timeout safety', () => {
+    it('reports a timeout without repeating the stuck analysis on the editor host', async () => {
+        const caller = moduleDocument('CallerMod', CALLER);
+        documents().push(caller);
+        const analyze = vi.spyOn(moduleAnalysis, 'analyzeVbaModuleSource');
+        const worker = {
+            available: true, ensureSeeded: () => undefined, forget: () => undefined,
+            analyze: vi.fn(async () => { throw new AnalysisWorkerTimeoutError(100); }),
+        } as unknown as AnalysisWorker;
+        const context = { subscriptions: [] } as unknown as vscodeTypes.ExtensionContext;
+        try {
+            registerVbaDiagnostics(context,
+                new VbaProjectIndexService(new VbaSymbolIndex(fakeProjectEngine([
+                    { name: 'CallerMod', type: 'standard', source: CALLER },
+                ]))), worker);
+            await until(() => expect(publishes(caller)).toBeGreaterThan(0));
+            expect(analyze).not.toHaveBeenCalled();
+            expect(published(caller)).toEqual(['diagnostics-failed']);
+        } finally {
+            for (const subscription of context.subscriptions) { subscription.dispose(); }
+            analyze.mockRestore();
+        }
+    });
+});
+
+
+describe('stale timeout reporting', () => {
+    it('does not publish an old timeout against a newer document version', async () => {
+        const caller = moduleDocument('CallerMod', CALLER);
+        documents().push(caller);
+        let fail!: (error: Error) => void;
+        const worker = {
+            available: true, ensureSeeded: () => undefined, forget: () => undefined,
+            analyze: vi.fn(() => new Promise<never>((_resolve, reject) => { fail = reject; })),
+        } as unknown as AnalysisWorker;
+        const context = { subscriptions: [] } as unknown as vscodeTypes.ExtensionContext;
+        try {
+            registerVbaDiagnostics(context,
+                new VbaProjectIndexService(new VbaSymbolIndex(fakeProjectEngine([
+                    { name: 'CallerMod', type: 'standard', source: CALLER },
+                ]))), worker);
+            await until(() => expect(worker.analyze).toHaveBeenCalled());
+            Object.defineProperty(caller, 'version', { value: 2 });
+            fail(new AnalysisWorkerTimeoutError(100));
+            await Promise.resolve();
+            await Promise.resolve();
+            await Promise.resolve();
+            expect(publishes(caller)).toBe(0);
+        } finally {
+            for (const subscription of context.subscriptions) { subscription.dispose(); }
         }
     });
 });

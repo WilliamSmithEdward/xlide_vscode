@@ -3,6 +3,7 @@
 vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
 
 import { analyzeProject, resetProjectAnalysisResultCacheForTests, setProjectAnalysisWorker, type ProjectAnalysisWorker } from '../src/vbaProjectWideAnalysis';
+import { AnalysisWorkerTimeoutError } from '../src/analysisWorkerErrors';
 import type { ProjectEngine } from '../src/projectEngine';
 import { fakeProjectEngine } from './helpers/fakeProjectEngine';
 import { deferred, flushPromises } from './helpers/async';
@@ -284,6 +285,16 @@ describe('analyzeProject worker routing', () => {
 			'worker suppressed ModB',
 		]);
 	});
+
+	it('does not retry timed-out worker analysis on the editor host', async () => {
+        const worker: ProjectAnalysisWorker = {
+            available: true, ensureSeeded() {},
+            analyze() { return Promise.reject(new AnalysisWorkerTimeoutError(100)); },
+        };
+        setProjectAnalysisWorker(worker);
+        await expect(analyzeProject(fakeProjectEngine(MODULES), 'HungWorker.xlsm'))
+            .rejects.toBeInstanceOf(AnalysisWorkerTimeoutError);
+    });
 
 	it('falls back to the identical in-host pass when the worker rejects', async () => {
 		const worker: ProjectAnalysisWorker = {

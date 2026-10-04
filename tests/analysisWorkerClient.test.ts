@@ -61,12 +61,12 @@ describe('AnalysisWorkerClient', () => {
         expect(client.available).toBe(true);
     });
 
-    it('times out a hung worker and degrades to the in-host path', async () => {
+    it('times out a hung worker without permanently disabling worker analysis', async () => {
         client = new AnalysisWorkerClient(workerScript(SILENT_WORKER), undefined, 100);
 
         await expect(client.analyze({ docKey: 'doc', source: 'Sub A()\nEnd Sub', moduleName: 'M' }))
             .rejects.toThrow(/timed out after 100 ms/);
-        expect(client.available).toBe(false);
+        expect(client.available).toBe(true);
     });
 
     it('fails fast when the worker bundle does not exist', async () => {
@@ -181,6 +181,26 @@ describe('request serialization failure', () => {
         const rejected = expect(bad).rejects.toThrow();
         const next = client.analyze({ docKey: 'next', source: '', moduleName: 'M' });
         await Promise.all([active, rejected, next]);
+        expect(client.available).toBe(true);
+    });
+});
+
+
+describe('timeout restart', () => {
+    it('restarts after a genuinely stuck job and continues queued analysis with a fresh seed', async () => {
+        const restarting = ECHO_WORKER.replace("parentPort.on('message', (message) => {", `let seeded = false;
+parentPort.on('message', (message) => {
+    if (message.kind === 'seed') { seeded = true; }`).replace("if (message.kind === 'analyze') {", `if (message.kind === 'analyze') {
+    if (message.source === 'hang') { while (true) {} }
+    if (message.projectKey && !seeded) { parentPort.postMessage({kind:'error',requestId:message.requestId,message:'missing seed'}); return; }`);
+        client = new AnalysisWorkerClient(workerScript(restarting), undefined, 500);
+        client.ensureSeeded('book', 1, () => [{ moduleName: 'M', source: '' }]);
+        const failed = expect(client.analyze({ docKey: 'hung', source: 'hang', moduleName: 'M', projectKey: 'book', generation: 1 }))
+            .rejects.toMatchObject({ name: 'AnalysisWorkerTimeoutError' });
+        const queued = client.analyze({ docKey: 'healthy', source: '', moduleName: 'M', projectKey: 'book', generation: 1 });
+        await Promise.all([failed, queued]);
+        // The terminated worker's late exit must not disable its replacement.
+        await client.analyze({ docKey: 'after', source: '', moduleName: 'M' });
         expect(client.available).toBe(true);
     });
 });

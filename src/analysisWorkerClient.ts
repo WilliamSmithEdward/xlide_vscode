@@ -1,9 +1,10 @@
 // Extension-host client for the analysis worker thread. Spawns lazily, tracks
-// per-project seed generations, serializes requests, and degrades permanently to the caller's
-// in-host fallback path when the worker cannot start or dies: analysis
-// correctness never depends on the worker being alive.
+// per-project seed generations, and serializes requests. Timeouts restart the
+// worker without retrying stuck work on the host; startup/crash failures retain
+// the caller's ordinary fallback path.
 
 import { Worker } from 'worker_threads';
+import { AnalysisWorkerTimeoutError } from './analysisWorkerErrors';
 import * as fs from 'fs';
 import type {
 	AnalysisWorkerRequest,
@@ -60,9 +61,8 @@ interface PendingRequest {
 // A worker stuck in a pathological loop emits no error or exit event, so a
 // request that never answers would otherwise hang its promise forever with
 // `available` still true - live diagnostics stall for the session and the
-// in-host fallback never engages. Far beyond any legitimate analysis (the
-// giant-module corpus completes in single-digit seconds), so firing means
-// the worker is gone: fail it and let callers take the in-host path.
+// request never settles. A timeout fails that run and restarts the worker;
+// callers must not repeat the same potentially stuck analysis in-host.
 // Only the dispatched request is timed; queue waiting is not analysis time.
 const WORKER_REQUEST_TIMEOUT_MS = 30_000;
 
@@ -160,11 +160,27 @@ export class AnalysisWorkerClient {
 	private _track(requestId: number, base: Omit<PendingRequest, 'watchdog'>): void {
 		const watchdog = setTimeout(() => {
 			if (this._pending.has(requestId)) {
-				this._fail(`request timed out after ${this._requestTimeoutMs} ms`);
+				this._restartAfterTimeout(requestId);
 			}
 		}, this._requestTimeoutMs);
 		watchdog.unref?.();
 		this._pending.set(requestId, { ...base, watchdog });
+	}
+
+	private _restartAfterTimeout(requestId: number): void {
+		const pending = this._pending.get(requestId);
+		if (!pending || this._failed) { return; }
+		clearTimeout(pending.watchdog);
+		this._pending.delete(requestId);
+		pending.reject(new AnalysisWorkerTimeoutError(this._requestTimeoutMs));
+		// Retrying a stuck analysis on the extension host can freeze Backspace
+		// and hovers. Fail this run; give queued jobs a fresh off-thread worker.
+		const previous = this._worker;
+		this._worker = undefined;
+		this._seededGenerations.clear();
+		void previous?.terminate();
+		this._log?.(`Analysis request timed out after ${this._requestTimeoutMs} ms; restarting worker.`);
+		if (this._ensureWorker()) { this._dispatchNext(); }
 	}
 
 	forget(docKey: string): void {
@@ -206,9 +222,11 @@ export class AnalysisWorkerClient {
 			const worker = new Worker(this._workerPath);
 			worker.unref();
 			worker.on('message', (response: AnalysisWorkerResponse) => this._onResponse(worker, response));
-			worker.on('error', (err) => this._fail(`worker error: ${err.message}`));
+			worker.on('error', (err) => {
+				if (worker === this._worker) { this._fail(`worker error: ${err.message}`); }
+			});
 			worker.on('exit', (code) => {
-				if (!this._failed) {
+				if (!this._failed && worker === this._worker) {
 					this._fail(`worker exited with code ${code}`);
 				}
 			});
@@ -222,6 +240,7 @@ export class AnalysisWorkerClient {
 	}
 
 	private _onResponse(worker: Worker, response: AnalysisWorkerResponse): void {
+		if (worker !== this._worker) { return; }
 		const pending = this._pending.get(response.requestId);
 		if (!pending) {
 			return;

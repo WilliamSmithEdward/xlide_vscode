@@ -1,3 +1,4 @@
+import { isAnalysisWorkerTimeoutError } from './analysisWorkerErrors';
 // Live VBA diagnostics engine: runs the analyzer's module analysis on open,
 // (debounced) on every edit, and when another module of the project changes.
 // Local/full pass scheduling and generation
@@ -403,6 +404,7 @@ export function registerVbaDiagnostics(
         generation: number,
         pass: DiagnosticPassKind,
     ): void => {
+        const documentVersion = document.version;
         const trace = startPerformanceTrace(`liveDiagnostics.${pass}`, document.uri.scheme);
         void runPassAsync(document, generation, pass).then(() => {
             trace.end('ok', document.uri.scheme);
@@ -412,7 +414,7 @@ export function registerVbaDiagnostics(
                 return;
             }
             const key = document.uri.toString();
-            if (!scheduler.isCurrentRun(document, key, generation, document.version)) {
+            if (!scheduler.isCurrentRun(document, key, generation, documentVersion)) {
                 return;
             }
             // Gate with shouldPublish too: a failed local pass must not overwrite a
@@ -420,7 +422,7 @@ export function registerVbaDiagnostics(
             if (!scheduler.shouldPublish(key, generation, pass)) {
                 return;
             }
-            publish(document.uri, document.version, [diagnosticForAnalysisRunError(document, err)]);
+            publish(document.uri, documentVersion, [diagnosticForAnalysisRunError(document, err)]);
         });
     };
 
@@ -665,6 +667,7 @@ export function registerVbaDiagnostics(
                     designerClass,
                     workbookSheets: workbookSheetsByProject.get(wbKey),
                 });
+                if (!scheduler.isCurrentRun(document, key, generation, documentVersion)) { return; }
                 const diagnostics = diagnosticsFromModuleAnalysis(
                     document,
                     workerResult,
@@ -675,6 +678,7 @@ export function registerVbaDiagnostics(
                 return;
             } catch (err) {
                 if (err instanceof Error && err.name === 'AnalysisSnapshotSuperseded') { return; }
+                if (isAnalysisWorkerTimeoutError(err)) { throw err; }
                 // Worker unavailable or died mid-request: fall through to the
                 // in-host pass, which produces identical results.
             }
