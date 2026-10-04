@@ -956,14 +956,24 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
             return this._getProjectFiles();
         }
         if (node.kind === 'project') {
+            const generation = this._generation;
             const modules = await this._getModules(node.filePath);
             const failed = modules.some((m) => m.kind === 'loadError');
             // A presentation's slides, and a workbook's sheets, lead the
             // project's rows, and a sheet's module is drawn under Sheets; a
             // listing that failed shows only that.
             const rows = failed ? { folders: [], modules } : await this._shapes.projectRows(node, modules);
+            // A refreshed module listing must also own the derived layout.
+            // Older renders join the current load before registering any rows.
+            if (generation !== this._generation) {
+                return this._getChildren(node);
+            }
             if (modules.length === 0) {
-                return [...rows.folders, this._emptyNode(node.filePath, await this._hasVbaProject(node.filePath))];
+                const hasVbaProject = await this._hasVbaProject(node.filePath);
+                if (generation !== this._generation) {
+                    return this._getChildren(node);
+                }
+                return [...rows.folders, this._emptyNode(node.filePath, hasVbaProject)];
             }
             if (this._view !== 'folders' || failed) {
                 return [...rows.folders, ...rows.modules];
@@ -1127,12 +1137,10 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         if (this._projectFilesLoad) {
             return this._projectFilesLoad;
         }
-        const load = this._loadProjectFiles();
+        const load: Promise<XlideNode[]> = this._loadProjectFiles(() => this._projectFilesLoad === load);
         this._projectFilesLoad = load;
         try {
-            const nodes = await load;
-            this._projectFilesCache = nodes;
-            return nodes;
+            return await load;
         } finally {
             if (this._projectFilesLoad === load) {
                 this._projectFilesLoad = undefined;
@@ -1140,9 +1148,22 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         }
     }
 
-    private async _loadProjectFiles(): Promise<XlideNode[]> {
-        const uris = await findMacroContainerFiles();
-        return uris
+    private async _loadProjectFiles(isCurrent: () => boolean): Promise<XlideNode[]> {
+        let uris: Awaited<ReturnType<typeof findMacroContainerFiles>>;
+        try {
+            uris = await findMacroContainerFiles();
+        } catch (err) {
+            if (!isCurrent()) {
+                return this._getProjectFiles();
+            }
+            throw err;
+        }
+        // Root discovery has its own lifetime: forgetting a module's folder
+        // changes module data, but does not invalidate this pending root load.
+        if (!isCurrent()) {
+            return this._getProjectFiles();
+        }
+        const nodes = uris
             .map((uri) => {
                 const projectKey = projectNodeKey(uri.fsPath);
                 let node = this._projectNodes.get(projectKey);
@@ -1152,6 +1173,8 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                 }
                 return node;
             });
+        this._projectFilesCache = nodes;
+        return nodes;
     }
 
     /**
