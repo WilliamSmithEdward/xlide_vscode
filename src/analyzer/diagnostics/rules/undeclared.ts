@@ -6,7 +6,8 @@
 
 import {
 	detectEol,
-	lineStartAt,
+	lineStartAtAnyBreak,
+	lineEndAtOrAfter,
 	VBA_IDENTIFIER_NAME_RE,
 } from '../../../vbaSourceScan';
 import type { HostObjectModel } from '../../host/excelObjectModel';
@@ -1102,23 +1103,23 @@ function declarationInsertOffset(source: string, member: ProcedureNode): number 
 
 /** Start of the line following `offset`. */
 function lineStartAfter(source: string, offset: number): number {
-	const next = source.indexOf('\n', offset);
-	return next < 0 ? source.length : next + 1;
+	const next = lineEndAtOrAfter(source, offset);
+	return next < source.length ? next + (source[next] === '\r' && source[next + 1] === '\n' ? 2 : 1) : next;
 }
 
 /** Start of the first body line of a procedure, just after its header line. */
 function firstBodyLineStart(source: string, member: ProcedureNode): number | undefined {
-	const first = member.body.find((stmt) => isLeafStatement(stmt));
+	const first = member.body.find((stmt) => isLeafStatement(stmt) || 'body' in stmt);
 	if (first) {
-		return lineStartAt(source, first.span.start);
+		return lineStartAtAnyBreak(source, first.span.start);
 	}
 	return lineStartAfter(source, member.span.start);
 }
 
 /** The indentation of the line at `offset`, reused for the inserted line. */
 function leadingWhitespaceOfLineAt(source: string, offset: number): string {
-	const start = lineStartAt(source, offset);
-	const end = source.indexOf('\n', start);
-	const line = source.slice(start, end < 0 ? source.length : end);
+	const start = lineStartAtAnyBreak(source, offset);
+	const end = lineEndAtOrAfter(source, start);
+	const line = source.slice(start, end);
 	return /^[ \t]*/.exec(line)?.[0] ?? '';
 }
