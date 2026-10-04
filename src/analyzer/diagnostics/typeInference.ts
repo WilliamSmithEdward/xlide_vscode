@@ -3207,6 +3207,42 @@ export function resolveKnownObjectAssignmentType(
 	};
 }
 
+interface ObjectDefaultTypeQueries {
+	resolveType: ReturnType<typeof createObjectAssignmentTypeResolver>;
+	projectTypeNamed: (key: string) => VbaProjectClassMembers | undefined;
+}
+
+/** Lazy default-member facts for one public query, preserving first-surface lookup. */
+export function createObjectDefaultQueries(memberCtx: MemberCompletionContext) {
+	const resolveType = createObjectAssignmentTypeResolver(memberCtx);
+	const projectTypes = new Map<string, VbaProjectClassMembers>();
+	let projectIndex = 0;
+	const projectTypeNamed = (key: string): VbaProjectClassMembers | undefined => {
+		if (projectTypes.has(key)) { return projectTypes.get(key); }
+		const types = memberCtx.projectClassMembers ?? [];
+		while (projectIndex < types.length) {
+			const type = types[projectIndex++], lower = type.name.toLowerCase();
+			if (!projectTypes.has(lower)) { projectTypes.set(lower, type); }
+			if (lower === key) { return projectTypes.get(key); }
+		}
+		return undefined;
+	};
+	const types = { resolveType, projectTypeNamed };
+	const verdicts = new Map<string | undefined, ReturnType<typeof objectLetAssignmentVerdict>>();
+	const verdictFor = (type: string | undefined): ReturnType<typeof objectLetAssignmentVerdict> => {
+		let verdict = verdicts.get(type);
+		if (verdict === undefined) { verdict = objectLetAssignmentVerdict(type, memberCtx, types); verdicts.set(type, verdict); }
+		return verdict;
+	};
+	const indexes = new Map<string | undefined, boolean>();
+	const needsIndex = (type: string | undefined): boolean => {
+		let answer = indexes.get(type);
+		if (answer === undefined) { answer = objectValueNeedsIndex(type, memberCtx, verdictFor); indexes.set(type, answer); }
+		return answer;
+	};
+	return { resolveType, projectTypeNamed, verdictFor, needsIndex };
+}
+
 /**
  * What a bare `name = value` does to a variable of a known object type
  * (issue #107, each case measured in Excel 16.0). The VBE compiles it as a
@@ -3226,8 +3262,9 @@ export function resolveKnownObjectAssignmentType(
 export function objectLetAssignmentVerdict(
 	expectedRaw: string | undefined,
 	memberCtx: MemberCompletionContext,
+	queries?: ObjectDefaultTypeQueries,
 ): 'lets' | 'argument' | 'noDefault' | 'unknown' {
-	const expected = resolveKnownObjectAssignmentType(expectedRaw, memberCtx);
+	const expected = queries ? queries.resolveType(expectedRaw) : resolveKnownObjectAssignmentType(expectedRaw, memberCtx);
 	if (!expected) {
 		return 'unknown';
 	}
@@ -3235,7 +3272,7 @@ export function objectLetAssignmentVerdict(
 		return expected.key === 'collection' ? 'argument' : 'lets';
 	}
 	if (expected.kind === 'project') {
-		const projectType = (memberCtx.projectClassMembers ?? []).find(
+		const projectType = queries ? queries.projectTypeNamed(expected.key) : (memberCtx.projectClassMembers ?? []).find(
 			(candidate) => candidate.name.toLowerCase() === expected.key,
 		);
 		if (!projectType || projectType.exhaustive !== true) {
@@ -3408,11 +3445,11 @@ function hostTypeHasNoDefault(resolved: string, memberCtx: MemberCompletionConte
  * (issue #221, measured in Excel 16.0). Names, whose default method takes
  * only optional parameters, raises 449 and is not judged.
  */
-export function objectValueNeedsIndex(type: string | undefined, memberCtx: MemberCompletionContext): boolean {
+export function objectValueNeedsIndex(type: string | undefined, memberCtx: MemberCompletionContext, verdictFor?: (type: string | undefined) => ReturnType<typeof objectLetAssignmentVerdict>): boolean {
 	if (normalizeType(type) === 'collection') {
 		return true;
 	}
-	if (objectLetAssignmentVerdict(type, memberCtx) !== 'argument') {
+	if ((verdictFor ? verdictFor(type) : objectLetAssignmentVerdict(type, memberCtx)) !== 'argument') {
 		return false;
 	}
 	const resolved = resolveHostAlias(type ?? '', memberCtx.model) ?? libraryObjectType(type);
