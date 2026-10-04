@@ -93,8 +93,12 @@ suite('Completion editor surface', () => {
         }, 'Smart Enter should place the caret after the seeded With dot', 4000);
         await vscode.commands.executeCommand('hideSuggestWidget');
         await vscode.commands.executeCommand('undo');
-        await until(() => document.getText() === source || undefined,
-            'undo should restore the source without generating another Smart Enter edit', 4000);
+        try {
+            await until(() => document.getText() === source || undefined,
+                'undo should restore the source without generating another Smart Enter edit', 4000);
+        } catch (error) {
+            throw new Error(`${String(error)}; actual=${JSON.stringify(document.getText())}`);
+        }
     });
     test('serves repeated completion requests in a large unchanged module', async () => {
         const source = 'Sub Demo()\nDim value As Long\n' + 'value = value + 1\n'.repeat(3000) +
