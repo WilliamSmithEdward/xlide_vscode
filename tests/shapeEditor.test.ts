@@ -95,40 +95,6 @@ async function openOn(name: string): Promise<ShapeFormValues> {
 }
 
 describe('the shape editor tab', () => {
-    it.each(['sequential', 'concurrent'] as const)('keeps same-named shape paths separate for %s requests', async mode => {
-        const top = { name: 'Shared', kind: 'shape' as const, text: 'Top level' };
-        const left = { ...top, text: 'Left group' }, right = { ...top, text: 'Right group' };
-        const call = vi.fn(async (method: string) => method === 'listShapes' ? { surfaces: [{ surface: 'Slide 1', shapes: [
-            top, { name: 'Left', kind: 'group', shapes: [left] }, { name: 'Right', kind: 'group', shapes: [right] },
-        ] }] } : { macros: [] });
-        deps.bridge = { call } as unknown as ProjectEngine;
-        const panels: FakePanel[] = [];
-        vi.mocked(vscode.window.createWebviewPanel).mockImplementation(() => {
-            const created = fakePanel();
-            panels.push(created);
-            return created as unknown as vscode.WebviewPanel;
-        });
-        const targets = [
-            { host: 'powerpoint' as const, surface: 'Slide 1', shape: top },
-            { host: 'powerpoint' as const, surface: 'Slide 1', shape: left, shapePath: ['Left', 'Shared'], inGroup: true },
-            { host: 'powerpoint' as const, surface: 'Slide 1', shape: right, shapePath: ['Right', 'Shared'], inGroup: true },
-        ];
-        try {
-            if (mode === 'concurrent') { await Promise.all(targets.map(target => openShapeEditor(deps, context, deck, target))); }
-            else { for (const target of targets) { await openShapeEditor(deps, context, deck, target); } }
-            expect(panels).toHaveLength(3);
-            expect(panels.map(created => pageModel(created).values.text).sort()).toEqual(['Left group', 'Right group', 'Top level']);
-            const reads = call.mock.calls.length;
-            for (const target of targets) {
-                await openShapeEditor(deps, context, deck, { ...target,
-                    shapePath: (target.shapePath ?? [target.shape.name]).map(name => name.toUpperCase()),
-                });
-            }
-            expect(panels).toHaveLength(3);
-            expect(call).toHaveBeenCalledTimes(reads);
-        } finally { for (const created of panels) { created.dispose(); } }
-    });
-
     it.each(['existing', 'new'] as const)('coalesces concurrent requests for the %s shape editor', async mode => {
         let release!: () => void;
         const ready = new Promise<void>(yes => { release = yes; });
@@ -382,4 +348,57 @@ describe('the shape editor tab', () => {
         await panel.send({ type: 'goToMacro', macro: 'Macros.SayHello' });
         expect(deps.goToMacro).toHaveBeenCalledWith(deck, 'Macros.SayHello');
     });
+});
+
+describe('shape editor target identity', () => {
+    it.each(['sequential', 'concurrent'] as const)('keeps same-named shape paths separate for %s requests', async mode => {
+        const top = { name: 'Shared', kind: 'shape' as const, text: 'Top level' };
+        const left = { ...top, text: 'Left group' }, right = { ...top, text: 'Right group' };
+        const call = vi.fn(async (method: string) => method === 'listShapes' ? { surfaces: [{ surface: 'Slide 1', shapes: [
+            top, { name: 'Left', kind: 'group', shapes: [left] }, { name: 'Right', kind: 'group', shapes: [right] },
+        ] }] } : { macros: [] });
+        deps.bridge = { call } as unknown as ProjectEngine;
+        const panels: FakePanel[] = [];
+        vi.mocked(vscode.window.createWebviewPanel).mockImplementation(() => {
+            const created = fakePanel();
+            panels.push(created);
+            return created as unknown as vscode.WebviewPanel;
+        });
+        const targets = [
+            { host: 'powerpoint' as const, surface: 'Slide 1', shape: top },
+            { host: 'powerpoint' as const, surface: 'Slide 1', shape: left, shapePath: ['Left', 'Shared'], inGroup: true },
+            { host: 'powerpoint' as const, surface: 'Slide 1', shape: right, shapePath: ['Right', 'Shared'], inGroup: true },
+        ];
+        try {
+            if (mode === 'concurrent') { await Promise.all(targets.map(target => openShapeEditor(deps, context, deck, target))); }
+            else { for (const target of targets) { await openShapeEditor(deps, context, deck, target); } }
+            expect(panels).toHaveLength(3);
+            expect(panels.map(created => pageModel(created).values.text).sort()).toEqual(['Left group', 'Right group', 'Top level']);
+            const reads = call.mock.calls.length;
+            for (const target of targets) {
+                await openShapeEditor(deps, context, deck, { ...target,
+                    shapePath: (target.shapePath ?? [target.shape.name]).map(name => name.toUpperCase()),
+                });
+            }
+            expect(panels).toHaveLength(3);
+            expect(call).toHaveBeenCalledTimes(reads);
+        } finally { for (const created of panels) { created.dispose(); } }
+    });
+
+    it.each(['existing', 'new'] as const)('keeps Add Shape separate from a shape named + when opening %s first', async first => {
+        editShape(deck, 'Slide 1', { action: 'update', name: 'Badge', newName: '+' });
+        const existing = { host: 'powerpoint' as const, surface: 'Slide 1', shape: shape('Slide 1', '+')! };
+        const adding = { host: 'powerpoint' as const, surface: 'Slide 1' };
+        await openShapeEditor(deps, context, deck, first === 'existing' ? existing : adding);
+        const firstPanel = panel;
+        panel = fakePanel();
+        vi.mocked(vscode.window.createWebviewPanel).mockReturnValue(panel as unknown as vscode.WebviewPanel);
+        try {
+            await openShapeEditor(deps, context, deck, first === 'existing' ? adding : existing);
+            expect(vscode.window.createWebviewPanel).toHaveBeenCalledTimes(2);
+            expect(pageModel().mode).toBe(first === 'existing' ? 'add' : 'edit');
+            if (first === 'new') { expect(pageModel().shape?.name).toBe('+'); }
+        } finally { firstPanel.dispose(); }
+    });
+
 });
