@@ -123,6 +123,9 @@ export class ShapeRows {
 	/** The rows whose shapes were drawn, and so are drawn again when the file changes. */
 	private readonly opened = new Set<XlideNode>();
 	private readonly parents = new WeakMap<XlideNode, XlideNode>();
+	private readonly modulePlacements = new WeakMap<XlideNode, {
+		parent: XlideNode; hasCode: boolean | undefined; current: () => boolean;
+	}>();
 	private readonly contexts = new WeakMap<XlideNode, ShapeRowContext>();
 	/** The workbook sheet a sheet row stands for. */
 	private readonly sheetOfRow = new WeakMap<XlideNode, WorkbookSheet>();
@@ -221,6 +224,13 @@ export class ShapeRows {
 		return this.parents.get(node);
 	}
 
+	/** Whether Sheets has classified this module using the current shape listing. */
+	moduleParentReady(module: XlideNode): boolean {
+		const placement = this.modulePlacements.get(module);
+		return !!placement && placement.current() && placement.hasCode === module.hasCode
+			&& this.parents.get(module) === placement.parent;
+	}
+
 	/**
 	 * The Shapes folder that goes first under a module row: a worksheet's,
 	 * when the sheet has one or more shapes to show; a Word document's
@@ -294,7 +304,8 @@ export class ShapeRows {
 				? byCodeName.get(module.moduleName.toLowerCase())
 				: undefined;
 			if (sheet) {
-				this.placeModuleRow(module, sheet, sheets);
+				const placement = this.modulePlacements.get(module);
+				this.placeModuleRow(module, sheet, this.moduleParentReady(module) ? placement!.parent : sheets);
 			} else {
 				this.unplaceModuleRow(module);
 				rest.push(module);
@@ -307,6 +318,7 @@ export class ShapeRows {
 	private unplaceModuleRow(module: XlideNode): void {
 		if (module.kind !== 'module') { return; }
 		this.parents.delete(module);
+		this.modulePlacements.delete(module);
 		module.sheetName = undefined;
 		module.label = module.moduleName ?? module.label;
 	}
@@ -316,6 +328,11 @@ export class ShapeRows {
 		module.sheetName = sheet.name;
 		module.label = `${module.moduleName} (${sheet.name})`;
 		this.parents.set(module, sheets);
+	}
+
+	private confirmModuleRow(module: XlideNode, sheet: WorkbookSheet, parent: XlideNode, current: () => boolean): void {
+		this.placeModuleRow(module, sheet, parent);
+		this.modulePlacements.set(module, { parent, hasCode: module.hasCode, current });
 	}
 
 	/** The rows under a row made here. */
@@ -612,7 +629,7 @@ export class ShapeRows {
 			if (module && (module.hasCode !== false || hasShapes)) {
 				// Named here as well: a Sheets folder drawn again on its own,
 				// after a sheet was renamed, shows the new name.
-				this.placeModuleRow(module, sheet, folder);
+				this.confirmModuleRow(module, sheet, folder, current);
 				rows.push(module);
 				continue;
 			}
@@ -628,7 +645,7 @@ export class ShapeRows {
 			this.parents.set(none, folder);
 			this.bareRows.set(none, bare.map(({ sheet, module }) => {
 				if (module) {
-					this.placeModuleRow(module, sheet, none);
+					this.confirmModuleRow(module, sheet, none, current);
 					return module;
 				}
 				return this.sheetRow(none, sheet, undefined);
