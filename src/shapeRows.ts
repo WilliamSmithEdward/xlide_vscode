@@ -121,7 +121,7 @@ export class ShapeRows {
 	/** One node per folder and per surface, so a redraw finds the row VS Code has. */
 	private readonly folders = new Map<string, XlideNode>();
 	/** The rows whose shapes were drawn, and so are drawn again when the file changes. */
-	private readonly opened = new Set<XlideNode>();
+	private readonly opened = new Map<string, Set<XlideNode>>();
 	private readonly parents = new WeakMap<XlideNode, XlideNode>();
 	private readonly modulePlacements = new WeakMap<XlideNode, {
 		parent: XlideNode; hasCode: boolean | undefined; current: () => boolean;
@@ -183,9 +183,7 @@ export class ShapeRows {
 		this.catalogs.delete(project);
 		this.catalogLoads.delete(project);
 		this.catalogFailures.delete(project);
-		for (const node of this.opened) {
-			if (projectIdentityKey(node.filePath) === project) { this.fire(node); }
-		}
+		for (const node of this.opened.get(project) ?? []) { this.fire(node); }
 		const sheets = this.folders.get(folderKey(filePath, 'sheets', undefined));
 		const drawn = this.sheetsDrawn.get(project);
 		if (!sheets || drawn === undefined) {
@@ -365,7 +363,10 @@ export class ShapeRows {
 		}
 		const host = shapeHostForPath(node.filePath);
 		if (!host) { return []; }
-		this.opened.add(node);
+		const project = projectIdentityKey(node.filePath);
+		let opened = this.opened.get(project);
+		if (!opened) { this.opened.set(project, opened = new Set()); }
+		opened.add(node);
 		let surfaces: ShapeSurface[];
 		try {
 			surfaces = await this.surfaces(node.filePath);
