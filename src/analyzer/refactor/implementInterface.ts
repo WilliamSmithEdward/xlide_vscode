@@ -31,7 +31,6 @@ export interface ImplementInterfaceInput {
 }
 
 export function implementInterface(input: ImplementInterfaceInput): VbaRefactorResult {
-	const module: ModuleNode = parseModule(input.source);
 	const implemented = implementsNames(input.source);
 	if (implemented.length === 0) {
 		return refuse('This class implements no interface. Add an `Implements` statement first.');
@@ -56,6 +55,9 @@ export function implementInterface(input: ImplementInterfaceInput): VbaRefactorR
 	if (members.length === 0) {
 		return refuse(`'${name}' has no public members to implement.`);
 	}
+
+	// The refusal checks above do not need the implementing class AST.
+	const module: ModuleNode = parseModule(input.source);
 
 	const already = new Set(
 		module.members
