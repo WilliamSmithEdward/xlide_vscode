@@ -39,3 +39,5 @@ import './completion.test';
 import './editorSurfaces.test';
 
 import './nativeBackspaceRouting.test';
+
+import './nativeSnippetRouting.test';

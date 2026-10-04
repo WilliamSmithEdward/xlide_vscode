@@ -14,7 +14,7 @@ interface Manifest {
         menus: Record<string, Array<{ command?: string }>>;
         languageModelTools: Array<{ name: string }>;
         viewsWelcome?: Array<{ contents: string }>;
-        keybindings?: Array<{ command: string; key: string; mac?: string; when?: string; args?: { commands?: string[] } }>;
+        keybindings?: Array<{ command: string; key: string; mac?: string; when?: string; args?: { commands?: Array<string | { command: string; args?: Record<string, unknown> }> } }>;
     };
 }
 
@@ -115,8 +115,10 @@ describe('package manifest consistency', () => {
         const bindings = manifest.contributes.keybindings ?? [];
         expect(bindings.length).toBeGreaterThan(0);
         const dead = bindings
-            .flatMap((binding) => [binding.command, ...(binding.args?.commands ?? [])])
-            .filter((command) => !registeredCommands.has(command) && !['runCommands', 'deleteLeft'].includes(command));
+            .flatMap((binding) => [binding.command, ...(binding.args?.commands ?? [])
+                .map(command => typeof command === 'string' ? command : command.command)])
+            .filter((command) => !registeredCommands.has(command)
+                && !['runCommands', 'deleteLeft', 'leaveSnippet', 'cursorMove'].includes(command));
         expect(dead).toEqual([]);
     });
 
@@ -137,5 +139,17 @@ describe('package manifest consistency', () => {
         for (const binding of [open, readOnly]) {
             expect(binding?.when).toBe('!xlide.isWeb');
         }
+    });
+});
+
+describe('native snippet arrow routing', () => {
+    it.each(['up', 'down', 'left', 'right'])('keeps %s movement in the renderer', direction => {
+        const binding = manifest.contributes.keybindings?.find(item =>
+            item.key === direction && item.when?.includes('inSnippetMode'));
+        expect(binding?.command).toBe('runCommands');
+        expect(binding?.args).toEqual({ commands: ['leaveSnippet', {
+            command: 'cursorMove', args: { to: direction, by: ['up', 'down'].includes(direction) ? 'line' : 'character', value: 1 },
+        }] });
+        expect(binding?.when).toContain('!suggestWidgetVisible');
     });
 });
