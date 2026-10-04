@@ -608,28 +608,54 @@ function insideProcedureBody(
 	offset: number,
 	moduleEnd: number,
 ): boolean {
+	let memberStarts: number[] | undefined;
+	let searchedOpenBoundary = false;
 	return procedures.some((proc) => {
 		if (proc.closed) {
 			return offset >= proc.span.start && offset <= proc.span.end;
 		}
-		const bodyEnd = nextMemberStartAfter(members, proc.span.start, moduleEnd);
-		return offset >= proc.span.start && offset < bodyEnd;
+		const start = proc.span.start;
+		if (offset < start) {
+			return false;
+		}
+		let bodyEnd: number;
+		if (!searchedOpenBoundary) {
+			// One open procedure needs no index, including an early body hit.
+			searchedOpenBoundary = true;
+			bodyEnd = moduleEnd;
+			for (const member of members) {
+				const memberStart = member.span.start;
+				if (memberStart > start && memberStart < bodyEnd) {
+					bodyEnd = memberStart;
+				}
+			}
+		} else {
+			// Recovery can leave many open procedures. Build later boundaries
+			// once, instead of rescanning all members for every procedure.
+			memberStarts ??= members.map((member) => member.span.start).sort((a, b) => a - b);
+			bodyEnd = nextMemberStartAfter(memberStarts, start, moduleEnd);
+		}
+		return offset < bodyEnd;
 	});
 }
 
-/** Start offset of the first module member that begins after `start`, else `moduleEnd`. */
+/** First sorted member start strictly after `start`, capped at module end. */
 function nextMemberStartAfter(
-	members: readonly ModuleMember[],
+	memberStarts: readonly number[],
 	start: number,
 	moduleEnd: number,
 ): number {
-	let next = moduleEnd;
-	for (const member of members) {
-		if (member.span.start > start && member.span.start < next) {
-			next = member.span.start;
+	let lo = 0;
+	let hi = memberStarts.length;
+	while (lo < hi) {
+		const mid = lo + Math.floor((hi - lo) / 2);
+		if (memberStarts[mid] <= start) {
+			lo = mid + 1;
+		} else {
+			hi = mid;
 		}
 	}
-	return next;
+	return Math.min(memberStarts[lo] ?? moduleEnd, moduleEnd);
 }
 
 function lineCompletionContext(source: string, offset: number): LineCompletionContext | undefined {
