@@ -1,6 +1,6 @@
 import { parseModule } from '../parser/parseModule';
 import { blockHeaderLineSpan } from '../parser/physicalLineSpans';
-import type { ModuleNode, ProcedureNode } from '../parser/nodes';
+import type { ModuleNode, ProcedureNode, ProcKind } from '../parser/nodes';
 import { detectEol } from '../../vbaSourceScan';
 import { refactor, refuse, type VbaRefactorResult } from './refactorTypes';
 import { escapeForRegExp, lookupModuleSource } from './shared';
@@ -60,12 +60,29 @@ export function implementInterface(input: ImplementInterfaceInput): VbaRefactorR
 	// The refusal checks above do not need the implementing class AST.
 	const module: ModuleNode = parseModule(input.source);
 
-	const already = new Set(
-		module.members
-			.filter((member): member is ProcedureNode => member.kind === 'Procedure')
-			.map((member) => member.name.toLowerCase()),
-	);
-	const missing = members.filter((member) => !already.has(`${name}_${member.name}`.toLowerCase()));
+	const requiredNames = new Set(members.map(member => `${name}_${member.name}`.toLowerCase()));
+	const kindsByName = new Map<string, Set<ProcKind>>();
+	for (const member of module.members) {
+		if (member.kind !== 'Procedure') { continue; }
+		const key = member.name.toLowerCase();
+		if (!requiredNames.has(key)) { continue; }
+		let kinds = kindsByName.get(key);
+		if (!kinds) { kinds = new Set(); kindsByName.set(key, kinds); }
+		kinds.add(member.procKind);
+	}
+	const missing: InterfaceMember[] = [];
+	for (const member of members) {
+		const qualifiedName = `${name}_${member.name}`;
+		const kinds = kindsByName.get(qualifiedName.toLowerCase());
+		if (kinds?.has(member.procKind)) { continue; }
+		// Property Get/Let/Set may share a name; Sub/Function cannot share one
+		// with a different callable kind. Refuse instead of creating a collision.
+		if (kinds && (member.procKind === 'Sub' || member.procKind === 'Function'
+			|| kinds.has('Sub') || kinds.has('Function'))) {
+			return refuse(`The class already has '${qualifiedName}' as a different procedure kind. Rename or correct it before implementing '${name}'.`);
+		}
+		missing.push(member);
+	}
 	if (missing.length === 0) {
 		return refuse(`'${name}' is already implemented in full.`);
 	}
@@ -88,6 +105,7 @@ export function implementInterface(input: ImplementInterfaceInput): VbaRefactorR
 /** A member the interface promises, with its header copied verbatim. */
 interface InterfaceMember {
 	name: string;
+	procKind: ProcKind;
 	/** `Property Get Total() As Long`, exactly as the interface writes it. */
 	signature: string;
 	/** The keyword that closes it: Sub, Function or Property. */
@@ -109,6 +127,7 @@ function publicMembersOf(source: string): InterfaceMember[] {
 			}
 			out.push({
 				name: member.name,
+				procKind: member.procKind,
 				signature: headerText(source, member),
 				closer: closerFor(member.procKind),
 			});
@@ -120,11 +139,13 @@ function publicMembersOf(source: string): InterfaceMember[] {
 				const isObject = isRefactorObjectType(type);
 				out.push({
 					name: decl.name,
+					procKind: 'PropertyGet',
 					signature: `Property Get ${decl.name}() As ${type}`,
 					closer: 'Property',
 				});
 				out.push({
 					name: decl.name,
+					procKind: isObject ? 'PropertySet' : 'PropertyLet',
 					signature: `Property ${isObject ? 'Set' : 'Let'} ${decl.name}(ByVal RHS As ${type})`,
 					closer: 'Property',
 				});
