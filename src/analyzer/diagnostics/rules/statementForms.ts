@@ -156,7 +156,7 @@ export function checkStatementForms(
 				// A line label is its own namespace: `Foo:`, `GoTo Foo` and
 				// `Resume Foo` compile beside a module Foo (issue #403).
 				const labels = new Set([...statementLabelDeclarations(source, span), ...statementLabelReferences(source, span)].map((label) => label.span.start));
-				const isLabel = (i: number): boolean => labels.has(span.start + toks[i].start);
+				const isLabel = (i: number): boolean => toks[i] !== undefined && labels.has(span.start + toks[i].start);
 				const callee = tokenText(toks[first]) === 'call' ? first + 1 : first;
 				const calleeName = target === undefined && !isLabel(callee) ? tokenName(toks[callee])?.toLowerCase() : undefined;
 				if (calleeName && toks[callee + 1]?.rawText !== '.' && toks[callee + 1]?.rawText !== '=' && otherModules.has(calleeName)
