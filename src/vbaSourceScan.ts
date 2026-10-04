@@ -333,14 +333,15 @@ const STRIPPED_SOURCE_BUDGET_CHARS = 16_000_000;
 const strippedSources = new Map<string, { lines: readonly string[]; starts: readonly number[] }>();
 let strippedSourceChars = 0;
 
-function strippedSource(source: string): { lines: readonly string[]; starts: readonly number[] } {
-    const kept = strippedSources.get(source);
+function strippedSource(source: string, cache = true): { lines: readonly string[]; starts: readonly number[] } {
+    const kept = cache ? strippedSources.get(source) : undefined;
     if (kept) {
         strippedSources.delete(source);
         strippedSources.set(source, kept);
         return kept;
     }
     const entry = { lines: stripVbaLines(source.split(/\r\n|\r|\n/)), starts: lineStartOffsets(source) };
+    if (!cache) { return entry; }
     strippedSources.set(source, entry);
     strippedSourceChars += source.length;
     for (const oldest of strippedSources.keys()) {
@@ -353,6 +354,11 @@ function strippedSource(source: string): { lines: readonly string[]; starts: rea
     return entry;
 }
 
+export interface IdentifierOccurrenceOptions {
+    /** Scoped slices can retain a large parent string; keep their stripping ephemeral. */
+    cacheStrippedSource?: boolean;
+}
+
 /**
  * Finds whole-word identifier occurrences while ignoring strings and comments.
  * Offsets are absolute source offsets so callers do not recompute line starts.
@@ -362,8 +368,9 @@ export function findIdentifierOccurrences(
     name: string,
     /** Inclusive bounds on an occurrence's starting offset. */
     range?: Span,
+    options: IdentifierOccurrenceOptions = {},
 ): VbaIdentifierOccurrence[] {
-    return findIdentifierOccurrencesForNames(source, [name], range).get(name.toLowerCase()) ?? [];
+    return findIdentifierOccurrencesForNames(source, [name], range, options).get(name.toLowerCase()) ?? [];
 }
 
 /** Finds several names in one source sweep, keyed by their lowercase spelling. */
@@ -372,6 +379,7 @@ export function findIdentifierOccurrencesForNames(
     names: readonly string[],
     /** Inclusive bounds on an occurrence's starting offset. */
     range?: Span,
+    options: IdentifierOccurrenceOptions = {},
 ): Map<string, VbaIdentifierOccurrence[]> {
     const out = new Map<string, VbaIdentifierOccurrence[]>();
     for (const name of names) { out.set(name.toLowerCase(), []); }
@@ -380,7 +388,7 @@ export function findIdentifierOccurrencesForNames(
     // a map lookup for every unrelated identifier in references/rename.
     const singleName = out.size === 1 ? out.keys().next().value : undefined;
     const singleMatches = singleName !== undefined ? out.get(singleName) : undefined;
-    const { lines, starts } = strippedSource(source);
+    const { lines, starts } = strippedSource(source, options.cacheStrippedSource !== false);
     // Reuse whole-source stripping so comments continued from earlier lines
     // keep their context. Only the identifier sweep is confined to the range.
     const firstLine = range ? lineIndexOf(starts, range.start) : 0;

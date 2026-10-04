@@ -1,7 +1,8 @@
 import * as assert from 'node:assert/strict';
 import * as vscode from 'vscode';
 import { VbaCaretProcedureTracker } from '../vbaCaretProcedure';
-import { activate, closeAllEditors, open, until, writeModule } from './support';
+import { writeModule as writeProjectModule } from '../vba/projectService';
+import { activate, closeAllEditors, moduleUri, open, until, workbookPath, writeModule } from './support';
 
 suite('Editor surfaces', () => {
     let document: vscode.TextDocument;
@@ -135,6 +136,49 @@ suite('Editor surfaces', () => {
         const symbol = await vscode.commands.executeCommand<vscode.Hover[]>(
             'vscode.executeHoverProvider', probe.uri, new vscode.Position(1, 9));
         assert.ok(symbol?.length, 'a real symbol still has hover information');
+    });
+
+    test('fresh large-class local highlights retain declaration, read and write ranges', async () => {
+        const padding = Array.from({ length: 700 }, (_, index) => [
+            `Public Function Padding${index}() As Object`,
+            `    Set Padding${index} = Nothing`, 'End Function', '',
+        ].join('\r\n')).join('');
+        const probe = [
+            'Public Sub LocalReferenceProbe(ByVal InputValue As Long)',
+            '    Dim Target As Long', "    Target = InputValue ' revision 00",
+            '    Debug.Print Target', '    ThisWorkbook.Sheets(1).cez', 'End Sub', '',
+        ].join('\r\n');
+        const moduleName = 'SurfaceLocalReferenceClass';
+        writeProjectModule(workbookPath(), moduleName, padding + probe, 'class');
+        const large = await open(moduleUri(moduleName));
+        const editor = vscode.window.activeTextEditor!;
+        const probeLine = large.positionAt(large.getText().indexOf('Public Sub LocalReferenceProbe(')).line;
+        const expected = [
+            [probeLine + 1, 8, 14, vscode.DocumentHighlightKind.Write],
+            [probeLine + 2, 4, 10, vscode.DocumentHighlightKind.Write],
+            [probeLine + 3, 16, 22, vscode.DocumentHighlightKind.Read],
+        ];
+        try {
+            for (let revision = 1; revision <= 6; revision++) {
+                const line = probeLine + 2;
+                const end = large.lineAt(line).text.length;
+                assert.ok(await editor.edit(edit => edit.replace(
+                    new vscode.Range(line, end - 2, line, end), String(revision).padStart(2, '0'))));
+                const highlights = await vscode.commands.executeCommand<vscode.DocumentHighlight[]>(
+                    'vscode.executeDocumentHighlights', large.uri, new vscode.Position(line, 5));
+                assert.deepEqual(highlights?.map(item => [
+                    item.range.start.line, item.range.start.character, item.range.end.character, item.kind,
+                ]), expected, `local highlight ranges on fresh revision ${revision}`);
+                const miss = await vscode.commands.executeCommand<vscode.DocumentHighlight[]>(
+                    'vscode.executeDocumentHighlights', large.uri, new vscode.Position(probeLine + 4, 27));
+                // An undefined semantic result lets VS Code's generic word
+                // provider return Text highlights. It must never claim reads/writes.
+                assert.ok(miss?.every(item => item.kind === vscode.DocumentHighlightKind.Text) ?? true,
+                    'an unmatched member has no semantic read/write highlights');
+            }
+        } finally {
+            if (large.isDirty) { await large.save(); }
+        }
     });
 
     test('macro-name strings still hover the cross-module procedure', async () => {
