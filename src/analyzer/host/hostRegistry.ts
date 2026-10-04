@@ -108,7 +108,13 @@ const MERGED_BY_KEY = new Map<string, HostObjectModel>();
 export function hostObjectModelForTokens(
 	tokens: readonly string[],
 ): HostObjectModel | undefined {
-	const known = tokens.filter((token) => MODELS_BY_TOKEN.has(token));
+	const known: string[] = [];
+	for (const token of tokens) {
+		const normalized = token.trim().toLowerCase();
+		if (MODELS_BY_TOKEN.has(normalized)) {
+			known.push(normalized);
+		}
+	}
 	if (known.length <= 1) {
 		return hostObjectModelForToken(known[0] ?? tokens[0]);
 	}
