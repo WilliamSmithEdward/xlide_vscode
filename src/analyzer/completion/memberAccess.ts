@@ -574,13 +574,15 @@ export function privateMemberOwnerAt(
 	memberName: string,
 	ctx: MemberCompletionContext = {},
 ): string | undefined {
+	const projectTypes = projectClassMembersByName(ctx);
+	if (projectTypes.size === 0) { return undefined; }
 	const currentType = resolveReceiverTypeAt(source, offset, ctx);
 	if (!currentType) {
 		return undefined;
 	}
 	const projectKey = parseCombinedTypeKey(currentType)?.projectKey
 		?? (currentType.startsWith(PROJECT_TYPE_PREFIX) ? currentType.slice(PROJECT_TYPE_PREFIX.length) : undefined);
-	const projectType = projectKey ? projectClassMembersByName(ctx).get(projectKey) : undefined;
+	const projectType = projectKey ? projectTypes.get(projectKey) : undefined;
 	const lower = memberName.toLowerCase();
 	if (!projectType?.privateMembers?.some((name) => name.toLowerCase() === lower)) {
 		return undefined;
@@ -595,13 +597,15 @@ export function projectTypeAt(
 	offset: number,
 	ctx: MemberCompletionContext = {},
 ): VbaProjectClassMembers | undefined {
+	const projectTypes = projectClassMembersByName(ctx);
+	if (projectTypes.size === 0) { return undefined; }
 	const currentType = resolveReceiverTypeAt(source, offset, ctx);
 	if (!currentType) {
 		return undefined;
 	}
 	const projectKey = parseCombinedTypeKey(currentType)?.projectKey
 		?? (currentType.startsWith(PROJECT_TYPE_PREFIX) ? currentType.slice(PROJECT_TYPE_PREFIX.length) : undefined);
-	return projectKey ? projectClassMembersByName(ctx).get(projectKey) : undefined;
+	return projectKey ? projectTypes.get(projectKey) : undefined;
 }
 
 /** The member of a project class module a reference reaches, if the receiver is one. */
