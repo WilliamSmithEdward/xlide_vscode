@@ -34,7 +34,7 @@ import {
 	type HostConstant,
 	resolveKeywordCompletions,
 	resolveMemberCompletions,
-	hasMemberCompletions,
+	memberCompletionStatus,
 	completionCursorContext,
 	resolveProcedureLabelCompletions,
 	resolveTypeCompletions,
@@ -196,19 +196,24 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 			const offset = document.offsetAt(expectedCaret);
 			const cursor = completionCursorContext(source, offset);
 			if (cursor.inComment || cursor.inString) { return; }
-			const projectCtx = this._projectContext.cachedEditorProjectContext(document)
-				?? this._projectContext.cheapEditorProjectContext(document);
+			const cachedProjectCtx = this._projectContext.cachedEditorProjectContext(document);
+			const projectCtx = cachedProjectCtx ?? this._projectContext.cheapEditorProjectContext(document);
 			// Probe host members without rebuilding module symbols or rendering
 			// every completion's documentation just to test whether a match exists.
-			let hasMatches = hasMemberCompletions(source, offset, toMemberCompletionContext(projectCtx));
-			if (!hasMatches) {
+			let hasMatches = memberCompletionStatus(source, offset, toMemberCompletionContext(projectCtx));
+			// Without project context, a named root can be extended or shadowed
+			// by source declarations (Me, ThisWorkbook, or a class named Range).
+			// Only a resolved call chain can rule out such missing named members.
+			const knownCallResult = /\)\.[\p{L}\p{M}0-9_]*$/u.test(prefix);
+			if (hasMatches === undefined || (hasMatches === false && !cachedProjectCtx && !knownCallResult)) {
 				// Source-backed receivers need the full cross-module context, which
 				// a keystroke's version bump can make temporarily unavailable.
-				const built = await this._projectContext.buildEditorProjectContextWithin(
-					document, source, COMPLETION_PROJECT_CONTEXT_BUDGET_MS,
-				);
+				// Recovery has no partial widget to serve. Keep waiting asynchronously
+				// for the full context rather than abandoning it at the request budget.
+				const built = await this._projectContext.buildEditorProjectContext(document, source)
+					.catch(() => undefined);
 				if (!isCurrent()) { return; }
-				hasMatches = Boolean(built && hasMemberCompletions(source, offset, toMemberCompletionContext(built)));
+				hasMatches = Boolean(built && memberCompletionStatus(source, offset, toMemberCompletionContext(built)));
 			}
 			if (hasMatches && isCurrent()) {
 				void vscode.commands.executeCommand('editor.action.triggerSuggest');
@@ -261,6 +266,9 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 
 		const source = document.getText();
 		const offset = document.offsetAt(position);
+		if (completionCursorContext(source, offset).inComment) {
+			return new vscode.CompletionList(directiveItems, false);
+		}
 		const range = this._completionRange(document, position);
 		let insertParens: boolean | undefined;
 		const shouldInsertParens = (): boolean =>

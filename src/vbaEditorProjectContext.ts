@@ -87,6 +87,7 @@ interface CachedEditorProjectContext {
 }
 
 interface EditorProjectContextBuild {
+	buildId: number;
 	documentVersion: number;
 	promise: Promise<EditorProjectContext>;
 }
@@ -261,6 +262,7 @@ export function toEventHandlerCompletionContext(ctx: EditorProjectContext): Even
 export class VbaEditorProjectContextService {
 	private readonly _projectContextCache = new Map<string, CachedEditorProjectContext>();
 	private readonly _projectContextBuilds = new Map<string, EditorProjectContextBuild>();
+	private _nextBuildId = 0;
 
 	constructor(private readonly _projectIndexService: VbaProjectIndexService) {}
 
@@ -305,9 +307,10 @@ export class VbaEditorProjectContextService {
 		return context;
 	}
 
-	private _isCurrentProjectContextBuild(document: vscode.TextDocument, documentVersion: number): boolean {
+	private _isCurrentProjectContextBuild(document: vscode.TextDocument, documentVersion: number, buildId: number): boolean {
 		const build = this._projectContextBuilds.get(document.uri.toString());
-		return !build || build.documentVersion === documentVersion;
+		return !document.isClosed && document.version === documentVersion &&
+			build?.buildId === buildId;
 	}
 
 	private _pruneEditorProjectContextCache(): void {
@@ -356,13 +359,14 @@ export class VbaEditorProjectContextService {
 			return existingBuild.promise;
 		}
 		const documentVersion = document.version;
-		const build = this._computeEditorProjectContext(document, source, documentVersion)
+		const buildId = ++this._nextBuildId;
+		const build = this._computeEditorProjectContext(document, source, documentVersion, buildId)
 			.finally(() => {
 				if (this._projectContextBuilds.get(buildKey)?.promise === build) {
 					this._projectContextBuilds.delete(buildKey);
 				}
 			});
-		this._projectContextBuilds.set(buildKey, { documentVersion, promise: build });
+		this._projectContextBuilds.set(buildKey, { buildId, documentVersion, promise: build });
 		return build;
 	}
 
@@ -370,6 +374,7 @@ export class VbaEditorProjectContextService {
 		document: vscode.TextDocument,
 		source: string,
 		documentVersion: number,
+		buildId: number,
 	): Promise<EditorProjectContext> {
 		const location = moduleLocationOfDocument(document);
 		if (!location) {
@@ -377,7 +382,7 @@ export class VbaEditorProjectContextService {
 				const project = await buildLiveVbaProjectIndexAsync(
 					[{ moduleName: 'Module', moduleKind: 'standard', source: blankDesignerHeader(source) }],
 				);
-				if (!this._isCurrentProjectContextBuild(document, documentVersion)) {
+				if (!this._isCurrentProjectContextBuild(document, documentVersion, buildId)) {
 					return this.cachedEditorProjectContext(document) ?? {};
 				}
 				const context = projectEditorSymbolContextForModule(project, 'Module');
@@ -404,7 +409,7 @@ export class VbaEditorProjectContextService {
 				decoded.projectPath,
 				'live',
 			);
-			if (!this._isCurrentProjectContextBuild(document, documentVersion)) {
+			if (!this._isCurrentProjectContextBuild(document, documentVersion, buildId)) {
 				return this.cachedEditorProjectContext(document) ?? {};
 			}
 			const allEntries: ModuleEntry[] = [...projectContext.moduleMetadata.values()].map(
@@ -449,12 +454,17 @@ export class VbaEditorProjectContextService {
 	}
 
 	warmEditorProjectContext(document: vscode.TextDocument, source: string): void {
-		if (this._projectContextBuilds.has(document.uri.toString())) {
+		if (this._projectContextBuilds.get(document.uri.toString())?.documentVersion === document.version) {
 			return;
 		}
 		void this._buildEditorProjectContext(document, source).catch(() => {
 			/* best-effort cache warm */
 		});
+	}
+
+	/** Await the shared load without a timeout; callers must discard superseded results. */
+	buildEditorProjectContext(document: vscode.TextDocument, source: string): Promise<EditorProjectContext> {
+		return this._buildEditorProjectContext(document, source);
 	}
 
 	async buildEditorProjectContextWithin(

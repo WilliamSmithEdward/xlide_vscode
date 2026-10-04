@@ -37,7 +37,8 @@ function deletion(line: string, options: { column?: number; prelude?: string } =
         cachedEditorProjectContext: vi.fn(() => undefined),
         localEditorProjectContext: vi.fn((): EditorProjectContext => ({})),
         cheapEditorProjectContext: vi.fn((): EditorProjectContext => ({})),
-        buildEditorProjectContextWithin: vi.fn(async (): Promise<EditorProjectContext> => ({})),
+        buildEditorProjectContextWithin: vi.fn(async (): Promise<EditorProjectContext | undefined> => ({})),
+        buildEditorProjectContext: vi.fn(async (): Promise<EditorProjectContext> => ({})),
     };
     const provider = new VbaMemberCompletionProvider(projectContext as unknown as VbaEditorProjectContextService);
     return { provider, document, editor, event, projectContext,
@@ -48,9 +49,41 @@ beforeEach(() => { vi.useFakeTimers(); vi.mocked(vscode.commands.executeCommand)
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); });
 
 describe('member completion recovery on Backspace', () => {
+    it('loads source members that extend a known Me host surface', async () => {
+        const edit = deletion('Me.He');
+        edit.projectContext.cheapEditorProjectContext.mockReturnValue({ meType: 'Excel.Workbook', meProjectType: 'ThisWorkbook' });
+        edit.projectContext.buildEditorProjectContext.mockResolvedValue({ meType: 'Excel.Workbook', meProjectType: 'ThisWorkbook',
+            projectClassMembers: [{ name: 'ThisWorkbook', kind: 'document', moduleName: 'ThisWorkbook',
+                members: [{ name: 'Hello', kind: 'method', moduleName: 'ThisWorkbook' }] }] });
+        edit.send();
+        await vi.runAllTimersAsync();
+        expect(vscode.commands.executeCommand).toHaveBeenCalledOnce();
+    });
+
+    it('does not load project context for a known host receiver with no matching member', async () => {
+        const edit = deletion('ThisWorkbook.Sheets(1).cez');
+        edit.send();
+        await vi.runAllTimersAsync();
+        expect(vscode.commands.executeCommand).not.toHaveBeenCalled();
+        expect(edit.projectContext.buildEditorProjectContextWithin).not.toHaveBeenCalled();
+        expect(edit.projectContext.buildEditorProjectContext).not.toHaveBeenCalled();
+    });
+    it('recovers project members when loading takes longer than the completion budget', async () => {
+        const edit = deletion('obj.He', { prelude: 'Sub Demo()\nDim obj As Widget\n' });
+        const context: EditorProjectContext = { projectClassMembers: [{ name: 'Widget', kind: 'class', moduleName: 'Widget',
+            members: [{ name: 'Hello', kind: 'method', moduleName: 'Widget' }] }] };
+        edit.projectContext.buildEditorProjectContextWithin.mockImplementation(() =>
+            new Promise(resolve => setTimeout(() => resolve(undefined), 150)));
+        edit.projectContext.buildEditorProjectContext.mockImplementation(() =>
+            new Promise(resolve => setTimeout(() => resolve(context), 250)));
+        edit.send();
+        await vi.runAllTimersAsync();
+        expect(vscode.commands.executeCommand).toHaveBeenCalledOnce();
+    });
+
     it.each(['version', 'move', 'switch'])('drops recovery superseded during project loading: %s', async action => {
         const edit = deletion('obj.He', { prelude: 'Sub Demo()\nDim obj As Widget\n' });
-        edit.projectContext.buildEditorProjectContextWithin.mockImplementation(async () => {
+        edit.projectContext.buildEditorProjectContext.mockImplementation(async () => {
             if (action === 'version') { edit.document.version++; }
             if (action === 'move') { edit.editor.selection.active = new vscode.Position(2, 0); }
             if (action === 'switch') { (vscode.window as unknown as { activeTextEditor: unknown }).activeTextEditor = undefined; }
@@ -63,7 +96,7 @@ describe('member completion recovery on Backspace', () => {
     });
     it('recovers Unicode members ending in a combining mark', async () => {
         const edit = deletion('obj.का', { prelude: 'Sub Demo()\nDim obj As Widget\n' });
-        edit.projectContext.buildEditorProjectContextWithin.mockResolvedValue({
+        edit.projectContext.buildEditorProjectContext.mockResolvedValue({
             projectClassMembers: [{ name: 'Widget', kind: 'class', moduleName: 'Widget',
                 members: [{ name: 'काम', kind: 'property', moduleName: 'Widget' }] }],
         });
@@ -81,7 +114,7 @@ describe('member completion recovery on Backspace', () => {
 
     it('recovers cross-module members when the full context is initially cold', async () => {
         const edit = deletion('obj.He', { prelude: 'Sub Demo()\nDim obj As Widget\n' });
-        edit.projectContext.buildEditorProjectContextWithin.mockResolvedValue({
+        edit.projectContext.buildEditorProjectContext.mockResolvedValue({
             projectClassMembers: [{ name: 'Widget', kind: 'class', moduleName: 'Widget',
                 members: [{ name: 'Hello', kind: 'method', moduleName: 'Widget' }] }],
         });

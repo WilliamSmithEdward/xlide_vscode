@@ -239,8 +239,17 @@ export function hasMemberCompletions(
 	offset: number,
 	ctx: MemberCompletionContext = {},
 ): boolean {
+	return memberCompletionStatus(source, offset, ctx) === true;
+}
+
+/** True/false for a known surface; undefined when the receiver still needs context. */
+export function memberCompletionStatus(
+	source: string,
+	offset: number,
+	ctx: MemberCompletionContext = {},
+): boolean | undefined {
 	const hit = memberSurfaceAtDot(source, offset, ctx);
-	if (!hit) { return false; }
+	if (!hit) { return undefined; }
 	const prefix = hit.typedPrefix.toLowerCase();
 	return hit.surface.members.some(mem => !mem.hidden && mem.name.toLowerCase().startsWith(prefix));
 }

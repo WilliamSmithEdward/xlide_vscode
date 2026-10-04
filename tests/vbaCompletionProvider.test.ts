@@ -30,7 +30,7 @@ import { callableCompletionShouldInsertParens } from '../src/analyzer/call/callC
 import { getWordObjectModel } from '../src/analyzer/host/wordObjectModel';
 import type { EditorProjectContext, VbaEditorProjectContextService } from '../src/vbaEditorProjectContext';
 
-function request(line: string, context: EditorProjectContext = {}, column = line.length, prelude = 'Sub Demo()\n') {
+function prepareRequest(line: string, context: EditorProjectContext = {}, column = line.length, prelude = 'Sub Demo()\n') {
     const source = prelude + line + '\nEnd Sub';
     const lineIndex = prelude.split('\n').length - 1;
     const document = {
@@ -47,12 +47,26 @@ function request(line: string, context: EditorProjectContext = {}, column = line
         buildEditorProjectContextWithin: vi.fn(async () => context),
     };
     const provider = new VbaMemberCompletionProvider(projectContext as unknown as VbaEditorProjectContextService);
-    return provider.provideCompletionItems(document as unknown as vscodeTypes.TextDocument, new vscode.Position(lineIndex, column));
+    return { projectContext, run: () => provider.provideCompletionItems(document as unknown as vscodeTypes.TextDocument, new vscode.Position(lineIndex, column)) };
+}
+
+function request(line: string, context: EditorProjectContext = {}, column = line.length, prelude = 'Sub Demo()\n') {
+    return prepareRequest(line, context, column, prelude).run();
 }
 
 beforeEach(() => { vi.mocked(callableCompletionShouldInsertParens).mockClear(); });
 
 describe('completion provider surface', () => {
+    it('skips project lookups for ordinary comments while preserving directive suggestions', async () => {
+        const plain = prepareRequest("' ordinary comment");
+        expect((await plain.run()).items).toEqual([]);
+        expect(plain.projectContext.cachedEditorProjectContext).not.toHaveBeenCalled();
+        expect(plain.projectContext.localEditorProjectContext).not.toHaveBeenCalled();
+        expect(plain.projectContext.buildEditorProjectContextWithin).not.toHaveBeenCalled();
+        const directive = await request("' @xlide-");
+        expect(directive.items.map(item => item.label)).toContain('@xlide-test');
+    });
+
     it('includes project classes alongside built-in types after As', async () => {
         const result = await request('Dim thing As ', { projectTypes: [{ name: 'Widget', kind: 'class', moduleName: 'Widget' }] });
         expect(result.items.map(item => item.label)).toContain('Widget');
