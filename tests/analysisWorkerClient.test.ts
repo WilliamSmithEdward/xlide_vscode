@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 
-import { AnalysisWorkerClient } from '../src/analysisWorkerClient';
+import { type WorkerAnalyzeRequest, AnalysisWorkerClient } from '../src/analysisWorkerClient';
 
 // Real worker threads against throwaway worker scripts: the client's contract
 // is that a worker which cannot answer - missing, crashing, or silently hung -
@@ -111,5 +111,76 @@ describe('analysis queue', () => {
         const queued = expect(client.analyze({ docKey: 'two', source: '', moduleName: 'M' })).rejects.toThrow('disposed');
         client.dispose();
         await Promise.all([active, queued]);
+    });
+});
+
+
+describe('queue lifecycle', () => {
+    it('drops queued analyses when their document closes', async () => {
+        client = new AnalysisWorkerClient(workerScript(SLOW_WORKER));
+        const active = client.analyze({ docKey: 'other', source: '', moduleName: 'M' });
+        const queued = client.analyze({ docKey: 'closed', source: '', moduleName: 'M', latestOnly: true });
+        const outcome = queued.then(() => 'analyzed', () => 'cancelled');
+        client.forget('closed');
+        await active;
+        expect(await outcome).toBe('cancelled');
+        expect(client.available).toBe(true);
+    });
+
+    it('settles a queued request when its seed provider throws', async () => {
+        client = new AnalysisWorkerClient(workerScript(SLOW_WORKER));
+        const active = client.analyze({ docKey: 'other', source: '', moduleName: 'M' });
+        client.ensureSeeded('book', 1, () => { throw new Error('seed unavailable'); });
+        const queued = client.analyze({ docKey: 'bad', projectKey: 'book', generation: 1, source: '', moduleName: 'M' });
+        const rejected = expect(queued).rejects.toThrow('seed unavailable');
+        const after = client.analyze({ docKey: 'after', source: '', moduleName: 'M' });
+        await Promise.all([active, rejected, after]);
+        expect(client.available).toBe(true);
+    });
+});
+
+
+describe('seed dispatch', () => {
+    it('retains each queued project generation and its seed provider', async () => {
+        const seeded = SLOW_WORKER.replace("parentPort.on('message', (message) => {", `let seed;
+parentPort.on('message', (message) => {
+    if (message.kind === 'seed') { seed = message.modules[0].source; }`).replace('diagnostics: [],', 'diagnostics: [{ message: seed }],');
+        client = new AnalysisWorkerClient(workerScript(seeded));
+        const active = client.analyze({ docKey: 'other', source: '', moduleName: 'M' });
+        client.ensureSeeded('book', 1, () => [{ moduleName: 'M', source: 'old' }]);
+        const old = client.analyze({ docKey: 'one', projectKey: 'book', generation: 1, source: '', moduleName: 'M' });
+        client.ensureSeeded('book', 2, () => [{ moduleName: 'M', source: 'new' }]);
+        const next = client.analyze({ docKey: 'two', projectKey: 'book', generation: 2, source: '', moduleName: 'M' });
+        await active;
+        expect((await old).diagnostics[0].message).toBe('old');
+        expect((await next).diagnostics[0].message).toBe('new');
+    });
+
+    it('settles a failed reseed and continues dispatching', async () => {
+        const needSeed = ECHO_WORKER.replace("if (message.kind === 'analyze') {", `if (message.kind === 'analyze') {
+            if (message.projectKey) { parentPort.postMessage({kind:'needSeed',requestId:message.requestId,projectKey:message.projectKey}); return; }`);
+        client = new AnalysisWorkerClient(workerScript(needSeed));
+        let calls = 0;
+        client.ensureSeeded('book', 1, () => {
+            if (++calls === 2) { throw new Error('reseed failed'); }
+            return [{ moduleName: 'M', source: '' }];
+        });
+        const bad = expect(client.analyze({ docKey: 'one', projectKey: 'book', generation: 1, source: '', moduleName: 'M' })).rejects.toThrow('reseed failed');
+        const next = client.analyze({ docKey: 'two', source: '', moduleName: 'M' });
+        await Promise.all([bad, next]);
+        expect(client.available).toBe(true);
+    });
+});
+
+
+describe('request serialization failure', () => {
+    it('rejects a non-cloneable queued request without retaining a watchdog or blocking the next', async () => {
+        client = new AnalysisWorkerClient(workerScript(SLOW_WORKER), undefined, 500);
+        const active = client.analyze({ docKey: 'active', source: '', moduleName: 'M' });
+        const bad = client.analyze({ docKey: 'bad', source: '', moduleName: 'M', host: () => undefined } as unknown as WorkerAnalyzeRequest);
+        const rejected = expect(bad).rejects.toThrow();
+        const next = client.analyze({ docKey: 'next', source: '', moduleName: 'M' });
+        await Promise.all([active, rejected, next]);
+        expect(client.available).toBe(true);
     });
 });

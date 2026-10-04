@@ -49,6 +49,7 @@ vi.mock('vscode', async () => {
 
 import * as vscode from 'vscode';
 import * as moduleAnalysis from '../src/vbaModuleAnalysis';
+import * as projectAnalysis from '../src/vbaProjectAnalysis';
 import type { AnalysisWorker } from '../src/vbaProjectWideAnalysis';
 import { registerVbaDiagnostics } from '../src/vbaLiveDiagnostics';
 import { VbaSymbolIndex } from '../src/vbaSymbolIndex';
@@ -211,5 +212,58 @@ describe('obsolete worker snapshots', () => {
         await Promise.resolve();
         expect(analyze).not.toHaveBeenCalled();
         analyze.mockRestore();
+    });
+});
+
+
+describe('worker context preparation', () => {
+    it('does not build in-host project facts when the worker succeeds', async () => {
+        const caller = moduleDocument('CallerMod', CALLER);
+        documents().push(caller);
+        const prepare = vi.spyOn(projectAnalysis, 'projectAnalysisOptionsForModule');
+        const worker = {
+            available: true, ensureSeeded: () => undefined, forget: () => undefined,
+            analyze: vi.fn(async () => ({ diagnostics: [], suppressedDiagnostics: [] })),
+        } as unknown as AnalysisWorker;
+        const context = { subscriptions: [] } as unknown as vscodeTypes.ExtensionContext;
+        try {
+            registerVbaDiagnostics(context,
+                new VbaProjectIndexService(new VbaSymbolIndex(fakeProjectEngine([
+                    { name: 'CallerMod', type: 'standard', source: CALLER },
+                ]))), worker);
+            await until(() => expect(publishes(caller)).toBeGreaterThan(0));
+            expect(prepare).not.toHaveBeenCalled();
+        } finally {
+            for (const subscription of context.subscriptions) { subscription.dispose(); }
+            prepare.mockRestore();
+        }
+    });
+});
+
+
+describe('worker fallback context', () => {
+    it('builds project facts after a worker failure and preserves cross-module resolution', async () => {
+        const caller = moduleDocument('CallerMod', CALLER);
+        documents().push(caller);
+        const prepare = vi.spyOn(projectAnalysis, 'projectAnalysisOptionsForModule');
+        const worker = {
+            available: true, ensureSeeded: () => undefined, forget: () => undefined,
+            analyze: vi.fn(async () => { throw new Error('worker failed'); }),
+        } as unknown as AnalysisWorker;
+        const context = { subscriptions: [] } as unknown as vscodeTypes.ExtensionContext;
+        try {
+            registerVbaDiagnostics(context,
+                new VbaProjectIndexService(new VbaSymbolIndex(fakeProjectEngine([
+                    { name: 'CallerMod', type: 'standard', source: CALLER },
+                    { name: 'HelperMod', type: 'standard', source: HELPER },
+                ]))), worker);
+            await until(() => expect(publishes(caller)).toBeGreaterThan(0));
+            expect(prepare).toHaveBeenCalledTimes(1);
+            expect(published(caller)).not.toContain('undeclared-variable');
+            expect(published(caller)).toContain('unknown-call');
+        } finally {
+            for (const subscription of context.subscriptions) { subscription.dispose(); }
+            prepare.mockRestore();
+        }
     });
 });

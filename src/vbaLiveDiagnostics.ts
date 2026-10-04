@@ -587,13 +587,6 @@ export function registerVbaDiagnostics(
                         designerClass = current.designerClass;
                         moduleMetaByDoc.set(key, { moduleType, moduleKind, documentType, designerClass });
                     }
-                    const project = diagnosticProject.project;
-                    diagnosticProject.projectProcedures ??= projectProcedureSignatures(project);
-                    projectOptions = projectAnalysisOptionsForModule(
-                        project,
-                        moduleName,
-                        diagnosticProject.projectProcedures,
-                    );
                 } else {
                     const cached = moduleMetaByDoc.get(key);
                     if (cached) {
@@ -689,6 +682,15 @@ export function registerVbaDiagnostics(
 
         // A failed or superseded worker request must not analyze an obsolete snapshot.
         if (!scheduler.isCurrentRun(document, key, generation, documentVersion)) { return; }
+        // Project facts are only consumed by the synchronous fallback. Building
+        // them for healthy worker passes duplicates expensive whole-project work
+        // on the editor host before dispatching the off-thread analysis.
+        if (projectRecord) {
+            projectRecord.projectProcedures ??= projectProcedureSignatures(projectRecord.project);
+            projectOptions = projectAnalysisOptionsForModule(
+                projectRecord.project, moduleName, projectRecord.projectProcedures,
+            );
+        }
         const moduleAnalysis = analyzeVbaModuleSource({
             source: text,
             moduleName,

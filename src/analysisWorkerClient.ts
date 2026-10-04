@@ -128,16 +128,33 @@ export class AnalysisWorkerClient {
 	}
 
 	private _dispatchNext(): void {
-		if (this._failed || this._pending.size > 0) { return; }
-		const next = this._queue.shift();
 		const worker = this._worker;
-		if (!next || !worker) { return; }
-		if (next.request.projectKey !== undefined && next.request.generation !== undefined) {
-			this._postSeed(worker, next.request.projectKey, next.request.generation, next.seedProvider);
+		if (this._failed || this._pending.size > 0 || !worker) { return; }
+		// A bad seed or non-cloneable request rejects only that request. In
+		// particular, dispatch from a response event must never throw into the host
+		// or strand a shifted request without a watchdog.
+		while (this._queue.length > 0) {
+			const next = this._queue.shift()!;
+			if (this._submit(worker, next)) { return; }
 		}
+	}
+
+	private _submit(worker: Worker, next: Omit<PendingRequest, 'watchdog'>): boolean {
 		const requestId = this._nextRequestId++;
-		this._track(requestId, next);
-		worker.postMessage({ kind: 'analyze', requestId, ...next.request } satisfies AnalysisWorkerRequest);
+		try {
+			if (next.request.projectKey !== undefined && next.request.generation !== undefined) {
+				this._postSeed(worker, next.request.projectKey, next.request.generation, next.seedProvider);
+			}
+			this._track(requestId, next);
+			worker.postMessage({ kind: 'analyze', requestId, ...next.request } satisfies AnalysisWorkerRequest);
+			return true;
+		} catch (err) {
+			const pending = this._pending.get(requestId);
+			if (pending) { clearTimeout(pending.watchdog); }
+			this._pending.delete(requestId);
+			next.reject(err instanceof Error ? err : new Error(String(err)));
+			return false;
+		}
 	}
 
 	private _track(requestId: number, base: Omit<PendingRequest, 'watchdog'>): void {
@@ -151,6 +168,13 @@ export class AnalysisWorkerClient {
 	}
 
 	forget(docKey: string): void {
+		for (let i = this._queue.length - 1; i >= 0; i--) {
+			if (this._queue[i].request.docKey !== docKey) { continue; }
+			const queued = this._queue.splice(i, 1)[0];
+			const error = new Error('Analysis document forgotten.');
+			error.name = 'AnalysisSnapshotSuperseded';
+			queued.reject(error);
+		}
 		if (this._worker && !this._failed) {
 			this._worker.postMessage({ kind: 'forget', docKey } satisfies AnalysisWorkerRequest);
 		}
@@ -212,12 +236,9 @@ export class AnalysisWorkerClient {
 				return;
 			}
 			this._seededGenerations.delete(response.projectKey);
-			if (pending.request.projectKey !== undefined && pending.request.generation !== undefined) {
-				this._postSeed(worker, pending.request.projectKey, pending.request.generation, pending.seedProvider);
+			if (!this._submit(worker, { ...pending, retried: true })) {
+				this._dispatchNext();
 			}
-			const requestId = this._nextRequestId++;
-			this._track(requestId, { ...pending, retried: true });
-			worker.postMessage({ kind: 'analyze', requestId, ...pending.request } satisfies AnalysisWorkerRequest);
 			return;
 		}
 		this._pending.delete(response.requestId);
