@@ -411,18 +411,31 @@ function collectImplements(source: string, out: TypeNameReference[], scanEnd: nu
 	}
 }
 
+// Parser edits retain immutable procedures with unchanged text and absolute spans.
+// Keep source-only references with those nodes; project resolution stays fresh.
+const PROCEDURE_TYPE_REFERENCES = new WeakMap<ProcedureNode, readonly TypeNameReference[]>();
+
 function collectProcedure(
 	source: string,
 	proc: ProcedureNode,
 	out: TypeNameReference[],
 ): void {
-	for (const param of proc.params) {
-		collectParameter(source, param, out);
+	let references = PROCEDURE_TYPE_REFERENCES.get(proc);
+	if (!references) {
+		const collected: TypeNameReference[] = [];
+		for (const param of proc.params) {
+			collectParameter(source, param, collected);
+		}
+		if (proc.returnType) {
+			pushTypeHit(collected, returnTypeNameSpan(source, proc));
+		}
+		collectBody(source, proc.body, collected);
+		references = collected;
+		PROCEDURE_TYPE_REFERENCES.set(proc, references);
 	}
-	if (proc.returnType) {
-		pushTypeHit(out, returnTypeNameSpan(source, proc));
+	for (const reference of references) {
+		out.push(reference);
 	}
-	collectBody(source, proc.body, out);
 }
 
 function collectModule(
