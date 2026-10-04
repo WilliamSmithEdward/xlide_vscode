@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { Session } from 'node:inspector';
 import * as vscode from 'vscode';
-import { activate, closeAllEditors, open, workspaceRoot } from './support';
+import { activate, closeAllEditors, insertTypedCharacter, open, workspaceRoot } from './support';
 import { readModule, writeModule } from '../vba/projectService';
 import { encodeModuleUri } from '../xlideFileSystem';
 
@@ -36,16 +36,14 @@ import { encodeModuleUri } from '../xlideFileSystem';
         try {
             for (const character of 'value') {
                 await new Promise(resolve => setTimeout(resolve, 30));
-                const end = document.lineAt(line).range.end;
-                editor.selection = new vscode.Selection(end, end);
                 const before = performance.now();
-                assert.ok(await editor.edit(edit => edit.insert(end, character)));
+                const editAttempts = await insertTypedCharacter(document, editor, line, character);
                 const afterEdit = performance.now();
                 const result = await vscode.commands.executeCommand<vscode.CompletionList>(
                     'vscode.executeCompletionItemProvider', document.uri, document.lineAt(line).range.end);
                 const afterResult = performance.now();
                 assert.ok(result?.items.some(item => (typeof item.label === 'string' ? item.label : item.label.label) === 'LatencyValue'));
-                samples.push({ character, editMs: afterEdit-before, completionMs: afterResult-afterEdit,
+                samples.push({ character, editAttempts, editMs: afterEdit-before, completionMs: afterResult-afterEdit,
                     totalMs: afterResult-before });
             }
             console.log('Actual large class typing latency:', JSON.stringify(samples));

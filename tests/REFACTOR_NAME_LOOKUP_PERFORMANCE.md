@@ -44,7 +44,13 @@ to returned code actions. Completion samples in that run were 49–60 ms;
 fresh-edit hover was 39.24 ms. These are returned command results, not menu,
 tooltip or lightbulb painting, and not a matched end-to-end before/after test.
 An existing Type lookback test rejected an editor edit during automatic casing
-on the first harness run; the unchanged harness was rerun for validation.
+on the first harness run; an unchanged rerun passed all 18 checks. A later
+rebased run hit the same race in Immediate completion. Typing loops now retry
+only rejected edits, at most three times, using fresh caret positions without
+waits. All attempts stay inside measured latency and are recorded for the
+completion probes. All 18 checks passed after that harness change; code actions
+with two edit attempts took 33.57 ms in that run. The component improvement does
+not eliminate scheduling or editor-edit outliers.
 
 Completion outliers, other semantic collectors and background diagnostic work
 still require investigation under #985. Long individual physical lines retain

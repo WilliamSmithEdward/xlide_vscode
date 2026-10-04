@@ -1,6 +1,6 @@
 import * as assert from 'node:assert/strict';
 import * as vscode from 'vscode';
-import { activate, closeAllEditors, open, until, writeModule } from './support';
+import { activate, closeAllEditors, insertTypedCharacter, open, until, writeModule } from './support';
 
 suite('Type lookback surfaces', () => {
     let document: vscode.TextDocument;
@@ -38,9 +38,7 @@ suite('Type lookback surfaces', () => {
         const line = document.lineCount - 3;
         for (const character of 'canonicalvalue = canonicalvalue + canonicalvalue') {
             await new Promise(resolve => setTimeout(resolve, 30));
-            const end = document.lineAt(line).range.end;
-            editor.selection = new vscode.Selection(end, end);
-            assert.ok(await editor.edit(edit => edit.insert(end, character), { undoStopBefore: false, undoStopAfter: false }));
+            await insertTypedCharacter(document, editor, line, character, { undoStopBefore: false, undoStopAfter: false });
         }
         await document.save();
         await until(() => document.lineAt(line).text.includes('CanonicalValue = CanonicalValue + CanonicalValue')
