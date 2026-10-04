@@ -1,7 +1,7 @@
 import { parseModule } from '../parser/parseModule';
 import type { BodyNode, ModuleNode, ProcedureNode, Span, VariableDeclNode, VariableGroupNode } from '../parser/nodes';
 import { classifyReferenceKinds } from '../references/referenceKinds';
-import { detectEol, findIdentifierOccurrencesForNames, leadingWhitespace, lineStartAt, wholeLineSpan, type VbaIdentifierOccurrence } from '../../vbaSourceScan';
+import { detectEol, findIdentifierOccurrencesForNames, leadingWhitespace, lineStartAtAnyBreak, wholeLineSpanAnyBreak, type VbaIdentifierOccurrence } from '../../vbaSourceScan';
 import { refactor, refuse, type VbaRefactorResult, type VbaTextEdit } from './refactorTypes';
 import { procedureContainingSpan, walkBody } from './shared';
 
@@ -72,7 +72,7 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 	if (selected.length === 0) {
 		return refuse('Select whole statements to extract.');
 	}
-	const block = { start: lineStartAt(source, selected[0].span.start), end: selected[selected.length - 1].span.end };
+	const block = { start: lineStartAtAnyBreak(source, selected[0].span.start), end: selected[selected.length - 1].span.end };
 	// The selection has to BE those statements, give or take whitespace: half a
 	// statement cannot become a procedure body, and neither can the procedure's
 	// own header or End line. Both directions matter - a selection can fall
@@ -89,7 +89,7 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 			? refuse("The selection takes in the procedure's own header or End line.")
 			: refuse('Select whole statements to extract.');
 	}
-	if (block.start <= procedure.span.start || block.end >= endOfProcedureBody(source, procedure)) {
+	if (block.start <= procedure.span.start || block.end > endOfProcedureBody(source, procedure)) {
 		return refuse("The selection takes in the procedure's own header or End line.");
 	}
 
@@ -127,7 +127,7 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 		...byRefOut.map((l) => ({ local: l, text: `ByRef ${l.name} As ${l.type}` })),
 	];
 
-	const eol = detectEol(source);
+	const eol = !source.includes('\n') && source.includes('\r') ? '\r' : detectEol(source);
 	const indent = leadingWhitespace(source.slice(block.start, selected[0].span.start));
 	const body = source.slice(block.start, block.end);
 	const movedDeclarations = moved
@@ -166,7 +166,7 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 	];
 	// A moved Dim leaves the caller with it.
 	for (const local of moved) {
-		edits.push({ span: wholeLineSpan(source, local.declaration!.group.span), newText: '' });
+		edits.push({ span: wholeLineSpanAnyBreak(source, local.declaration!.group.span), newText: '' });
 	}
 
 	return refactor(`Extract '${name}'`, edits, {
