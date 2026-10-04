@@ -714,6 +714,8 @@ export class ShapeRows {
 			};
 			this.folders.set(key, node);
 		}
+		// Folder keys ignore case, but shape lookup needs the current surface name.
+		if (owner.surface !== undefined) { node.surface = owner.surface; }
 		return node;
 	}
 

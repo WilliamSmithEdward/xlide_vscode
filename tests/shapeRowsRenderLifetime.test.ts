@@ -47,6 +47,8 @@ describe('shape row rendering lifetime', () => {
         const tree = create(call);
         const { folders: [folder] } = await tree.projectRows(project, []);
         const [before] = await tree.children(folder, async () => []);
+        const [openedShapes] = await tree.children(before, async () => []);
+        expect((await tree.children(openedShapes, async () => [])).map(row => row.label)).toEqual(['Box']);
         call.mockImplementation(async (method: string) => method === 'listWorkbookSheets'
             ? { sheets: [{ name: 'DATA', kind: 'worksheet' }] }
             : { surfaces: [{ surface: 'DATA', shapes: [{ name: 'Box', kind: 'shape' }] }] });
@@ -56,6 +58,8 @@ describe('shape row rendering lifetime', () => {
         expect(after.label).toBe('DATA');
         expect(after.surface).toBe('DATA');
         const [shapeFolder] = await tree.children(after, async () => []);
+        expect(shapeFolder).toBe(openedShapes);
+        expect(shapeFolder.surface).toBe('DATA');
         expect(shapeFolder?.shapeFolder).toBe('surface');
         expect((await tree.children(shapeFolder, async () => [])).map(row => row.label)).toEqual(['Box']);
     });
