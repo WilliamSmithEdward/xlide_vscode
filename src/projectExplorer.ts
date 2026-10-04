@@ -273,7 +273,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
      * stays open.
      */
     refreshAgentReviewMarks(filePath: string, moduleName: string): void {
-        const module = this._findModuleNode(filePath, moduleName);
+        const module = this.getModuleNode(filePath, moduleName);
         this.refreshModuleSubs(module?.filePath ?? filePath, module?.moduleName ?? moduleName);
         if (this._view !== 'folders' || !module?.folder) {
             return;
@@ -304,41 +304,19 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         }
     }
 
-    /**
-     * The loaded module row for a module, however the caller spelled the path
-     * or the name. An agent tool and the tree can name the same module in
-     * different cases, and the row cache is keyed on the tree's spelling.
-     */
-    private _findModuleNode(filePath: string, moduleName: string): XlideNode | undefined {
-        const exact = this._moduleNodes.get(moduleNodeKey(filePath, moduleName));
-        if (exact) {
-            return exact;
-        }
-        const project = projectIdentityKey(filePath);
-        const wanted = moduleName.toLowerCase();
-        for (const node of this._moduleNodes.values()) {
-            if (projectIdentityKey(node.filePath) === project && node.moduleName?.toLowerCase() === wanted) {
-                return node;
-            }
-        }
-        return undefined;
-    }
-
     /** Whether any module under this folder, at any depth, awaits review. */
     private _folderHasPendingAgentReview(folder: XlideNode): boolean {
-        if (pendingAgentReviewModules(folder.filePath).length === 0) {
+        const pending = pendingAgentReviewModules(folder.filePath);
+        if (pending.length === 0) {
             return false;
         }
-        const project = projectIdentityKey(folder.filePath);
         const wanted = folderNodeKey(folder.filePath, folder.folder ?? '');
-        for (const module of this._moduleNodes.values()) {
-            if (projectIdentityKey(module.filePath) !== project || !module.folder) {
-                continue;
-            }
-            if (!hasPendingAgentReview(module.filePath, module.moduleName ?? '')) {
-                continue;
-            }
-            if (folderPathChain(module.folder).some((step) => folderNodeKey(module.filePath, step) === wanted)) {
+        // Pending identities and tree rows use the same normalized project/module
+        // keys. Inspect only pending modules rather than every loaded project row.
+        for (const moduleName of pending) {
+            const module = this.getModuleNode(folder.filePath, moduleName);
+            if (module?.folder && folderPathChain(module.folder)
+                .some((step) => folderNodeKey(module.filePath, step) === wanted)) {
                 return true;
             }
         }
