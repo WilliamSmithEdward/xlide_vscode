@@ -46,6 +46,8 @@ let lastCompare: { source: string; compare: ModuleCompare } | undefined;
  */
 export function moduleCompare(source: string): ModuleCompare {
 	if (lastCompare?.source === source) {
+		// Adopt an equal-content caller string so subsequent hits compare by identity.
+		lastCompare.source = source;
 		return lastCompare.compare;
 	}
 	const match = /^[ \t]*Option[ \t]+Compare[ \t]+(Binary|Text|Database)\b/im.exec(source);
