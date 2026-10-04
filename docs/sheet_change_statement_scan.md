@@ -4,6 +4,7 @@ The conservative worksheet-change scanner repeated a whole-statement range-word 
 
 Validation against 4d66f518:
 
+- Full suite with two workers: 721 files passed, seven skipped; 14,368 tests passed, 31 skipped. No failures. The first default-parallel run had 14,366 passes and two unchanged-test failures: inflate exceeded its 5s timeout; undeclaredVariableCost measured 21.298 against its <20 ratio. Both files passed unchanged in isolation (22 tests), then the complete two-worker suite passed. No thresholds, timeouts or exclusions changed.
 - Six work-count cases: four baseline failures and two one-member controls. At 1,000 Name comparisons, 3,003,000 copied token entries fall to zero. Range-word token reads are bounded linearly in statement size for 1/100/1,000 Copy members.
 - Frozen-input differential: all 8,328 complete sheet-fact results, ordered names and diagnostic/error arrays match 4d66f518 across 8,256 corpus sources and 72 generated cases (LF/CRLF/CR, Copy/range veto/Name/renaming/comments). 13,551 findings; zero internal errors. AST nodes and lexer tokens/trivia are frozen.
 - Types and 42 focused checks pass across statement work, workbook sheet diagnostics and workbook sheet metadata.
