@@ -174,3 +174,67 @@ suite('Explorer sheet context in the extension host', () => {
         } finally { explorer.dispose(); }
     });
 });
+
+suite('Explorer module resolution in the extension host', () => {
+    test('a retained project row uses the current root after refresh', async () => {
+        const explorer = new ProjectExplorer({ call: (method: string) => method === 'listModules'
+            ? Promise.resolve([{ name: 'Sheet1', type: 'document' }])
+            : Promise.resolve({ sheets: [{ name: 'Data', codeName: 'Sheet1', kind: 'worksheet' }] })
+        } as unknown as ConstructorParameters<typeof ProjectExplorer>[0]);
+        try {
+            const oldProject = (await explorer.getChildren()).find(node => node.filePath === workbookPath());
+            assert.ok(oldProject);
+            await explorer.getChildren(oldProject);
+            explorer.refresh();
+            const currentProject = (await explorer.getChildren()).find(node => node.filePath === workbookPath());
+            assert.ok(currentProject);
+            await explorer.getChildren(oldProject);
+            const module = await explorer.resolveModuleNode(workbookPath(), 'Sheet1');
+            assert.ok(module);
+            const sheets = explorer.getParent(module);
+            assert.ok(sheets);
+            assert.equal(explorer.getParent(sheets), currentProject);
+        } finally { explorer.dispose(); }
+    });
+
+    test('follow waits until the sheet parent has been constructed', async () => {
+        const catalog = deferred<{ sheets: Array<{ name: string; codeName: string; kind: string }> }>();
+        let started = false;
+        const explorer = new ProjectExplorer({ call: (method: string) => {
+            if (method === 'listModules') { return Promise.resolve([{ name: 'Sheet1', type: 'document' }]); }
+            if (method === 'listWorkbookSheets') { started = true; return catalog.promise; }
+            return Promise.resolve([]);
+        } } as unknown as ConstructorParameters<typeof ProjectExplorer>[0]);
+        try {
+            const project = (await explorer.getChildren()).find(node => node.filePath === workbookPath());
+            assert.ok(project);
+            const drawing = explorer.getChildren(project);
+            await until(() => started ? true : undefined, 'sheet layout should be pending');
+            let settled = false;
+            const follow = explorer.resolveModuleNode(workbookPath(), 'Sheet1').then(node => { settled = true; return node; });
+            await new Promise(resolve => setTimeout(resolve, 50));
+            const premature = settled;
+            catalog.resolve({ sheets: [{ name: 'Data', codeName: 'Sheet1', kind: 'worksheet' }] });
+            await drawing;
+            const module = await follow;
+            assert.equal(premature, false, 'follow must wait for the reveal path');
+            assert.ok(module);
+            assert.equal(explorer.getParent(module)?.shapeFolder, 'sheets');
+        } finally { explorer.dispose(); }
+    });
+
+    test('follow rebuilds the parent path when an editor folder override is forgotten', async () => {
+        const explorer = new ProjectExplorer({ call: (method: string) => method === 'listModules'
+            ? Promise.resolve([{ name: 'M', type: 'standard', folder: 'Saved' }]) : Promise.resolve({ sheets: [] })
+        } as unknown as ConstructorParameters<typeof ProjectExplorer>[0]);
+        try {
+            explorer.setView('folders');
+            const module = await explorer.resolveModuleNode(workbookPath(), 'M');
+            assert.ok(module);
+            explorer.setModuleFolder(workbookPath(), 'M', 'Edited');
+            explorer.forgetModuleFolder(workbookPath(), 'M');
+            assert.equal(await explorer.resolveModuleNode(workbookPath(), 'M'), module);
+            assert.equal(explorer.getParent(module)?.folder, 'Saved');
+        } finally { explorer.dispose(); }
+    });
+});

@@ -1,5 +1,5 @@
 import type { Span } from '../parser/nodes';
-import { findIdentifierOccurrences, lineStartAt, stripVba } from '../../vbaSourceScan';
+import { findIdentifierOccurrences, lineStartAtAnyBreak, lineEndAtOrAfter, stripVba } from '../../vbaSourceScan';
 
 /**
  * Where a procedure is called, and where an argument would go.
@@ -60,7 +60,7 @@ export function callSitesOf(
 
 /** The line declares the procedure rather than calling it. */
 function isDeclaration(source: string, offset: number): boolean {
-	const lineStart = lineStartAt(source, offset);
+	const lineStart = lineStartAtAnyBreak(source, offset);
 	const before = stripVba(source.slice(lineStart, offset));
 	return /\b(?:Sub|Function|Property\s+(?:Get|Let|Set)|Declare)\s+$/i.test(before)
 		|| /^\s*(?:Public|Private|Friend|Static)?\s*(?:Static\s+)?(?:Sub|Function|Property)\b/i.test(
@@ -95,7 +95,7 @@ function siteAt(source: string, offset: number, nameLength: number): CallSite | 
 		// `Go = 1` inside Go assigns the return value, not a call.
 		return undefined;
 	}
-	const lineEnd = endOfLine(source, at);
+	const lineEnd = lineEndAtOrAfter(source, at);
 	const trailing = stripVba(source.slice(at, lineEnd)).trimEnd();
 	return {
 		offset,
@@ -111,9 +111,9 @@ function matchingBracket(source: string, open: number): number {
 	let inString = false;
 	for (let i = open; i < source.length; i += 1) {
 		const ch = source[i];
+		if (ch === '\n' || ch === '\r') { return -1; }
 		if (ch === '"') { inString = !inString; continue; }
 		if (inString) { continue; }
-		if (ch === '\n') { return -1; }
 		if (ch === '(') { depth += 1; }
 		if (ch === ')') {
 			depth -= 1;
@@ -121,10 +121,4 @@ function matchingBracket(source: string, open: number): number {
 		}
 	}
 	return -1;
-}
-
-function endOfLine(source: string, offset: number): number {
-	const at = source.indexOf('\n', offset);
-	if (at === -1) { return source.length; }
-	return source[at - 1] === '\r' ? at - 1 : at;
 }

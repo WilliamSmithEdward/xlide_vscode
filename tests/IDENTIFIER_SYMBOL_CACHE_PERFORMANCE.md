@@ -5,7 +5,7 @@ module symbol graph on every request. The existing resolver shared that graph
 only between positions in one request, even though the lexer and parser already
 retain bounded snapshots for unchanged source.
 
-Completion now privately retains eight symbol projections, keyed by the complete
+Read-only completion and hover resolvers share eight symbol projections, keyed by the complete
 source value, module name and module kind, with least recently used eviction.
 Projection remains lazy. An edit or module identity change rebuilds it; cursor
 scope is selected on every request. Completion records are freshly allocated and

@@ -31,7 +31,7 @@ import {
 	type VbaRuntimeObject,
 	type VbaRuntimeParam,
 } from '../runtime/vbaRuntime';
-import { buildModuleSymbols } from '../symbols/buildModuleSymbols';
+import { editorModuleSymbols } from '../symbols/editorModuleSymbols';
 import {
 	ModuleSymbolKind,
 	type ModuleSymbols,
@@ -160,33 +160,6 @@ export function resolveIdentifierCompletions(
 	return createIdentifierCompletionResolver(source, ctx)(offset);
 }
 
-// Keep this projection private to completion: other symbol-builder consumers
-// may mutate their graphs. Results and external project/host facts stay fresh.
-// Eight entries match the parser's bounded source cache; source edits, module
-// renames and module-kind changes all select a different snapshot.
-const SYMBOL_CACHE_LIMIT = 8;
-const symbolSnapshots: {
-	source: string;
-	moduleName: string;
-	moduleKind: ModuleSymbolKind;
-	symbols: ModuleSymbols;
-}[] = [];
-
-function identifierSymbols(moduleName: string, moduleKind: ModuleSymbolKind, source: string): ModuleSymbols {
-	const index = symbolSnapshots.findIndex(entry =>
-		entry.source === source && entry.moduleName === moduleName && entry.moduleKind === moduleKind);
-	if (index >= 0) {
-		const [entry] = symbolSnapshots.splice(index, 1);
-		entry.source = source;
-		symbolSnapshots.push(entry);
-		return entry.symbols;
-	}
-	const symbols = buildModuleSymbols(moduleName, moduleKind, source);
-	symbolSnapshots.push({ source, moduleName, moduleKind, symbols });
-	if (symbolSnapshots.length > SYMBOL_CACHE_LIMIT) { symbolSnapshots.shift(); }
-	return symbols;
-}
-
 /**
  * Resolves several positions against one source/context snapshot. Symbol
  * construction is lazy and reused for unchanged source/module identity.
@@ -196,7 +169,7 @@ export function createIdentifierCompletionResolver(
 	ctx: IdentifierCompletionContext = {},
 ): (offset: number) => IdentifierCompletion[] {
 	let symbols: ModuleSymbols | undefined;
-	const getSymbols = (): ModuleSymbols => symbols ??= identifierSymbols(
+	const getSymbols = (): ModuleSymbols => symbols ??= editorModuleSymbols(
 		ctx.moduleName ?? 'Module',
 		ctx.moduleKind ?? 'standard',
 		source,
