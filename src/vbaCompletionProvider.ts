@@ -65,7 +65,7 @@ const COMPLETION_PROJECT_CONTEXT_BUDGET_MS = 150;
  * reachable in brackets: `Me.[Unit Price]` (issue #206).
  */
 export function memberNameAsWritten(name: string): string {
-	return /^[\p{L}_][\p{L}\p{N}_]*$/u.test(name) ? name : `[${name}]`;
+	return /^[\p{L}_][\p{L}\p{M}\p{N}_]*$/u.test(name) ? name : `[${name}]`;
 }
 
 /**
@@ -272,7 +272,8 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 		const range = this._completionRange(document, position);
 		let insertParens: boolean | undefined;
 		const shouldInsertParens = (): boolean =>
-			insertParens ??= callableCompletionShouldInsertParens(source, offset);
+			insertParens ??= !/^[ \t]*\(/.test(document.lineAt(range.end.line).text.slice(range.end.character))
+				&& callableCompletionShouldInsertParens(source, offset);
 
 		const cachedProjectCtx = this._projectContext.cachedEditorProjectContext(document);
 		const fastProjectCtx = cachedProjectCtx ?? this._projectContext.localEditorProjectContext(document, source);

@@ -83,6 +83,7 @@ describe('completion provider surface', () => {
         const item = result.items.find(item => item.label === `${prefix}Value`);
         expect(item).toBeDefined();
         expect(item?.range).toEqual(new vscode.Range(2, 4, 2, 4 + prefix.length + 4));
+        expect(item?.insertText).toBe(`${prefix}Value`);
     });
     it.each([
         ['Set value = Application.', 'Calculate($0)'],
@@ -92,6 +93,17 @@ describe('completion provider surface', () => {
         const item = result.items.find(item => item.label === 'Calculate');
         const insert = item?.insertText;
         expect(typeof insert === 'string' ? insert : insert?.value).toBe(expected);
+    });
+    it.each([
+        ['value = Abs(-1)', 'Abs', 'value = Ab'],
+        ['value = Application.Intersect(a, b)', 'Intersect', 'value = Application.Int'],
+        ['Call Application.Calculate ()', 'Calculate', 'Call Application.Cal'],
+    ])('preserves an existing argument list in %s', async (line, name, prefix) => {
+        const result = await request(line, {}, prefix.length);
+        const item = result.items.find(item => item.label === name);
+        expect(item).toBeDefined();
+        const insert = item?.insertText;
+        expect(typeof insert === 'string' ? insert : insert?.value).toBe(name);
     });
     it('skips callable classification for a property-only list', async () => {
         const result = await request('ThisWorkbook.Sheets(1).ce');

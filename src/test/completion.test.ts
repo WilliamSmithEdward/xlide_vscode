@@ -63,11 +63,9 @@ suite('Completion editor surface', () => {
         assert.ok(labels(await completions(document, start)).includes('Cells'));
     });
     test('reopens the actual menu after Backspace, allowing Cells to be accepted', async () => {
-        const { document, editor, caret } = await probe('CompletionMenu', 'Sub Demo()\nThisWorkbook.Sheets(1).cez\nEnd Sub\n', '.cez');
+        const { document } = await probe('CompletionMenu', 'Sub Demo()\nThisWorkbook.Sheets(1).cez\nEnd Sub\n', '.cez');
         await vscode.commands.executeCommand('hideSuggestWidget');
-        const start = caret.translate(0, -1);
-        await editor.edit(edit => edit.delete(new vscode.Range(start, caret)));
-        editor.selection = new vscode.Selection(start, start);
+        await vscode.commands.executeCommand('deleteLeft');
         await new Promise(resolve => setTimeout(resolve, 500));
         await vscode.commands.executeCommand('acceptSelectedSuggestion');
         await until(() => document.lineAt(1).text.endsWith('.Cells') ? true : undefined,
@@ -100,6 +98,26 @@ suite('Completion editor surface', () => {
             (typeof content === 'string' ? content : content.value).includes('Sub Clicked'))),
             'hover should resolve the current module procedure named by Application.Run');
     });
+    for (const [expression, name, prefix] of [
+        ['value = Abs(-1)', 'Abs', 'value = Ab'],
+        ['Set value = Application.Intersect(a, b)', 'Intersect', 'Application.Int'],
+    ]) {
+        test(`preserves existing arguments when completing ${name}`, async () => {
+            const source = `Sub Demo()\n${expression}\nEnd Sub\n`;
+            const { document, editor, caret } = await probe(`CompletionArguments${name}`, source, prefix);
+            const item = (await completions(document, caret)).items.find(candidate => candidate.label === name);
+            assert.ok(item);
+            const range = item.range instanceof vscode.Range ? item.range : item.range?.replacing;
+            assert.ok(range);
+            const insertText = item.insertText;
+            if (insertText instanceof vscode.SnippetString) {
+                await editor.insertSnippet(insertText, range);
+            } else {
+                await editor.edit(edit => edit.replace(range, insertText ?? name));
+            }
+            assert.equal(document.lineAt(1).text, expression, 'completion must retain the original argument list');
+        });
+    }
     test('does not offer code completions inside an ordinary string', async () => {
         const { document, caret } = await probe('CompletionString', 'Sub Demo()\nDebug.Print "hello"\nEnd Sub\n', 'hello');
         assert.equal((await completions(document, caret)).items.length, 0);
@@ -107,6 +125,14 @@ suite('Completion editor surface', () => {
     test('does not offer code completions in a comment', async () => {
         const { document, caret } = await probe('CompletionComment', "Sub Demo()\n' ordinary comment\nEnd Sub\n", 'comment');
         assert.equal((await completions(document, caret)).items.length, 0);
+    });
+    test('inserts a member containing combining marks as an ordinary identifier', async () => {
+        const name = '\u0915\u093eValue';
+        const source = `Public Type Record\n${name} As Long\nEnd Type\nSub Demo()\nDim obj As Record\nobj.\u0915\u093e\nEnd Sub\n`;
+        const { document, caret } = await probe('CompletionCombiningMarks', source, 'obj.\u0915\u093e');
+        const item = (await completions(document, caret)).items.find(candidate => candidate.label === name);
+        assert.ok(item);
+        assert.equal(item.insertText, name, 'a valid combining-mark identifier must not be bracketed');
     });
     test('replaces a Unicode UDT member prefix with the correct editor range', async () => {
         const source = 'Public Type Record\nCaf\u00e9Value As Long\nEnd Type\nSub Demo()\nDim obj As Record\nobj.caf\u00e9\nEnd Sub\n';
