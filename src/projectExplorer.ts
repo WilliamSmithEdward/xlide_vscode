@@ -162,6 +162,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     // What an open editor says a module's @Folder annotation is, which outranks
     // the listing until that editor closes. Survives refresh() on purpose.
     private _editorFolders = new Map<string, string | undefined>();
+    private _editorHasCode = new Map<string, boolean>();
 
     // The view drawing this tree, for the reveal a row click asks for.
     private _treeView: vscode.TreeView<XlideNode> | undefined;
@@ -471,9 +472,9 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         const module = this.getModuleNode(filePath, moduleName);
         const parent = module && this._shapes.parentOf(module);
         const sheets = parent?.shapeFolder === 'bareSheets' ? this._shapes.parentOf(parent) : parent;
-        // Empty sheet modules may live inside the bare-sheets folder. Classify
-        // them before reveal walks the parent path; ordinary modules need no shapes read.
-        if (module?.hasCode === false && sheets?.shapeFolder === 'sheets'
+        // Sheet modules can move into or out of the bare-sheets folder as code
+        // changes. Classify before reveal walks the path; ordinary modules need no shapes read.
+        if (module && (module.hasCode === false || parent?.shapeFolder === 'bareSheets') && sheets?.shapeFolder === 'sheets'
             && !this._shapes.moduleParentReady(module)) {
             await this._getChildren(sheets);
         }
@@ -1122,16 +1123,35 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         }
     }
 
+    /** Editor code presence outranks saved metadata until the editor closes. */
+    setModuleCodePresence(filePath: string, moduleName: string, hasCode: boolean,
+        options: { fromEditor?: boolean } = {}): void {
+        if (this._disposed) { return; }
+        const key = moduleNodeKey(filePath, moduleName);
+        const node = this._moduleNodes.get(key);
+        if (node && node.moduleType !== 'document') { return; }
+        if (options.fromEditor !== false) { this._editorHasCode.set(key, hasCode); }
+        const current = this._editorHasCode.get(key) ?? hasCode;
+        if (!node || node.hasCode === current) { return; }
+        node.hasCode = current;
+        this._shapes.moduleCodeChanged(filePath);
+        this._rowsReplaced.fire({ filePath, moduleName });
+    }
+
     /**
      * The module's editor closed, so the container is the truth again - the
      * edit was either saved into it or thrown away. The listing was read
      * before either happened, so it is re-read rather than trusted.
      */
     forgetModuleFolder(filePath: string, moduleName: string): void {
-        if (!this._editorFolders.delete(moduleNodeKey(filePath, moduleName))) {
+        const key = moduleNodeKey(filePath, moduleName);
+        const hadFolder = this._editorFolders.delete(key);
+        const hadCode = this._editorHasCode.delete(key);
+        if (!hadFolder && !hadCode) {
             return;
         }
         this._invalidateModuleListing(filePath);
+        if (hadCode) { this._shapes.moduleCodeChanged(filePath); }
         this._emitter.fire();
     }
 
@@ -1297,6 +1317,8 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                     const folder = this._editorFolders.has(key)
                         ? this._editorFolders.get(key)
                         : (m.folder || undefined);
+                    const hasCode = m.type === 'document' && this._editorHasCode.has(key)
+                        ? this._editorHasCode.get(key) : m.hasCode;
                     let node = this._moduleNodes.get(key);
                     if (!node) {
                         node = {
@@ -1308,7 +1330,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                             ...(m.documentType ? { documentType: m.documentType } : {}),
                             ...(m.filePath ? { moduleFilePath: m.filePath } : {}),
                             ...(folder ? { folder } : {}),
-                            ...(m.hasCode !== undefined ? { hasCode: m.hasCode } : {}),
+                            ...(hasCode !== undefined ? { hasCode } : {}),
                         };
                         this._moduleNodes.set(key, node);
                     } else {
@@ -1321,7 +1343,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                         node.documentType = m.documentType;
                         node.moduleFilePath = m.filePath;
                         node.folder = folder;
-                        node.hasCode = m.hasCode;
+                        node.hasCode = hasCode;
                     }
                     return node;
                 });

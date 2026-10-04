@@ -250,6 +250,45 @@ suite('The explorer following the editor', () => {
 		assert.deepEqual(state.selected, ['module:Sheet1'], JSON.stringify(state));
 	});
 
+	test('moves an empty sheet out of the bare folder when code is typed without saving', async () => {
+		await agentWrite(workbookPath(), 'Sheet1', '');
+		await vscode.commands.executeCommand('xlide.refreshExplorer');
+		const editor = await vscode.window.showTextDocument(moduleUri('Sheet1'), { preview: false });
+		await settle();
+		try {
+			const edit = new vscode.WorkspaceEdit();
+			edit.replace(editor.document.uri, new vscode.Range(0, 0, editor.document.lineCount, 0),
+				'Public Sub SheetWork()\r\nEnd Sub\r\n');
+			assert.ok(await vscode.workspace.applyEdit(edit));
+			editor.selection = new vscode.Selection(1, 1, 1, 1);
+			await settle();
+			assert.ok(editor.document.isDirty, 'the tree should follow the unsaved editor');
+			const state = await viewState();
+			assert.ok(!state.expanded.includes('shapes:Sheets With No Code or Shapes'), JSON.stringify(state));
+			assert.deepEqual(state.selected, ['module:Sheet1'], JSON.stringify(state));
+		} finally {
+			await vscode.commands.executeCommand('workbench.action.files.revert');
+		}
+	});
+
+	test('moves a sheet back into the bare folder when its code is deleted without saving', async () => {
+		await agentWrite(workbookPath(), 'Sheet1', 'Public Sub SheetWork()\r\nEnd Sub\r\n');
+		await vscode.commands.executeCommand('xlide.refreshExplorer');
+		const editor = await vscode.window.showTextDocument(moduleUri('Sheet1'), { preview: false });
+		await settle();
+		try {
+			assert.ok(await editor.edit(edit => edit.delete(new vscode.Range(0, 0, editor.document.lineCount, 0))));
+			editor.selection = new vscode.Selection(0, 0, 0, 0);
+			await settle();
+			assert.ok(editor.document.isDirty);
+			const state = await viewState();
+			assert.ok(state.expanded.includes('shapes:Sheets With No Code or Shapes'), JSON.stringify(state));
+			assert.deepEqual(modules(state), ['module:Sheet1'], JSON.stringify(state));
+		} finally {
+			await vscode.commands.executeCommand('workbench.action.files.revert');
+		}
+	});
+
 	test('reveals a sheet module under the workbook s Sheets folder', async () => {
 		// The module row sits under Sheets, not the project, so the reveal
 		// has to walk up through that folder.
