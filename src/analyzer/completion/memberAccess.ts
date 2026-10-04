@@ -700,7 +700,9 @@ function completionFromSurfaceMember(
 		name: mem.name,
 		kind: mem.kind,
 		returns: mem.returns,
-		signature: mem.signature ?? signatureForMember(currentType, mem.name, ctx),
+		// A pure project surface already selected the first project member.
+		// Its absent signature stays absent; rescanning cannot add one.
+		signature: mem.signature ?? (currentType.startsWith(PROJECT_TYPE_PREFIX) ? undefined : signatureForMember(currentType, mem.name, ctx)),
 		declaredType: mem.declaredType,
 		access: mem.access,
 		writable: mem.writable,
