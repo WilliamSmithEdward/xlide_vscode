@@ -9,6 +9,7 @@ import {
 	DocRegistry,
 	HoverContext,
 	resolveHover,
+	hoverMayResolveAt,
 	resolveSignatureHelp,
 	findActiveCallSite,
 	SignatureHelpContext,
@@ -54,6 +55,7 @@ export class VbaHoverSignatureProvider
 		}
 		const source = document.getText();
 		const offset = document.offsetAt(position);
+		if (!hoverMayResolveAt(source, offset)) { return undefined; }
 		const info = await this._resolveWithProjectContext(
 			document,
 			source,

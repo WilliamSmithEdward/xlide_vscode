@@ -10,7 +10,7 @@ import {
 } from './refactorTypes';
 import { assignmentAt, localDeclaration, localUsesIn, nameAt, walkBody, blankStringLiterals } from './shared';
 import { callSitesOf } from './callSites';
-import { wholeLineSpan } from '../../vbaSourceScan';
+import { statementRemovalSpan, mergeRemovals } from './shared';
 import { identifiersIn } from '../lexer/tokenHelpers';
 
 /**
@@ -102,8 +102,8 @@ export function introduceParameter(input: IntroduceParameterInput): VbaRefactorR
 	const type = decl.asType ?? 'Variant';
 	const edits: VbaTextEdit[] = [
 		{ span: paramInsertSpan(source, procedure), newText: paramText(source, procedure, name, type) },
-		{ span: wholeLineSpan(source, declaration.span), newText: '' },
-		{ span: wholeLineSpan(source, assignment.span), newText: '' },
+		{ span: statementRemovalSpan(source, declaration.span), newText: '' },
+		{ span: statementRemovalSpan(source, assignment.span), newText: '' },
 	];
 
 	const here = callSitesOf(source, procedure.name, { skip: procedure.span });
@@ -130,7 +130,7 @@ export function introduceParameter(input: IntroduceParameterInput): VbaRefactorR
 
 	return refactor(
 		`Introduce '${name}' as a parameter`,
-		edits,
+		mergeRemovals(edits),
 		undefined,
 		otherModules,
 	);

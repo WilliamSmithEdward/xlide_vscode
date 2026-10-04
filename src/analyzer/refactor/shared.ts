@@ -1,6 +1,8 @@
+import { tokenize } from '../lexer/tokenize';
+import type { VbaTextEdit } from './refactorTypes';
 import type { BodyNode, ModuleNode, ProcedureNode, Span, VariableGroupNode } from '../parser/nodes';
 import { classifyReferenceKinds } from '../references/referenceKinds';
-import { findIdentifierOccurrences, type VbaIdentifierOccurrence } from '../../vbaSourceScan';
+import { findIdentifierOccurrences, lineStartAtAnyBreak, lineEndAtOrAfter, wholeLineSpan, type VbaIdentifierOccurrence } from '../../vbaSourceScan';
 import { IDENT_RE } from '../lexer/tokenHelpers';
 
 /**
@@ -114,7 +116,8 @@ export function assignmentAt(
 
 /** The right-hand side of `name = value` (or `Set name = value`). */
 export function assignedValue(source: string, span: Span, name: string): string | undefined {
-	const text = source.slice(span.start, span.end);
+	const code = statementCodeSpan(source, span);
+	const text = source.slice(code.start, code.end);
 	const match = new RegExp(`^\\s*(?:Set\\s+)?${escapeForRegExp(name)}\\s*=\\s*(.+?)\\s*$`, 'i')
 		.exec(text);
 	return match ? match[1] : undefined;
@@ -132,4 +135,40 @@ export function lookupModuleSource(
 
 export function escapeForRegExp(text: string): string {
 	return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Parser statement spans can include a trailing comment; it is not code. */
+function statementCodeSpan(source: string, span: Span): Span {
+	const text = source.slice(span.start, span.end);
+	if (!text.includes("'") && !/\brem\b/i.test(text)) { return span; }
+	const tokens = tokenize(text);
+	const comment = tokens.findIndex((token) => token.kind === 'comment');
+	return comment < 0 ? span : { start: span.start, end: span.start + (tokens[comment - 1]?.end ?? 0) };
+}
+
+/** Remove a statement without deleting its neighbors, label or trailing comment. */
+export function statementRemovalSpan(source: string, span: Span): Span {
+	span = statementCodeSpan(source, span);
+	const start = lineStartAtAnyBreak(source, span.start);
+	const end = lineEndAtOrAfter(source, span.end);
+	const before = source.slice(start, span.start), after = source.slice(span.end, end);
+	if (!before.trim() && !after.trim()) { return wholeLineSpan(source, span); }
+	const followingColon = /^[ \t]*:/.exec(after);
+	if (followingColon) { return { start: span.start, end: span.end + followingColon[0].length }; }
+	const precedingColon = /:[ \t]*$/.exec(before);
+	const label = /^[ \t]*(?:\d+[ \t]+)?(?:\d+|[\p{L}_][\p{L}\p{M}\p{N}_]*)[ \t]*:[ \t]*$/u.test(before);
+	if (precedingColon && !label) { return { start: start + precedingColon.index, end: span.end }; }
+	return { ...span };
+}
+
+/** Adjacent deleted statements can share a separator; union their removals. */
+export function mergeRemovals(edits: readonly VbaTextEdit[]): VbaTextEdit[] {
+	const out = edits.filter((edit) => edit.newText !== '');
+	const removals = edits.filter((edit) => edit.newText === '').sort((a, b) => a.span.start - b.span.start);
+	let previous: Span | undefined;
+	for (const { span } of removals) {
+		if (previous && span.start <= previous.end) { previous.end = Math.max(previous.end, span.end); }
+		else { previous = { ...span }; out.push({ span: previous, newText: '' }); }
+	}
+	return out;
 }

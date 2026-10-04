@@ -10,7 +10,7 @@
 
 import { tokenizeCached } from '../lexer/tokenize';
 import { VbaToken } from '../lexer/tokenKinds';
-import { isIdentLike } from '../lexer/tokenHelpers';
+import { firstTokenEndingAtOrAfter, isIdentLike } from '../lexer/tokenHelpers';
 import { buildModuleSymbols } from '../symbols/buildModuleSymbols';
 import {
 	ModuleSymbolKind,
@@ -112,6 +112,15 @@ function hostConstantDocumentation(
 
 function contains(span: Span, offset: number): boolean {
 	return offset >= span.start && offset <= span.end;
+}
+
+/** Whether project context could produce a hover here. String literals stay
+ * eligible because their parameter can name a macro in project metadata. */
+export function hoverMayResolveAt(source: string, offset: number): boolean {
+	const tokens = tokenizeCached(source);
+	if (findIdentTokenIndex(tokens, offset) >= 0) { return true; }
+	const token = tokens[firstTokenEndingAtOrAfter(tokens, offset)];
+	return !!token && token.kind === 'stringLiteral' && offset > token.start && offset <= token.end;
 }
 
 /**
@@ -427,16 +436,7 @@ function externalDocMarkdown(
 function findIdentTokenIndex(tokens: VbaToken[], offset: number): number {
 	// Jump to the first token that can touch the offset. At a shared boundary
 	// inspect both neighbors to preserve the identifier preference below.
-	let lo = 0;
-	let hi = tokens.length;
-	while (lo < hi) {
-		const mid = lo + Math.floor((hi - lo) / 2);
-		if (tokens[mid].end < offset) {
-			lo = mid + 1;
-		} else {
-			hi = mid;
-		}
-	}
+	const lo = firstTokenEndingAtOrAfter(tokens, offset);
 	let fallback = -1;
 	for (let i = lo; i < tokens.length && tokens[i].start <= offset; i += 1) {
 		const t = tokens[i];
