@@ -29,9 +29,23 @@
         const settingsResetButton = document.querySelector('[data-reset-analysis]');
         const projectUntrackedRulesContainer = document.getElementById('projectUntrackedRules');
         let contextRow = null;
+        let analysisRunning = false;
+        const runAnalysisButton = document.getElementById('runAnalysis');
+        const lastAnalyzedAt = document.getElementById('lastAnalyzedAt');
+
+        function syncAnalysisRunState() {
+            runAnalysisButton.disabled = analysisRunning || !model.canRunAnalysis;
+            runAnalysisButton.textContent = analysisRunning ? 'Running Analysis...' : 'Run Analysis';
+            runAnalysisButton.setAttribute('aria-busy', String(analysisRunning));
+            lastAnalyzedAt.dateTime = model.lastAnalyzedAt ?? '';
+            lastAnalyzedAt.textContent = model.lastAnalyzedAt
+                ? new Date(model.lastAnalyzedAt).toLocaleString()
+                : 'Unavailable';
+        }
 
         function applyModel(next) {
             model = next;
+            syncAnalysisRunState();
             if (next.analysisSettingsKey !== analysisSettingsKey) {
                 analysisSettingsKey = next.analysisSettingsKey;
                 visibleSeverities = new Set(normalizeSeverityList(next.visibleSeverities ?? severityIds));
@@ -653,6 +667,13 @@
 
         window.addEventListener('scroll', hideContextMenu, true);
 
+        runAnalysisButton.addEventListener('click', () => {
+            if (analysisRunning || !model.canRunAnalysis) { return; }
+            analysisRunning = true;
+            syncAnalysisRunState();
+            vscode.postMessage({ type: 'runAnalysis' });
+        });
+
         document.getElementById('copyReport').addEventListener('click', () => {
             vscode.postMessage({ type: 'copyReport' });
         });
@@ -669,6 +690,9 @@
         window.addEventListener('message', (event) => {
             if (event.data?.type === 'model') {
                 applyModel(event.data.model);
+            } else if (event.data?.type === 'analysisRunning') {
+                analysisRunning = event.data.running === true;
+                syncAnalysisRunState();
             } else if (event.data?.type === 'copied') {
                 showToast('Copied');
             } else if (event.data?.type === 'exported') {
@@ -691,6 +715,7 @@
             }
         });
 
+        syncAnalysisRunState();
         sortRows();
         syncSortHeaders();
         syncModuleFilterButtons();
