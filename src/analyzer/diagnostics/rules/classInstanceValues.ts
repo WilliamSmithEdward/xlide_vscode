@@ -163,7 +163,7 @@ function checkStatement(span: Span, toks: readonly VbaToken[], instances: Readon
 			continue;
 		}
 		const indexed = toks[i + 3]?.rawText === '(';
-		const close = indexed ? matchParenFrom([...toks], i + 3) : i + 2;
+		const close = indexed ? matchParenFrom(toks, i + 3) : i + 2;
 		if (close < 0) {
 			continue;
 		}
