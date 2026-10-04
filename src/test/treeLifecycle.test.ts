@@ -82,6 +82,38 @@ suite('Explorer lifetime in the extension host', () => {
 });
 
 suite('Explorer shape refresh in the extension host', () => {
+    test('retained nested groups refresh without waiting for their parent folder', async () => {
+        let name = 'Old', removed = false, reads = 0;
+        const explorer = new ProjectExplorer({ call: () => {
+            reads++;
+            return Promise.resolve({ surfaces: [{ surface: 'Data', shapes: removed ? [] : [
+                { name: 'Pair', kind: 'group', shapes: [
+                    { name: 'Nested', kind: 'group', shapes: [{ name, kind: 'shape' }] },
+                ] },
+            ] }] });
+        } } as unknown as ConstructorParameters<typeof ProjectExplorer>[0]);
+        try {
+            const folder = { kind: 'shapes' as const, shapeFolder: 'surface' as const,
+                surface: 'Data', label: 'Shapes', filePath: workbookPath() };
+            const [group] = await explorer.getChildren(folder);
+            const [nested] = await explorer.getChildren(group);
+            assert.deepEqual((await explorer.getChildren(nested)).map(row => row.label), ['Old']);
+            name = 'New';
+            explorer.refreshShapes(workbookPath());
+            const [member] = await explorer.getChildren(nested);
+            assert.equal(member.label, 'New');
+            assert.equal(explorer.getParent(member), nested);
+            assert.deepEqual(member.shapePath, ['Pair', 'Nested', 'New']);
+            for (let i = 0; i < 100; i++) { await explorer.getChildren(nested); }
+            assert.equal(reads, 2, 'warm group expansion must reuse the snapshot');
+            removed = true;
+            explorer.refreshShapes(workbookPath());
+            assert.deepEqual(await explorer.getChildren(group), []);
+            assert.deepEqual(await explorer.getChildren(nested), []);
+            assert.equal(reads, 3, 'retained groups must share the current listing');
+        } finally { explorer.dispose(); }
+    });
+
     test('a shape refresh visits only opened rows in its own project', async () => {
         let shapeCalls = 0, unrelatedPathReads = 0;
         const explorer = new ProjectExplorer({ call: () => {
