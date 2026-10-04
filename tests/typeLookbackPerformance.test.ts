@@ -8,15 +8,15 @@ afterEach(() => { vi.restoreAllMocks(); });
 describe('type-position lookback work', () => {
     it('reads only the trailing grammar tokens in a large ordinary expression', () => {
         const source = 'Debug.Print 1\n'.repeat(1200) + 'ordinaryValue';
-        const actual = cursor.completionCursorContext(source, source.length);
+        const actual = cursor.completionTypeTokens(source, source.length);
         let reads = 0;
-        const tokens = new Proxy(actual.significantTokens, {
+        const tokens = new Proxy(actual, {
             get(target, property, receiver) {
                 if (typeof property === 'string' && /^\d+$/.test(property)) { reads++; }
                 return Reflect.get(target, property, receiver);
             },
         });
-        vi.spyOn(cursor, 'completionCursorContext').mockReturnValue({ ...actual, significantTokens: tokens });
+        vi.spyOn(cursor, 'completionTypeTokens').mockReturnValue(tokens);
         expect(resolveTypeCompletions(source, source.length)).toEqual([]);
         expect(reads).toBeLessThanOrEqual(7);
     });

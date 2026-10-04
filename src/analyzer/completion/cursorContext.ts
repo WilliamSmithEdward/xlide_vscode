@@ -83,7 +83,9 @@ export function completionCursorContext(
  * lexing the truncated prefix produces since tokenization is local from a
  * token boundary onward.
  */
-function prefixTokens(source: string, safeOffset: number): VbaToken[] {
+type PrefixWindow = 'all' | 'line' | 'type';
+
+function prefixTokens(source: string, safeOffset: number, window: PrefixWindow = 'all'): VbaToken[] {
 	const all = tokenizeCached(source);
 	// First token that ends after the offset.
 	let lo = 0;
@@ -94,6 +96,24 @@ function prefixTokens(source: string, safeOffset: number): VbaToken[] {
 			lo = mid + 1;
 		} else {
 			hi = mid;
+		}
+	}
+	// Keep only the grammar window the caller needs. Newlines in the cached
+	// stream are logical boundaries: absorbed continuations must stay intact.
+	let headStart = 0;
+	if (window === 'line') {
+		headStart = Math.max(0, lo - 1);
+		while (headStart > 0 && all[headStart].kind !== 'newline') {
+			headStart -= 1;
+		}
+	} else if (window === 'type') {
+		headStart = lo;
+		let remaining = 5;
+		while (headStart > 0 && remaining > 0) {
+			const token = all[--headStart];
+			if (token.kind !== 'comment' && token.kind !== 'newline') {
+				remaining -= 1;
+			}
 		}
 	}
 	const rebase = (base: number) => (token: VbaToken): VbaToken => ({
@@ -109,7 +129,7 @@ function prefixTokens(source: string, safeOffset: number): VbaToken[] {
 		// materializes a dangling token the full stream absorbed. Re-lex the
 		// residue (at most a few whitespace characters) to reproduce exactly
 		// what lexing the prefix produces.
-		const head = all.slice(0, lo);
+		const head = all.slice(headStart, lo);
 		const residueStart = lo > 0 ? all[lo - 1].end : 0;
 		if (residueStart < safeOffset) {
 			const residue = tokenize(source.slice(residueStart, safeOffset)).map(rebase(residueStart));
@@ -120,14 +140,15 @@ function prefixTokens(source: string, safeOffset: number): VbaToken[] {
 		return head;
 	}
 	const tail = tokenize(source.slice(boundary.start, safeOffset)).map(rebase(boundary.start));
-	return [...all.slice(0, lo), ...tail];
+	return [...all.slice(headStart, lo), ...tail];
 }
 
 function buildCursorContext(
 	source: string,
 	safeOffset: number,
+	window: PrefixWindow = 'all',
 ): CompletionCursorContext {
-	const tokens = prefixTokens(source, safeOffset);
+	const tokens = prefixTokens(source, safeOffset, window);
 	const significantTokens = tokens.filter((t) => t.kind !== 'comment');
 	const last = tokens[tokens.length - 1];
 	const lastSignificant = significantTokens[significantTokens.length - 1];
@@ -148,6 +169,38 @@ function buildCursorContext(
 		inComment: last?.kind === 'comment' && last.end === safeOffset,
 		inString: last?.kind === 'stringLiteral' && last.end === safeOffset,
 	};
+}
+
+/** Last five grammar tokens, preserving type detection's existing newline semantics. */
+export function completionTypeTokens(source: string, offset: number): VbaToken[] {
+	const safeOffset = Math.max(0, Math.min(offset, source.length));
+	return prefixTokens(source, safeOffset, 'type')
+		.filter(token => token.kind !== 'comment' && token.kind !== 'newline')
+		.slice(-5);
+}
+
+const lineContextCache: { source: string; offset: number; context: CompletionCursorContext }[] = [];
+
+/**
+ * Cursor analysis limited to the current logical line (including its leading
+ * newline). Callers must not mutate the returned arrays or look into earlier
+ * statements. Truncated tokens and continuation residue are re-lexed just as
+ * in the full-prefix API.
+ */
+export function completionLineCursorContext(source: string, offset: number): CompletionCursorContext {
+	const safeOffset = Math.max(0, Math.min(offset, source.length));
+	const index = lineContextCache.findIndex(entry => entry.source === source && entry.offset === safeOffset);
+	if (index >= 0) {
+		const [entry] = lineContextCache.splice(index, 1);
+		lineContextCache.unshift(entry);
+		return entry.context;
+	}
+	const context = buildCursorContext(source, safeOffset, 'line');
+	lineContextCache.unshift({ source, offset: safeOffset, context });
+	if (lineContextCache.length > CURSOR_CONTEXT_CACHE_MAX) {
+		lineContextCache.pop();
+	}
+	return context;
 }
 
 /** Start of the statement containing the cursor (after the last newline/':'). */

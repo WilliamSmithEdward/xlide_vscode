@@ -6,7 +6,7 @@
 // are invalid there; broad statement starts are additive.
 
 import { VbaToken } from '../lexer/tokenKinds';
-import { completionCursorContext } from './cursorContext';
+import { completionLineCursorContext } from './cursorContext';
 import {
 	openSmartBlockClosersBefore,
 	VBA_BLOCK_INDENT_UNIT,
@@ -417,7 +417,7 @@ export function materializeKeywordSnippet(
 }
 
 function completionContext(source: string, offset: number): CompletionContext | undefined {
-	const cursor = completionCursorContext(source, offset);
+	const cursor = completionLineCursorContext(source, offset);
 	if (cursor.inComment || cursor.inString) {
 		return undefined;
 	}
