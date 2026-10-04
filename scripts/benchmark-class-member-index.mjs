@@ -53,6 +53,13 @@ for (const kind of ["repeated", "distinct"]) for (const count of [1, 100, 1e3]) 
   assert.deepEqual(runRule(), expectedRule);
   workCounts.push({ kind, count, nameReads });
   if (!baseline) assert.ok(nameReads <= count * 2);
+  // Keep getter instrumentation outside timed calls. Real project metadata
+  // exposes names as plain strings, without counter or string-building work.
+  for (let i = 0; i < classes[0].members.length; i++) {
+    Object.defineProperty(classes[0].members[i], 'name', {
+      value: 'M' + i, writable: true, configurable: true, enumerable: true
+    });
+  }
   const runModule = () => {
     const failures = [];
     const out = api.analyzeModule(source, { projectClassMembers: classes, onInternalError: (e) => failures.push(String(e)) });
@@ -73,4 +80,4 @@ for (const kind of ["repeated", "distinct"]) for (const count of [1, 100, 1e3]) 
     rows.push({ kind, count, scope, medianMs: +samples[4].toFixed(5) });
   }
 }
-console.log(JSON.stringify({ baseline: baseline ?? null, node: process.version, cpu: cpus()[0]?.model, rounds: 9, warmups: 3, workCounts, rows, scope: "Warm AST/symbols outside direct-rule timing; complete-module calls include analyzer setup and no-error assertions. Independent exact direct-rule messages/spans and whole-module diagnostic count/code controls. No editor/cold/heap claim." }, null, 2));
+console.log(JSON.stringify({ baseline: baseline ?? null, node: process.version, cpu: cpus()[0]?.model, rounds: 9, warmups: 3, workCounts, rows, scope: "Getter counters only in untimed work check; timed metadata names are plain properties. Warm AST/symbols outside direct-rule timing; complete-module calls include analyzer setup and no-error assertions. Independent exact direct-rule messages/spans and whole-module diagnostic count/code controls. No editor/cold/heap claim." }, null, 2));
