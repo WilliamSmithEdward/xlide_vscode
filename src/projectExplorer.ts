@@ -962,7 +962,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
             const projectKey = projectNodeKey(node.filePath);
             let render = this._projectRenderLoads.get(projectKey);
             if (!render) {
-                render = this._getProjectChildren(node);
+                render = this._getProjectChildren(this._projectNodes.get(projectKey) ?? node);
                 this._projectRenderLoads.set(projectKey, render);
                 const settled = (): void => {
                     if (this._projectRenderLoads.get(projectKey) === render) {

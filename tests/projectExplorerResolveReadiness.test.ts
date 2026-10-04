@@ -109,6 +109,19 @@ describe('resolved module readiness', () => {
         expect(call.mock.calls.filter(([method]) => method === 'listModules')).toHaveLength(1);
     });
 
+    it('uses the current project parent when VS Code requests a retained row after refresh', async () => {
+        const call = vi.fn(async (method: string) => method === 'listModules'
+            ? [{ name: 'Sheet1', type: 'document' }]
+            : { sheets: [{ name: 'Data', codeName: 'Sheet1', kind: 'worksheet' }] });
+        const explorer = create(call), [oldProject] = await explorer.getChildren();
+        await explorer.getChildren(oldProject);
+        explorer.refresh();
+        const [currentProject] = await explorer.getChildren();
+        await explorer.getChildren(oldProject);
+        const module = await explorer.resolveModuleNode(BOOK, 'Sheet1');
+        expect(explorer.getParent(explorer.getParent(module!)!)).toBe(currentProject);
+    });
+
     it('does not resolve cached modules or procedures after disposal', async () => {
         const call = vi.fn(async (method: string) => method === 'listModules'
             ? [{ name: 'M', type: 'standard' }] : method === 'listSubs'

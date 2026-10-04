@@ -176,6 +176,27 @@ suite('Explorer sheet context in the extension host', () => {
 });
 
 suite('Explorer module resolution in the extension host', () => {
+    test('a retained project row uses the current root after refresh', async () => {
+        const explorer = new ProjectExplorer({ call: (method: string) => method === 'listModules'
+            ? Promise.resolve([{ name: 'Sheet1', type: 'document' }])
+            : Promise.resolve({ sheets: [{ name: 'Data', codeName: 'Sheet1', kind: 'worksheet' }] })
+        } as unknown as ConstructorParameters<typeof ProjectExplorer>[0]);
+        try {
+            const oldProject = (await explorer.getChildren()).find(node => node.filePath === workbookPath());
+            assert.ok(oldProject);
+            await explorer.getChildren(oldProject);
+            explorer.refresh();
+            const currentProject = (await explorer.getChildren()).find(node => node.filePath === workbookPath());
+            assert.ok(currentProject);
+            await explorer.getChildren(oldProject);
+            const module = await explorer.resolveModuleNode(workbookPath(), 'Sheet1');
+            assert.ok(module);
+            const sheets = explorer.getParent(module);
+            assert.ok(sheets);
+            assert.equal(explorer.getParent(sheets), currentProject);
+        } finally { explorer.dispose(); }
+    });
+
     test('follow waits until the sheet parent has been constructed', async () => {
         const catalog = deferred<{ sheets: Array<{ name: string; codeName: string; kind: string }> }>();
         let started = false;
