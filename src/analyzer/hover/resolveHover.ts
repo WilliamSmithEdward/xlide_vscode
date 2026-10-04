@@ -89,6 +89,8 @@ export interface HoverContext {
 	projectTypes?: readonly ProjectTypeName[];
 	/** Exported project procedures/Declares visible as bare calls from this module. */
 	projectProcedures?: readonly VbaProcedureSignature[];
+	/** Visible procedures including the current standard module, for procedure-name strings. */
+	macroProcedures?: readonly VbaProcedureSignature[];
 	/** Developer-defined external documentation (overrides the curated library). */
 	docRegistry?: DocRegistry;
 }

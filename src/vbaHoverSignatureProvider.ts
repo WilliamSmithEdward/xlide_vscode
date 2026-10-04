@@ -179,6 +179,7 @@ export class VbaHoverSignatureProvider
 			moduleKind: ctx.moduleKind,
 			projectTypes: ctx.projectTypes,
 			projectProcedures: ctx.projectProcedures,
+			macroProcedures: ctx.macroProcedures,
 			docRegistry: this._docs,
 		};
 	}
@@ -192,6 +193,7 @@ export class VbaHoverSignatureProvider
 			moduleName: ctx.moduleName,
 			moduleSource: source,
 			projectProcedures: ctx.projectProcedures,
+			macroProcedures: ctx.macroProcedures,
 			docRegistry: this._docs,
 		};
 	}

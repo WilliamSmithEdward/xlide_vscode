@@ -62,7 +62,8 @@ export function macroNameStringAt(source: string, offset: number, ctx: Signature
 		return undefined;
 	}
 	const token = tokens[index];
-	const closed = token.rawText.length >= 2 && token.rawText.endsWith('"') && !token.rawText.endsWith('""');
+	// Empty strings and strings ending in an escaped quote still have a closing delimiter.
+	const closed = /^"(?:[^"]|"")*"$/.test(token.rawText);
 	const contentSpan: Span = { start: token.start + 1, end: closed ? token.end - 1 : token.end };
 	const text = closed ? stringLiteralValue(token.rawText) : token.rawText.slice(1).replace(/""/g, '"');
 	const before = previous(tokens, index);
@@ -86,7 +87,7 @@ export function macroNameStringAt(source: string, offset: number, ctx: Signature
 /** The project procedures a macro-name string can name, `Module.Proc`, Declares and class modules left out. */
 export function macroNameCandidates(ctx: SignatureHelpContext): MacroNameCandidate[] {
 	const out = new Map<string, MacroNameCandidate>();
-	for (const procedure of ctx.projectProcedures ?? []) {
+	for (const procedure of ctx.macroProcedures ?? ctx.projectProcedures ?? []) {
 		const name = `${procedure.moduleName}.${procedure.name}`;
 		if (!procedure.external && !out.has(name.toLowerCase())) {
 			out.set(name.toLowerCase(), { name, procedure });

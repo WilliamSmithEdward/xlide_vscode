@@ -297,10 +297,16 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 			moduleName: fastProjectCtx.moduleName,
 			moduleSource: source,
 			projectProcedures: fastProjectCtx.projectProcedures,
+			macroProcedures: fastProjectCtx.macroProcedures,
 		});
 		if (macroNames) {
 			const replace = new vscode.Range(document.positionAt(macroNames.contentSpan.start), document.positionAt(macroNames.contentSpan.end));
 			return list(macroNames.candidates.map((candidate) => this._toMacroNameItem(candidate, replace)));
+		}
+		// Ordinary strings are never code completion positions, including
+		// manual requests and typing within an already-open string.
+		if (completionCursorContext(source, offset).inString) {
+			return new vscode.CompletionList([], false);
 		}
 		// A quote opens or closes any other string, where nothing is offered.
 		if (context?.triggerKind === vscode.CompletionTriggerKind.TriggerCharacter && context.triggerCharacter === '"') {

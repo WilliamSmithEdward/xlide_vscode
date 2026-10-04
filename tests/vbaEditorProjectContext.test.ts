@@ -6,7 +6,7 @@ vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock(
 }));
 vi.mock('../src/vbaProjectAnalysis', async () => {
     const actual = await vi.importActual<typeof import('../src/vbaProjectAnalysis')>('../src/vbaProjectAnalysis');
-    return { ...actual, buildLiveVbaProjectIndexAsync: vi.fn(actual.buildLiveVbaProjectIndexAsync) };
+    return { ...actual, buildLiveVbaProjectIndex: vi.fn(actual.buildLiveVbaProjectIndex), buildLiveVbaProjectIndexAsync: vi.fn(actual.buildLiveVbaProjectIndexAsync) };
 });
 
 import * as vscode from 'vscode';
@@ -32,10 +32,47 @@ function setup() {
     return { doc, service };
 }
 
-beforeEach(() => { vi.mocked(buildLiveVbaProjectIndexAsync).mockReset(); });
+beforeEach(() => { vi.mocked(buildLiveVbaProjectIndexAsync).mockReset(); vi.mocked(buildLiveVbaProjectIndex).mockClear(); });
 afterEach(() => { vi.restoreAllMocks(); });
 
 describe('editor completion context loading races', () => {
+    it('keeps current-module macros separate from external bare-call procedures', () => {
+        const { doc, service } = setup();
+        const ctx = service.localEditorProjectContext(doc, 'Public Sub Clicked()\nEnd Sub');
+        expect(ctx.macroProcedures?.map(procedure => procedure.name)).toContain('Clicked');
+        expect(ctx.projectProcedures?.map(procedure => procedure.name)).not.toContain('Clicked');
+    });
+    it('expires reused local contexts after the cache lifetime', () => {
+        const { doc, service } = setup();
+        const now = vi.spyOn(Date, 'now').mockReturnValue(0);
+        service.localEditorProjectContext(doc, 'Sub Demo()\nEnd Sub');
+        now.mockReturnValue(11000);
+        service.localEditorProjectContext(doc, 'Sub Demo()\nEnd Sub');
+        expect(buildLiveVbaProjectIndex).toHaveBeenCalledTimes(2);
+    });
+
+    it('reuses local symbols for repeated requests, rebuilding for edits and invalidation', () => {
+        const { doc, service } = setup();
+        const source = 'Sub Demo()\nEnd Sub\n';
+        const first = service.localEditorProjectContext(doc, source);
+        expect(service.localEditorProjectContext(doc, source)).toBe(first);
+        expect(buildLiveVbaProjectIndex).toHaveBeenCalledTimes(1);
+        (doc as unknown as { version: number }).version++;
+        service.localEditorProjectContext(doc, source);
+        expect(buildLiveVbaProjectIndex).toHaveBeenCalledTimes(2);
+        service.invalidate();
+        service.localEditorProjectContext(doc, source);
+        expect(buildLiveVbaProjectIndex).toHaveBeenCalledTimes(3);
+    });
+    it('does not reuse local symbols for a different source at the same version', () => {
+        const { doc, service } = setup();
+        service.localEditorProjectContext(doc, 'Public Type First\nValue As Long\nEnd Type');
+        const second = service.localEditorProjectContext(doc, 'Public Type Second\nValue As Long\nEnd Type');
+        expect(second.projectTypes?.map(type => type.name)).toContain('Second');
+        expect(second.projectTypes?.map(type => type.name)).not.toContain('First');
+        expect(buildLiveVbaProjectIndex).toHaveBeenCalledTimes(2);
+    });
+
     it('deduplicates repeated warm requests for the same document version', async () => {
         const { doc, service } = setup();
         const load = pending<ReturnType<typeof project>>();

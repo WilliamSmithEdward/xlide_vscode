@@ -29,6 +29,20 @@ function at(source: string, marker: string): number {
 }
 
 describe('a string that names a procedure (issue #217)', () => {
+    it.each([
+        ['""', '', true],
+        ['""""', '"', true],
+        ['"a"""', 'a"', true],
+        ['"a""', 'a"', false],
+    ])('preserves quote boundaries for %s', (raw, text, closed) => {
+        const source = 'Sub Demo()\nApplication.Run ' + raw + '\nEnd Sub';
+        const start = source.indexOf(raw);
+        const macro = macroNameStringAt(source, start + 1, contextFor(source));
+        expect(macro?.text).toBe(text);
+        expect(macro?.contentSpan).toEqual({ start: start + 1, end: start + raw.length - (closed ? 1 : 0) });
+        if (closed) { expect(resolveMacroNameCompletions(source, start + raw.length, contextFor(source))).toBeUndefined(); }
+    });
+
 	it('is found where the parameter is named for one', () => {
 		const wiring = 'Option Explicit\nSub Wire()\n    Dim b As New Btn\n    b.Text("Run").OnClick "Demo.Bu"\nEnd Sub\n';
 		expect(macroNameStringAt(wiring, at(wiring, '"Demo.Bu'), contextFor(wiring))?.text).toBe('Demo.Bu');

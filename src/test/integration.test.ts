@@ -23,3 +23,5 @@ import './docComments.test';
 import './projectReferences.test';
 import './shapes.test';
 import './grammar.test';
+
+import './completion.test';
