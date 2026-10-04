@@ -16,8 +16,6 @@ export interface CallSite {
 export interface CallSiteOptions {
 	/** Ignore the procedure's own body and header. */
 	skip?: Span;
-	/** Owning module; qualified and unqualified project calls are considered. */
-	qualifier?: string;
 	/** Optional source-binding filter; true call syntax bypasses function result variables. */
 	accept?: (offset: number, call: boolean, qualifier: string | undefined, nameSpan: Span) => boolean;
 }
