@@ -82,6 +82,33 @@ suite('Explorer lifetime in the extension host', () => {
 });
 
 suite('Explorer shape refresh in the extension host', () => {
+    test('a retained sheet and Shapes folder redraw before their renamed parent', async () => {
+        let name = 'Data';
+        const explorer = new ProjectExplorer({ call: (method: string) => {
+            if (method === 'listModules') { return Promise.resolve([]); }
+            if (method === 'listWorkbookSheets') { return Promise.resolve({ sheets: [{ name, kind: 'worksheet' }] }); }
+            if (method === 'listShapes') { return Promise.resolve({ surfaces: [{ surface: name, shapes: [{ name: 'Box', kind: 'shape' }] }] }); }
+            return Promise.resolve([]);
+        } } as unknown as ConstructorParameters<typeof ProjectExplorer>[0]);
+        try {
+            const project = (await explorer.getChildren()).find(node => node.filePath === workbookPath());
+            assert.ok(project);
+            const [sheets] = await explorer.getChildren(project);
+            const [sheet] = await explorer.getChildren(sheets);
+            const [folder] = await explorer.getChildren(sheet);
+            await explorer.getChildren(folder);
+            name = 'DATA';
+            explorer.refreshShapes(workbookPath(), { shapesChanged: true });
+            const [box] = await explorer.getChildren(folder);
+            assert.equal(box.kind, 'shape');
+            assert.equal(box.label, 'Box');
+            assert.equal(explorer.shapeContextOf(box)?.surface, 'DATA');
+            assert.equal(folder.surface, 'DATA');
+            assert.equal((await explorer.getChildren(sheet))[0], folder);
+            assert.equal(sheet.label, 'DATA');
+        } finally { explorer.dispose(); }
+    });
+
     test('renamed module-less sheets stop accumulating refresh notifications', async () => {
         let name = 'Data';
         const explorer = new ProjectExplorer({ call: (method: string) => {
