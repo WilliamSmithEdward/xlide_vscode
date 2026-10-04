@@ -8,7 +8,9 @@
 // drifting and gives the resolvers a single seam for sharing token state.
 
 import { tokenize, tokenizeCached } from '../lexer/tokenize';
-import type { VbaToken } from '../lexer/tokenKinds';
+import { isWsc } from '../lexer/tokenKinds';
+import { lineStartAtAnyBreak, lineEndAtOrAfter } from '../../vbaSourceScan';
+import type { VbaToken, Trivia } from '../lexer/tokenKinds';
 import { isIdentLike, tokensWithoutLeadingLineNumber } from '../lexer/tokenHelpers';
 
 export interface CompletionCursorContext {
@@ -72,9 +74,83 @@ export function completionCursorContext(
 	return context;
 }
 
+type PrefixWindow = 'all' | 'line' | 'type';
+
+// Physical rows ending in an underscore may belong to the same logical line.
+// Include them conservatively: comments can continue as well as code, and an
+// underscore inside a token may only be distinguishable after lexing the row.
+function beforePhysicalBreak(source: string, start: number): number {
+	return source[start - 1] === '\n' && source[start - 2] === '\r' ? start - 2 : start - 1;
+}
+
+function possibleContinuationLineStart(source: string, offset: number): number {
+	let start = lineStartAtAnyBreak(source, offset);
+	while (start > 0) {
+		const priorEnd = beforePhysicalBreak(source, start);
+		const priorStart = lineStartAtAnyBreak(source, priorEnd);
+		let at = priorEnd;
+		while (at > priorStart && isWsc(source[at - 1])) { at--; }
+		if (at <= priorStart || source[at - 1] !== '_') { break; }
+		start = priorStart;
+	}
+	return start;
+}
+
+function boundedLineTokens(source: string, offset: number): VbaToken[] {
+	if (Number.isNaN(offset)) { return []; }
+	// A cut inside CRLF belongs to the preceding physical line.
+	let anchor = Math.trunc(offset);
+	if (source[anchor] === '\n' && source[anchor - 1] === '\r') { anchor--; }
+	const currentStart = possibleContinuationLineStart(source, anchor);
+	// Include one preceding logical line to preserve the leading trivia and
+	// column of the newline that starts the returned grammar window.
+	const start = currentStart > 0
+		? possibleContinuationLineStart(source, beforePhysicalBreak(source, currentStart))
+		: 0;
+	let end = anchor;
+	while (true) {
+		const lineStart = lineStartAtAnyBreak(source, end);
+		const lineEnd = lineEndAtOrAfter(source, end);
+		let at = lineEnd;
+		while (at > lineStart && isWsc(source[at - 1])) { at--; }
+		const continues = at > lineStart && source[at - 1] === '_';
+		const breakWidth = source[lineEnd] === '\r' && source[lineEnd + 1] === '\n' ? 2 : 1;
+		end = lineEnd < source.length ? lineEnd + breakWidth : lineEnd;
+		if (!continues || end >= source.length) { break; }
+	}
+	// Typing resolvers consume spans and grammar, not absolute line numbers.
+	// Count the prefix only if a caller explicitly asks for line metadata, and
+	// share that result across every token in this window.
+	let lineBase: number | undefined;
+	const absoluteLineBase = (): number => {
+		if (lineBase !== undefined) { return lineBase; }
+		lineBase = 0;
+		for (let i = 0; i < start; i++) {
+			if (source[i] === '\n' || (source[i] === '\r' && source[i + 1] !== '\n')) { lineBase++; }
+		}
+		return lineBase;
+	};
+	const shiftTrivia = (items: Trivia[]): Trivia[] => items.map(item => ({
+		...item, start: item.start + start, end: item.end + start,
+	}));
+	return tokenize(source.slice(start, end)).map(token => {
+		const shifted: VbaToken = {
+			kind: token.kind, rawText: token.rawText,
+			start: token.start + start, end: token.end + start,
+			get line() { return token.line + absoluteLineBase(); },
+			character: token.character,
+		};
+		if (token.canonicalText !== undefined) { shifted.canonicalText = token.canonicalText; }
+		if (token.leadingTrivia) { shifted.leadingTrivia = shiftTrivia(token.leadingTrivia); }
+		if (token.trailingTrivia) { shifted.trailingTrivia = shiftTrivia(token.trailingTrivia); }
+		return shifted;
+	});
+}
+
 /**
- * Prefix token stream up to `safeOffset`, derived from the memoized
- * full-module stream instead of re-lexing the prefix: every keystroke asks
+ * Full-prefix/type windows derive from the memoized full-module stream; line
+ * windows lex their own logical boundary. Each avoids re-lexing the prefix.
+ * Every keystroke asks
  * for a new offset, and lexing a large module's prefix per keystroke was
  * the completion path's dominant cost. Tokens ending at or before the
  * offset are shared with the cached stream verbatim; when the offset lands
@@ -83,10 +159,10 @@ export function completionCursorContext(
  * lexing the truncated prefix produces since tokenization is local from a
  * token boundary onward.
  */
-type PrefixWindow = 'all' | 'line' | 'type';
-
 function prefixTokens(source: string, safeOffset: number, window: PrefixWindow = 'all'): VbaToken[] {
-	const all = tokenizeCached(source);
+	const all = window === 'line'
+		? boundedLineTokens(source, safeOffset)
+		: tokenizeCached(source);
 	// First token that ends after the offset.
 	let lo = 0;
 	let hi = all.length;
@@ -184,7 +260,9 @@ const lineContextCache: { source: string; offset: number; context: CompletionCur
 /**
  * Cursor analysis limited to the current logical line (including its leading
  * newline). Callers must not mutate the returned arrays or look into earlier
- * statements. Truncated tokens and continuation residue are re-lexed just as
+ * statements. Fresh source versions lex only this logical line and its
+ * preceding boundary; absolute line metadata is calculated on demand.
+ * Truncated tokens and continuation residue are re-lexed just as
  * in the full-prefix API.
  */
 export function completionLineCursorContext(source: string, offset: number): CompletionCursorContext {
