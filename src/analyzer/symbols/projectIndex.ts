@@ -569,6 +569,8 @@ export class ProjectIndex {
 	private readonly moduleWrittenNames = new Map<string, ReadonlySet<string>>();
 	/** Open-file facts of unchanged modules survive edits elsewhere in the project. */
 	private readonly moduleOpenedFileNumbers = new Map<string, OpenedFileNumbers>();
+	/** Worksheet-change facts are retained only for the current source of each module. */
+	private readonly moduleSheetChanges = new Map<string, SheetChanges>();
 	private readonly moduleMentionedNames = new Map<string, ReadonlySet<string>>();
 	/** Whole-project query memo for the current index revision. */
 	private readonly queryCache = new Map<string, unknown>();
@@ -592,6 +594,7 @@ export class ProjectIndex {
 		this.moduleStringLiteralWords.set(key, stringLiteralWordsIn(input.source));
 		this.moduleWrittenNames.delete(key);
 		this.moduleOpenedFileNumbers.delete(key);
+		this.moduleSheetChanges.delete(key);
 		this.moduleMentionedNames.delete(key);
 		if (input.implicitMembers !== undefined) {
 			this.moduleImplicitMembersByName.set(key, input.implicitMembers);
@@ -619,6 +622,7 @@ export class ProjectIndex {
 		this.moduleStringLiteralWords.delete(key);
 		this.moduleWrittenNames.delete(key);
 		this.moduleOpenedFileNumbers.delete(key);
+		this.moduleSheetChanges.delete(key);
 		this.moduleMentionedNames.delete(key);
 		this.moduleImplicitMembersByName.delete(key);
 		this.modulePredeclaredIdByName.delete(key);
@@ -881,7 +885,18 @@ export class ProjectIndex {
 	 * lacks may be one of these.
 	 */
 	sheetChanges(): SheetChanges {
-		return this.cached('sheetChanges', () => mergeSheetChanges([...this.moduleSources.values()].map(sheetChangesIn)));
+		return this.cached('sheetChanges', () => {
+			const parts: SheetChanges[] = [];
+			for (const [key, source] of this.moduleSources) {
+				let part = this.moduleSheetChanges.get(key);
+				if (!part) {
+					part = sheetChangesIn(source);
+					this.moduleSheetChanges.set(key, part);
+				}
+				parts.push(part);
+			}
+			return mergeSheetChanges(parts);
+		});
 	}
 
 	/**
