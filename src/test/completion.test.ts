@@ -66,10 +66,11 @@ suite('Completion editor surface', () => {
         const { document } = await probe('CompletionMenu', 'Sub Demo()\nThisWorkbook.Sheets(1).cez\nEnd Sub\n', '.cez');
         await vscode.commands.executeCommand('hideSuggestWidget');
         await vscode.commands.executeCommand('deleteLeft');
-        await new Promise(resolve => setTimeout(resolve, 500));
-        await vscode.commands.executeCommand('acceptSelectedSuggestion');
-        await until(() => document.lineAt(1).text.endsWith('.Cells') ? true : undefined,
-            'backspace should reopen the suggest menu so accepting it inserts Cells', 4000);
+        await until(async () => {
+            await vscode.commands.executeCommand('acceptSelectedSuggestion');
+            return document.lineAt(1).text.endsWith('.Cells') ? true : undefined;
+        },
+            `backspace should reopen Cells: ${document.lineAt(1).text}`, 4000);
     });
     test('offers procedures from the current module inside a macro-name string', async () => {
         const source = 'Public Sub Clicked()\nEnd Sub\nSub Demo()\nApplication.Run ""\nEnd Sub\n';
@@ -100,6 +101,7 @@ suite('Completion editor surface', () => {
     });
     for (const [expression, name, prefix] of [
         ['value = Abs(-1)', 'Abs', 'value = Ab'],
+        ['value = Left$("abc", 1)', 'Left$', 'value = Lef'],
         ['Set value = Application.Intersect(a, b)', 'Intersect', 'Application.Int'],
     ]) {
         test(`preserves existing arguments when completing ${name}`, async () => {
@@ -118,6 +120,31 @@ suite('Completion editor surface', () => {
             assert.equal(document.lineAt(1).text, expression, 'completion must retain the original argument list');
         });
     }
+    test('completes and accepts a bracketed worksheet member in the actual menu', async () => {
+        const source = 'Sub Demo()\nThisWorkbook.Sheets(1).[Ce]\nEnd Sub\n';
+        const { document, caret } = await probe('CompletionBracketed', source, '.[Ce');
+        const item = (await completions(document, caret)).items.find(candidate => candidate.label === 'Cells');
+        assert.ok(item, 'Cells must be offered inside a bracketed name');
+        const range = item.range instanceof vscode.Range ? item.range : item.range?.replacing;
+        assert.ok(range);
+        assert.equal(document.getText(range), '[Ce]');
+        await vscode.commands.executeCommand('editor.action.triggerSuggest');
+        await until(async () => {
+            await vscode.commands.executeCommand('acceptSelectedSuggestion');
+            return document.lineAt(1).text.endsWith('.[Cells]') ? true : undefined;
+        },
+            'accepting Cells must replace the bracketed name once', 4000);
+    });
+    test('reopens the bracketed member menu after an unmatched prefix is corrected', async () => {
+        const source = 'Sub Demo()\nThisWorkbook.Sheets(1).[Cez]\nEnd Sub\n';
+        const { document } = await probe('CompletionBracketedRecovery', source, '.[Cez');
+        await vscode.commands.executeCommand('hideSuggestWidget');
+        await vscode.commands.executeCommand('deleteLeft');
+        await until(async () => {
+            await vscode.commands.executeCommand('acceptSelectedSuggestion');
+            return document.lineAt(1).text.endsWith('.[Cells]') ? true : undefined;
+        }, 'Backspace must reopen the bracketed member menu', 4000);
+    });
     test('does not offer code completions inside an ordinary string', async () => {
         const { document, caret } = await probe('CompletionString', 'Sub Demo()\nDebug.Print "hello"\nEnd Sub\n', 'hello');
         assert.equal((await completions(document, caret)).items.length, 0);

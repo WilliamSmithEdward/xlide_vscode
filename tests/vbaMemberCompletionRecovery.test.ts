@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as vscodeTypes from 'vscode';
 
 vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({
-    window: { activeTextEditor: undefined },
+    window: { activeTextEditor: undefined, onDidChangeTextEditorSelection: vi.fn(() => ({ dispose: vi.fn() })) },
     workspace: { onDidCloseTextDocument: vi.fn(() => ({ dispose() {} })) },
 }));
 
@@ -49,6 +49,56 @@ beforeEach(() => { vi.useFakeTimers(); vi.mocked(vscode.commands.executeCommand)
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); });
 
 describe('member completion recovery on Backspace', () => {
+    it.each(['ThisWorkbook.Sheets(1).[Ce', 'ThisWorkbook.Sheets(1).[Ce]'])(
+        'recovers within a bracketed member: %s', async line => {
+            const edit = deletion(line, { column: line.endsWith(']') ? line.length - 1 : line.length });
+            edit.send();
+            await vi.runAllTimersAsync();
+            expect(vscode.commands.executeCommand).toHaveBeenCalledOnce();
+        });
+    it('waits for a delayed caret update and disposes its selection listener', async () => {
+        const edit = deletion('ThisWorkbook.Sheets(1).ce');
+        const expected = edit.editor.selection.active;
+        edit.editor.selection.active = new vscode.Position(expected.line, expected.character + 1);
+        const dispose = vi.fn();
+        vi.mocked(vscode.window.onDidChangeTextEditorSelection).mockReturnValueOnce({ dispose });
+        edit.send();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(vscode.commands.executeCommand).not.toHaveBeenCalled();
+        edit.editor.selection.active = expected;
+        const listener = vi.mocked(vscode.window.onDidChangeTextEditorSelection).mock.calls.at(-1)![0];
+        listener({ textEditor: edit.editor } as unknown as vscodeTypes.TextEditorSelectionChangeEvent);
+        await vi.runAllTimersAsync();
+        expect(vscode.commands.executeCommand).toHaveBeenCalledOnce();
+        expect(dispose).toHaveBeenCalledOnce();
+    });
+    it('drops delayed recovery when the next selection moves elsewhere', async () => {
+        const edit = deletion('ThisWorkbook.Sheets(1).ce');
+        edit.editor.selection.active = new vscode.Position(edit.editor.selection.active.line, edit.editor.selection.active.character + 1);
+        edit.send();
+        await vi.advanceTimersByTimeAsync(0);
+        edit.editor.selection.active = new vscode.Position(1, 0);
+        const listener = vi.mocked(vscode.window.onDidChangeTextEditorSelection).mock.calls.at(-1)![0];
+        listener({ textEditor: edit.editor } as unknown as vscodeTypes.TextEditorSelectionChangeEvent);
+        edit.editor.selection.active = edit.event.contentChanges[0].range.start;
+        listener({ textEditor: edit.editor } as unknown as vscodeTypes.TextEditorSelectionChangeEvent);
+        await vi.runAllTimersAsync();
+        expect(vscode.commands.executeCommand).not.toHaveBeenCalled();
+    });
+    it('expires and disposes recovery if the expected caret update never arrives', async () => {
+        const edit = deletion('ThisWorkbook.Sheets(1).ce');
+        const expected = edit.editor.selection.active;
+        edit.editor.selection.active = new vscode.Position(expected.line, expected.character + 1);
+        const dispose = vi.fn();
+        vi.mocked(vscode.window.onDidChangeTextEditorSelection).mockReturnValueOnce({ dispose });
+        edit.send();
+        await vi.runAllTimersAsync();
+        expect(dispose).toHaveBeenCalledOnce();
+        edit.editor.selection.active = expected;
+        const listener = vi.mocked(vscode.window.onDidChangeTextEditorSelection).mock.calls.at(-1)![0];
+        listener({ textEditor: edit.editor } as unknown as vscodeTypes.TextEditorSelectionChangeEvent);
+        expect(vscode.commands.executeCommand).not.toHaveBeenCalled();
+    });
     it('loads source members that extend a known Me host surface', async () => {
         const edit = deletion('Me.He');
         edit.projectContext.cheapEditorProjectContext.mockReturnValue({ meType: 'Excel.Workbook', meProjectType: 'ThisWorkbook' });

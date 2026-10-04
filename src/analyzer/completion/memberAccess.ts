@@ -468,6 +468,15 @@ function prefixSignificantTokens(
 	return completionCursorContext(source, offset).significantTokens;
 }
 
+/** Bracketed foreign names are prefixes too, including an unfinished escape. */
+function completionMemberPrefix(token: VbaToken): string | undefined {
+	if (isIdentLike(token)) { return token.rawText; }
+	if (token.kind === 'bracketedIdentifier') {
+		return token.rawText.slice(1).replace(/\]$/, '');
+	}
+	return undefined;
+}
+
 function memberSurfaceAtDot(
 	source: string,
 	offset: number,
@@ -484,8 +493,9 @@ function memberSurfaceAtDot(
 	// Identify the typed member prefix (text after the dot) and the dot itself.
 	let i = tokens.length - 1;
 	let typedPrefix = '';
-	if (isIdentLike(tokens[i]) && i > 0 && tokens[i - 1].rawText === '.') {
-		typedPrefix = tokens[i].rawText;
+	const memberPrefix = completionMemberPrefix(tokens[i]);
+	if (memberPrefix !== undefined && i > 0 && tokens[i - 1].rawText === '.') {
+		typedPrefix = memberPrefix;
 		i -= 1;
 	}
 	if (i < 0 || tokens[i].rawText !== '.') {
@@ -841,7 +851,7 @@ export function resolveReceiverTypeAt(
 		return undefined;
 	}
 	let i = tokens.length - 1;
-	if (isIdentLike(tokens[i]) && i > 0 && tokens[i - 1].rawText === '.') {
+	if (completionMemberPrefix(tokens[i]) !== undefined && i > 0 && tokens[i - 1].rawText === '.') {
 		i -= 1;
 	}
 	if (i < 0 || tokens[i].rawText !== '.') {

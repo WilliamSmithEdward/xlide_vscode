@@ -105,6 +105,39 @@ describe('completion provider surface', () => {
         const insert = item?.insertText;
         expect(typeof insert === 'string' ? insert : insert?.value).toBe(name);
     });
+    it.each([
+        ['obj.[Unit Pr', 'obj.[Unit Pr'],
+        ['obj.[Unit Price]', 'obj.[Unit Pr'],
+        ['obj.[Unit Price]', 'obj.[Unit Price]'],
+    ])('completes bracketed member names in %s at %s', async (line, prefix) => {
+        const result = await request(line, {
+            projectClassMembers: [{ name: 'Widget', kind: 'class', moduleName: 'Widget',
+                members: [{ name: 'Unit Price', kind: 'property', moduleName: 'Widget' }] }],
+        }, prefix.length, 'Sub Demo()\nDim obj As Widget\n');
+        const item = result.items.find(item => item.label === 'Unit Price');
+        expect(item).toBeDefined();
+        expect(item?.range).toEqual(new vscode.Range(2, 4, 2, line.length));
+        expect(item?.insertText).toBe('[Unit Price]');
+        expect(item?.filterText).toBe('[Unit Price]');
+    });
+    it.each(['value = Lef$("abc", 1)', 'value = Left$("abc", 1)'])(
+        'replaces the complete suffixed runtime name in %s', async line => {
+            const column = line.indexOf('$');
+            const result = await request(line, {}, column);
+            const item = result.items.find(item => item.label === 'Left$');
+            expect(item).toBeDefined();
+            expect(item?.range).toEqual(new vscode.Range(1, 8, 1, column + 1));
+            expect(item?.insertText).toBe('Left$');
+        });
+    it('does not offer unrelated globals for an unmatched bracketed member', async () => {
+        expect((await request('ThisWorkbook.Sheets(1).[Cez]')).items).toEqual([]);
+    });
+    it('keeps parentheses insertion when a fresh dollar-suffixed function is completed', async () => {
+        const result = await request('value = Lef$');
+        const item = result.items.find(item => item.label === 'Left$');
+        expect(item?.range).toEqual(new vscode.Range(1, 8, 1, 12));
+        expect(typeof item?.insertText === 'string' ? item.insertText : item?.insertText?.value).toBe('Left$($0)');
+    });
     it('skips callable classification for a property-only list', async () => {
         const result = await request('ThisWorkbook.Sheets(1).ce');
         expect(result.items.map(item => item.label)).toContain('Cells');
