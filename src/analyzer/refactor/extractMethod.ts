@@ -47,6 +47,7 @@ interface LocalUse {
 	readBeforeWriteInside: boolean;
 	writtenInside: boolean;
 	readAfter: boolean;
+	usedBefore: boolean;
 	isStatic: boolean;
 }
 
@@ -202,6 +203,7 @@ function containsSpan(outer: Span, inner: Span): boolean {
 function movedDeclarationEdits(source: string, moved: readonly LocalUse[], block: Span): VbaTextEdit[] {
 	const groups = new Map<VariableGroupNode, Set<VariableDeclNode>>();
 	for (const local of moved) {
+		if (local.usedBefore) { continue; }
 		const { group, decl } = local.declaration!;
 		if (containsSpan(block, group.span)) { continue; }
 		let declarations = groups.get(group);
@@ -301,6 +303,7 @@ function classifyLocals(source: string, procedure: ProcedureNode, block: Span): 
 			type: declaration?.decl.asType ?? parameter?.asType ?? 'Variant',
 			readBeforeWriteInside: readsBeforeAnyWrite(inside, kinds),
 			writtenInside: inside.some((occ) => kinds.get(occ.offset) !== 'read'),
+			usedBefore: occurrences.some((occ) => occ.offset < block.start),
 			readAfter: occurrences.some(
 				(occ) => occ.offset > block.end && kinds.get(occ.offset) !== 'write',
 			),
