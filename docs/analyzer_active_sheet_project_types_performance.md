@@ -36,38 +36,39 @@ Node v24.18.0; AMD Ryzen 7 9800X3D 8-Core Processor           ; measured locally
 
 | Surfaces / mode | Before median | After median | Before p95 | After p95 |
 | --- | ---: | ---: | ---: | ---: |
-| 10-object | 2.797 | 2.703 | 3.235 | 3.112 |
-| 10-worksheet | 2.570 | 2.610 | 3.378 | 3.494 |
-| 10-class | 2.678 | 2.605 | 3.772 | 3.646 |
-| 10-collection | 2.285 | 2.959 | 3.918 | 3.448 |
-| 10-shadow | 1.554 | 1.577 | 2.262 | 2.238 |
-| 10-other-value | 1.417 | 1.428 | 2.129 | 1.769 |
-| 100-object | 2.352 | 1.906 | 2.940 | 2.425 |
-| 100-worksheet | 2.826 | 2.379 | 3.525 | 3.411 |
-| 100-class | 4.402 | 3.860 | 8.364 | 4.465 |
-| 100-collection | 2.224 | 2.216 | 2.901 | 2.894 |
-| 100-shadow | 1.408 | 1.378 | 2.057 | 1.880 |
-| 100-other-value | 1.197 | 1.145 | 1.417 | 1.613 |
-| 1000-object | 6.453 | 1.876 | 6.940 | 2.630 |
-| 1000-worksheet | 7.338 | 2.435 | 8.366 | 4.067 |
-| 1000-class | 19.814 | 15.592 | 20.543 | 17.190 |
-| 1000-collection | 2.172 | 2.215 | 3.087 | 2.713 |
-| 1000-shadow | 1.417 | 1.362 | 1.816 | 1.781 |
-| 1000-other-value | 1.183 | 1.139 | 1.443 | 1.392 |
-| 3000-object | 16.140 | 1.935 | 16.934 | 2.618 |
-| 3000-worksheet | 16.585 | 2.484 | 17.386 | 3.226 |
-| 3000-class | 55.850 | 42.291 | 57.472 | 42.998 |
-| 3000-collection | 2.218 | 2.250 | 3.063 | 2.816 |
-| 3000-shadow | 1.415 | 1.385 | 2.168 | 1.802 |
-| 3000-other-value | 1.187 | 1.153 | 1.545 | 1.643 |
+| 10-object | 2.769 | 2.704 | 3.303 | 3.102 |
+| 10-worksheet | 2.569 | 2.726 | 3.539 | 3.622 |
+| 10-class | 2.863 | 2.712 | 3.875 | 3.717 |
+| 10-collection | 2.271 | 2.945 | 3.857 | 3.654 |
+| 10-shadow | 1.539 | 1.601 | 2.333 | 2.488 |
+| 10-other-value | 1.420 | 1.468 | 2.100 | 2.133 |
+| 100-object | 2.360 | 1.907 | 3.008 | 3.431 |
+| 100-worksheet | 2.838 | 2.368 | 3.614 | 3.236 |
+| 100-class | 4.465 | 3.848 | 5.603 | 4.505 |
+| 100-collection | 2.269 | 2.192 | 3.125 | 2.931 |
+| 100-shadow | 1.416 | 1.388 | 2.120 | 1.979 |
+| 100-other-value | 1.217 | 1.156 | 1.478 | 1.462 |
+| 1000-object | 6.483 | 1.839 | 7.522 | 2.731 |
+| 1000-worksheet | 7.075 | 2.376 | 8.788 | 4.218 |
+| 1000-class | 19.699 | 15.434 | 20.015 | 15.683 |
+| 1000-collection | 2.195 | 2.178 | 2.885 | 2.820 |
+| 1000-shadow | 1.406 | 1.385 | 1.844 | 1.803 |
+| 1000-other-value | 1.177 | 1.157 | 1.604 | 1.371 |
+| 3000-object | 16.353 | 1.907 | 18.613 | 2.611 |
+| 3000-worksheet | 16.804 | 2.433 | 17.422 | 3.151 |
+| 3000-class | 55.939 | 42.582 | 59.992 | 43.018 |
+| 3000-collection | 2.206 | 2.163 | 2.966 | 2.771 |
+| 3000-shadow | 1.428 | 1.374 | 2.309 | 1.802 |
+| 3000-other-value | 1.163 | 1.153 | 1.627 | 1.414 |
 
-The 3,000-class Object and Worksheet medians improve about 8.3 and 6.7 times; Box improves from 55.850 to 42.291 ms while retaining the separate resolution cost. Small fixtures and bypass controls are mixed: 10-class Collection median increases from 2.285 to 2.959 ms, 10-class Worksheet median/p95 increase slightly, and some Nothing control p95 values increase. The indexed predicate adds a lazy closure and retains examined class names for the pass. The first lookup still scans until a match or exhaustion; these measurements do not establish a universal latency improvement.
+The 3,000-class Object and Worksheet medians improve about 8.6 and 6.9 times; Box improves from 55.939 to 42.582 ms while retaining the separate resolution cost. Small fixtures and bypass controls are mixed: 10-class Collection median increases from 2.271 to 2.945 ms, and 10-class Worksheet/shadow/Nothing medians and p95 increase slightly. The 100-class Object p95 also increases. The indexed predicate adds a lazy closure and retains examined class names for the pass. The first lookup still scans until a match or exhaustion; these measurements do not establish a universal latency improvement.
 
 ## Validation
 
 - Type check passed.
 - 24 focused tests passed, including 11 new regressions for bounded actual reads across procedures, real class/Collection mismatches, any matching duplicate class, case/full-name/kind semantics, resumed queries, metadata refresh and bypasses.
-- Full suite: 622 files, 12,813 tests passed, 13 skipped.
+- Full suite after integration with current main: 623 files, 12,825 tests passed, 13 skipped.
+- Integrated focused assignment tests: 285 passed; integrated type check and differential comparison passed again.
 - 1,500 differential cases match complete analyzer and direct Set outputs, with no internal errors, covering metadata kinds/casing/duplicates/misses, host/generic/class/scalar/Variant/qualified/array targets, bare/qualified/shadowed ActiveSheet, other values, conditional declarations, branches/loops and multiple procedures.
 
 Generated differential and counting probes remain audit scratch material. The timing benchmark and regression tests are committed.
