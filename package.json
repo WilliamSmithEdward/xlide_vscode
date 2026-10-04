@@ -1200,7 +1200,8 @@
         "when": "editorLangId =~ /^(vba|xlide-vba)$/"
       },
       {
-        "command": "xlide.vba.smartBackspace",
+        "command": "runCommands",
+        "args": { "commands": ["deleteLeft", "xlide.vba.finishBackspaceCleanup"] },
         "key": "backspace",
         "when": "editorTextFocus && editorLangId =~ /^(vba|xlide-vba)$/ && xlide.vba.backspaceNeedsExtension && !suggestWidgetVisible && !inSnippetMode"
       },

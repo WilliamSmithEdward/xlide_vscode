@@ -45,7 +45,7 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
         return response.result.value;
     };
     const readLine = "Array.from(document.querySelectorAll('.monaco-editor .view-line')).map(line => line.textContent).find(text => text.includes('ThisWorkbook.Sheets(1).ce'))";
-    if (mode !== 'transition' && !(await evaluate(readLine))?.endsWith('.cez')) throw new Error('Synthetic test line is not visible');
+    if (mode !== 'transition' && mode !== 'cleanup' && !(await evaluate(readLine))?.endsWith('.cez')) throw new Error('Synthetic test line is not visible');
     await evaluate("(() => { const input = document.querySelector('.monaco-editor.focused .inputarea') || document.querySelector('.monaco-editor .inputarea'); if (input) input.focus(); return document.activeElement?.className; })()");
     fs.writeFileSync(readyFile, 'ready');
     const deadline = Date.now() + 15000;
@@ -53,11 +53,30 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
         if (Date.now() > deadline) throw new Error('Busy-host signal did not arrive');
         await delay(10);
     }
-    const { busyUntil } = JSON.parse(fs.readFileSync(busyFile, 'utf8'));
+    const { busyUntil, cleanup, stress } = JSON.parse(fs.readFileSync(busyFile, 'utf8'));
     const deleteKey = async () => {
         await call('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Backspace', code: 'Backspace', windowsVirtualKeyCode: 8, nativeVirtualKeyCode: 8 });
         await call('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Backspace', code: 'Backspace', windowsVirtualKeyCode: 8, nativeVirtualKeyCode: 8 });
     };
+    if (mode === 'cleanup') {
+        const readRow = "Array.from(document.querySelectorAll('.monaco-editor.focused .view-line')).map(row => row.textContent.replace(/\\u00a0/g, ' ').replace(/\\u200b/g, ''))[" + cleanup.line + "]";
+        if ((await evaluate(readRow)) !== cleanup.before) throw new Error('Cleanup fixture is not visible');
+        const samples = [];
+        for (const expected of cleanup.after) {
+            const started = Date.now();
+            await deleteKey();
+            const deadline = Date.now() + 4000;
+            for (;;) {
+                const visible = await evaluate(readRow);
+                if (visible === expected || (expected === '' && visible === ' ')) break;
+                if (Date.now() > deadline) throw new Error('Smart cleanup did not restore its expected visible line');
+                await delay(5);
+            }
+            samples.push(Date.now() - started);
+        }
+        console.log(JSON.stringify({ cleanupPaintMs: samples }));
+        socket.close(); return;
+    }
     if (mode === 'stress') {
         const samples = [];
         const until = async (check, phase) => {
@@ -67,7 +86,21 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
                 await delay(5);
             }
         };
-        for (let i = 0; i < 24; i++) {
+        const visibleHover = "Array.from(document.querySelectorAll('.monaco-hover')).filter(node => node.checkVisibility({ visibilityProperty: true, opacityProperty: true })).map(node => node.textContent).join(' ')";
+        const hoverSamples = [];
+        const showHover = async () => {
+            await call('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 1, y: 1 });
+            await until(async () => !(await evaluate(visibleHover)).includes('LatencyValue'), 'old hover dismissal');
+            const point = await evaluate("(() => { const rows = document.querySelectorAll('.monaco-editor.focused .view-line'); for (const row of rows) { const walker = document.createTreeWalker(row, NodeFilter.SHOW_TEXT); let text; while ((text = walker.nextNode())) { const start = text.textContent.indexOf('LatencyValue'); if (start < 0) continue; const range = document.createRange(); range.setStart(text, start + 2); range.setEnd(text, start + 3); const box = range.getBoundingClientRect(); return { x: box.x + box.width / 2, y: box.y + box.height / 2 }; } } })()");
+            if (!point) throw new Error('Synthetic hover variable is not visible');
+            const started = Date.now();
+            await call('Input.dispatchMouseEvent', { type: 'mouseMoved', ...point });
+            await until(async () => (await evaluate(visibleHover)).includes('LatencyValue As Long'), 'resolved mouse hover');
+            hoverSamples.push(Date.now() - started);
+            await call('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 1, y: 1 });
+            await until(async () => !(await evaluate(visibleHover)).includes('LatencyValue'), 'resolved hover dismissal');
+        };
+        for (let i = 0; i < stress.cycles; i++) {
             const idleMs = [0, 30, 250, 350][i % 4];
             await delay(idleMs);
             const before = Date.now();
@@ -85,14 +118,19 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
             // successful recovery. The .cez miss must clear it first.
             await until(async () => !(await evaluate("Array.from(document.querySelectorAll('.suggest-widget.visible .monaco-list-row')).some(row => row.checkVisibility({ visibilityProperty: true, opacityProperty: true }) && row.textContent.includes('Cells'))")), 'miss menu invalidation cycle ' + i);
             samples.push({ idleMs, backspacePaintMs: deleted - before, menuPaintMs, typingPaintMs, missClearMs: Date.now() - missed });
+            if (stress.hover && (i + 1) % 16 === 0) { await showHover(); }
         }
-        console.log(JSON.stringify({ samples }));
+        console.log(JSON.stringify({ samples, hoverSamples }));
         socket.close();
         return;
     }
     if (mode === 'transition') {
         await call('Input.insertText', { text: 'Debug.Print ThisWorkbook.Sheets(1).cez' });
-        if (!(await evaluate(readLine))?.endsWith('.cez')) throw new Error('Native typing did not reach the transition probe');
+        const typedDeadline = Date.now() + 500;
+        while (!(await evaluate(readLine))?.endsWith('.cez')) {
+            if (Date.now() > typedDeadline) throw new Error('Native typing did not reach the transition probe');
+            await delay(5);
+        }
     }
     const started = Date.now();
     await deleteKey();
@@ -110,10 +148,12 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 export interface RendererBackspaceResult {
     deletedWhileBusy?: boolean;
     elapsedMs?: number;
+    cleanupPaintMs?: number[];
+    hoverSamples?: number[];
     samples?: { idleMs: number; backspacePaintMs: number; menuPaintMs: number; typingPaintMs: number; missClearMs: number }[];
 }
 
-export async function runRendererBackspaceProbe(mode: 'busy' | 'stress' | 'transition', routedThroughHost = false): Promise<RendererBackspaceResult> {
+export async function runRendererBackspaceProbe(mode: 'busy' | 'stress' | 'transition' | 'cleanup', staleCleanupContext = false, cleanup?: { line: number; before: string; after: string[] }, stress = { cycles: 24, hover: false }): Promise<RendererBackspaceResult> {
     const port = Number(process.env.XLIDE_UI_DEBUG_PORT);
     assert.ok(Number.isInteger(port) && port >= 1024 && port <= 65535, 'an owned integration renderer debugger port is required');
     const root = workspaceRoot();
@@ -136,13 +176,13 @@ export async function runRendererBackspaceProbe(mode: 'busy' | 'stress' | 'trans
             assert.equal(stderr, '', stderr);
             return fs.existsSync(readyFile) || undefined;
         }, 'renderer input probe should become ready', 12000);
-        if (routedThroughHost) {
-            // Positive control models the former always-bound keybinding.
+        if (staleCleanupContext) {
+            // A stale true flag must still delete in the renderer first.
             await vscode.commands.executeCommand('setContext', BACKSPACE_NEEDS_EXTENSION_CONTEXT, true);
         }
-        const busyUntil = Date.now() + (mode !== 'stress' ? 1200 : 0);
-        fs.writeFileSync(busyFile, JSON.stringify({ busyUntil }));
-        if (mode !== 'stress') {
+        const busyUntil = Date.now() + (mode === 'busy' || mode === 'transition' ? 1200 : 0);
+        fs.writeFileSync(busyFile, JSON.stringify({ busyUntil, cleanup, stress }));
+        if (mode === 'busy' || mode === 'transition') {
             // Deliberate test-only stall. The separate renderer must continue
             // deleting ordinary code throughout this occupied-host interval.
             while (Date.now() < busyUntil) { /* occupy the extension-host event loop */ }

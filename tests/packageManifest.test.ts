@@ -14,7 +14,7 @@ interface Manifest {
         menus: Record<string, Array<{ command?: string }>>;
         languageModelTools: Array<{ name: string }>;
         viewsWelcome?: Array<{ contents: string }>;
-        keybindings?: Array<{ command: string; key: string; mac?: string; when?: string }>;
+        keybindings?: Array<{ command: string; key: string; mac?: string; when?: string; args?: { commands?: string[] } }>;
     };
 }
 
@@ -61,6 +61,7 @@ const INTERNAL_COMMANDS = new Set([
     'xlide.openWorkbookReadOnly',
     'xlide.retryExplorerLoad',
     'xlide.vba.smartBackspace',
+    'xlide.vba.finishBackspaceCleanup',
     'xlide.vba.smartTab',
     'xlide.vba.leaveSnippetAndCursorMove',
     // What the explorer view shows, for the integration tests; registered
@@ -114,8 +115,8 @@ describe('package manifest consistency', () => {
         const bindings = manifest.contributes.keybindings ?? [];
         expect(bindings.length).toBeGreaterThan(0);
         const dead = bindings
-            .map((binding) => binding.command)
-            .filter((command) => !registeredCommands.has(command));
+            .flatMap((binding) => [binding.command, ...(binding.args?.commands ?? [])])
+            .filter((command) => !registeredCommands.has(command) && !['runCommands', 'deleteLeft'].includes(command));
         expect(dead).toEqual([]);
     });
 
