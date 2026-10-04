@@ -55,6 +55,7 @@ import {
 import {
 	buildModuleTypeSignatures,
 	createObjectAssignmentTypeResolver,
+	createProjectInterfaceSharingLookup,
 	callableSignatureForCall,
 	callableTypeSignaturesFor,
 	declarationShapeEnvironmentFor,
@@ -1777,6 +1778,7 @@ export function checkSetAssignments(
 	const isDocumentModule = projectTypeNameLookup(memberCtx, 'document', false);
 	const isProjectClass = projectTypeNameLookup(memberCtx, 'class', false);
 	const resolveObjectType = createObjectAssignmentTypeResolver(memberCtx);
+	const shareInterfaces = createProjectInterfaceSharingLookup(memberCtx);
 	// Form metadata is stable within this rule invocation; query only the names
 	// actually used, retaining the first matching control and missing results.
 	let formResolved = false;
@@ -1909,6 +1911,7 @@ export function checkSetAssignments(
 					actual,
 					memberCtx,
 					resolveObjectType,
+					shareInterfaces,
 				);
 				// `Set o = New Flat1` then `Set c = o`: the class an Object holds
 				// is checked as the Set runs (issue #246, measured in Excel 16.0).
@@ -1918,7 +1921,7 @@ export function checkSetAssignments(
 					const held = heldAt(stmt).classes.get(tokenName(value[0])!.toLowerCase());
 					if (held) {
 						shown = { type: held, label: `'${value[0].rawText}', which holds a ${held} here`, span: { start: span.start + value[0].start, end: span.start + value[0].end } };
-						reason = objectAssignmentIncompatibilityReason(expected, shown, memberCtx, resolveObjectType);
+						reason = objectAssignmentIncompatibilityReason(expected, shown, memberCtx, resolveObjectType, shareInterfaces);
 					}
 				}
 				// `Set c = ActiveSheet`: a Worksheet or a Chart, never a

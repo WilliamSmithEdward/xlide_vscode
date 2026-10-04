@@ -4757,6 +4757,7 @@ export function objectAssignmentIncompatibilityReason(
 	actual: InferredArgumentType | undefined,
 	memberCtx: MemberCompletionContext,
 	resolveType: typeof resolveKnownObjectAssignmentType = resolveKnownObjectAssignmentType,
+	shareInterfaces?: (expected: string, actual: string) => boolean,
 ): string | undefined {
 	const expected = resolveType(expectedRaw, memberCtx);
 	if (!expected || !actual) {
@@ -4816,10 +4817,69 @@ export function objectAssignmentIncompatibilityReason(
 	// (`Set c = o`, casting back), and two interfaces one class implements can
 	// hold each other's (`Set b = o`). Only project interfaces are known here.
 	if (expected.kind === 'project' && actualObject.kind === 'project'
-		&& projectTypesCanShareInstance(expected, actualObject, memberCtx)) {
+		&& projectTypesCanShareInstance(expected, actualObject, memberCtx, shareInterfaces)) {
 		return undefined;
 	}
 	return `This object type is not compatible with ${expected.display}.`;
+}
+
+/**
+ * Find common implementers against metadata stable for one analysis pass.
+ * Retain only examined memberships and queried pairs, rather than all pairs
+ * that a surface with many implemented interfaces could form.
+ */
+export function createProjectInterfaceSharingLookup(
+	memberCtx: MemberCompletionContext,
+): (expected: string, actual: string) => boolean {
+	let memberships: Map<string, Set<number>> | undefined;
+	let pairs: Map<string, Map<string, boolean>> | undefined;
+	let nextIndex = 0;
+	return (expected, actual) => {
+		// Shared-implementer membership is symmetric; direct casts stay outside.
+		const first = expected < actual ? expected : actual;
+		const second = expected < actual ? actual : expected;
+		pairs ??= new Map();
+		let answers = pairs.get(first);
+		if (answers?.has(second)) {
+			return answers.get(second)!;
+		}
+		if (!answers) {
+			answers = new Map();
+			pairs.set(first, answers);
+		}
+		memberships ??= new Map();
+		const left = memberships.get(first), right = memberships.get(second);
+		if (left && right) {
+			const smaller = left.size <= right.size ? left : right;
+			const larger = smaller === left ? right : left;
+			for (const index of smaller) {
+				if (larger.has(index)) {
+					answers.set(second, true);
+					return true;
+				}
+			}
+		}
+		const surfaces = memberCtx.projectClassMembers ?? [];
+		while (nextIndex < surfaces.length) {
+			const index = nextIndex++;
+			// Keep every kind: the original shared-interface scan did not filter kinds.
+			for (const name of surfaces[index].implements ?? []) {
+				const lower = name.toLowerCase();
+				let owners = memberships.get(lower);
+				if (!owners) {
+					owners = new Set();
+					memberships.set(lower, owners);
+				}
+				owners.add(index);
+			}
+			if (memberships.get(first)?.has(index) && memberships.get(second)?.has(index)) {
+				answers.set(second, true);
+				return true;
+			}
+		}
+		answers.set(second, false);
+		return false;
+	};
 }
 
 /**
@@ -4832,9 +4892,13 @@ function projectTypesCanShareInstance(
 	expected: Extract<KnownObjectAssignmentType, { kind: 'project' }>,
 	actual: Extract<KnownObjectAssignmentType, { kind: 'project' }>,
 	memberCtx: MemberCompletionContext,
+	shareInterfaces?: (expected: string, actual: string) => boolean,
 ): boolean {
 	if (implementsObjectType(expected, actual)) {
 		return true;
+	}
+	if (shareInterfaces) {
+		return shareInterfaces(expected.key, actual.key);
 	}
 	const wanted = new Set([expected.key, actual.key]);
 	for (const projectType of memberCtx.projectClassMembers ?? []) {
