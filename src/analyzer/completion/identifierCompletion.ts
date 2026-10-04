@@ -160,16 +160,43 @@ export function resolveIdentifierCompletions(
 	return createIdentifierCompletionResolver(source, ctx)(offset);
 }
 
+// Keep this projection private to completion: other symbol-builder consumers
+// may mutate their graphs. Results and external project/host facts stay fresh.
+// Eight entries match the parser's bounded source cache; source edits, module
+// renames and module-kind changes all select a different snapshot.
+const SYMBOL_CACHE_LIMIT = 8;
+const symbolSnapshots: {
+	source: string;
+	moduleName: string;
+	moduleKind: ModuleSymbolKind;
+	symbols: ModuleSymbols;
+}[] = [];
+
+function identifierSymbols(moduleName: string, moduleKind: ModuleSymbolKind, source: string): ModuleSymbols {
+	const index = symbolSnapshots.findIndex(entry =>
+		entry.source === source && entry.moduleName === moduleName && entry.moduleKind === moduleKind);
+	if (index >= 0) {
+		const [entry] = symbolSnapshots.splice(index, 1);
+		entry.source = source;
+		symbolSnapshots.push(entry);
+		return entry.symbols;
+	}
+	const symbols = buildModuleSymbols(moduleName, moduleKind, source);
+	symbolSnapshots.push({ source, moduleName, moduleKind, symbols });
+	if (symbolSnapshots.length > SYMBOL_CACHE_LIMIT) { symbolSnapshots.shift(); }
+	return symbols;
+}
+
 /**
  * Resolves several positions against one source/context snapshot. Symbol
- * construction is lazy and shared only for this request, never across edits.
+ * construction is lazy and reused for unchanged source/module identity.
  */
 export function createIdentifierCompletionResolver(
 	source: string,
 	ctx: IdentifierCompletionContext = {},
 ): (offset: number) => IdentifierCompletion[] {
 	let symbols: ModuleSymbols | undefined;
-	const getSymbols = (): ModuleSymbols => symbols ??= buildModuleSymbols(
+	const getSymbols = (): ModuleSymbols => symbols ??= identifierSymbols(
 		ctx.moduleName ?? 'Module',
 		ctx.moduleKind ?? 'standard',
 		source,
@@ -220,13 +247,7 @@ function identifierCompletionsAt(
 	const explicitCallTargetContext = isExplicitCallTargetCompletionContext(tokens, last);
 	const out: IdentifierCompletion[] = [];
 	const seen = new Set<string>();
-	const add = (
-		name: string,
-		kind: IdentifierCompletionKind,
-		detail: string,
-		documentation?: string,
-		callable?: boolean,
-	): void => {
+	const add: AddFn = (name, kind, detail, documentation, callable): void => {
 		if (!name || !IDENT_RE.test(name)) {
 			return;
 		}
@@ -235,7 +256,12 @@ function identifierCompletionsAt(
 			return;
 		}
 		seen.add(key);
-		out.push({ name, kind, detail, documentation, ...(callable === undefined ? {} : { callable }) });
+		// Formatting is paid only for rows that survive prefix and shadowing checks.
+		out.push({
+			name, kind, ...(callable === undefined ? {} : { callable }),
+			detail: typeof detail === 'function' ? detail() : detail,
+			documentation: typeof documentation === 'function' ? documentation() : documentation,
+		});
 	};
 
 	if (isBooleanLiteralCompletionContext(tokens, last)) {
@@ -268,7 +294,7 @@ function identifierCompletionsAt(
 				member.name,
 				'global',
 				hostGlobalMemberDetail(member, globalMemberHost),
-				hasDocContent(member.doc) ? renderDocMarkdown(member.doc) : undefined,
+				() => hasDocContent(member.doc) ? renderDocMarkdown(member.doc) : undefined,
 				member.kind === 'method',
 			);
 		}
@@ -279,10 +305,10 @@ function identifierCompletionsAt(
 			if (explicitCallTargetContext && !runtimeAllowsExplicitCall(f)) {
 				continue;
 			}
-			add(f.name, 'runtime', f.signature, runtimeDocumentation(f));
+			add(f.name, 'runtime', f.signature, () => runtimeDocumentation(f));
 		}
 		for (const object of VBA_RUNTIME_OBJECTS) {
-			add(object.name, 'runtime', runtimeObjectDetail(object), runtimeObjectDocumentation(object), false);
+			add(object.name, 'runtime', runtimeObjectDetail(object), () => runtimeObjectDocumentation(object), false);
 		}
 		if (lowerPartial.length >= 2) {
 			for (const constant of VBA_RUNTIME_CONSTANTS) {
@@ -290,7 +316,7 @@ function identifierCompletionsAt(
 					constant.name,
 					'constant',
 					constantDetail('VBA constant', constant.type),
-					runtimeConstantDocumentation(constant),
+					() => runtimeConstantDocumentation(constant),
 				);
 			}
 			const constantHost = hostDisplayName(ctx.model);
@@ -299,7 +325,7 @@ function identifierCompletionsAt(
 					constant.name,
 					'constant',
 					constantDetail(`${constantHost}/Office constant`, constant.type),
-					hostConstantDocumentation(constantHost, constant),
+					() => hostConstantDocumentation(constantHost, constant),
 				);
 			}
 		}
@@ -311,8 +337,9 @@ function identifierCompletionsAt(
 type AddFn = (
 	name: string,
 	kind: IdentifierCompletionKind,
-	detail: string,
-	documentation?: string,
+	detail: string | (() => string),
+	documentation?: string | (() => string | undefined),
+	callable?: boolean,
 ) => void;
 
 /** Adds in-scope declared symbols (params/locals of the enclosing procedure plus
@@ -390,8 +417,9 @@ function addProjectProcedures(
 	add: AddFn,
 ): void {
 	for (const procedure of procedures ?? []) {
-		const detail = `${procedureDeclarationSignature(procedure)} in ${procedure.moduleName}`;
-		add(procedure.name, 'procedure', detail, projectProcedureDocumentation(procedure));
+		add(procedure.name, 'procedure',
+			() => `${procedureDeclarationSignature(procedure)} in ${procedure.moduleName}`,
+			() => projectProcedureDocumentation(procedure));
 	}
 }
 
@@ -403,7 +431,7 @@ function addProjectModules(
 		if (surface.kind !== 'standardModule') {
 			continue;
 		}
-		const documentation = hasDocContent(surface.doc)
+		const documentation = () => hasDocContent(surface.doc)
 			? renderDocMarkdown(surface.doc)
 			: undefined;
 		add(surface.name, 'module', 'Standard module', documentation);
@@ -447,7 +475,7 @@ function addReturnVariableSymbol(symbol: VbaSymbol, add: AddFn): void {
 	if (symbol.kind !== 'function' && symbol.kind !== 'propertyGet') {
 		return;
 	}
-	const documentation = hasDocContent(symbol.doc)
+	const documentation = () => hasDocContent(symbol.doc)
 		? renderDocMarkdown(symbol.doc)
 		: undefined;
 	const base = symbol.kind === 'propertyGet' ? 'Property Get return' : 'Function return';
@@ -455,7 +483,7 @@ function addReturnVariableSymbol(symbol: VbaSymbol, add: AddFn): void {
 }
 
 function addSymbol(symbol: VbaSymbol, add: AddFn): void {
-	const documentation = hasDocContent(symbol.doc)
+	const documentation = () => hasDocContent(symbol.doc)
 		? renderDocMarkdown(symbol.doc)
 		: undefined;
 	switch (symbol.kind) {
@@ -474,18 +502,15 @@ function addSymbol(symbol: VbaSymbol, add: AddFn): void {
 		case 'sub':
 		case 'function':
 		case 'declare': {
-			const signature = procedureSignatureFromSymbol(symbol);
-			const fallback = symbol.kind === 'sub'
-				? 'Sub'
-				: symbol.kind === 'declare'
-					? 'Declare'
-					: detailWithType('Function', symbol.asType);
-			add(
-				symbol.name,
-				'procedure',
-				signature ? procedureDeclarationSignature(signature) : fallback,
-				documentation,
-			);
+			add(symbol.name, 'procedure', () => {
+				const signature = procedureSignatureFromSymbol(symbol);
+				const fallback = symbol.kind === 'sub'
+					? 'Sub'
+					: symbol.kind === 'declare'
+						? 'Declare'
+						: detailWithType('Function', symbol.asType);
+				return signature ? procedureDeclarationSignature(signature) : fallback;
+			}, documentation);
 			return;
 		}
 		case 'propertyGet':

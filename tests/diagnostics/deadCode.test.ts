@@ -336,14 +336,21 @@ describe('analyzeModule - unreachable-code', () => {
 			const edit = diag.data?.removeUnreachableCode?.edit;
 			expect(src.slice(edit!.span.start, edit!.span.end)).toMatch(/^ {4}Main = [24]\n$/);
 		}
-		// A deletion that would take a declaration with it is not offered.
+		// A same-line declaration survives; a dead block containing one cannot be deleted.
 		for (const lines of [
 			['GoTo L', 'Dim k As Long: k = 9', 'L:', 'k = k + 1', 'Main = k'],
 			['GoTo L', 'If True Then', '    Dim j As Long', 'End If', 'L:', 'j = 4', 'Main = j'],
 		]) {
 			const dead = byCode(analyzeModule(body(...lines)), 'unreachable-code');
 			expect(dead, lines.join(' / ')).toHaveLength(1);
-			expect(dead[0].data?.removeUnreachableCode).toBeUndefined();
+			const edit = dead[0].data?.removeUnreachableCode?.edit;
+			if (lines[1].startsWith('Dim ')) {
+				expect(edit).toBeDefined();
+				const source = body(...lines);
+				expect(source.slice(edit!.span.start, edit!.span.end)).toBe(': k = 9');
+				expect(source.slice(0, edit!.span.start) + edit!.newText + source.slice(edit!.span.end))
+					.toBe(body(...lines.map(line => line.replace(': k = 9', ''))));
+			} else { expect(edit).toBeUndefined(); }
 		}
 	});
 

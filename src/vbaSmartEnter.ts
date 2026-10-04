@@ -356,6 +356,11 @@ export function commentContinuationText(
     if (previousLine === undefined) {
         return undefined;
     }
+    return commentContinuationForLine(previousLine, mirrorSpacing);
+}
+
+/** Comment continuation depends only on the previous physical line. */
+export function commentContinuationForLine(previousLine: string, mirrorSpacing: boolean): string | undefined {
     // Leading indentation, the apostrophe run, then the spaces that follow it.
     const match = /^([ \t]*)('+)([ \t]*)/.exec(previousLine);
     if (!match) {

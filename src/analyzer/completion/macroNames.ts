@@ -16,6 +16,7 @@
 // Pure analyzer code: no `vscode` dependency.
 
 import { tokenizeCached } from '../lexer/tokenize';
+import { firstTokenEndingAtOrAfter } from '../lexer/tokenHelpers';
 import type { VbaToken } from '../lexer/tokenKinds';
 import type { Span } from '../parser/nodes';
 import type { VbaProcedureSignature } from '../symbols/symbolModel';
@@ -57,20 +58,11 @@ function previous(tokens: readonly VbaToken[], i: number): VbaToken | undefined 
  */
 export function macroNameStringAt(source: string, offset: number, ctx: SignatureHelpContext = {}): MacroNameString | undefined {
 	const tokens = tokenizeCached(source);
-	// Tokens are ordered and do not overlap. Locate the first token whose
-	// end reaches the caret instead of scanning the full module per request.
-	let lo = 0;
-	let hi = tokens.length;
-	while (lo < hi) {
-		const mid = (lo + hi) >> 1;
-		if (tokens[mid].end < offset) { lo = mid + 1; } else { hi = mid; }
-	}
-	const index = lo;
+	const index = firstTokenEndingAtOrAfter(tokens, offset);
 	const token = tokens[index];
-	if (!token || token.kind !== 'stringLiteral' || offset <= token.start || offset > token.end) {
+	if (!token || token.kind !== 'stringLiteral' || !(offset > token.start && offset <= token.end)) {
 		return undefined;
 	}
-	// Empty strings and strings ending in an escaped quote still have a closing delimiter.
 	const closed = /^"(?:[^"]|"")*"$/.test(token.rawText);
 	const contentSpan: Span = { start: token.start + 1, end: closed ? token.end - 1 : token.end };
 	const text = closed ? stringLiteralValue(token.rawText) : token.rawText.slice(1).replace(/""/g, '"');

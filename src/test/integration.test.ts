@@ -21,8 +21,11 @@ import './treeFollow.test';
 import './treeLifecycle.test';
 import './deleteModule.test';
 import './docComments.test';
+import './identifierSurfaces.test';
 import './projectReferences.test';
+import './identifierSnapshotSurfaces.test';
 import './shapes.test';
+import './smartEnterSurfaces.test';
 import './grammar.test';
 
 import './completion.test';
