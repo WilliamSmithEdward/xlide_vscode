@@ -4517,10 +4517,10 @@ function callEffectsFor(source: string, symbols: ReturnType<typeof buildModuleSy
 		const first = firstExecutableTokenIndex(toks);
 		const head = tokenText(toks[first]);
 		if (head === 'call' && tokenName(toks[first + 1]) && toks[first + 2]?.rawText === '(') {
-			const close = matchParenFrom([...toks], first + 2);
-			apply(procedureNamed(tokenName(toks[first + 1])!.toLowerCase()), close > first + 3 ? splitTopLevelTokenGroups([...toks], first + 3, ',', close) : []);
+			const close = matchParenFrom(toks, first + 2);
+			apply(procedureNamed(tokenName(toks[first + 1])!.toLowerCase()), close > first + 3 ? splitTopLevelTokenGroups(toks, first + 3, ',', close) : []);
 		} else if (tokenName(toks[first]) && toks[first + 1]?.rawText !== '=' && toks[first + 1]?.rawText !== '.' && toks[first + 1]?.rawText !== '(') {
-			apply(procedureNamed(tokenName(toks[first])!.toLowerCase()), toks.length > first + 1 ? splitTopLevelTokenGroups([...toks], first + 1, ',', toks.length) : []);
+			apply(procedureNamed(tokenName(toks[first])!.toLowerCase()), toks.length > first + 1 ? splitTopLevelTokenGroups(toks, first + 1, ',', toks.length) : []);
 		}
 		for (let i = first + 1; i + 1 < toks.length; i++) {
 			const name = tokenName(toks[i])?.toLowerCase();
@@ -4529,8 +4529,8 @@ function callEffectsFor(source: string, symbols: ReturnType<typeof buildModuleSy
 			}
 			const proc = procedureNamed(name);
 			if (proc?.procKind === 'Function') {
-				const close = matchParenFrom([...toks], i + 1);
-				apply(proc, close > i + 2 ? splitTopLevelTokenGroups([...toks], i + 2, ',', close) : []);
+				const close = matchParenFrom(toks, i + 1);
+				apply(proc, close > i + 2 ? splitTopLevelTokenGroups(toks, i + 2, ',', close) : []);
 			}
 		}
 		return out;

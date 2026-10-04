@@ -255,7 +255,7 @@ function listStatement(
 		if (!target) {
 			// Read in an expression: `L1.List(5)` past the list raises 381.
 			if (member === 'list' && toks[i + 3]?.rawText === '(' && count !== undefined) {
-				const close = matchParenFrom([...toks], i + 3);
+				const close = matchParenFrom(toks, i + 3);
 				const args = close > 0 ? splitTopLevelTokenGroups(toks, i + 4, ',', close) : [];
 				const index = args.length === 1 ? signedLiteral(args[0]) : undefined;
 				if (index !== undefined && (index < 0 || index >= count)) {
@@ -284,7 +284,7 @@ function listStatement(
 			case 'list': {
 				// `L1.List = Array("a", "b")` holds two.
 				const value = toks.slice(i + 4);
-				const close = tokenText(value[0]) === 'array' && value[1]?.rawText === '(' ? matchParenFrom([...value], 1) : -1;
+				const close = tokenText(value[0]) === 'array' && value[1]?.rawText === '(' ? matchParenFrom(value, 1) : -1;
 				const items = close === value.length - 1 && toks[i + 3]?.rawText === '=' ? splitTopLevelTokenGroups(value, 2, ',', close) : undefined;
 				counts.set(lower, items && counts.get(lower) !== undefined ? (close === 2 ? 0 : items.length) : undefined);
 				break;
@@ -297,7 +297,7 @@ function listStatement(
 				break;
 			}
 			case 'selected': {
-				const close = toks[i + 3]?.rawText === '(' ? matchParenFrom([...toks], i + 3) : -1;
+				const close = toks[i + 3]?.rawText === '(' ? matchParenFrom(toks, i + 3) : -1;
 				const index = close > 0 ? signedLiteral(toks.slice(i + 4, close)) : undefined;
 				if (control.type === 'MSForms.ListBox' && count !== undefined && index !== undefined && (index < 0 || index >= count) && toks[close + 1]?.rawText === '=') {
 					push('hostPropertyValueOutOfRange', `${control.name} ${holds(count)} here, so Selected(${index}) is past it. This will raise Run-time error '380': Could not set the Selected property. Invalid property value.`, at(toks[i], toks[close]));
@@ -375,7 +375,7 @@ function checkPages(
 		const at = (tok: VbaToken): Span => ({ start: span.start + tok.start, end: span.start + tok.end });
 		const next = tokenText(toks[i + 2]);
 		if (next === 'pages' && toks[i + 3]?.rawText === '(') {
-			const close = matchParenFrom([...toks], i + 3);
+			const close = matchParenFrom(toks, i + 3);
 			const arg = close > 0 ? toks.slice(i + 4, close) : [];
 			const index = signedLiteral(arg);
 			if (index !== undefined && (index < 0 || index >= pages.length)) {

@@ -184,9 +184,9 @@ function argumentRefusal(toks: readonly VbaToken[], at: number, params: readonly
 		if (close < 0) {
 			return undefined;
 		}
-		args = close === open + 1 ? [] : splitTopLevelTokenGroups([...toks], open + 1, ',', close);
+		args = close === open + 1 ? [] : splitTopLevelTokenGroups(toks, open + 1, ',', close);
 	} else if (at === 0 && toks.length > open && toks[open].rawText !== '=' && toks[open].rawText !== '.') {
-		args = splitTopLevelTokenGroups([...toks].filter((tok) => tok.kind !== 'comment'), open, ',', toks.filter((tok) => tok.kind !== 'comment').length);
+		args = splitTopLevelTokenGroups(toks.filter((tok) => tok.kind !== 'comment'), open, ',', toks.filter((tok) => tok.kind !== 'comment').length);
 	} else if (at === 0 && toks.length === open) {
 		args = [];
 	} else if (at > 0 && toks[open]?.rawText !== '=' && toks[open]?.rawText !== '.' && toks[open]?.rawText !== '!') {
@@ -274,8 +274,8 @@ function checkProgIdObjects(base: number, toks: readonly VbaToken[], held: Reado
 	for (let i = 0; i + 2 < toks.length; i++) {
 		const word = tokenText(toks[i]);
 		if ((word === 'createobject' || word === 'getobject') && toks[i + 1].rawText === '(' && toks[i - 1]?.rawText !== '.') {
-			const close = matchParenFrom([...toks], i + 1);
-			const args = close > i + 1 ? splitTopLevelTokenGroups([...toks], i + 2, ',', close) : [];
+			const close = matchParenFrom(toks, i + 1);
+			const args = close > i + 1 ? splitTopLevelTokenGroups(toks, i + 2, ',', close) : [];
 			const arg = word === 'createobject' ? args[0] : args[1];
 			const literal = arg?.length === 1 && arg[0].kind === 'stringLiteral' ? arg[0] : undefined;
 			const problem = literal ? progIdProblem(stringLiteralValue(literal.rawText)) : undefined;
@@ -292,8 +292,8 @@ function checkProgIdObjects(base: number, toks: readonly VbaToken[], held: Reado
 		if (known.display === 'RegExp') {
 			if (['test', 'execute', 'replace'].includes(member) && toks[i + 3]?.rawText === '(') {
 				const problem = known.pattern !== undefined ? regExpPatternProblem(known.pattern) : undefined;
-				const close = matchParenFrom([...toks], i + 3);
-				const first = close > i + 4 ? splitTopLevelTokenGroups([...toks], i + 4, ',', close)[0] : undefined;
+				const close = matchParenFrom(toks, i + 3);
+				const first = close > i + 4 ? splitTopLevelTokenGroups(toks, i + 4, ',', close)[0] : undefined;
 				if (problem) {
 					push('runtimeArgumentValue', `The pattern "${known.pattern}" has ${problem.text}. This will raise Run-time error ${problem.error}.`, at(toks[i + 2]));
 				} else if (first?.length === 1 && tokenText(first[0]) === 'null') {
@@ -924,8 +924,8 @@ function controlsAddedIn(source: string, body: BodyNode[], activity: Conditional
 					continue;
 				}
 				const open = toks[i + 1]?.rawText === '(' ? i + 1 : -1;
-				const close = open > 0 ? matchParenFrom([...toks], open) : toks.length;
-				const args = splitTopLevelTokenGroups([...toks], open > 0 ? open + 1 : i + 1, ',', close);
+				const close = open > 0 ? matchParenFrom(toks, open) : toks.length;
+				const args = splitTopLevelTokenGroups(toks, open > 0 ? open + 1 : i + 1, ',', close);
 				const named = args.find((arg) => arg[1]?.rawText === ':=' && tokenText(arg[0]) === 'name');
 				const arg = named ? named.slice(2) : args[1]?.[1]?.rawText === ':=' ? undefined : args[1];
 				if (arg?.length === 1 && arg[0].kind === 'stringLiteral') {

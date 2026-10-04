@@ -174,7 +174,7 @@ function fieldUseMisuse(
 	// `t.f = Split("a b")` gives a String array to a number array: 13
 	// (issue #604, measured in Excel 16.0).
 	if (target && kind === 'array' && elementType !== undefined && isKnownScalarType(elementType) && !['string', 'byte', 'boolean', 'date'].includes(elementType)
-		&& word(value[0]) === 'split' && value[1]?.rawText === '(' && matchParenFrom([...value], 1) === value.length - 1) {
+		&& word(value[0]) === 'split' && value[1]?.rawText === '(' && matchParenFrom(value, 1) === value.length - 1) {
 		return { rule: 'assignmentTypeMismatch', message: `'${shown}' is an array of ${declared.replace(/\(\)$/, '')}, and Split gives an array of String. This will raise Run-time error '13': Type mismatch.`, span: at };
 	}
 	if (target && kind === 'udt' && value.length === 1 && ['integerLiteral', 'floatLiteral', 'stringLiteral'].includes(value[0].kind)) {

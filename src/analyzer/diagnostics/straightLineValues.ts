@@ -1382,7 +1382,7 @@ function datePartRange(value: readonly VbaToken[] | undefined): readonly [number
 			part = [n, n];
 			i++;
 		} else if (DATE_PART_RANGES[word] && toks[i + 1]?.rawText === '(' && toks[i - 1]?.rawText !== '.') {
-			const close = matchParenFrom([...toks], i + 1);
+			const close = matchParenFrom(toks, i + 1);
 			if (close < 0) {
 				return undefined;
 			}
