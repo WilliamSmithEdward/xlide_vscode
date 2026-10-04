@@ -25,6 +25,12 @@ vi.mock('vscode', async () => ({
 	DocumentHighlightKind: { Read: 1, Write: 2 },
 	SignatureInformation: class { constructor(public label: string) {} },
 	SignatureHelp: class {},
+	Hover: class { constructor(public contents: unknown, public range: unknown) {} },
+	MarkdownString: class {
+		constructor(public value = '') {}
+		appendCodeblock(value: string) { this.value += value; return this; }
+		appendMarkdown(value: string) { this.value += value; return this; }
+	},
 	ParameterInformation: class { constructor(public label: string) {} },
 }));
 vi.mock('../src/vbaDocumentLocation', () => ({
@@ -395,6 +401,29 @@ describe('overlapping reopened semantic refresh', () => {
 
 
 describe('hover and call-tip document lifetimes', () => {
+	it.each(['hover', 'signature'] as const)('drops fast %s results invalidated before delivery', async kind => {
+		for (const cached of [true, false]) {
+			for (const invalidation of ['edited', 'closed', 'canceled']) {
+				const line = kind === 'hover' ? 'Debug.Print ThisWorkbook.Name' : 'x = Left("hello", ';
+				const doc = documentFor('Sub Demo()\n' + line + '\nEnd Sub\n');
+				const provider = new VbaHoverSignatureProvider({
+					cachedEditorProjectContext: () => cached ? {} : undefined,
+					cheapEditorProjectContext: () => ({}), localEditorProjectContext: () => ({}),
+					warmEditorProjectContext() {},
+				} as never);
+				const request = kind === 'hover' ? provider.provideHover.bind(provider) : provider.provideSignatureHelp.bind(provider);
+				const position = new vscode.Position(1, line.length - (kind === 'hover' ? 2 : 0));
+				expect(await request(doc, position, active)).toBeDefined();
+				const token = { isCancellationRequested: false };
+				const result = request(doc, position, token as vscode.CancellationToken);
+				if (invalidation === 'edited') { (doc as unknown as { version: number }).version++; }
+				if (invalidation === 'closed') { (doc as unknown as { isClosed: boolean }).isClosed = true; }
+				if (invalidation === 'canceled') { token.isCancellationRequested = true; }
+				expect(await result, `${kind}/${cached}/${invalidation}`).toBeUndefined();
+			}
+		}
+	});
+
     it.each(['hover', 'signature'] as const)('skips source reads for a closed %s document', async kind => {
         const doc = documentFor('Sub Demo()\nRemoteCall(\nEnd Sub\n');
         (doc as unknown as { isClosed: boolean }).isClosed = true;

@@ -25,7 +25,7 @@ import {
 
 /** The one change of an edit to a VBA document, or undefined for any other event. */
 function soleVbaChange(e: vscode.TextDocumentChangeEvent): vscode.TextDocumentContentChangeEvent | undefined {
-    if (!isVbaDocument(e.document) || e.contentChanges.length !== 1) { return undefined; }
+    if (e.reason !== undefined || e.document.isClosed || !isVbaDocument(e.document) || e.contentChanges.length !== 1) { return undefined; }
     return e.contentChanges[0];
 }
 
@@ -36,16 +36,18 @@ function soleVbaChange(e: vscode.TextDocumentChangeEvent): vscode.TextDocumentCo
  * start immediately.
  */
 export function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
-    let applying = false;
+    const applying = new WeakSet<vscode.TextDocument>();
 
     const sub = vscode.workspace.onDidChangeTextDocument(async (e) => {
-        if (applying) { return; }
         const doc = e.document;
+        if (applying.has(doc)) { return; }
         const change = soleVbaChange(e);
         if (!change) { return; }
         // React only to a plain Enter (newline plus optional auto-indent),
         // never to pastes or multi-character insertions.
         if (!/^\r?\n[ \t]*$/.test(change.text)) { return; }
+        const editor = vscode.window.activeTextEditor;
+        if (!editor || editor.document !== doc) { return; }
 
         const openerLineIndex = change.range.start.line;
         const openerLine = doc.lineAt(openerLineIndex).text;
@@ -58,12 +60,12 @@ export function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
             // Hold the re-entrancy guard across the continuation edits too, so a
             // second change event (the edit itself, or a fast follow-up keystroke)
             // cannot start a concurrent continuation on the same line.
-            applying = true;
+            applying.add(doc);
             try {
                 if (await maybeContinueCommentLine(doc, openerLineIndex)) { return; }
                 await maybeContinueWithMemberLine(doc, openerLineIndex);
             } finally {
-                applying = false;
+                applying.delete(doc);
             }
             return;
         }
@@ -74,9 +76,6 @@ export function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
         const strippedLines = lexerStrippedLines(doc.getText());
         strippedLines[openerLineIndex] = lexerStrippedLine(normalizedOpenerLine);
         const closedAhead = isSmartBlockClosedAhead(strippedLines, openerLineIndex, opener);
-
-        const editor = vscode.window.activeTextEditor;
-        if (!editor || editor.document !== doc) { return; }
 
         const eol = doc.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n';
         const bodyLine = doc.lineAt(bodyLineIndex).text;
@@ -91,9 +90,9 @@ export function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
             new vscode.Position(bodyLineIndex, bodyLine.length),
         );
 
-        applying = true;
+        applying.add(doc);
         try {
-            await editor.edit(
+            const applied = await editor.edit(
                 (eb) => {
                     if (headerParensEdit) {
                         eb.insert(
@@ -108,8 +107,9 @@ export function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
                 },
                 { undoStopBefore: false, undoStopAfter: true },
             );
+            if (!applied) { return; }
         } finally {
-            applying = false;
+            applying.delete(doc);
         }
 
         // Keep the caret on the indented body line, above the inserted End. The
@@ -129,11 +129,28 @@ export function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
             editor.selection = new vscode.Selection(caret, caret);
         };
         placeCaret();
-        setTimeout(placeCaret, 0);
+        scheduleCaretRetry(editor, placeCaret);
         suggestAfterAutoDot(editor, smartBlock.bodyText);
     });
 
     context.subscriptions.push(sub);
+}
+
+/** Retry placement only while this edit still owns the document and selection. */
+function scheduleCaretRetry(editor: vscode.TextEditor, placeCaret: () => void): void {
+    const document = editor.document;
+    const version = document.version;
+    const selection = editor.selection;
+    setTimeout(() => {
+        if (vscode.window.activeTextEditor !== editor) { return; }
+        const current = editor.selection;
+        if (document.isClosed || document.version !== version || editor.document !== document ||
+            current.active.line !== selection.active.line || current.active.character !== selection.active.character ||
+            current.anchor.line !== selection.anchor.line || current.anchor.character !== selection.anchor.character) {
+            return;
+        }
+        placeCaret();
+    }, 0);
 }
 
 /**
@@ -148,14 +165,19 @@ function suggestAfterAutoDot(editor: vscode.TextEditor, expectedLine: string): v
     if (!expectedLine.endsWith('.')) {
         return;
     }
+    const document = editor.document;
+    const version = document.version;
+    const line = editor.selection.active.line;
     // After the caret settles: the delayed placement pass wins same-Enter
     // listener races, and asking earlier would target the pre-edit position.
     setTimeout(() => {
-        if (vscode.window.activeTextEditor !== editor) {
+        if (vscode.window.activeTextEditor !== editor || editor.document !== document ||
+            document.isClosed || document.version !== version) {
             return;
         }
         const caret = editor.selection.active;
-        if (!editor.selection.isEmpty || editor.document.lineAt(caret.line).text !== expectedLine) {
+        if (!editor.selection.isEmpty || caret.line !== line || caret.character !== expectedLine.length ||
+            document.lineAt(caret.line).text !== expectedLine) {
             return;
         }
         void vscode.commands.executeCommand('editor.action.triggerSuggest');
@@ -245,7 +267,7 @@ async function replaceBodyLine(
         editor.selection = new vscode.Selection(caret, caret);
     };
     placeCaret();
-    setTimeout(placeCaret, 0);
+    scheduleCaretRetry(editor, placeCaret);
     return editor;
 }
 
@@ -255,11 +277,11 @@ async function replaceBodyLine(
  * behavior as completed loops.
  */
 export function registerVbaLoopIteratorSync(context: vscode.ExtensionContext): void {
-    let applying = false;
+    const applying = new WeakSet<vscode.TextDocument>();
 
     const sub = vscode.workspace.onDidChangeTextDocument(async (e) => {
-        if (applying) { return; }
         const doc = e.document;
+        if (applying.has(doc)) { return; }
         const change = soleVbaChange(e);
         if (!change) { return; }
         if (/[\r\n]/.test(change.text)) { return; }
@@ -275,7 +297,7 @@ export function registerVbaLoopIteratorSync(context: vscode.ExtensionContext): v
         const syncEdit = resolveLoopIteratorSyncEdit(doc.getText(), offset);
         if (!syncEdit) { return; }
 
-        applying = true;
+        applying.add(doc);
         try {
             await editor.edit(
                 (eb) => eb.replace(
@@ -288,7 +310,7 @@ export function registerVbaLoopIteratorSync(context: vscode.ExtensionContext): v
                 { undoStopBefore: false, undoStopAfter: false },
             );
         } finally {
-            applying = false;
+            applying.delete(doc);
         }
     });
 

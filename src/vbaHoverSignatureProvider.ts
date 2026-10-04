@@ -38,8 +38,11 @@ export class VbaHoverSignatureProvider
 		token?: vscode.CancellationToken,
 	): Promise<vscode.Hover | undefined> {
 		const trace = startPerformanceTrace('hover', document.uri.scheme);
+		const requestVersion = document.version;
 		try {
-			return await this._provideHover(document, position, token);
+			const result = await this._provideHover(document, position, token);
+			return token?.isCancellationRequested || document.isClosed || document.version !== requestVersion
+				? undefined : result;
 		} finally {
 			trace.end(token?.isCancellationRequested ? 'canceled' : 'ok', document.uri.scheme);
 		}
@@ -75,8 +78,11 @@ export class VbaHoverSignatureProvider
 		token?: vscode.CancellationToken,
 	): Promise<vscode.SignatureHelp | undefined> {
 		const trace = startPerformanceTrace('signatureHelp', document.uri.scheme);
+		const requestVersion = document.version;
 		try {
-			return await this._provideSignatureHelp(document, position, token);
+			const result = await this._provideSignatureHelp(document, position, token);
+			return token?.isCancellationRequested || document.isClosed || document.version !== requestVersion
+				? undefined : result;
 		} finally {
 			trace.end(token?.isCancellationRequested ? 'canceled' : 'ok', document.uri.scheme);
 		}
