@@ -660,7 +660,44 @@ export function projectClassMemberAt(
 		return undefined;
 	}
 	const lower = memberName.toLowerCase();
-	return projectType.members.find((member) => member.name.toLowerCase() === lower);
+	return projectMemberNamed(projectType, lower, ctx);
+}
+
+// Raw project lookups must not include inherited host or implicit controls.
+// Scope their first-match index to the caller's existing immutable pass cache.
+interface ProjectMemberQuery {
+	cursor: number;
+	byName: Map<string, VbaProjectClassMember>;
+}
+const PROJECT_MEMBER_QUERIES = new WeakMap<
+	NonNullable<MemberCompletionContext['memberSurfaceCache']>,
+	WeakMap<VbaProjectClassMembers, ProjectMemberQuery>
+>();
+
+function projectMemberNamed(type: VbaProjectClassMembers, name: string, ctx: MemberCompletionContext): VbaProjectClassMember | undefined {
+	const lower = name.toLowerCase();
+	if (!ctx.memberSurfaceCache) {
+		return type.members.find((member) => member.name.toLowerCase() === lower);
+	}
+	let types = PROJECT_MEMBER_QUERIES.get(ctx.memberSurfaceCache);
+	if (!types) {
+		types = new WeakMap();
+		PROJECT_MEMBER_QUERIES.set(ctx.memberSurfaceCache, types);
+	}
+	let query = types.get(type);
+	if (!query) {
+		query = { cursor: 0, byName: new Map() };
+		types.set(type, query);
+	}
+	const cached = query.byName.get(lower);
+	if (cached) { return cached; }
+	while (query.cursor < type.members.length) {
+		const member = type.members[query.cursor++];
+		const key = member.name.toLowerCase();
+		if (!query.byName.has(key)) { query.byName.set(key, member); }
+		if (key === lower) { return query.byName.get(lower); }
+	}
+	return undefined;
 }
 
 // A surface's members are looked up by name once per reference, and a host
@@ -833,9 +870,7 @@ function projectMemberSignature(
 	ctx: MemberCompletionContext,
 ): string | undefined {
 	const projectType = projectClassMembersByName(ctx).get(projectKey);
-	return projectType?.members.find(
-		(member) => member.name.toLowerCase() === memberName.toLowerCase(),
-	)?.signature;
+	return projectType ? projectMemberNamed(projectType, memberName, ctx)?.signature : undefined;
 }
 
 /**
@@ -1869,9 +1904,7 @@ function resolveAnyMemberReturnType(
 	const combined = parseCombinedTypeKey(ownerType);
 	if (combined) {
 		const projectType = projectClassMembersByName(ctx).get(combined.projectKey);
-		const projectMember = projectType?.members.find(
-			(m) => m.name.toLowerCase() === memberName.toLowerCase(),
-		);
+		const projectMember = projectType ? projectMemberNamed(projectType, memberName, ctx) : undefined;
 		if (projectMember?.returns) {
 			const type = resolveDeclaredObjectType(projectMember.returns, ctx, ctx.model);
 			return type ? { type, kind: projectMember.kind } : undefined;
@@ -1893,9 +1926,7 @@ function resolveAnyMemberReturnType(
 	}
 	const projectKey = ownerType.slice(PROJECT_TYPE_PREFIX.length);
 	const projectType = projectClassMembersByName(ctx).get(projectKey);
-	const member = projectType?.members.find(
-		(m) => m.name.toLowerCase() === memberName.toLowerCase(),
-	);
+	const member = projectType ? projectMemberNamed(projectType, memberName, ctx) : undefined;
 	if (!member?.returns) {
 		return implicitMemberReturn(projectKey, memberName, ctx);
 	}
