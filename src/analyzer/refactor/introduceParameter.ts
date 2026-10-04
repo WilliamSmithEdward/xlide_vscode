@@ -108,7 +108,7 @@ export function introduceParameter(input: IntroduceParameterInput): VbaRefactorR
 
 	const here = callSitesOf(source, procedure.name, { skip: procedure.span });
 	for (const site of here) {
-		edits.push({ span: site.argumentInsert, newText: site.argumentText(value) });
+		edits.push({ span: site.argumentInsert, newText: site.argumentText(value, name) });
 	}
 
 	const otherModules: VbaRefactorModuleEdits[] = [];
@@ -122,7 +122,7 @@ export function introduceParameter(input: IntroduceParameterInput): VbaRefactorR
 				moduleName: otherName,
 				edits: sites.map((site) => ({
 					span: site.argumentInsert,
-					newText: site.argumentText(value),
+					newText: site.argumentText(value, name),
 				})),
 			});
 		}
