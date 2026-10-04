@@ -711,7 +711,7 @@ function simulateFillingLoop(
 
 /** The elements of `Split("a,b", ",")` or `Array("a", "b")` written with literals, as Strings (issue #350). */
 function literalElements(expression: string): string[] | undefined {
-	const toks = rawExpressionTokens(expression).filter((tok) => tok.kind !== 'comment');
+	const toks = rawExpressionTokens(expression);
 	const callee = tokenText(toks[0]);
 	if ((callee !== 'split' && callee !== 'array') || toks[1]?.rawText !== '(' || matchParenFrom(toks, 1) !== toks.length - 1) {
 		return undefined;

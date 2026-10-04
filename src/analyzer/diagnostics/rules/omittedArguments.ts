@@ -349,7 +349,7 @@ function omittedParameters(proc: ProcedureNode, call: CallArguments): Omitted[] 
 function omittedValue(param: ParameterNode): OmittedValue | undefined {
 	const type = parameterType(param);
 	if (param.defaultRaw !== undefined) {
-		const toks = rawExpressionTokens(param.defaultRaw).filter((tok) => tok.kind !== 'comment');
+		const toks = rawExpressionTokens(param.defaultRaw);
 		const literal = literalValue(toks);
 		if (!literal) {
 			return undefined;

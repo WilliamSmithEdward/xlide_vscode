@@ -2176,7 +2176,7 @@ export function redimShapesAt(
 		return evaluateIntegerConstantExpression(parts.join(' '), withKnownLocals({ get: () => undefined }, known));
 	};
 	const computedDimension = (node: LeafStatementNode, span: Span): ArrayDimensionBound | undefined => {
-		const toks = rawExpressionTokens(source.slice(span.start, span.end)).filter((tok) => tok.kind !== 'comment');
+		const toks = rawExpressionTokens(source.slice(span.start, span.end));
 		const to = toks.findIndex((tok) => tokenText(tok) === 'to');
 		const upper = computedValue(node, to < 0 ? toks : toks.slice(to + 1));
 		const lowerValue = to < 0 ? undefined : computedValue(node, toks.slice(0, to));
