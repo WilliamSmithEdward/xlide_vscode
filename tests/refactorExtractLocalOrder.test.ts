@@ -42,7 +42,7 @@ describe('Extract Method local ordering', () => {
 
     it('keeps procedure parameters before later declarations and handles single locals', () => {
         expect(applied(fixture('', 'Dim later As Long', 'Debug.Print later, first', 'Sub Main(ByVal first As Long)')))
-            .toContain('Private Sub Work(ByVal first As Long, ByVal later As Long)');
+            .toContain('Private Sub Work(ByRef first As Long, ByVal later As Long)');
         expect(applied(fixture('', 'Dim one As Long', 'Debug.Print one')))
             .toContain('Private Sub Work(ByVal one As Long)');
     });

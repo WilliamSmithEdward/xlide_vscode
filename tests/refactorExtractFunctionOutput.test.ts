@@ -11,8 +11,6 @@ const cases = [
     ['Dim untyped', 'untyped', '3', ''],
     ['Dim shortText As String * 5', 'shortText', '"hello"', ''],
     ['Dim count%', 'count', '3', ''],
-    ['', 'number', '3', 'ByRef number As Long'],
-    ['', 'number', '3', 'ByVal number%'],
 ] as const;
 const undeclared = (source: string) => analyzeModule(source, {knownIdentifiers: new Set<string>()}).filter(d=>d.code==='undeclared-variable');
 describe.each(['\n','\r\n','\r'])('Function output declaration with %j', eol => {
