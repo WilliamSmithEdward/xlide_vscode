@@ -19,16 +19,11 @@ import {
 } from './xlsxFormula';
 import { escapeRegExp } from './ooxml';
 import { editSheetShape, listSheetShapes, type ShapeEdit, type ShapeInfo } from './xlsxShapes';
-import { sheetsOfOoxml, sheetsOfXlsb, type WorkbookSheet } from './workbookSheets';
+import { PART_HEAD_BYTES, sheetsOfOoxml, sheetsOfXlsb, type WorkbookSheet } from './workbookSheets';
 import { ZipArchive } from './zip';
 
 export class XlsxError extends Error {}
 
-/**
- * How much of a sheet part, compressed, to inflate for its sheetPr: the
- * first child of the root element, a few hundred bytes in.
- */
-const SHEET_HEAD_BYTES = 16 * 1024;
 const SHEET_PR_RE = /<sheetPr\b[^>]*>/;
 
 export interface SheetSummary {
@@ -518,7 +513,7 @@ export class XlsxWorkbook {
 	 * shows none is read whole.
 	 */
 	private sheetCodeName(path: string): string | undefined {
-		const sheetPr = SHEET_PR_RE.exec(this.zip.readPrefix(path, SHEET_HEAD_BYTES).toString('utf8'))?.[0]
+		const sheetPr = SHEET_PR_RE.exec(this.zip.readPrefix(path, PART_HEAD_BYTES).toString('utf8'))?.[0]
 			?? SHEET_PR_RE.exec(this.zip.read(path).toString('utf8'))?.[0];
 		return sheetPr ? /\bcodeName="([^"]*)"/.exec(sheetPr)?.[1] || undefined : undefined;
 	}

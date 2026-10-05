@@ -5,7 +5,7 @@ Listing a workbook's modules gives each worksheet module its sheet's ActiveX con
 Two changes, both in `src/vba`:
 
 1. `readSheet` reads the sheet part once and hands the text to `sheetParts` and `readControls`.
-2. `sheetCodeName` looks for the `sheetPr` in the head of the part, through `ZipArchive.readPrefix`, before reading the whole of it. The `sheetPr` is the first child of the root element, so the head holds it. The parsing is the same two regular expressions as before. The first `sheetPr` of the head is the first of the part, so the answer is the same; a part whose head shows no `sheetPr` is read whole, as it always was.
+2. `sheetCodeName` looks for the `sheetPr` in the head of the part, through `ZipArchive.readPrefix`, before reading the whole of it: the same head the sheet catalog reads. The `sheetPr` is the first child of the root element, so the head holds it. The parsing is the same two regular expressions as before. The first `sheetPr` of the head is the first of the part, so the answer is the same; a part whose head shows no `sheetPr` is read whole, as it always was.
 
 That leaves one whole read of each sheet per listing, where there were three. A sheet with no `sheetPr` at all is read twice, once to look for one; Excel writes a `sheetPr` for every sheet that has a module, so in a workbook with a VBA project that is a sheet added and never seen by the VBA editor.
 
@@ -17,7 +17,7 @@ Nothing is intended to, and nothing did. `readModulesFromBuffer` and `xlsx.shape
 
 ## Reproduce
 
-Node v24.21.0; Intel Core i5-8265U @ 1.60GHz (a laptop, and noisy: read the ratios, not the absolute values). Baseline `982d124cc98b0b0ade198763365aa5d3aff22dda`. The script bundles `projectService` with the pinned esbuild, once for Node and once with the web build's leaf swap, and with `--baseline` loads the two changed files from that commit. Each fixture's first sheet is grown to 60,000 non-repeating rows (5.5 MB of XML). Each call is warm: the project parse is cached, three warm-up calls, then 15 measured rounds. Timing covers the engine call only, not VS Code or the tree. The web rows are the web build's bundle run under Node, not in a browser.
+Node v24.21.0; Intel Core i5-8265U @ 1.60GHz (a laptop, and noisy: read the ratios, not the absolute values). Baseline `982d124cc98b0b0ade198763365aa5d3aff22dda`. The script bundles `projectService` with the pinned esbuild, once for Node and once with the web build's leaf swap, and with `--baseline` loads `xlsx.ts` and `xlsxShapes.ts` from that commit. Each fixture's first sheet is grown to 60,000 non-repeating rows (5.5 MB of XML). Each call is warm: the project parse is cached, three warm-up calls, then 15 measured rounds. Timing covers the engine call only, not VS Code or the tree. The web rows are the web build's bundle run under Node, not in a browser.
 
 ```powershell
 node scripts/benchmark-module-listing.mjs --baseline=982d124cc98b0b0ade198763365aa5d3aff22dda > before.json
