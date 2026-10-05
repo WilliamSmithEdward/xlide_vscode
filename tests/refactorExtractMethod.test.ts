@@ -62,7 +62,7 @@ describe('what it writes', () => {
 		expect(out).toContain('End Sub');
 	});
 
-	it('passes ByVal what the selection reads and never writes', () => {
+	it('retains the binding of what the selection reads without a syntactic write', () => {
 		const out = applied([
 			'Option Explicit',
 			'',
@@ -75,7 +75,7 @@ describe('what it writes', () => {
 			'End Sub',
 			'',
 		].join('\r\n'));
-		expect(out).toContain('Private Sub Extracted(ByVal n As Long)');
+		expect(out).toContain('Private Sub Extracted(ByRef n As Long)');
 		expect(out).toContain('    Extracted n\r\n');
 	});
 

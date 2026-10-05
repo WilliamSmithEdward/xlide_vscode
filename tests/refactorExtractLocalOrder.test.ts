@@ -27,23 +27,23 @@ describe('Extract Method local ordering', () => {
         expect(result!.ok).toBe(true);
         expect(searches).toBeLessThanOrEqual(names.length);
         if (!result!.ok) { throw new Error(result!.reason); }
-        expect(applyVbaTextEdits(input.source, result!.edits)).toContain('Private Sub Work(' + order.map(name => 'ByVal ' + name + ' As Long').join(', ') + ')');
+        expect(applyVbaTextEdits(input.source, result!.edits)).toContain('Private Sub Work(' + order.map(name => 'ByRef ' + name + ' As Long').join(', ') + ')');
     });
 
     it('preserves raw first occurrence ordering including comments', () => {
         expect(applied(fixture("' Beta Alpha\n", 'Dim Alpha As Long\nDim Beta As Long', 'Debug.Print Alpha, Beta')))
-            .toContain('Private Sub Work(ByVal Beta As Long, ByVal Alpha As Long)');
+            .toContain('Private Sub Work(ByRef Beta As Long, ByRef Alpha As Long)');
     });
 
     it('preserves stable ties when the first raw occurrence is a shared substring', () => {
         expect(applied(fixture("' arr\n", 'Dim arr As Long\nDim a As Long', 'Debug.Print a, arr')))
-            .toContain('Private Sub Work(ByVal arr As Long, ByVal a As Long)');
+            .toContain('Private Sub Work(ByRef arr As Long, ByRef a As Long)');
     });
 
     it('keeps procedure parameters before later declarations and handles single locals', () => {
-        expect(applied(fixture('', 'Dim later As Long', 'Debug.Print later, first', 'Sub Main(ByVal first As Long)')))
-            .toContain('Private Sub Work(ByRef first As Long, ByVal later As Long)');
+        expect(applied(fixture('', 'Dim later As Long', 'Debug.Print later, first', 'Sub Main(ByRef first As Long)')))
+            .toContain('Private Sub Work(ByRef first As Long, ByRef later As Long)');
         expect(applied(fixture('', 'Dim one As Long', 'Debug.Print one')))
-            .toContain('Private Sub Work(ByVal one As Long)');
+            .toContain('Private Sub Work(ByRef one As Long)');
     });
 });

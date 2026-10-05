@@ -23,7 +23,7 @@ import { procedureContainingSpan, walkBody, statementRemovalSpan, mergeRemovals,
  *
  * | inside the selection      | after it | becomes                     |
  * | ------------------------- | -------- | --------------------------- |
- * | read before it is written | -        | a parameter, ByVal          |
+ * | read before it is written | -        | a parameter, ByRef          |
  * | read before written, and written | read | a parameter, ByRef   |
  * | written first             | read     | the result, or ByRef        |
  * | written first             | not read | its Dim moves across        |
@@ -140,7 +140,7 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 			|| local.type.toLowerCase() === 'variant' || isRefactorObjectType(local.type);
 		(bound ? bindings : valueLocals).push(local);
 	}
-	const byValIn = valueLocals.filter((l) => l.readBeforeWriteInside && !(l.writtenInside && l.readAfter));
+	const inputs = valueLocals.filter((l) => l.readBeforeWriteInside && !(l.writtenInside && l.readAfter));
 	const byRefIn = valueLocals.filter((l) => l.readBeforeWriteInside && l.writtenInside && l.readAfter);
 	const outputs = valueLocals.filter((l) => !l.readBeforeWriteInside && l.writtenInside && l.readAfter);
 	const moved = valueLocals.filter(
@@ -151,21 +151,29 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 	// and the extraction stays a Sub.
 	const asFunction = outputs.length === 1;
 	const byRefOut = asFunction ? [] : outputs;
+	const fixedStringBinding = valueLocals.find(local => local.declaration?.decl.fixedLength !== undefined
+		&& (local.readBeforeWriteInside || (!asFunction && local.writtenInside && local.readAfter)));
+	if (fixedStringBinding) {
+		return refuse(`'${fixedStringBinding.name}' is a fixed-length String. Extract Method cannot preserve its binding in a helper parameter.`);
+	}
 
 	// A parent's ByVal parameter is already a private variable; ByRef here
 	// preserves that variable, while also preserving a parent's caller alias.
 	// Arrays and reference-capable/opaque locals also retain their original
 	// variable. ByRef avoids default-property coercion and works for Enums/UDTs
-	// without assuming every unknown type is an object.
+	// without assuming every unknown type is an object. Primitive inputs also
+	// need the same variable: passing one to a ByRef callee is syntactically a
+	// read, but the callee can still assign to it.
+	const helperBinding = (local: LocalUse) => {
+		const binding = local.parameter ?? local.declaration!.decl;
+		return { text: bindingText(source, binding), argument: binding.nameSpan ? source.slice(binding.nameSpan.start, binding.nameSpan.end) : local.name };
+	};
 	const params = [
 		...(resultBinding ? [{ text: resultBinding.parameter, argument: resultBinding.argument }] : []),
-		...bindings.map(local => {
-			const binding = local.parameter ?? local.declaration!.decl;
-			return { text: bindingText(source, binding), argument: binding.nameSpan ? source.slice(binding.nameSpan.start, binding.nameSpan.end) : local.name };
-		}),
-		...byValIn.map((l) => ({ argument: l.name, text: `ByVal ${l.name} As ${l.type}` })),
-		...byRefIn.map((l) => ({ argument: l.name, text: `ByRef ${l.name} As ${l.type}` })),
-		...byRefOut.map((l) => ({ argument: l.name, text: `ByRef ${l.name} As ${l.type}` })),
+		...bindings.map(helperBinding),
+		...inputs.map(helperBinding),
+		...byRefIn.map(helperBinding),
+		...byRefOut.map(helperBinding),
 	];
 
 	if (params.some(parameter => parameter.argument.replace(/^\[([\s\S]*)\]$/, '$1').toLowerCase() === name.toLowerCase())) {

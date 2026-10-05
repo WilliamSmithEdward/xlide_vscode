@@ -23,7 +23,7 @@ for (const [ending, eol] of endings) {
                 if (!result.ok) { throw new Error(result.reason); }
                 const actual = applyVbaTextEdits(input.source, result.edits);
                 expect(actual).toContain(header + eol + '    Dim one As Long' + eol + '    Work one' + eol + closer);
-                expect(actual).toContain('Private Sub Work(ByVal one As Long)' + eol + '    Debug.Print one' + eol + 'End Sub');
+                expect(actual).toContain('Private Sub Work(ByRef one As Long)' + eol + '    Debug.Print one' + eol + 'End Sub');
                 expect(input.source.slice(input.span.start, input.span.end)).toBe('    Debug.Print one');
             });
 
