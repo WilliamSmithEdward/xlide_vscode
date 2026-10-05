@@ -298,7 +298,9 @@ function classifyLocals(source: string, procedure: ProcedureNode, block: Span): 
 
 	const out: LocalUse[] = [];
 	const names = new Set([...declarations.keys(), ...parameters.keys()]);
-	const foundByName = findIdentifierOccurrencesForNames(source, [...names]);
+	// Locals belong to this invocation; do not collect and discard matches
+	// from unrelated procedures elsewhere in a large module.
+	const foundByName = findIdentifierOccurrencesForNames(source, [...names], procedure.span);
 	const tokens = names.size > 0 ? tokenizeCached(source) : [];
 	const selected = new Map<string, {
 		occurrences: VbaIdentifierOccurrence[];
@@ -307,7 +309,6 @@ function classifyLocals(source: string, procedure: ProcedureNode, block: Span): 
 	for (const lower of names) {
 		const declaration = declarations.get(lower);
 		const occurrences = (foundByName.get(lower) ?? [])
-			.filter((occ) => occ.offset >= procedure.span.start && occ.offset <= procedure.span.end)
 			.filter((occ) => !declaration || !within(occ.offset, declaration.group.span))
 			.filter(occ => {
 				// A qualified member can share a local's spelling without using its
