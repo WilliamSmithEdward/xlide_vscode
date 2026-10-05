@@ -446,6 +446,17 @@ export function defTypeOf(symbols: ReturnType<typeof buildModuleSymbols>, name: 
 	return type === 'Variant' || type === 'Decimal' ? undefined : type;
 }
 
+/** Resolve an implicit value type only in the module that owns its declaration. */
+function effectiveDeclaredValueType(symbols: ReturnType<typeof buildModuleSymbols>, symbol: VbaSymbol): string | undefined {
+	if (symbol.asType || symbol.paramArray || symbol.moduleName.toLowerCase() !== symbols.moduleName.toLowerCase()) {
+		return symbol.asType;
+	}
+	return symbol.kind === 'localVariable' || symbol.kind === 'parameter' || symbol.kind === 'moduleVariable'
+		|| symbol.kind === 'function' || symbol.kind === 'propertyGet'
+		? defTypeOf(symbols, symbol.name)
+		: undefined;
+}
+
 export function typeEnvironmentFor(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	proc: ProcedureNode,
@@ -463,7 +474,7 @@ export function typeEnvironmentFor(
 		own.set(proc.name.toLowerCase(), returnType);
 	}
 	for (const child of procSym?.children ?? []) {
-		const type = child.asType ?? (child.kind === 'localVariable' || child.kind === 'parameter' ? defTypeOf(symbols, child.name) : undefined);
+		const type = effectiveDeclaredValueType(symbols, child);
 		if (type) {
 			own.set(child.name.toLowerCase(), type);
 		}
@@ -506,7 +517,7 @@ function declarationShapeModuleBase(
 	for (const sym of symbols.root.children ?? []) {
 		if (isValueDeclarationSymbol(sym)) {
 			base.set(sym.name.toLowerCase(), {
-				asType: sym.asType,
+				asType: effectiveDeclaredValueType(symbols, sym),
 				isArray: sym.isArray === true,
 				isFixedArray: sym.arrayBounds !== undefined,
 			});
@@ -527,7 +538,8 @@ export function declarationShapeEnvironmentFor(
 	}
 	const own = new Map<string, DeclaredValueShape>();
 	const procSym = procedureSymbolFor(symbols, proc);
-	const returnType = returnAssignmentTypeFor(proc);
+	const returnType = returnAssignmentTypeFor(proc)
+		?? ((proc.procKind === 'Function' || proc.procKind === 'PropertyGet') && !proc.typeSuffix ? defTypeOf(symbols, proc.name) : undefined);
 	if (returnType) {
 		own.set(proc.name.toLowerCase(), {
 			asType: returnType,
@@ -538,7 +550,7 @@ export function declarationShapeEnvironmentFor(
 	for (const child of procSym?.children ?? []) {
 		if (isValueDeclarationSymbol(child)) {
 			own.set(child.name.toLowerCase(), {
-				asType: child.asType,
+				asType: effectiveDeclaredValueType(symbols, child),
 				isArray: child.isArray === true,
 				isFixedArray: child.arrayBounds !== undefined,
 			});
@@ -621,8 +633,8 @@ export function declaredTypeForSourceBinding(
 	if (binding.scope === 'unresolved' || binding.scope === 'ambiguous') {
 		return { resolved: binding.scope === 'ambiguous' };
 	}
-	const typed = binding.definitions.find((definition) => definition.asType);
-	return { resolved: true, asType: typed?.asType };
+	const typed = binding.definitions.find((definition) => effectiveDeclaredValueType(symbols, definition));
+	return { resolved: true, asType: typed ? effectiveDeclaredValueType(symbols, typed) : undefined };
 }
 
 export function declaredValueTypeForSourceBinding(
@@ -645,10 +657,10 @@ export function declaredValueTypeForSourceBinding(
 	if (valueDefinitions.length === 0) {
 		return { resolved: false };
 	}
-	const typed = valueDefinitions.find((definition) => definition.asType);
+	const typed = valueDefinitions.find((definition) => effectiveDeclaredValueType(symbols, definition));
 	const chosen = typed ?? valueDefinitions[0];
 	const stringValue = valueDefinitions.length === 1 ? constantStringValue(chosen) : undefined;
-	return { resolved: true, asType: typed?.asType, kind: chosen.kind, isArray: chosen.isArray === true, ...(stringValue !== undefined ? { stringValue } : {}) };
+	return { resolved: true, asType: effectiveDeclaredValueType(symbols, chosen), kind: chosen.kind, isArray: chosen.isArray === true, ...(stringValue !== undefined ? { stringValue } : {}) };
 }
 
 export function declaredValueTypeForQualifiedSourceBinding(
@@ -678,8 +690,8 @@ export function declaredValueTypeForQualifiedSourceBinding(
 	if (matchingValues.length === 0) {
 		return { resolved: true };
 	}
-	const typed = matchingValues.find((definition) => definition.asType);
-	return { resolved: true, asType: typed?.asType };
+	const typed = matchingValues.find((definition) => effectiveDeclaredValueType(symbols, definition));
+	return { resolved: true, asType: typed ? effectiveDeclaredValueType(symbols, typed) : undefined };
 }
 
 /**
@@ -747,12 +759,12 @@ export function declaredShapeForSourceBinding(
 		return { resolved: binding.scope === 'ambiguous' };
 	}
 	const shaped = binding.definitions.find(
-		(definition) => definition.asType || definition.isArray === true,
+		(definition) => effectiveDeclaredValueType(symbols, definition) || definition.isArray === true,
 	);
 	return {
 		resolved: true,
 		shape: {
-			asType: shaped?.asType,
+			asType: shaped ? effectiveDeclaredValueType(symbols, shaped) : undefined,
 			isArray: shaped?.isArray === true,
 			isFixedArray: shaped?.arrayBounds !== undefined,
 		},

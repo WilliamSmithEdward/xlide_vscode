@@ -2,6 +2,22 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.0.1] - 2026-10-04
+
+Correct implicit VBA argument types and reduce repeated worksheet reads.
+
+- **DefType caller bindings** (#1235). An implicit local, parameter, array
+  element or Function/Property Get result now uses its module's default
+  type during argument checks. Valid `DefLng` calls no longer report false
+  ByRef type or array-shape errors. Explicit types, type suffixes,
+  ParamArray elements and declarations from other modules retain their
+  existing types. Regressions cover LF, CRLF and CR source.
+- **Read large worksheet parts once when listing shapes and modules**
+  (#1236, contributed by Sam, @swsammy). Drawing references and controls
+  share the same decoded worksheet text; code-name lookup first reads a
+  bounded ZIP prefix and falls back to the whole part when needed.
+  No cache is added, and shape and module outputs remain unchanged.
+
 ## [11.0.0] - 2026-10-04
 
 A substantial update to VBA analysis, large-project editing and the workbook
