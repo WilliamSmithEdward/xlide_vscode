@@ -24,6 +24,13 @@ import { ZipArchive } from './zip';
 
 export class XlsxError extends Error {}
 
+/**
+ * How much of a sheet part, compressed, to inflate for its sheetPr: the
+ * first child of the root element, a few hundred bytes in.
+ */
+const SHEET_HEAD_BYTES = 16 * 1024;
+const SHEET_PR_RE = /<sheetPr\b[^>]*>/;
+
 export interface SheetSummary {
 	name: string;
 	dimensions: string;
@@ -504,11 +511,15 @@ export class XlsxWorkbook {
 	 * A worksheet's code name, the name of its module in the VBA project, from
 	 * its sheetPr. Excel writes one once the sheet has its module, which it
 	 * makes when the VBA editor is opened after the sheet is added; a sheet
-	 * saved before then has none, as Sheet2 of ShapesFixture shows.
+	 * saved before then has none, as Sheet2 of ShapesFixture shows. The
+	 * sheetPr comes before the rows, so the head of the part is looked in
+	 * first, and a sheet of a million cells is not inflated for it. The first
+	 * sheetPr of the head is the first of the part; only a part whose head
+	 * shows none is read whole.
 	 */
 	private sheetCodeName(path: string): string | undefined {
-		const xml = this.zip.read(path).toString('utf8');
-		const sheetPr = /<sheetPr\b[^>]*>/.exec(xml)?.[0];
+		const sheetPr = SHEET_PR_RE.exec(this.zip.readPrefix(path, SHEET_HEAD_BYTES).toString('utf8'))?.[0]
+			?? SHEET_PR_RE.exec(this.zip.read(path).toString('utf8'))?.[0];
 		return sheetPr ? /\bcodeName="([^"]*)"/.exec(sheetPr)?.[1] || undefined : undefined;
 	}
 
