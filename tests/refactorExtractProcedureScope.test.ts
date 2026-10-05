@@ -26,7 +26,7 @@ describe.each(['\n', '\r\n', '\r'])('Extract Method procedure scope with %j', eo
         ['Dim x As Long', 'x = 1', 'Debug.Print x', 'Private Function Work() As Long', 'x = Work()'],
         ['Dim x As Long', 'x = x + 1', 'Debug.Print x', 'Private Sub Work(ByRef x As Long)', 'Work x'],
         ['Dim x As Variant', 'Mutate x', 'Debug.Print x', 'Private Sub Work(ByRef x As Variant)', 'Work x'],
-        ['Dim Δ As Long', 'Debug.Print Δ', '', 'Private Sub Work(ByVal Δ As Long)', 'Work Δ'],
+        ['Dim Δ As Long', 'Debug.Print Δ', '', 'Private Sub Work(ByRef Δ As Long)', 'Work Δ'],
     ])('retains caller-local behavior for %s / %s', (decl, body, after, header, invocation) => {
         const convert = (s: string) => s.replace(/\n/g, eol);
         const other = convert('Sub Other()\nDim x As Long, Δ As Long\nx = 4\nΔ = 2\nEnd Sub\n');

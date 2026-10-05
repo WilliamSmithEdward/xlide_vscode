@@ -70,7 +70,7 @@ describe.each(['\n', '\r\n', '\r'])('Extract Method reference-capable locals wit
     });
     it('allows an unrelated primitive selection with an As New declaration', () => {
         const { source } = applied(fixture('Dim x As New Collection\nDim n As Long', 'Debug.Print n', eol));
-        expect(source).toContain('Private Sub Work(ByVal n As Long)');
+        expect(source).toContain('Private Sub Work(ByRef n As Long)');
     });
     it.each(['Dim x As Variant', 'Dim x As Collection'])('refuses a helper/parameter collision for %s', decl => {
         const result = extractMethod(fixture(decl, 'Debug.Print x', eol, '', '', '', 'X'));

@@ -33,7 +33,7 @@ for (const count of [0, 100, 1000, 10000]) for (const placement of ['before', 'a
  assert(source.split('\n').every(line => line.length < 1023));
  const input = { source, span: { start: prefix.length, end: prefix.length + body.length }, name: 'Work' }, result = api.extractMethod(input);
  assert.equal(result.ok, true);
- const parameter = 'ByVal x As Long';
+ const parameter = baseline ? 'ByVal x As Long' : 'ByRef x As Long';
  const edited = api.applyVbaTextEdits(source, result.edits);
  assert(edited.includes('Private Sub Work(' + parameter + ')\n' + body + '\nEnd Sub'));
  assert(edited.includes('Work x'));

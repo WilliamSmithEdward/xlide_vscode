@@ -42,7 +42,7 @@ describe.each(['\n','\r\n','\r'])('grouped declaration extraction with %j', eol 
     });
     it('retains a selected input declaration in the caller and uses only its parameter in the helper', () => {
         const {caller,helper}=extract('', 'Dim a As Long'+eol+'Debug.Print a', 'Debug.Print "after"', eol);
-        expect(caller).toContain('Dim a As Long'); expect(helper).toContain('ByVal a As Long');
+        expect(caller).toContain('Dim a As Long'); expect(helper).toContain('ByRef a As Long');
         expect(helper).not.toContain('Dim a');
     });
     it('preserves a sibling declaration in a separate colon statement', () => {

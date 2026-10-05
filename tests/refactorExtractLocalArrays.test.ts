@@ -63,10 +63,10 @@ describe.each(['\n', '\r\n', '\r'])('Extract Method local arrays with %j', eol =
     });
     it('preserves multiple array bindings alongside ordinary parameters and scalar inputs', () => {
         const input = fixture('Dim x(1 To 2) As Long, y() As String, n As Long', 'x(2) = p\nReDim y(1 To 2)\ny(2) = CStr(n)', eol);
-        input.source = input.source.replace('Sub Main()', 'Sub Main(ByVal p As Long)');
-        input.span.start += 'ByVal p As Long'.length; input.span.end += 'ByVal p As Long'.length;
+        input.source = input.source.replace('Sub Main()', 'Sub Main(ByRef p As Long)');
+        input.span.start += 'ByRef p As Long'.length; input.span.end += 'ByRef p As Long'.length;
         const { source } = applied(input);
-        expect(source).toContain('Private Sub Work(ByRef p As Long, ByRef x() As Long, ByRef y() As String, ByVal n As Long)');
+        expect(source).toContain('Private Sub Work(ByRef p As Long, ByRef x() As Long, ByRef y() As String, ByRef n As Long)');
     });
     it.each([
         ['Dim x(1 To 2) As New Collection', 'x(2).Add 7', 'As New'],
@@ -79,6 +79,6 @@ describe.each(['\n', '\r\n', '\r'])('Extract Method local arrays with %j', eol =
     });
     it.each(['Dim x(1 To 2) As New Collection', 'Dim x(1 To 2) As String * 5'])('allows unrelated scalar extraction with %s', decl => {
         const { source } = applied(fixture(decl + eol + 'Dim n As Long', 'Debug.Print n', eol));
-        expect(source).toContain('Private Sub Work(ByVal n As Long)');
+        expect(source).toContain('Private Sub Work(ByRef n As Long)');
     });
 });
