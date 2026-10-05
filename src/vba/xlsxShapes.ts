@@ -432,8 +432,7 @@ interface SheetParts {
 	vmlRel?: string;
 }
 
-function sheetParts(pkg: Package, sheet: { name: string; path: string }): SheetParts {
-	const xml = pkg.read(sheet.path);
+function sheetParts(pkg: Package, sheet: { name: string; path: string }, xml: string): SheetParts {
 	const rels = pkg.relationships(sheet.path);
 	const byId = (tag: string | undefined): Relationship | undefined => {
 		const id = tag ? attr(tag, 'r:id') : undefined;
@@ -448,8 +447,7 @@ function sheetParts(pkg: Package, sheet: { name: string; path: string }): SheetP
 	};
 }
 
-function readControls(pkg: Package, parts: SheetParts): FormControl[] {
-	const sheetXml = pkg.read(parts.path);
+function readControls(pkg: Package, parts: SheetParts, sheetXml: string): FormControl[] {
 	const rels = pkg.relationships(parts.path);
 	const controls = new Map<number, FormControl>();
 	// The <controls> entries: name, macro, alt text and anchor, and the
@@ -615,8 +613,11 @@ interface SheetShapes {
 }
 
 function readSheet(pkg: Package, sheet: { name: string; path: string }): SheetShapes {
-	const parts = sheetParts(pkg, sheet);
-	const controls = readControls(pkg, parts);
+	// The sheet part is read once and shared: it holds the rows as well, and
+	// inflating it is most of what listing a large sheet's shapes costs.
+	const sheetXml = pkg.read(sheet.path);
+	const parts = sheetParts(pkg, sheet, sheetXml);
+	const controls = readControls(pkg, parts, sheetXml);
 	const ids = new Set(controls.map((c) => c.shapeId));
 	const read = parts.drawingPath && pkg.has(parts.drawingPath)
 		? readDrawing(pkg, parts.drawingPath, ids, workbookTheme(pkg))
