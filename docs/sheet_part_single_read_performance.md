@@ -19,10 +19,10 @@ The tests below hold the code name to that on every Excel fixture in the reposit
 
 ## Reproduce
 
-Node v24.21.0; Intel Core i5-8265U @ 1.60GHz (a laptop, and noisy: read the ratios, not the absolute values). Baseline `982d124cc98b0b0ade198763365aa5d3aff22dda`. The script bundles `projectService` with the pinned esbuild, once for Node and once with the web build's leaf swap, and with `--baseline` loads `xlsx.ts` and `xlsxShapes.ts` from that commit. Each fixture's first sheet is grown to 60,000 non-repeating rows (5.5 MB of XML). Each call is warm: the project parse is cached, three warm-up calls, then 15 measured rounds. Timing covers the engine call only, not VS Code or the tree. The web rows are the web build's bundle run under Node, not in a browser.
+Node v20.20.2 on Windows; Intel Core i5-8265U @ 1.60GHz (a laptop, and noisy: read the ratios, not the absolute values). Baseline `751fdb2bcec07e2f4dc956d97bed5ae159bfb93a`. The script bundles `projectService` with the pinned esbuild, once for Node and once with the web build's leaf swap, and with `--baseline` loads `xlsx.ts` and `xlsxShapes.ts` from that commit. Each fixture's first sheet is grown to 60,000 non-repeating rows (5.5 MB of XML). Each call is warm: the project parse is cached, three warm-up calls, then 15 measured rounds. Timing covers the engine call only, not VS Code or the tree. The web rows are the web build's bundle run under Node, not in a browser.
 
 ```powershell
-node scripts/benchmark-module-listing.mjs --baseline=982d124cc98b0b0ade198763365aa5d3aff22dda > before.json
+node scripts/benchmark-module-listing.mjs --baseline=751fdb2bcec07e2f4dc956d97bed5ae159bfb93a > before.json
 node scripts/benchmark-module-listing.mjs > after.json
 ```
 
@@ -34,20 +34,20 @@ Milliseconds per call. `SheetsFixture`'s large sheet has no shapes; `ShapesFixtu
 
 | Workbook | Codec | Call | Median before | Median after | p95 before | p95 after |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
-| SheetsFixture | node | listModules | 32.9 | 14.4 | 46.5 | 24.1 |
-| SheetsFixture | node | readModules | 38.5 | 13.9 | 48.9 | 21.9 |
-| SheetsFixture | node | listShapes | 36.8 | 13.8 | 50.2 | 22.6 |
-| SheetsFixture | web | listModules | 139.2 | 37.0 | 203.5 | 47.0 |
-| SheetsFixture | web | readModules | 101.5 | 36.9 | 111.5 | 47.4 |
-| SheetsFixture | web | listShapes | 100.1 | 38.0 | 108.2 | 48.9 |
-| ShapesFixture | node | listModules | 31.4 | 13.9 | 46.0 | 22.1 |
-| ShapesFixture | node | readModules | 31.1 | 13.5 | 44.4 | 23.2 |
-| ShapesFixture | node | listShapes | 31.5 | 14.4 | 43.1 | 25.4 |
-| ShapesFixture | web | listModules | 99.7 | 45.2 | 115.9 | 49.7 |
-| ShapesFixture | web | readModules | 115.8 | 44.8 | 136.6 | 63.3 |
-| ShapesFixture | web | listShapes | 101.6 | 51.5 | 113.6 | 69.5 |
+| SheetsFixture | node | listModules | 35.4 | 15.1 | 71.7 | 16.6 |
+| SheetsFixture | node | readModules | 44.2 | 15.1 | 60.1 | 16.9 |
+| SheetsFixture | node | listShapes | 44.0 | 15.8 | 57.1 | 17.7 |
+| SheetsFixture | web | listModules | 126.3 | 46.1 | 133.2 | 47.9 |
+| SheetsFixture | web | readModules | 126.2 | 45.1 | 148.2 | 47.3 |
+| SheetsFixture | web | listShapes | 126.5 | 44.9 | 134.3 | 49.4 |
+| ShapesFixture | node | listModules | 33.3 | 16.4 | 35.2 | 27.5 |
+| ShapesFixture | node | readModules | 30.0 | 16.2 | 34.5 | 17.8 |
+| ShapesFixture | node | listShapes | 33.0 | 17.7 | 43.8 | 32.0 |
+| ShapesFixture | web | listModules | 135.8 | 47.4 | 151.5 | 49.8 |
+| ShapesFixture | web | readModules | 137.5 | 51.4 | 154.3 | 59.6 |
+| ShapesFixture | web | listShapes | 125.4 | 47.3 | 130.7 | 57.8 |
 
-With `--rows=0` (the fixtures as they are, a few kilobytes per sheet) every call stayed between 1.0 and 2.4 ms before and after; the differences are within the noise, so small workbooks neither gain nor lose.
+With `--rows=0` (the fixtures as they are, a few kilobytes per sheet) every call stayed between 1.2 and 3.8 ms before and after; the differences are within the noise, so small workbooks neither gain nor lose.
 
 ## Validation
 
