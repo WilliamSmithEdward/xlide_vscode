@@ -1,5 +1,6 @@
 import { tokenize, tokenizeCached } from '../lexer/tokenize';
 import { firstTokenAtOrAfter, tokenName } from '../lexer/tokenHelpers';
+import { isRefactorObjectType } from './typeKinds';
 import { callSitesOf } from './callSites';
 import { parseModule } from '../parser/parseModule';
 import type { BodyNode, ModuleNode, ProcedureNode, ParameterNode, Span, VariableDeclNode, VariableGroupNode } from '../parser/nodes';
@@ -16,8 +17,9 @@ import { procedureContainingSpan, walkBody, statementRemovalSpan, mergeRemovals,
  * classified from the analyzer's reference kinds (issue #55) and its position
  * relative to the selection. Existing procedure parameters instead retain
  * their original invocation variable through a ByRef helper parameter.
- * Touched local arrays also remain in the original invocation and go ByRef.
- * The following table applies to scalar declared locals:
+ * Touched arrays, Variants, and reference-capable or opaque local types also
+ * remain in the original invocation and go ByRef.
+ * The following table applies to primitive scalar declared locals:
  *
  * | inside the selection      | after it | becomes                     |
  * | ------------------------- | -------- | --------------------------- |
@@ -122,16 +124,22 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 		);
 	}
 
+	const autoNew = locals.find(local => local.declaration?.decl.isNew);
+	if (autoNew) {
+		return refuse(`'${autoNew.name}' is declared As New. Extracting it would lose automatic object creation.`);
+	}
 	const unsupportedArray = locals.find(local => local.declaration?.decl.isArray
-		&& (local.declaration.decl.isNew || local.declaration.decl.fixedLength !== undefined));
+		&& local.declaration.decl.fixedLength !== undefined);
 	if (unsupportedArray) {
-		return refuse(unsupportedArray.declaration!.decl.isNew
-			? `'${unsupportedArray.name}' is an As New array. Extracting it would lose automatic object creation.`
-			: `'${unsupportedArray.name}' is a fixed-length String array. Extract Method cannot preserve its element type in a helper parameter.`);
+		return refuse(`'${unsupportedArray.name}' is a fixed-length String array. Extract Method cannot preserve its element type in a helper parameter.`);
 	}
 
-	const bindings = locals.filter(local => local.parameter || local.declaration?.decl.isArray);
-	const valueLocals = locals.filter(local => !local.parameter && !local.declaration?.decl.isArray);
+	const bindings: LocalUse[] = [], valueLocals: LocalUse[] = [];
+	for (const local of locals) {
+		const bound = local.parameter || local.declaration?.decl.isArray
+			|| local.type.toLowerCase() === 'variant' || isRefactorObjectType(local.type);
+		(bound ? bindings : valueLocals).push(local);
+	}
 	const byValIn = valueLocals.filter((l) => l.readBeforeWriteInside && !(l.writtenInside && l.readAfter));
 	const byRefIn = valueLocals.filter((l) => l.readBeforeWriteInside && l.writtenInside && l.readAfter);
 	const outputs = valueLocals.filter((l) => !l.readBeforeWriteInside && l.writtenInside && l.readAfter);
@@ -146,7 +154,9 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 
 	// A parent's ByVal parameter is already a private variable; ByRef here
 	// preserves that variable, while also preserving a parent's caller alias.
-	// Local arrays likewise keep their descriptor, bounds, and element storage.
+	// Arrays and reference-capable/opaque locals also retain their original
+	// variable. ByRef avoids default-property coercion and works for Enums/UDTs
+	// without assuming every unknown type is an object.
 	const params = [
 		...(resultBinding ? [{ text: resultBinding.parameter, argument: resultBinding.argument }] : []),
 		...bindings.map(local => {
@@ -157,6 +167,10 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 		...byRefIn.map((l) => ({ argument: l.name, text: `ByRef ${l.name} As ${l.type}` })),
 		...byRefOut.map((l) => ({ argument: l.name, text: `ByRef ${l.name} As ${l.type}` })),
 	];
+
+	if (params.some(parameter => parameter.argument.replace(/^\[([\s\S]*)\]$/, '$1').toLowerCase() === name.toLowerCase())) {
+		return refuse(`Choose a helper name other than '${name}'; that name is needed for a parameter binding.`);
+	}
 
 	const eol = detectEol(source);
 	const indent = leadingWhitespace(source.slice(block.start, selected[0].span.start));
@@ -285,6 +299,7 @@ function classifyLocals(source: string, procedure: ProcedureNode, block: Span): 
 	const out: LocalUse[] = [];
 	const names = new Set([...declarations.keys(), ...parameters.keys()]);
 	const foundByName = findIdentifierOccurrencesForNames(source, [...names]);
+	const tokens = names.size > 0 ? tokenizeCached(source) : [];
 	const selected = new Map<string, {
 		occurrences: VbaIdentifierOccurrence[];
 		inside: VbaIdentifierOccurrence[];
@@ -293,7 +308,15 @@ function classifyLocals(source: string, procedure: ProcedureNode, block: Span): 
 		const declaration = declarations.get(lower);
 		const occurrences = (foundByName.get(lower) ?? [])
 			.filter((occ) => occ.offset >= procedure.span.start && occ.offset <= procedure.span.end)
-			.filter((occ) => !declaration || !within(occ.offset, declaration.group.span));
+			.filter((occ) => !declaration || !within(occ.offset, declaration.group.span))
+			.filter(occ => {
+				// A qualified member can share a local's spelling without using its
+				// binding, including members of an implicit With receiver.
+				let index = firstTokenAtOrAfter(tokens, occ.offset);
+				if (tokens[index - 1]?.end > occ.offset) { index--; }
+				const previous = tokens[index - 1]?.rawText;
+				return previous !== '.' && previous !== '!';
+			});
 		const inside = occurrences.filter((occ) => within(occ.offset, block));
 		if (inside.length > 0) { selected.set(lower, { occurrences, inside }); }
 	}
