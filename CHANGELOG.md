@@ -2,6 +2,49 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.0.0] - 2026-10-04
+
+A substantial update to VBA analysis, large-project editing and the workbook
+explorer, incorporating the correctness and performance work since 10.14.6.
+
+- **More accurate VBA diagnostics.** Analysis follows values and object,
+  array and collection state through assignments, branches and jumps. It
+  checks more declaration and statement forms, event signatures, conditional
+  compilation, default members, argument conversions and runtime error
+  conditions. Office property and argument checks use measured host behavior.
+- **Less repeated analyzer work.** Procedure snapshots, symbol and member
+  indexes, type queries and diagnostic facts are reused where their inputs
+  remain unchanged. Large-module parse and token caches survive bursts of
+  small helper lookups. Many repeated whole-module scans and token copies
+  have been removed, and deep expression checks are bounded.
+- **Smoother completion, typing and hover in large modules.** Cursor checks
+  operate on the relevant logical line, completion filters candidates before
+  formatting them, and editor projections share immutable analysis facts.
+  Completion updates no longer wait for unrelated project loading.
+- **Reliable Backspace completion recovery.** Deleting a character from an
+  incomplete member name can restore suggestions even when the native caret
+  update is delayed. Pending recovery is cancelled when edits, navigation or
+  editor changes make it obsolete.
+- **Workbook tree and tab lifecycle fixes.** Closing a module tab collapses
+  its tree row correctly, switching unchanged tabs reuses procedure ranges,
+  and folding a project cancels pending editor-follow work. Obsolete loads
+  cannot restore stale rows. Sheet and shape identities remain stable,
+  including across case-only renames and unsaved code changes.
+- **Safer refactoring.** Extract Method preserves parameter, local, array,
+  reference and function-result bindings, including primitive inputs mutated
+  by the extracted code. Introduce Parameter preserves Optional and
+  ParamArray behavior. Refactoring handles continued declarations, escaped
+  names and line endings while preserving neighboring statements.
+- **Additional editor support.** Procedure names inside strings have
+  completion and hover support. Analysis has a rerun button and a last-run
+  timestamp. Smart Enter retains intervening navigation.
+- **File handling repairs.** Compound-file and ZIP readers handle damaged
+  inputs more carefully, version 4 compound files use the correct sectors,
+  and VB6 files respect the configured or system ANSI code page.
+- **Validation and packaging.** Expanded regression, differential and native
+  editor coverage accompanies the changes. Release packages continue to be
+  built and scanned in CI, with signed provenance and security reports.
+
 ## [10.14.6] - 2026-09-30
 
 Find All References and Rename are fast again in large projects.
