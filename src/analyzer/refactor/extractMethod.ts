@@ -14,7 +14,8 @@ import { procedureContainingSpan, walkBody, statementRemovalSpan, mergeRemovals,
  * classified from the analyzer's reference kinds (issue #55) and its position
  * relative to the selection. Existing procedure parameters instead retain
  * their original invocation variable through a ByRef helper parameter.
- * The following table applies to declared locals:
+ * Touched local arrays also remain in the original invocation and go ByRef.
+ * The following table applies to scalar declared locals:
  *
  * | inside the selection      | after it | becomes                     |
  * | ------------------------- | -------- | --------------------------- |
@@ -117,11 +118,21 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 		);
 	}
 
-	const byValIn = locals.filter((l) => !l.parameter && l.readBeforeWriteInside && !(l.writtenInside && l.readAfter));
-	const byRefIn = locals.filter((l) => !l.parameter && l.readBeforeWriteInside && l.writtenInside && l.readAfter);
-	const outputs = locals.filter((l) => !l.parameter && !l.readBeforeWriteInside && l.writtenInside && l.readAfter);
-	const moved = locals.filter(
-		(l) => !l.readBeforeWriteInside && l.writtenInside && !l.readAfter && l.declaration && !l.parameter,
+	const unsupportedArray = locals.find(local => local.declaration?.decl.isArray
+		&& (local.declaration.decl.isNew || local.declaration.decl.fixedLength !== undefined));
+	if (unsupportedArray) {
+		return refuse(unsupportedArray.declaration!.decl.isNew
+			? `'${unsupportedArray.name}' is an As New array. Extracting it would lose automatic object creation.`
+			: `'${unsupportedArray.name}' is a fixed-length String array. Extract Method cannot preserve its element type in a helper parameter.`);
+	}
+
+	const bindings = locals.filter(local => local.parameter || local.declaration?.decl.isArray);
+	const valueLocals = locals.filter(local => !local.parameter && !local.declaration?.decl.isArray);
+	const byValIn = valueLocals.filter((l) => l.readBeforeWriteInside && !(l.writtenInside && l.readAfter));
+	const byRefIn = valueLocals.filter((l) => l.readBeforeWriteInside && l.writtenInside && l.readAfter);
+	const outputs = valueLocals.filter((l) => !l.readBeforeWriteInside && l.writtenInside && l.readAfter);
+	const moved = valueLocals.filter(
+		(l) => !l.readBeforeWriteInside && l.writtenInside && !l.readAfter && l.declaration,
 	);
 
 	// One output becomes the result; more than one cannot, so they all go ByRef
@@ -131,9 +142,9 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 
 	// A parent's ByVal parameter is already a private variable; ByRef here
 	// preserves that variable, while also preserving a parent's caller alias.
-	const parameters = locals.filter(local => local.parameter);
+	// Local arrays likewise keep their descriptor, bounds, and element storage.
 	const params = [
-		...parameters.map(local => ({ local, text: parameterBindingText(source, local.parameter!) })),
+		...bindings.map(local => ({ local, text: bindingText(source, local.parameter ?? local.declaration!.decl) })),
 		...byValIn.map((l) => ({ local: l, text: `ByVal ${l.name} As ${l.type}` })),
 		...byRefIn.map((l) => ({ local: l, text: `ByRef ${l.name} As ${l.type}` })),
 		...byRefOut.map((l) => ({ local: l, text: `ByRef ${l.name} As ${l.type}` })),
@@ -192,7 +203,10 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 		closer,
 	].join(eol);
 
-	const argumentList = params.map((p) => p.local.parameter?.nameSpan ? source.slice(p.local.parameter.nameSpan.start, p.local.parameter.nameSpan.end) : p.local.name).join(', ');
+	const argumentList = params.map(({ local }) => {
+		const binding = local.parameter ?? (local.declaration?.decl.isArray ? local.declaration.decl : undefined);
+		return binding?.nameSpan ? source.slice(binding.nameSpan.start, binding.nameSpan.end) : local.name;
+	}).join(', ');
 	const invocation = asFunction
 		? `${indent}${outputs[0].name} = ${name}(${argumentList})`
 		: `${indent}${name}${argumentList ? ` ${argumentList}` : ''}`;
@@ -451,7 +465,7 @@ function rawFirstOccurrences(source: string, names: readonly string[]): Map<stri
 }
 
 /** Retain array shape, suffixes, bracketed types, and module DefType inference. */
-function parameterBindingText(source: string, parameter: ParameterNode): string {
+function bindingText(source: string, parameter: ParameterNode | VariableDeclNode): string {
 	const name = parameter.nameSpan ? source.slice(parameter.nameSpan.start, parameter.nameSpan.end) : parameter.name;
 	const declared = name + (parameter.typeSuffix ?? '') + (parameter.isArray ? '()' : '');
 	if (parameter.hasAsClause) {
