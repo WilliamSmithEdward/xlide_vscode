@@ -13,7 +13,9 @@ No cache was added, so there is nothing to invalidate. Nothing here runs per key
 
 ## What can differ
 
-Nothing is intended to, and nothing did. `readModulesFromBuffer` and `xlsx.shapes()` were run through the baseline sources and through these on all 28 Excel files under `tests/fixtures` and `assets/templates`, and on variants of each built for the purpose: every sheet, relationships, drawing and control part given an unsupported compression method, garbled from its start, its middle and near its end, deleted and emptied; each sheet grown past the head; its `sheetPr` removed, emptied, recased, duplicated across sheets, moved after the rows, and written with an entity, spaces around `=`, single quotes, a repeated attribute and a namespace prefix; and an ActiveX control entry added with and without the relationship that makes it one. That is 3,794 cases through the zlib codec and the web build's. The answers, error messages included, were the same in every one.
+Nothing is intended to. Reading the part once changes which call inflates it, not what is read from it. The code name is found by the same two regular expressions; the head of a part is its beginning, so the first `sheetPr` in the head is the first in the part, and a head with none sends the reader to the whole part as before. A part that cannot be read still fails, with the error it gave before.
+
+The tests below hold the code name to that on every Excel fixture in the repository and on a large sheet written nine ways, and the benchmark's digests of what `listModules`, `readModules` and `listShapes` return match before and after. A wider one-off comparison of the baseline sources against these, over the fixtures and damaged variants of each through both codecs, found no difference either; its script is not part of this change.
 
 ## Reproduce
 
