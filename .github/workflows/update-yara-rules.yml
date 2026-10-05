@@ -9,8 +9,9 @@ name: Update YARA rules
 # Two jobs, so the untrusted release metadata is only ever read without write
 # access: `prepare` works out the move with a read-only token, `propose` checks
 # the proposal against the pin file on main and commits it through the GitHub
-# API. No checkout keeps credentials. Needs the repository setting "Allow GitHub
-# Actions to create and approve pull requests".
+# API with a repository-scoped GitHub App token, so PR checks run without a
+# manual approval prompt. No checkout keeps credentials. See YARA_APP.md in
+# repo-standards for registration and secret provisioning.
 
 on:
   schedule:
@@ -62,9 +63,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
-      contents: write # the update branch and its commit, through the API
-      pull-requests: write # the pull request
-      actions: write # starting CI, Security and Malware scan on the branch
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -79,7 +78,16 @@ jobs:
           name: yara-proposal
           path: ${{ runner.temp }}/proposal
 
+      - name: Create a token for this repository
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.YARA_APP_CLIENT_ID }}
+          private-key: ${{ secrets.YARA_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
       - name: Propose the update
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: python .github/security/yara_update.py propose --in "$RUNNER_TEMP/proposal"
