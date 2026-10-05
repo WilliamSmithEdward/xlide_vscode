@@ -1,4 +1,6 @@
-import { tokenize } from '../lexer/tokenize';
+import { tokenize, tokenizeCached } from '../lexer/tokenize';
+import { firstTokenAtOrAfter, tokenName } from '../lexer/tokenHelpers';
+import { callSitesOf } from './callSites';
 import { parseModule } from '../parser/parseModule';
 import type { BodyNode, ModuleNode, ProcedureNode, ParameterNode, Span, VariableDeclNode, VariableGroupNode } from '../parser/nodes';
 import { classifyReferenceKinds } from '../references/referenceKinds';
@@ -105,6 +107,8 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 		return refuse(`The module already has a procedure called '${name}'.`);
 	}
 
+	const resultBinding = functionResultBinding(source, procedure, block, name);
+	if (typeof resultBinding === 'string') { return refuse(resultBinding); }
 	const locals = classifyLocals(source, procedure, block);
 	const paramArray = locals.find(local => local.parameter?.paramArray);
 	if (paramArray) {
@@ -144,10 +148,14 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 	// preserves that variable, while also preserving a parent's caller alias.
 	// Local arrays likewise keep their descriptor, bounds, and element storage.
 	const params = [
-		...bindings.map(local => ({ local, text: bindingText(source, local.parameter ?? local.declaration!.decl) })),
-		...byValIn.map((l) => ({ local: l, text: `ByVal ${l.name} As ${l.type}` })),
-		...byRefIn.map((l) => ({ local: l, text: `ByRef ${l.name} As ${l.type}` })),
-		...byRefOut.map((l) => ({ local: l, text: `ByRef ${l.name} As ${l.type}` })),
+		...(resultBinding ? [{ text: resultBinding.parameter, argument: resultBinding.argument }] : []),
+		...bindings.map(local => {
+			const binding = local.parameter ?? local.declaration!.decl;
+			return { text: bindingText(source, binding), argument: binding.nameSpan ? source.slice(binding.nameSpan.start, binding.nameSpan.end) : local.name };
+		}),
+		...byValIn.map((l) => ({ argument: l.name, text: `ByVal ${l.name} As ${l.type}` })),
+		...byRefIn.map((l) => ({ argument: l.name, text: `ByRef ${l.name} As ${l.type}` })),
+		...byRefOut.map((l) => ({ argument: l.name, text: `ByRef ${l.name} As ${l.type}` })),
 	];
 
 	const eol = detectEol(source);
@@ -155,7 +163,7 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 	const movedDecls = new Set(moved.map((local) => local.declaration!.decl));
 	const resultDecl = asFunction ? outputs[0].declaration?.decl : undefined;
 	const callerDeclarations: string[] = [];
-	const bodyEdits: VbaTextEdit[] = [];
+	const bodyEdits: VbaTextEdit[] = resultBinding?.edits ?? [];
 	for (const group of walkBody(selected)) {
 		if (group.kind !== 'VariableGroup' || !containsSpan(block, group.span)) { continue; }
 		const inCaller = group.declarations.filter((decl) => !movedDecls.has(decl));
@@ -203,10 +211,7 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 		closer,
 	].join(eol);
 
-	const argumentList = params.map(({ local }) => {
-		const binding = local.parameter ?? (local.declaration?.decl.isArray ? local.declaration.decl : undefined);
-		return binding?.nameSpan ? source.slice(binding.nameSpan.start, binding.nameSpan.end) : local.name;
-	}).join(', ');
+	const argumentList = params.map(parameter => parameter.argument).join(', ');
 	const invocation = asFunction
 		? `${indent}${outputs[0].name} = ${name}(${argumentList})`
 		: `${indent}${name}${argumentList ? ` ${argumentList}` : ''}`;
@@ -476,4 +481,67 @@ function bindingText(source: string, parameter: ParameterNode | VariableDeclNode
 		return `ByRef ${declared} As ${type}`;
 	}
 	return `ByRef ${declared}`;
+}
+
+/** A Function/Property Get result is owned by the original invocation. */
+function functionResultBinding(source: string, procedure: ProcedureNode, block: Span, helperName: string):
+	{ parameter: string; argument: string; edits: VbaTextEdit[] } | string | undefined {
+	if (procedure.procKind !== 'Function' && procedure.procKind !== 'PropertyGet') { return undefined; }
+	const lowerName = procedure.name.toLowerCase();
+	const selectedSource = source.slice(block.start, block.end);
+	const selected = findIdentifierOccurrencesForNames(selectedSource, [procedure.name]).get(lowerName) ?? [];
+	if (selected.length === 0) { return undefined; }
+	const kinds = classifyReferenceKinds(source, selected.map(occ => block.start + occ.offset));
+	const references = new Map<number, Span>();
+	callSitesOf(selectedSource, procedure.name, { accept: (offset, call, qualifier, span) => {
+		const absolute = block.start + offset;
+		if (!qualifier && (!call || kinds.get(absolute) === 'write' || kinds.get(absolute) === 'readwrite')) {
+			references.set(block.start + span.start, { start: block.start + span.start, end: block.start + span.end });
+		}
+		return false;
+	} });
+	const tokens = tokenizeCached(source);
+	// A bare result object can be the receiver of a member access; call-site
+	// scanning deliberately ignores receivers on its common fast path.
+	for (let i = firstTokenAtOrAfter(tokens, block.start); i < tokens.length && tokens[i].start <= block.end; i++) {
+		if (tokenName(tokens[i])?.toLowerCase() === lowerName
+			&& ['.', '!'].includes(tokens[i + 1]?.rawText ?? '') && !['.', '!'].includes(tokens[i - 1]?.rawText ?? '')
+			&& !/^(As|New|Is|AddressOf|GoTo|GoSub|Resume)$/i.test(tokens[i - 1]?.rawText ?? '')) {
+			references.set(tokens[i].start, { start: tokens[i].start, end: tokens[i].end });
+		}
+	}
+	if (references.size === 0) { return undefined; }
+	if (/\(\s*\)\s*$/.test(procedure.returnType ?? '')) {
+		return 'Extract Method cannot preserve assignment to an array-valued Function result yet.';
+	}
+	for (let i = firstTokenAtOrAfter(tokens, block.start); i < tokens.length && tokens[i].start <= block.end; i++) {
+		if (/^Exit$/i.test(tokens[i].rawText) && /^(Function|Property)$/i.test(tokens[i + 1]?.rawText ?? '')) {
+			return 'The selection exits the original procedure. Extract Method cannot move that exit into a helper.';
+		}
+	}
+	// Retain the first letter for module DefType and the declaration suffix.
+	// A separate name leaves recursive calls to the original procedure intact.
+	const names = new Set([helperName.toLowerCase()]);
+	for (const token of tokens) {
+		const name = tokenName(token);
+		if (name !== undefined) { names.add(name.toLowerCase()); }
+	}
+	const base = Array.from(procedure.name).slice(0, 120).join('') + 'Result';
+	let name = base;
+	for (let n = 2; names.has(name.toLowerCase()); n++) { name = base + n; }
+	const headerTokens = tokenize(source.slice(procedure.span.start, procedure.body[0].span.start));
+	const end = headerTokens.findIndex(token => token.kind === 'newline');
+	const header = end < 0 ? headerTokens : headerTokens.slice(0, end);
+	let depth = 0, close = -1;
+	for (let i = 0; i < header.length; i++) {
+		if (header[i].rawText === '(') { depth++; }
+		else if (header[i].rawText === ')' && --depth === 0) { close = i; break; }
+	}
+	const as = header.findIndex((token, index) => index > close && token.rawText.toLowerCase() === 'as');
+	const type = as < 0 ? '' : ' As ' + header.slice(as + 1).map(token => token.rawText).join('');
+	return {
+		parameter: 'ByRef ' + name + (procedure.typeSuffix ?? '') + type,
+		argument: procedure.nameSpan ? source.slice(procedure.nameSpan.start, procedure.nameSpan.end) : procedure.name,
+		edits: [...references.values()].map(span => ({ span: { start: span.start - block.start, end: span.end - block.start }, newText: name })),
+	};
 }
