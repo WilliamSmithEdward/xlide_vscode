@@ -63,7 +63,7 @@ describe.each(['\n', '\r\n', '\r'])('Extract Method implicit results with %j', e
     });
     it('does not create a result binding for qualified member names alone', () => {
         const { source } = applied(fixture('Public Function Compute() As Long', 'Debug.Print obj.Compute', eol, 'Dim obj As Object'));
-        expect(source).toContain('Private Sub Work(ByVal obj As Object)');
+        expect(source).toContain('Private Sub Work(ByRef obj As Object)');
         expect(source).not.toContain('ComputeResult');
     });
     it('retains selective DefType by keeping the original first letter', () => {

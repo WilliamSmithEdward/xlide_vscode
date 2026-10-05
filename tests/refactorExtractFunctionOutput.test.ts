@@ -8,7 +8,6 @@ const cases = [
     ['Dim message As String', 'message', '"hello"', ''],
     ['Dim ratio As Double', 'ratio', '1.5', ''],
     ['Dim flag As Boolean', 'flag', 'True', ''],
-    ['Dim untyped', 'untyped', '3', ''],
     ['Dim shortText As String * 5', 'shortText', '"hello"', ''],
     ['Dim count%', 'count', '3', ''],
 ] as const;

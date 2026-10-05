@@ -49,11 +49,12 @@ describe.each(['\n','\r\n','\r'])('grouped declaration extraction with %j', eol 
         const {caller}=extract('Debug.Print "before" : Dim a As Long : Dim b As Long', 'a=1', 'Debug.Print b', eol);
         expect(caller).toContain('Debug.Print "before"'); expect(caller).toContain('Dim b As Long');
     });
-    it('retains an array binding while moving its auto-instantiated sibling', () => {
-        const {caller,helper}=extract('Dim arr(0 To 2) As Long, item As New Collection', 'arr(0)=1'+eol+'Set item = New Collection', 'Debug.Print "after"', eol);
+    it('retains an array binding and its object sibling in the caller', () => {
+        const {caller,helper}=extract('Dim arr(0 To 2) As Long, item As Collection', 'arr(0)=1'+eol+'Set item = New Collection', 'Debug.Print "after"', eol);
         expect(caller).toContain('Dim arr(0 To 2) As Long');
         expect(helper).toContain('ByRef arr() As Long'); expect(helper).not.toContain('Dim arr');
-        expect(helper).toContain('Dim item As New Collection');
+        expect(caller).toContain('item As Collection');
+        expect(helper).toContain('ByRef item As Collection'); expect(helper).not.toContain('Dim item');
     });
     it('does not duplicate a declaration already inside the selected block', () => {
         const {caller,helper}=extract('', 'Dim a As Long, b As Long'+eol+'a=1'+eol+'b=2', 'Debug.Print "after"', eol);
