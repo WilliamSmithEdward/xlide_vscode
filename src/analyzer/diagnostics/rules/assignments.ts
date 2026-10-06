@@ -4,6 +4,7 @@
 // member assignment type compatibility, Set assignment validation, and
 // missing Function/Property Get return assignments.
 
+import { createAssignmentCoercionType } from '../assignmentCoercionType';
 import { assignmentTargetFromTokens, assignmentTargetName } from '../../completion/assignmentTarget';
 import {
 	isLateBoundTypeKey,
@@ -349,7 +350,9 @@ export function checkAssignmentTypes(
 	// per assignment. Keep this index within the current rule pass.
 	const enumNames = new Set([...(symbols.root.children ?? []), ...(projectVisibleSymbols ?? [])]
 		.filter((symbol) => symbol.kind === 'enum')
-		.map((symbol) => symbol.name.toLowerCase()));
+		.flatMap(symbol => [symbol.name.toLowerCase(), `${symbol.moduleName}.${symbol.name}`.toLowerCase()]));
+	const coercionType = createAssignmentCoercionType(memberCtx, enumNames);
+	const memberCoercionType = createAssignmentCoercionType(memberCtx);
 	const setterNames = new Set([...(symbols.root.children ?? []), ...(projectVisibleSymbols ?? [])]
 		.filter(symbol => symbol.kind === 'propertyLet').map(symbol => symbol.name.toLowerCase()));
 	const variantArrayFunctions = arrayOnlyVariantFunctions(source, mod, activity);
@@ -544,7 +547,7 @@ export function checkAssignmentTypes(
 			const parameter = setter?.children?.filter(child => child.kind === 'parameter').at(-1);
 			const declared = parameter?.asType ?? (parameter?.moduleName.toLowerCase() === symbols.moduleName.toLowerCase() ? defTypeOf(symbols, parameter.name) : undefined);
 			if (!declared || parameter?.isArray) { return false; }
-			const expected = enumNames.has(declared.split('.').at(-1)!.toLowerCase()) ? 'Long' : declared;
+			const expected = coercionType(declared);
 			if (!isKnownScalarType(normalizeType(expected) ?? '')) { return false; }
 			const actual = inferArgumentType(tokens.slice(equals + 1), span.start, env, moduleSignatures, sourceNames,
 				source, memberCtx, resolveExpressionType, resolveQualifiedExpressionType);
@@ -579,8 +582,7 @@ export function checkAssignmentTypes(
 				: env.get(assignment.name.toLowerCase())) ?? (untypedArray ? 'Variant' : undefined);
 			// A variable As an Enum is a Long: `x = "abc"` raises 13 and
 			// `x = 3000000000#` 6 (issue #436, measured in Excel 16.0).
-			const enumName = declaredExpected?.split('.').pop()?.toLowerCase();
-			const expected = enumName && enumNames.has(enumName) ? 'Long' : declaredExpected;
+			const expected = declaredExpected ? coercionType(declaredExpected) : undefined;
 			// `Sheet1 = 5` compiles as a Let through the document's default
 			// member, and a Worksheet or Workbook has none (issue #225).
 			if (!expected && !targetType.resolved && isDocumentModule(assignment.name)) {
@@ -816,6 +818,7 @@ export function checkAssignmentTypes(
 			moduleSignatures,
 			sourceNames,
 			memberCtx,
+			memberCoercionType,
 			activity,
 			push,
 			projectDeclaresCollection,
@@ -1544,6 +1547,7 @@ function checkMemberAssignmentTypes(
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
 	sourceNames: SourceNameScope,
 	memberCtx: MemberCompletionContext,
+	coercionType: (declared: string) => string,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 	projectDeclaresCollection: () => boolean,
@@ -1695,7 +1699,8 @@ function checkMemberAssignmentTypes(
 			);
 			return;
 		}
-		const expected = target.writeType ?? target.returns;
+		const declaredExpected = target.writeType ?? target.returns;
+		const expected = declaredExpected ? coercionType(declaredExpected) : undefined;
 		if (assignment.usesSet) {
 			// A Property Set takes the Set whatever the Let and Get are typed:
 			// `Set c.M = New Collection` runs beside a Long Let (issue #414).
@@ -1790,7 +1795,7 @@ function checkMemberAssignmentTypes(
 		}
 		push(
 			'assignmentTypeMismatch',
-			`Assignment to '${assignment.label}' expects ${expected}, but got ${actual.label}. ${reason}`,
+			`Assignment to '${assignment.label}' expects ${declaredExpected}, but got ${actual.label}. ${reason}`,
 			actual.span,
 		);
 	};

@@ -108519,6 +108519,152 @@
       "provenance": "vbe-oracle-verified",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "host_enum_variable_bad",
+      "description": "Host-enum Long coercion in variables and property setters. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As Variant\nDim value As XlHAlign\nvalue = \"abc\"\nMain = 1\nEnd Function\n",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "host_enum_bare_bad",
+      "description": "Host-enum Long coercion in variables and property setters. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Public Property Let State(ByVal value As XlHAlign)\nEnd Property\nOption Explicit\nFunction Main() As Variant\nState = \"abc\"\nMain = 1\nEnd Function\n",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "host_enum_member_bad",
+      "description": "Host-enum Long coercion in variables and property setters. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal value As XlHAlign)\nEnd Property\n"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.State = \"abc\"\nMain = 1\nEnd Function\n"
+        }
+      ],
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "host_enum_variable_good",
+      "description": "Host-enum Long coercion in variables and property setters. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As Variant\nDim value As XlHAlign\nvalue = 999\nMain = 1\nEnd Function\n",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "host_enum_bare_good",
+      "description": "Host-enum Long coercion in variables and property setters. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Public Property Let State(ByVal value As XlHAlign)\nEnd Property\nOption Explicit\nFunction Main() As Variant\nState = 999\nMain = 1\nEnd Function\n",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "host_enum_member_good",
+      "description": "Host-enum Long coercion in variables and property setters. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal value As XlHAlign)\nEnd Property\n"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.State = 999\nMain = 1\nEnd Function\n"
+        }
+      ],
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "source_enum_member_bad",
+      "description": "Source enum Property Let uses Long coercion. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "modules": [
+        {
+          "name": "Types",
+          "type": "standard",
+          "source": "Public Enum Direction\nNorth = 1\nEnd Enum"
+        },
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal value As Direction)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.State = \"abc\"\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "source_enum_member_good",
+      "description": "Source enum Property Let uses Long coercion. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "modules": [
+        {
+          "name": "Types",
+          "type": "standard",
+          "source": "Public Enum Direction\nNorth = 1\nEnd Enum"
+        },
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal value As Direction)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.State = 999\nMain = 1\nEnd Function"
+        }
+      ]
     }
   ]
 }
