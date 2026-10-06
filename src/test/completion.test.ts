@@ -239,6 +239,16 @@ suite('Completion editor surface', () => {
             return /State = ?(False|True)$/.test(document.lineAt(4).text) || undefined;
         }, 'the implicitly Boolean setter must open its native value menu', 4000);
     });
+    test('scalar setter array bug hunt reports a whole array and accepts its element', async () => {
+        const source = 'Option Explicit\nPublic Property Let State(ByVal value As Boolean)\nEnd Property\nSub Demo()\nDim values(1) As Boolean\nState = values\nEnd Sub\n';
+        const document = await open(await writeModule('ScalarSetterArrayDiagnostic', source));
+        const editor = vscode.window.activeTextEditor!;
+        const finding = await until(() => vscode.languages.getDiagnostics(document.uri).find(d => d.code === 'array-assignment-to-scalar'), 'scalar setter must reject a whole typed array', 5000);
+        assert.equal(document.getText(finding.range), 'values');
+        assert.ok(finding.message.includes('VBE compile error'));
+        await editor.edit(edit => edit.replace(finding.range, 'values(0)'));
+        await until(() => !vscode.languages.getDiagnostics(document.uri).some(d => d.severity === vscode.DiagnosticSeverity.Error) || undefined, 'array element must clear the scalar setter error', 5000);
+    });
     test('getter default bug hunt checks and refreshes the returned default contract', async () => {
         const source = 'Option Explicit\nPublic Property Get Child() As Collection\nSet Child = New Collection\nEnd Property\nSub Demo()\nChild = 20\nEnd Sub\n';
         const document = await open(await writeModule('GetterDefaultDiagnostic', source));

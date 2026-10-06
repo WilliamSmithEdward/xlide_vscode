@@ -645,8 +645,8 @@ export function checkAssignmentTypes(
 			const actual = inferArgumentType(tokens.slice(equals + 1), span.start, env, moduleSignatures, sourceNames,
 				source, memberCtx, resolveExpressionType, resolveQualifiedExpressionType);
 			const problem = arrayAssignmentProblem({ name, span: actual?.span ?? span, valueTokens: tokens.slice(equals + 1) }, span.start,
-				{ asType: expected, isArray: false, isFixedArray: false }, () => undefined,
-				name => arrayValueAt(stmt, name), () => actual, sourceNames);
+				{ asType: expected, isArray: false, isFixedArray: false }, name => declaredShapeForSourceBinding(symbols,procSym,projectVisibleSymbols,name,'expression').shape,
+				name => arrayValueAt(stmt, name), () => actual, sourceNames,undefined,memberCtx,source);
 			if (problem) { push(problem.code, problem.message, problem.span); return true; }
 			const reason = actual && incompatibilityReason(expected, actual);
 			if (reason) {
@@ -808,6 +808,15 @@ export function checkAssignmentTypes(
 			const targetShape = resolvedTargetShape.resolved
 				? resolvedTargetShape.shape
 				: shapes.get(assignment.name.toLowerCase());
+			let inferred: InferredArgumentType | undefined;
+			let inferredKnown = false;
+			const inferAssignment = () => {
+				if (!inferredKnown) {
+					inferredKnown = true;
+					inferred = inferArgumentType(assignment.valueTokens,span.start,env,moduleSignatures,sourceNames,source,memberCtx,resolveExpressionType,resolveQualifiedExpressionType);
+				}
+				return inferred;
+			};
 			const arrayProblem = arrayAssignmentProblem(
 				assignment,
 				span.start,
@@ -817,10 +826,11 @@ export function checkAssignmentTypes(
 					return resolved.resolved ? resolved.shape : shapes.get(name.toLowerCase());
 				},
 				(name) => arrayValueAt(stmt, name),
-				(tokens) => inferArgumentType(tokens, span.start, env, moduleSignatures, sourceNames, source, memberCtx, resolveExpressionType, resolveQualifiedExpressionType),
+				() => inferAssignment(),
 				sourceNames,
 				(name) => variantArrayFunctions.has(name.toLowerCase())
 					&& !procSym?.children?.some((child) => child.name.toLowerCase() === name.toLowerCase()),
+				memberCtx,source,
 			);
 			if (arrayProblem) {
 				push(arrayProblem.code, arrayProblem.message, arrayProblem.span);
@@ -842,17 +852,7 @@ export function checkAssignmentTypes(
 				);
 				return;
 			}
-			const actual = inferArgumentType(
-				assignment.valueTokens,
-				span.start,
-				env,
-				moduleSignatures,
-				sourceNames,
-				source,
-				memberCtx,
-				resolveExpressionType,
-				resolveQualifiedExpressionType,
-			);
+			const actual = inferAssignment();
 			const nullCall = nullFromChoice(assignment.valueTokens, choiceModuleNameDeclared);
 			if (nullCall && isKnownScalarType(normalizeType(expected) ?? '')) {
 				push(
@@ -930,6 +930,7 @@ export function checkAssignmentTypes(
 			resolveExpressionType,
 			resolveQualifiedExpressionType,
 			symbols,
+			projectVisibleSymbols,
 		);
 	}
 }
@@ -1078,8 +1079,12 @@ function arrayAssignmentProblem(
 	scalarType: (tokens: VbaToken[]) => InferredArgumentType | undefined,
 	sourceNames: SourceNameScope,
 	returnsVariantArray: (name: string) => boolean = () => false,
-): { code: 'arrayTargetAssignment' | 'assignmentTypeMismatch'; message: string; span: Span } | undefined {
-	const value = assignment.valueTokens.filter((tok) => tok.kind !== 'comment');
+	memberCtx?: MemberCompletionContext,
+	source?: string,
+	arrayFailurePhase: 'compile' | 'runtime' = 'compile',
+): { code: 'arrayTargetAssignment' | 'assignmentTypeMismatch' | 'arrayAssignmentToScalar'; message: string; span: Span } | undefined {
+	let value = assignment.valueTokens.filter((tok) => tok.kind !== 'comment');
+	while (value[0]?.rawText === '(' && matchParenFrom(value,0) === value.length-1) { value = value.slice(1,-1); }
 	if (value.length === 0) {
 		return undefined;
 	}
@@ -1136,6 +1141,21 @@ function arrayAssignmentProblem(
 			return cannot(`${shown} is a ${scalar.type}, not an array`);
 		}
 		return undefined;
+	}
+	if (targetShape && isKnownScalarType(targetType)) {
+		const typedCall = value.at(-1)?.rawText === ')' ? scalarType(value) : undefined;
+		const last = value.at(-1);
+		const memberName = last && tokenName(last);
+		const member = source && memberCtx && memberName && value.at(-2)?.rawText === '.'
+			? resolveExactMemberCompletion(source,memberName,baseOffset+last!.end,memberCtx) : undefined;
+		const arrayType = named?.isArray ? named.asType : member?.isArray ? member.returns ?? member.declaredType : typedCall?.type;
+		// VBA supports whole Byte-array conversion to String (including function returns).
+		if (targetType === 'string' && elementType(arrayType) === 'byte') { return undefined; }
+		if (named?.isArray || /\(\s*\)\s*$/.test(named?.asType ?? '') || member?.isArray
+			|| /\(\s*\)\s*$/.test(member?.returns ?? member?.declaredType ?? '') || (!produced && typedCall && /\(\s*\)\s*$/.test(typedCall.type))) {
+			return {code:arrayFailurePhase === 'compile' ? 'arrayAssignmentToScalar' : 'assignmentTypeMismatch',
+				message:`Type mismatch: assignment to '${assignment.name}' expects ${targetShape.asType}, but this value is a whole typed array. ${arrayFailurePhase === 'compile' ? 'This is a VBE compile error.' : "This will raise Run-time error '13': Type mismatch."}`, span:valueSpan};
+		}
 	}
 	if (produced && produced.element !== 'empty' && targetShape && isKnownScalarType(targetType)) {
 		return {
@@ -1725,6 +1745,7 @@ function checkMemberAssignmentTypes(
 	resolveExpressionType?: SourceDeclaredTypeResolver,
 	resolveQualifiedExpressionType?: SourceQualifiedDeclaredTypeResolver,
 	symbols?: ReturnType<typeof buildModuleSymbols>,
+	projectVisibleSymbols?: readonly VbaSymbol[],
 ): void {
 	const projectClasses = (memberCtx.projectClassMembers?.length ?? 0) > 0;
 	let valuesAt: ReturnType<typeof knownLocalLiteralValuesAt> | undefined;
@@ -1825,8 +1846,8 @@ function checkMemberAssignmentTypes(
 				sourceNames, source, memberCtx, resolveExpressionType, resolveQualifiedExpressionType);
 			const expected = resolveHostEnum(target.declaredType, memberCtx.model) ? 'Long' : target.declaredType;
 			const arrayProblem = arrayAssignmentProblem({ name: assignment.label, span: assignment.memberSpan, valueTokens: assignment.valueTokens }, span.start,
-				{ asType: expected, isArray: false, isFixedArray: false }, () => undefined,
-				name => isLeafStatement(stmt) ? arrayValueAt(stmt, name) : undefined, () => actual, sourceNames);
+				{ asType: expected, isArray: false, isFixedArray: false }, name => symbols ? declaredShapeForSourceBinding(symbols,procedureSymbolFor(symbols,member),projectVisibleSymbols,name,'expression').shape : undefined,
+				name => isLeafStatement(stmt) ? arrayValueAt(stmt, name) : undefined, () => actual, sourceNames,undefined,memberCtx,source,'runtime');
 			if (arrayProblem) { push(arrayProblem.code, arrayProblem.message, arrayProblem.span); return; }
 			const reason = actual && incompatibilityReason(target.declaredType, actual);
 			if (reason) {
@@ -1961,10 +1982,19 @@ function checkMemberAssignmentTypes(
 		if (!expected || !isKnownScalarType(normalizeType(expected) ?? '')) {
 			return; // a Let of an object or unknown type: nothing provable about the value
 		}
+		let inferred: InferredArgumentType | undefined;
+		let inferredKnown = false;
+		const inferAssignment = () => {
+			if (!inferredKnown) {
+				inferredKnown = true;
+				inferred = inferArgumentType(assignment.valueTokens,span.start,env,moduleSignatures,sourceNames,source,memberCtx,resolveExpressionType,resolveQualifiedExpressionType);
+			}
+			return inferred;
+		};
 		const arrayProblem = arrayAssignmentProblem({ name: assignment.label, span: assignment.memberSpan, valueTokens: assignment.valueTokens }, span.start,
-			{ asType: expected, isArray: false, isFixedArray: false }, () => undefined,
+			{ asType: expected, isArray: false, isFixedArray: false }, name => symbols ? declaredShapeForSourceBinding(symbols,procedureSymbolFor(symbols,member),projectVisibleSymbols,name,'expression').shape : undefined,
 			name => isLeafStatement(stmt) ? arrayValueAt(stmt, name) : undefined,
-			tokens => inferArgumentType(tokens, span.start, env, moduleSignatures, sourceNames, source, memberCtx, resolveExpressionType, resolveQualifiedExpressionType), sourceNames);
+			() => inferAssignment(), sourceNames,undefined,memberCtx,source);
 		if (arrayProblem) { push(arrayProblem.code, arrayProblem.message, arrayProblem.span); return; }
 		const stringArithmetic = nonnumericStringArithmeticOperand(
 			expected,
@@ -1979,17 +2009,7 @@ function checkMemberAssignmentTypes(
 			);
 			return;
 		}
-		const actual = inferArgumentType(
-			assignment.valueTokens,
-			span.start,
-			env,
-			moduleSignatures,
-			sourceNames,
-			source,
-			memberCtx,
-			resolveExpressionType,
-			resolveQualifiedExpressionType,
-		);
+		const actual = inferAssignment();
 		if (!actual) {
 			return;
 		}

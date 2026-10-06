@@ -110858,6 +110858,232 @@
       ],
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "scalar_setter_array_variable",
+      "description": "Whole typed arrays cannot be scalar setter values; elements can.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction MakeFlags() As Boolean()\nDim values(1) As Boolean\nMakeFlags = values\nEnd Function\nFunction Main() As Variant\nDim item As Widget\nDim values(1) As Boolean\nSet item = New Widget\nitem.State = values\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "scalar_setter_array_function",
+      "description": "Whole typed arrays cannot be scalar setter values; elements can.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction MakeFlags() As Boolean()\nDim values(1) As Boolean\nMakeFlags = values\nEnd Function\nFunction Main() As Variant\nDim item As Widget\nDim values(1) As Boolean\nSet item = New Widget\nitem.State = MakeFlags()\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "scalar_setter_array_parenthesized",
+      "description": "Whole typed arrays cannot be scalar setter values; elements can.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction MakeFlags() As Boolean()\nDim values(1) As Boolean\nMakeFlags = values\nEnd Function\nFunction Main() As Variant\nDim item As Widget\nDim values(1) As Boolean\nSet item = New Widget\nitem.State = (MakeFlags())\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "scalar_setter_array_element",
+      "description": "Whole typed arrays cannot be scalar setter values; elements can.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction MakeFlags() As Boolean()\nDim values(1) As Boolean\nMakeFlags = values\nEnd Function\nFunction Main() As Variant\nDim item As Widget\nDim values(1) As Boolean\nSet item = New Widget\nitem.State = values(0)\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "scalar_variable_array",
+      "description": "Typed array scalar assignments and qualified element controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "Public values(1) As Boolean"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction MakeFlags() As Boolean()\nDim values(1) As Boolean\nMakeFlags = values\nEnd Function\nFunction Main() As Variant\nDim item As Widget\nDim values(1) As Boolean\nSet item = New Widget\nDim flag As Boolean\nflag = values\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "host_scalar_array_function",
+      "description": "Typed array scalar assignments and qualified element controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "Public values(1) As Boolean"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction MakeFlags() As Boolean()\nDim values(1) As Boolean\nMakeFlags = values\nEnd Function\nFunction Main() As Variant\nDim item As Widget\nDim values(1) As Boolean\nSet item = New Widget\nThisWorkbook.Worksheets(1).EnableCalculation = MakeFlags()\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "scalar_setter_qualified_array",
+      "description": "Typed array scalar assignments and qualified element controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "Public values(1) As Boolean"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction MakeFlags() As Boolean()\nDim values(1) As Boolean\nMakeFlags = values\nEnd Function\nFunction Main() As Variant\nDim item As Widget\nDim values(1) As Boolean\nSet item = New Widget\nitem.State = Library.values\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "scalar_setter_qualified_element",
+      "description": "Typed array scalar assignments and qualified element controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "Public values(1) As Boolean"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction MakeFlags() As Boolean()\nDim values(1) As Boolean\nMakeFlags = values\nEnd Function\nFunction Main() As Variant\nDim item As Widget\nDim values(1) As Boolean\nSet item = New Widget\nitem.State = Library.values(0)\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "host_scalar_array_variable",
+      "description": "Host versus variable typed-array diagnostic phase controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "source": "Option Explicit\nFunction MakeFlags() As Boolean()\nDim values(1) As Boolean\nMakeFlags = values\nEnd Function\nFunction Main() As Variant\nDim values(1) As Boolean\nThisWorkbook.Worksheets(1).EnableCalculation = values\nMain = 1\nEnd Function",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "scalar_variable_array_function",
+      "description": "Host versus variable typed-array diagnostic phase controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "source": "Option Explicit\nFunction MakeFlags() As Boolean()\nDim values(1) As Boolean\nMakeFlags = values\nEnd Function\nFunction Main() As Variant\nDim values(1) As Boolean\nDim flag As Boolean\nflag = MakeFlags()\nMain = 1\nEnd Function",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }

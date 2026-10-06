@@ -153,7 +153,7 @@ export interface MemberCompletion {
 	writeType?: string;
 	/** The setter value parameter is an array, rather than a scalar element. */
 	writeIsArray?: boolean;
-	/** A user-defined type's field that holds an array (issue #417). */
+	/** A source field or module variable that holds an array (issue #417). */
 	isArray?: boolean;
 	/** Qualified type the member belongs to (for detail text). */
 	owner: string;

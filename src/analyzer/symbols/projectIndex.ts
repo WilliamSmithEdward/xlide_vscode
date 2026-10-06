@@ -1867,6 +1867,7 @@ export class ProjectIndex {
 				signature: projectObjectMemberSignature(symbol),
 				writable: projectObjectMemberWritable(symbol),
 				writeType: projectObjectMemberWriteType(symbol, mod),
+				...(symbol.kind === 'moduleVariable' && symbol.isArray ? {isArray:true} : {}),
 				...((symbol.kind === 'propertyLet' || symbol.kind === 'propertySet') && lastParameter(symbol)?.isArray ? { writeIsArray: true } : {}),
 				moduleName: mod.moduleName,
 				visibility: symbol.visibility,
