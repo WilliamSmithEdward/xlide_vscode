@@ -23,7 +23,7 @@ import type { Span } from '../../parser/nodes';
 import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { VbaSymbol } from '../../symbols/symbolModel';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
-import { isKnownScalarType, normalizeType, sourceIdentifierBinding } from '../typeInference';
+import { defTypeOf, getterMayReturnObject, isKnownScalarType, normalizeType, sourceIdentifierBinding } from '../typeInference';
 import { statementAndBranchSpans, statementTokensAfterLeadingLabel, tokenName, tokenText, type ProcedureStatementVisitor } from '../walker';
 
 /** The kinds of symbol a bare name reads as a value. */
@@ -134,7 +134,10 @@ export function checkModuleMemberForms(
 			const own = bare.toLowerCase() === member.name.toLowerCase();
 			if (!own && binding.scope !== 'ambiguous' && inModule.length === binding.definitions.length && propertyOnly(inModule)) {
 				const where = at(span, toks[first], toks[first]);
-				if (assignAt === first + 1 && first === 0 && getOnly(inModule)) {
+				const getter = inModule.find(sym => sym.kind === 'propertyGet');
+				const getterType = getter?.asType ?? (getter?.moduleName.toLowerCase() === symbols.moduleName.toLowerCase() ? defTypeOf(symbols, getter.name) : undefined);
+				if (assignAt === first + 1 && first === 0 && getOnly(inModule)
+					&& !getterMayReturnObject(getterType, memberCtx)) {
 					push('readonlyMemberAssignment', `'${bare}' has a Property Get and no Property Let, so it cannot be assigned. This is a VBE compile error: Can't assign to read-only property.`, where);
 				} else if (assignAt < 0 && head !== 'set') {
 					push('invalidPropertyUse', `'${bare}' is a property, and a statement cannot call one. This is a VBE compile error: Invalid use of property.`, where);

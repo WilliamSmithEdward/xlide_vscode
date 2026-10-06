@@ -22,6 +22,7 @@ import type { ExprNode, ProcedureNode, Span } from '../parser/nodes';
 import { parseModule } from '../parser/parseModule';
 import { buildModuleSymbols } from '../symbols/buildModuleSymbols';
 import type { ModuleSymbolKind, VbaProjectClassMembers, VbaSymbol } from '../symbols/symbolModel';
+import { resolveBareIdentifierBinding, type BareIdentifierResolution } from '../symbols/nameResolution';
 import { procedureSymbolFor } from '../diagnostics/analysisContext';
 import { resolveRuntimeObject } from '../runtime/vbaRuntime';
 import {
@@ -246,6 +247,20 @@ export function resolveExpressionType(
 	// even when the type table does not carry the class.
 	const isObject = isNewExpression(tokens) || needsSetAssignment(type, memberCtx);
 	return { type, isObject, complete };
+}
+
+/** Bind an assignment name using the same cached module and procedure lookup as expression typing. */
+export function resolveSourceAssignmentBindingAt(
+	source: string, span: Span, name: string, ctx: ExpressionTypeContext = {},
+): BareIdentifierResolution {
+	const bound = boundModule(source, ctx.moduleName ?? 'Module', ctx.moduleKind ?? 'standard');
+	const proc = enclosingProcedure(bound, span);
+	return resolveBareIdentifierBinding({
+		currentModule: bound.symbols,
+		enclosingProcedure: proc ? procedureSymbolFor(bound.symbols, proc) : undefined,
+		projectVisibleSymbols: ctx.projectVisibleSymbols,
+		name, offset: span.start, context: 'assignmentTarget',
+	});
 }
 
 /** Whether the expression is `New SomeClass`, which is always a reference. */

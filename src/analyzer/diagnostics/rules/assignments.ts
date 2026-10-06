@@ -67,6 +67,7 @@ import {
 	incompatibilityReason,
 	objectHoldingDefault,
 	readOnlyHostDefault,
+	getterMayReturnObject,
 	objectLetAssignmentVerdict,
 	inferArgumentType,
 	defTypeOf,
@@ -1637,13 +1638,18 @@ function checkMemberAssignmentTypes(
 			);
 			return;
 		}
-		// The project-class checks read a bare property target only. A Type's
-		// array field takes an array, or a String As Byte: typeMembers.ts
-		// judges it (issue #417).
-		if (!projectClasses || assignment.withArguments || !target || target.writable === undefined || target.isArray) {
+		// Source accessors accept their value after the index arguments as well.
+		// An indexed field or array-valued property belongs to typeMembers.ts
+		// and propertyUse.ts, rather than a scalar setter-value check.
+		const indexedAccessor = !assignment.usesSet && target && (target.letAccessor
+			|| (target.writable === false && target.signature !== undefined
+				&& (signatureDeclaresParameters(target.signature) || normalizeType(target.returns ?? target.declaredType) !== 'string')));
+		if (!projectClasses || (assignment.withArguments && !indexedAccessor) || !target || target.writable === undefined || target.isArray) {
 			return;
 		}
 		if (target.writable === false) {
+			// A Let can write through the object returned by Get; it does not replace the property.
+			if (!assignment.usesSet && getterMayReturnObject(target.returns ?? target.declaredType, memberCtx)) { return; }
 			push(
 				'readonlyMemberAssignment',
 				`Cannot assign to read-only property '${assignment.label}'.`,

@@ -25,3 +25,17 @@ export function assignmentTargetFromTokens(statement: readonly VbaToken[]): VbaT
 	return parsed.expr && parsed.endIndex === tokens.length && !parsed.diagnostics.length
 		&& ['IdentifierExpr', 'MemberAccessExpr', 'IndexExpr'].includes(parsed.expr.exprKind) ? tokens : undefined;
 }
+
+/** Peel the final index/argument list to identify the writable name before it. */
+export function assignmentTargetName(target: readonly VbaToken[]): { index: number; indexed: boolean } | undefined {
+	let index = target.length - 1;
+	const indexed = target[index]?.rawText === ')';
+	if (indexed) {
+		let depth = 0;
+		for (; index >= 0; index--) {
+			depth += target[index].rawText === ')' ? 1 : target[index].rawText === '(' ? -1 : 0;
+			if (depth === 0) { index--; break; }
+		}
+	}
+	return index >= 0 ? { index, indexed } : undefined;
+}

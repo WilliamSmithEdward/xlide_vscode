@@ -3226,6 +3226,13 @@ export function createObjectDefaultQueries(memberCtx: MemberCompletionContext) {
 	return { resolveType, projectTypeNamed, projectClassNamed, verdictFor, needsIndex };
 }
 
+/** A getter can supply an object whose default property receives a Let. */
+export function getterMayReturnObject(type: string | undefined, memberCtx: MemberCompletionContext): boolean {
+	const normalized = normalizeType(type);
+	return !normalized || normalized === 'variant' || normalized === 'object'
+		|| isKnownObjectAssignmentType(type, memberCtx);
+}
+
 /**
  * What a bare `name = value` does to a variable of a known object type
  * (issue #107, each case measured in Excel 16.0). The VBE compiles it as a

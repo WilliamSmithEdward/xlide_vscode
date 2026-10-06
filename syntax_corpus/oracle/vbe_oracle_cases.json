@@ -108228,6 +108228,231 @@
       "source": "Option Explicit\nPublic Function Main() As Variant\nDim ws As Worksheet\nSet ws = ThisWorkbook.Worksheets(1)\nws.EnableCalculation = True\nMain = 1\nEnd Function\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "indexed_property_bad_runtime",
+      "description": "Indexed Property Let Boolean value conversion. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Private held As Boolean\nPublic Property Get State(ByVal index As Long) As Boolean\nState = held\nEnd Property\nPublic Property Let State(ByVal index As Long, ByVal value As Boolean)\nheld = value\nEnd Property\n"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nPublic Function Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.State(1) = \"nonsense\"\nMain = 1\nEnd Function\n"
+        }
+      ],
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "indexed_property_good_runtime",
+      "description": "Indexed Property Let Boolean value conversion. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Private held As Boolean\nPublic Property Get State(ByVal index As Long) As Boolean\nState = held\nEnd Property\nPublic Property Let State(ByVal index As Long, ByVal value As Boolean)\nheld = value\nEnd Property\n"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nPublic Function Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.State(1) = True\nMain = 1\nEnd Function\n"
+        }
+      ],
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "indexed_getonly_compile",
+      "description": "Assignment to a getter-only scalar indexed property. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get State(ByVal index As Long) As Boolean\nState = True\nEnd Property\n"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nPublic Sub Main()\nDim item As Widget\nSet item = New Widget\nitem.State(1) = True\nEnd Sub\n"
+        }
+      ],
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "boolean_function_target_compile",
+      "description": "Boolean function call is not an assignment target. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "compile",
+      "source": "Option Explicit\nSub Main()\nIsNumeric(\"x\") = True\nEnd Sub\n",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "boolean_array_element_runtime",
+      "description": "Boolean array element is an assignment target. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As Variant\nDim enabled(1) As Boolean\nenabled(1) = True\nMain = enabled(1)\nEnd Function\n",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "getonly_default_range_bare",
+      "description": "Let through an object returned by a getter-only property. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get State() As Range\nSet State = ThisWorkbook.Worksheets(1).Range(\"A1\")\nEnd Property\n"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nPublic Function Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.State = 20\nMain = ThisWorkbook.Worksheets(1).Range(\"A1\").Value\nEnd Function\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "getonly_default_range_index",
+      "description": "Let through an object returned by a getter-only property. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get State(ByVal index As Long) As Range\nSet State = ThisWorkbook.Worksheets(1).Range(\"A1\")\nEnd Property\n"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nPublic Function Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.State(1) = 20\nMain = ThisWorkbook.Worksheets(1).Range(\"A1\").Value\nEnd Function\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "getonly_default_variant_bare",
+      "description": "Let through an object returned by a getter-only property. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get State() As Variant\nSet State = ThisWorkbook.Worksheets(1).Range(\"A1\")\nEnd Property\n"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nPublic Function Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.State = 20\nMain = ThisWorkbook.Worksheets(1).Range(\"A1\").Value\nEnd Function\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "getonly_default_variant_index",
+      "description": "Let through an object returned by a getter-only property. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get State(ByVal index As Long) As Variant\nSet State = ThisWorkbook.Worksheets(1).Range(\"A1\")\nEnd Property\n"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nPublic Function Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.State(1) = 20\nMain = ThisWorkbook.Worksheets(1).Range(\"A1\").Value\nEnd Function\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "module_getonly_default_range",
+      "description": "Bare standard-module getter result supports a Let through Range.Value. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPublic Property Get State() As Range\nSet State = ThisWorkbook.Worksheets(1).Range(\"A1\")\nEnd Property\nFunction Main() As Variant\nState = 20\nMain = ThisWorkbook.Worksheets(1).Range(\"A1\").Value\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "module_getonly_default_variant",
+      "description": "Bare standard-module getter result supports a Let through Range.Value. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPublic Property Get State() As Variant\nSet State = ThisWorkbook.Worksheets(1).Range(\"A1\")\nEnd Property\nFunction Main() As Variant\nState = 20\nMain = ThisWorkbook.Worksheets(1).Range(\"A1\").Value\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "empty_indexed_getonly_compile",
+      "description": "Explicit empty parentheses do not make a scalar getter-only property writable. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get State() As Boolean\nState = True\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\nDim item As Widget\nSet item = New Widget\nitem.State() = True\nEnd Sub"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }
