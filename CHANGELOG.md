@@ -2,6 +2,20 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.0.2] - 2026-10-05
+
+Resolve Scripting Runtime constants and RegExp IntelliSense in referenced projects.
+
+- **Scripting and RegExp references** (#1240, reported by @batGnat).
+  Projects referencing Microsoft Scripting Runtime now resolve constants such
+  as `ForAppending`, and FileSystemObject and RegExp completion offers the
+  receiver's own members. Hover and file-stream receiver chains use verified
+  pyVBAReference metadata. Libraries are loaded only when referenced, retaining
+  reference order and the project's host; genuine undeclared names remain errors.
+- **Build dependency security.** Update the transitive `source-map-js`
+  dependency to 1.2.2 to address GHSA-68fv-2mgg-jv7q. Release scanning also uses
+  the refreshed YARA Forge 20261004 rules.
+
 ## [11.0.1] - 2026-10-04
 
 Correct implicit VBA argument types and reduce repeated worksheet reads.
