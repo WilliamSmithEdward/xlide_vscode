@@ -26,6 +26,8 @@ const HOST_BY_LIBRARY_GUID: ReadonlyMap<string, VbaHostToken> = new Map([
 	['{00020905-0000-0000-C000-000000000046}', 'word' as const],
 	['{91493440-5A91-11CF-8700-00AA0060263B}', 'powerpoint' as const],
 	['{4AFFC9A0-5F99-101B-AF4E-00AA003F0F07}', 'access' as const],
+	['{420B2830-E718-11CF-893D-00A0C9054228}', 'scripting' as const],
+	['{3F4DACA7-160D-11D2-A8E9-00104B365C9F}', 'regexp' as const],
 ]);
 
 /** The name each library gives itself, which is the qualifier VBA writes. */
@@ -39,6 +41,8 @@ export const HOST_LIBRARY_NAMES: Readonly<Record<VbaHostToken, string>> = Object
 	project: 'MSProject',
 	vb6: 'VB',
 	other: '',
+	scripting: 'Scripting',
+	regexp: 'VBScript_RegExp_55',
 });
 
 /** The GUID inside a libid, upper-cased with its braces, or undefined. */

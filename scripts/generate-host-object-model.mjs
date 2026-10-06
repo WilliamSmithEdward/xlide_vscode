@@ -36,10 +36,10 @@ import {
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const host = process.argv[2];
 if (!host || !/^[a-z][a-z0-9]*$/.test(host)) {
-    console.error('usage: generate-host-object-model.mjs <host>   (word | powerpoint | access | vb6)');
+    console.error('usage: generate-host-object-model.mjs <host>   (word | powerpoint | access | vb6 | scripting | regexp)');
     process.exit(1);
 }
-const PREFIXES = { word: 'Word', powerpoint: 'PowerPoint', access: 'Access', vb6: 'VB' };
+const PREFIXES = { word: 'Word', powerpoint: 'PowerPoint', access: 'Access', vb6: 'VB', scripting: 'Scripting', regexp: 'VBScript_RegExp_55' };
 // A host whose dumps span several libraries names each one: a dump's
 // `libraryId` picks its namespace, and a library with no entry here is
 // evidence only (VBA6 is dumped beside VBRUN but the analyzer's VBA runtime
@@ -269,6 +269,27 @@ for (const [name, dump] of dumps) {
     }
 }
 
+// A COM method can return the default interface of a VBA coclass (IFile,
+// ITextStream). Preserve the declared signature but chain through that class,
+// using only the default-interface identity measured by the library dumper.
+const defaultClasses = new Map();
+for (const dump of dumps.values()) {
+    if (dump.defaultInterface && prefixOf(dump)) {
+        defaultClasses.set(`${prefixOf(dump)}.${dump.defaultInterface}`, `${prefixOf(dump)}.${dump.name}`);
+    }
+}
+for (const type of Object.values(types)) {
+    for (const member of type.members) {
+        if (member.returns && defaultClasses.has(member.returns)) {
+            member.returns = defaultClasses.get(member.returns);
+        }
+    }
+}
+for (const [iface, cls] of defaultClasses) {
+    aliases[iface.toLowerCase()] = cls;
+    aliases[iface.split('.').at(-1).toLowerCase()] = cls;
+}
+
 const lines = [];
 lines.push(`// Generated from reference/${host}/json by generate-host-object-model.mjs.`);
 lines.push('// Do not hand-edit: regenerate instead.');
@@ -280,6 +301,10 @@ if (host === 'vb6') {
     lines.push('// each type carrying its source as provenance. Every type is deliberately');
     lines.push('// NON-exhaustive: this metadata offers and describes, and must never prove');
     lines.push('// a member absent.');
+} else if (host === 'scripting' || host === 'regexp') {
+    lines.push(`// Types, aliases and enum constants of ${prefix}, read from its registered`);
+    lines.push('// COM type library via pinned pyVBAReference. Types remain');
+    lines.push('// NON-exhaustive: these snapshots offer and describe visible members.');
 } else {
     lines.push(`// Types, aliases and enum constants of the ${prefix} type`);
     lines.push('// library, introspected via pyVBAReference and enriched from Microsoft');
