@@ -48,7 +48,7 @@ function prepareRequest(line: string, context: EditorProjectContext = {}, column
         buildEditorProjectContextWithin: vi.fn(async () => context),
     };
     const provider = new VbaMemberCompletionProvider(projectContext as unknown as VbaEditorProjectContextService);
-    return { projectContext, run: () => provider.provideCompletionItems(document as unknown as vscodeTypes.TextDocument, new vscode.Position(lineIndex, column)) };
+    return { projectContext, run: (trigger?: string) => provider.provideCompletionItems(document as unknown as vscodeTypes.TextDocument, new vscode.Position(lineIndex, column), undefined, trigger ? {triggerKind: vscode.CompletionTriggerKind.TriggerCharacter, triggerCharacter: trigger} : undefined) };
 }
 
 function request(line: string, context: EditorProjectContext = {}, column = line.length, prelude = 'Sub Demo()\n') {
@@ -59,6 +59,31 @@ beforeEach(() => { vi.mocked(callableCompletionShouldInsertParens).mockClear(); 
 afterEach(() => vi.restoreAllMocks());
 
 describe('completion provider surface', () => {
+    it('prioritizes assignment values while retaining ordinary variables', async () => {
+        const result = await request('ActiveCell.HorizontalAlignment = ', {}, undefined, 'Sub Demo()\nDim chosen As XlHAlign\n');
+        expect(result.items.map(item => item.label)).toContain('chosen');
+        expect(result.items.find(item => item.label === 'xlHAlignLeft')?.sortText).toMatch(/^0:/);
+    });
+    it.each(['Dim xlHAlignLeft As Long', 'Const xlHAlignLeft = 123'])('qualifies the enum constant shadowed by %s', async declaration => {
+        const result = await request('ActiveCell.HorizontalAlignment = xlH', {}, undefined, `${declaration}\nSub Demo()\n`);
+        expect(result.items.find(item => item.label === 'xlHAlignLeft')?.insertText).toBe('Excel.XlHAlign.xlHAlignLeft');
+        expect(result.items.filter(item => item.label === 'xlHAlignLeft')).toHaveLength(2);
+    });
+    it('does not let a source enum replace a same-named host constant', async () => {
+        const prelude = 'Enum XlHAlign\nxlHAlignLeft = 123\nEnd Enum\nSub Demo()\n';
+        const result = await request('ActiveCell.HorizontalAlignment = xlH', {}, undefined, prelude);
+        expect(result.items.find(item => item.label === 'xlHAlignLeft')?.insertText).toBe('Excel.XlHAlign.xlHAlignLeft');
+        expect(result.items.filter(item => item.label === 'xlHAlignLeft')).toHaveLength(2);
+    });
+    it.each(['If x =', 'Debug.Print x =', "' x =", 'Set item ='])('rejects automatic equals without project loading: %s', async line => {
+        const prepared = prepareRequest(line);
+        expect((await prepared.run('=')).items).toEqual([]);
+        expect(prepared.projectContext.cachedEditorProjectContext).not.toHaveBeenCalled();
+        expect(prepared.projectContext.localEditorProjectContext).not.toHaveBeenCalled();
+    });
+    it.each(['=', ' '])('keeps an unknown property quiet on %s', async trigger => {
+        expect((await prepareRequest('ActiveCell.Value = ').run(trigger)).items).toEqual([]);
+    });
     it('skips project lookups for ordinary comments while preserving directive suggestions', async () => {
         const plain = prepareRequest("' ordinary comment");
         expect((await plain.run()).items).toEqual([]);

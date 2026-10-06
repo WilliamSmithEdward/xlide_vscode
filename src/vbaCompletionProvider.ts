@@ -13,7 +13,8 @@
 // Extracted verbatim from vbaMemberCompletion.ts (audit #27).
 
 import * as vscode from 'vscode';
-import { completionLineCursorContext } from './analyzer/completion/cursorContext';
+import { assignmentValueTriggerMayComplete, completionLineCursorContext } from './analyzer/completion/cursorContext';
+import { assignmentTargetAt, resolveAssignmentValueCompletion } from './analyzer/completion/assignmentValueCompletion';
 import { macroNameStringMayResolveAt } from './analyzer/completion/macroNames';
 import { hasDocContent, renderDocMarkdown } from './analyzer/docs/docModel';
 import { isVbaDocument } from './xlideFileSystem';
@@ -317,6 +318,12 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 			return new vscode.CompletionList(directiveItems, false);
 		}
 
+		if (context?.triggerKind === vscode.CompletionTriggerKind.TriggerCharacter && context.triggerCharacter === '='
+			&& !assignmentValueTriggerMayComplete(document.lineAt(position.line).text.slice(0, position.character),
+				position.line > 0 && /_\s*$/.test(document.lineAt(position.line - 1).text))) {
+			return new vscode.CompletionList([], false);
+		}
+
 		const source = document.getText();
 		const offset = document.offsetAt(position);
 		if (completionLineCursorContext(source, offset).inComment) {
@@ -414,11 +421,12 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 		}
 
 		const identCtx = toIdentifierCompletionContext(projectCtx);
-		const idents = resolveIdentifierCompletions(source, offset, identCtx);
-		// An argument whose parameter declares an enumeration has a known set of
+		// An assignment or argument with a known enum type has a known set of
 		// legal values, and they sort above the general list rather than
 		// replacing it: `Type:=someVariable` is legal too.
-		const argumentValues = resolveArgumentValueCompletion(
+		const argumentValues = resolveAssignmentValueCompletion(source, offset, {
+			...memberCtx, moduleName: projectCtx.moduleName, moduleKind: projectCtx.moduleKind, projectSymbols: projectCtx.projectSymbols,
+		}) ?? resolveArgumentValueCompletion(
 			source,
 			offset,
 			{
@@ -428,12 +436,28 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 				projectProcedures: projectCtx.projectProcedures,
 			},
 		);
+		if (!argumentValues && (context?.triggerCharacter === '=' ||
+			(context?.triggerCharacter === ' ' && assignmentTargetAt(source, offset)))) { return list([]); }
+		const idents = resolveIdentifierCompletions(source, offset, identCtx);
+		const preferred = new Set((argumentValues?.constants ?? []).map(c => c.name.toLowerCase()));
+		const identifiers = new Map(idents.map(id => [id.name.toLowerCase(), id]));
+		const matchesEnum = (id: IdentifierCompletion) => argumentValues?.origin !== 'host' && argumentValues?.origin !== 'runtime' && id.detail === `${argumentValues?.enumName} member`
+			|| (id.kind === 'constant' && /^(VBA|.+\/Office) constant As /.test(id.detail) && id.detail.endsWith(` As ${argumentValues?.enumName}`))
+			|| id.detail === 'Boolean literal';
 		return list([
 			...directiveItems,
 			...(argumentValues?.constants ?? []).map(
-				(constant) => this._toArgumentValueItem(constant, argumentValues!, range),
+				(constant) => {
+					const item = this._toArgumentValueItem(constant, argumentValues!, range);
+					const binding = identifiers.get(constant.name.toLowerCase());
+					if (binding && !matchesEnum(binding)) {
+						item.insertText = `${argumentValues!.qualifiedEnumName ?? argumentValues!.enumName}.${constant.name}`;
+					}
+					return item;
+				},
 			),
-			...idents.map((id) => this._toIdentItem(id, range, shouldInsertParens)),
+			...idents.filter(id => !preferred.has(id.name.toLowerCase()) || !matchesEnum(id))
+				.map((id) => this._toIdentItem(id, range, shouldInsertParens)),
 			...keywords.items.map((item) => this._toKeywordItem(item, range, document)),
 		]);
 	}

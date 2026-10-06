@@ -473,6 +473,18 @@ export const DIAGNOSTIC_RULES = {
 		specReference: "VBE oracle: Can't assign to read-only property; Wrong number of arguments or invalid property assignment; Assignment to constant not permitted",
 		confidence: 'high',
 	},
+	hostReadonlyValueAssignment: {
+		code: 'host-readonly-value-assignment',
+		title: 'Assignment to a read-only host value',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: false,
+		diagnosticKind: 'deterministic-runtime-error',
+		source: 'XLIDE',
+		specReference: 'Excel Range scalar-valued read-only properties: Height, Width, Left, Top, Text, CountLarge, HasArray and HasFormula',
+		allowSeverityDowngrade: true,
+		confidence: 'high',
+	},
 	setRequired: {
 		code: 'set-required',
 		title: 'Object assignment requires Set',

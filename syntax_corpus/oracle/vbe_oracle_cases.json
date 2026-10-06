@@ -108107,6 +108107,127 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant\r\n    Dim o As Object\r\n    Set o = Range(\"A1\").Comment\r\n    Range(\"A1\").ClearComments\r\n    v = o & \"\"\r\n    Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "assignment_height_run",
+      "description": "Getter-only Range values and writable RowHeight contrasted in Excel. Verified through the repository Excel/VBE oracle on 2026-10-06: runtime error 424 (Object required).",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPublic Function Main() As Variant\nDim ws As Worksheet\nSet ws = ThisWorkbook.Worksheets(1)\nws.Range(\"A1\").EntireRow.Height = 20\nMain = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "assignment_width_run",
+      "description": "Getter-only Range values and writable RowHeight contrasted in Excel. Verified through the repository Excel/VBE oracle on 2026-10-06: runtime error 424 (Object required).",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPublic Function Main() As Variant\nDim ws As Worksheet\nSet ws = ThisWorkbook.Worksheets(1)\nws.Range(\"A1\").EntireRow.Width = 20\nMain = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "assignment_left_run",
+      "description": "Getter-only Range values and writable RowHeight contrasted in Excel. Verified through the repository Excel/VBE oracle on 2026-10-06: runtime error 424 (Object required).",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPublic Function Main() As Variant\nDim ws As Worksheet\nSet ws = ThisWorkbook.Worksheets(1)\nws.Range(\"A1\").EntireRow.Left = 20\nMain = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "assignment_top_run",
+      "description": "Getter-only Range values and writable RowHeight contrasted in Excel. Verified through the repository Excel/VBE oracle on 2026-10-06: runtime error 424 (Object required).",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPublic Function Main() As Variant\nDim ws As Worksheet\nSet ws = ThisWorkbook.Worksheets(1)\nws.Range(\"A1\").EntireRow.Top = 20\nMain = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "assignment_text_run",
+      "description": "Getter-only Range values and writable RowHeight contrasted in Excel. Verified through the repository Excel/VBE oracle on 2026-10-06: runtime error 424 (Object required).",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPublic Function Main() As Variant\nDim ws As Worksheet\nSet ws = ThisWorkbook.Worksheets(1)\nws.Range(\"A1\").EntireRow.Text = 20\nMain = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "assignment_countlarge_run",
+      "description": "Getter-only Range values and writable RowHeight contrasted in Excel. Verified through the repository Excel/VBE oracle on 2026-10-06: runtime error 424 (Object required).",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPublic Function Main() As Variant\nDim ws As Worksheet\nSet ws = ThisWorkbook.Worksheets(1)\nws.Range(\"A1\").EntireRow.CountLarge = 20\nMain = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "assignment_hasarray_run",
+      "description": "Getter-only Range values and writable RowHeight contrasted in Excel. Verified through the repository Excel/VBE oracle on 2026-10-06: runtime error 424 (Object required).",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPublic Function Main() As Variant\nDim ws As Worksheet\nSet ws = ThisWorkbook.Worksheets(1)\nws.Range(\"A1\").EntireRow.HasArray = 20\nMain = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "assignment_hasformula_run",
+      "description": "Getter-only Range values and writable RowHeight contrasted in Excel. Verified through the repository Excel/VBE oracle on 2026-10-06: runtime error 424 (Object required).",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPublic Function Main() As Variant\nDim ws As Worksheet\nSet ws = ThisWorkbook.Worksheets(1)\nws.Range(\"A1\").EntireRow.HasFormula = 20\nMain = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "assignment_rowheight_run",
+      "description": "Getter-only Range values and writable RowHeight contrasted in Excel. Verified through the repository Excel/VBE oracle on 2026-10-06: ran successfully.",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPublic Function Main() As Variant\nDim ws As Worksheet\nSet ws = ThisWorkbook.Worksheets(1)\nws.Range(\"A1\").EntireRow.RowHeight = 20\nMain = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "assignment_host_boolean_bad_run",
+      "description": "Worksheet.EnableCalculation Boolean setter coercion. Verified through the repository Excel/VBE oracle on 2026-10-06: runtime error 13 (Type mismatch).",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPublic Function Main() As Variant\nDim ws As Worksheet\nSet ws = ThisWorkbook.Worksheets(1)\nws.EnableCalculation = \"nonsense\"\nMain = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "assignment_host_boolean_good_run",
+      "description": "Worksheet.EnableCalculation Boolean setter coercion. Verified through the repository Excel/VBE oracle on 2026-10-06: ran successfully.",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPublic Function Main() As Variant\nDim ws As Worksheet\nSet ws = ThisWorkbook.Worksheets(1)\nws.EnableCalculation = True\nMain = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
