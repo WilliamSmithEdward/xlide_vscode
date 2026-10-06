@@ -414,7 +414,7 @@ export const DIAGNOSTIC_RULES = {
 		vbeCompileEquivalent: true,
 		diagnosticKind: 'compile-error',
 		source: 'XLIDE',
-		specReference: "VBE \"Can't assign to array\": a fixed-size array, a scalar into a dynamic array, or an array of another element type (issue #194, Excel 16.0)",
+		specReference: "VBE \"Can't assign to array\": a fixed-size array, a scalar into a dynamic array, an array of another element type, or a whole array passed as a Property Let value (issues #194 and #1260, Excel 16.0)",
 		confidence: 'high',
 	},
 	arrayBoundRequiresArray: {

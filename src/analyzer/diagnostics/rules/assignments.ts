@@ -1,3 +1,5 @@
+import { isLeafStatement } from '../../parser/nodes';
+import { projectSetterValueType } from '../../completion/projectSetterValueType';
 // Rule family: assignment validation (audit #0).
 //
 // Extracted verbatim from analyzeModule.ts: Const reassignment, scalar and
@@ -71,6 +73,7 @@ import {
 	readOnlyHostDefault,
 	getterMayReturnObject,
 	objectLetAssignmentVerdict,
+	sameByRefType,
 	inferArgumentType,
 	defTypeOf,
 	isKnownObjectAssignmentType,
@@ -367,11 +370,14 @@ export function checkAssignmentTypes(
 		const procSym = procedureSymbolFor(symbols, member);
 		// These value helpers inspect the same direct child declaration. Preserve
 		// first-match semantics, but share queried names (and misses) per procedure.
-		let localSymbols: Map<string, VbaSymbol | undefined> | undefined;
+		let localSymbols: Map<string, VbaSymbol> | undefined;
 		const localSymbolNamed = (lower: string): VbaSymbol | undefined => {
-			localSymbols ??= new Map();
-			if (!localSymbols.has(lower)) {
-				localSymbols.set(lower, procSym?.children?.find((child) => child.name.toLowerCase() === lower));
+			if (!localSymbols) {
+				localSymbols = new Map();
+				for (const child of procSym?.children ?? []) {
+					const key = child.name.toLowerCase();
+					if (!localSymbols.has(key)) { localSymbols.set(key, child); }
+				}
 			}
 			return localSymbols.get(lower);
 		};
@@ -524,7 +530,7 @@ export function checkAssignmentTypes(
 			}
 		}
 
-		function checkBareSetter(span: Span): boolean {
+		function checkBareSetter(span: Span, stmt: LeafStatementNode): boolean {
 			if (!setterNames.size) { return false; }
 			const tokens = statementTokensAfterLeadingLabel(source, span);
 			// Only names known to have a Let need syntax/binding work. If branches
@@ -545,12 +551,24 @@ export function checkAssignmentTypes(
 			if (binding.scope === 'ambiguous') { return false; }
 			const setter = binding.definitions.find(definition => definition.kind === 'propertyLet');
 			const parameter = setter?.children?.filter(child => child.kind === 'parameter').at(-1);
-			const declared = parameter?.asType ?? (parameter?.moduleName.toLowerCase() === symbols.moduleName.toLowerCase() ? defTypeOf(symbols, parameter.name) : undefined);
-			if (!declared || parameter?.isArray) { return false; }
+			const declared = parameter?.asType ?? (parameter?.moduleName.toLowerCase() === symbols.moduleName.toLowerCase() ? defTypeOf(symbols, parameter.name) : undefined)
+				?? (setter && projectSetterValueType(memberCtx, setter.moduleName, setter.name));
+			if (parameter?.isArray) {
+				const value = tokens.slice(equals + 1);
+				const actual = inferArgumentType(value, span.start, env, moduleSignatures, sourceNames,
+					source, memberCtx, resolveExpressionType, resolveQualifiedExpressionType);
+				checkArraySetterValue(name, declared, value, span.start, actual, coercionType, resolveExpressionType, resolveQualifiedExpressionType, push, sourceNames, projectDeclaresCollection, defaultQueries.verdictFor, (name) => arrayValueAt(stmt, name));
+				return true;
+			}
+			if (!declared) { return false; }
 			const expected = coercionType(declared);
 			if (!isKnownScalarType(normalizeType(expected) ?? '')) { return false; }
 			const actual = inferArgumentType(tokens.slice(equals + 1), span.start, env, moduleSignatures, sourceNames,
 				source, memberCtx, resolveExpressionType, resolveQualifiedExpressionType);
+			const problem = arrayAssignmentProblem({ name, span: actual?.span ?? span, valueTokens: tokens.slice(equals + 1) }, span.start,
+				{ asType: expected, isArray: false, isFixedArray: false }, () => undefined,
+				name => arrayValueAt(stmt, name), () => actual, sourceNames);
+			if (problem) { push(problem.code, problem.message, problem.span); return true; }
 			const reason = actual && incompatibilityReason(expected, actual);
 			if (reason) {
 				push('assignmentTypeMismatch', `Assignment to '${name}' expects ${declared}, but got ${actual!.label}. ${reason}`, actual!.span);
@@ -559,7 +577,7 @@ export function checkAssignmentTypes(
 		}
 
 		function checkAssignmentSpan(span: Span, stmt: LeafStatementNode): void {
-			if (checkBareSetter(span)) { return; }
+			if (checkBareSetter(span, stmt)) { return; }
 			const assignment = bareAssignmentTarget(source, span);
 			if (!assignment) {
 				checkElementLet(span);
@@ -825,10 +843,75 @@ export function checkAssignmentTypes(
 			isFormOwner,
 			objectAssignmentReason,
 			resolveObjectType,
+			defaultQueries.verdictFor,
+			arrayValueAt,
 			resolveExpressionType,
 			resolveQualifiedExpressionType,
 			symbols,
 		);
+	}
+}
+
+/** A Let's final array parameter is subject to compile-time shape rules. */
+function checkArraySetterValue(
+	label: string, expected: string | undefined, tokens: readonly VbaToken[], baseOffset: number,
+	actual: ReturnType<typeof inferArgumentType>, coercionType: (type: string) => string,
+	resolveType: SourceDeclaredTypeResolver | undefined,
+	resolveQualifiedType: SourceQualifiedDeclaredTypeResolver | undefined, push: PushFn,
+	sourceNames: SourceNameScope, projectDeclaresCollection: () => boolean,
+	objectVerdict: (type: string | undefined) => ReturnType<typeof objectLetAssignmentVerdict>,
+	variantValue: (name: string) => ArrayValue | undefined,
+): void {
+	const raw = tokens.filter(token => token.kind !== 'comment' && token.kind !== 'newline');
+	if (!raw.length) { return; }
+	let value = raw;
+	if (raw[0].rawText === '(') {
+		// Collect pairs once: peeling N nested groups with N scans is quadratic.
+		const opens: number[] = [], pairs = new Map<number, number>();
+		for (let i = 0; i < raw.length; i++) {
+			if (raw[i].rawText === '(') { opens.push(i); }
+			else if (raw[i].rawText === ')') { const open = opens.pop(); if (open !== undefined) { pairs.set(open, i); } }
+		}
+		let first = 0, last = raw.length - 1;
+		while (pairs.get(first) === last) { first++; last--; }
+		value = raw.slice(first, last + 1);
+	}
+	const expectedType = normalizeType(expected), actualType = normalizeType(actual?.type);
+	const typedArray = actual && /\(\s*\)\s*$/.test(actual.type);
+	const wrongElement = typedArray && expectedType && actualType && isKnownScalarType(expectedType)
+		&& isKnownScalarType(actualType) && !sameByRefType(actualType, expectedType);
+	const indexed = value[1]?.rawText === '(' && matchParenFrom(value, 1) === value.length - 1;
+	const name = value.length === 1 || indexed ? tokenName(value[0]) : undefined;
+	const qualified = value.length === 3 && value[1].rawText === '.' && tokenName(value[0]) && tokenName(value[2]);
+	const declared = name ? resolveType?.(name) : qualified ? resolveQualifiedType?.(value[0].rawText, value[2].rawText) : undefined;
+	const span = { start: baseOffset + raw[0].start, end: baseOffset + raw[raw.length - 1].end };
+	const arrayVariable = declared?.isArray && ['localVariable', 'moduleVariable', 'parameter'].includes(declared.kind ?? '');
+	if (arrayVariable && (!indexed || value.length === 3)) {
+		push('arrayTargetAssignment', `Assignment to '${label}' passes a whole array to a Property Let value parameter. This is a VBE compile error: Can't assign to array.`, span);
+		return;
+	}
+	// Byte-array assignments convert a String value, but not a whole String array.
+	const stringElement = arrayVariable && indexed && value.length > 3 && normalizeType(declared?.asType) === 'string';
+	if (expectedType === 'byte' && ((actualType === 'string' && !typedArray) || stringElement)) { return; }
+	if (value.length === 2 && tokenText(value[0]) === 'new' && normalizeType(value[1].rawText) === 'collection' && !projectDeclaresCollection()) {
+		push('argumentCount', `Assignment to '${label}' reads the Collection's default member Item, which requires an index. This is a VBE compile error: Argument not optional.`, span);
+		return;
+	}
+	const variantVariable = declared?.resolved && !declared.isArray
+		&& ['localVariable', 'moduleVariable', 'parameter'].includes(declared.kind ?? '')
+		&& (normalizeType(declared.asType) ?? 'variant') === 'variant';
+	if (expectedType === 'byte' && (variantVariable || arrayProducedBy(value, sourceNames))) {
+		const problem = arrayAssignmentProblem({ name: label, span, valueTokens: value }, baseOffset,
+			{ asType: 'Byte', isArray: true, isFixedArray: false },
+			name => { const binding = resolveType?.(name); return binding?.resolved ? { asType: binding.asType, isArray: !!binding.isArray, isFixedArray: false } : undefined; },
+			variantValue, () => actual, sourceNames);
+		if (problem) { push(problem.code, problem.message, problem.span); }
+		return;
+	}
+	if (wrongElement || (arrayVariable && indexed && value.length > 3) || variantVariable
+		|| (actual && !/\(\s*\)\s*$/.test(actual.type) && isKnownScalarType(normalizeType(coercionType(actual.type)) ?? ''))
+		|| arrayProducedBy(value, sourceNames) || (actual && !typedArray && objectVerdict(actual.type) === 'noDefault')) {
+		push('argumentShapeMismatch', `Assignment to '${label}' passes ${actual?.label ?? 'an array element'}, but the Property Let value parameter requires an array. This is a VBE compile error: Type mismatch: array or user-defined type expected.`, span);
 	}
 }
 
@@ -1554,6 +1637,8 @@ function checkMemberAssignmentTypes(
 	isFormOwner: (name: string) => boolean,
 	objectAssignmentReason: (expected: string | undefined, actual: ReturnType<typeof inferArgumentType>) => string | undefined,
 	resolveObjectType: ReturnType<typeof createObjectAssignmentTypeResolver>,
+	objectVerdict: (type: string | undefined) => ReturnType<typeof objectLetAssignmentVerdict>,
+	arrayValueAt: (stmt: LeafStatementNode, name: string) => ArrayValue | undefined,
 	resolveExpressionType?: SourceDeclaredTypeResolver,
 	resolveQualifiedExpressionType?: SourceQualifiedDeclaredTypeResolver,
 	symbols?: ReturnType<typeof buildModuleSymbols>,
@@ -1647,9 +1732,15 @@ function checkMemberAssignmentTypes(
 		// Variant, Object and object-valued getters need host-specific knowledge.
 		if (target?.kind === 'property' && target.access === 'read/write' && target.writable === undefined
 			&& !assignment.usesSet && !assignment.withArguments && target.declaredType
-			&& isKnownScalarType(normalizeType(target.declaredType) ?? '') && !lateBoundReceiver(source, assignment.memberSpan.end, memberCtx)) {
+			&& (isKnownScalarType(normalizeType(target.declaredType) ?? '') || resolveHostEnum(target.declaredType, memberCtx.model))
+			&& !lateBoundReceiver(source, assignment.memberSpan.end, memberCtx)) {
 			const actual = inferArgumentType(assignment.valueTokens, span.start, env, moduleSignatures,
 				sourceNames, source, memberCtx, resolveExpressionType, resolveQualifiedExpressionType);
+			const expected = resolveHostEnum(target.declaredType, memberCtx.model) ? 'Long' : target.declaredType;
+			const arrayProblem = arrayAssignmentProblem({ name: assignment.label, span: assignment.memberSpan, valueTokens: assignment.valueTokens }, span.start,
+				{ asType: expected, isArray: false, isFixedArray: false }, () => undefined,
+				name => isLeafStatement(stmt) ? arrayValueAt(stmt, name) : undefined, () => actual, sourceNames);
+			if (arrayProblem) { push(arrayProblem.code, arrayProblem.message, arrayProblem.span); return; }
 			const reason = actual && incompatibilityReason(target.declaredType, actual);
 			if (reason) {
 				push('assignmentTypeMismatch', `Assignment to '${assignment.label}' expects ${target.declaredType}, but got ${actual!.label}. ${reason}`, actual!.span);
@@ -1686,7 +1777,7 @@ function checkMemberAssignmentTypes(
 		const indexedAccessor = target && (assignment.usesSet ? target.setAccessor : (target.letAccessor
 			|| (target.writable === false && target.signature !== undefined
 				&& (signatureDeclaresParameters(target.signature) || normalizeType(target.returns ?? target.declaredType) !== 'string'))));
-		if (!projectClasses || (assignment.withArguments && !indexedAccessor) || !target || target.writable === undefined || target.isArray) {
+		if (!projectClasses || (assignment.withArguments && !indexedAccessor) || !target || target.writable === undefined || (target.isArray && !target.writeIsArray)) {
 			return;
 		}
 		if (target.writable === false) {
@@ -1698,6 +1789,13 @@ function checkMemberAssignmentTypes(
 				assignment.memberSpan,
 			);
 			return;
+		}
+		if (!assignment.usesSet && target.writeIsArray) {
+			const actual = inferArgumentType(assignment.valueTokens, span.start, env, moduleSignatures, sourceNames,
+				source, memberCtx, resolveExpressionType, resolveQualifiedExpressionType);
+			checkArraySetterValue(assignment.label, target.writeType, assignment.valueTokens, span.start, actual, coercionType,
+				resolveExpressionType, resolveQualifiedExpressionType, push, sourceNames, projectDeclaresCollection, objectVerdict, (name) => isLeafStatement(stmt) ? arrayValueAt(stmt, name) : undefined);
+			return; // The value is an array parameter, never a scalar value to coerce.
 		}
 		const declaredExpected = target.writeType ?? target.returns;
 		const expected = declaredExpected ? coercionType(declaredExpected) : undefined;
@@ -1762,6 +1860,11 @@ function checkMemberAssignmentTypes(
 		if (!expected || !isKnownScalarType(normalizeType(expected) ?? '')) {
 			return; // a Let of an object or unknown type: nothing provable about the value
 		}
+		const arrayProblem = arrayAssignmentProblem({ name: assignment.label, span: assignment.memberSpan, valueTokens: assignment.valueTokens }, span.start,
+			{ asType: expected, isArray: false, isFixedArray: false }, () => undefined,
+			name => isLeafStatement(stmt) ? arrayValueAt(stmt, name) : undefined,
+			tokens => inferArgumentType(tokens, span.start, env, moduleSignatures, sourceNames, source, memberCtx, resolveExpressionType, resolveQualifiedExpressionType), sourceNames);
+		if (arrayProblem) { push(arrayProblem.code, arrayProblem.message, arrayProblem.span); return; }
 		const stringArithmetic = nonnumericStringArithmeticOperand(
 			expected,
 			assignment.valueTokens,

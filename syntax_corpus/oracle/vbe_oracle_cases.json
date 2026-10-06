@@ -108904,6 +108904,388 @@
           "source": "Option Explicit\nFunction Main() As Variant\nSnapshot.Flag = \"nonsense\"\nMain = 1\nEnd Function"
         }
       ]
+    },
+    {
+      "id": "class_array_setter_plain_scalar",
+      "description": "Array value parameter on a class Property Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let Flags(ByRef value() As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nDim values(1) As Boolean\nvalues(0) = True\nitem.Flags = True\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "class_array_setter_plain_array",
+      "description": "Array value parameter on a class Property Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let Flags(ByRef value() As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nDim values(1) As Boolean\nvalues(0) = True\nitem.Flags = values\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "class_array_setter_indexed_scalar",
+      "description": "Array value parameter on a class Property Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let Flags(ByVal index As Long, ByRef value() As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nDim values(1) As Boolean\nvalues(0) = True\nitem.Flags(1) = True\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "class_array_setter_indexed_array",
+      "description": "Array value parameter on a class Property Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let Flags(ByVal index As Long, ByRef value() As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nDim values(1) As Boolean\nvalues(0) = True\nitem.Flags(1) = values\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "array_setter_value_variant",
+      "description": "Additional expression shapes in an array-valued Property Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "source": "Option Explicit\nProperty Let Flags(ByRef value() As Boolean)\nEnd Property\nFunction Main() As Variant\nDim value As Variant\nvalue = Array(True)\nFlags = value\nMain = 1\nEnd Function"
+    },
+    {
+      "id": "array_setter_value_empty_index",
+      "description": "Additional expression shapes in an array-valued Property Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "source": "Option Explicit\nProperty Let Flags(ByRef value() As Boolean)\nEnd Property\nFunction Main() As Variant\nDim values(1) As Boolean\nFlags = values()\nMain = 1\nEnd Function"
+    },
+    {
+      "id": "array_setter_value_function_array",
+      "description": "Additional expression shapes in an array-valued Property Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "source": "Option Explicit\nProperty Let Flags(ByRef value() As Boolean)\nEnd Property\nFunction Main() As Variant\n\nFlags = Array(True)\nMain = 1\nEnd Function"
+    },
+    {
+      "id": "array_setter_value_object",
+      "description": "Additional expression shapes in an array-valued Property Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "source": "Option Explicit\nProperty Let Flags(ByRef value() As Boolean)\nEnd Property\nFunction Main() As Variant\n\nFlags = New Collection\nMain = 1\nEnd Function"
+    },
+    {
+      "id": "array_setter_value_typed_function",
+      "description": "Typed function, parentheses and object values for array-valued Property Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Flag As Boolean"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nProperty Let Flags(ByRef value() As Boolean)\nEnd Property\nFunction MakeFlags() As Boolean()\nDim result(1) As Boolean\nMakeFlags = result\nEnd Function\nFunction Main() As Variant\n\nFlags = MakeFlags()\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "array_setter_value_parenthesized_array",
+      "description": "Typed function, parentheses and object values for array-valued Property Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Flag As Boolean"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nProperty Let Flags(ByRef value() As Boolean)\nEnd Property\nFunction MakeFlags() As Boolean()\nDim result(1) As Boolean\nMakeFlags = result\nEnd Function\nFunction Main() As Variant\nDim values(1) As Boolean\nFlags = (values)\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "array_setter_value_plain_object",
+      "description": "Typed function, parentheses and object values for array-valued Property Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Flag As Boolean"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nProperty Let Flags(ByRef value() As Boolean)\nEnd Property\nFunction MakeFlags() As Boolean()\nDim result(1) As Boolean\nMakeFlags = result\nEnd Function\nFunction Main() As Variant\n\nFlags = New Widget\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "array_setter_value_shadowed_split",
+      "description": "Source Split function shadowing and qualified runtime VBA.Split.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nProperty Let Flags(ByRef value() As Boolean)\nEnd Property\nFunction Split(ByVal ignored As Boolean) As Boolean()\nDim result(1) As Boolean\nSplit = result\nEnd Function\nFunction Main() As Variant\nFlags = Split(True)\nMain = 1\nEnd Function",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "array_setter_value_qualified_split",
+      "description": "Source Split function shadowing and qualified runtime VBA.Split.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nProperty Let Flags(ByRef value() As Boolean)\nEnd Property\nFunction Split(ByVal ignored As Boolean) As Boolean()\nDim result(1) As Boolean\nSplit = result\nEnd Function\nFunction Main() As Variant\nFlags = VBA.Split(\"x\")\nMain = 1\nEnd Function",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "array_setter_value_byte_string",
+      "description": "Byte/String conversion and typed function element compatibility in Property Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nProperty Let Flags(ByRef value() As Byte)\nEnd Property\nFunction MakeFlags() As Byte()\nDim result(1) As Byte\nMakeFlags = result\nEnd Function\nFunction Main() As Variant\nFlags = \"text\"\nMain = 1\nEnd Function",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "array_setter_value_typed_wrong_element",
+      "description": "Byte/String conversion and typed function element compatibility in Property Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nProperty Let Flags(ByRef value() As Boolean)\nEnd Property\nFunction MakeFlags() As Long()\nDim result(1) As Long\nMakeFlags = result\nEnd Function\nFunction Main() As Variant\nFlags = MakeFlags()\nMain = 1\nEnd Function",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "byte_array_setter_variant_string",
+      "description": "String/Variant conversion into a Byte-array Property Let value.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nProperty Let Flags(ByRef bytes() As Byte)\nEnd Property\nFunction Main() As Variant\nDim value As Variant\nvalue = \"text\"\nFlags = value\nMain = 1\nEnd Function",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "byte_array_setter_variant_array",
+      "description": "String/Variant conversion into a Byte-array Property Let value.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nProperty Let Flags(ByRef bytes() As Byte)\nEnd Property\nFunction Main() As Variant\nDim value As Variant\nvalue = Array(1,2)\nFlags = value\nMain = 1\nEnd Function",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "byte_array_setter_string_variable",
+      "description": "String/Variant conversion into a Byte-array Property Let value.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nProperty Let Flags(ByRef bytes() As Byte)\nEnd Property\nFunction Main() As Variant\nDim value As String\nvalue = \"text\"\nFlags = value\nMain = 1\nEnd Function",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "byte_array_setter_number",
+      "description": "Numeric and array expressions for a Byte-array Property Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nProperty Let Flags(ByRef bytes() As Byte)\nEnd Property\nFunction MakeFlags() As Long()\nDim result(1) As Long\nMakeFlags = result\nEnd Function\nFunction Main() As Variant\nFlags = 20\nMain = 1\nEnd Function",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "byte_array_setter_runtime_array",
+      "description": "Numeric and array expressions for a Byte-array Property Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nProperty Let Flags(ByRef bytes() As Byte)\nEnd Property\nFunction MakeFlags() As Long()\nDim result(1) As Long\nMakeFlags = result\nEnd Function\nFunction Main() As Variant\nFlags = Array(1,2)\nMain = 1\nEnd Function",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "byte_array_setter_wrong_typed_array",
+      "description": "Numeric and array expressions for a Byte-array Property Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nProperty Let Flags(ByRef bytes() As Byte)\nEnd Property\nFunction MakeFlags() As Long()\nDim result(1) As Long\nMakeFlags = result\nEnd Function\nFunction Main() As Variant\nFlags = MakeFlags()\nMain = 1\nEnd Function",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "with_range_value_array_assignment",
+      "source": "Option Explicit\nFunction Main() As Variant\nDim values As Variant\nvalues = Array(1,2)\nWith ThisWorkbook.Worksheets(1).Range(\"A1:B1\")\n.Value = values\nEnd With\nMain = 1\nEnd Function",
+      "description": "Array setter conversion and assignment-equals classification controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "scalar_boolean_setter_variant_array",
+      "source": "Option Explicit\nProperty Let Flag(ByVal value As Boolean)\nEnd Property\nFunction Main() As Variant\nDim value As Variant\nvalue = Array(1,2)\nFlag = value\nMain = 1\nEnd Function",
+      "description": "Array setter conversion and assignment-equals classification controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "byte_array_setter_plain_object",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Flag As Boolean"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nProperty Let Flags(ByRef bytes() As Byte)\nEnd Property\nFunction Main() As Variant\nFlags = New Widget\nMain = 1\nEnd Function"
+        }
+      ],
+      "description": "Array setter conversion and assignment-equals classification controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "host_scalar_property_array_boolean",
+      "description": "Tracked array assigned to a scalar host property.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As Variant\nDim ws As Worksheet\nSet ws = ThisWorkbook.Worksheets(1)\nDim values As Variant\nvalues = Array(1,2)\nws.EnableCalculation = values\nMain = 1\nEnd Function",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "host_scalar_property_array_alignment",
+      "description": "Tracked array assigned to a scalar host property.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As Variant\nDim ws As Worksheet\nSet ws = ThisWorkbook.Worksheets(1)\nDim values As Variant\nvalues = Array(1,2)\nws.Range(\"A1\").HorizontalAlignment = values\nMain = 1\nEnd Function",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

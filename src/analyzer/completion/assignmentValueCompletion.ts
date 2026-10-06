@@ -1,3 +1,4 @@
+import { projectSetterValueType } from './projectSetterValueType';
 import { completionLineCursorContext } from './cursorContext';
 import { resolveMemberCompletionNamed, type MemberCompletionContext } from './memberAccess';
 import { resolveExpressionType, resolveSourceAssignmentBindingAt } from '../expression/resolveExpressionType';
@@ -29,24 +30,6 @@ const PROPERTY_VALUE_ENUMS: Readonly<Record<string, string>> = {
 	'excel.border.weight': 'XlBorderWeight',
 	'excel.interior.pattern': 'XlPattern',
 };
-
-const exportedSetterTypes = new WeakMap<NonNullable<MemberCompletionContext['projectClassMembers']>, Map<string, string | undefined>>();
-function exportedSetterType(ctx: MemberCompletionContext, moduleName: string, name: string): string | undefined {
-	const surfaces = ctx.projectClassMembers;
-	if (!surfaces) { return undefined; }
-	let types = exportedSetterTypes.get(surfaces);
-	if (!types) {
-		types = new Map();
-		for (const surface of surfaces) {
-			if (surface.kind !== 'standardModule') { continue; }
-			for (const member of surface.members) {
-				if (member.letAccessor) { types.set(`${surface.moduleName}.${member.name}`.toLowerCase(), member.writeType); }
-			}
-		}
-		exportedSetterTypes.set(surfaces, types);
-	}
-	return types.get(`${moduleName}.${name}`.toLowerCase());
-}
 
 /** Assignment target when the caret follows `=` and at most a partial value. */
 export function assignmentTargetAt(source: string, offset: number): VbaToken[] | undefined {
@@ -95,7 +78,7 @@ export function resolveAssignmentValueCompletion(
 			sourceOwner = value.moduleName;
 		} else if (setter) {
 			if (binding.setterValueIsArray) { return undefined; }
-			sourceType = binding.setterValueType ?? exportedSetterType(ctx, setter.moduleName, name);
+			sourceType = binding.setterValueType ?? projectSetterValueType(ctx, setter.moduleName, name);
 			sourceOwner = setter.moduleName;
 		} else if (definitions.length || named.indexed || resolveRuntimeFunction(name)) {
 			return undefined; // calls, constants and getter-only properties are not writable values
