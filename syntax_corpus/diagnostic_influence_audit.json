@@ -1092,6 +1092,8 @@
       "sourceOfTruth": "Excel/VBE runtime oracle (a Set of the wrong object class compiles and raises 13, issue #202) plus deterministic XLIDE object assignment compatibility model",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "indexed_property_set_wrongclass",
+
         "excel_collection_default_item_assignment_compile",
         "issue197_02_runtime",
         "issue197_17_runtime",
@@ -3574,6 +3576,8 @@
       "sourceOfTruth": "Excel/VBE compile oracle plus deterministic XLIDE scalar variable and assignment-target binding",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "indexed_property_set_scalar",
+
         "set_scalar_integer_assignment",
         "set_scalar_string_new_object_assignment_compile",
         "issue202_16_compile",
@@ -3896,6 +3900,9 @@
       "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-10-01 (issue #266): a project class property read with no Property Get, or called as a statement, is \"Invalid use of property\"",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "indexed_property_set_worksheet",
+        "indexed_property_set_nothing",
+
         "issue266_12_compile",
         "issue266_13_compile",
         "issue266_14_compile",

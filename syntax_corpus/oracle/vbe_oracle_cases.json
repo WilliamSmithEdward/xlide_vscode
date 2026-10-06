@@ -108720,6 +108720,98 @@
           "source": "Sub Main()\nDim item As Widget\nSet item = New Widget\nitem.State = True\nEnd Sub"
         }
       ]
+    },
+    {
+      "id": "indexed_property_set_worksheet",
+      "description": "Indexed Property Set Worksheet compatibility.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Set Item(ByVal index As Long, ByVal value As Worksheet)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim holder As Widget, ws As Worksheet\nSet holder = New Widget\nSet ws = ThisWorkbook.Worksheets(1)\nSet holder.Item(1) = ws\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "indexed_property_set_nothing",
+      "description": "Indexed Property Set Worksheet compatibility.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Set Item(ByVal index As Long, ByVal value As Worksheet)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim holder As Widget, ws As Worksheet\nSet holder = New Widget\nSet ws = ThisWorkbook.Worksheets(1)\nSet holder.Item(1) = Nothing\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "indexed_property_set_wrongclass",
+      "description": "Indexed Property Set Worksheet compatibility.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Set Item(ByVal index As Long, ByVal value As Worksheet)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim holder As Widget, ws As Worksheet\nSet holder = New Widget\nSet ws = ThisWorkbook.Worksheets(1)\nSet holder.Item(1) = New Collection\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "indexed_property_set_scalar",
+      "description": "Indexed Property Set Worksheet compatibility.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Set Item(ByVal index As Long, ByVal value As Worksheet)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim holder As Widget, ws As Worksheet\nSet holder = New Widget\nSet ws = ThisWorkbook.Worksheets(1)\nSet holder.Item(1) = 5\nMain = 1\nEnd Function"
+        }
+      ]
     }
   ]
 }

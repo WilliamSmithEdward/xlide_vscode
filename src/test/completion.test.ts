@@ -142,6 +142,16 @@ suite('Completion editor surface', () => {
         await editor.edit(edit => edit.replace(finding.range, '999'));
         await until(() => !vscode.languages.getDiagnostics(document.uri).some(d=>d.code === 'assignment-type-mismatch') || undefined, 'unnamed numeric enum value must remain valid', 5000);
     });
+    test('indexed Set bug hunt reports an object mismatch and clears on correction', async () => {
+        const source = 'Option Explicit\nProperty Set Item(ByVal index As Long, ByVal value As Worksheet)\nEnd Property\nSub Demo(ByVal ws As Worksheet)\nSet IndexedSetDiagnostic.Item(1) = New Collection\nEnd Sub\n';
+        const document = await open(await writeModule('IndexedSetDiagnostic', source));
+        const editor = vscode.window.activeTextEditor!;
+        const finding = await until(() => vscode.languages.getDiagnostics(document.uri).find(d=>d.code === 'assignment-object-type-mismatch'), 'indexed setter must report incompatible objects', 5000);
+        assert.equal(finding.severity, vscode.DiagnosticSeverity.Error);
+        const start = document.getText().indexOf('New Collection');
+        await editor.edit(edit => edit.replace(new vscode.Range(document.positionAt(start), document.positionAt(start + 'New Collection'.length)), 'ws'));
+        await until(() => !vscode.languages.getDiagnostics(document.uri).some(d=>d.severity === vscode.DiagnosticSeverity.Error) || undefined, 'valid Worksheet must clear the indexed setter finding', 5000);
+    });
     test('setter shape bug hunt opens a DefBool setter menu automatically', async () => {
         const source = 'DefBool V\nProperty Let State(ByVal value)\nEnd Property\nSub Demo()\nState \nEnd Sub\n';
         const { document } = await probe('DefBoolSetterMenu', source, '\nState ');
