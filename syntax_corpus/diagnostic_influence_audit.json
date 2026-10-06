@@ -772,6 +772,9 @@
       "sourceOfTruth": "Excel/VBE compile and runtime oracle plus deterministic XLIDE scalar assignment compatibility model",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "host_scalar_array_function",
+        "host_scalar_array_variable",
+
         "host_scalar_property_array_boolean",
 
         "byte_array_setter_variant_string",
@@ -1100,6 +1103,16 @@
       "sourceOfTruth": "Excel/VBE compile oracle plus VBA array/scalar assignment binding",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "scalar_variable_array",
+        "scalar_variable_array_function",
+        "scalar_setter_qualified_array",
+        "scalar_setter_qualified_element",
+
+        "scalar_setter_array_variable",
+        "scalar_setter_array_function",
+        "scalar_setter_array_parenthesized",
+        "scalar_setter_array_element",
+
         "assign_array_to_scalar_compile"
       ],
       "observeOnlyOracleCases": [],

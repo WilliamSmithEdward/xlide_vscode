@@ -287,6 +287,8 @@ function projectMemberFormProblem(source: string, ref: MemberAccessReference, me
 			? `Argument not optional: property '${member.name}' takes an index, as in ${member.signature}. This is a VBE compile error.`
 			: undefined;
 	}
+	if (member.isArray) { return undefined; }
+
 	const field = member.writable === true && !member.letAccessor && !member.setAccessor;
 	const type = normalizeType(member.returns);
 	if (!field || type === undefined || type === 'variant' || !isKnownScalarType(type) || next?.rawText !== '(') {
