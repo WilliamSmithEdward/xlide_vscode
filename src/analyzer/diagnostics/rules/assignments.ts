@@ -1,3 +1,4 @@
+import {sourceSetterAssignment, invalidSetterAssignmentArity} from '../setterAssignment';
 import { classMemberValues } from '../../symbols/classMemberFacts';
 import { memberParameterCounts } from '../memberParameterCounts';
 import { isLeafStatement } from '../../parser/nodes';
@@ -610,6 +611,8 @@ export function checkAssignmentTypes(
 		}
 
 		function checkAssignmentSpan(span: Span, stmt: LeafStatementNode): void {
+			const setter = sourceSetterAssignment(source, span, symbols, procSym, projectVisibleSymbols, memberCtx);
+			if (setter && invalidSetterAssignmentArity(setter, source, push)) { return; }
 			if (checkBareSetter(span, stmt) || checkBareGetter(span)) { return; }
 			const assignment = bareAssignmentTarget(source, span);
 			if (!assignment) {
@@ -1705,6 +1708,10 @@ function checkMemberAssignmentTypes(
 			return boolean && held.value !== 0 ? undefined : held.value as number;
 		};
 		const assignment = memberAssignmentTarget(source, span);
+		if (symbols) {
+			const setter = sourceSetterAssignment(source, span, symbols, procedureSymbolFor(symbols, member), undefined, memberCtx);
+			if (setter && invalidSetterAssignmentArity(setter, source, () => {})) { return; }
+		}
 		if (!assignment) {
 			return;
 		}

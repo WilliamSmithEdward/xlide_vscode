@@ -277,6 +277,8 @@ function projectMemberFormProblem(source: string, ref: MemberAccessReference, me
 	if (!member || member.kind !== 'property') {
 		return undefined;
 	}
+	if (next?.rawText === '=' && member.letAccessor && member.procedureParams?.propertyLet) { return undefined; }
+
 	if (member.signature !== undefined) {
 		const open = member.signature.indexOf('(');
 		const firstParam = open >= 0 ? member.signature.slice(open + 1).trimStart() : '';
