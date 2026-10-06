@@ -362,8 +362,11 @@ class LayeredMap<V> implements ReadonlyMap<string, V> {
 	}
 }
 
-/** The set counterpart of {@link LayeredMap}: a procedure's names over the module's. */
-class LayeredSet implements ReadonlySet<string> {
+/**
+ * The membership counterpart of {@link LayeredMap}: a procedure's names over
+ * the module's. Callers only ask `has`, so that is all it provides.
+ */
+class LayeredSet {
 	constructor(
 		private readonly base: ReadonlySet<string> | ReadonlyMap<string, unknown>,
 		private readonly overlay: ReadonlySet<string>,
@@ -371,45 +374,6 @@ class LayeredSet implements ReadonlySet<string> {
 
 	has(key: string): boolean {
 		return this.overlay.has(key) || this.base.has(key);
-	}
-
-	get size(): number {
-		let shadowed = 0;
-		for (const key of this.overlay) {
-			if (this.base.has(key)) {
-				shadowed++;
-			}
-		}
-		return this.base.size + this.overlay.size - shadowed;
-	}
-
-	*keys(): SetIterator<string> {
-		for (const key of this.base.keys()) {
-			if (!this.overlay.has(key)) {
-				yield key;
-			}
-		}
-		yield* this.overlay;
-	}
-
-	values(): SetIterator<string> {
-		return this.keys();
-	}
-
-	*entries(): SetIterator<[string, string]> {
-		for (const key of this.keys()) {
-			yield [key, key];
-		}
-	}
-
-	forEach(callback: (value: string, key: string, set: ReadonlySet<string>) => void, thisArg?: unknown): void {
-		for (const key of this.keys()) {
-			callback.call(thisArg, key, key, this);
-		}
-	}
-
-	[Symbol.iterator](): SetIterator<string> {
-		return this.keys();
 	}
 }
 
@@ -776,7 +740,7 @@ export interface SourceNameScope {
 	 * Non-callable names visible at the current expression/call site. These block
 	 * bare callable resolution before same-module, project, or runtime signatures.
 	 */
-	callableShadows: ReadonlySet<string>;
+	callableShadows: { has(lowerName: string): boolean };
 	/**
 	 * Any source-backed identifier visible in the current procedure. These block
 	 * runtime fallback once source/project callable signatures have not resolved.
