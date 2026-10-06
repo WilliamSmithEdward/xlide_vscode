@@ -116,6 +116,23 @@ suite('Completion editor surface', () => {
         await vscode.commands.executeCommand('acceptSelectedSuggestion');
         assert.equal(document.lineAt(2).text, 'IsNumeric("abc") =');
     });
+    test('shared enum owner bug hunt qualifies a shadowed Office constant correctly', async () => {
+        const source = 'Sub Demo(ByVal sh As Shape)\nDim msoTrue As Long\nsh.Visible = msoT\nEnd Sub\n';
+        const { document, caret } = await probe('OfficeEnumOwner', source, '= msoT');
+        const item = (await completions(document, caret)).items.find(item => item.label === 'msoTrue');
+        assert.ok(item);
+        assert.equal(item.insertText, 'Office.MsoTriState.msoTrue');
+    });
+    test('bare setter bug hunt reports an invalid value and clears on correction', async () => {
+        const source = 'Option Explicit\nPublic Property Let State(ByVal value As Boolean)\nEnd Property\nSub Demo()\nState = "nonsense"\nEnd Sub\n';
+        const document = await open(await writeModule('BareSetterDiagnostic', source));
+        const editor = vscode.window.activeTextEditor!;
+        const finding = await until(() => vscode.languages.getDiagnostics(document.uri).find(d=>d.code === 'assignment-type-mismatch'), 'bare setter must report a type mismatch', 5000);
+        assert.equal(document.getText(finding.range), '"nonsense"');
+        assert.equal(finding.severity, vscode.DiagnosticSeverity.Error);
+        await editor.edit(edit => edit.replace(finding.range, 'True'));
+        await until(() => !vscode.languages.getDiagnostics(document.uri).some(d=>d.code === 'assignment-type-mismatch') || undefined, 'valid Boolean assignment must clear the finding', 5000);
+    });
     test('invalidates semantic tokens across real document close/open language events', async () => {
         const provider = new VbaTypeSemanticTokensProvider({} as VbaProjectIndexService);
         const token = { isCancellationRequested: false } as vscode.CancellationToken;

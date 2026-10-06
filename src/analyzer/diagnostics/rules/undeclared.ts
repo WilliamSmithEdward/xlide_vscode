@@ -10,7 +10,7 @@ import {
 	lineEndAtOrAfter,
 	VBA_IDENTIFIER_NAME_RE,
 } from '../../../vbaSourceScan';
-import type { HostObjectModel } from '../../host/excelObjectModel';
+import { getExcelObjectModel, type HostObjectModel } from '../../host/excelObjectModel';
 import { HOST_LIBRARY_NAMES } from '../../host/hostLibraries';
 import type { VbaHostToken } from '../../host/hostRegistry';
 import { bareCallStatementTarget as callStatementTarget } from '../../call/callContext';
@@ -969,20 +969,29 @@ function redimTargetNamesIn(
  * it), the libraries the project references, and the project itself, which is
  * `VBAProject` unless renamed. An absent model is Excel's by default.
  */
+const libraryQualifierModels = new WeakMap<HostObjectModel, {
+	types: HostObjectModel['types']; enums: HostObjectModel['enums']; names: ReadonlySet<string>;
+}>();
+
 function libraryQualifierNames(
 	hostModel: HostObjectModel | undefined,
 	referencedHosts: readonly string[] | undefined,
 ): Set<string> {
-	const out = new Set<string>(['vbaproject']);
-	if (hostModel === undefined) {
-		out.add('excel');
-	}
-	for (const qualified of Object.keys(hostModel?.types ?? {})) {
-		const dot = qualified.indexOf('.');
-		if (dot > 0) {
-			out.add(qualified.slice(0, dot).toLowerCase());
+	const model = hostModel ?? getExcelObjectModel();
+	let cached = libraryQualifierModels.get(model);
+	if (!cached || cached.types !== model.types || cached.enums !== model.enums) {
+		const names = new Set<string>();
+		for (const qualified of Object.keys(model.types)) {
+			const dot = qualified.indexOf('.');
+			if (dot > 0) { names.add(qualified.slice(0, dot).toLowerCase()); }
 		}
+		for (const enumeration of Object.values(model.enums ?? {})) {
+			if (enumeration.library) { names.add(enumeration.library.toLowerCase()); }
+		}
+		cached = { types: model.types, enums: model.enums, names };
+		libraryQualifierModels.set(model, cached);
 	}
+	const out = new Set<string>(['vbaproject', ...cached.names]);
 	for (const token of referencedHosts ?? []) {
 		const name = HOST_LIBRARY_NAMES[token as VbaHostToken];
 		if (name) {

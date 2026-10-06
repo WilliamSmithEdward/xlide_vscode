@@ -10,6 +10,7 @@
 // exhaustive once the hidden members are merged (issue #127) and prove a
 // member absent where the interface is closed; the controls are, Form is not.
 
+import { enumsFromLibrary } from './enumLibrary';
 import type { HostObjectModel } from './excelObjectModel';
 import { hostBoundOfficeTypes, mergeHostConstants } from './excelObjectModel';
 import { officeReferenceTypeData } from './officeReferenceTypes';
@@ -40,7 +41,7 @@ export function getAccessObjectModel(): HostObjectModel {
 		// The host's own enumerations win a shared name, as its constants do.
 		// DAO is auto-referenced too (issue #103); the host's own names win
 		// any it shares, and Access's own table shares none (measured).
-		enums: { ...OFFICE_REFERENCE_ENUMS, ...DAO_REFERENCE_ENUMS, ...data.enums },
+		enums: { ...enumsFromLibrary(OFFICE_REFERENCE_ENUMS, 'Office'), ...enumsFromLibrary(DAO_REFERENCE_ENUMS, 'DAO'), ...data.enums },
 		constants: mergeHostConstants(
 			OFFICE_REFERENCE_ENUM_CONSTANTS,
 			MSFORMS_REFERENCE_ENUM_CONSTANTS,

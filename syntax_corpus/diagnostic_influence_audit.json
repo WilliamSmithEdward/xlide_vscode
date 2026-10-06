@@ -285,8 +285,9 @@
         "issue318_62_compile",
         "issue318_63_compile",
         "issue423_71_compile",
-        "issue423_72_compile"
-      ],
+        "issue423_72_compile",
+      "qualified_office_office_constant"
+    ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
         "syntax_corpus/excel_vba_analysis_final_hardening_cases.md"
@@ -1013,7 +1014,11 @@
       "assignment_host_boolean_bad_run",
       "assignment_host_boolean_good_run",
       "indexed_property_bad_runtime",
-      "indexed_property_good_runtime"
+      "indexed_property_good_runtime",
+      "bare_setter_bad",
+      "bare_setter_good",
+      "bare_setter_index_bad",
+      "bare_setter_index_good"
     ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
