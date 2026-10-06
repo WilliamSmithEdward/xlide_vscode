@@ -16,7 +16,7 @@ import type { VbaToken } from '../../lexer/tokenKinds';
 import type { Span } from '../../parser/nodes';
 import type { PushFn } from '../analysisContext';
 import type { DiagnosticRuleName } from '../ruleMetadata';
-import { isKnownScalarType, normalizeType, resolveExactMemberCompletion } from '../typeInference';
+import { isKnownScalarType, normalizeType, resolveExactMemberCompletion, runtimeSignatureParameterText, splitSignatureTopLevel } from '../typeInference';
 import {
 	matchParenFrom,
 	statementAndBranchSpans,
@@ -242,13 +242,11 @@ const SCALAR_OPERATOR_TEXT: ReadonlySet<string> = new Set(['&', '+', '-', '*', '
 
 /** How many parameters a source signature declares, and how many a call must pass. */
 function parameterCounts(signature: string | undefined): { total: number; required: number } {
-	const open = signature?.indexOf('(') ?? -1;
-	const close = open >= 0 ? signature!.indexOf(')', open) : -1;
-	const inner = open >= 0 && close > open ? signature!.slice(open + 1, close).trim() : '';
+	const inner = signature === undefined ? undefined : runtimeSignatureParameterText(signature)?.trim();
 	if (!inner) {
 		return { total: 0, required: 0 };
 	}
-	const parts = inner.split(',').map((part) => part.trim());
+	const parts = splitSignatureTopLevel(inner).map((part) => part.trim());
 	return { total: parts.length, required: parts.filter((part) => !/^(Optional|ParamArray)\b/i.test(part) && !part.startsWith('[')).length };
 }
 
