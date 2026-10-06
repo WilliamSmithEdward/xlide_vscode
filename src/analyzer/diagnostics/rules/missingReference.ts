@@ -21,6 +21,15 @@
 // does not exist yet, and guessing between the two would put a reference
 // suggestion on ordinary broken code.
 
+import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
+import { isProcedureKind, type ModuleSymbols, type VbaSymbol } from '../../symbols/symbolModel';
+import { resolveBareIdentifierBinding } from '../../symbols/nameResolution';
+
+interface SourceQualifierBindings {
+	symbols: ModuleSymbols;
+	projectVisibleSymbols?: readonly VbaSymbol[];
+}
+
 import type { HostObjectModel } from '../../host/excelObjectModel';
 import { HOST_LIBRARY_NAMES } from '../../host/hostLibraries';
 import { tokenName } from '../../lexer/tokenHelpers';
@@ -63,11 +72,13 @@ function librariesInModel(model: HostObjectModel | undefined): ReadonlySet<strin
  * A string literal is one token, so `CreateObject("Excel.Application")` is
  * not a match: late binding names nothing the compiler has to resolve.
  */
-function qualifiedNamesIn(source: string): Array<{ library: string; span: Span }> {
+function qualifiedNamesIn(source: string, bindings?: SourceQualifierBindings): Array<{ library: string; span: Span }> {
 	// The pass has the module's token stream already; a second full lex of
 	// the module here was 2% of a large project's analysis (issue #139).
 	const toks = tokenizeCached(source).filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
 	const out: Array<{ library: string; span: Span }> = [];
+	const procedures = bindings?.symbols.root.children?.filter(symbol => isProcedureKind(symbol.kind)) ?? [];
+	let procedureIndex = 0;
 	for (let i = 0; i < toks.length - 2; i++) {
 		const library = tokenName(toks[i]);
 		if (toks[i].kind !== 'identifier' || !library) { continue; }
@@ -76,6 +87,15 @@ function qualifiedNamesIn(source: string): Array<{ library: string; span: Span }
 		// A member access further along a chain (`a.b.c`) is not a library
 		// qualifier: `b` there is a member of whatever `a` is.
 		if (i > 0 && toks[i - 1].rawText === '.') { continue; }
+		const typeQualifier = ['as', 'new', 'implements'].includes(toks[i - 1]?.rawText.toLowerCase() ?? '');
+		if (bindings && !typeQualifier) {
+			while (procedureIndex < procedures.length && procedures[procedureIndex].fullSpan.end < toks[i].start) { procedureIndex++; }
+			const procedure = procedures[procedureIndex];
+			const binding = resolveBareIdentifierBinding({currentModule: bindings.symbols, projectVisibleSymbols: bindings.projectVisibleSymbols,
+				enclosingProcedure: procedure && procedure.fullSpan.start <= toks[i].start ? procedure : undefined,
+				name: library, context: 'memberReceiver', offset: toks[i].start});
+			if (binding.scope !== 'unresolved') { continue; }
+		}
 		out.push({ library, span: { start: toks[i].start, end: toks[i + 2].end } });
 	}
 	return out;
@@ -87,9 +107,9 @@ function qualifiedNamesIn(source: string): Array<{ library: string; span: Span }
  * its modules would stop compiling before the reference goes, which is what
  * the VBE's own Tools > References dialog never says.
  */
-export function librariesNamedIn(source: string): Set<string> {
+export function librariesNamedIn(source: string, bindings?: SourceQualifierBindings): Set<string> {
 	const out = new Set<string>();
-	for (const found of qualifiedNamesIn(source)) {
+	for (const found of qualifiedNamesIn(source, bindings ?? {symbols: buildModuleSymbols('', 'standard', source)})) {
 		out.add(found.library.toLowerCase());
 	}
 	return out;
@@ -155,6 +175,7 @@ export function checkMissingLibraryReference(
 	push: PushFn,
 	/** The project's module names, lowercased: a module named Word is called as Word.Hi (issue #357). */
 	projectModules: ReadonlySet<string> = new Set(),
+	bindings?: SourceQualifierBindings,
 ): void {
 	const present = librariesInModel(model);
 	// Nothing is known about any library, so nothing can be said about one
@@ -163,7 +184,7 @@ export function checkMissingLibraryReference(
 		return;
 	}
 	const seen = new Set<string>();
-	for (const found of qualifiedNamesIn(source)) {
+	for (const found of qualifiedNamesIn(source, bindings)) {
 		const lower = found.library.toLowerCase();
 		const library = ADDABLE.get(lower);
 		if (library === undefined || present.has(lower) || projectModules.has(lower) || seen.has(lower)) { continue; }

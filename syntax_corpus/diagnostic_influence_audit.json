@@ -5260,6 +5260,11 @@
       "sourceOfTruth": "Excel/VBE compile oracle: a type named from an unreferenced library",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "library_shadow_local_range",
+        "library_shadow_module_range",
+        "library_shadow_parameter_range",
+        "library_shadow_type_still_missing",
+
         "cross_application_early_binding_without_reference_compile",
         "cross_application_late_binding_compile"
       ],
