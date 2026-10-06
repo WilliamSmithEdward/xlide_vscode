@@ -3,7 +3,7 @@ import {analyzeProjectModule} from './diagnostics/helpers';
 import {resolveAssignmentValueCompletion} from '../src/analyzer/completion/assignmentValueCompletion';
 import {getExcelObjectModel} from '../src/analyzer/host/excelObjectModel';
 import {getWordObjectModel} from '../src/analyzer/host/wordObjectModel';
-import {getPowerPointObjectModel} from '../src/analyzer/host/powerPointObjectModel';
+import {getPowerPointObjectModel} from '../src/analyzer/host/powerpointObjectModel';
 import {getAccessObjectModel} from '../src/analyzer/host/accessObjectModel';
 import {hostObjectModelForTokens} from '../src/analyzer/host/hostRegistry';
 import {resolveHostEnum} from '../src/analyzer/host/hostModel';
@@ -40,3 +40,4 @@ it('does not parse ordinary assignment targets merely because the module has a s
  expect(analyzeProjectModule(source,[],'Caller').filter(d=>d.severity==='error')).toEqual([]);
  expect(parse).toHaveBeenCalledTimes(1);
 });
+
