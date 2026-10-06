@@ -43,6 +43,7 @@ import type { ConditionalActivityTracker } from '../conditional/conditionalCompi
 import type { buildModuleSymbols } from '../symbols/buildModuleSymbols';
 import type {
 	VbaProcedureSignature,
+	VbaProcedureParam,
 	VbaProjectClassMembers,
 	VbaSymbol,
 } from '../symbols/symbolModel';
@@ -1132,8 +1133,27 @@ export function parenthesizedCallNameAt(
 }
 
 export interface BoundMemberCall {
+	/** Parameter contracts originate from source declarations. */
+	sourceParameters?: boolean;
 	call: CallArguments;
 	signature: CallableTypeSignature;
+}
+
+// Source parameter arrays are immutable contributions; a declaration edit
+// supplies a new identity. Preserve passing/default types without reparsing
+// the display label, and reuse conversion across statements and rule walks.
+const SOURCE_MEMBER_PARAMS = new WeakMap<readonly VbaProcedureParam[], CallableParamType[]>();
+function memberCallableSignature(member: MemberCompletion): CallableTypeSignature {
+	const kind = member.kind === 'method' ? (member.sub ? 'sub' : 'function') : 'propertyGet';
+	const source = member.procedureParams?.[kind];
+	if (!source) { return parseRuntimeDisplaySignature(member.name, member.signature!); }
+	let params = SOURCE_MEMBER_PARAMS.get(source);
+	if (!params) {
+		params = source.map(param => ({name:stripHeaderBrackets(param.name),type:param.type,
+			optional:Boolean(param.optional),paramArray:Boolean(param.paramArray),isArray:param.isArray,byRef:isByRefProcedureParam(param)}));
+		SOURCE_MEMBER_PARAMS.set(source,params);
+	}
+	return {name:member.name,params,returnType:member.returns ?? member.declaredType,valued:kind !== 'sub'};
 }
 
 export function memberExpressionCalls(
@@ -1174,7 +1194,7 @@ export function memberExpressionCalls(
 		) {
 			continue;
 		}
-		const parsed = parseRuntimeDisplaySignature(member.name, member.signature);
+		const parsed = memberCallableSignature(member);
 		if (isPropertyResultIndexing(member, parsed, inner)) {
 			continue;
 		}
@@ -1184,10 +1204,16 @@ export function memberExpressionCalls(
 			? { ...parsed, valued: true, returnType: member.returns ?? parsed.returnType }
 			: parsed;
 		const split = inner.length === 0 ? emptyArgSplit() : splitArgSlots(inner, span.start);
+		const copiedArgument = member.kind === 'method' && tokenText(toks[0]) !== 'call'
+			&& close === toks.length - 1
+			&& isMemberStatementChainThrough(toks,firstExecutableTokenIndex(toks),i);
 		out.push({
+			...(member.procedureParams ? {sourceParameters:true} : {}),
 			signature,
 			call: {
 				name: member.name,
+				...(member.procedureParams ? {qualifier:member.owner} : {}),
+				...(copiedArgument ? {argumentsParenthesized:true} : {}),
 				nameSpan: { start: callSpan.start, end: span.start + toks[i].end },
 				slots: split.slots,
 				slotSpans: split.spans,
@@ -1247,9 +1273,11 @@ export function memberStatementCalls(
 		const argToks = toks.slice(i + 1);
 		const split = argToks.length === 0 ? emptyArgSplit() : splitArgSlots(argToks, span.start);
 		out.push({
-			signature: parseRuntimeDisplaySignature(member.name, member.signature),
+			...(member.procedureParams ? {sourceParameters:true} : {}),
+			signature: memberCallableSignature(member),
 			call: {
 				name: member.name,
+				...(member.procedureParams ? {qualifier:member.owner} : {}),
 				nameSpan: { start: span.start + toks[i].start, end: span.start + toks[i].end },
 				explicitCall,
 				slots: split.slots,

@@ -57,6 +57,8 @@ import type { VbaToken } from '../../lexer/tokenKinds';
 import type { Span } from '../../parser/nodes';
 import {
 	byRefVariableTypeMismatch,
+	memberExpressionCalls,
+	memberStatementCalls,
 	callableSignatureForCall,
 	callableTypeSignaturesFor,
 	declaredShapeForSourceBinding,
@@ -125,12 +127,14 @@ export function checkArgumentShape(
 				if (invalidSetterAssignmentArity(setter,source,()=>{})) { continue; }
 				validateArgumentShapes({name:setter.name,params:setter.indexParams},setter,udtNames,env,resolveType,resolveQualifiedType,resolveShape,pushOnce,memberType);
 			}
+			const checkedTargets = new Set<number>();
 			const checkCall = (call: CallArguments): void => {
 				if (setterNames.has(call.nameSpan.start)) { return; }
 				const sig = callableSignatureForCall(call, moduleSignatures, sourceNames);
 				if (!sig || sig.params.length === 0) {
 					return;
 				}
+				checkedTargets.add(call.nameSpan.start);
 				validateArgumentShapes(
 					sig,
 					call,
@@ -151,6 +155,10 @@ export function checkArgumentShape(
 				extractQualifiedCall(source, stmt.span, moduleSignatures);
 			if (statementCall) {
 				checkCall(statementCall);
+			}
+			for (const bound of [...memberExpressionCalls(source,stmt.span,memberCtx),...memberStatementCalls(source,stmt.span,memberCtx)]) {
+				if (!bound.sourceParameters || setterNames.has(bound.call.nameSpan.start) || checkedTargets.has(bound.call.nameSpan.start)) { continue; }
+				validateArgumentShapes(bound.signature,bound.call,udtNames,env,resolveType,resolveQualifiedType,resolveShape,pushOnce,memberType);
 			}
 		};
 	};

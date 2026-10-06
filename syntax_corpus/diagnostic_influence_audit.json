@@ -423,6 +423,8 @@
       "sourceOfTruth": "MS-VBAL 5.4.2.1 plus asserted Excel/VBE oracle cases plus deterministic project signature graph",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "receiver_member_left_not_vba",
+
         "setter_optional_required_value_decl",
         "setter_optional_required_value_bare",
         "setter_optional_required_value_empty",
@@ -694,6 +696,16 @@
       "sourceOfTruth": "Excel/VBE compile oracle plus deterministic XLIDE source-backed callable signatures and shared expression value resolver",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "receiver_get_byref",
+        "receiver_get_parenthesized",
+        "receiver_get_byval",
+        "receiver_function_byref",
+        "receiver_function_default_long",
+        "receiver_with_byref",
+        "receiver_statement_byref",
+        "receiver_statement_copy",
+        "receiver_statement_glued",
+
         "setter_index_byref_integer",
         "setter_index_byref_parenthesized",
         "setter_index_default_long",
@@ -5104,6 +5116,8 @@
       "sourceOfTruth": "MS-VBAL 5.3.1 (argument passing by reference/value) plus the Excel/VBE compile oracle (array/UDT-into-scalar 'ByRef argument type mismatch' / 'Type mismatch'; scalar-into-array 'Type mismatch: array or user-defined type expected') and the deterministic declared-shape resolver (SourceDeclaredShape.isArray plus same-module Type symbol names)",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "receiver_get_array_index",
+
         "setter_index_array_to_scalar",
         "setter_index_scalar_to_array",
         "setter_index_array_valid",

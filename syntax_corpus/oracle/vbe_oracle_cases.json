@@ -110123,6 +110123,259 @@
       ],
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "receiver_get_byref",
+      "description": "Source receiver call passing/default type contracts before property writes.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get At(ByRef index As Long) As Worksheet\nSet At = ThisWorkbook.Worksheets(1)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nDim i As Integer\nSet item = New Widget\nitem.At(i).EnableCalculation = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "receiver_get_parenthesized",
+      "description": "Source receiver call passing/default type contracts before property writes.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get At(ByRef index As Long) As Worksheet\nSet At = ThisWorkbook.Worksheets(1)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nDim i As Integer\nSet item = New Widget\nitem.At((i)).EnableCalculation = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "receiver_get_byval",
+      "description": "Source receiver call passing/default type contracts before property writes.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get At(ByVal index As Long) As Worksheet\nSet At = ThisWorkbook.Worksheets(1)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nDim i As Integer\nSet item = New Widget\nitem.At(i).EnableCalculation = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "receiver_function_byref",
+      "description": "Source receiver call passing/default type contracts before property writes.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Function At(ByRef index As Long) As Worksheet\nSet At = ThisWorkbook.Worksheets(1)\nEnd Function"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nDim i As Integer\nSet item = New Widget\nitem.At(i).EnableCalculation = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "receiver_function_default_long",
+      "description": "Source receiver call passing/default type contracts before property writes.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "DefLng I\nPublic Function At(ByRef index) As Worksheet\nSet At = ThisWorkbook.Worksheets(1)\nEnd Function"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nDim i As Integer\nSet item = New Widget\nitem.At(i).EnableCalculation = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "receiver_with_byref",
+      "description": "Source receiver call passing/default type contracts before property writes.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get At(ByRef index As Long) As Worksheet\nSet At = ThisWorkbook.Worksheets(1)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nDim i As Integer\nSet item = New Widget\nWith item.At(i)\n.EnableCalculation = True\nEnd With\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "receiver_statement_byref",
+      "description": "Source member statement ByRef and argument-parentheses controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Sub Take(ByRef index As Long)\nEnd Sub"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nDim i As Integer\nSet item = New Widget\nitem.Take i\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "receiver_statement_copy",
+      "description": "Source member statement ByRef and argument-parentheses controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Sub Take(ByRef index As Long)\nEnd Sub"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nDim i As Integer\nSet item = New Widget\nitem.Take (i)\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "receiver_statement_glued",
+      "description": "Source member statement ByRef and argument-parentheses controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Sub Take(ByRef index As Long)\nEnd Sub"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nDim i As Integer\nSet item = New Widget\nitem.Take(i)\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "receiver_get_array_index",
+      "description": "Source getter index takes a scalar, not an array.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get At(ByVal index As Long) As Worksheet\nSet At = ThisWorkbook.Worksheets(1)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nDim values(1) As Long\nSet item = New Widget\nitem.At(values).EnableCalculation = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "receiver_member_left_not_vba",
+      "description": "A source member named Left does not use VBA arity fallback.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Sub Left()\nEnd Sub"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nCall item.Left(\"abc\",1)\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }

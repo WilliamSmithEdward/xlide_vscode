@@ -239,6 +239,15 @@ suite('Completion editor surface', () => {
             return /State = ?(False|True)$/.test(document.lineAt(4).text) || undefined;
         }, 'the implicitly Boolean setter must open its native value menu', 4000);
     });
+    test('receiver contract bug hunt requires ByRef exactness in a With header', async () => {
+        const source = 'Option Explicit\nPublic Function GetSheet(ByRef index As Long) As Worksheet\nSet GetSheet = ThisWorkbook.Worksheets(1)\nEnd Function\nSub Demo()\nDim i As Integer\nWith GetSheet(i)\n.EnableCalculation = True\nEnd With\nEnd Sub\n';
+        const document = await open(await writeModule('ReceiverContractDiagnostic', source));
+        const editor = vscode.window.activeTextEditor!;
+        const finding = await until(() => vscode.languages.getDiagnostics(document.uri).find(d => d.code === 'byref-argument-type-mismatch'), 'With receiver must require an exact ByRef type', 5000);
+        assert.equal(document.getText(finding.range), 'i');
+        await editor.edit(edit => edit.replace(finding.range, '(i)'));
+        await until(() => !vscode.languages.getDiagnostics(document.uri).some(d => d.severity === vscode.DiagnosticSeverity.Error) || undefined, 'copy conversion must clear the With receiver diagnostic', 5000);
+    });
     test('setter index type bug hunt refreshes coercion and ByRef diagnostics', async () => {
         const source = 'Option Explicit\nPublic Property Let State(ByVal index As Long, ByVal value As Boolean)\nEnd Property\nSub Demo()\nDim i As Integer\nState("bad") = True\nEnd Sub\n';
         const document = await open(await writeModule('SetterIndexTypeDiagnostic', source));
