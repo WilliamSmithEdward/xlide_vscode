@@ -357,6 +357,11 @@ function projectObjectMemberWritable(symbol: VbaSymbol): boolean | undefined {
 	}
 }
 
+function projectObjectMemberParameters(symbol: VbaSymbol, mod: ModuleSymbols) {
+	return procedureParamsFromSymbol(symbol, {includePassing:true}).map(param => ({...param,
+		type:param.type ?? mod.defTypes?.get(param.name[0]?.toLowerCase())}));
+}
+
 function projectObjectMemberWriteType(symbol: VbaSymbol, mod: ModuleSymbols): string | undefined {
 	switch (symbol.kind) {
 		case 'propertyLet':
@@ -1846,7 +1851,7 @@ export class ProjectIndex {
 				}
 				const procedureKind = memberProcedureKind(symbol);
 				if (procedureKind) {
-					existing.procedureParams = { ...existing.procedureParams, [procedureKind]: procedureParamsFromSymbol(symbol, { includePassing: true }) };
+					existing.procedureParams = { ...existing.procedureParams, [procedureKind]: projectObjectMemberParameters(symbol, mod) };
 				}
 				existing.attributes = mergeMemberAttributes(existing.attributes, symbol.attributes);
 				existing.definitions = [
@@ -1871,7 +1876,7 @@ export class ProjectIndex {
 				...(symbol.kind === 'propertyLet' ? { letAccessor: true } : {}),
 				...(symbol.kind === 'propertySet' ? { setAccessor: true } : {}),
 				...(symbol.kind === 'sub' ? { sub: true } : {}),
-				...(memberProcedureKind(symbol) ? { procedureParams: { [memberProcedureKind(symbol)!]: procedureParamsFromSymbol(symbol, { includePassing: true }) } } : {}),
+				...(memberProcedureKind(symbol) ? { procedureParams: { [memberProcedureKind(symbol)!]: projectObjectMemberParameters(symbol, mod) } } : {}),
 				attributes: mergeMemberAttributes(undefined, symbol.attributes),
 			});
 		}

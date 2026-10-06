@@ -1,3 +1,4 @@
+import {sourceSetterAssignment, invalidSetterAssignmentArity} from '../setterAssignment';
 // Rule family: call-argument types (audit #0).
 //
 // Extracted verbatim from analyzeModule.ts: declared-signature argument-type
@@ -145,7 +146,15 @@ export function checkArgumentTypes(
 					push(code, message, span, data);
 				}
 			};
+			const setters = statementAndBranchSpans(stmt).map(span => sourceSetterAssignment(source,span,symbols,procSym,projectVisibleSymbols,memberCtx)).filter(setter => setter !== undefined);
+			const setterNames = new Set(setters.map(setter => setter.nameSpan.start));
+			for (const setter of setters) {
+				if (invalidSetterAssignmentArity(setter,source,()=>{})) { continue; }
+				validateArgumentTypesForSignature({name:setter.name,params:setter.indexParams},setter,env,moduleSignatures,sourceNames,
+					source,memberCtx,pushOnce,resolveExpressionType,resolveQualifiedExpressionType,heldClassOf,heldNull,heldNumber,objectQueries);
+			}
 			for (const call of expressionCalls(source, stmt.span, moduleSignatures, sourceNames)) {
+				if (setterNames.has(call.nameSpan.start)) { continue; }
 				validateArgumentTypes(
 					call,
 					env,
@@ -167,6 +176,7 @@ export function checkArgumentTypes(
 				stmt.span,
 				memberCtx,
 			)) {
+				if (setterNames.has(memberCall.call.nameSpan.start)) { continue; }
 				validateArgumentTypesForSignature(
 					memberCall.signature,
 					memberCall.call,
@@ -189,6 +199,7 @@ export function checkArgumentTypes(
 				stmt.span,
 				memberCtx,
 			)) {
+				if (setterNames.has(memberCall.call.nameSpan.start)) { continue; }
 				validateArgumentTypesForSignature(
 					memberCall.signature,
 					memberCall.call,

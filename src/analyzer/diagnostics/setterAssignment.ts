@@ -1,6 +1,6 @@
 import {assignmentTargetFromTokens, assignmentTargetName} from '../completion/assignmentTarget';
 import type {MemberCompletionContext} from '../completion/memberAccess';
-import {resolveExactMemberCompletion} from './typeInference';
+import {resolveExactMemberCompletion, isByRefProcedureParam} from './typeInference';
 import {resolveBareIdentifierBinding} from '../symbols/nameResolution';
 import {procedureParamsFromSymbol, type ModuleSymbols, type VbaSymbol, type VbaProcedureParam, type VbaProjectClassMembers} from '../symbols/symbolModel';
 import {tokenName, tokensWithoutLeadingLineNumber} from '../lexer/tokenHelpers';
@@ -8,6 +8,7 @@ import type {Span} from '../parser/nodes';
 import {statementTokensAfterLeadingLabel, topLevelOperatorIndex} from './walker';
 import {validateArity, splitArgSlots} from './callExtraction';
 import type {PushFn} from './analysisContext';
+import {projectSetterParameters} from '../completion/projectSetterValueType';
 
 interface SetterNames {all: Set<string>; indexed: Set<string>}
 const SYMBOL_SETTERS = new WeakMap<object, SetterNames>();
@@ -83,7 +84,9 @@ export function sourceSetterAssignment(source: string, span: Span, symbols: Modu
         if (binding.scope === 'ambiguous') { return undefined; }
         const setter = binding.definitions.find(def => def.kind === kind);
         if (!setter) { return undefined; }
-        params = procedureParamsFromSymbol(setter);
+        params = setter.moduleName.toLowerCase() === symbols.moduleName.toLowerCase()
+            ? procedureParamsFromSymbol(setter, {includePassing:true}).map(param => ({...param, type:param.type ?? symbols.defTypes?.get(param.name[0]?.toLowerCase())}))
+            : projectSetterParameters(ctx,setter.moduleName,name,kind) ?? procedureParamsFromSymbol(setter,{includePassing:true});
         qualifier = setter.moduleName;
     } else {
         const member = resolveExactMemberCompletion(source, name, span.start + token.end, ctx);
@@ -92,7 +95,7 @@ export function sourceSetterAssignment(source: string, span: Span, symbols: Modu
         legacyNoIndex = !usesSet && member?.signature === undefined && params?.length === 1;
     }
     if (!params?.length) { return undefined; }
-    const indexParams = params.slice(0, -1).map(param => ({...param, optional: Boolean(param.optional), paramArray: Boolean(param.paramArray)}));
+    const indexParams = params.slice(0, -1).map(param => ({...param, optional: Boolean(param.optional), paramArray: Boolean(param.paramArray), byRef:isByRefProcedureParam(param)}));
     const split = !named.indexed || target.length === named.index + 3 ? {slots:[], spans:[]} : splitArgSlots(target.slice(named.index + 2, -1), span.start);
     return {name, qualifier, indexed: named.indexed, nameSpan: {start: span.start + token.start, end: span.start + token.end}, indexParams, slots: split.slots, slotSpans: split.spans, sliceStart: span.start, legacyNoIndex};
 }

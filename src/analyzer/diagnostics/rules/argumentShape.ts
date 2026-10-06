@@ -1,3 +1,5 @@
+import {statementAndBranchSpans} from '../walker';
+import {sourceSetterAssignment, invalidSetterAssignmentArity} from '../setterAssignment';
 // Rule: argument-shape-mismatch (XLIDE v2.5.0).
 //
 // A bare array variable, or a same-module user-defined `Type` (struct) value,
@@ -79,7 +81,7 @@ export function checkArgumentShape(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
-	_memberCtx: MemberCompletionContext,
+	memberCtx: MemberCompletionContext,
 	push: PushFn,
 	mod?: ModuleNode,
 	activity?: ConditionalActivityTracker,
@@ -117,7 +119,14 @@ export function checkArgumentShape(
 					push(code, message, span, data);
 				}
 			};
+			const setters = statementAndBranchSpans(stmt).map(span => sourceSetterAssignment(source,span,symbols,procSym,projectVisibleSymbols,memberCtx)).filter(setter => setter !== undefined);
+			const setterNames = new Set(setters.map(setter => setter.nameSpan.start));
+			for (const setter of setters) {
+				if (invalidSetterAssignmentArity(setter,source,()=>{})) { continue; }
+				validateArgumentShapes({name:setter.name,params:setter.indexParams},setter,udtNames,env,resolveType,resolveQualifiedType,resolveShape,pushOnce,memberType);
+			}
 			const checkCall = (call: CallArguments): void => {
+				if (setterNames.has(call.nameSpan.start)) { return; }
 				const sig = callableSignatureForCall(call, moduleSignatures, sourceNames);
 				if (!sig || sig.params.length === 0) {
 					return;

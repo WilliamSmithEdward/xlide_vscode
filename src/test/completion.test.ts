@@ -239,6 +239,21 @@ suite('Completion editor surface', () => {
             return /State = ?(False|True)$/.test(document.lineAt(4).text) || undefined;
         }, 'the implicitly Boolean setter must open its native value menu', 4000);
     });
+    test('setter index type bug hunt refreshes coercion and ByRef diagnostics', async () => {
+        const source = 'Option Explicit\nPublic Property Let State(ByVal index As Long, ByVal value As Boolean)\nEnd Property\nSub Demo()\nDim i As Integer\nState("bad") = True\nEnd Sub\n';
+        const document = await open(await writeModule('SetterIndexTypeDiagnostic', source));
+        const editor = vscode.window.activeTextEditor!;
+        const literal = await until(() => vscode.languages.getDiagnostics(document.uri).find(d => d.code === 'argument-type-mismatch'), 'setter index must reject nonnumeric text', 5000);
+        assert.equal(document.getText(literal.range), '"bad"');
+        await editor.edit(edit => {
+            edit.replace(document.lineAt(1).range, 'Public Property Let State(ByRef index As Long, ByVal value As Boolean)');
+            edit.replace(literal.range, 'i');
+        });
+        const mismatch = await until(() => vscode.languages.getDiagnostics(document.uri).find(d => d.code === 'byref-argument-type-mismatch'), 'changed setter passing mode must require an exact variable type', 5000);
+        assert.equal(document.getText(mismatch.range), 'i');
+        await editor.edit(edit => edit.replace(mismatch.range, '(i)'));
+        await until(() => !vscode.languages.getDiagnostics(document.uri).some(d => d.severity === vscode.DiagnosticSeverity.Error) || undefined, 'parenthesized conversion must clear the index error', 5000);
+    });
     test('setter index bug hunt reports a missing index and clears on correction', async () => {
         const source = 'Option Explicit\nPublic Property Let State(ByVal index As Long, ByVal value As Boolean)\nEnd Property\nSub Demo()\nState = True\nEnd Sub\n';
         const document = await open(await writeModule('SetterIndexDiagnostic', source));

@@ -528,6 +528,12 @@
       "sourceOfTruth": "Excel/VBE compile and runtime oracle plus deterministic XLIDE literal, return-type, numeric-expression, string-concatenation, and project signature model",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "setter_index_byval_bad",
+        "setter_index_byref_parenthesized",
+        "setter_index_byval_integer",
+        "setter_index_named_bad",
+        "setter_index_set_bad",
+
         "nonnumeric_string_to_currency_argument",
         "nonnumeric_string_to_currency_argument_runtime",
         "numeric_string_to_currency_argument_runtime",
@@ -688,6 +694,10 @@
       "sourceOfTruth": "Excel/VBE compile oracle plus deterministic XLIDE source-backed callable signatures and shared expression value resolver",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "setter_index_byref_integer",
+        "setter_index_byref_parenthesized",
+        "setter_index_default_long",
+
         "byref_long_variable_compile",
         "byref_long_literal_compile",
         "byref_long_parenthesized_variable_compile",
@@ -5094,6 +5104,10 @@
       "sourceOfTruth": "MS-VBAL 5.3.1 (argument passing by reference/value) plus the Excel/VBE compile oracle (array/UDT-into-scalar 'ByRef argument type mismatch' / 'Type mismatch'; scalar-into-array 'Type mismatch: array or user-defined type expected') and the deterministic declared-shape resolver (SourceDeclaredShape.isArray plus same-module Type symbol names)",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "setter_index_array_to_scalar",
+        "setter_index_scalar_to_array",
+        "setter_index_array_valid",
+
         "array_setter_value_byte_string",
         "array_setter_value_typed_wrong_element",
         "byte_array_setter_number",
