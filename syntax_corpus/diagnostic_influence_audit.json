@@ -1018,7 +1018,15 @@
       "bare_setter_bad",
       "bare_setter_good",
       "bare_setter_index_bad",
-      "bare_setter_index_good"
+      "bare_setter_index_good",
+      "host_enum_variable_bad",
+      "host_enum_bare_bad",
+      "host_enum_member_bad",
+      "host_enum_variable_good",
+      "host_enum_bare_good",
+      "host_enum_member_good",
+      "source_enum_member_bad",
+      "source_enum_member_good"
     ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],

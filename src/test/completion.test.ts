@@ -133,6 +133,15 @@ suite('Completion editor surface', () => {
         await editor.edit(edit => edit.replace(finding.range, 'True'));
         await until(() => !vscode.languages.getDiagnostics(document.uri).some(d=>d.code === 'assignment-type-mismatch') || undefined, 'valid Boolean assignment must clear the finding', 5000);
     });
+    test('enum coercion bug hunt reports invalid text and accepts an unnamed number', async () => {
+        const source = 'Option Explicit\nSub Demo()\nDim alignment As XlHAlign\nalignment = "abc"\nDebug.Print alignment\nEnd Sub\n';
+        const document = await open(await writeModule('EnumCoercionDiagnostic', source));
+        const editor = vscode.window.activeTextEditor!;
+        const finding = await until(() => vscode.languages.getDiagnostics(document.uri).find(d=>d.code === 'assignment-type-mismatch'), 'host enum must reject nonnumeric text', 5000);
+        assert.equal(document.getText(finding.range), '"abc"');
+        await editor.edit(edit => edit.replace(finding.range, '999'));
+        await until(() => !vscode.languages.getDiagnostics(document.uri).some(d=>d.code === 'assignment-type-mismatch') || undefined, 'unnamed numeric enum value must remain valid', 5000);
+    });
     test('invalidates semantic tokens across real document close/open language events', async () => {
         const provider = new VbaTypeSemanticTokensProvider({} as VbaProjectIndexService);
         const token = { isCancellationRequested: false } as vscode.CancellationToken;
