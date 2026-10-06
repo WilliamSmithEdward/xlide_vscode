@@ -982,6 +982,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 		run: (ctx, push) => checkMissingLibraryReference(
 			ctx.source, ctx.opts.hostModel ?? getExcelObjectModel(), push,
 			new Set([ctx.opts.moduleName ?? '', ...(ctx.memberCtx.projectClassMembers ?? []).map((type) => type.name)].map((name) => name.toLowerCase())),
+			{symbols: ctx.symbols, projectVisibleSymbols: ctx.opts.projectVisibleSymbols},
 		),
 	},
 	{
