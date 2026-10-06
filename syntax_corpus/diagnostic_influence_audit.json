@@ -1011,7 +1011,9 @@
         "issue457c_10_runtime",
         "issue457c_12_runtime",
       "assignment_host_boolean_bad_run",
-      "assignment_host_boolean_good_run"
+      "assignment_host_boolean_good_run",
+      "indexed_property_bad_runtime",
+      "indexed_property_good_runtime"
     ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -1185,8 +1187,16 @@
         "issue423_25_compile",
         "issue423_31_compile",
         "issue423_41_compile",
-        "issue423_49_compile"
-      ],
+        "issue423_49_compile",
+      "indexed_getonly_compile",
+      "empty_indexed_getonly_compile",
+      "getonly_default_range_bare",
+      "getonly_default_range_index",
+      "getonly_default_variant_bare",
+      "getonly_default_variant_index",
+      "module_getonly_default_range",
+      "module_getonly_default_variant"
+    ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "notes": "This is a VBE compile-equivalent error when the receiver resolves to a workbook class and source proves the member has no setter. Public constants are not object members in VBE; public constant declarations in object modules fail at the declaration. Leading-dot assignments inside simple or nested With receiver stacks use the same source-backed member resolver. Issue #256: c = 5 on a class whose default member is a Property Get with no Property Let is Invalid use of property (measured in Excel 16.0). Issue #369: VBA.Err.LastDllError = 5 is Can't assign to read-only property, as Err.LastDllError = 5 is. Issue #305: c.Count = 2 on a local Collection is Function call on left-hand side of assignment must return Variant or Object.",
@@ -4165,8 +4175,9 @@
         "issue423_15_compile",
         "issue423_57_compile",
         "issue423_63_compile",
-        "issue423_73_compile"
-      ],
+        "issue423_73_compile",
+      "boolean_function_target_compile"
+    ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "notes": "Assignment to a Sub (\"Expected Function or variable\") or to a Function returning a type of VBA's own (\"Function call on left-hand side of assignment must return Variant or Object\") from outside it. A Variant or Object Function takes it. Issue #254: a Declare Function too: GetTickCount = 5 on a Declare Function returning Long is Function call on left-hand side of assignment must return Variant or Object (measured in Excel 16.0).",

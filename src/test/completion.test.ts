@@ -96,6 +96,26 @@ suite('Completion editor surface', () => {
         await editor.edit(edit => edit.replace(diagnostic.range, 'RowHeight'));
         await until(() => vscode.languages.getDiagnostics(document.uri).every(d=>d.code !== 'host-readonly-value-assignment') || undefined, 'RowHeight must clear the read-only diagnostic', 5000);
     });
+    test('assignment target bug hunt opens the native menu for an array element', async () => {
+        const source = 'Option Explicit\nSub Demo()\nDim flags(1) As Boolean\nflags(1) \nEnd Sub\n';
+        const { document } = await probe('ArrayAssignmentMenu', source, '\nflags(1) ');
+        await vscode.commands.executeCommand('hideSuggestWidget');
+        await vscode.commands.executeCommand('type', { text: '=' });
+        await until(async () => {
+            await vscode.commands.executeCommand('acceptSelectedSuggestion');
+            return /flags\(1\) = ?(False|True)$/.test(document.lineAt(3).text) || undefined;
+        }, `a Boolean array element must open its native value menu: ${document.lineAt(3).text}`, 4000);
+    });
+    test('assignment target bug hunt keeps a function-call equals quiet', async () => {
+        const source = 'Option Explicit\nSub Demo()\nIsNumeric("abc") \nEnd Sub\n';
+        const { document, editor } = await probe('FunctionAssignmentMenu', source, 'IsNumeric("abc") ');
+        await vscode.commands.executeCommand('hideSuggestWidget');
+        await vscode.commands.executeCommand('type', { text: '=' });
+        const result = await vscode.commands.executeCommand<vscode.CompletionList>('vscode.executeCompletionItemProvider', document.uri, editor.selection.active, '=');
+        assert.equal(result?.items.length, 0);
+        await vscode.commands.executeCommand('acceptSelectedSuggestion');
+        assert.equal(document.lineAt(2).text, 'IsNumeric("abc") =');
+    });
     test('invalidates semantic tokens across real document close/open language events', async () => {
         const provider = new VbaTypeSemanticTokensProvider({} as VbaProjectIndexService);
         const token = { isCancellationRequested: false } as vscode.CancellationToken;

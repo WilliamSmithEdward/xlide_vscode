@@ -1,13 +1,13 @@
 import { completionLineCursorContext } from './cursorContext';
 import { resolveMemberCompletionNamed, type MemberCompletionContext } from './memberAccess';
-import { resolveExpressionType } from '../expression/resolveExpressionType';
+import { resolveExpressionType, resolveSourceAssignmentBindingAt } from '../expression/resolveExpressionType';
 import { getHostEnumMembers, getHostType, hostDisplayName, resolveHostEnum } from '../host/hostModel';
-import { resolveVbaLibraryQualifier } from '../runtime/vbaRuntime';
+import { resolveRuntimeFunction, resolveVbaLibraryQualifier } from '../runtime/vbaRuntime';
 import type { ArgumentValueCompletion } from './argumentValueCompletion';
 import type { VbaToken } from '../lexer/tokenKinds';
 import { editorModuleSymbols } from '../symbols/editorModuleSymbols';
 import { tokenName } from '../lexer/tokenHelpers';
-import { assignmentTargetFromTokens } from './assignmentTarget';
+import { assignmentTargetFromTokens, assignmentTargetName } from './assignmentTarget';
 import type { VbaSymbol, ModuleSymbolKind } from '../symbols/symbolModel';
 
 export interface AssignmentValueCompletionContext extends MemberCompletionContext {
@@ -49,22 +49,46 @@ export function resolveAssignmentValueCompletion(
 ): ArgumentValueCompletion | undefined {
 	const target = assignmentTargetAt(source, offset);
 	if (!target?.length) { return undefined; }
-	const last = target.at(-1)!;
-	// Resolve a property's assignment type from the same member surface as dot completion.
-	const member = target.at(-2)?.rawText === '.'
-		? resolveMemberCompletionNamed(source, last.end, tokenName(last) ?? last.rawText, ctx)
-		: undefined;
-	if (member && (member.kind !== 'property' || member.access === 'read-only' || member.writable === false)) { return undefined; }
+	const named = assignmentTargetName(target);
+	if (!named) { return undefined; }
+	const last = target[named.index];
+	const name = tokenName(last);
+	if (!name) { return undefined; }
+	const expressionCtx = {
+		model: ctx.model, memberContext: ctx, moduleName: ctx.moduleName, moduleKind: ctx.moduleKind,
+		projectVisibleSymbols: ctx.projectSymbols,
+	};
+	// Resolve the member before its index arguments, using its setter type.
+	const member = target[named.index - 1]?.rawText === '.'
+		? resolveMemberCompletionNamed(source, last.end, name, ctx) : undefined;
+	if (member && (member.kind !== 'property' || member.access === 'read-only' || member.writable === false
+		|| (!named.indexed && member.isArray))) { return undefined; }
+	let sourceType: string | undefined;
+	let sourceOwner: string | undefined;
+	if (named.index === 0) {
+		const binding = resolveSourceAssignmentBindingAt(source, { start: last.start, end: last.end }, name, expressionCtx);
+		if (binding.scope === 'ambiguous') { return undefined; }
+		const definitions = binding.definitions;
+		const value = definitions.find(d => ['localVariable', 'moduleVariable', 'parameter'].includes(d.kind));
+		const setter = definitions.find(d => d.kind === 'propertyLet');
+		if (value) {
+			if (named.indexed !== Boolean(value.isArray)) { return undefined; }
+			sourceType = value.asType;
+			sourceOwner = value.moduleName;
+		} else if (setter) {
+			sourceType = setter.children?.filter(d => d.kind === 'parameter').at(-1)?.asType;
+			sourceOwner = setter.moduleName;
+		} else if (definitions.length || named.indexed || resolveRuntimeFunction(name)) {
+			return undefined; // calls, constants and getter-only properties are not writable values
+		}
+	}
 	const type = (member && PROPERTY_VALUE_ENUMS[`${member.owner}.${member.name}`.toLowerCase()])
-		?? member?.writeType ?? member?.declaredType ?? resolveExpressionType(
-		source, { start: target[0].start, end: last.end }, {
-			model: ctx.model, memberContext: ctx, moduleName: ctx.moduleName, moduleKind: ctx.moduleKind,
-			projectVisibleSymbols: ctx.projectSymbols,
-		},
-	)?.type;
+		?? member?.writeType ?? member?.declaredType ?? sourceType ?? resolveExpressionType(
+			source, { start: target[0].start, end: last.end }, expressionCtx,
+		)?.type;
 	if (!type) { return undefined; }
-	const ownerModule = member && ctx.projectClassMembers?.find(surface =>
-		surface.name.toLowerCase() === member.owner.toLowerCase() || surface.moduleName.toLowerCase() === member.owner.toLowerCase())?.moduleName;
+	const ownerModule = sourceOwner ?? (member && ctx.projectClassMembers?.find(surface =>
+		surface.name.toLowerCase() === member.owner.toLowerCase() || surface.moduleName.toLowerCase() === member.owner.toLowerCase())?.moduleName);
 	const values = member && getHostType(member.owner, ctx.model)
 		? hostEnumValues(type, ctx)
 		: resolveEnumValues(source, type, ownerModule ? { ...ctx, moduleName: ownerModule } : ctx);
