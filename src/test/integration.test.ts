@@ -28,6 +28,7 @@ import './deleteModule.test';
 import './docComments.test';
 import './identifierSurfaces.test';
 import './projectReferences.test';
+import './scriptingReferences.test';
 import './identifierSnapshotSurfaces.test';
 import './shapes.test';
 import './shapeEditorLifetime.test';

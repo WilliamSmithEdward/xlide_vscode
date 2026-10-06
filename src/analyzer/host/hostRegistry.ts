@@ -21,9 +21,10 @@ import { getWordObjectModel } from './wordObjectModel';
 import { getPowerPointObjectModel } from './powerpointObjectModel';
 import { getAccessObjectModel } from './accessObjectModel';
 import { getVb6ObjectModel } from './vb6ObjectModel';
+import { getScriptingObjectModel, getRegExpObjectModel } from './scriptingObjectModel';
 
 /**
- * The host tokens xlide_vbide sends with project/open, plus 'vb6': a VB6
+ * Host and reference-library tokens used by project contexts. A VB6
  * project is not an Office host at all, but the analyzer selects an object
  * model by this token, and a VB6 form's code-behind needs the VB runtime's
  * surface (App, Screen, Printer, the intrinsic controls), not Excel's.
@@ -37,7 +38,9 @@ export type VbaHostToken =
 	| 'visio'
 	| 'project'
 	| 'vb6'
-	| 'other';
+	| 'other'
+	| 'scripting'
+	| 'regexp';
 
 /** A model that knows nothing: every lookup misses, so nothing is asserted. */
 export const EMPTY_HOST_MODEL: HostObjectModel = Object.freeze({
@@ -53,6 +56,8 @@ const MODELS_BY_TOKEN = new Map<string, () => HostObjectModel>([
 	['powerpoint', getPowerPointObjectModel],
 	['access', getAccessObjectModel],
 	['vb6', getVb6ObjectModel],
+	['scripting', getScriptingObjectModel],
+	['regexp', getRegExpObjectModel],
 ]);
 
 /** Merged models, keyed by the token list that produced them. */
