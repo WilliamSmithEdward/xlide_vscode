@@ -54,10 +54,11 @@ it('does not flag the valid qualified Office constant as undeclared',()=>{
 
 it('reuses library namespace metadata across module analyses',()=>{
  const base=getExcelObjectModel(); let scans=0;
- const types=new Proxy(base.types,{ownKeys(target){scans++;return Reflect.ownKeys(target);}});
+ const types=new Proxy(base.types,{ownKeys(target){if(new Error().stack?.includes('libraryQualifierNames'))scans++;return Reflect.ownKeys(target);}});
  const model={...base,types};
  const source='Option Explicit\nSub T()\nDim value As Long\nvalue = Office.MsoTriState.msoTrue\nDebug.Print value\nEnd Sub';
  analyzeProjectModule(source,[],'Warm',{hostModel:model});
+ expect(scans).toBeGreaterThan(0);
  scans=0;
  for(let i=0;i<10;i++) analyzeProjectModule(source.replace('Sub T()',`Sub T${i}()`),[],'Module'+i,{hostModel:model});
  expect(scans).toBe(0);
