@@ -34,13 +34,20 @@ const ADDABLE = new Map<string, string>(
 		.map((token) => [HOST_LIBRARY_NAMES[token].toLowerCase(), HOST_LIBRARY_NAMES[token]]),
 );
 
+// Models are immutable for their identity; a reference change replaces the model.
+const MODEL_LIBRARIES = new WeakMap<HostObjectModel, ReadonlySet<string>>();
+
 /** Which libraries the model can already answer for, from its own type keys. */
-function librariesInModel(model: HostObjectModel | undefined): Set<string> {
+function librariesInModel(model: HostObjectModel | undefined): ReadonlySet<string> {
+	if (!model) { return new Set(); }
+	const cached = MODEL_LIBRARIES.get(model);
+	if (cached) { return cached; }
 	const out = new Set<string>();
-	for (const qualified of Object.keys(model?.types ?? {})) {
+	for (const qualified of Object.keys(model.types)) {
 		const dot = qualified.indexOf('.');
 		if (dot > 0) { out.add(qualified.slice(0, dot).toLowerCase()); }
 	}
+	MODEL_LIBRARIES.set(model, out);
 	return out;
 }
 

@@ -315,46 +315,36 @@ export function typeCompletionCandidates(
 	for (const t of OLE_AUTOMATION_TYPES) {
 		add(t.name, t.kind, t.detail, t.moduleName, t.documentation);
 	}
-	// 4. Host object-model types, labeled with the module's host (issue #28) and
-	// carrying the reference's own description of the type: before this,
-	// `Dim s As InlineShape` hovered with a bare name and no prose, even though
-	// the corpus had described the type all along.
-	// The host's own types first: `Range` is in both Word and Excel, and the
-	// bare name belongs to whichever library the project's host is - which is
-	// how the analyzer resolves it, and how VBA does, by the reference list
-	// with the host at the top. A merged model lists the referenced library's
-	// keys first, so iterating it as it comes handed `Range` to the wrong
-	// application and the one a developer picked was not the one that was
-	// then checked. The other stays reachable as `Excel.Range`.
-	for (const [qualified, type] of hostTypesOwnHostFirst(model)) {
-		const short = qualified.split('.').pop();
-		if (short) {
-			// Labelled with the type's own library rather than the project's
-			// host, so a referenced application's type does not read as the
-			// host's (issue #77).
-			add(
-				short,
-				'host',
-				`${hostLibraryDisplayName(qualified, model)} type`,
-				undefined,
-				hostTypeDocumentation(type),
-			);
-		}
-	}
-	// 5. Host enumerations. `Dim k As XlAxisType` is ordinary VBA and the name
-	// resolved to nothing at all: no completion, no hover, no coloring, across
-	// 899 enumerations. They come last so an object type of the same name wins.
-	for (const entry of getHostEnums(model)) {
-		add(
-			entry.displayName,
-			'enum',
-			`${entry.library ?? hostDisplayName(model)} enum`,
-			undefined,
-			hasDocContent(entry.doc) ? renderDocMarkdown(entry.doc) : undefined,
-		);
+	// 4/5. Immutable host types and enums are projected once per model.
+	// Project types above still win name collisions, including host enums.
+	for (const candidate of hostTypeCandidates(model)) {
+		add(candidate.name, candidate.kind, candidate.detail, candidate.moduleName, candidate.documentation);
 	}
 
 	return out;
+}
+
+// References are replaced with a new model identity when metadata changes.
+// Cache only host data; project visibility remains specific to this request.
+const HOST_TYPE_CANDIDATES = new WeakMap<HostObjectModel, readonly TypeCompletion[]>();
+function hostTypeCandidates(model: HostObjectModel): readonly TypeCompletion[] {
+	const cached = HOST_TYPE_CANDIDATES.get(model);
+	if (cached) { return cached; }
+	const candidates: TypeCompletion[] = [];
+	// In a merged model, the host's own Range must precede another library's
+	// Range. Each type's label and documentation still belong to its library.
+	for (const [qualified, type] of hostTypesOwnHostFirst(model)) {
+		const short = qualified.split('.').pop();
+		if (short) {
+			candidates.push({name: short, kind: 'host', detail: `${hostLibraryDisplayName(qualified, model)} type`, documentation: hostTypeDocumentation(type)});
+		}
+	}
+	// Object types precede enums, preserving the existing duplicate priority.
+	for (const entry of getHostEnums(model)) {
+		candidates.push({name: entry.displayName, kind: 'enum', detail: `${entry.library ?? hostDisplayName(model)} enum`, documentation: hasDocContent(entry.doc) ? renderDocMarkdown(entry.doc) : undefined});
+	}
+	HOST_TYPE_CANDIDATES.set(model, candidates);
+	return candidates;
 }
 
 function qualifiedTypeName(name: string): { qualifier: string; member: string } | undefined {
