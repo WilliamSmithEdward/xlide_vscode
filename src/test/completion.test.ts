@@ -116,6 +116,13 @@ suite('Completion editor surface', () => {
         await vscode.commands.executeCommand('acceptSelectedSuggestion');
         assert.equal(document.lineAt(2).text, 'IsNumeric("abc") =');
     });
+    test('enum insertion bug hunt bypasses a shadowed library qualifier', async () => {
+        const source = 'Sub Demo(ByVal sh As Shape)\nDim Office As Long\nDim msoTrue As Long\nsh.Visible = msoT\nEnd Sub\n';
+        const { document, caret } = await probe('OfficeQualifierShadow', source, '= msoT');
+        const item = (await completions(document, caret)).items.find(item => item.label === 'msoTrue');
+        assert.ok(item);
+        assert.equal(item.insertText, 'MsoTriState.msoTrue');
+    });
     test('shared enum owner bug hunt qualifies a shadowed Office constant correctly', async () => {
         const source = 'Sub Demo(ByVal sh As Shape)\nDim msoTrue As Long\nsh.Visible = msoT\nEnd Sub\n';
         const { document, caret } = await probe('OfficeEnumOwner', source, '= msoT');

@@ -111084,6 +111084,108 @@
       "source": "Option Explicit\nFunction MakeFlags() As Boolean()\nDim values(1) As Boolean\nMakeFlags = values\nEnd Function\nFunction Main() As Variant\nDim values(1) As Boolean\nDim flag As Boolean\nflag = MakeFlags()\nMain = 1\nEnd Function",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "enum_library_shadow_library",
+      "description": "Constant insertion qualifier under a shadowed library name.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "source": "Option Explicit\nFunction Main() As Variant\nDim Office As Long\nDim msoTrue As Long\nOffice = 1\nmsoTrue = 0\nMain = Office.MsoTriState.msoTrue\nEnd Function",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "enum_library_shadow_enum",
+      "description": "Constant insertion qualifier under a shadowed library name.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "source": "Option Explicit\nFunction Main() As Variant\nDim Office As Long\nDim msoTrue As Long\nOffice = 1\nmsoTrue = 0\nMain = MsoTriState.msoTrue\nEnd Function",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "enum_library_shadow_bare",
+      "description": "Constant insertion qualifier under a shadowed library name.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "source": "Option Explicit\nFunction Main() As Variant\nDim Office As Long\nDim msoTrue As Long\nOffice = 1\nmsoTrue = 0\nMain = msoTrue\nEnd Function",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "enum_source_owner_bare_binding",
+      "description": "Duplicate source enum names and insertion owner.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Types",
+          "type": "standard",
+          "source": "Public captured As Long\nPublic Enum Direction\nNorth = 1\nEnd Enum\nPublic Property Let State(ByVal value As Direction)\ncaptured = value\nEnd Property"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nPrivate Enum Direction\nNorth = 123\nEnd Enum\nFunction Main() As Variant\nTypes.State = North\nMain = North\nIf Types.captured <> 123 Then Err.Raise 513\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "enum_source_owner_module_binding",
+      "description": "Duplicate source enum names and insertion owner.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Types",
+          "type": "standard",
+          "source": "Public captured As Long\nPublic Enum Direction\nNorth = 1\nEnd Enum\nPublic Property Let State(ByVal value As Direction)\ncaptured = value\nEnd Property"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nPrivate Enum Direction\nNorth = 123\nEnd Enum\nFunction Main() As Variant\nTypes.State = Types.North\nMain = Types.North\nIf Types.captured <> 1 Then Err.Raise 513\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "enum_source_owner_enum_binding",
+      "description": "Duplicate source enum names and insertion owner.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Types",
+          "type": "standard",
+          "source": "Public captured As Long\nPublic Enum Direction\nNorth = 1\nEnd Enum\nPublic Property Let State(ByVal value As Direction)\ncaptured = value\nEnd Property"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nPrivate Enum Direction\nNorth = 123\nEnd Enum\nFunction Main() As Variant\nTypes.State = Types.Direction.North\nMain = Types.Direction.North\nIf Types.captured <> 1 Then Err.Raise 513\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
