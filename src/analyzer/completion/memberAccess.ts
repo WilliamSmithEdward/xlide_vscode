@@ -147,6 +147,8 @@ export interface MemberCompletion {
 	writable?: boolean;
 	/** Declared value type accepted by assignment when source provides one. */
 	writeType?: string;
+	/** The setter value parameter is an array, rather than a scalar element. */
+	writeIsArray?: boolean;
 	/** A user-defined type's field that holds an array (issue #417). */
 	isArray?: boolean;
 	/** Qualified type the member belongs to (for detail text). */
@@ -195,6 +197,8 @@ type CompletionMemberSource = Pick<
 > & {
 	writable?: boolean;
 	writeType?: string;
+	/** The setter value parameter is an array, rather than a scalar element. */
+	writeIsArray?: boolean;
 	isArray?: boolean;
 	definitions?: readonly VbaProjectClassMemberDefinition[];
 	defaultMember?: boolean;
@@ -744,6 +748,7 @@ function completionFromSurfaceMember(
 		access: mem.access,
 		writable: mem.writable,
 		writeType: mem.writeType,
+		...(mem.writeIsArray ? { writeIsArray: true } : {}),
 		...(mem.isArray ? { isArray: true } : {}),
 		owner: surface.owner,
 		surfaceExhaustive: surface.exhaustive,

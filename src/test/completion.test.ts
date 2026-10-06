@@ -142,6 +142,24 @@ suite('Completion editor surface', () => {
         await editor.edit(edit => edit.replace(finding.range, '999'));
         await until(() => !vscode.languages.getDiagnostics(document.uri).some(d=>d.code === 'assignment-type-mismatch') || undefined, 'unnamed numeric enum value must remain valid', 5000);
     });
+    test('setter shape bug hunt opens a DefBool setter menu automatically', async () => {
+        const source = 'DefBool V\nProperty Let State(ByVal value)\nEnd Property\nSub Demo()\nState \nEnd Sub\n';
+        const { document } = await probe('DefBoolSetterMenu', source, '\nState ');
+        await vscode.commands.executeCommand('hideSuggestWidget');
+        await vscode.commands.executeCommand('type', { text: '=' });
+        await until(async () => {
+            await vscode.commands.executeCommand('acceptSelectedSuggestion');
+            return /State = ?(False|True)$/.test(document.lineAt(4).text) || undefined;
+        }, 'the implicitly Boolean setter must open its native value menu', 4000);
+    });
+    test('setter shape bug hunt keeps scalar constants out of an array value slot', async () => {
+        const source = 'Property Let Flags(ByRef value() As Boolean)\nEnd Property\nSub Demo()\nFlags \nEnd Sub\n';
+        const { document, editor } = await probe('ArraySetterMenu', source, '\nFlags ');
+        await vscode.commands.executeCommand('hideSuggestWidget');
+        await vscode.commands.executeCommand('type', { text: '=' });
+        const result = await vscode.commands.executeCommand<vscode.CompletionList>('vscode.executeCompletionItemProvider', document.uri, editor.selection.active, '=');
+        assert.equal(result?.items.length, 0);
+    });
     test('invalidates semantic tokens across real document close/open language events', async () => {
         const provider = new VbaTypeSemanticTokensProvider({} as VbaProjectIndexService);
         const token = { isCancellationRequested: false } as vscode.CancellationToken;

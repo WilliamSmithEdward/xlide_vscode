@@ -260,6 +260,8 @@ export interface VbaProjectClassMember {
 	writable?: boolean;
 	/** Declared value type accepted by assignment when source provides one. */
 	writeType?: string;
+	/** The setter value parameter is an array, rather than a scalar element. */
+	writeIsArray?: boolean;
 	/** A field of a user-defined type that holds an array: its type is the element's (issue #417). */
 	isArray?: boolean;
 	moduleName: string;

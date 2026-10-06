@@ -1208,7 +1208,8 @@
       "getonly_default_variant_bare",
       "getonly_default_variant_index",
       "module_getonly_default_range",
-      "module_getonly_default_variant"
+      "module_getonly_default_variant",
+      "implicit_scalar_getter_readonly"
     ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],

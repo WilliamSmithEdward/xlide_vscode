@@ -357,13 +357,14 @@ function projectObjectMemberWritable(symbol: VbaSymbol): boolean | undefined {
 	}
 }
 
-function projectObjectMemberWriteType(symbol: VbaSymbol): string | undefined {
+function projectObjectMemberWriteType(symbol: VbaSymbol, mod: ModuleSymbols): string | undefined {
 	switch (symbol.kind) {
 		case 'propertyLet':
 		case 'propertySet':
-			return lastParameter(symbol)?.asType;
+			const value = lastParameter(symbol);
+			return value?.asType ?? (value ? mod.defTypes?.get(value.name[0]?.toLowerCase()) : undefined);
 		case 'moduleVariable':
-			return symbol.asType;
+			return symbol.asType ?? mod.defTypes?.get(symbol.name[0]?.toLowerCase());
 		default:
 			return undefined;
 	}
@@ -382,11 +383,11 @@ function enumContainerForMember(
 	);
 }
 
-function projectObjectMemberReturnType(symbol: VbaSymbol): string | undefined {
+function projectObjectMemberReturnType(symbol: VbaSymbol, mod: ModuleSymbols): string | undefined {
 	if (symbol.kind === 'enumMember') {
 		return symbol.containerName;
 	}
-	return symbol.asType;
+	return symbol.asType ?? (['function', 'propertyGet', 'moduleVariable'].includes(symbol.kind) ? mod.defTypes?.get(symbol.name[0]?.toLowerCase()) : undefined);
 }
 
 function projectObjectMemberDefinition(symbol: VbaSymbol): VbaProjectClassMemberDefinition {
@@ -1809,7 +1810,7 @@ export class ProjectIndex {
 			const key = symbol.name.toLowerCase();
 			const existing = byName.get(key);
 			if (existing) {
-				const returns = projectObjectMemberReturnType(symbol);
+				const returns = projectObjectMemberReturnType(symbol, mod);
 				if (!existing.returns && returns) {
 					existing.returns = returns;
 				}
@@ -1820,8 +1821,9 @@ export class ProjectIndex {
 					existing.writable = false;
 				}
 				if (!existing.writeType) {
-					existing.writeType = projectObjectMemberWriteType(symbol);
+					existing.writeType = projectObjectMemberWriteType(symbol, mod);
 				}
+				if ((symbol.kind === 'propertyLet' || symbol.kind === 'propertySet') && lastParameter(symbol)?.isArray) { existing.writeIsArray = true; }
 				if (!existing.signature) {
 					existing.signature = projectObjectMemberSignature(symbol);
 				}
@@ -1850,10 +1852,11 @@ export class ProjectIndex {
 			byName.set(key, {
 				name: symbol.name,
 				kind,
-				returns: projectObjectMemberReturnType(symbol),
+				returns: projectObjectMemberReturnType(symbol, mod),
 				signature: projectObjectMemberSignature(symbol),
 				writable: projectObjectMemberWritable(symbol),
-				writeType: projectObjectMemberWriteType(symbol),
+				writeType: projectObjectMemberWriteType(symbol, mod),
+				...((symbol.kind === 'propertyLet' || symbol.kind === 'propertySet') && lastParameter(symbol)?.isArray ? { writeIsArray: true } : {}),
 				moduleName: mod.moduleName,
 				visibility: symbol.visibility,
 				doc: symbol.doc,
