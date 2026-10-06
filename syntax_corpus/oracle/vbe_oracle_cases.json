@@ -109801,6 +109801,98 @@
       ],
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "setter_optional_required_value_decl",
+      "description": "Determine valid Optional index syntax with a required setter value.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(Optional ByVal index As String = \"1,2\", ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\n\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "setter_optional_required_value_bare",
+      "description": "Determine valid Optional index syntax with a required setter value.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(Optional ByVal index As String = \"1,2\", ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.State = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "setter_optional_required_value_empty",
+      "description": "Determine valid Optional index syntax with a required setter value.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(Optional ByVal index As String = \"1,2\", ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.State() = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "setter_optional_required_value_explicit",
+      "description": "Determine valid Optional index syntax with a required setter value.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(Optional ByVal index As String = \"1,2\", ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.State(\"x\") = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

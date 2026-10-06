@@ -423,6 +423,11 @@
       "sourceOfTruth": "MS-VBAL 5.4.2.1 plus asserted Excel/VBE oracle cases plus deterministic project signature graph",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "setter_optional_required_value_decl",
+        "setter_optional_required_value_bare",
+        "setter_optional_required_value_empty",
+        "setter_optional_required_value_explicit",
+
         "setter_index_missing",
         "setter_index_empty",
         "setter_index_extra",
