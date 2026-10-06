@@ -34,7 +34,7 @@ import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { VbaProjectClassMembers } from '../../symbols/symbolModel';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
 import type { InferredArgumentType } from '../callExtraction';
-import { buildModuleTypeSignatures, createObjectAssignmentTypeResolver, createObjectTypeImplementationLookup, createProjectInterfaceSharingLookup, inferExpressionType, isKnownScalarType, normalizeType, objectAssignmentIncompatibilityReason, sourceNameScopeFor, stringLiteralValue, typeEnvironmentFor } from '../typeInference';
+import { buildModuleTypeSignatures, createObjectAssignmentTypeResolver, createObjectTypeImplementationLookup, createProjectInterfaceSharingLookup, inferExpressionType, isKnownScalarType, normalizeType, objectAssignmentIncompatibilityReason, runtimeSignatureParameterText, sourceNameScopeFor, splitSignatureTopLevel, stringLiteralValue, typeEnvironmentFor } from '../typeInference';
 import {
 	activeModuleMembers,
 	forEachStatement,
@@ -218,22 +218,12 @@ function argumentRefusal(toks: readonly VbaToken[], at: number, params: readonly
 
 /** The parameters a member signature lists: `M(ByVal a As Long, [ByVal b As Long])`. */
 function signatureParams(signature: string): KnownParam[] | undefined {
-	const open = signature.indexOf('(');
-	let depth = 0;
-	let close = -1;
-	for (let i = open; open >= 0 && i < signature.length; i++) {
-		depth += signature[i] === '(' ? 1 : signature[i] === ')' ? -1 : 0;
-		if (depth === 0) {
-			close = i;
-			break;
-		}
-	}
-	if (close < 0) {
+	const list = runtimeSignatureParameterText(signature)?.trim();
+	if (list === undefined) {
 		return undefined;
 	}
-	const list = signature.slice(open + 1, close).trim();
 	const params: KnownParam[] = [];
-	for (const raw of list === '' ? [] : list.split(',')) {
+	for (const raw of list === '' ? [] : splitSignatureTopLevel(list)) {
 		const text = raw.trim();
 		const optional = text.startsWith('[') || /^optional\b/i.test(text);
 		const words = text.replace(/[[\]]/g, '').split(/\s+/).filter((word) => !/^(optional|byval|byref|paramarray)$/i.test(word));
