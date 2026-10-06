@@ -2,6 +2,22 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.0.3] - 2026-10-06
+
+Correct Optional argument checks and improve analyzer source compatibility.
+
+- **Quoted Optional defaults** (#1244, contributed by Sam, @swsammy).
+  Commas, quotes and brackets inside default strings now count as part of one
+  parameter. Shared quote-aware readers prevent false argument errors and
+  restore late-bound argument checks, while preserving genuine missing,
+  excess and misnamed argument diagnostics. Array parameter parentheses are
+  matched correctly.
+- **Newer TypeScript library compatibility** (#1243, contributed by Sam,
+  @swsammy). Callable shadow scopes now expose the membership-only contract
+  their callers use. Removing unused set enumeration methods allows the
+  analyzer source to compile under ES2025 and ESNext while preserving module
+  and procedure shadowing.
+
 ## [11.0.2] - 2026-10-05
 
 Resolve Scripting Runtime constants and RegExp IntelliSense in referenced projects.
