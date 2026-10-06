@@ -1405,6 +1405,12 @@ function singleSlotNameEquals(slot: readonly VbaToken[], lowerName: string): boo
 	return toks.length === 1 && tokenName(toks[0])?.toLowerCase() === lowerName;
 }
 
+// These getter-only Variant properties return scalar values, never an object
+// whose default property could receive a Let. Their assignments compile but
+// cannot execute. Keep object-valued getters (e.g. Worksheet.UsedRange) alone.
+// https://learn.microsoft.com/en-us/office/vba/api/excel.range.height
+const RANGE_READONLY_VALUES = new Set(['height', 'width', 'left', 'top', 'text', 'countlarge', 'hasarray', 'hasformula']);
+
 /**
  * The compile error the VBE gives an assignment to a read-only host property,
  * or undefined when the assignment compiles or the models cannot say which
@@ -1567,6 +1573,13 @@ function checkMemberAssignmentTypes(
 					`Cannot assign to read-only property '${assignment.label}'. This is a VBE compile error: ${vbeError}.`,
 					assignment.memberSpan,
 				);
+			} else if (!vbeError && target.kind === 'property' && target.owner === 'Excel.Range'
+				&& RANGE_READONLY_VALUES.has(target.name.toLowerCase())) {
+				const alternative = /^(height|width)$/i.test(target.name)
+					? ` Use ${target.name.toLowerCase() === 'height' ? 'RowHeight' : 'ColumnWidth'} to change it.` : '';
+				push('hostReadonlyValueAssignment',
+					`Cannot assign to read-only property '${assignment.label}': it returns a value and has no setter. This assignment fails when it runs.${alternative}`,
+					assignment.memberSpan);
 			}
 			return;
 		}
@@ -1584,6 +1597,19 @@ function checkMemberAssignmentTypes(
 			const value = assignment.valueTokens.filter((tok) => tok.kind !== 'comment');
 			if (problem && value.length > 0) {
 				push('hostPropertyValueOutOfRange', problem, { start: span.start + value[0].start, end: span.start + value[value.length - 1].end });
+				return;
+			}
+		}
+		// Host scalar setters use the same provable VBA coercions as variables.
+		// Variant, Object and object-valued getters need host-specific knowledge.
+		if (target?.kind === 'property' && target.access === 'read/write' && target.writable === undefined
+			&& !assignment.usesSet && !assignment.withArguments && target.declaredType
+			&& isKnownScalarType(normalizeType(target.declaredType) ?? '') && !lateBoundReceiver(source, assignment.memberSpan.end, memberCtx)) {
+			const actual = inferArgumentType(assignment.valueTokens, span.start, env, moduleSignatures,
+				sourceNames, source, memberCtx, resolveExpressionType, resolveQualifiedExpressionType);
+			const reason = actual && incompatibilityReason(target.declaredType, actual);
+			if (reason) {
+				push('assignmentTypeMismatch', `Assignment to '${assignment.label}' expects ${target.declaredType}, but got ${actual!.label}. ${reason}`, actual!.span);
 				return;
 			}
 		}

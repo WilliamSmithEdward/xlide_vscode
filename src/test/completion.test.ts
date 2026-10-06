@@ -6,7 +6,7 @@ import { VbaEditorProjectContextService } from '../vbaEditorProjectContext';
 import { VbaTypeSemanticTokensProvider } from '../vbaSemanticTokensProvider';
 import type { VbaProjectIndexService } from '../vbaProjectIndexService';
 import { backspaceNeedsExtension } from '../vbaEditorCommands';
-import { activate, closeAllEditors, open, until, workspaceRoot } from './support';
+import { activate, closeAllEditors, open, until, workspaceRoot, writeModule } from './support';
 
 async function probe(name: string, source: string, marker: string): Promise<{ document: vscode.TextDocument; editor: vscode.TextEditor; caret: vscode.Position }> {
     const file = path.join(workspaceRoot(), `${name}.bas`);
@@ -45,6 +45,56 @@ suite('Completion editor surface', () => {
         await vscode.commands.executeCommand('hideSuggestWidget');
         await vscode.commands.executeCommand('workbench.action.revertAndCloseActiveEditor');
         await closeAllEditors();
+    });
+    for (const trigger of ['=', ' ']) {
+        test(`assignment constants popup automatically after ${JSON.stringify(trigger)} inside With`, async () => {
+            const source = 'Sub Demo()\nDim ws As Worksheet\nWith ws.Range("A1")\n.HorizontalAlignment ' + (trigger === ' ' ? '=' : '') + '\nEnd With\nEnd Sub\n';
+            const { document } = await probe(`AssignmentMenu${trigger === '=' ? 'Equals' : 'Space'}`, source, '.HorizontalAlignment ' + (trigger === ' ' ? '=' : ''));
+            await vscode.commands.executeCommand('hideSuggestWidget');
+            await vscode.commands.executeCommand('type', { text: trigger });
+            await until(async () => {
+                await vscode.commands.executeCommand('acceptSelectedSuggestion');
+                return /\.HorizontalAlignment = ?xlHAlign/.test(document.lineAt(3).text) || undefined;
+            }, 'typing the trigger must open the native enum menu even with quickSuggestions disabled', 4000);
+        });
+    }
+    test('assignment constants retain variables and replace an existing value prefix once', async () => {
+        const source = 'Sub Demo()\nDim chosen As XlHAlign\nActiveCell.HorizontalAlignment = xlHAlignLeft\nEnd Sub\n';
+        const { document, caret } = await probe('AssignmentReplace', source, '= xlH');
+        const list = await completions(document, caret);
+        const item = list.items.find(item => item.label === 'xlHAlignCenter');
+        assert.ok(item);
+        assert.equal(list.items.filter(item => item.label === 'xlHAlignCenter').length, 1);
+        const range = item.range instanceof vscode.Range ? item.range : item.range?.replacing;
+        assert.ok(range);
+        assert.equal(document.getText(range), 'xlHAlignLeft');
+        const edit = new vscode.WorkspaceEdit();
+        edit.replace(document.uri, range, 'xlHAlignCenter');
+        await vscode.workspace.applyEdit(edit);
+        assert.equal(document.lineAt(2).text, 'ActiveCell.HorizontalAlignment = xlHAlignCenter');
+    });
+    test('assignment constants stay responsive in a large module', async () => {
+        const source = 'Sub Demo()\nDim value As Long\n' + 'value = value + 1\n'.repeat(3000) + 'ActiveCell.HorizontalAlignment = \nEnd Sub\n';
+        const { document, caret } = await probe('AssignmentLarge', source, 'ActiveCell.HorizontalAlignment = ');
+        const times: number[] = [];
+        for (let i = 0; i < 11; i++) {
+            const start = performance.now();
+            assert.ok(labels(await completions(document, caret)).includes('xlHAlignLeft'));
+            times.push(performance.now() - start);
+        }
+        const warm = times.slice(1).sort((a,b) => a-b);
+        console.log(`Assignment completion provider command ms: first=${times[0].toFixed(1)}, warm median=${warm[5].toFixed(1)}, warm max=${warm.at(-1)!.toFixed(1)}`);
+    });
+    test('assignment diagnostics underline Height and clear after changing to RowHeight', async () => {
+        const source = 'Option Explicit\nSub Demo(ByVal ws As Worksheet)\nws.Range("A1").EntireRow.Height = 20\nEnd Sub\n';
+        const document = await open(await writeModule('AssignmentDiagnostics', source));
+        const editor = vscode.window.activeTextEditor!;
+        const diagnostic = await until(() => vscode.languages.getDiagnostics(document.uri).find(d=>d.code === 'host-readonly-value-assignment'), 'Height must receive an editor diagnostic', 5000);
+        assert.equal(diagnostic.severity, vscode.DiagnosticSeverity.Error);
+        assert.equal(document.getText(diagnostic.range), 'Height');
+        assert.ok(diagnostic.message.includes('RowHeight'));
+        await editor.edit(edit => edit.replace(diagnostic.range, 'RowHeight'));
+        await until(() => vscode.languages.getDiagnostics(document.uri).every(d=>d.code !== 'host-readonly-value-assignment') || undefined, 'RowHeight must clear the read-only diagnostic', 5000);
     });
     test('invalidates semantic tokens across real document close/open language events', async () => {
         const provider = new VbaTypeSemanticTokensProvider({} as VbaProjectIndexService);

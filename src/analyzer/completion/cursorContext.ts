@@ -7,6 +7,7 @@
 // pass per cursor position) stops the per-resolver reimplementations from
 // drifting and gives the resolvers a single seam for sharing token state.
 
+import { assignmentTargetFromTokens } from './assignmentTarget';
 import { tokenize, tokenizeCached } from '../lexer/tokenize';
 import { isWsc } from '../lexer/tokenKinds';
 import { lineStartAtAnyBreak, lineEndAtOrAfter } from '../../vbaSourceScan';
@@ -331,7 +332,7 @@ export function spaceTriggerMayComplete(
 	if (!head) {
 		return true; // fresh statement after a ':' separator
 	}
-	return head.kind === 'keyword' || head.kind === 'directive';
+	return Boolean(assignmentTargetFromTokens(statement)) || head.kind === 'keyword' || head.kind === 'directive';
 }
 
 /**
@@ -355,4 +356,13 @@ export function identifierSpanEndingAt(
 		return undefined;
 	}
 	return { start, end };
+}
+
+/** Line-local gate for automatic value suggestions on '=' (including ':='). */
+export function assignmentValueTriggerMayComplete(linePrefix: string, continued = false): boolean {
+	const cursor = completionLineCursorContext(linePrefix, linePrefix.length);
+	if (cursor.inComment || cursor.inString) { return false; }
+	if (continued) { return true; }
+	const tokens = cursor.significantTokens.filter(t => t.start >= cursor.statementStart);
+	return tokens.at(-1)?.rawText === ':=' || Boolean(assignmentTargetFromTokens(tokens));
 }
