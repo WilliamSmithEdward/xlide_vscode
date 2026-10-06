@@ -285,8 +285,9 @@
         "issue318_62_compile",
         "issue318_63_compile",
         "issue423_71_compile",
-        "issue423_72_compile"
-      ],
+        "issue423_72_compile",
+      "qualified_office_office_constant"
+    ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
         "syntax_corpus/excel_vba_analysis_final_hardening_cases.md"

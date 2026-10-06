@@ -46,3 +46,19 @@ it('uses only the active conditional setter declaration',()=>{
  const source='Option Explicit\n#If False Then\nProperty Let State(ByVal value As Boolean)\nEnd Property\n#Else\nProperty Let State(ByVal value As String)\nEnd Property\n#End If\nSub T()\nState = "nonsense"\nEnd Sub';
  expect(analyzeProjectModule(source,[],'Caller').filter(d=>d.severity==='error')).toEqual([]);
 });
+
+it('does not flag the valid qualified Office constant as undeclared',()=>{
+ const source='Option Explicit\nSub T(ByVal sh As Shape)\nDim msoTrue As Long\nsh.Visible = Office.MsoTriState.msoTrue\nEnd Sub';
+ expect(analyzeProjectModule(source,[],'Caller').filter(d=>d.severity==='error')).toEqual([]);
+});
+
+it('reuses library namespace metadata across module analyses',()=>{
+ const base=getExcelObjectModel(); let scans=0;
+ const types=new Proxy(base.types,{ownKeys(target){scans++;return Reflect.ownKeys(target);}});
+ const model={...base,types};
+ const source='Option Explicit\nSub T()\nDim value As Long\nvalue = Office.MsoTriState.msoTrue\nDebug.Print value\nEnd Sub';
+ analyzeProjectModule(source,[],'Warm',{hostModel:model});
+ scans=0;
+ for(let i=0;i<10;i++) analyzeProjectModule(source.replace('Sub T()',`Sub T${i}()`),[],'Module'+i,{hostModel:model});
+ expect(scans).toBe(0);
+});
