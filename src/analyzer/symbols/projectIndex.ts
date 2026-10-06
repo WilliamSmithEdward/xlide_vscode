@@ -1369,7 +1369,8 @@ export class ProjectIndex {
 	 * names, but they are valid module-qualified receivers such as
 	 * `XlideAssert.AreEqual`.
 	 */
-	projectStandardModuleMembers(moduleName: string): VbaProjectClassMembers[] {
+	projectStandardModuleMembers(moduleName: string, options: { includeClassValueFacts?: boolean } = {}): VbaProjectClassMembers[] {
+		const includeValueFacts = options.includeClassValueFacts !== false;
 		const currentLower = moduleName.toLowerCase();
 		const out: VbaProjectClassMembers[] = [];
 		for (const mod of this.modules.values()) {
@@ -1377,14 +1378,19 @@ export class ProjectIndex {
 				continue;
 			}
 			const sameModule = mod.moduleName.toLowerCase() === currentLower;
-			out.push(this.contribution('standardModuleMembers', mod, sameModule, () => ({
-				name: mod.moduleName,
-				kind: 'standardModule',
-				moduleName: mod.moduleName,
-				doc: mod.root.doc,
-				exhaustive: true,
-				members: this.visibleStandardModuleMembers(mod, sameModule),
-			})));
+			const base = this.contribution('standardModuleMembers', mod, sameModule, () => ({
+				name: mod.moduleName, kind: 'standardModule' as const, moduleName: mod.moduleName,
+				doc: mod.root.doc, exhaustive: true, members: this.visibleStandardModuleMembers(mod, sameModule),
+			}));
+			out.push(!includeValueFacts ? base : this.contribution('standardModuleMembers:values', mod, sameModule, () => {
+				let values: ReturnType<typeof classMemberValues> | undefined;
+				const members = base.members.map(member => {
+					if (!member.procedureParams?.propertyGet || (member.returns ?? 'Variant').toLowerCase() !== 'variant') { return member; }
+					values ??= this.contribution('classMemberValues', mod, false, () => classMemberValues(this.moduleSources.get(mod.moduleName.toLowerCase()) ?? '', mod.root.children ?? []));
+					return {...member, knownValue: values.get(member.name.toLowerCase())};
+				});
+				return {...base, members};
+			}));
 		}
 		return out;
 	}
@@ -1399,7 +1405,7 @@ export class ProjectIndex {
 		const valueFactsKey = options.includeClassValueFacts === false ? ':noValueFacts' : '';
 		return this.cached(`memberSurfaces:${currentLower}${valueFactsKey}`, () => [
 			...this.projectClassMembers(options),
-			...this.projectStandardModuleMembers(moduleName),
+			...this.projectStandardModuleMembers(moduleName, options),
 			...this.projectUserTypeMembers(moduleName),
 			...this.projectEnumMembers(moduleName),
 		]).slice();

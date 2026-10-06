@@ -3228,6 +3228,7 @@ export function createObjectDefaultQueries(memberCtx: MemberCompletionContext) {
 
 /** A getter can supply an object whose default property receives a Let. */
 export function getterMayReturnObject(type: string | undefined, memberCtx: MemberCompletionContext): boolean {
+	if (/\(\s*\)\s*$/.test(type ?? '')) { return false; }
 	const normalized = normalizeType(type);
 	return !normalized || normalized === 'variant' || normalized === 'object'
 		|| isKnownObjectAssignmentType(type, memberCtx);

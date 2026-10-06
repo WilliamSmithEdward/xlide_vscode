@@ -80,7 +80,7 @@ Debug.Print ReadElsewhere
 End Sub`;
         const symbols = buildModuleSymbols('C', 'class', source);
         expect([...classMemberValues(source, symbols.root.children ?? [])]).toEqual([
-            ['untouched', 'nothing'], ['result', 'scalar'], ['emptyresult', 'empty'], ['nothingresult', 'nothing'],
+            ['untouched', 'nothing'], ['result', 'scalar'], ['emptyresult', 'empty'], ['nothingresult', 'nothing'], ['withparam', 'scalar'],
         ]);
     });
 
