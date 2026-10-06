@@ -1016,6 +1016,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'argumentCount',
+		blockHeaders: true,
 		procedureStatements: (ctx, push) => checkArgumentCount(
 			ctx.source,
 			ctx.symbols,
@@ -1038,6 +1039,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'argumentTypes',
+		blockHeaders: true,
 		procedureStatements: (ctx, push) => checkArgumentTypes(
 			ctx.source,
 			ctx.symbols,
@@ -1112,6 +1114,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'argumentShapeMismatch',
+		blockHeaders: true,
 		procedureStatements: (ctx, push) => checkArgumentShape(
 			ctx.source,
 			ctx.symbols,
