@@ -134,6 +134,16 @@ suite('Completion editor surface', () => {
         await editor.edit(edit => edit.replace(document.lineAt(2).range, 'Set GetterValue = ThisWorkbook.Worksheets(1).Range("A1")'));
         await until(() => !vscode.languages.getDiagnostics(document.uri).some(d => d.severity === vscode.DiagnosticSeverity.Error) || undefined, 'object return must clear the invalid getter write', 5000);
     });
+    test('library shadow bug hunt keeps property diagnostics on the source receiver', async () => {
+        const source = 'Option Explicit\nSub Demo(ByVal Word As Worksheet)\nWord.EnableCalculation = "nonsense"\nEnd Sub\n';
+        const document = await open(await writeModule('LibraryShadowDiagnostic', source));
+        const editor = vscode.window.activeTextEditor!;
+        const finding = await until(() => vscode.languages.getDiagnostics(document.uri).find(d => d.code === 'assignment-type-mismatch'), 'Worksheet Boolean setter must reject invalid text', 5000);
+        assert.equal(document.getText(finding.range), '"nonsense"');
+        assert.equal(vscode.languages.getDiagnostics(document.uri).some(d => d.code === 'missing-library-reference'), false);
+        await editor.edit(edit => edit.replace(finding.range, 'True'));
+        await until(() => !vscode.languages.getDiagnostics(document.uri).some(d => d.severity === vscode.DiagnosticSeverity.Error) || undefined, 'valid source-bound property write must clear errors', 5000);
+    });
     test('bare setter bug hunt reports an invalid value and clears on correction', async () => {
         const source = 'Option Explicit\nPublic Property Let State(ByVal value As Boolean)\nEnd Property\nSub Demo()\nState = "nonsense"\nEnd Sub\n';
         const document = await open(await writeModule('BareSetterDiagnostic', source));

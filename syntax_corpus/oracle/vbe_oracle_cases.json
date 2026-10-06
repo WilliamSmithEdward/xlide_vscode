@@ -109619,6 +109619,50 @@
           "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Height = 30\nMain = 1\nEnd Function"
         }
       ]
+    },
+    {
+      "id": "library_shadow_local_range",
+      "description": "Source values named after Office libraries must not request unrelated references.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "source": "Option Explicit\nFunction Main() As Variant\nDim Word As Range\nSet Word = ThisWorkbook.Worksheets(1).Range(\"A1\")\nWord.HorizontalAlignment = xlHAlignCenter\nMain = Word.HorizontalAlignment\nEnd Function",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "library_shadow_module_range",
+      "description": "Source values named after Office libraries must not request unrelated references.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "source": "Option Explicit\nPrivate Word As Range\nFunction Main() As Variant\nSet Word = ThisWorkbook.Worksheets(1).Range(\"A1\")\nWord.HorizontalAlignment = xlHAlignCenter\nMain = Word.HorizontalAlignment\nEnd Function",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "library_shadow_parameter_range",
+      "description": "Source values named after Office libraries must not request unrelated references.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "source": "Option Explicit\nPrivate Function Assign(ByVal Word As Range) As Variant\nWord.HorizontalAlignment = xlHAlignCenter\nAssign = Word.HorizontalAlignment\nEnd Function\nFunction Main() As Variant\nMain = Assign(ThisWorkbook.Worksheets(1).Range(\"A1\"))\nEnd Function",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "library_shadow_type_still_missing",
+      "description": "Source values named after Office libraries must not request unrelated references.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "source": "Option Explicit\nFunction Main() As Variant\nDim Word As Range\nDim app As Word.Application\nMain = 1\nEnd Function",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }

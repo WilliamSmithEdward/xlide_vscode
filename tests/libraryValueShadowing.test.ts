@@ -1,3 +1,4 @@
+import {resolveAssignmentValueCompletion} from '../src/analyzer/completion/assignmentValueCompletion';
 import {buildModuleSymbols} from '../src/analyzer/symbols/buildModuleSymbols';
 import {getExcelObjectModel} from '../src/analyzer/host/excelObjectModel';
 import {expect,it} from 'vitest';
@@ -40,4 +41,9 @@ it('walks enclosing procedures once across many property writes',()=>{
  checkMissingLibraryReference(source,getExcelObjectModel(),rule=>findings.push(rule),new Set(),{symbols});
  expect(findings).toEqual([]);
  expect(reads).toBeLessThanOrEqual(count*2);
+});
+
+it('retains the Range alignment value menu for a library-named parameter',()=>{
+ const source='Sub T(ByVal Word As Range)\nWord.HorizontalAlignment = ';
+ expect(resolveAssignmentValueCompletion(source,source.length)?.constants.map(value=>value.name)).toContain('xlHAlignCenter');
 });
