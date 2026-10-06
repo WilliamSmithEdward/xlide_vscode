@@ -110376,6 +110376,488 @@
       ],
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "getter_collection_default_missing",
+      "description": "Let writes through object-returning getter default contracts.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Child() As Collection\nSet Child = New Collection\nChild.Add 1\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Child = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "getter_collection_scalar_item",
+      "description": "Let writes through object-returning getter default contracts.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Child() As Collection\nSet Child = New Collection\nChild.Add 1\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Child(1) = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "getter_collection_range_item",
+      "description": "Let writes through object-returning getter default contracts.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Child() As Collection\nSet Child = New Collection\nChild.Add ThisWorkbook.Worksheets(1).Range(\"A1\")\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Child(1) = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "getter_range_default_valid",
+      "description": "Let writes through object-returning getter default contracts.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Child() As Range\nSet Child = ThisWorkbook.Worksheets(1).Range(\"A1\")\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Child = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "getter_class_no_default",
+      "description": "Let writes through object-returning getter default contracts.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Child() As Widget\nSet Child = Me\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Child = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "getter_worksheet_no_default",
+      "description": "Let writes through object-returning getter default contracts.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Child() As Worksheet\nSet Child = ThisWorkbook.Worksheets(1)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Child = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "getter_custom_default_required",
+      "description": "Source default-member writes through getter results and Variant controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Leaf",
+          "type": "class",
+          "source": "Public Property Get Item(ByVal index As Long) As Variant\nAttribute Item.VB_UserMemId = 0\nItem = index\nEnd Property"
+        },
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Child() As Leaf\nSet Child = New Leaf\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Child = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "getter_custom_default_readonly",
+      "description": "Source default-member writes through getter results and Variant controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Leaf",
+          "type": "class",
+          "source": "Public Property Get Item() As Long\nAttribute Item.VB_UserMemId = 0\nItem = 1\nEnd Property"
+        },
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Child() As Leaf\nSet Child = New Leaf\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Child = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "getter_custom_default_variant_object",
+      "description": "Source default-member writes through getter results and Variant controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Leaf",
+          "type": "class",
+          "source": "Public Property Get Item() As Variant\nAttribute Item.VB_UserMemId = 0\nSet Item = ThisWorkbook.Worksheets(1).Range(\"A1\")\nEnd Property"
+        },
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Child() As Leaf\nSet Child = New Leaf\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Child = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "bare_custom_default_variant_object",
+      "description": "Source default-member writes through getter results and Variant controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Leaf",
+          "type": "class",
+          "source": "Public Property Get Item() As Variant\nAttribute Item.VB_UserMemId = 0\nSet Item = ThisWorkbook.Worksheets(1).Range(\"A1\")\nEnd Property"
+        },
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Child() As Leaf\nSet Child = New Leaf\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nDim value As Leaf\nSet value = New Leaf\nvalue = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "getter_custom_default_variant_scalar",
+      "description": "Source default-member writes through getter results and Variant controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Leaf",
+          "type": "class",
+          "source": "Public Property Get Item() As Variant\nAttribute Item.VB_UserMemId = 0\nItem = 1\nEnd Property"
+        },
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Child() As Leaf\nSet Child = New Leaf\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Child = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "getter_default_mutable_missing",
+      "description": "Getter argument/result index distinction and default writability.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Leaf",
+          "type": "class",
+          "source": "Private stored As Long\nPublic Property Get Item(ByVal index As Long) As Long\nAttribute Item.VB_UserMemId = 0\nItem = stored\nEnd Property\nPublic Property Let Item(ByVal index As Long, ByVal value As Long)\nAttribute Item.VB_UserMemId = 0\nstored = value\nEnd Property"
+        },
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Child() As Leaf\nSet Child = New Leaf\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Child = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "getter_default_mutable_indexed",
+      "description": "Getter argument/result index distinction and default writability.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Leaf",
+          "type": "class",
+          "source": "Private stored As Long\nPublic Property Get Item(ByVal index As Long) As Long\nAttribute Item.VB_UserMemId = 0\nItem = stored\nEnd Property\nPublic Property Let Item(ByVal index As Long, ByVal value As Long)\nAttribute Item.VB_UserMemId = 0\nstored = value\nEnd Property"
+        },
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Child() As Leaf\nSet Child = New Leaf\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Child(1) = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "getter_default_readonly_indexed",
+      "description": "Getter argument/result index distinction and default writability.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Leaf",
+          "type": "class",
+          "source": "Public Property Get Item(ByVal index As Long) As Variant\nAttribute Item.VB_UserMemId = 0\nSet Item = ThisWorkbook.Worksheets(1).Range(\"A1\")\nEnd Property"
+        },
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Child() As Leaf\nSet Child = New Leaf\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Child(1) = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "getter_collection_argument_result",
+      "description": "Getter argument/result index distinction and default writability.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Child(ByVal key As String) As Collection\nSet Child = New Collection\nChild.Add 1\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Child(\"key\") = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "getter_collection_empty_result",
+      "description": "Getter argument/result index distinction and default writability.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Child() As Collection\nSet Child = New Collection\nChild.Add 1\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Child() = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "bare_default_required_readonly",
+      "description": "Readonly source defaults win over missing index in variable and array-element Lets.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Leaf",
+          "type": "class",
+          "source": "Public Property Get Item(ByVal index As Long) As Long\nAttribute Item.VB_UserMemId = 0\nItem = index\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim value As Leaf\nSet value = New Leaf\nvalue = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "array_default_required_readonly",
+      "description": "Readonly source defaults win over missing index in variable and array-element Lets.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Leaf",
+          "type": "class",
+          "source": "Public Property Get Item(ByVal index As Long) As Long\nAttribute Item.VB_UserMemId = 0\nItem = index\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim values(0) As Leaf\nSet values(0) = New Leaf\nvalues(0) = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "getter_default_mutable_optional",
+      "description": "An optional default-member index does not forbid a whole getter-result Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Leaf",
+          "type": "class",
+          "source": "Private stored As Long\nPublic Property Get Item(Optional ByVal index As Long = 1) As Long\nAttribute Item.VB_UserMemId = 0\nItem = stored\nEnd Property\nPublic Property Let Item(Optional ByVal index As Long = 1, ByVal value As Long)\nAttribute Item.VB_UserMemId = 0\nstored = value\nEnd Property"
+        },
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Child() As Leaf\nSet Child = New Leaf\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Child = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

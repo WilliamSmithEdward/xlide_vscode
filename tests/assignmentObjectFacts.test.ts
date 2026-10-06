@@ -37,7 +37,7 @@ describe('assignment object type facts', () => {
  it('refreshes type/default facts after updates to the same metadata array and object', () => {
   const member = item(), surfaces = [surface([member])];
   const run = prepare('Sub P()\nDim c As Target\nc = 5\nEnd Sub');
-  expect(run(surfaces).map(hit => hit[0])).toEqual(['setRequired']);
+  expect(run(surfaces).map(hit => hit[0])).toEqual(['readonlyMemberAssignment']);
   member.signature = 'Item()';
   expect(run(surfaces).map(hit => hit[0])).toEqual(['readonlyMemberAssignment']);
   member.writable = true; member.letAccessor = true;
@@ -46,9 +46,9 @@ describe('assignment object type facts', () => {
  it('keeps array-element and scalar default rules distinct for the same declared type', () => {
   const member = item(), surfaces = [surface([member])];
   const run = prepare('Sub P()\nDim c As Target\nDim a(0) As Target\nc = 5\na(0) = 5\nEnd Sub');
-  expect(run(surfaces).map(hit => hit[0])).toEqual(['setRequired', 'setRequired']);
+  expect(run(surfaces).map(hit => hit[0])).toEqual(['readonlyMemberAssignment', 'readonlyMemberAssignment']);
   member.signature = 'Item()';
-  expect(run(surfaces).map(hit => hit[0])).toEqual(['readonlyMemberAssignment']);
+  expect(run(surfaces).map(hit => hit[0])).toEqual(['readonlyMemberAssignment','readonlyMemberAssignment']);
  });
  it('still checks statement-specific object state for a type with no default', () => {
   const hits = prepare('Sub P()\nDim c As Target\nc = 5\nSet c = New Target\nc = 5\nEnd Sub')([surface()]);
