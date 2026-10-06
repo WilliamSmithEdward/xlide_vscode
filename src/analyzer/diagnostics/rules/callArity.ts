@@ -1,3 +1,5 @@
+import {sourceSetterAssignment} from '../setterAssignment';
+import {procedureSymbolFor} from '../analysisContext';
 // Rule family: call-argument arity (audit #0).
 //
 // Extracted verbatim from analyzeModule.ts: wrong-number-of-arguments
@@ -74,6 +76,7 @@ export function checkArgumentCount(
 			for (const span of statementAndBranchSpans(stmt)) {
 				checkUnmodelledArity(source, span, env, sourceNames, memberCtx, push);
 			}
+			const setterNames = new Set(statementAndBranchSpans(stmt).map(span => sourceSetterAssignment(source, span, symbols, procedureSymbolFor(symbols, member), projectVisibleSymbols, memberCtx)?.nameSpan.start).filter(start => start !== undefined));
 			const projectQualifiedCallSpans = new Set<string>();
 			const statementCall = extractCall(source, stmt.span);
 			const qualifiedStatementCall = statementCall
@@ -93,7 +96,7 @@ export function checkArgumentCount(
 			}
 			const expressionCallList = expressionCalls(source, stmt.span, moduleSignatures, sourceNames);
 			for (const call of expressionCallList) {
-				if (sameCallTarget(call, effectiveStatementCall)) {
+				if (setterNames.has(call.nameSpan.start) || sameCallTarget(call, effectiveStatementCall)) {
 					continue;
 				}
 				validateCallableArity(source, call, sameModuleSignatures, projectSignatures, sourceNames, push);
@@ -104,7 +107,7 @@ export function checkArgumentCount(
 				stmt.span,
 				memberCtx,
 			)) {
-				if (projectQualifiedCallSpans.has(callTargetSpanKey(memberCall.call)) || takesPrintList(memberCall.signature)) {
+				if (setterNames.has(memberCall.call.nameSpan.start) || projectQualifiedCallSpans.has(callTargetSpanKey(memberCall.call)) || takesPrintList(memberCall.signature)) {
 					continue;
 				}
 				validateArity(source, memberCall.signature, memberCall.call, push);
@@ -114,7 +117,7 @@ export function checkArgumentCount(
 				stmt.span,
 				memberCtx,
 			)) {
-				if (projectQualifiedCallSpans.has(callTargetSpanKey(memberCall.call)) || takesPrintList(memberCall.signature)) {
+				if (setterNames.has(memberCall.call.nameSpan.start) || projectQualifiedCallSpans.has(callTargetSpanKey(memberCall.call)) || takesPrintList(memberCall.signature)) {
 					continue;
 				}
 				validateArity(source, memberCall.signature, memberCall.call, push);
@@ -139,7 +142,7 @@ export function checkArgumentCount(
 					recordProjectQualifiedCallSpan(branchCall, projectQualifiedCallSpans);
 				}
 				for (const memberCall of memberStatementCalls(source, branch, memberCtx)) {
-					if (projectQualifiedCallSpans.has(callTargetSpanKey(memberCall.call)) || takesPrintList(memberCall.signature)) {
+					if (setterNames.has(memberCall.call.nameSpan.start) || projectQualifiedCallSpans.has(callTargetSpanKey(memberCall.call)) || takesPrintList(memberCall.signature)) {
 						continue;
 					}
 					validateArity(source, memberCall.signature, memberCall.call, push);

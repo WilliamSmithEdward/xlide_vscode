@@ -239,6 +239,16 @@ suite('Completion editor surface', () => {
             return /State = ?(False|True)$/.test(document.lineAt(4).text) || undefined;
         }, 'the implicitly Boolean setter must open its native value menu', 4000);
     });
+    test('setter index bug hunt reports a missing index and clears on correction', async () => {
+        const source = 'Option Explicit\nPublic Property Let State(ByVal index As Long, ByVal value As Boolean)\nEnd Property\nSub Demo()\nState = True\nEnd Sub\n';
+        const document = await open(await writeModule('SetterIndexDiagnostic', source));
+        const editor = vscode.window.activeTextEditor!;
+        const finding = await until(() => vscode.languages.getDiagnostics(document.uri).find(d => d.code === 'argument-count'), 'setter-only index must be required', 5000);
+        assert.equal(document.getText(finding.range), 'State');
+        assert.ok(finding.message.includes('Argument not optional'));
+        await editor.edit(edit => edit.insert(finding.range.end, '(1)'));
+        await until(() => !vscode.languages.getDiagnostics(document.uri).some(d => d.severity === vscode.DiagnosticSeverity.Error) || undefined, 'valid setter index must clear the error', 5000);
+    });
     test('setter shape bug hunt keeps scalar constants out of an array value slot', async () => {
         const source = 'Property Let Flags(ByRef value() As Boolean)\nEnd Property\nSub Demo()\nFlags \nEnd Sub\n';
         const { document, editor } = await probe('ArraySetterMenu', source, '\nFlags ');

@@ -109663,6 +109663,144 @@
       "source": "Option Explicit\nFunction Main() As Variant\nDim Word As Range\nDim app As Word.Application\nMain = 1\nEnd Function",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "setter_index_missing",
+      "description": "Indexed setter argument counts must be checked without a Property Get.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal index As Long, ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.State = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "setter_index_empty",
+      "description": "Indexed setter argument counts must be checked without a Property Get.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal index As Long, ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.State() = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "setter_index_extra",
+      "description": "Indexed setter argument counts must be checked without a Property Get.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal index As Long, ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.State(1,2) = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "setter_index_valid",
+      "description": "Indexed setter argument counts must be checked without a Property Get.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal index As Long, ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.State(1) = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "setter_index_set_missing",
+      "description": "Optional setter indices and Set accessor argument controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Set State(ByVal index As Long, ByVal value As Worksheet)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nSet item.State = ThisWorkbook.Worksheets(1)\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "setter_index_set_valid",
+      "description": "Optional setter indices and Set accessor argument controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Set State(ByVal index As Long, ByVal value As Worksheet)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nSet item.State(1) = ThisWorkbook.Worksheets(1)\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
