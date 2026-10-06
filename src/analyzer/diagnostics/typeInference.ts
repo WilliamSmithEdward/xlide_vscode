@@ -1887,7 +1887,7 @@ function byRefExact(type: string | undefined): boolean {
  * 64-bit Office, the platform the analyzer assumes: stdVBA passes a LongLong
  * array element to DispCallFunc's `paValues As LongPtr`, and it compiles.
  */
-function sameByRefType(actual: string | undefined, expected: string | undefined): boolean {
+export function sameByRefType(actual: string | undefined, expected: string | undefined): boolean {
 	const widen = (type: string | undefined): string | undefined => (type === 'longptr' ? 'longlong' : type);
 	return widen(actual) === widen(expected);
 }

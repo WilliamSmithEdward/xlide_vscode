@@ -178,6 +178,36 @@ suite('Completion editor surface', () => {
         await editor.edit(edit => edit.replace(new vscode.Range(document.positionAt(start), document.positionAt(start + 'New Collection'.length)), 'ws'));
         await until(() => !vscode.languages.getDiagnostics(document.uri).some(d=>d.severity === vscode.DiagnosticSeverity.Error) || undefined, 'valid Worksheet must clear the indexed setter finding', 5000);
     });
+    test('array setter bug hunt clears the comparison error for a valid With Range.Value transfer', async () => {
+        const source = 'Option Explicit\nSub Demo()\nDim values As Variant\nvalues = Array(1,2)\nIf values = 1 Then Exit Sub\nEnd Sub\n';
+        const document = await open(await writeModule('WithArrayTransferDiagnostic', source));
+        const editor = vscode.window.activeTextEditor!;
+        await until(() => vscode.languages.getDiagnostics(document.uri).find(d=>d.code === 'variant-value-misuse'), 'a real array comparison must be diagnosed', 5000);
+        await editor.edit(edit => edit.replace(new vscode.Range(4, 0, 4, document.lineAt(4).text.length), 'With ThisWorkbook.Worksheets(1).Range("A1:B1")\n.Value = values\nEnd With'));
+        await until(() => !vscode.languages.getDiagnostics(document.uri).some(d=>d.severity === vscode.DiagnosticSeverity.Error) || undefined, 'valid With array transfer must clear the comparison diagnostic', 5000);
+    });
+    test('array setter bug hunt keeps Byte-array runtime errors separate from valid String conversion', async () => {
+        const source = 'Option Explicit\nProperty Let Payload(ByRef bytes() As Byte)\nEnd Property\nSub Demo()\nDim value As Variant\nvalue = Array(1,2)\nPayload = value\nEnd Sub\n';
+        const document = await open(await writeModule('ByteArraySetterDiagnostic', source));
+        const editor = vscode.window.activeTextEditor!;
+        const finding = await until(() => vscode.languages.getDiagnostics(document.uri).find(d=>d.code === 'assignment-type-mismatch'), 'tracked Variant array must report runtime type mismatch', 5000);
+        assert.ok(finding.message.includes("Run-time error '13'"));
+        assert.equal(vscode.languages.getDiagnostics(document.uri).some(d=>d.code === 'argument-shape-mismatch'), false);
+        const start = document.getText().indexOf('Array(1,2)');
+        await editor.edit(edit => edit.replace(new vscode.Range(document.positionAt(start), document.positionAt(start + 'Array(1,2)'.length)), '"text"'));
+        await until(() => !vscode.languages.getDiagnostics(document.uri).some(d=>d.severity === vscode.DiagnosticSeverity.Error) || undefined, 'Variant String conversion must clear the Byte-array finding', 5000);
+    });
+    test('array setter bug hunt reports a compile shape error and accepts a typed function result', async () => {
+        const source = 'Option Explicit\nProperty Let Flags(ByRef value() As Boolean)\nEnd Property\nFunction MakeFlags() As Boolean()\nDim result(1) As Boolean\nMakeFlags = result\nEnd Function\nSub Demo()\nFlags = True\nEnd Sub\n';
+        const document = await open(await writeModule('ArraySetterDiagnostic', source));
+        const editor = vscode.window.activeTextEditor!;
+        const finding = await until(() => vscode.languages.getDiagnostics(document.uri).find(d=>d.code === 'argument-shape-mismatch'), 'array setter must reject the scalar at compile time', 5000);
+        assert.equal(document.getText(finding.range), 'True');
+        assert.ok(finding.message.includes('VBE compile error'));
+        assert.equal(vscode.languages.getDiagnostics(document.uri).some(d=>d.code === 'assignment-type-mismatch'), false);
+        await editor.edit(edit => edit.replace(finding.range, 'MakeFlags()'));
+        await until(() => !vscode.languages.getDiagnostics(document.uri).some(d=>d.severity === vscode.DiagnosticSeverity.Error) || undefined, 'typed array function must clear the shape finding', 5000);
+    });
     test('setter shape bug hunt opens a DefBool setter menu automatically', async () => {
         const source = 'DefBool V\nProperty Let State(ByVal value)\nEnd Property\nSub Demo()\nState \nEnd Sub\n';
         const { document } = await probe('DefBoolSetterMenu', source, '\nState ');

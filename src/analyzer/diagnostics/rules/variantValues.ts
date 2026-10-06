@@ -1,3 +1,4 @@
+import { assignmentTargetFromTokens } from '../../completion/assignmentTarget';
 // Rule: a Variant local whose value the code makes plain, used as something
 // that value is not (issue #121). Measured in Excel 16.0 (build 20326,
 // 2026-09-26); each compiles and raises every time it runs.
@@ -296,6 +297,7 @@ export function checkVariantValueMisuse(
 				const toks = statementTokens(source, span);
 				const target = bareAssignmentTarget(source, span);
 				const targetIndex = target ? toks.findIndex((tok) => tok.rawText === '=') - 1 : -1;
+				let propertyAssignmentEquals: number | undefined;
 				for (let i = 0; i < toks.length; i++) {
 					if (i === targetIndex || toks[i - 1]?.rawText === '.') {
 						continue;
@@ -353,7 +355,16 @@ export function checkVariantValueMisuse(
 					}
 					if (array && next?.rawText !== '(') {
 						// The operator on either side, never the assignment's own `=`.
-						const previous = i - 1 === targetIndex + 1 ? undefined : toks[i - 1];
+						let previous = i - 1 === targetIndex + 1 ? undefined : toks[i - 1];
+						if (!target && previous?.rawText === '=') {
+							if (propertyAssignmentEquals === undefined) {
+								const equals = topLevelEqualsIndex(toks);
+								const prefix = toks.slice(0, equals + 1);
+								if (tokenText(prefix[0]) === 'set') { prefix.shift(); }
+								propertyAssignmentEquals = assignmentTargetFromTokens(prefix) ? equals : -1;
+							}
+							if (i - 1 === propertyAssignmentEquals) { previous = undefined; }
+						}
 						const operator = [next, previous].find((tok) => tok && ((tok.kind === 'operator' && SCALAR_OPERATORS.has(tok.rawText)) || tokenText(tok) === 'mod'));
 						if (operator) {
 							push('variantValueMisuse', `'${toks[i].rawText}' holds an array from ${array} here, which '${operator.rawText}' cannot combine with a scalar. This will raise Run-time error '13': Type mismatch.`, at);

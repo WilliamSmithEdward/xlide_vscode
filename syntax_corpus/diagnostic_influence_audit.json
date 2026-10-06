@@ -423,6 +423,8 @@
       "sourceOfTruth": "MS-VBAL 5.4.2.1 plus asserted Excel/VBE oracle cases plus deterministic project signature graph",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "array_setter_value_object",
+
         "missing_trailing_required_argument",
         "missing_leading_required_argument",
         "duplicate_named_argument_compile",
@@ -724,6 +726,14 @@
       "sourceOfTruth": "Excel/VBE compile and runtime oracle plus deterministic XLIDE scalar assignment compatibility model",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "host_scalar_property_array_boolean",
+
+        "byte_array_setter_variant_string",
+        "byte_array_setter_variant_array",
+        "byte_array_setter_string_variable",
+        "byte_array_setter_runtime_array",
+        "scalar_boolean_setter_variant_array",
+
         "getter_udt_field_qualified_valid",
         "getter_udt_field_qualified_bad",
         "getter_udt_field_bare_valid",
@@ -5065,6 +5075,23 @@
       "sourceOfTruth": "MS-VBAL 5.3.1 (argument passing by reference/value) plus the Excel/VBE compile oracle (array/UDT-into-scalar 'ByRef argument type mismatch' / 'Type mismatch'; scalar-into-array 'Type mismatch: array or user-defined type expected') and the deterministic declared-shape resolver (SourceDeclaredShape.isArray plus same-module Type symbol names)",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "array_setter_value_byte_string",
+        "array_setter_value_typed_wrong_element",
+        "byte_array_setter_number",
+        "byte_array_setter_wrong_typed_array",
+        "byte_array_setter_plain_object",
+
+        "array_setter_value_shadowed_split",
+        "array_setter_value_qualified_split",
+
+        "array_setter_scalar",
+        "class_array_setter_plain_scalar",
+        "class_array_setter_indexed_scalar",
+        "array_setter_value_variant",
+        "array_setter_value_function_array",
+        "array_setter_value_plain_object",
+        "array_setter_value_typed_function",
+
         "argshape_array_to_scalar_byref_compile",
         "argshape_array_to_scalar_byval_compile",
         "argshape_udt_to_scalar_byref_compile",
@@ -7056,6 +7083,10 @@
       "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #121): 3 asserted cases from the issue's measured corpus",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "host_scalar_property_array_alignment",
+
+        "with_range_value_array_assignment",
+
         "issue121_g_runtime",
         "issue121_h_runtime",
         "issue121_i_runtime",
@@ -7852,6 +7883,12 @@
       "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-29 (issue #194): the issue's measured corpus",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "array_setter_array",
+        "class_array_setter_plain_array",
+        "class_array_setter_indexed_array",
+        "array_setter_value_empty_index",
+        "array_setter_value_parenthesized_array",
+
         "issue194_13_compile",
         "issue194_14_compile",
         "issue194_15_compile",
