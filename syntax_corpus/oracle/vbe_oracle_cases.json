@@ -108665,6 +108665,61 @@
           "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.State = 999\nMain = 1\nEnd Function"
         }
       ]
+    },
+    {
+      "id": "array_setter_array",
+      "description": "Array-valued Boolean Property Let assignment. Verified with the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nProperty Let Flags(ByRef value() As Boolean)\nEnd Property\nFunction Main() As Variant\nDim values(1) As Boolean\nvalues(0) = True\nFlags = values\nMain = 1\nEnd Function",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "array_setter_scalar",
+      "description": "Array-valued Boolean Property Let assignment. Verified with the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nProperty Let Flags(ByRef value() As Boolean)\nEnd Property\nFunction Main() As Variant\nFlags = True\nMain = 1\nEnd Function",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "implicit_boolean_setter",
+      "description": "DefBool supplies a Property Let parameter type. Verified with the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nDefBool V\nProperty Let State(ByVal value)\nEnd Property\nFunction Main() As Variant\nState = True\nMain = 1\nEnd Function",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "implicit_scalar_getter_readonly",
+      "description": "DefBool makes a getter-only property scalar and read-only. Verified with the repository Excel/VBE oracle on 2026-10-06.",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "DefBool S\nPublic Property Get State()\nState = True\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\nDim item As Widget\nSet item = New Widget\nitem.State = True\nEnd Sub"
+        }
+      ]
     }
   ]
 }

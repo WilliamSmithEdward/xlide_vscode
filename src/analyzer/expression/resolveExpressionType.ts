@@ -27,6 +27,7 @@ import { procedureSymbolFor } from '../diagnostics/analysisContext';
 import { resolveRuntimeObject } from '../runtime/vbaRuntime';
 import {
 	buildModuleTypeSignatures,
+	defTypeOf,
 	declaredValueTypeForQualifiedSourceBinding,
 	declaredValueTypeForSourceBinding,
 	inferExpressionType,
@@ -252,15 +253,17 @@ export function resolveExpressionType(
 /** Bind an assignment name using the same cached module and procedure lookup as expression typing. */
 export function resolveSourceAssignmentBindingAt(
 	source: string, span: Span, name: string, ctx: ExpressionTypeContext = {},
-): BareIdentifierResolution {
+): BareIdentifierResolution & { setterValueType?: string; setterValueIsArray?: boolean } {
 	const bound = boundModule(source, ctx.moduleName ?? 'Module', ctx.moduleKind ?? 'standard');
 	const proc = enclosingProcedure(bound, span);
-	return resolveBareIdentifierBinding({
+	const binding = resolveBareIdentifierBinding({
 		currentModule: bound.symbols,
 		enclosingProcedure: proc ? procedureSymbolFor(bound.symbols, proc) : undefined,
 		projectVisibleSymbols: ctx.projectVisibleSymbols,
 		name, offset: span.start, context: 'assignmentTarget',
 	});
+	const value = binding.definitions.find(d => d.kind === 'propertyLet')?.children?.filter(d => d.kind === 'parameter').at(-1);
+	return { ...binding, ...(value ? { setterValueType: value.asType ?? (value.moduleName.toLowerCase() === bound.symbols.moduleName.toLowerCase() ? defTypeOf(bound.symbols, value.name) : undefined), setterValueIsArray: value.isArray === true } : {}) };
 }
 
 /** Whether the expression is `New SomeClass`, which is always a reference. */
