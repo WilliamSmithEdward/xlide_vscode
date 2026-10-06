@@ -1083,8 +1083,7 @@ function arrayAssignmentProblem(
 	source?: string,
 	arrayFailurePhase: 'compile' | 'runtime' = 'compile',
 ): { code: 'arrayTargetAssignment' | 'assignmentTypeMismatch' | 'arrayAssignmentToScalar'; message: string; span: Span } | undefined {
-	let value = assignment.valueTokens.filter((tok) => tok.kind !== 'comment');
-	while (value[0]?.rawText === '(' && matchParenFrom(value,0) === value.length-1) { value = value.slice(1,-1); }
+	const value = unwrapOuterParens(assignment.valueTokens.filter((tok) => tok.kind !== 'comment'));
 	if (value.length === 0) {
 		return undefined;
 	}

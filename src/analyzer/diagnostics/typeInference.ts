@@ -2723,12 +2723,26 @@ export function parameterlessValueSignature(
 	return sig?.returnType && callableAcceptsZeroArguments(sig) ? sig : undefined;
 }
 
+/** Remove complete enclosing groups in one scan and one slice. */
 export function unwrapOuterParens(toks: VbaToken[]): VbaToken[] {
 	if (toks.length < 2 || toks[0].rawText !== '(') {
 		return toks;
 	}
-	const close = matchParenFrom(toks, 0);
-	return close === toks.length - 1 ? toks.slice(1, -1) : toks;
+	let wrappers = 0;
+	while (toks[wrappers]?.rawText === '(') { wrappers++; }
+	let depth = 0;
+	for (let i = 0; i < toks.length; i++) {
+		const text = toks[i].rawText;
+		if (text === '(') { depth++; }
+		else if (text === ')') {
+			depth--;
+			if (depth < 0) { return toks; }
+			// An opening prefix parenthesis encloses the whole expression
+			// only when its partner is at the mirrored suffix position.
+			if (depth < wrappers && i !== toks.length - 1 - depth) { wrappers = depth; }
+		}
+	}
+	return depth === 0 && wrappers > 0 ? toks.slice(wrappers, -wrappers) : toks;
 }
 
 export function inferArithmeticExpressionType(
