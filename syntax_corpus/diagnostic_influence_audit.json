@@ -724,6 +724,11 @@
       "sourceOfTruth": "Excel/VBE compile and runtime oracle plus deterministic XLIDE scalar assignment compatibility model",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "getter_udt_field_qualified_valid",
+        "getter_udt_field_qualified_bad",
+        "getter_udt_field_bare_valid",
+        "getter_udt_field_bare_bad",
+
         "number_to_string_assignment",
         "number_to_string_assignment_runtime",
         "nonnumeric_string_to_double_assignment",

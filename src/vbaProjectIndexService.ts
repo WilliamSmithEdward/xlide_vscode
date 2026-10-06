@@ -272,6 +272,14 @@ export class VbaProjectIndexService implements vscode.Disposable {
         return record;
     }
 
+    /** Current cached project facts, with open-editor overlays, without loading from disk. */
+    cachedContextForProject(projectPath: string): VbaProjectContext | undefined {
+        const record = this._records.get(projectKey(projectPath));
+        if (!record || Date.now() - record.loadedAt >= PROJECT_INDEX_CONTEXT_TTL_MS) { return undefined; }
+        this._applyOpenDocumentSources(projectPath, record);
+        return record;
+    }
+
     invalidate(projectPath?: string): void {
         if (!projectPath) {
             this._records.clear();
