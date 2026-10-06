@@ -200,7 +200,7 @@ function memberMisuse(member: MemberCompletion, use: MemberUse): { rule: Diagnos
 	}
 	if (member.kind === 'property' && member.signature === undefined && (member.letAccessor || member.setAccessor)) {
 		// `c.M(1) = 2` with M a Property Set and no Let (issue #414).
-		if (use.target && use.indexed && member.setAccessor && !member.letAccessor) {
+		if (writes && !use.setTarget && use.indexed && member.setAccessor && !member.letAccessor) {
 			return { rule: 'invalidPropertyUse', message: 'has a Property Set and no Property Let, so a value cannot be assigned to it. This is a VBE compile error: Invalid use of property.' };
 		}
 		if (use.after === '.') {

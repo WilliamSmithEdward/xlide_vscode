@@ -1683,9 +1683,9 @@ function checkMemberAssignmentTypes(
 		// Source accessors accept their value after the index arguments as well.
 		// An indexed field or array-valued property belongs to typeMembers.ts
 		// and propertyUse.ts, rather than a scalar setter-value check.
-		const indexedAccessor = !assignment.usesSet && target && (target.letAccessor
+		const indexedAccessor = target && (assignment.usesSet ? target.setAccessor : (target.letAccessor
 			|| (target.writable === false && target.signature !== undefined
-				&& (signatureDeclaresParameters(target.signature) || normalizeType(target.returns ?? target.declaredType) !== 'string')));
+				&& (signatureDeclaresParameters(target.signature) || normalizeType(target.returns ?? target.declaredType) !== 'string'))));
 		if (!projectClasses || (assignment.withArguments && !indexedAccessor) || !target || target.writable === undefined || target.isArray) {
 			return;
 		}
