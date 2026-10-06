@@ -41,3 +41,8 @@ it('does not parse ordinary assignment targets merely because the module has a s
  expect(parse).toHaveBeenCalledTimes(1);
 });
 
+
+it('uses only the active conditional setter declaration',()=>{
+ const source='Option Explicit\n#If False Then\nProperty Let State(ByVal value As Boolean)\nEnd Property\n#Else\nProperty Let State(ByVal value As String)\nEnd Property\n#End If\nSub T()\nState = "nonsense"\nEnd Sub';
+ expect(analyzeProjectModule(source,[],'Caller').filter(d=>d.severity==='error')).toEqual([]);
+});
