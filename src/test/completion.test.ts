@@ -239,6 +239,18 @@ suite('Completion editor surface', () => {
             return /State = ?(False|True)$/.test(document.lineAt(4).text) || undefined;
         }, 'the implicitly Boolean setter must open its native value menu', 4000);
     });
+    test('getter default bug hunt checks and refreshes the returned default contract', async () => {
+        const source = 'Option Explicit\nPublic Property Get Child() As Collection\nSet Child = New Collection\nEnd Property\nSub Demo()\nChild = 20\nEnd Sub\n';
+        const document = await open(await writeModule('GetterDefaultDiagnostic', source));
+        const editor = vscode.window.activeTextEditor!;
+        const finding = await until(() => vscode.languages.getDiagnostics(document.uri).find(d => d.code === 'argument-count'), 'returned Collection must require its default index', 5000);
+        assert.equal(document.getText(finding.range), 'Child');
+        await editor.edit(edit => {
+            edit.replace(document.lineAt(1).range, 'Public Property Get Child() As Range');
+            edit.replace(document.lineAt(2).range, 'Set Child = ThisWorkbook.Worksheets(1).Range("A1")');
+        });
+        await until(() => !vscode.languages.getDiagnostics(document.uri).some(d => d.severity === vscode.DiagnosticSeverity.Error) || undefined, 'returned Range must remain writable through its default', 5000);
+    });
     test('receiver contract bug hunt requires ByRef exactness in a With header', async () => {
         const source = 'Option Explicit\nPublic Function GetSheet(ByRef index As Long) As Worksheet\nSet GetSheet = ThisWorkbook.Worksheets(1)\nEnd Function\nSub Demo()\nDim i As Integer\nWith GetSheet(i)\n.EnableCalculation = True\nEnd With\nEnd Sub\n';
         const document = await open(await writeModule('ReceiverContractDiagnostic', source));

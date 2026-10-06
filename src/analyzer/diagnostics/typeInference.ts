@@ -3301,7 +3301,10 @@ export function objectLetAssignmentVerdict(
 		if (!defaultMember) {
 			return 'noDefault';
 		}
-		return defaultMember.signature && /\([^)]/.test(defaultMember.signature) ? 'argument' : 'lets';
+		const setter = defaultMember.procedureParams?.propertyLet;
+		const params = setter?.slice(0,-1) ?? defaultMember.procedureParams?.propertyGet ?? defaultMember.procedureParams?.function
+			?? (defaultMember.signature ? parseRuntimeDisplaySignature(defaultMember.name,defaultMember.signature).params : []);
+		return params.some(param => !param.optional && !param.paramArray) ? 'argument' : 'lets';
 	}
 	const resolved = resolveHostAlias(expectedRaw ?? '', memberCtx.model) ?? libraryObjectType(expectedRaw) ?? expectedRaw ?? '';
 	const libraryDefault = libraryDefaultVerdict(resolved);

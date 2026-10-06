@@ -41,8 +41,10 @@ import { functionResultAt, knownFunctionResults } from '../functionResults';
 import { straightLineAssignments } from '../straightLineValues';
 import { heldObjectsAt } from '../heldObjects';
 import { resolveRuntimeFunction } from '../../runtime/vbaRuntime';
+import {procedureParamsFromSymbol} from '../../symbols/symbolModel';
 import type {
 	VbaProcedureSignature,
+	VbaProcedureParam,
 	VbaProjectClassMember,
 	VbaProjectClassMembers,
 	VbaSymbol,
@@ -56,6 +58,8 @@ import {
 	type CallableTypeSignature,
 	type CallArguments,
 	extractCall,
+	validateArity,
+	splitArgSlots,
 	type InferredArgumentType,
 	extractQualifiedCall,
 } from '../callExtraction';
@@ -201,6 +205,14 @@ function readOnlyProjectDefault(type: string, projectClassNamed: ReturnType<type
 	return member && member.kind === 'property' && !member.letAccessor && member.writable !== true ? member.name : undefined;
 }
 
+function invalidGetterArgumentCount(source: string, name: string, span: Span, params: readonly VbaProcedureParam[], tokens: VbaToken[], base: number): boolean {
+	const split = tokens.length ? splitArgSlots(tokens,base) : {slots:[],spans:[]};
+	let invalid = false;
+	validateArity(source,{name,params:params.map(param => ({...param,optional:Boolean(param.optional),paramArray:Boolean(param.paramArray)}))},
+		{name,nameSpan:span,slots:split.slots,slotSpans:split.spans,sliceStart:base},()=>{invalid=true;});
+	return invalid;
+}
+
 function procedureAssignmentTarget(
 	definitions: readonly VbaSymbol[],
 	procSym: VbaSymbol | undefined,
@@ -232,6 +244,8 @@ function memberAssignmentTarget(
 	usesSet: boolean;
 	/** True for `wb.Name() = x`: the member is given arguments. */
 	withArguments: boolean;
+	hasArguments: boolean;
+	argumentTokens: VbaToken[];
 } | undefined {
 	const toks = statementTokens(source, span);
 	let i = firstExecutableTokenIndex(toks);
@@ -290,6 +304,8 @@ function memberAssignmentTarget(
 		valueTokens: toks.slice(equalsIndex + 1),
 		usesSet,
 		withArguments,
+		hasArguments: withArguments && lhs.length > memberIndex + 3,
+		argumentTokens: withArguments ? lhs.slice(memberIndex+2,-1) : [],
 	};
 }
 
@@ -324,13 +340,30 @@ export function checkAssignmentTypes(
 			const isObject = resolveObjectType(type) !== undefined;
 			const verdict = isObject ? defaultQueries.verdictFor(type) : 'unknown';
 			const holding = isObject && verdict !== 'noDefault' ? objectHoldingDefault(type, memberCtx) : undefined;
-			const readOnlyDefault = isObject && verdict === 'lets' && !holding
+			const readOnlyDefault = isObject && !holding
 				? readOnlyProjectDefault(type, defaultQueries.projectClassNamed) ?? readOnlyHostDefault(type, memberCtx)
 				: undefined;
 			facts = { isObject, verdict, holding, readOnlyDefault };
 			objectTypes.set(type, facts);
 		}
 		return facts;
+	};
+	const checkGetterObjectDefault = (type: string, label: string, span: Span): boolean => {
+		const facts = objectFactsFor(type);
+		if (facts.holding || facts.readOnlyDefault) {
+			const member = facts.holding?.name ?? facts.readOnlyDefault;
+			push('invalidPropertyUse', `Assignment through '${label}' reaches the default member ${member} of ${type}, which has no writable Let contract. This is a VBE compile error: Invalid use of property.`, span);
+			return true;
+		}
+		if (facts.verdict === 'argument') {
+			push('argumentCount', `Argument not optional: '${label}' returns ${type}, whose default member requires an index before a Let can reach it. This is a VBE compile error.`, span);
+			return true;
+		}
+		if (facts.verdict === 'noDefault') {
+			push('runtimeMemberNotFound', `'${label}' returns ${type}, which has no default member to receive this Let assignment. This will raise Run-time error '438': Object doesn't support this property or method, or error '91' if the getter returns Nothing.`, span);
+			return true;
+		}
+		return false;
 	};
 	// Base depends on this module/activity pass, not on a procedure or value.
 	// Resolve it only when array folding needs it; zero is a cached result too.
@@ -527,6 +560,11 @@ export function checkAssignmentTypes(
 			}
 			const declared = declaredTypeForSourceBinding(symbols, procSym, projectVisibleSymbols, element.name, 'assignmentTarget');
 			const expected = declared.resolved ? declared.asType : undefined;
+			const facts = expected ? objectFactsFor(expected) : undefined;
+			if (facts?.readOnlyDefault) {
+				push('readonlyMemberAssignment', `Assignment to '${element.label}' reaches the default member ${facts.readOnlyDefault} of ${expected}, a Property Get with no Property Let. This is a VBE compile error: Invalid use of property.`, element.span);
+				return;
+			}
 			if (expected && objectFactsFor(expected).verdict === 'argument') {
 				push(
 					'setRequired',
@@ -550,11 +588,18 @@ export function checkAssignmentTypes(
 			const binding = sourceIdentifierBinding(symbols, procSym, projectVisibleSymbols, root, 'assignmentTarget');
 			if (binding.scope === 'ambiguous' || binding.definitions.some(def => def.kind === 'propertyLet' || def.kind === 'propertySet')) { return false; }
 			const getter = binding.definitions.find(def => def.kind === 'propertyGet');
-			if (!getter || getter === procSym || normalizeType(getter.asType ?? (getter.moduleName.toLowerCase() === symbols.moduleName.toLowerCase() ? defTypeOf(symbols, getter.name) : 'Variant')) !== 'variant') { return false; }
-			if (!named.indexed && getter.children?.some(child => child.kind === 'parameter' && !child.optional && !child.paramArray)) {
-				push('argumentCount', `Argument not optional: '${root}' requires a getter argument.`, { start: span.start + target[0].start, end: span.start + target[0].end });
+			if (!getter || getter === procSym) { return false; }
+			const declared = getter.asType ?? (getter.moduleName.toLowerCase() === symbols.moduleName.toLowerCase() ? defTypeOf(symbols, getter.name) : 'Variant');
+			const parameters = procedureParamsFromSymbol(getter);
+			if (!named.indexed && parameters.some(param => !param.optional && !param.paramArray)) {
+				push('argumentCount', `Argument not optional: '${root}' requires a getter argument.`, {start:span.start+target[0].start,end:span.start+target[0].end});
 				return true;
 			}
+			const resultIndexed = named.indexed && target.length > named.index + 3 && parameters.length === 0;
+			const nameSpan = {start:span.start+target[0].start,end:span.start+target[0].end};
+			if (!resultIndexed && invalidGetterArgumentCount(source,root,nameSpan,parameters,named.indexed?target.slice(named.index+2,-1):[],span.start)) { return true; }
+			if (declared && getterMayReturnObject(declared,memberCtx) && !resultIndexed && checkGetterObjectDefault(declared,root,nameSpan)) { return true; }
+			if (normalizeType(declared) !== 'variant') { return false; }
 
 			const value = getter.moduleName.toLowerCase() === symbols.moduleName.toLowerCase()
 				? (ownGetterValues ??= classMemberValues(source, symbols.root.children ?? [])).get(getter.name.toLowerCase())
@@ -880,6 +925,7 @@ export function checkAssignmentTypes(
 			objectAssignmentReason,
 			resolveObjectType,
 			defaultQueries.verdictFor,
+			checkGetterObjectDefault,
 			arrayValueAt,
 			resolveExpressionType,
 			resolveQualifiedExpressionType,
@@ -1674,6 +1720,7 @@ function checkMemberAssignmentTypes(
 	objectAssignmentReason: (expected: string | undefined, actual: ReturnType<typeof inferArgumentType>) => string | undefined,
 	resolveObjectType: ReturnType<typeof createObjectAssignmentTypeResolver>,
 	objectVerdict: (type: string | undefined) => ReturnType<typeof objectLetAssignmentVerdict>,
+	checkGetterObjectDefault: (type: string, label: string, span: Span) => boolean,
 	arrayValueAt: (stmt: LeafStatementNode, name: string) => ArrayValue | undefined,
 	resolveExpressionType?: SourceDeclaredTypeResolver,
 	resolveQualifiedExpressionType?: SourceQualifiedDeclaredTypeResolver,
@@ -1824,10 +1871,14 @@ function checkMemberAssignmentTypes(
 			// A Let can write through the object returned by Get; it does not replace the property.
 			if (!assignment.usesSet && getterMayReturnObject(target.returns ?? target.declaredType, memberCtx)) {
 				const parameters = memberParameterCounts(target.signature);
-				if (assignment.withArguments && parameters.total === 0) { return; } // Result indexing has its own value diagnostic.
+				if (assignment.withArguments && parameters.total === 0 && assignment.hasArguments) { return; } // Result indexing has its own value diagnostic.
 				if (!assignment.withArguments && parameters.required > 0) { return; } // Argument-count owns this target.
 
-				const type = normalizeType(target.returns ?? target.declaredType);
+				const returned = target.returns ?? target.declaredType;
+				const getterParams = target.procedureParams?.propertyGet;
+				if (getterParams && invalidGetterArgumentCount(source,target.name,assignment.memberSpan,getterParams,assignment.argumentTokens,span.start)) { return; }
+				if (returned && checkGetterObjectDefault(returned,assignment.label,assignment.memberSpan)) { return; }
+				const type = normalizeType(returned);
 				if ((!type || type === 'variant') && (target.knownValue === 'scalar' || target.knownValue === 'empty')) {
 					push('variantValueMisuse', `'${assignment.label}' has only a Property Get returning a Variant that holds no object. The Let writes through its returned value, which cannot receive a property assignment. This will raise Run-time error '424': Object required.`, assignment.memberSpan);
 				}

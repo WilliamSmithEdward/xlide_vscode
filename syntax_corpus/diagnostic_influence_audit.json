@@ -423,6 +423,16 @@
       "sourceOfTruth": "MS-VBAL 5.4.2.1 plus asserted Excel/VBE oracle cases plus deterministic project signature graph",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "getter_collection_default_missing",
+        "getter_collection_argument_result",
+        "getter_collection_empty_result",
+        "getter_default_mutable_missing",
+        "getter_default_mutable_indexed",
+        "getter_default_mutable_optional",
+        "getter_range_default_valid",
+        "getter_collection_range_item",
+        "getter_default_readonly_indexed",
+
         "receiver_member_left_not_vba",
 
         "setter_optional_required_value_decl",
@@ -1201,6 +1211,9 @@
       "sourceOfTruth": "Excel/VBE compile oracle plus deterministic source-backed project class member model and host model property access",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "bare_default_required_readonly",
+        "array_default_required_readonly",
+
         "getter_write_array_whole",
         "getter_write_array_element",
         "getter_write_variant_array",
@@ -3956,6 +3969,12 @@
       "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-10-01 (issue #266): a project class property read with no Property Get, or called as a statement, is \"Invalid use of property\"",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "getter_custom_default_required",
+        "getter_custom_default_readonly",
+        "getter_custom_default_variant_object",
+        "bare_custom_default_variant_object",
+        "getter_custom_default_variant_scalar",
+
         "indexed_property_set_worksheet",
         "indexed_property_set_nothing",
 
@@ -7400,6 +7419,9 @@
       "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #121): 2 asserted cases from the issue's measured corpus",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "getter_class_no_default",
+        "getter_worksheet_no_default",
+
         "issue121_k_runtime",
         "issue121_l_runtime",
         "issue224_05_runtime",
