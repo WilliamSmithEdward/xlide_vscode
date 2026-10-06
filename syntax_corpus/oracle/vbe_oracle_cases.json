@@ -109286,6 +109286,339 @@
       "provenance": "vbe-oracle-verified",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "getter_write_array_whole",
+      "description": "Writes to getter-only array and Variant property results.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Flags() As Boolean()\nDim result(1) As Boolean\nFlags = result\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction MakeFlags() As Boolean()\nDim result(1) As Boolean\nMakeFlags = result\nEnd Function\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Flags = MakeFlags()\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "getter_write_array_element",
+      "description": "Writes to getter-only array and Variant property results.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Flags() As Boolean()\nDim result(1) As Boolean\nFlags = result\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction MakeFlags() As Boolean()\nDim result(1) As Boolean\nMakeFlags = result\nEnd Function\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Flags(0) = True\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "getter_write_variant_scalar",
+      "description": "Writes to getter-only array and Variant property results.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Height() As Variant\nHeight = 20\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction MakeFlags() As Boolean()\nDim result(1) As Boolean\nMakeFlags = result\nEnd Function\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Height = 30\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "getter_write_variant_object",
+      "description": "Writes to getter-only array and Variant property results.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Height() As Variant\nSet Height = ThisWorkbook.Worksheets(1).Range(\"A1\")\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction MakeFlags() As Boolean()\nDim result(1) As Boolean\nMakeFlags = result\nEnd Function\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Height = 30\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "getter_write_indexed_literal",
+      "description": "A getter-only Variant returning a provable scalar cannot receive a Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Height(ByVal index As Long) As Variant\nHeight = 20\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Height(1) = 30\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "getter_write_indexed_parameter",
+      "description": "A getter-only Variant returning a provable scalar cannot receive a Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Height(ByVal index As Long) As Variant\nHeight = index\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Height(1) = 30\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "getter_write_backing_field",
+      "description": "A getter-only Variant returning a provable scalar cannot receive a Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Private stored As Long\nPublic Property Get Height() As Variant\nHeight = stored\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Height = 30\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "getter_write_optional_function",
+      "description": "Getter/function argument lists and scalar Variant receiver controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Function Height(Optional ByVal index As Long) As Variant\nHeight = 20\nEnd Function"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Height = 30\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "getter_write_indexed_read",
+      "description": "Getter/function argument lists and scalar Variant receiver controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Height(ByVal index As Long) As Variant\nHeight = index\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nMain = item.Height(1)\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "getter_write_indexed_receiver",
+      "description": "Getter/function argument lists and scalar Variant receiver controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Height(ByVal index As Long) As Variant\nHeight = index\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Height(1).Value = 30\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "getter_write_missing_argument",
+      "description": "Mandatory/optional getter arguments precede returned-value writes.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Height(ByVal index As Long) As Variant\nHeight = 20\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Height = 30\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "getter_write_optional_object",
+      "description": "Mandatory/optional getter arguments precede returned-value writes.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Height(Optional ByVal index As String = \"1,2\") As Variant\nSet Height = ThisWorkbook.Worksheets(1).Range(\"A1\")\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Height = 30\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "getter_write_standard_scalar",
+      "description": "A bare standard-module getter-only Variant returning a scalar cannot receive a Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Option Explicit\nProperty Get Height() As Variant\nHeight = 20\nEnd Property\nFunction Main() As Variant\nHeight = 30\nMain = 1\nEnd Function"
+    },
+    {
+      "id": "getter_write_variant_array",
+      "description": "A getter-only typed array cannot receive a whole-value Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Height() As Variant()\nDim values(1) As Variant\nHeight = values\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Height = 30\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "getter_write_object_array",
+      "description": "A getter-only typed array cannot receive a whole-value Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Height() As Widget()\nDim values(1) As Widget\nHeight = values\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Height = 30\nMain = 1\nEnd Function"
+        }
+      ]
     }
   ]
 }

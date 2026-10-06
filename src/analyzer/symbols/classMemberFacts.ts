@@ -52,6 +52,10 @@ export function classMemberValues(source: string, children: readonly VbaSymbol[]
 			mentionsByName.set(lower, { first: tok.start, last: tok.start });
 		}
 	}
+	const moduleValues = new Map<string, VbaSymbol>();
+	for (const child of children) {
+		if (child.kind === 'moduleVariable' || child.kind === 'constant') { moduleValues.set(child.name.toLowerCase(), child); }
+	}
 	for (const symbol of children) {
 		const lower = symbol.name.toLowerCase();
 		const type = normalizeType(symbol.asType);
@@ -76,9 +80,7 @@ export function classMemberValues(source: string, children: readonly VbaSymbol[]
 		if (symbol.kind !== 'function' && symbol.kind !== 'propertyGet') {
 			continue;
 		}
-		if ((symbol.children ?? []).some((child) => child.kind === 'parameter')) {
-			continue;
-		}
+		if (/\(\s*\)\s*$/.test(symbol.asType ?? '')) { continue; } // An array result is not an object reference.
 		// The body's statements, the header line left out.
 		const body: VbaToken[] = [];
 		for (let i = firstTokenAtOrAfter(toks, symbol.nameSpan.end + 1); i < toks.length; i++) {
@@ -108,7 +110,11 @@ export function classMemberValues(source: string, children: readonly VbaSymbol[]
 			const stmt = mentions[0];
 			const value = stmt.slice(2);
 			const literal = value.length === 1 || (value.length === 2 && value[0].rawText === '-') ? value[value.length - 1] : undefined;
-			if (name(stmt[0]) === lower && stmt[1]?.rawText === '=' && literal && ['integerLiteral', 'floatLiteral', 'stringLiteral'].includes(literal.kind)) {
+			const referenced = value.length === 1 ? name(value[0]) : undefined;
+			const bound = referenced ? (symbol.children ?? []).find(child => child.name.toLowerCase() === referenced) ?? moduleValues.get(referenced) : undefined;
+			const scalarVariable = bound && !bound.isArray && !/\(\s*\)\s*$/.test(bound.asType ?? '')
+				&& isKnownScalarType(normalizeType(bound.asType) ?? '');
+			if (name(stmt[0]) === lower && stmt[1]?.rawText === '=' && ((literal && ['integerLiteral', 'floatLiteral', 'stringLiteral'].includes(literal.kind)) || scalarVariable)) {
 				out.set(lower, 'scalar');
 			}
 		}

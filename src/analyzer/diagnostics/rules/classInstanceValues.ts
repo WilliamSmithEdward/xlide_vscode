@@ -1,3 +1,4 @@
+import { signatureDeclaresParameters } from '../../completion/memberAccess';
 // Rule: a member of a project class instance used where what it holds, or
 // what it is, cannot serve (issue #414). Each case measured in Excel 16.0 on
 // an instance the procedure itself makes, `Dim c As New Class1` or
@@ -163,6 +164,7 @@ function checkStatement(span: Span, toks: readonly VbaToken[], instances: Readon
 			continue;
 		}
 		const indexed = toks[i + 3]?.rawText === '(';
+		const indexesResult = indexed && !signatureDeclaresParameters(member.signature);
 		const close = indexed ? matchParenFrom(toks, i + 3) : i + 2;
 		if (close < 0) {
 			continue;
@@ -181,21 +183,21 @@ function checkStatement(span: Span, toks: readonly VbaToken[], instances: Readon
 		// What it holds, through any binding.
 		if (member.knownValue === 'nothing' && !fieldAssigned && !target) {
 			const operand = (after && VALUE_OPERATORS.has(tokenText(after) || after.rawText)) || (before && VALUE_OPERATORS.has(tokenText(before) || before.rawText));
-			if (memberOf || indexed || (operand && isObjectType(member, 'object')) || (plainRead && member.kind === 'method')) {
+			if (memberOf || indexesResult || (operand && isObjectType(member, 'object')) || (plainRead && member.kind === 'method')) {
 				push('objectVariableNotSet', `${shown} is Nothing here: ${member.kind === 'method' ? `the Function ${member.name} returns nothing else` : `nothing in ${instance.type.name} sets ${member.name}`}. This will raise Run-time error '91': Object variable or With block variable not set.`, at);
 				continue;
 			}
 		}
-		if (member.knownValue === 'empty' && !fieldAssigned && memberOf) {
+		if (member.knownValue === 'empty' && member.signature === undefined && !fieldAssigned && memberOf) {
 			push('variantValueMisuse', `${shown} is Empty here: nothing in ${instance.type.name} assigns ${member.name}, so it has no members. This will raise Run-time error '424': Object required.`, at);
 			continue;
 		}
 		if (member.knownValue === 'scalar') {
-			if (indexed && (target || !memberOf)) {
+			if (indexesResult && (target || !memberOf)) {
 				push('variantValueMisuse', `${member.name} gives a single value, so ${shown} has no element to ${target ? 'assign' : 'read'}. This will raise Run-time error '13': Type mismatch.`, at);
 				continue;
 			}
-			if (setRead && !indexed) {
+			if (setRead && !indexesResult) {
 				push('variantValueMisuse', `${member.name} gives a single value, not an object, so Set has nothing to assign. This will raise Run-time error '424': Object required.`, at);
 				continue;
 			}

@@ -123,6 +123,17 @@ suite('Completion editor surface', () => {
         assert.ok(item);
         assert.equal(item.insertText, 'Office.MsoTriState.msoTrue');
     });
+    test('getter write bug hunt reports a scalar result and clears after an object return', async () => {
+        const source = 'Option Explicit\nPublic Property Get GetterValue() As Variant\nGetterValue = 20\nEnd Property\nSub Demo()\nGetterValue = 30\nEnd Sub\n';
+        const document = await open(await writeModule('GetterWriteDiagnostic', source));
+        const editor = vscode.window.activeTextEditor!;
+        const finding = await until(() => vscode.languages.getDiagnostics(document.uri).find(d => d.code === 'variant-value-misuse'), 'scalar getter result must report Object required', 5000);
+        assert.equal(document.getText(finding.range), 'GetterValue');
+        assert.equal(finding.severity, vscode.DiagnosticSeverity.Error);
+        assert.ok(finding.message.includes("Run-time error '424'"));
+        await editor.edit(edit => edit.replace(document.lineAt(2).range, 'Set GetterValue = ThisWorkbook.Worksheets(1).Range("A1")'));
+        await until(() => !vscode.languages.getDiagnostics(document.uri).some(d => d.severity === vscode.DiagnosticSeverity.Error) || undefined, 'object return must clear the invalid getter write', 5000);
+    });
     test('bare setter bug hunt reports an invalid value and clears on correction', async () => {
         const source = 'Option Explicit\nPublic Property Let State(ByVal value As Boolean)\nEnd Property\nSub Demo()\nState = "nonsense"\nEnd Sub\n';
         const document = await open(await writeModule('BareSetterDiagnostic', source));

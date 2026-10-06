@@ -1,20 +1,27 @@
 import type { MemberCompletionContext } from './memberAccess';
+import type { VbaProjectClassMember } from '../symbols/symbolModel';
 
-const exportedSetterTypes = new WeakMap<NonNullable<MemberCompletionContext['projectClassMembers']>, Map<string, string | undefined>>();
-export function projectSetterValueType(ctx: MemberCompletionContext, moduleName: string, name: string): string | undefined {
+const standardMembers = new WeakMap<NonNullable<MemberCompletionContext['projectClassMembers']>, Map<string, VbaProjectClassMember>>();
+function member(ctx: MemberCompletionContext, moduleName: string, name: string): VbaProjectClassMember | undefined {
 	const surfaces = ctx.projectClassMembers;
 	if (!surfaces) { return undefined; }
-	let types = exportedSetterTypes.get(surfaces);
-	if (!types) {
-		types = new Map();
+	let members = standardMembers.get(surfaces);
+	if (!members) {
+		members = new Map();
 		for (const surface of surfaces) {
 			if (surface.kind !== 'standardModule') { continue; }
-			for (const member of surface.members) {
-				if (member.letAccessor) { types.set(`${surface.moduleName}.${member.name}`.toLowerCase(), member.procedureParams?.propertyLet?.at(-1)?.type ?? member.writeType); }
-			}
+			for (const member of surface.members) { members.set(`${surface.moduleName}.${member.name}`.toLowerCase(), member); }
 		}
-		exportedSetterTypes.set(surfaces, types);
+		standardMembers.set(surfaces, members);
 	}
-	return types.get(`${moduleName}.${name}`.toLowerCase());
+	return members.get(`${moduleName}.${name}`.toLowerCase());
 }
 
+export function projectSetterValueType(ctx: MemberCompletionContext, moduleName: string, name: string): string | undefined {
+	const setter = member(ctx, moduleName, name);
+	return setter?.letAccessor ? setter.procedureParams?.propertyLet?.at(-1)?.type ?? setter.writeType : undefined;
+}
+
+export function projectGetterKnownValue(ctx: MemberCompletionContext, moduleName: string, name: string): VbaProjectClassMember['knownValue'] {
+	return member(ctx, moduleName, name)?.knownValue;
+}

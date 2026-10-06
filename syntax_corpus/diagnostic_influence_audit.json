@@ -423,6 +423,8 @@
       "sourceOfTruth": "MS-VBAL 5.4.2.1 plus asserted Excel/VBE oracle cases plus deterministic project signature graph",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "getter_write_missing_argument",
+
         "array_setter_value_object",
 
         "missing_trailing_required_argument",
@@ -1165,6 +1167,11 @@
       "sourceOfTruth": "Excel/VBE compile oracle plus deterministic source-backed project class member model and host model property access",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "getter_write_array_whole",
+        "getter_write_array_element",
+        "getter_write_variant_array",
+        "getter_write_object_array",
+
         "class_readonly_property_assignment_compile",
         "issue198_01_compile",
         "issue198_02_compile",
@@ -7083,6 +7090,17 @@
       "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #121): 3 asserted cases from the issue's measured corpus",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "getter_write_variant_scalar",
+        "getter_write_variant_object",
+        "getter_write_indexed_literal",
+        "getter_write_indexed_parameter",
+        "getter_write_backing_field",
+        "getter_write_optional_function",
+        "getter_write_indexed_read",
+        "getter_write_indexed_receiver",
+        "getter_write_optional_object",
+        "getter_write_standard_scalar",
+
         "host_scalar_property_array_alignment",
 
         "with_range_value_array_assignment",

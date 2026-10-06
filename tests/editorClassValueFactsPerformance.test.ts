@@ -56,3 +56,31 @@ describe('editor class surfaces skip diagnostic value facts', () => {
         expect(diagnostic.members).toEqual(editor.members);
     });
 });
+
+// Standard-module getters share the lazy diagnostic projection, without making
+// completion scan procedure bodies or invalidating unchanged library facts.
+it.each([false, true])('keeps standard getter scans lazy, diagnostics first: %s', diagnosticsFirst => {
+    const index = new ProjectIndex();
+    index.setModule({moduleName: 'Library', moduleKind: 'standard', source: 'Public Mutable As Variant\nPublic Property Get Value(ByVal index As Long) As Variant\nValue = index\nEnd Property'});
+    index.setModule({moduleName: 'Caller', moduleKind: 'standard', source: 'Sub T()\nEnd Sub'});
+    const scan = vi.spyOn(valueFacts, 'classMemberValues');
+    if (diagnosticsFirst) { projectAnalysisOptionsForModule(index, 'Caller'); }
+    const before = scan.mock.calls.length;
+    const editor = projectEditorSymbolContextForModule(index, 'Caller');
+    expect(scan.mock.calls.length).toBe(before);
+    const light = editor.analysisOptions.projectClassMembers!.find(type => type.name === 'Library')!.members;
+    expect(light.every(member => !('knownValue' in member))).toBe(true);
+    const snapshot = structuredClone(light);
+    const analysis = projectAnalysisOptionsForModule(index, 'Caller');
+    const members = analysis.projectClassMembers!.find(type => type.name === 'Library')!.members;
+    expect(members.find(member => member.name === 'Value')!.knownValue).toBe('scalar');
+    expect(members.find(member => member.name === 'Mutable')!.knownValue).toBeUndefined();
+    expect(scan).toHaveBeenCalledTimes(1);
+    expect(light).toEqual(snapshot);
+    index.setModule({moduleName: 'Caller', moduleKind: 'standard', source: 'Sub T()\nDim changed As Long\nEnd Sub'});
+    projectAnalysisOptionsForModule(index, 'Caller');
+    expect(scan).toHaveBeenCalledTimes(1);
+    index.setModule({moduleName: 'Library', moduleKind: 'standard', source: 'Public Property Get Value() As Variant\nSet Value = New Collection\nEnd Property'});
+    expect(projectAnalysisOptionsForModule(index, 'Caller').projectClassMembers!.find(type => type.name === 'Library')!.members[0].knownValue).toBeUndefined();
+    expect(scan).toHaveBeenCalledTimes(2);
+});

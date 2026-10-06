@@ -1,5 +1,7 @@
+import { classMemberValues } from '../../symbols/classMemberFacts';
+import { memberParameterCounts } from '../memberParameterCounts';
 import { isLeafStatement } from '../../parser/nodes';
-import { projectSetterValueType } from '../../completion/projectSetterValueType';
+import { projectSetterValueType, projectGetterKnownValue } from '../../completion/projectSetterValueType';
 // Rule family: assignment validation (audit #0).
 //
 // Extracted verbatim from analyzeModule.ts: Const reassignment, scalar and
@@ -359,6 +361,9 @@ export function checkAssignmentTypes(
 	const setterNames = new Set([...(symbols.root.children ?? []), ...(projectVisibleSymbols ?? [])]
 		.filter(symbol => symbol.kind === 'propertyLet').map(symbol => symbol.name.toLowerCase()));
 	const variantArrayFunctions = arrayOnlyVariantFunctions(source, mod, activity);
+	const getterNames = new Set([...(symbols.root.children ?? []), ...(projectVisibleSymbols ?? [])].filter(symbol => symbol.kind === 'propertyGet').map(symbol => symbol.name.toLowerCase()));
+	let ownGetterValues: ReturnType<typeof classMemberValues> | undefined;
+
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
@@ -530,6 +535,34 @@ export function checkAssignmentTypes(
 			}
 		}
 
+		function checkBareGetter(span: Span): boolean {
+			if (!getterNames.size) { return false; }
+			const tokens = statementTokensAfterLeadingLabel(source, span);
+			let first = firstExecutableTokenIndex(tokens);
+			if (tokenText(tokens[first]) === 'let') { first++; }
+			const root = tokenName(tokens[first]);
+			if (!root || !getterNames.has(root.toLowerCase())) { return false; }
+			const equals = topLevelOperatorIndex(tokens, '=');
+			if (equals < 0) { return false; }
+			const target = assignmentTargetFromTokens(tokens.slice(0, equals + 1)), named = target && assignmentTargetName(target);
+			if (!target || named?.index !== 0) { return false; }
+			const binding = sourceIdentifierBinding(symbols, procSym, projectVisibleSymbols, root, 'assignmentTarget');
+			if (binding.scope === 'ambiguous' || binding.definitions.some(def => def.kind === 'propertyLet' || def.kind === 'propertySet')) { return false; }
+			const getter = binding.definitions.find(def => def.kind === 'propertyGet');
+			if (!getter || getter === procSym || normalizeType(getter.asType ?? (getter.moduleName.toLowerCase() === symbols.moduleName.toLowerCase() ? defTypeOf(symbols, getter.name) : 'Variant')) !== 'variant') { return false; }
+			if (!named.indexed && getter.children?.some(child => child.kind === 'parameter' && !child.optional && !child.paramArray)) {
+				push('argumentCount', `Argument not optional: '${root}' requires a getter argument.`, { start: span.start + target[0].start, end: span.start + target[0].end });
+				return true;
+			}
+
+			const value = getter.moduleName.toLowerCase() === symbols.moduleName.toLowerCase()
+				? (ownGetterValues ??= classMemberValues(source, symbols.root.children ?? [])).get(getter.name.toLowerCase())
+				: projectGetterKnownValue(memberCtx, getter.moduleName, getter.name);
+			if (value !== 'scalar' && value !== 'empty') { return false; }
+			push('variantValueMisuse', `'${root}' has only a Property Get returning a Variant that holds no object. The Let writes through its returned value, which cannot receive a property assignment. This will raise Run-time error '424': Object required.`, { start: span.start + target[0].start, end: span.start + target[0].end });
+			return true;
+		}
+
 		function checkBareSetter(span: Span, stmt: LeafStatementNode): boolean {
 			if (!setterNames.size) { return false; }
 			const tokens = statementTokensAfterLeadingLabel(source, span);
@@ -577,7 +610,7 @@ export function checkAssignmentTypes(
 		}
 
 		function checkAssignmentSpan(span: Span, stmt: LeafStatementNode): void {
-			if (checkBareSetter(span, stmt)) { return; }
+			if (checkBareSetter(span, stmt) || checkBareGetter(span)) { return; }
 			const assignment = bareAssignmentTarget(source, span);
 			if (!assignment) {
 				checkElementLet(span);
@@ -1782,7 +1815,17 @@ function checkMemberAssignmentTypes(
 		}
 		if (target.writable === false) {
 			// A Let can write through the object returned by Get; it does not replace the property.
-			if (!assignment.usesSet && getterMayReturnObject(target.returns ?? target.declaredType, memberCtx)) { return; }
+			if (!assignment.usesSet && getterMayReturnObject(target.returns ?? target.declaredType, memberCtx)) {
+				const parameters = memberParameterCounts(target.signature);
+				if (assignment.withArguments && parameters.total === 0) { return; } // Result indexing has its own value diagnostic.
+				if (!assignment.withArguments && parameters.required > 0) { return; } // Argument-count owns this target.
+
+				const type = normalizeType(target.returns ?? target.declaredType);
+				if ((!type || type === 'variant') && (target.knownValue === 'scalar' || target.knownValue === 'empty')) {
+					push('variantValueMisuse', `'${assignment.label}' has only a Property Get returning a Variant that holds no object. The Let writes through its returned value, which cannot receive a property assignment. This will raise Run-time error '424': Object required.`, assignment.memberSpan);
+				}
+				return;
+			}
 			push(
 				'readonlyMemberAssignment',
 				`Cannot assign to read-only property '${assignment.label}'.`,
