@@ -256,6 +256,16 @@ suite('Completion editor surface', () => {
         await editor.edit(edit => edit.replace(finding.range, 'values(0)'));
         await until(() => !vscode.languages.getDiagnostics(document.uri).some(d => d.severity === vscode.DiagnosticSeverity.Error) || undefined, 'array element must clear the scalar setter error', 5000);
     });
+    test('function default bug hunt refreshes the returned default contract', async () => {
+        const source = 'Function Factory() As Collection\nSet Factory = New Collection\nEnd Function\nSub Demo()\nFactory() = 20\nEnd Sub\n';
+        const document = await open(await writeModule('FactoryDefaultDiagnostic', source));
+        const editor = vscode.window.activeTextEditor!;
+        const finding = await until(() => vscode.languages.getDiagnostics(document.uri).find(d => d.code === 'argument-count'), 'Collection result must require a default index', 5000);
+        assert.equal(document.getText(finding.range), 'Factory');
+        const corrected = source.replace('As Collection', 'As Range').replace('New Collection', 'ThisWorkbook.Worksheets(1).Range("A1")');
+        await editor.edit(edit => edit.replace(new vscode.Range(document.positionAt(0), document.positionAt(document.getText().length)), corrected));
+        await until(() => !vscode.languages.getDiagnostics(document.uri).some(d => d.severity === vscode.DiagnosticSeverity.Error) || undefined, 'Range result must remain writable', 5000);
+    });
     test('getter default bug hunt checks and refreshes the returned default contract', async () => {
         const source = 'Option Explicit\nPublic Property Get Child() As Collection\nSet Child = New Collection\nEnd Property\nSub Demo()\nChild = 20\nEnd Sub\n';
         const document = await open(await writeModule('GetterDefaultDiagnostic', source));

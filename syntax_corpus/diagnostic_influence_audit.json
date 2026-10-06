@@ -423,6 +423,10 @@
       "sourceOfTruth": "MS-VBAL 5.4.2.1 plus asserted Excel/VBE oracle cases plus deterministic project signature graph",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "member_function_result_write_collection",
+
+        "function_result_write_collection",
+
         "getter_collection_default_missing",
         "getter_collection_argument_result",
         "getter_collection_empty_result",
@@ -772,6 +776,10 @@
       "sourceOfTruth": "Excel/VBE compile and runtime oracle plus deterministic XLIDE scalar assignment compatibility model",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "implicit_setter_foreign_bare_bad",
+        "implicit_setter_foreign_qualified_bad",
+        "implicit_setter_foreign_valid",
+
         "host_scalar_array_function",
         "host_scalar_array_variable",
 
@@ -7432,6 +7440,13 @@
       "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #121): 2 asserted cases from the issue's measured corpus",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "member_function_result_write_worksheet",
+        "member_function_result_write_range",
+
+        "function_result_write_worksheet",
+        "function_result_write_widget",
+        "function_result_write_range",
+
         "getter_class_no_default",
         "getter_worksheet_no_default",
 
