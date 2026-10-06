@@ -25,3 +25,7 @@ export function projectSetterValueType(ctx: MemberCompletionContext, moduleName:
 export function projectGetterKnownValue(ctx: MemberCompletionContext, moduleName: string, name: string): VbaProjectClassMember['knownValue'] {
 	return member(ctx, moduleName, name)?.knownValue;
 }
+
+export function projectSetterParameters(ctx: MemberCompletionContext, moduleName: string, name: string, kind: 'propertyLet' | 'propertySet') {
+	return member(ctx,moduleName,name)?.procedureParams?.[kind];
+}

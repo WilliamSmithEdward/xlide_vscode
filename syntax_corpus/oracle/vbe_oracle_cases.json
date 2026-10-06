@@ -109893,6 +109893,236 @@
       ],
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "setter_index_byval_bad",
+      "description": "Setter index type and ByRef conversion parity.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal index As Long, ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nDim i As Integer\nSet item = New Widget\nitem.State(\"bad\") = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "setter_index_byref_integer",
+      "description": "Setter index type and ByRef conversion parity.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByRef index As Long, ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nDim i As Integer\nSet item = New Widget\nitem.State(i) = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "setter_index_byref_parenthesized",
+      "description": "Setter index type and ByRef conversion parity.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByRef index As Long, ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nDim i As Integer\nSet item = New Widget\nitem.State((i)) = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "setter_index_byval_integer",
+      "description": "Setter index type and ByRef conversion parity.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal index As Long, ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nDim i As Integer\nSet item = New Widget\nitem.State(i) = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "setter_index_named_bad",
+      "description": "Setter index type and ByRef conversion parity.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal index As Long, ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nDim i As Integer\nSet item = New Widget\nitem.State(index:=\"bad\") = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "setter_index_array_to_scalar",
+      "description": "Array shape, default type and Set index controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal index As Long, ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nDim values(1) As Long\nSet item = New Widget\nitem.State(values) = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "setter_index_scalar_to_array",
+      "description": "Array shape, default type and Set index controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByRef index() As Long, ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\n\nSet item = New Widget\nitem.State(1) = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "setter_index_array_valid",
+      "description": "Array shape, default type and Set index controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByRef index() As Long, ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nDim values(1) As Long\nSet item = New Widget\nitem.State(values) = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "setter_index_default_long",
+      "description": "Array shape, default type and Set index controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "DefLng I\nPublic Property Let State(ByRef index, ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nDim i As Integer\nSet item = New Widget\nitem.State(i) = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "setter_index_set_bad",
+      "description": "Array shape, default type and Set index controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Set State(ByVal index As Long, ByVal value As Worksheet)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\n\nSet item = New Widget\nSet item.State(\"bad\") = ThisWorkbook.Worksheets(1)\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }
