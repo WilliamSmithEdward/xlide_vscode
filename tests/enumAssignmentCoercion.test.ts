@@ -36,4 +36,3 @@ it('indexes project types once and does no index work for primitive assignments'
  for(let i=0;i<1000;i++) expect(normalize('Direction')).toBe('Long');
  expect(reads).toBe(0);
 });
-
