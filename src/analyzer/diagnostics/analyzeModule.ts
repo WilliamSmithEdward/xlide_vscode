@@ -420,6 +420,7 @@ function diagnosticMemberCompletionContext(
 ): MemberCompletionContext {
 	const ctx: MemberCompletionContext = {
 		projectClassMembers: opts.projectClassMembers,
+		projectSymbols: opts.projectVisibleSymbols,
 		allowSetAssignmentRefinement: false,
 		model: opts.hostModel,
 		// Audit #1: member resolution used to re-parse the module and re-lex the

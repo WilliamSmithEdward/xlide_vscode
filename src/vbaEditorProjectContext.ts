@@ -34,7 +34,7 @@ import {
 } from './analyzer/host/hostRegistry';
 import { hostTokensForProject } from './analyzer/host/hostLibraries';
 import type { HostObjectModel } from './analyzer/host/excelObjectModel';
-import { VbaProjectIndexService } from './vbaProjectIndexService';
+import { VbaProjectIndexService, type VbaProjectContext } from './vbaProjectIndexService';
 import { moduleLocationOfDocument, moduleLocationOfUri } from './vbaDocumentLocation';
 import { blankDesignerHeader } from './vba/moduleSource';
 import { editorModuleSymbols } from './analyzer/symbols/editorModuleSymbols';
@@ -229,6 +229,7 @@ export function toMemberCompletionContext(ctx: EditorProjectContext): MemberComp
 		meType: ctx.meType,
 		meProjectType: ctx.meProjectType,
 		projectClassMembers: ctx.projectClassMembers,
+		projectSymbols: ctx.projectSymbols,
 		implicitMembers: ctx.implicitMembers,
 		model: ctx.hostModel,
 	};
@@ -447,7 +448,6 @@ export class VbaEditorProjectContextService implements vscode.Disposable {
 
 		try {
 			const decoded = location;
-			const host = hostTokenForFileName(decoded.projectPath);
 			// The shared project context already folds in the open editors'
 			// text (including this document) one changed module at a time.
 			const projectContext = await this._projectIndexService.contextForProject(
@@ -457,46 +457,62 @@ export class VbaEditorProjectContextService implements vscode.Disposable {
 			if (!this._isCurrentProjectContextBuild(document, documentVersion, buildId)) {
 				return this.cachedEditorProjectContext(document) ?? {};
 			}
-			const allEntries: ModuleEntry[] = [...projectContext.moduleMetadata.values()].map(
-				(metadata) => ({
-					name: metadata.moduleName,
-					type: metadata.moduleType ?? 'standard',
-					documentType: metadata.documentType,
-					designerClass: metadata.designerClass,
-				}),
-			);
-			const current = allEntries.find(
-				(entry) => entry.name.toLowerCase() === decoded.moduleName.toLowerCase(),
-			);
-			const moduleKind = moduleKindFromType(current?.type);
-			const context = projectEditorSymbolContextForModule(
-				projectContext.project,
-				decoded.moduleName,
-			);
-			return this._storeEditorProjectContext(document, {
-				moduleName: decoded.moduleName,
-				moduleKind,
-				host,
-				// The project's references decide which object models answer
-				// here: a document that references Excel can name its types.
-				hostModel: hostObjectModelForTokens(
-					hostTokensForProject(host, projectContext.references),
-				),
-				documentType: documentTypeFor(current),
-				codeNameMap: codeNameHostTypesForModules(allEntries, host),
-				codeNameList: codeNameListFor(allEntries),
-				meType: meTypeFor(current, host),
-				meProjectType: meProjectTypeFor(current),
-				projectTypes: context.analysisOptions.projectTypes,
-				projectClassMembers: context.analysisOptions.projectClassMembers,
-				implicitMembers: context.analysisOptions.implicitMembers,
-				projectProcedures: context.externalProjectProcedures,
-				macroProcedures: moduleKind === 'standard' ? projectContext.project.visibleProcedureSignatures(decoded.moduleName) : context.externalProjectProcedures,
-				projectSymbols: context.externalProjectSymbols,
-			}, documentVersion);
+			return this._contextFromProject(document, decoded.projectPath, decoded.moduleName, projectContext, documentVersion);
 		} catch {
 			return {};
 		}
+	}
+
+	/** Serve current loaded project facts immediately after a document version changes. */
+	readyEditorProjectContext(document: vscode.TextDocument): EditorProjectContext | undefined {
+		if (this._disposed || document.isClosed) { return undefined; }
+		const location = moduleLocationOfDocument(document);
+		if (!location) { return undefined; }
+		const project = this._projectIndexService.cachedContextForProject?.(location.projectPath);
+		if (!project) { return undefined; }
+		return this._contextFromProject(document, location.projectPath, location.moduleName, project, document.version);
+	}
+
+	private _contextFromProject(document: vscode.TextDocument, projectPath: string, moduleName: string,
+		projectContext: VbaProjectContext, documentVersion: number): EditorProjectContext {
+		const host = hostTokenForFileName(projectPath);
+		const allEntries: ModuleEntry[] = [...projectContext.moduleMetadata.values()].map(
+			(metadata) => ({
+				name: metadata.moduleName,
+				type: metadata.moduleType ?? 'standard',
+				documentType: metadata.documentType,
+				designerClass: metadata.designerClass,
+			}),
+		);
+		const current = allEntries.find(
+			(entry) => entry.name.toLowerCase() === moduleName.toLowerCase(),
+		);
+		const moduleKind = moduleKindFromType(current?.type);
+		const context = projectEditorSymbolContextForModule(
+			projectContext.project,
+			moduleName,
+		);
+		return this._storeEditorProjectContext(document, {
+			moduleName: moduleName,
+			moduleKind,
+			host,
+			// The project's references decide which object models answer
+			// here: a document that references Excel can name its types.
+			hostModel: hostObjectModelForTokens(
+				hostTokensForProject(host, projectContext.references),
+			),
+			documentType: documentTypeFor(current),
+			codeNameMap: codeNameHostTypesForModules(allEntries, host),
+			codeNameList: codeNameListFor(allEntries),
+			meType: meTypeFor(current, host),
+			meProjectType: meProjectTypeFor(current),
+			projectTypes: context.analysisOptions.projectTypes,
+			projectClassMembers: context.analysisOptions.projectClassMembers,
+			implicitMembers: context.analysisOptions.implicitMembers,
+			projectProcedures: context.externalProjectProcedures,
+			macroProcedures: moduleKind === 'standard' ? projectContext.project.visibleProcedureSignatures(moduleName) : context.externalProjectProcedures,
+			projectSymbols: context.externalProjectSymbols,
+		}, documentVersion);
 	}
 
 	warmEditorProjectContext(document: vscode.TextDocument, source: string): void {

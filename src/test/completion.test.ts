@@ -142,6 +142,32 @@ suite('Completion editor surface', () => {
         await editor.edit(edit => edit.replace(finding.range, '999'));
         await until(() => !vscode.languages.getDiagnostics(document.uri).some(d=>d.code === 'assignment-type-mismatch') || undefined, 'unnamed numeric enum value must remain valid', 5000);
     });
+    test('exported getter bug hunt opens its field value menu and clears a mismatch', async () => {
+        await open(await writeModule('ExportGetterTypes', 'Public Type GetterRecord\nFlag As Boolean\nEnd Type\nPublic Property Get ExportedSnapshot() As GetterRecord\nEnd Property\n'));
+        const document = await open(await writeModule('ExportGetterCaller', 'Option Explicit\nSub Demo()\nExportedSnapshot.Flag = "nonsense"\nEnd Sub\n'));
+        const editor = vscode.window.activeTextEditor!;
+        const finding = await until(() => vscode.languages.getDiagnostics(document.uri).find(d=>d.code === 'assignment-type-mismatch'), 'bare exported getter field must reject invalid text', 5000);
+        assert.equal(document.getText(finding.range), '"nonsense"');
+        await editor.edit(edit => edit.replace(finding.range, 'True'));
+        await until(() => !vscode.languages.getDiagnostics(document.uri).some(d=>d.severity === vscode.DiagnosticSeverity.Error) || undefined, 'valid returned-field assignment must clear errors', 5000);
+        const times: number[] = [];
+        for (let repeat = 0; repeat < 5; repeat++) {
+            const assignment = document.lineAt(2).text;
+            const equals = assignment.indexOf('=');
+            await editor.edit(edit => edit.replace(new vscode.Range(2, equals, 2, assignment.length), ''));
+            editor.selection = new vscode.Selection(2, equals, 2, equals);
+            await vscode.commands.executeCommand('workbench.action.focusActiveEditorGroup');
+            await vscode.commands.executeCommand('hideSuggestWidget');
+            const start = performance.now();
+            await vscode.commands.executeCommand('type', { text: '=' });
+            times.push(performance.now() - start);
+            await until(async () => {
+                await vscode.commands.executeCommand('acceptSelectedSuggestion');
+                return /Flag = ?(False|True)$/.test(document.lineAt(2).text) || undefined;
+            }, 'exported getter field must open its native Boolean menu', 4000);
+        }
+        console.log(`Exported getter equals command ms (loaded project, first then repeated edits): [${times.map(time => time.toFixed(1)).join(',')}]`);
+    });
     test('indexed Set bug hunt reports an object mismatch and clears on correction', async () => {
         const source = 'Option Explicit\nProperty Set Item(ByVal index As Long, ByVal value As Worksheet)\nEnd Property\nSub Demo(ByVal ws As Worksheet)\nSet IndexedSetDiagnostic.Item(1) = New Collection\nEnd Sub\n';
         const document = await open(await writeModule('IndexedSetDiagnostic', source));

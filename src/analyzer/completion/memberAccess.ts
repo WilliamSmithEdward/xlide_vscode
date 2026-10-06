@@ -56,10 +56,12 @@ import type { VbaDoc } from '../docs/docModel';
 import {
 	isAccessDesignerClass,
 	type VbaProjectClassMemberDefinition,
+	type VbaSymbol,
 	type VbaProjectClassMember,
 	type VbaProjectClassMembers,
 	type VbaSymbolAttribute,
 } from '../symbols/symbolModel';
+import { projectSymbolsNamed } from '../symbols/nameResolution';
 import type { FormControlInfo } from '../symbols/projectIndex';
 
 /** Project/module facts the resolver needs that come from outside the source. */
@@ -74,6 +76,8 @@ export interface MemberCompletionContext {
 	meType?: string;
 	/** Project object type that `Me` resolves to in the current class/document module. */
 	meProjectType?: string;
+	/** Source-backed symbols exported by standard modules, already filtered for visibility. */
+	projectSymbols?: readonly VbaSymbol[];
 	/** Source-declared project object members and visible UDT fields, keyed by type. */
 	projectClassMembers?: readonly VbaProjectClassMembers[];
 	/**
@@ -2368,7 +2372,22 @@ function findDeclaredBinding(
 	const field = fields.get(lower);
 	if (field) { return field; }
 
-	return moduleProcedureBinding(module, lower);
+	return moduleProcedureBinding(module, lower) ?? exportedModuleBinding(ctx, lower);
+}
+
+/** Resolve only actual exported value names, preserving type and module qualifiers. */
+function exportedModuleBinding(ctx: MemberCompletionContext, lower: string): DeclaredBinding | undefined {
+	const symbols = projectSymbolsNamed(ctx.projectSymbols, lower).filter(symbol =>
+		['function', 'sub', 'propertyGet', 'propertyLet', 'propertySet', 'moduleVariable', 'constant', 'enumMember'].includes(symbol.kind));
+	if (!symbols.length) { return undefined; }
+	if (new Set(symbols.map(symbol => symbol.moduleName.toLowerCase())).size > 1) { return {}; }
+	const readable = symbols.find(symbol => ['function', 'propertyGet', 'moduleVariable', 'constant', 'enumMember'].includes(symbol.kind));
+	if (!readable) { return {}; } // A Sub or setter-only property still shadows host globals.
+	if (readable.asType) { return { asType: readable.asType }; }
+	// Untyped exports take defaults from their owning module, carried by its surface.
+	const surface = projectClassMembersByName(ctx).get(readable.moduleName.toLowerCase());
+	const member = surface ? projectMemberNamed(surface, readable.name, ctx) : undefined;
+	return { asType: member?.returns };
 }
 
 /**

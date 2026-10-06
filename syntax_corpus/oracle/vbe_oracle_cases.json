@@ -108812,6 +108812,98 @@
           "source": "Option Explicit\nFunction Main() As Variant\nDim holder As Widget, ws As Worksheet\nSet holder = New Widget\nSet ws = ThisWorkbook.Worksheets(1)\nSet holder.Item(1) = 5\nMain = 1\nEnd Function"
         }
       ]
+    },
+    {
+      "id": "getter_udt_field_qualified_valid",
+      "description": "Assignment through a returned UDT field.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "modules": [
+        {
+          "name": "Types",
+          "type": "standard",
+          "source": "Public Type Record\nFlag As Boolean\nEnd Type\nPublic Property Get Snapshot() As Record\nDim result As Record\nSnapshot = result\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nTypes.Snapshot.Flag = True\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "getter_udt_field_qualified_bad",
+      "description": "Assignment through a returned UDT field.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "modules": [
+        {
+          "name": "Types",
+          "type": "standard",
+          "source": "Public Type Record\nFlag As Boolean\nEnd Type\nPublic Property Get Snapshot() As Record\nDim result As Record\nSnapshot = result\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nTypes.Snapshot.Flag = \"nonsense\"\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "getter_udt_field_bare_valid",
+      "description": "Assignment through a returned UDT field.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "modules": [
+        {
+          "name": "Types",
+          "type": "standard",
+          "source": "Public Type Record\nFlag As Boolean\nEnd Type\nPublic Property Get Snapshot() As Record\nDim result As Record\nSnapshot = result\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nSnapshot.Flag = True\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "getter_udt_field_bare_bad",
+      "description": "Assignment through a returned UDT field.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "modules": [
+        {
+          "name": "Types",
+          "type": "standard",
+          "source": "Public Type Record\nFlag As Boolean\nEnd Type\nPublic Property Get Snapshot() As Record\nDim result As Record\nSnapshot = result\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nSnapshot.Flag = \"nonsense\"\nMain = 1\nEnd Function"
+        }
+      ]
     }
   ]
 }

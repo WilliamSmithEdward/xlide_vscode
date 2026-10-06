@@ -207,7 +207,8 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 			const offset = document.offsetAt(expectedCaret);
 			const cursor = completionLineCursorContext(source, offset);
 			if (cursor.inComment || cursor.inString) { return; }
-			const cachedProjectCtx = this._projectContext.cachedEditorProjectContext(document);
+			const cachedProjectCtx = this._projectContext.cachedEditorProjectContext(document)
+				?? this._projectContext.readyEditorProjectContext?.(document);
 			const projectCtx = cachedProjectCtx ?? this._projectContext.cheapEditorProjectContext(document);
 			// Probe host members without rebuilding module symbols or rendering
 			// every completion's documentation just to test whether a match exists.
@@ -340,7 +341,8 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 			insertParens ??= !/^[ \t]*\(/.test(document.lineAt(range.end.line).text.slice(range.end.character))
 				&& callableCompletionShouldInsertParens(source, offset);
 
-		const cachedProjectCtx = this._projectContext.cachedEditorProjectContext(document);
+		const cachedProjectCtx = this._projectContext.cachedEditorProjectContext(document)
+			?? this._projectContext.readyEditorProjectContext?.(document);
 		const bareIdentifierStatement = /^[ \t]*[\p{L}_][\p{L}\p{M}\p{N}_]*[$%&!#@^]?$/u.test(
 			document.lineAt(position.line).text.slice(0, position.character),
 		) && completionLineCursorContext(source, offset).statementStart === document.offsetAt(new vscode.Position(position.line, 0));

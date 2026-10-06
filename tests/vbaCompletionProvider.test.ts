@@ -25,6 +25,7 @@ vi.mock('../src/analyzer/call/callContext', async () => {
 });
 
 import * as vscode from 'vscode';
+import { projectOptions } from './diagnostics/helpers';
 import * as lexer from '../src/analyzer/lexer/tokenize';
 import { VbaMemberCompletionProvider } from '../src/vbaCompletionProvider';
 import { callableCompletionShouldInsertParens } from '../src/analyzer/call/callContext';
@@ -43,6 +44,7 @@ function prepareRequest(line: string, context: EditorProjectContext = {}, column
     };
     const projectContext = {
         cachedEditorProjectContext: vi.fn(() => context),
+        readyEditorProjectContext: vi.fn<() => EditorProjectContext | undefined>(() => undefined),
         localEditorProjectContext: vi.fn(() => context),
         warmEditorProjectContext: vi.fn(),
         buildEditorProjectContextWithin: vi.fn(async () => context),
@@ -231,4 +233,25 @@ describe('completion provider cursor work', () => {
         expect((await prepared.run()).items).toEqual([]);
         expect(prepared.projectContext.cachedEditorProjectContext).not.toHaveBeenCalled();
     });
+});
+
+it('serves exported assignment values from the loaded index while a background loader cannot finish', async () => {
+ const source = 'Sub Demo()\nSnapshot.Flag =\nEnd Sub';
+ const options = projectOptions([{ moduleName: 'Caller', source }, { moduleName: 'Types', source: 'Public Type Record\nFlag As Boolean\nEnd Type\nPublic Property Get Snapshot() As Record\nEnd Property' }], 'Caller');
+ const ready = { projectClassMembers: options.projectClassMembers, projectSymbols: options.projectVisibleSymbols };
+ const prepared = prepareRequest('Snapshot.Flag =', ready);
+ prepared.projectContext.cachedEditorProjectContext.mockReturnValue(undefined as never);
+ prepared.projectContext.readyEditorProjectContext.mockReturnValue(ready);
+ prepared.projectContext.buildEditorProjectContextWithin.mockImplementation(() => new Promise(() => {}));
+ expect((await prepared.run('=')).items.slice(0, 2).map(item => item.label)).toEqual(['True', 'False']);
+ expect(prepared.projectContext.localEditorProjectContext).not.toHaveBeenCalled();
+ expect(prepared.projectContext.warmEditorProjectContext).not.toHaveBeenCalled();
+ expect(prepared.projectContext.buildEditorProjectContextWithin).not.toHaveBeenCalled();
+});
+it('serves local assignment values immediately when the project is cold and its loader cannot finish', async () => {
+ const prepared = prepareRequest('flag =', {}, undefined, 'Sub Demo()\nDim flag As Boolean\n');
+ prepared.projectContext.cachedEditorProjectContext.mockReturnValue(undefined as never);
+ prepared.projectContext.buildEditorProjectContextWithin.mockImplementation(() => new Promise(() => {}));
+ expect((await prepared.run('=')).items.slice(0, 2).map(item => item.label)).toEqual(['True', 'False']);
+ expect(prepared.projectContext.buildEditorProjectContextWithin).not.toHaveBeenCalled();
 });
