@@ -75,6 +75,8 @@ export interface IdentifierCompletion {
 	documentation?: string;
 	/** Explicit insertion behavior when the origin kind alone cannot distinguish methods from objects. */
 	callable?: boolean;
+	/** Source enum declaration owning this member, including its module. */
+	enumOwner?: string;
 }
 
 /** Project/module facts the identifier resolver needs from outside the source. */
@@ -230,7 +232,7 @@ function identifierCompletionsAt(
 	const explicitCallTargetContext = isExplicitCallTargetCompletionContext(tokens, last);
 	const out: IdentifierCompletion[] = [];
 	const seen = new Set<string>();
-	const add: AddFn = (name, kind, detail, documentation, callable): void => {
+	const add: AddFn = (name, kind, detail, documentation, callable, enumOwner): void => {
 		if (!name || !IDENT_RE.test(name)) {
 			return;
 		}
@@ -242,6 +244,7 @@ function identifierCompletionsAt(
 		// Formatting is paid only for rows that survive prefix and shadowing checks.
 		out.push({
 			name, kind, ...(callable === undefined ? {} : { callable }),
+			...(enumOwner === undefined ? {} : { enumOwner }),
 			detail: typeof detail === 'function' ? detail() : detail,
 			documentation: typeof documentation === 'function' ? documentation() : documentation,
 		});
@@ -323,6 +326,7 @@ type AddFn = (
 	detail: string | (() => string),
 	documentation?: string | (() => string | undefined),
 	callable?: boolean,
+	enumOwner?: string,
 ) => void;
 
 /** Adds in-scope declared symbols (params/locals of the enclosing procedure plus
@@ -502,7 +506,7 @@ function addSymbol(symbol: VbaSymbol, add: AddFn): void {
 			add(symbol.name, 'procedure', 'Property', documentation);
 			return;
 		case 'enum':
-			add(symbol.name, 'enum', 'Enum', documentation);
+			add(symbol.name, 'enum', 'Enum', documentation, undefined, `${symbol.moduleName}.${symbol.name}`);
 			return;
 		case 'enumMember':
 			add(
@@ -510,6 +514,8 @@ function addSymbol(symbol: VbaSymbol, add: AddFn): void {
 				'enumMember',
 				symbol.containerName ? `${symbol.containerName} member` : 'Enum member',
 				documentation,
+				undefined,
+				symbol.containerName ? `${symbol.moduleName}.${symbol.containerName}` : undefined,
 			);
 			return;
 		case 'type':

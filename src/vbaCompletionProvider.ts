@@ -443,19 +443,32 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 		const idents = resolveIdentifierCompletions(source, offset, identCtx);
 		const preferred = new Set((argumentValues?.constants ?? []).map(c => c.name.toLowerCase()));
 		const identifiers = new Map(idents.map(id => [id.name.toLowerCase(), id]));
+		let unfilteredIdentifiers: Map<string, IdentifierCompletion> | undefined;
+		const qualifierIsShadowed = (name: string) => {
+			unfilteredIdentifiers ??= new Map(resolveIdentifierCompletions(source, document.offsetAt(range.start), identCtx)
+				.map(id => [id.name.toLowerCase(), id]));
+			const binding = unfilteredIdentifiers.get(name.toLowerCase());
+			return Boolean(binding && !(argumentValues?.origin === 'source' && (binding.kind === 'module'
+				|| binding.kind === 'enum' && binding.enumOwner?.toLowerCase() === argumentValues.qualifiedEnumName?.toLowerCase())));
+		};
 		const matchesEnum = (id: IdentifierCompletion) => argumentValues?.origin !== 'host' && argumentValues?.origin !== 'runtime' && id.detail === `${argumentValues?.enumName} member`
+			&& id.enumOwner?.toLowerCase() === argumentValues?.qualifiedEnumName?.toLowerCase()
 			|| (id.kind === 'constant' && /^(VBA|.+\/Office) constant As /.test(id.detail) && id.detail.endsWith(` As ${argumentValues?.enumName}`))
 			|| id.detail === 'Boolean literal';
 		return list([
 			...directiveItems,
-			...(argumentValues?.constants ?? []).map(
+			...(argumentValues?.constants ?? []).flatMap(
 				(constant) => {
 					const item = this._toArgumentValueItem(constant, argumentValues!, range);
 					const binding = identifiers.get(constant.name.toLowerCase());
 					if (binding && !matchesEnum(binding)) {
-						item.insertText = `${argumentValues!.qualifiedEnumName ?? argumentValues!.enumName}.${constant.name}`;
+						const qualified = argumentValues!.qualifiedEnumName ?? argumentValues!.enumName;
+						const qualifier = qualified.includes('.') && qualifierIsShadowed(qualified.split('.')[0])
+							? argumentValues!.enumName : qualified;
+						if (qualifier !== qualified && qualifierIsShadowed(qualifier)) { return []; }
+						item.insertText = `${qualifier}.${constant.name}`;
 					}
-					return item;
+					return [item];
 				},
 			),
 			...idents.filter(id => !preferred.has(id.name.toLowerCase()) || !matchesEnum(id))

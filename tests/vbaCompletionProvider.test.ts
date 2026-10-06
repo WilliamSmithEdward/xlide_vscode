@@ -27,6 +27,7 @@ vi.mock('../src/analyzer/call/callContext', async () => {
 import * as vscode from 'vscode';
 import { projectOptions } from './diagnostics/helpers';
 import * as lexer from '../src/analyzer/lexer/tokenize';
+import * as identifiers from '../src/analyzer/completion/identifierCompletion';
 import { VbaMemberCompletionProvider } from '../src/vbaCompletionProvider';
 import { callableCompletionShouldInsertParens } from '../src/analyzer/call/callContext';
 import { getWordObjectModel } from '../src/analyzer/host/wordObjectModel';
@@ -254,4 +255,39 @@ it('serves local assignment values immediately when the project is cold and its 
  prepared.projectContext.buildEditorProjectContextWithin.mockImplementation(() => new Promise(() => {}));
  expect((await prepared.run('=')).items.slice(0, 2).map(item => item.label)).toEqual(['True', 'False']);
  expect(prepared.projectContext.buildEditorProjectContextWithin).not.toHaveBeenCalled();
+});
+
+it('avoids a shadowed library name when inserting a host enum constant',async()=>{
+ const result=await request('sh.Visible = msoT',{},undefined,'Sub Demo(ByVal sh As Shape)\nDim Office As Long\nDim msoTrue As Long\n');
+ expect(result.items.find(item=>item.label==='msoTrue')?.insertText).toBe('MsoTriState.msoTrue');
+});
+
+it('keeps the ordinary binding when every enum qualifier is shadowed',async()=>{
+ const result=await request('sh.Visible = msoT',{},undefined,'Sub Demo(ByVal sh As Shape)\nDim Office As Long\nDim MsoTriState As Long\nDim msoTrue As Long\n');
+ const items=result.items.filter(item=>item.label==='msoTrue');
+ expect(items).toHaveLength(1);
+ expect(items[0]?.sortText ?? '').not.toMatch(/^0:/);
+});
+
+it('uses the setter enum owner when another module has the same enum and member names',async()=>{
+ const prelude='Private Enum Direction\nNorth = 123\nEnd Enum\nSub Demo()\n';
+ const source=prelude+'Types.State = Nor\nEnd Sub';
+ const options=projectOptions([{moduleName:'Caller',source},{moduleName:'Types',source:'Public Enum Direction\nNorth = 1\nEnd Enum\nPublic Property Let State(ByVal value As Direction)\nEnd Property'}],'Caller');
+ const result=await request('Types.State = Nor',{moduleName:'Caller',projectClassMembers:options.projectClassMembers,projectSymbols:options.projectVisibleSymbols},undefined,prelude);
+ const choices=result.items.filter(item=>item.label==='North');
+ expect(choices[0]?.insertText).toBe('Types.Direction.North');
+ expect(choices).toHaveLength(2);
+});
+
+it('does not build an unfiltered binding list for ordinary enum values',async()=>{
+ const resolve=vi.spyOn(identifiers,'resolveIdentifierCompletions');
+ await request('sh.Visible = mso',{},undefined,'Sub Demo(ByVal sh As Shape)\n');
+ expect(resolve).toHaveBeenCalledTimes(1);
+});
+it('reuses the unfiltered binding list across shadowed enum constants',async()=>{
+ const resolve=vi.spyOn(identifiers,'resolveIdentifierCompletions');
+ const result=await request('sh.Visible = mso',{},undefined,'Sub Demo(ByVal sh As Shape)\nDim Office As Long\nDim msoTrue As Long\nDim msoFalse As Long\n');
+ expect(result.items.find(item=>item.label==='msoTrue')?.insertText).toBe('MsoTriState.msoTrue');
+ expect(result.items.find(item=>item.label==='msoFalse')?.insertText).toBe('MsoTriState.msoFalse');
+ expect(resolve).toHaveBeenCalledTimes(2);
 });
