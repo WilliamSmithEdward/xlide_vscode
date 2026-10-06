@@ -108453,6 +108453,72 @@
       ],
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "bare_setter_bad",
+      "description": "Bare setter-only Boolean Property Let assignment. Verified with the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPublic Property Let State(ByVal value As Boolean)\nEnd Property\nFunction Main() As Variant\nState = \"nonsense\"\nMain = 1\nEnd Function\n",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "bare_setter_good",
+      "description": "Bare setter-only Boolean Property Let assignment. Verified with the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPublic Property Let State(ByVal value As Boolean)\nEnd Property\nFunction Main() As Variant\nState = True\nMain = 1\nEnd Function\n",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "bare_setter_index_bad",
+      "description": "Bare setter-only Boolean Property Let assignment. Verified with the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPublic Property Let State(ByVal index As Long, ByVal value As Boolean)\nEnd Property\nFunction Main() As Variant\nState(1) = \"nonsense\"\nMain = 1\nEnd Function\n",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "bare_setter_index_good",
+      "description": "Bare setter-only Boolean Property Let assignment. Verified with the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPublic Property Let State(ByVal index As Long, ByVal value As Boolean)\nEnd Property\nFunction Main() As Variant\nState(1) = True\nMain = 1\nEnd Function\n",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "qualified_excel_office_constant",
+      "description": "Office enum qualification when a local variable shadows its constant. Verified with the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "compile",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As Variant\nDim sh As Shape, msoTrue As Long\nSet sh = ThisWorkbook.Worksheets(1).Shapes.AddShape(1,0,0,10,10)\nsh.Visible = Excel.MsoTriState.msoTrue\nMain = 1\nEnd Function\n",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "qualified_office_office_constant",
+      "description": "Office enum qualification when a local variable shadows its constant. Verified with the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As Variant\nDim sh As Shape, msoTrue As Long\nSet sh = ThisWorkbook.Worksheets(1).Shapes.AddShape(1,0,0,10,10)\nsh.Visible = Office.MsoTriState.msoTrue\nMain = 1\nEnd Function\n",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

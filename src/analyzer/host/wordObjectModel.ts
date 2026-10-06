@@ -9,6 +9,7 @@
 // once the hidden members are merged (issue #127) and prove a member absent
 // where typeExtensibility says the interface is closed; Office types never do.
 
+import { enumsFromLibrary } from './enumLibrary';
 import type { HostObjectModel } from './excelObjectModel';
 import { hostBoundOfficeTypes, mergeHostConstants } from './excelObjectModel';
 import { officeReferenceTypeData } from './officeReferenceTypes';
@@ -38,7 +39,7 @@ export function getWordObjectModel(): HostObjectModel {
 		// msoTrue and friends are legal everyday names; Word's own table wins
 		// the shared chart-enum names (same values by measurement).
 		// The host's own enumerations win a shared name, as its constants do.
-		enums: { ...OFFICE_REFERENCE_ENUMS, ...data.enums },
+		enums: { ...enumsFromLibrary(OFFICE_REFERENCE_ENUMS, 'Office'), ...data.enums },
 		constants: mergeHostConstants(OFFICE_REFERENCE_ENUM_CONSTANTS, MSFORMS_REFERENCE_ENUM_CONSTANTS, data.constants),
 		globals: {
 			Application: 'Word.Application',

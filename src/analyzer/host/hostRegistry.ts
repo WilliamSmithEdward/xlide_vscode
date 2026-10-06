@@ -145,7 +145,7 @@ export function hostObjectModelForTokens(
 	const labelled = layered.map((model) => (model === models[0]
 		? model.enums ?? {}
 		: Object.fromEntries(Object.entries(model.enums ?? {}).map(
-			([name, entry]) => [name, { ...entry, library: model.hostName }],
+			([name, entry]) => [name, { ...entry, library: entry.library ?? model.hostName }],
 		))));
 	const merged: HostObjectModel = {
 		source: models.map((one) => one.source).join(' + '),

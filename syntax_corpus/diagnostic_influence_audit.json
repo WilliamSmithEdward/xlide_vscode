@@ -1013,7 +1013,11 @@
       "assignment_host_boolean_bad_run",
       "assignment_host_boolean_good_run",
       "indexed_property_bad_runtime",
-      "indexed_property_good_runtime"
+      "indexed_property_good_runtime",
+      "bare_setter_bad",
+      "bare_setter_good",
+      "bare_setter_index_bad",
+      "bare_setter_index_good"
     ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],

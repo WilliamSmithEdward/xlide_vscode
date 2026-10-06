@@ -4,6 +4,7 @@
 // member assignment type compatibility, Set assignment validation, and
 // missing Function/Property Get return assignments.
 
+import { assignmentTargetFromTokens, assignmentTargetName } from '../../completion/assignmentTarget';
 import {
 	isLateBoundTypeKey,
 	resolveReceiverTypeAt,
@@ -349,6 +350,8 @@ export function checkAssignmentTypes(
 	const enumNames = new Set([...(symbols.root.children ?? []), ...(projectVisibleSymbols ?? [])]
 		.filter((symbol) => symbol.kind === 'enum')
 		.map((symbol) => symbol.name.toLowerCase()));
+	const setterNames = new Set([...(symbols.root.children ?? []), ...(projectVisibleSymbols ?? [])]
+		.filter(symbol => symbol.kind === 'propertyLet').map(symbol => symbol.name.toLowerCase()));
 	const variantArrayFunctions = arrayOnlyVariantFunctions(source, mod, activity);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
@@ -518,7 +521,42 @@ export function checkAssignmentTypes(
 			}
 		}
 
+		function checkBareSetter(span: Span): boolean {
+			if (!setterNames.size) { return false; }
+			const tokens = statementTokensAfterLeadingLabel(source, span);
+			// Only names known to have a Let need syntax/binding work. If branches
+			// are visited separately, so the full If span is not an assignment here.
+			let first = firstExecutableTokenIndex(tokens);
+			if (tokens[first]?.kind === 'keyword' && tokenText(tokens[first]) === 'if') { return false; }
+			if (tokens[first]?.kind === 'keyword' && tokenText(tokens[first]) === 'let') { first++; }
+			const root = tokenName(tokens[first]);
+			if (!root || !setterNames.has(root.toLowerCase())) { return false; }
+			const equals = topLevelOperatorIndex(tokens, '=');
+			if (equals < 0) { return false; }
+			const target = assignmentTargetFromTokens(tokens.slice(0, equals + 1));
+			const named = target && assignmentTargetName(target);
+			if (!target || named?.index !== 0) { return false; }
+			const name = tokenName(target[0]);
+			if (!name || !setterNames.has(name.toLowerCase())) { return false; }
+			const binding = sourceIdentifierBinding(symbols, procSym, projectVisibleSymbols, name, 'assignmentTarget');
+			if (binding.scope === 'ambiguous') { return false; }
+			const setter = binding.definitions.find(definition => definition.kind === 'propertyLet');
+			const parameter = setter?.children?.filter(child => child.kind === 'parameter').at(-1);
+			const declared = parameter?.asType ?? (parameter?.moduleName.toLowerCase() === symbols.moduleName.toLowerCase() ? defTypeOf(symbols, parameter.name) : undefined);
+			if (!declared || parameter?.isArray) { return false; }
+			const expected = enumNames.has(declared.split('.').at(-1)!.toLowerCase()) ? 'Long' : declared;
+			if (!isKnownScalarType(normalizeType(expected) ?? '')) { return false; }
+			const actual = inferArgumentType(tokens.slice(equals + 1), span.start, env, moduleSignatures, sourceNames,
+				source, memberCtx, resolveExpressionType, resolveQualifiedExpressionType);
+			const reason = actual && incompatibilityReason(expected, actual);
+			if (reason) {
+				push('assignmentTypeMismatch', `Assignment to '${name}' expects ${declared}, but got ${actual!.label}. ${reason}`, actual!.span);
+			}
+			return true;
+		}
+
 		function checkAssignmentSpan(span: Span, stmt: LeafStatementNode): void {
+			if (checkBareSetter(span)) { return; }
 			const assignment = bareAssignmentTarget(source, span);
 			if (!assignment) {
 				checkElementLet(span);
