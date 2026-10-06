@@ -25,4 +25,3 @@ export function assignmentTargetFromTokens(statement: readonly VbaToken[]): VbaT
 	return parsed.expr && parsed.endIndex === tokens.length && !parsed.diagnostics.length
 		&& ['IdentifierExpr', 'MemberAccessExpr', 'IndexExpr'].includes(parsed.expr.exprKind) ? tokens : undefined;
 }
-
