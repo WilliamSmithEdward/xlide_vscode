@@ -107,10 +107,10 @@ function qualifiedNamesIn(source: string, bindings?: SourceQualifierBindings): A
  * its modules would stop compiling before the reference goes, which is what
  * the VBE's own Tools > References dialog never says.
  */
-export function librariesNamedIn(source: string, bindings?: SourceQualifierBindings): Set<string> {
+export function librariesNamedIn(source: string, bindings?: SourceQualifierBindings, projectModules: ReadonlySet<string> = new Set()): Set<string> {
 	const out = new Set<string>();
 	for (const found of qualifiedNamesIn(source, bindings ?? {symbols: buildModuleSymbols('', 'standard', source)})) {
-		out.add(found.library.toLowerCase());
+		if (!projectModules.has(found.library.toLowerCase())) { out.add(found.library.toLowerCase()); }
 	}
 	return out;
 }
