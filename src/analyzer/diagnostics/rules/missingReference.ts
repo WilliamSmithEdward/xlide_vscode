@@ -72,12 +72,31 @@ function librariesInModel(model: HostObjectModel | undefined): ReadonlySet<strin
  * A string literal is one token, so `CreateObject("Excel.Application")` is
  * not a match: late binding names nothing the compiler has to resolve.
  */
-function qualifiedNamesIn(source: string, bindings?: SourceQualifierBindings): Array<{ library: string; span: Span }> {
+function qualifiedNamesIn(source: string, bindings?: SourceQualifierBindings): Array<{ library: string; span: Span; typeQualifier: boolean }> {
 	// The pass has the module's token stream already; a second full lex of
 	// the module here was 2% of a large project's analysis (issue #139).
-	const toks = tokenizeCached(source).filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
-	const out: Array<{ library: string; span: Span }> = [];
+	const tokens = tokenizeCached(source);
+	const toks = tokens.filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
+	const out: Array<{ library: string; span: Span; typeQualifier: boolean }> = [];
 	const procedures = bindings?.symbols.root.children?.filter(symbol => isProcedureKind(symbol.kind)) ?? [];
+	// Direct assignments introduce implicit locals without Option Explicit. Keep
+	// them scoped to their procedure; a member write does not introduce its root.
+	const implicitWrites = new Map<VbaSymbol, Set<string>>();
+	let writeProcedureIndex = 0;
+	let previous = '';
+	for (let i = 0; i < tokens.length; i++) {
+		const token = tokens[i];
+		if (token.kind === 'comment') { continue; }
+		while (writeProcedureIndex < procedures.length && procedures[writeProcedureIndex].fullSpan.end < token.start) { writeProcedureIndex++; }
+		const procedure = procedures[writeProcedureIndex];
+		if (procedure && procedure.fullSpan.start <= token.start && token.kind === 'identifier'
+			&& tokens[i + 1]?.rawText === '=' && ['', 'set', 'let', 'then', 'else'].includes(previous)) {
+			let names = implicitWrites.get(procedure);
+			if (!names) { names = new Set(); implicitWrites.set(procedure, names); }
+			names.add(tokenName(token)!.toLowerCase());
+		}
+		previous = token.kind === 'newline' || token.kind === 'colon' ? '' : token.rawText.toLowerCase();
+	}
 	let procedureIndex = 0;
 	for (let i = 0; i < toks.length - 2; i++) {
 		const library = tokenName(toks[i]);
@@ -94,17 +113,17 @@ function qualifiedNamesIn(source: string, bindings?: SourceQualifierBindings): A
 			const binding = resolveBareIdentifierBinding({currentModule: bindings.symbols, projectVisibleSymbols: bindings.projectVisibleSymbols,
 				enclosingProcedure: procedure && procedure.fullSpan.start <= toks[i].start ? procedure : undefined,
 				name: library, context: 'memberReceiver', offset: toks[i].start});
-			if (binding.scope !== 'unresolved') { continue; }
+			if (binding.scope !== 'unresolved' || (procedure && implicitWrites.get(procedure)?.has(library.toLowerCase()))) { continue; }
 		}
-		out.push({ library, span: { start: toks[i].start, end: toks[i + 2].end } });
+		out.push({ library, typeQualifier, span: { start: toks[i].start, end: toks[i + 2].end } });
 	}
 	return out;
 }
 
 /**
  * The libraries the module names early bound, lowercased. Removing a
- * reference is the other half of this rule: a project can be told which of
- * its modules would stop compiling before the reference goes, which is what
+ * reference is the other half of this rule: a project can be told which
+ * modules may depend on it before the reference goes, which is what
  * the VBE's own Tools > References dialog never says.
  */
 export function librariesNamedIn(source: string, bindings?: SourceQualifierBindings, projectModules: ReadonlySet<string> = new Set()): Set<string> {
@@ -184,7 +203,12 @@ export function checkMissingLibraryReference(
 		return;
 	}
 	const seen = new Set<string>();
-	for (const found of qualifiedNamesIn(source, bindings)) {
+	const tokens = tokenizeCached(source).filter(token => token.kind !== 'comment' && token.kind !== 'newline');
+	const explicit = tokens.some((token, i) => token.rawText.toLowerCase() === 'option' && tokens[i + 1]?.rawText.toLowerCase() === 'explicit');
+	for (const found of qualifiedNamesIn(source, bindings ?? {symbols: buildModuleSymbols('', 'standard', source)})) {
+		// Without Option Explicit an unknown value receiver is an implicit Variant,
+		// not a missing-library compile error (native Excel control).
+		if (!found.typeQualifier && !explicit) { continue; }
 		const lower = found.library.toLowerCase();
 		const library = ADDABLE.get(lower);
 		if (library === undefined || present.has(lower) || projectModules.has(lower) || seen.has(lower)) { continue; }

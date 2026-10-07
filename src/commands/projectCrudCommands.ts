@@ -698,7 +698,7 @@ async function pickDeclaredReference(
 }
 
 /**
- * Warns when modules name the library, since they stop compiling the moment
+ * Warns when modules name the library, since they may fail after
  * the reference goes. Answers true when there is nothing to warn about, so
  * the caller asks nothing in the ordinary case.
  */
@@ -723,7 +723,7 @@ async function confirmReferenceRemoval(
         : naming.join(', ');
     const choice = await vscode.window.showWarningMessage(
         `${listed} ${naming.length === 1 ? 'names' : 'name'} ${library} early bound. `
-        + 'Without the reference those modules stop compiling, and the whole project with them.',
+        + 'Removing the reference can prevent compilation or break this code when it runs.',
         { modal: true },
         'Remove Anyway',
     );

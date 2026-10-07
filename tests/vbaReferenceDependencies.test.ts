@@ -13,3 +13,7 @@ it('retains real type and constant dependencies with private foreign shadows',as
 it('keeps a type dependency despite a local value shadow',async()=>{
  expect(await projectLibraryDependencies([{moduleName:'Caller',source:'Sub T(ByVal Word As Worksheet)\nDim app As Word.Application\nEnd Sub'}],'Word')).toEqual(['Caller']);
 });
+
+it('excludes an implicitly assigned library-named receiver',async()=>{
+ expect(await projectLibraryDependencies([{moduleName:'Caller',source:'Sub T()\nSet Word = ThisWorkbook.Worksheets(1)\nWord.EnableCalculation = True\nEnd Sub'}],'Word')).toEqual([]);
+});
