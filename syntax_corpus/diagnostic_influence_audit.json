@@ -4709,13 +4709,18 @@
       "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, full project compile, 2026-09-30 (issue #212)",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "optional_value_bool_unused_audit",
+        "optional_value_variant_called_audit",
+        "audit_setter_optional_value",
+        "audit_setter_optional_index",
+
         "issue212_26_compile",
         "issue212_27_compile",
         "issue212_29_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "A Property Let or Set whose value parameter is Optional: \"Syntax error\". An Optional index before the value compiles.",
+      "notes": "A Property Let or Set whose value parameter is Optional is refused at compile time. Native controls show Syntax error and Argument not optional depending on form; do not universally label it Syntax error. An Optional index before a mandatory value compiles.",
       "diagnosticKind": "compile-error"
     },
     {

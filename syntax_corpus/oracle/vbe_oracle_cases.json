@@ -111910,6 +111910,49 @@
       ],
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "optional_value_bool_unused_audit",
+      "description": "Optional Boolean setter value with explicit default, unused.",
+      "mode": "compile",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "source": "Property Let State(Optional ByVal value As Boolean = False)\nEnd Property\nFunction Main() As Variant\nMain = 1\nEnd Function",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "optional_value_variant_called_audit",
+      "description": "Optional Variant setter value at an assignment.",
+      "mode": "compile_then_run",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "entryPoint": "Main",
+      "source": "Property Let State(Optional ByVal value As Variant)\nEnd Property\nFunction Main() As Variant\nState = True\nMain = 1\nEnd Function",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "audit_setter_optional_value",
+      "description": "Optional index versus optional final setter value.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "source": "Public Property Let State(Optional ByVal value As Boolean = False)\nEnd Property\nFunction Main() As Variant\nState = True\nMain = 1\nEnd Function",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "audit_setter_optional_index",
+      "description": "Optional index versus optional final setter value.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "source": "Public Property Let State(Optional ByVal index As Long = 1, ByVal value As Boolean)\nEnd Property\nFunction Main() As Variant\nState = True\nMain = 1\nEnd Function",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
