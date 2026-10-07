@@ -33,7 +33,7 @@ afterEach(() => {
 });
 
 function bridge(): ProjectEngine {
-    return {} as ProjectEngine;
+    return { call: vi.fn().mockResolvedValue({ ok: true }) } as unknown as ProjectEngine;
 }
 
 function tempWorkbook(): string {

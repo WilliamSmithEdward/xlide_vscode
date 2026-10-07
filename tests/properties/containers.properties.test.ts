@@ -12,6 +12,7 @@ import { NoVbaProjectError } from '../../src/vba/noVbaProject';
 import { OvbaError, compress, decompress } from '../../src/vba/ovba';
 import { PptContainerError } from '../../src/vba/pptContainer';
 import { readModulesFromBuffer } from '../../src/vba/projectService';
+import { VbaProjectLockedError } from '../../src/vba/projectProtection';
 import { VbaProject, VbaProjectError } from '../../src/vba/vbaProject';
 import { XlsxError } from '../../src/vba/xlsx';
 import { ZipArchive, ZipError } from '../../src/vba/zip';
@@ -41,6 +42,7 @@ const REFUSALS = [
 	OvbaError,
 	PptContainerError,
 	VbaProjectError,
+	VbaProjectLockedError,
 	XlsxError,
 	ZipError,
 ];

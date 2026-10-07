@@ -471,6 +471,7 @@ export function registerVbaTestCommands(deps: CommandDeps): vscode.Disposable[] 
                 vscode.window.showWarningMessage('XLIDE: No file selected to test.');
                 return;
             }
+            await bridge.call('ensureProjectAccess', { path: filePath });
             openVbaTestsForProject(filePath);
         }),
     ];

@@ -7,6 +7,8 @@
 // unchanged.
 
 import * as vscode from 'vscode';
+import { ensureProjectPassword } from './projectPasswordPrompt';
+import { clearVbaProjectAuthorizations } from './vba/projectProtection';
 import { enginePriming } from './enginePriming';
 import { ProjectEngineError } from './projectEngineErrors';
 import * as svc from './vba/projectService';
@@ -283,6 +285,13 @@ export class ProjectEngine implements vscode.Disposable {
 		await enginePriming.prime(ProjectEngine.enginePathsOf(p));
 		let result: T;
 		try {
+			if (method !== 'getProtectionInfo' && method !== 'hasVbaProject' && typeof p.path === 'string') {
+				await ensureProjectPassword(p.path, method === 'createProject');
+				if (token?.isCancellationRequested) { throw new vscode.CancellationError(); }
+				// Refresh files that may have changed while the prompt was open.
+				await enginePriming.prime(ProjectEngine.enginePathsOf(p));
+				if (method !== 'createProject') { svc.assertProjectAccess(p.path); }
+			}
 			result = this.dispatch(method, p) as T;
 		} catch (err) {
 			// A failed call leaves no finished container behind, so its
@@ -312,6 +321,9 @@ export class ProjectEngine implements vscode.Disposable {
 
 	private dispatch(method: string, p: Params): unknown {
 		switch (method) {
+			case 'ensureProjectAccess':
+				svc.assertProjectAccess(str(p, 'path'));
+				return { ok: true };
 			// --- VBA modules ---
 			case 'listModules':
 				return svc.listModules(str(p, 'path'));
@@ -445,6 +457,6 @@ export class ProjectEngine implements vscode.Disposable {
 	}
 
 	dispose(): void {
-		// Nothing to tear down: every call runs in-process.
+		clearVbaProjectAuthorizations();
 	}
 }

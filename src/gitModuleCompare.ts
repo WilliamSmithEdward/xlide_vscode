@@ -111,7 +111,7 @@ export function gitModuleCompareDeps(bridge: ProjectEngine): GitModuleCompareDep
 			if (!bytes) {
 				return undefined;
 			}
-			return readModulesFromBuffer(bytes)
+			return readModulesFromBuffer(bytes, false, projectPath)
 				.filter((module) => module.source !== undefined)
 				.map((module) => ({ name: module.name, source: module.source ?? '' }));
 		},
