@@ -1,14 +1,13 @@
 // Deterministic test-only MS-OVBA records. This fixture password is public.
 import { createHash } from 'crypto';
 import * as fs from 'fs';
-import * as path from 'path';
 import { encodeCodePage } from '../../src/vba/codePages';
 import { openMacroContainer } from '../../src/vba/macroContainer';
-import { writeModule, addFormModule, resetProjectCacheForTests } from '../../src/vba/projectService';
+import { resetProjectCacheForTests } from '../../src/vba/projectService';
 import { AccessPageStore } from '../../src/vba/access/accessPageStore';
 import { AccessTable } from '../../src/vba/access/accessTableWriter';
 import { readAccessCatalog, readAccessStorage, type AccessStorageEntry } from '../../src/vba/access/accessStorage';
-export const FIXTURE_PASSWORD = 'XLIDE-test-1298!';
+export const FIXTURE_PASSWORD = 'Test66';
 
 export function record(data: Buffer, seed = 6): string {
     const bytes = [seed, seed ^ 2, seed ^ 0xac];
@@ -34,7 +33,7 @@ export function hashed(password: string, cp = 1252): Buffer {
 }
 export function raw(password: string, cp = 1252, legacy = false): Buffer {
     const data = legacy ? Buffer.concat([encodeCodePage(password, cp), Buffer.from([0])]) : hashed(password, cp);
-    return Buffer.from(`CMG="${record(Buffer.from([1, 0, 0, 0]))}"\r\nDPB="${record(data)}"\r\nGC="${record(Buffer.from([255]))}"\r\n`);
+    return Buffer.from(`CMG="${record(Buffer.from([4, 0, 0, 0]))}"\r\nDPB="${record(data)}"\r\nGC="${record(Buffer.from([0]))}"\r\n`);
 }
 export function protectFixture(target: string, password: string): void {
     const bytes = fs.readFileSync(target);
@@ -65,10 +64,4 @@ export function protectFixture(target: string, password: string): void {
         fs.writeFileSync(target, container.toFileBytes(cfb));
     }
     resetProjectCacheForTests();
-}
-export function createProtectedWorkbook(target: string): void {
-    fs.copyFileSync(path.resolve('assets/templates/blank.xlsm'), target);
-    writeModule(target, 'ProtectedProbe', 'Option Explicit\r\n\r\nPublic Function ProtectedValue() As Long\r\n    ProtectedValue = 1298\r\nEnd Function\r\n', 'standard');
-    addFormModule(target, 'ProtectedForm', 'Option Explicit\r\n');
-    protectFixture(target, FIXTURE_PASSWORD);
 }

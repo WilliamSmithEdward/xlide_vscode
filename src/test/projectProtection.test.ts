@@ -12,8 +12,8 @@ import { updateProjectModuleSyncSettings } from '../projectModuleSyncSettings';
 import { openMacroContainer } from '../vba/macroContainer';
 import { activate, closeAllEditors, EXTENSION_ID, until } from './support';
 
-const PASSWORD = 'XLIDE-test-1298!';
-const SOURCE_MARKER = 'ProtectedValue = 1298';
+const PASSWORD = 'Test66';
+const SOURCE_MARKER = 'counter = 1';
 
 suite('Protected VBA project integration', () => {
     let dir: string;
@@ -47,7 +47,7 @@ suite('Protected VBA project integration', () => {
         vscode.window.showInputBox = originalInput;
         fs.rmSync(dir, { recursive: true, force: true });
     });
-    const moduleUri = () => encodeModuleUri(file, 'ProtectedProbe');
+    const moduleUri = () => encodeModuleUri(file, 'Runner');
     async function invoke(tool: string, input: Record<string, unknown>): Promise<string> {
         const result = await vscode.lm.invokeTool(tool, {
             input: { filePath: file, ...input }, toolInvocationToken: undefined,
@@ -96,18 +96,21 @@ suite('Protected VBA project integration', () => {
         assert.equal(prompts.length, 2);
         assert.ok(prompts[1].prompt?.includes('Incorrect password.'));
         const edit = new vscode.WorkspaceEdit();
-        edit.replace(document.uri, new vscode.Range(0, 0, document.lineCount, 0), document.getText().replace(SOURCE_MARKER, 'ProtectedValue = 1299'));
+        edit.replace(document.uri, new vscode.Range(0, 0, document.lineCount, 0), document.getText().replace(SOURCE_MARKER, 'counter = 2'));
         assert.equal(await vscode.workspace.applyEdit(edit), true);
         assert.equal(await document.save(), true);
         const saved = fs.readFileSync(file);
         assert.notDeepEqual(saved, before);
         const protection = (bytes: Buffer) => openMacroContainer(bytes).vbaCfb().getStream('PROJECT').toString('latin1').split(/\r?\n/).filter(line => /^(CMG|DPB|GC)=/.test(line));
         assert.deepEqual(protection(saved), protection(before), 'save must preserve all protection records');
-        assert.ok(Buffer.from(await vscode.workspace.fs.readFile(moduleUri())).toString('utf8').includes('ProtectedValue = 1299'));
+        assert.ok(Buffer.from(await vscode.workspace.fs.readFile(moduleUri())).toString('utf8').includes('counter = 2'));
         assert.equal(prompts.length, 2, 'authorization should be reused in this session');
     });
     test('the protected UserForm markup and designer path also requires a password', async () => {
-        const uri = encodeFormMarkupUri(file, 'ProtectedForm');
+        const extension = vscode.extensions.getExtension(EXTENSION_ID)!;
+        fs.copyFileSync(path.join(extension.extensionPath, 'tests/fixtures/binaries/PasswordProtectedFormFixture.xlsm'), file);
+        before = fs.readFileSync(file);
+        const uri = encodeFormMarkupUri(file, 'FrmPicker');
         answers = [undefined];
         await assert.rejects(async () => vscode.workspace.fs.readFile(uri));
         answers = [PASSWORD];
@@ -148,7 +151,7 @@ suite('Protected VBA project integration', () => {
     test('agent reads cannot bypass a cancelled password prompt', async () => {
         answers = [undefined];
         let result = '';
-        try { result = await invoke('xlide_readModule', { moduleName: 'ProtectedProbe' }); }
+        try { result = await invoke('xlide_readModule', { moduleName: 'Runner' }); }
         catch { /* Some VS Code versions propagate cancellation instead of tool text. */ }
         assert.ok(prompts.length >= 1, 'the agent must reach the same password gate');
         assert.ok(!result.includes(SOURCE_MARKER), 'source must not appear in the agent result');
@@ -156,12 +159,12 @@ suite('Protected VBA project integration', () => {
     });
     test('agent writes are blocked until the user supplies the existing password', async () => {
         answers = [undefined];
-        try { await invoke('xlide_writeModule', { moduleName: 'ProtectedProbe', source: 'Option Explicit\r\n' }); }
+        try { await invoke('xlide_writeModule', { moduleName: 'Runner', source: 'Option Explicit\r\n' }); }
         catch { /* A cancelled tool may reject. */ }
         assert.ok(prompts.length >= 1);
         assert.deepEqual(fs.readFileSync(file), before);
         answers = [PASSWORD];
-        const result = await invoke('xlide_readModule', { moduleName: 'ProtectedProbe' });
+        const result = await invoke('xlide_readModule', { moduleName: 'Runner' });
         assert.ok(result.includes(SOURCE_MARKER), result);
         const count = prompts.length;
         assert.ok(Buffer.from(await vscode.workspace.fs.readFile(moduleUri())).toString('utf8').includes(SOURCE_MARKER));
