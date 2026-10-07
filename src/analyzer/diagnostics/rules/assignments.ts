@@ -395,7 +395,9 @@ export function checkAssignmentTypes(
 		const element = (type ?? 'Variant').replace(/\s*\(\s*\)\s*$/, '');
 		const valueType = coercionType(element);
 		const object = resolveObjectType(valueType);
-		return object ? `${object.kind}:${object.key}` : normalizeType(valueType) ?? 'variant';
+		const scalar = normalizeType(valueType) ?? 'variant';
+		// Match the existing 64-bit Office assumption used by ByRef type checks.
+		return object ? `${object.kind}:${object.key}` : scalar === 'longptr' ? 'longlong' : scalar;
 	};
 	const arrayByRefIdentity = (type: string | undefined): string => {
 		const element = (type ?? 'Variant').replace(/\s*\(\s*\)\s*$/, '').trim();

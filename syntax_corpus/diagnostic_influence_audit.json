@@ -8011,6 +8011,9 @@
       "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-29 (issue #194): the issue's measured corpus",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "array_pointer_storage_ptr_to_longlong_audit",
+        "array_pointer_storage_longlong_to_ptr_audit",
+
         "vb_named_class_array_identity",
         "qualified_array_result_match",
         "qualified_array_result_mismatch",
