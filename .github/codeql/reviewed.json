@@ -77,6 +77,13 @@
       "path": "assets/webview/vbaTests.js",
       "line": "window.addEventListener('message', (event) => {",
       "reason": "Every webview page sets the CSP default-src 'none' with nonce-only scripts, so no frame can exist inside it. The only window that can post to it is VS Code's own webview host."
+    },
+    {
+      "scan": "CodeQL javascript-typescript",
+      "rule": "js/insufficient-password-hash",
+      "path": "src/vba/projectProtection.ts",
+      "line": "const actual = createHash('sha1').update(encoded).update(restored.subarray(0, 4)).digest();",
+      "reason": "Compatibility verification of an existing Office VBA project password: MS-OVBA section 2.4.4.4 requires SHA-1(password bytes in PROJECTCODEPAGE followed by the stored four-byte key). XLIDE does not create a new password hash, store the entered password, or upgrade Office protection; changing the digest algorithm would prevent valid Office passwords from unlocking their projects. VBA project protection remains a legacy access restriction, not encryption of module source. The mandated weak digest is accepted only at this verifier."
     }
   ]
 }
