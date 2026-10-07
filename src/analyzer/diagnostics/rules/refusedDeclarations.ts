@@ -73,7 +73,7 @@ export function checkRefusedDeclarations(
 					const value = member.params.at(-1)!;
 					push(
 						'optionalPropertyValue',
-						`The value parameter '${value.name}' of a Property ${member.procKind === 'PropertyLet' ? 'Let' : 'Set'} cannot be Optional. This is a VBE compile error: Syntax error.`,
+						`The value parameter '${value.name}' of a Property ${member.procKind === 'PropertyLet' ? 'Let' : 'Set'} cannot be Optional. This is a VBE compile error.`,
 						value.nameSpan ?? value.span,
 					);
 				}

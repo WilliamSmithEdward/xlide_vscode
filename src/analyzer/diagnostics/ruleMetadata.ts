@@ -2196,7 +2196,7 @@ export const DIAGNOSTIC_RULES = {
 		vbeCompileEquivalent: true,
 		diagnosticKind: 'compile-error',
 		source: 'XLIDE',
-		specReference: 'MS-VBAL 5.3.1.7 property parameters; VBE "Syntax error" (issue #212, Excel 16.0)',
+		specReference: 'MS-VBAL 5.3.1.7 property parameters; VBE "Syntax error" or "Argument not optional", depending on declaration form (issue #212 and native audit controls)',
 		confidence: 'high',
 	},
 	eventParameterForm: {
