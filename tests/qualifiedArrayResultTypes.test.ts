@@ -35,3 +35,8 @@ it.each([['Object','Widget',false],['Widget','Widget',true],['Direction','Long',
  const modules=[{moduleName:'Library',source:library},{moduleName:'Widget',moduleKind:'class' as const,source:'Option Explicit'},{moduleName:'Receiver',moduleKind:'class' as const,source:'Property Let Flags(ByRef value() As '+target+')\nEnd Property'}];
  expect(analyzeProjectModule(source,modules,'Caller').filter(d=>d.severity==='error')).toEqual(valid?[]:[expect.objectContaining({code:'argument-shape-mismatch'})]);
 });
+
+it.each([['LongPtr','LongLong'],['LongLong','LongPtr']])('keeps 64-bit pointer array storage aliases compatible: %s / %s',(target,returned)=>{
+ const source='Function Factory() As '+returned+'()\nDim data(1) As '+returned+'\nFactory = data\nEnd Function\nSub T()\nDim values() As '+target+'\nvalues = Factory()\nEnd Sub';
+ expect(analyzeProjectModule(source,[],'Caller').filter(d=>d.severity==='error')).toEqual([]);
+});

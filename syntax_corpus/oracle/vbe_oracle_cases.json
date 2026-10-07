@@ -111953,6 +111953,28 @@
       "source": "Public Property Let State(Optional ByVal index As Long = 1, ByVal value As Boolean)\nEnd Property\nFunction Main() As Variant\nState = True\nMain = 1\nEnd Function",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "array_pointer_storage_ptr_to_longlong_audit",
+      "description": "LongPtr/LongLong whole-array storage on the native compiler architecture.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "source": "Function Factory() As LongPtr()\nDim data(1) As LongPtr\nFactory = data\nEnd Function\nFunction Main() As Variant\nDim values() As LongLong\nvalues = Factory()\nMain = 1\nEnd Function",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "array_pointer_storage_longlong_to_ptr_audit",
+      "description": "LongPtr/LongLong whole-array storage on the native compiler architecture.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "source": "Function Factory() As LongLong()\nDim data(1) As LongLong\nFactory = data\nEnd Function\nFunction Main() As Variant\nDim values() As LongPtr\nvalues = Factory()\nMain = 1\nEnd Function",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
