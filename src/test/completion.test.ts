@@ -256,6 +256,15 @@ suite('Completion editor surface', () => {
         await editor.edit(edit => edit.replace(finding.range, 'values(0)'));
         await until(() => !vscode.languages.getDiagnostics(document.uri).some(d => d.severity === vscode.DiagnosticSeverity.Error) || undefined, 'array element must clear the scalar setter error', 5000);
     });
+    test('qualified array bug hunt refreshes array element compatibility', async () => {
+        const source = 'Function Factory() As Long()\nDim data(1) As Long\nFactory = data\nEnd Function\nSub Demo()\nDim values() As Boolean\nvalues = QualifiedArrayDiagnostic.Factory()\nEnd Sub\n';
+        const document = await open(await writeModule('QualifiedArrayDiagnostic', source));
+        const editor = vscode.window.activeTextEditor!;
+        const finding = await until(() => vscode.languages.getDiagnostics(document.uri).find(d => d.code === 'array-target-assignment'), 'qualified Long array must not fit a Boolean array', 5000);
+        assert.equal(document.getText(finding.range), 'values');
+        await editor.edit(edit => edit.replace(document.lineAt(5).range, 'Dim values() As Long'));
+        await until(() => !vscode.languages.getDiagnostics(document.uri).some(d => d.severity === vscode.DiagnosticSeverity.Error) || undefined, 'matching array element types must clear the error', 5000);
+    });
     test('function default bug hunt refreshes the returned default contract', async () => {
         const source = 'Function Factory() As Collection\nSet Factory = New Collection\nEnd Function\nSub Demo()\nFactory() = 20\nEnd Sub\n';
         const document = await open(await writeModule('FactoryDefaultDiagnostic', source));

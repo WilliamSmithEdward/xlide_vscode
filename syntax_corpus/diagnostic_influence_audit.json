@@ -5156,6 +5156,10 @@
       "sourceOfTruth": "MS-VBAL 5.3.1 (argument passing by reference/value) plus the Excel/VBE compile oracle (array/UDT-into-scalar 'ByRef argument type mismatch' / 'Type mismatch'; scalar-into-array 'Type mismatch: array or user-defined type expected') and the deterministic declared-shape resolver (SourceDeclaredShape.isArray plus same-module Type symbol names)",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "array_element_identity_setter_object_class",
+        "array_element_identity_setter_class_match",
+        "array_element_identity_setter_source_enum_long",
+
         "receiver_get_array_index",
 
         "setter_index_array_to_scalar",
@@ -7996,6 +8000,19 @@
       "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-29 (issue #194): the issue's measured corpus",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "qualified_array_result_match",
+        "qualified_array_result_mismatch",
+        "qualified_array_result_grouped_mismatch",
+        "array_element_identity_host_alias_return",
+        "array_element_identity_host_alias_target",
+        "array_element_identity_host_enum_long",
+        "array_element_identity_object_class",
+        "array_element_identity_class_object",
+        "array_element_identity_class_match",
+        "array_element_identity_source_enum_long",
+        "array_element_identity_long_source_enum",
+        "array_element_identity_object_match",
+
         "array_setter_array",
         "class_array_setter_plain_array",
         "class_array_setter_indexed_array",

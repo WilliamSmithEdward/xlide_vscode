@@ -111401,6 +111401,384 @@
       ],
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "qualified_array_result_match",
+      "description": "Whole qualified typed array function result compatibility.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "Public Function MakeFlags() As Boolean()\nDim result(1) As Boolean\nMakeFlags = result\nEnd Function"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim values() As Boolean\nvalues = Library.MakeFlags()\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "qualified_array_result_mismatch",
+      "description": "Whole qualified typed array function result compatibility.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "Public Function MakeFlags() As Long()\nDim result(1) As Long\nMakeFlags = result\nEnd Function"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim values() As Boolean\nvalues = Library.MakeFlags()\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "qualified_array_result_grouped_mismatch",
+      "description": "Whole qualified typed array function result compatibility.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "Public Function MakeFlags() As Long()\nDim result(1) As Long\nMakeFlags = result\nEnd Function"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim values() As Boolean\nvalues = (Library.MakeFlags())\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "array_element_identity_host_alias_return",
+      "description": "Typed array element identity for qualified functions.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "Public Function Factory() As Excel.XlHAlign()\nDim data(1) As Excel.XlHAlign\nFactory = data\nEnd Function"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim values() As XlHAlign\nvalues = Library.Factory()\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "array_element_identity_host_alias_target",
+      "description": "Typed array element identity for qualified functions.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "Public Function Factory() As XlHAlign()\nDim data(1) As XlHAlign\nFactory = data\nEnd Function"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim values() As Excel.XlHAlign\nvalues = Library.Factory()\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "array_element_identity_host_enum_long",
+      "description": "Typed array element identity for qualified functions.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "Public Function Factory() As Long()\nDim data(1) As Long\nFactory = data\nEnd Function"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim values() As XlHAlign\nvalues = Library.Factory()\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "array_element_identity_object_class",
+      "description": "Typed array element identity for qualified functions.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Option Explicit"
+        },
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "Public Function Factory() As Widget()\nDim data(1) As Widget\nFactory = data\nEnd Function"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim values() As Object\nvalues = Library.Factory()\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "array_element_identity_class_object",
+      "description": "Typed array element identity for qualified functions.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Option Explicit"
+        },
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "Public Function Factory() As Object()\nDim data(1) As Object\nFactory = data\nEnd Function"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim values() As Widget\nvalues = Library.Factory()\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "array_element_identity_class_match",
+      "description": "Typed array element identity for qualified functions.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Option Explicit"
+        },
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "Public Function Factory() As Widget()\nDim data(1) As Widget\nFactory = data\nEnd Function"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim values() As Widget\nvalues = Library.Factory()\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "array_element_identity_source_enum_long",
+      "description": "Typed array element identity for qualified functions.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "Public Enum Direction\nNorth = 1\nEnd Enum\nPublic Function Factory() As Long()\nDim data(1) As Long\nFactory = data\nEnd Function"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim values() As Direction\nvalues = Library.Factory()\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "array_element_identity_long_source_enum",
+      "description": "Typed array element identity for qualified functions.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "Public Enum Direction\nNorth = 1\nEnd Enum\nPublic Function Factory() As Direction()\nDim data(1) As Direction\nFactory = data\nEnd Function"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim values() As Long\nvalues = Library.Factory()\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "array_element_identity_setter_object_class",
+      "description": "Typed array Property Let value and element identity.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Option Explicit"
+        },
+        {
+          "name": "Receiver",
+          "type": "class",
+          "source": "Public Property Let Flags(ByRef value() As Object)\nEnd Property"
+        },
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "Public Function Factory() As Widget()\nDim data(1) As Widget\nFactory = data\nEnd Function"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Receiver\nSet item = New Receiver\nitem.Flags = Library.Factory()\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "array_element_identity_setter_class_match",
+      "description": "Typed array Property Let value and element identity.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Option Explicit"
+        },
+        {
+          "name": "Receiver",
+          "type": "class",
+          "source": "Public Property Let Flags(ByRef value() As Widget)\nEnd Property"
+        },
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "Public Function Factory() As Widget()\nDim data(1) As Widget\nFactory = data\nEnd Function"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Receiver\nSet item = New Receiver\nitem.Flags = Library.Factory()\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "array_element_identity_setter_source_enum_long",
+      "description": "Typed array Property Let value and element identity.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Option Explicit"
+        },
+        {
+          "name": "Receiver",
+          "type": "class",
+          "source": "Public Property Let Flags(ByRef value() As Direction)\nEnd Property"
+        },
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "Public Enum Direction\nNorth = 1\nEnd Enum\nPublic Function Factory() As Long()\nDim data(1) As Long\nFactory = data\nEnd Function"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Receiver\nSet item = New Receiver\nitem.Flags = Library.Factory()\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "array_element_identity_object_match",
+      "description": "A function copies and returns an Object array.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "source": "Option Explicit\nFunction Factory() As Object()\nDim data(1) As Object\nFactory = data\nEnd Function\nFunction Main() As Variant\nDim values() As Object\nvalues = Factory()\nMain = 1\nEnd Function",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
