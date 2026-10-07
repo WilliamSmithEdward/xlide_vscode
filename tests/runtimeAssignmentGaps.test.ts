@@ -45,4 +45,3 @@ describe('reported runtime assignment gaps', () => {
   }
  });
 });
-
