@@ -1513,7 +1513,7 @@ function localObjectVariablesFor(
 		}
 	}
 	const result = returnAssignmentTypeFor(proc);
-	if (result && resolveObjectType(result) !== undefined && !out.has(proc.name.toLowerCase())) {
+	if (result && !/\(\s*\)\s*$/.test(result) && resolveObjectType(result) !== undefined && !out.has(proc.name.toLowerCase())) {
 		out.set(proc.name.toLowerCase(), { name: proc.name, asType: result, letOnly: true });
 	}
 	return out;

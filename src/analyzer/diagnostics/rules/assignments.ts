@@ -19,7 +19,7 @@ import {
 	type MemberCompletionContext,
 } from '../../completion/memberAccess';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
-import { isDispatchOnlyHostType, resolveHostEnum } from '../../host/hostModel';
+import { isDispatchOnlyHostType, resolveHostEnum, hostDisplayName } from '../../host/hostModel';
 import { formulaStringProblem, hostPropertyValueProblem, hostUnionPropertyValueProblem } from './hostPropertyValues';
 import {
 	matchParenFrom,
@@ -40,7 +40,7 @@ import { elementOperandStartingAt, elementsWrittenIn, knownArrayShapesAt, module
 import { functionResultAt, knownFunctionResults } from '../functionResults';
 import { straightLineAssignments } from '../straightLineValues';
 import { heldObjectsAt } from '../heldObjects';
-import { resolveRuntimeFunction } from '../../runtime/vbaRuntime';
+import { resolveRuntimeFunction, resolveVbaLibraryQualifier } from '../../runtime/vbaRuntime';
 import {procedureParamsFromSymbol} from '../../symbols/symbolModel';
 import type {
 	VbaProcedureSignature,
@@ -391,6 +391,26 @@ export function checkAssignmentTypes(
 		.filter((symbol) => symbol.kind === 'enum')
 		.flatMap(symbol => [symbol.name.toLowerCase(), `${symbol.moduleName}.${symbol.name}`.toLowerCase()]));
 	const coercionType = createAssignmentCoercionType(memberCtx, enumNames);
+	const arrayElementIdentity = (type: string | undefined): string => {
+		const element = (type ?? 'Variant').replace(/\s*\(\s*\)\s*$/, '');
+		const valueType = coercionType(element);
+		const object = resolveObjectType(valueType);
+		return object ? `${object.kind}:${object.key}` : normalizeType(valueType) ?? 'variant';
+	};
+	const arrayByRefIdentity = (type: string | undefined): string => {
+		const element = (type ?? 'Variant').replace(/\s*\(\s*\)\s*$/, '').trim();
+		const key = element.toLowerCase();
+		if (enumNames.has(key)) { return `source-enum:${key.split('.').at(-1)}`; }
+		const enumeration = resolveHostEnum(element.split('.').at(-1)!, memberCtx.model);
+		const prefix = element.includes('.') ? element.slice(0,element.lastIndexOf('.')).toLowerCase() : undefined;
+		if (enumeration && (!prefix || prefix === (enumeration.library ?? hostDisplayName(memberCtx.model)).toLowerCase())) {
+			return `host-enum:${enumeration.library ?? hostDisplayName(memberCtx.model)}.${enumeration.displayName}`.toLowerCase();
+		}
+		const runtime = resolveVbaLibraryQualifier(element.replace(/^VBA\./i,''));
+		if (runtime?.constants?.some(c => c.type === runtime.name)) { return `runtime-enum:${runtime.name.toLowerCase()}`; }
+		const object = resolveObjectType(element);
+		return object ? `${object.kind}:${object.key}` : normalizeType(element) ?? 'variant';
+	};
 	const memberCoercionType = createAssignmentCoercionType(memberCtx);
 	const setterNames = new Set([...(symbols.root.children ?? []), ...(projectVisibleSymbols ?? [])]
 		.filter(symbol => symbol.kind === 'propertyLet').map(symbol => symbol.name.toLowerCase()));
@@ -637,7 +657,7 @@ export function checkAssignmentTypes(
 				const value = tokens.slice(equals + 1);
 				const actual = inferArgumentType(value, span.start, env, moduleSignatures, sourceNames,
 					source, memberCtx, resolveExpressionType, resolveQualifiedExpressionType);
-				checkArraySetterValue(name, declared, value, span.start, actual, coercionType, resolveExpressionType, resolveQualifiedExpressionType, push, sourceNames, projectDeclaresCollection, defaultQueries.verdictFor, (name) => arrayValueAt(stmt, name));
+				checkArraySetterValue(name, declared, value, span.start, actual, coercionType, resolveExpressionType, resolveQualifiedExpressionType, push, sourceNames, projectDeclaresCollection, defaultQueries.verdictFor, (name) => arrayValueAt(stmt, name), arrayByRefIdentity);
 				return true;
 			}
 			if (!declared) { return false; }
@@ -705,8 +725,18 @@ export function checkAssignmentTypes(
 			if (!expected) {
 				return;
 			}
-			const objectType = objectFactsFor(expected);
-			if (objectType.isObject) {
+			const resolvedTargetShape = declaredShapeForSourceBinding(
+				symbols,
+				procSym,
+				projectVisibleSymbols,
+				assignment.name,
+				'assignmentTarget',
+			);
+			const targetShape = resolvedTargetShape.resolved
+				? resolvedTargetShape.shape
+				: shapes.get(assignment.name.toLowerCase());
+			const objectType = targetShape?.isArray ? undefined : objectFactsFor(expected);
+			if (objectType?.isObject) {
 				// The VBE compiles a bare `=` to an object variable as a Let
 				// through the type's default member (issue #107): `r = 5`
 				// writes the Range's Value. What is reported is what the
@@ -799,16 +829,7 @@ export function checkAssignmentTypes(
 			// string's bytes, and a String takes the array back (issue #105,
 			// measured in Excel 16.0). The element type is not what the value
 			// is checked against there.
-			const resolvedTargetShape = declaredShapeForSourceBinding(
-				symbols,
-				procSym,
-				projectVisibleSymbols,
-				assignment.name,
-				'assignmentTarget',
-			);
-			const targetShape = resolvedTargetShape.resolved
-				? resolvedTargetShape.shape
-				: shapes.get(assignment.name.toLowerCase());
+
 			let inferred: InferredArgumentType | undefined;
 			let inferredKnown = false;
 			const inferAssignment = () => {
@@ -831,7 +852,7 @@ export function checkAssignmentTypes(
 				sourceNames,
 				(name) => variantArrayFunctions.has(name.toLowerCase())
 					&& !procSym?.children?.some((child) => child.name.toLowerCase() === name.toLowerCase()),
-				memberCtx,source,
+				memberCtx,source,undefined,arrayElementIdentity,
 			);
 			if (arrayProblem) {
 				push(arrayProblem.code, arrayProblem.message, arrayProblem.span);
@@ -932,6 +953,7 @@ export function checkAssignmentTypes(
 			resolveQualifiedExpressionType,
 			symbols,
 			projectVisibleSymbols,
+			arrayByRefIdentity,
 		);
 	}
 }
@@ -945,6 +967,7 @@ function checkArraySetterValue(
 	sourceNames: SourceNameScope, projectDeclaresCollection: () => boolean,
 	objectVerdict: (type: string | undefined) => ReturnType<typeof objectLetAssignmentVerdict>,
 	variantValue: (name: string) => ArrayValue | undefined,
+	arrayByRefIdentity: (type: string | undefined) => string = elementType,
 ): void {
 	const raw = tokens.filter(token => token.kind !== 'comment' && token.kind !== 'newline');
 	if (!raw.length) { return; }
@@ -962,8 +985,9 @@ function checkArraySetterValue(
 	}
 	const expectedType = normalizeType(expected), actualType = normalizeType(actual?.type);
 	const typedArray = actual && /\(\s*\)\s*$/.test(actual.type);
-	const wrongElement = typedArray && expectedType && actualType && isKnownScalarType(expectedType)
-		&& isKnownScalarType(actualType) && !sameByRefType(actualType, expectedType);
+	const expectedArrayType = arrayByRefIdentity(expected), actualArrayType = arrayByRefIdentity(actual?.type);
+	const wrongElement = typedArray && expectedArrayType !== actualArrayType
+		&& !(isKnownScalarType(expectedArrayType) && isKnownScalarType(actualArrayType) && sameByRefType(actualArrayType,expectedArrayType));
 	const indexed = value[1]?.rawText === '(' && matchParenFrom(value, 1) === value.length - 1;
 	const name = value.length === 1 || indexed ? tokenName(value[0]) : undefined;
 	const qualified = value.length === 3 && value[1].rawText === '.' && tokenName(value[0]) && tokenName(value[2]);
@@ -1083,6 +1107,7 @@ function arrayAssignmentProblem(
 	memberCtx?: MemberCompletionContext,
 	source?: string,
 	arrayFailurePhase: 'compile' | 'runtime' = 'compile',
+	arrayElementIdentity: (type: string | undefined) => string = elementType,
 ): { code: 'arrayTargetAssignment' | 'assignmentTypeMismatch' | 'arrayAssignmentToScalar'; message: string; span: Span } | undefined {
 	const value = unwrapOuterParens(assignment.valueTokens.filter((tok) => tok.kind !== 'comment'));
 	if (value.length === 0) {
@@ -1097,7 +1122,11 @@ function arrayAssignmentProblem(
 		? { element: 'variant', text: `${value[0].rawText}(...), which returns Array(...) or Empty,` }
 		: undefined;
 	const produced = arrayProducedBy(value, sourceNames) ?? called ?? (name && !named?.isArray ? variantValue(name) : undefined);
-	const targetType = elementType(targetShape?.asType);
+	const last = value.at(-1);
+	const memberName = last && tokenName(last);
+	const member = source && memberCtx && memberName && value.at(-2)?.rawText === '.'
+		? resolveExactMemberCompletion(source,memberName,baseOffset+last!.end,memberCtx) : undefined;
+	const targetType = arrayElementIdentity(targetShape?.asType);
 	if (targetShape?.isArray) {
 		const elements = `an array of ${(targetShape.asType ?? 'Variant').replace(/\s*\(\s*\)\s*$/, '')}`;
 		const cannot = (what: string): { code: 'arrayTargetAssignment'; message: string; span: Span } => ({
@@ -1109,15 +1138,19 @@ function arrayAssignmentProblem(
 			return cannot('a fixed-size array takes no assignment whole');
 		}
 		if (named?.isArray) {
-			return elementType(named.asType) === targetType ? undefined : cannot(`'${name}' is an array of ${named.asType ?? 'Variant'}`);
+			return arrayElementIdentity(named.asType) === targetType ? undefined : cannot(`'${name}' is an array of ${named.asType ?? 'Variant'}`);
+		}
+		if (member?.isArray) {
+			const element = member.returns ?? member.declaredType;
+			return arrayElementIdentity(element) === targetType ? undefined : cannot(`'${member.owner}.${member.name}' is an array of ${element ?? 'Variant'}`);
 		}
 		// A Function declared to return a typed array is held to the same
 		// rule as an array variable: `a = StrArr()` into Long() or Variant()
 		// does not compile (issue #222, measured in Excel 16.0).
-		const returned = !produced && isWholeCall(value) ? scalarType(value) : undefined;
+		const returned = !produced ? scalarType(value) : undefined;
 		if (returned && /\(\s*\)\s*$/.test(returned.type)) {
 			const element = returned.type.replace(/\s*\(\s*\)\s*$/, '');
-			return elementType(element) === targetType ? undefined : cannot(`${value[0].rawText}(...) returns an array of ${element}`);
+			return arrayElementIdentity(element) === targetType ? undefined : cannot(`${returned.label} returns an array of ${element}`);
 		}
 		if (produced) {
 			if (produced.element === targetType) {
@@ -1144,10 +1177,7 @@ function arrayAssignmentProblem(
 	}
 	if (targetShape && isKnownScalarType(targetType)) {
 		const typedCall = value.at(-1)?.rawText === ')' ? scalarType(value) : undefined;
-		const last = value.at(-1);
-		const memberName = last && tokenName(last);
-		const member = source && memberCtx && memberName && value.at(-2)?.rawText === '.'
-			? resolveExactMemberCompletion(source,memberName,baseOffset+last!.end,memberCtx) : undefined;
+
 		const arrayType = named?.isArray ? named.asType : member?.isArray ? member.returns ?? member.declaredType : typedCall?.type;
 		// VBA supports whole Byte-array conversion to String (including function returns).
 		if (targetType === 'string' && elementType(arrayType) === 'byte') { return undefined; }
@@ -1746,6 +1776,7 @@ function checkMemberAssignmentTypes(
 	resolveQualifiedExpressionType?: SourceQualifiedDeclaredTypeResolver,
 	symbols?: ReturnType<typeof buildModuleSymbols>,
 	projectVisibleSymbols?: readonly VbaSymbol[],
+	arrayByRefIdentity: (type: string | undefined) => string = elementType,
 ): void {
 	const projectClasses = (memberCtx.projectClassMembers?.length ?? 0) > 0;
 	let valuesAt: ReturnType<typeof knownLocalLiteralValuesAt> | undefined;
@@ -1927,7 +1958,7 @@ function checkMemberAssignmentTypes(
 			const actual = inferArgumentType(assignment.valueTokens, span.start, env, moduleSignatures, sourceNames,
 				source, memberCtx, resolveExpressionType, resolveQualifiedExpressionType);
 			checkArraySetterValue(assignment.label, target.writeType, assignment.valueTokens, span.start, actual, coercionType,
-				resolveExpressionType, resolveQualifiedExpressionType, push, sourceNames, projectDeclaresCollection, objectVerdict, (name) => isLeafStatement(stmt) ? arrayValueAt(stmt, name) : undefined);
+				resolveExpressionType, resolveQualifiedExpressionType, push, sourceNames, projectDeclaresCollection, objectVerdict, (name) => isLeafStatement(stmt) ? arrayValueAt(stmt, name) : undefined, arrayByRefIdentity);
 			return; // The value is an array parameter, never a scalar value to coerce.
 		}
 		const declaredExpected = target.writeType ?? target.returns;
