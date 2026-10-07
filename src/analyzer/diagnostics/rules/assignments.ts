@@ -44,7 +44,6 @@ import { resolveRuntimeFunction } from '../../runtime/vbaRuntime';
 import {procedureParamsFromSymbol} from '../../symbols/symbolModel';
 import type {
 	VbaProcedureSignature,
-	VbaProcedureParam,
 	VbaProjectClassMember,
 	VbaProjectClassMembers,
 	VbaSymbol,
@@ -206,7 +205,7 @@ function readOnlyProjectDefault(type: string, projectClassNamed: ReturnType<type
 	return member && member.kind === 'property' && !member.letAccessor && member.writable !== true ? member.name : undefined;
 }
 
-function invalidGetterArgumentCount(source: string, name: string, span: Span, params: readonly VbaProcedureParam[], tokens: VbaToken[], base: number): boolean {
+function invalidGetterArgumentCount(source: string, name: string, span: Span, params: readonly CallableParamType[], tokens: VbaToken[], base: number): boolean {
 	const split = tokens.length ? splitArgSlots(tokens,base) : {slots:[],spans:[]};
 	let invalid = false;
 	validateArity(source,{name,params:params.map(param => ({...param,optional:Boolean(param.optional),paramArray:Boolean(param.paramArray)}))},
