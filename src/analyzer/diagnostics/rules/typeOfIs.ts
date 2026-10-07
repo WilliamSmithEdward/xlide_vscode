@@ -299,11 +299,8 @@ function nonObjectOperand(
 		if (!declared) {
 			return undefined; // undeclared / unknown -> quiet
 		}
-		// Match the declared type name against the built-in scalar set WITHOUT
-		// normalizeType's leading-`vb` strip: a user class named `vbLong`/`vbString`
-		// is a real object type that the strip would collapse to a scalar word and
-		// wrongly flag (adversarial FP-hunt finding; VBE compiles `x As vbLong Is
-		// Nothing`). Strip only a trailing array `()` marker.
+		// Match declared names literally: vbLong/vbString can name source classes.
+		// Strip only a trailing array marker when recognizing built-in scalars.
 		const raw = declared.replace(/\s*\(\s*\)\s*$/, '').trim().toLowerCase();
 		if (isKnownScalarType(raw)) {
 			return { span: expr.span, detail: `'${expr.name}' is declared As ${declared}` };

@@ -111779,6 +111779,68 @@
       "source": "Option Explicit\nFunction Factory() As Object()\nDim data(1) As Object\nFactory = data\nEnd Function\nFunction Main() As Variant\nDim values() As Object\nvalues = Factory()\nMain = 1\nEnd Function",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "vb_named_class_array_identity",
+      "description": "Vb-prefixed source classes retain their own identity.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Option Explicit"
+        },
+        {
+          "name": "VbWidget",
+          "type": "class",
+          "source": "Option Explicit"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Function Factory() As VbWidget()\nDim data(1) As VbWidget\nFactory = data\nEnd Function\nFunction Main() As Variant\nDim values() As Widget\nvalues = Factory()\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "vb_named_class_scalar_default",
+      "description": "VbCollection is a source class, not the runtime Collection.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "VbCollection",
+          "type": "class",
+          "source": "Option Explicit"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Function Main() As Variant\nDim item As VbCollection\nSet item = New VbCollection\nitem = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "vb_named_enum_long_storage",
+      "description": "VbInteger enum values use Long storage.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "source": "Enum VbInteger\nFirst = 1\nEnd Enum\nProperty Let State(ByVal value As VbInteger)\nEnd Property\nFunction Main() As Variant\nState = 50000\nMain = 1\nEnd Function",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

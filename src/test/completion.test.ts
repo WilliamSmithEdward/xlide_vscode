@@ -256,6 +256,14 @@ suite('Completion editor surface', () => {
         await editor.edit(edit => edit.replace(finding.range, 'values(0)'));
         await until(() => !vscode.languages.getDiagnostics(document.uri).some(d => d.severity === vscode.DiagnosticSeverity.Error) || undefined, 'array element must clear the scalar setter error', 5000);
     });
+    test('vb type name bug hunt retains the source enum Long range', async () => {
+        const source = 'Enum VbInteger\nFirst = 1\nEnd Enum\nProperty Let State(ByVal value As VbInteger)\nEnd Property\nSub Demo()\nState = 2147483648#\nEnd Sub\n';
+        const document = await open(await writeModule('VbNamedEnumDiagnostic', source));
+        const editor = vscode.window.activeTextEditor!;
+        await until(() => vscode.languages.getDiagnostics(document.uri).find(d => d.code === 'assignment-type-mismatch'), 'out-of-Long-range enum value must fail', 5000);
+        await editor.edit(edit => edit.replace(document.lineAt(6).range, 'State = 50000'));
+        await until(() => !vscode.languages.getDiagnostics(document.uri).some(d => d.severity === vscode.DiagnosticSeverity.Error) || undefined, 'source enum must allow a Long value beyond Integer range', 5000);
+    });
     test('qualified array bug hunt refreshes array element compatibility', async () => {
         const source = 'Function Factory() As Long()\nDim data(1) As Long\nFactory = data\nEnd Function\nSub Demo()\nDim values() As Boolean\nvalues = QualifiedArrayDiagnostic.Factory()\nEnd Sub\n';
         const document = await open(await writeModule('QualifiedArrayDiagnostic', source));
