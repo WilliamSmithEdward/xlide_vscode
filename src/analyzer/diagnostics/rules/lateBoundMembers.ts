@@ -21,7 +21,7 @@
 import { getExcelObjectModel, type HostMember, type HostObjectModel } from '../../host/excelObjectModel';
 import { getHostMembers, getHostType } from '../../host/hostModel';
 import type { MemberCompletionContext } from '../../completion/memberAccess';
-import { projectTypeAt, resolveReceiverTypeAt } from '../../completion/memberAccess';
+import { resolveReceiverTypeAt } from '../../completion/memberAccess';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import { jumpTargetLabelDeclaration } from '../../flow/procedureLabels';
 import type { VbaToken } from '../../lexer/tokenKinds';
@@ -307,8 +307,11 @@ export function checkRuntimeMemberNotFound(
 	memberCtx: MemberCompletionContext,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	procedureFilter?: (member: ProcedureNode) => boolean,
+	projectCallables?: Iterable<string>,
 ): void {
 	const model = memberCtx.model;
+	const callables = new Set([...mod.members.filter(m => m.kind === 'Procedure').map(m => m.name?.toLowerCase() ?? ''), ...[...(projectCallables ?? [])].map(n => n.toLowerCase())]);
 	const applicationSurface = excelApplicationSurface(model);
 	const rangeSurface = applicationSurface ? excelRangeSurface(model) : undefined;
 	const memberQueries = createRuntimeMemberQueries(memberCtx);
@@ -337,19 +340,24 @@ export function checkRuntimeMemberNotFound(
 		itemIncompatible: (expected, actual) => objectAssignmentIncompatibilityReason(expected, actual, memberCtx, objectType, shareInterfaces, implementsType) !== undefined,
 	};
 	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'Procedure' && procedureFilter && !procedureFilter(member)) { continue; }
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
 		const env = typeEnvironmentFor(symbols, member);
-		const added = controlsAddedIn(source, member.body, activity);
 		forEachStatement(member.body, (stmt) => {
 			for (const span of statementAndBranchSpans(stmt)) {
 				const toks = statementTokens(source, span);
-				checkFormControlNames(source, span.start, toks, memberCtx, added, memberQueries, push);
 				checkOpenTypeMembers(source, span.start, toks, env, applicationSurface, rangeSurface, memberCtx, memberQueries, push);
 			}
 		}, activity);
 		checkCollectionItems(source, member, symbols, env, memberCtx, collectionQueries, activity, push);
+		// Keep checks based on declared types above, but do not infer runtime
+		// classes from assignments that an error handler may have skipped.
+		if (/\bon\s+error\b/i.test(source.slice(member.span.start, member.span.end))) { continue; }
+		const locals = new Set((procedureSymbolFor(symbols, member)?.children ?? [])
+			.filter(child => child.kind === 'localVariable' && child.visibility !== 'Static' && !/^\s*(?:(?:Public|Private|Friend)\s+)?Static\b/i.test(source.slice(member.span.start, member.span.end)))
+			.map(child => child.name.toLowerCase()));
 		const autoInstanced = new Set<string>();
 		for (const child of procedureSymbolFor(symbols, member)?.children ?? []) {
 			if (child.isAutoInstantiated) {
@@ -372,6 +380,9 @@ export function checkRuntimeMemberNotFound(
 				return; // a Dim inside the body declares, and runs nothing
 			}
 			const toks = statementTokensAfterLeadingLabel(source, node.span);
+			if (toks.some((tok, i) => callables.has(tokenText(tok))
+				&& !(toks[i - 1]?.rawText === '.' && held.has(tokenText(toks[i - 2])))
+				&& !(tokenText(tok) === member.name.toLowerCase() && toks[i + 1]?.rawText === '='))) { held.clear(); }
 			if (jumpTargetLabelDeclaration(source, node.span) || tokenText(toks[0]) === 'gosub') {
 				held.clear();
 			}
@@ -390,7 +401,7 @@ export function checkRuntimeMemberNotFound(
 				return;
 			}
 			const set = setAssignmentTarget(source, node.span);
-			if (set && isLateBound(set.name.toLowerCase())) {
+			if (set && locals.has(set.name.toLowerCase()) && isLateBound(set.name.toLowerCase())) {
 				const lower = set.name.toLowerCase();
 				const value = toks.slice(toks.findIndex((tok) => tok.rawText === '=') + 1);
 				const source1 = value.length === 1 ? tokenName(value[0])?.toLowerCase() : undefined;
@@ -423,7 +434,7 @@ export function checkRuntimeMemberNotFound(
 					held.delete(lower);
 				}
 			},
-			touches: (stmt) => namesIn(source, stmt.span),
+			touches: (stmt) => new Set([...namesIn(source, stmt.span), ...held.keys()]),
 		});
 	}
 }
@@ -862,89 +873,8 @@ function sheetSurface(model: HostObjectModel | undefined, projectTypes: NonNulla
 	return names;
 }
 
-/**
- * `f.Controls("Nope")` on a form whose controls are known, with no control of
- * that name (case-insensitive, those inside a Frame included), raises
- * -2147024809, "Could not find the specified object" (issue #226, measured in
- * Excel 16.0). `Me.Controls(...)` inside the form does the same.
- */
-function checkFormControlNames(
-	source: string,
-	base: number,
-	toks: readonly VbaToken[],
-	memberCtx: MemberCompletionContext,
-	added: ReadonlySet<string> | 'any',
-	queries: RuntimeMemberQueries,
-	push: PushFn,
-): void {
-	for (let i = 1; i + 3 < toks.length; i++) {
-		if (tokenText(toks[i]) !== 'controls' || toks[i - 1].rawText !== '.' || toks[i + 1].rawText !== '('
-			|| (toks[i + 2].kind !== 'stringLiteral' && toks[i + 2].kind !== 'integerLiteral') || toks[i + 3].rawText !== ')') {
-			continue;
-		}
-		const form = projectTypeAt(source, base + toks[i - 1].end, memberCtx);
-		if (form?.kind !== 'userform' || form.exhaustive !== true || added === 'any') {
-			continue;
-		}
-		const controls = queries.formControls(form);
-		// `Me.Controls(99)`: Controls counts from 0 (issue #315, measured in
-		// Excel 16.0). A procedure that adds a control is not judged.
-		if (toks[i + 2].kind === 'integerLiteral') {
-			const index = Number(toks[i + 2].rawText);
-			if (added.size === 0 && index >= controls.count) {
-				push(
-					'runtimeMemberNotFound',
-					`The form ${form.name} has ${controls.count} control${controls.count === 1 ? '' : 's'}, indexed 0 to ${controls.count - 1}; ${index} is none of them. This will raise Run-time error '-2147024809': Invalid argument.`,
-					{ start: base + toks[i + 2].start, end: base + toks[i + 2].end },
-				);
-			}
-			continue;
-		}
-		const name = stringLiteralValue(toks[i + 2].rawText);
-		// `Me.Controls.Add "Forms.TextBox.1", "Dyn"` names one the designer lacks.
-		if (added.has(name.toLowerCase())) {
-			continue;
-		}
-		if (!controls.hasName(name)) {
-			push(
-				'runtimeMemberNotFound',
-				`The form ${form.name} has no control named "${name}". This will raise Run-time error '-2147024809': Could not find the specified object.`,
-				{ start: base + toks[i + 2].start, end: base + toks[i + 2].end },
-			);
-		}
-	}
-}
-
-/**
- * The control names a procedure gives `Controls.Add` as a literal second
- * argument, lowercased (issue #315), or 'any' when one is added under a
- * name the code does not spell out.
- */
-function controlsAddedIn(source: string, body: BodyNode[], activity: ConditionalActivityTracker | undefined): ReadonlySet<string> | 'any' {
-	const names = new Set<string>();
-	let any = false;
-	forEachStatement(body, (stmt) => {
-		for (const span of statementAndBranchSpans(stmt)) {
-			const toks = statementTokens(source, span);
-			for (let i = 2; i < toks.length; i++) {
-				if (tokenText(toks[i]) !== 'add' || toks[i - 1].rawText !== '.' || tokenText(toks[i - 2]) !== 'controls') {
-					continue;
-				}
-				const open = toks[i + 1]?.rawText === '(' ? i + 1 : -1;
-				const close = open > 0 ? matchParenFrom(toks, open) : toks.length;
-				const args = splitTopLevelTokenGroups(toks, open > 0 ? open + 1 : i + 1, ',', close);
-				const named = args.find((arg) => arg[1]?.rawText === ':=' && tokenText(arg[0]) === 'name');
-				const arg = named ? named.slice(2) : args[1]?.[1]?.rawText === ':=' ? undefined : args[1];
-				if (arg?.length === 1 && arg[0].kind === 'stringLiteral') {
-					names.add(stringLiteralValue(arg[0].rawText).toLowerCase());
-				} else {
-					any = true;
-				}
-			}
-		}
-	}, activity);
-	return any ? 'any' : names;
-}
+// Designer control names/counts are not runtime collection contents.
+// Controls can be added or removed by other procedures and form instances.
 
 /** A tracked variable named in any position other than `name.Member` is no longer followed. */
 function forgetOtherUses(toks: readonly VbaToken[], held: Map<string, KnownClass>): void {

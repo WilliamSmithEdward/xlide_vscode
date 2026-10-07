@@ -29,7 +29,7 @@ describe('analyzer significant token ownership', () => {
  });
  it('retains Else stripping in file-number diagnostics', () => {
   const errors: unknown[] = [];
-  const diagnostics = analyzeModule('Sub P(ByVal flag As Boolean)\nIf flag Then Print #1,"a" Else Print #2,"b"\nEnd Sub', { projectOpenedFileNumbers: { any: false, numbers: new Set() }, onInternalError: (error) => { errors.push(error); } });
+  const diagnostics = analyzeModule('Sub P(ByVal flag As Boolean)\nIf flag Then Print #0,"a" Else Print #513,"b"\nEnd Sub', { projectOpenedFileNumbers: { any: false, numbers: new Set() }, onInternalError: (error) => { errors.push(error); } });
   expect(diagnostics.filter(d => d.code === 'file-number-zero')).toHaveLength(2);
   expect(errors).toEqual([]);
  });

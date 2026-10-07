@@ -86,6 +86,9 @@ export function stripVbaLines(lines: readonly string[]): string[] {
 
 /** {@link stripVba}, and where the line's comment starts (-1 when it has none). */
 function stripVbaLine(line: string): { text: string; commentStart: number } {
+    // Most code lines contain nothing to blank. Avoid allocating a character
+    // array and joining it again for each line in every structural scan.
+    if (!/["']|\brem\b/i.test(line)) { return { text: line, commentStart: -1 }; }
     const chars = line.split('');
     let inString = false;
     let commentStart = -1;

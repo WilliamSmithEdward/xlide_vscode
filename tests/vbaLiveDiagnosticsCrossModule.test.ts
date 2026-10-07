@@ -56,6 +56,8 @@ import { registerVbaDiagnostics } from '../src/vbaLiveDiagnostics';
 import { VbaSymbolIndex } from '../src/vbaSymbolIndex';
 import { VbaProjectIndexService } from '../src/vbaProjectIndexService';
 import { fakeProjectEngine, type FakeBridgeModule } from './helpers/fakeProjectEngine';
+import type { AnalysisWorkerClient, WorkerAnalyzeRequest } from '../src/analysisWorkerClient';
+import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
 
 const BOOK = process.platform === 'win32' ? 'C:/Book.xlsm' : '/work/Book.xlsm';
 const BOOK_URI_PATH = BOOK.startsWith('/') ? BOOK : `/${BOOK}`;
@@ -138,6 +140,37 @@ afterEach(() => {
 });
 
 describe('diagnostics across modules', () => {
+    it('publishes all early severities once and rechecks unchanged text after project changes', async () => {
+        const source = 'Option Explicit\nFunction F() As Long\nDim unused As Long\nEnd Function';
+        const caller = moduleDocument('CallerMod', source);
+        const modules: FakeBridgeModule[] = [{ name: 'CallerMod', type: 'standard', source }];
+        const index = new VbaSymbolIndex(fakeProjectEngine(modules));
+        const service = new VbaProjectIndexService(index);
+        const result = analyzeVbaModuleSource({ source, moduleName: 'CallerMod' });
+        const earlyAnalyze = vi.fn(async (_request: WorkerAnalyzeRequest) => result);
+        const fullAnalyze = vi.fn(async (_request: WorkerAnalyzeRequest) => ({ diagnostics: [], suppressedDiagnostics: [], suppressedCount: 0 }));
+        const worker = (analyze: typeof earlyAnalyze) => ({ available: true, ensureSeeded: vi.fn(), analyze, forget: vi.fn() }) as unknown as AnalysisWorkerClient;
+        documents().push(caller);
+        const subscriptions: vscodeTypes.Disposable[] = [];
+        registerVbaDiagnostics({ subscriptions } as unknown as vscodeTypes.ExtensionContext, service, worker(fullAnalyze), worker(earlyAnalyze));
+        try {
+            await until(() => {
+                expect(published(caller)).toContain('unused-variable');
+                expect(published(caller)).toContain('missing-return-assignment');
+            });
+            await vi.advanceTimersByTimeAsync(600);
+            expect(earlyAnalyze).toHaveBeenCalledTimes(1);
+            expect(fullAnalyze).not.toHaveBeenCalled();
+            expect(earlyAnalyze.mock.calls[0]?.[0].errorsOnly).toBe(false);
+            modules.push({ name: 'OtherMod', type: 'standard', source: 'Sub Other()\nEnd Sub' });
+            index.invalidate(BOOK);
+            await until(() => expect(fullAnalyze).toHaveBeenCalledTimes(1));
+            await until(() => expect(published(caller)).toEqual([]));
+            expect(caller.version).toBe(1); // Project changes clear early findings without an edit.
+        } finally {
+            subscriptions.forEach(subscription => subscription.dispose());
+        }
+    });
     it('analyze a module again when the module it calls is created', async () => {
         const modules: FakeBridgeModule[] = [{ name: 'CallerMod', type: 'standard', source: CALLER }];
         const caller = moduleDocument('CallerMod', CALLER);

@@ -80,6 +80,7 @@ export function checkUnusedDeclarations(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	procedureFilter?: (member: ProcedureNode) => boolean,
 ): void {
 	const tokens = tokenizeCached(source);
 	const attributed = new Set<number>();
@@ -136,6 +137,7 @@ export function checkUnusedDeclarations(
 	}
 	for (const proc of procedures) {
 		const locals: TrackedDeclaration[] = [];
+		if (procedureFilter && !procedureFilter(proc)) { continue; }
 		forEachVariableGroup(proc.body, (group) => {
 			for (const decl of group.declarations) {
 				if (!decl.nameSpan || attributed.has(decl.nameSpan.start)) {
@@ -157,10 +159,16 @@ export function checkUnusedDeclarations(
 		scope.from,
 		scope.to,
 		new Set(scope.declarations.map((decl) => decl.nameSpan.start)),
+		new Set(scope.declarations.map((decl) => decl.lower)),
 	));
 	const allOffsets: number[] = [];
-	for (const references of referencesByScope) {
-		for (const list of references.values()) {
+	for (let i = 0; i < scopes.length; i++) {
+		// Constants only need to know whether a mention exists. Classifying
+		// every unrelated identifier (and every constant use) rebuilt reference
+		// facts for the whole class on every live edit.
+		for (const decl of scopes[i].declarations) {
+			if (decl.group.isConst) { continue; }
+			const list = referencesByScope[i].get(decl.lower) ?? [];
 			for (const ref of list) {
 				allOffsets.push(ref.offset);
 			}
@@ -233,6 +241,7 @@ function collectReferences(
 	from: number,
 	to: number,
 	declared: ReadonlySet<number>,
+	names: ReadonlySet<string>,
 ): Map<string, Reference[]> {
 	const out = new Map<string, Reference[]>();
 	const first = firstTokenAtOrAfter(tokens, from);
@@ -246,6 +255,13 @@ function collectReferences(
 		const isName = token.kind === 'identifier' || token.kind === 'keyword';
 		if (isName && !declared.has(token.start) && !isMemberName(prev) && !isNamedArgument(tokens[i + 1])) {
 			const lower = tokenText(token);
+			if (!names.has(lower)) {
+				// Still advance the previous tokens: an unrelated name can precede
+				// a member access or a For Each control variable.
+				prev2 = prev;
+				prev = token;
+				continue;
+			}
 			const next = tokens[i + 1];
 			const readByForm = tokenText(prev) === 'for'
 				|| (tokenText(prev) === 'each' && tokenText(prev2) === 'for')
@@ -347,11 +363,13 @@ export function checkUnusedPrivateProcedures(
 	// value names itself, and a procedure calling only itself is still dead,
 	// so mentions inside the procedure's own body do not count for it.
 	const mentions = new Map<string, number[]>();
+	const candidateNames = new Set(candidates.map(proc => proc.name.toLowerCase()));
 	const ownStringWords = new Set<string>();
 	const stringWords: ReadonlySet<string> = projectStringLiteralWords ?? ownStringWords;
 	for (const token of tokens) {
 		if ((token.kind === 'identifier' || token.kind === 'keyword') && !declarationSites.has(token.start)) {
 			const lower = tokenText(token);
+			if (!candidateNames.has(lower)) { continue; }
 			const offsets = mentions.get(lower) ?? [];
 			offsets.push(token.start);
 			mentions.set(lower, offsets);
@@ -466,12 +484,14 @@ export function checkUnreachableCode(
 	mod: ModuleNode,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	procedureFilter?: (member: ProcedureNode) => boolean,
 ): void {
 	let resumeRuns = false;
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
+		if (procedureFilter && !procedureFilter(member)) { continue; }
 		// Under On Error Resume Next a Resume with no error pending raises 20,
 		// which is skipped, so the next line runs (issue #446, measured in
 		// Excel 16.0).

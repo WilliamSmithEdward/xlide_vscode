@@ -224,11 +224,20 @@ export function activate(context: vscode.ExtensionContext): void {
     // anonymized report) rides the same worker so a large module's analysis
     // never blocks the host mid-command.
     setProjectAnalysisWorker(analysisWorkerClient);
+    // Early error findings must not wait behind project/semantic analysis.
+    const errorWorkerClient = platformFeatures.createAnalysisWorker(
+        path.join(context.extensionPath, 'out', 'analysisWorker.js'),
+        (line: string) => out.appendLine(`Errors: ${line}`),
+    );
+    if (errorWorkerClient) {
+        context.subscriptions.push(new vscode.Disposable(() => errorWorkerClient.dispose()));
+    }
     const vbaIndex = registerVbaLanguageProviders(
         context,
         bridge,
         analysisWorkerClient,
         (line: string) => out.appendLine(line),
+        errorWorkerClient,
     );
     registerVbaEditorCommands(context);
     registerXlideVbaLanguageSync(context, out);

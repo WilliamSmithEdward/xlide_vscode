@@ -16,7 +16,7 @@ function hits(...lines: string[]) {
 }
 
 describe('a new Word document (issue #497)', () => {
-	it('reports members past what the document holds', () => {
+	it('does not infer runtime collection bounds from document creation or text', () => {
 		const cases: Array<[string, string]> = [
 			['Main = d.Tables(1).Rows.Count', "'5941'"],
 			['Main = d.Fields(1).Code.Text', "'5941'"],
@@ -29,12 +29,11 @@ describe('a new Word document (issue #497)', () => {
 			['Main = d.Characters(500).Text', "'5941'"],
 			['Main = d.Range(0, 99999).Text', "'4608'"],
 		];
-		for (const [line, error] of cases) {
+		for (const [line] of cases) {
 			const found = hits(...TEXT, line);
-			expect(found, line).toHaveLength(1);
-			expect(found[0].message, line).toContain(error);
+			expect(found, line).toHaveLength(0);
 		}
-		expect(hits('Dim d As Document', 'Set d = Documents.Add', 'Main = d.Characters(3).Text')).toHaveLength(1);
+		expect(hits('Dim d As Document', 'Set d = Documents.Add', 'Main = d.Characters(3).Text')).toHaveLength(0);
 	});
 
 	it('stays quiet within what it holds, and once the code adds to it', () => {

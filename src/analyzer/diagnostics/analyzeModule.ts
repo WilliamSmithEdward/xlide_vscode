@@ -78,6 +78,7 @@ import {
 	isNonUnaryBinaryOperator,
 } from './rules/expressions';
 import { rememberProjectWrittenNames } from './moduleState';
+import { AnalysisCancelled, checkAnalysisCancellation } from './analysisCancellation';
 
 /** Resolves the effective severity of a rule, or undefined when switched off. */
 function severityOf(
@@ -117,6 +118,7 @@ type ReportInternalError = (error: unknown, where: AnalysisFailure) => void;
 function internalErrorReporter(opts: AnalyzeModuleOptions): ReportInternalError {
 	const callback = opts.onInternalError;
 	return (error, where) => {
+		if (error instanceof AnalysisCancelled) { throw error; }
 		try {
 			callback?.(error, where);
 		} catch {
@@ -262,6 +264,11 @@ function runRules(
 	opts: AnalyzeModuleOptions,
 	report: ReportInternalError,
 ): VbaDiagnostic[] {
+	checkAnalysisCancellation(opts);
+	if (opts.isCancelled) {
+		const filter = opts.walkProcedureFilter;
+		opts = { ...opts, walkProcedureFilter: member => { checkAnalysisCancellation(opts); return filter?.(member) ?? true; } };
+	}
 	const moduleName = opts.moduleName ?? 'Module';
 	const moduleKind = opts.moduleKind ?? 'standard';
 	const overrides = opts.severityOverrides;
@@ -276,7 +283,7 @@ function runRules(
 	let walkMemberStart: number | undefined;
 	let walkMemberIncluded = true;
 
-	const pushInto = (sink: VbaDiagnostic[]): PushFn => (
+	const pushInto = (sink: VbaDiagnostic[], eagerProcedures = false): PushFn => (
 		rule: DiagnosticRuleName,
 		message: string,
 		span: Span,
@@ -286,23 +293,37 @@ function runRules(
 			return;
 		}
 		const severity = severityOf(rule, overrides);
-		if (!severity) {
+		if (!severity || (opts.errorsOnly && severity !== 'error')) {
 			return;
 		}
 		const meta = DIAGNOSTIC_RULES[rule];
+		const eagerMember = eagerProcedures ? procedureContaining(span) : undefined;
+		if (eagerMember && opts.walkProcedureFilter && !opts.walkProcedureFilter(eagerMember)) { return; }
 		sink.push({
 			code: meta.code,
 			message,
 			severity,
 			span,
 			specReference: meta.specReference,
-			origin: phase,
+			origin: eagerMember ? 'walk' : phase,
+			...(eagerMember ? { walkMemberStart: eagerMember.span.start } : {}),
 			...(phase === 'walk' && walkMemberStart !== undefined ? { walkMemberStart } : {}),
 			...(data ? { data } : {}),
 		});
 	};
 
 	const mod = opts.parsedModule ?? parseModule(source);
+	const procedures = mod.members.filter((m): m is ProcedureNode => m.kind === 'Procedure');
+	const procedureContaining = (span: Span): ProcedureNode | undefined => {
+		let lo = 0, hi = procedures.length;
+		while (lo < hi) {
+			const mid = (lo + hi) >>> 1;
+			if (procedures[mid].span.start <= span.start) { lo = mid + 1; } else { hi = mid; }
+		}
+		const member = procedures[lo - 1];
+		return member && span.end <= member.span.end ? member : undefined;
+	};
+
 	const ctx: RulePassContext = {
 		source,
 		moduleName,
@@ -326,9 +347,11 @@ function runRules(
 	const takesHeaders: boolean[] = [];
 	const expressionVisitors: ProcedureExpressionVisitor[] = [];
 	for (const rule of DIAGNOSTIC_RULE_REGISTRY) {
+		checkAnalysisCancellation(opts);
+		if (opts.errorsOnly && NON_ERROR_RULES.has(rule.name)) { continue; }
 		const buffer: VbaDiagnostic[] = [];
 		buffers.push(buffer);
-		const push = pushInto(buffer);
+		const push = pushInto(buffer, rule.incrementalProcedureBodies);
 		// Isolate each rule: one rule throwing during construction or its eager
 		// run() must not discard every other rule's diagnostics for the module.
 		try {
@@ -352,6 +375,7 @@ function runRules(
 	const filter = opts.walkProcedureFilter;
 	const walkHooks = {
 		beforeMember: (member: ProcedureNode): void => {
+			checkAnalysisCancellation(opts);
 			walkMemberStart = member.span.start;
 			walkMemberIncluded = filter ? filter(member) : true;
 		},
@@ -371,6 +395,7 @@ function runRules(
 		report(err, { stage: 'expression-walk' });
 	}
 	phase = 'run';
+	checkAnalysisCancellation(opts);
 	walkMemberStart = undefined;
 	walkMemberIncluded = true;
 
@@ -380,6 +405,11 @@ function runRules(
 	}
 	return withoutRuntimeErrorsInDeadCode(out, ctx);
 }
+
+// These rules only emit warnings/information; severity overrides cannot promote them.
+const NON_ERROR_RULES: ReadonlySet<string> = new Set([
+	'unusedDeclarations', 'unusedPrivateProcedures', 'unreachableCode', 'docComments',
+]);
 
 /** The codes of the rules that report an error raised when a statement runs. */
 const RUNTIME_ERROR_CODES: ReadonlySet<string> = new Set(
@@ -394,12 +424,14 @@ const RUNTIME_ERROR_CODES: ReadonlySet<string> = new Set(
  * judge a literal did not.
  */
 function withoutRuntimeErrorsInDeadCode(diagnostics: VbaDiagnostic[], ctx: RulePassContext): VbaDiagnostic[] {
-	if (!diagnostics.some((diag) => RUNTIME_ERROR_CODES.has(diag.code))) {
+	const runtime = diagnostics.filter((diag) => RUNTIME_ERROR_CODES.has(diag.code));
+	if (runtime.length === 0) {
 		return diagnostics;
 	}
 	const dead: Span[] = [];
 	for (const member of activeModuleMembers(ctx.mod, ctx.activity)) {
-		if (member.kind === 'Procedure') {
+		if (member.kind === 'Procedure' && runtime.some(diag =>
+			diag.span.start >= member.span.start && diag.span.end <= member.span.end)) {
 			for (const node of unreachableStatementsIn(ctx.source, member, ctx.symbols, ctx.activity)) {
 				dead.push(node.span);
 			}

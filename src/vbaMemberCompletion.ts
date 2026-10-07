@@ -14,6 +14,7 @@ import { VbaProjectIndexService } from './vbaProjectIndexService';
 import { VbaCanonicalCaseController } from './vbaCanonicalCaseController';
 import { VbaEditorProjectContextService } from './vbaEditorProjectContext';
 import { VbaHoverSignatureProvider } from './vbaHoverSignatureProvider';
+import { VbaColorProvider } from './vbaColorProvider';
 import {
 	KEYWORD_SNIPPET_ACCEPTED_COMMAND,
 	VbaKeywordSnippetTracker,
@@ -46,6 +47,7 @@ export function registerVbaMemberCompletion(
 	});
 
 	context.subscriptions.push(
+		vscode.languages.registerColorProvider(selector, new VbaColorProvider()),
 		provider,
 		projectContext,
 		canonicalCase,
@@ -62,6 +64,7 @@ export function registerVbaMemberCompletion(
 			'#',
 			'"',
 			'@',
+			'=',
 		),
 		vscode.workspace.onDidChangeTextDocument((event) => {
 			keywordSnippets.handleTextDocumentChange(event);

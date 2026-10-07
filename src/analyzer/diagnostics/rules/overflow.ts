@@ -1649,6 +1649,7 @@ export function checkOverflow(
 	hostModel: HostObjectModel | undefined,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	procedureFilter?: (member: ProcedureNode) => boolean,
 ): void {
 	// Module-level Consts: a folded overflow is the compile error.
 	const moduleConstants = constantLookup(
@@ -1663,17 +1664,21 @@ export function checkOverflow(
 	// Names the project declares, which hide a host global of that spelling.
 	const moduleNames = new Set([...(projectVisibleSymbols ?? []), ...(symbols.root.children ?? [])].map((symbol) => symbol.name.toLowerCase()));
 	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'Procedure' && procedureFilter && !procedureFilter(member)) { continue; }
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
 		const children = procedureSymbolFor(symbols, member)?.children ?? [];
 		// A local or parameter hides a module Const or Enum member of its name.
-		const constants = new Map(constantLookup(moduleConstants, children));
-		for (const child of children) {
-			if (child.kind === 'localVariable' || child.kind === 'parameter') {
-				constants.delete(child.name.toLowerCase());
-			}
-		}
+		const foldedConstants = constantLookup(moduleConstants, children);
+		const hiddenConstants = new Set(children
+			.filter(child => child.kind === 'localVariable' || child.kind === 'parameter')
+			.map(child => child.name.toLowerCase()));
+		// Readers only ask by name. Keep the folded module layer shared rather
+		// than copying every constant just to remove a few hidden names.
+		const constants = hiddenConstants.size === 0 ? foldedConstants : {
+			get: (lower: string) => hiddenConstants.has(lower) ? undefined : foldedConstants.get(lower),
+		};
 		// A local declared with no type is a Variant, which holds a Double as
 		// a Double: `Dim v: v = 3E9` then `v Mod 2` raises 6 (issue #323,
 		// measured in Excel 16.0). A DefType statement types it otherwise.
@@ -2095,7 +2100,7 @@ function endlessStep(
 function checkConstDeclarations(
 	source: string,
 	groups: readonly VariableGroupNode[],
-	constants: ReadonlyMap<string, Typed>,
+	constants: Pick<ReadonlyMap<string, Typed>, 'get'>,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {

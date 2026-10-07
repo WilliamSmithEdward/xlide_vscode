@@ -273,6 +273,13 @@ export interface HostLibrary {
 }
 
 export const HOST_LIBRARIES: Readonly<Record<string, HostLibrary>> = Object.freeze({
+	scripting: {
+		name: 'Scripting',
+		guid: '{420B2830-E718-11CF-893D-00A0C9054228}',
+		version: '1.0',
+		path: 'C:\\Windows\\System32\\scrrun.dll',
+		description: 'Microsoft Scripting Runtime',
+	},
 	excel: {
 		name: 'Excel',
 		guid: '{00020813-0000-0000-C000-000000000046}',

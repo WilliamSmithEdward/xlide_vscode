@@ -317,6 +317,7 @@ export function checkAssignmentTypes(
 	memberCtx: MemberCompletionContext,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	procedureFilter?: (member: ProcedureNode) => boolean,
 ): void {
 	const isDocumentModule = projectTypeNameLookup(memberCtx, 'document', false);
 	const isFormOwner = projectTypeNameLookup(memberCtx, 'userform', true);
@@ -421,6 +422,7 @@ export function checkAssignmentTypes(
 	let ownGetterValues: ReturnType<typeof classMemberValues> | undefined;
 
 	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'Procedure' && procedureFilter && !procedureFilter(member)) { continue; }
 		if (member.kind !== 'Procedure') {
 			continue;
 		}

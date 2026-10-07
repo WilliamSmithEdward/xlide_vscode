@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { resolveAssignmentValueCompletion } from '../src/analyzer/completion/assignmentValueCompletion';
 import { assignmentValueTriggerMayComplete, spaceTriggerMayComplete } from '../src/analyzer/completion/cursorContext';
+import { resolveArgumentValueCompletion } from '../src/analyzer/completion/argumentValueCompletion';
 
 function accepted(line: string, prelude = '') {
 	const source = `${prelude}\nSub Demo()\n${line}\nEnd Sub`;
@@ -39,8 +40,14 @@ describe('assignment value completion', () => {
 		expect(accepted('If ok Then ActiveCell.HorizontalAlignment = ')?.constants.map(c => c.name)).toContain('xlHAlignCenter');
 		expect(accepted('10 ActiveCell.HorizontalAlignment = ')?.constants.map(c => c.name)).toContain('xlHAlignCenter');
 	});
-
-
+	it('matches the named argument even with the caret inside an existing value', () => {
+		const source = 'Sub T()\nThisWorkbook.BreakLink Type:=xlLinkTypeExcelLinks\nEnd Sub';
+		const offset = source.indexOf('xlLinkType') + 3;
+		expect(resolveArgumentValueCompletion(source, offset)?.enumName).toBe('XlLinkType');
+	});
+	it('prioritizes colors for the workbook cell chain', () => {
+		expect(accepted('ThisWorkbook.Sheets(1).Cells(1).Interior.Color = ')?.constants.map(c => c.name)).toContain('vbRed');
+	});
 	it('offers enum members for a typed host property', () => {
 		expect(accepted('ActiveCell.HorizontalAlignment = xl')?.constants.map(c => c.name)).toContain('xlHAlignCenter');
 	});
@@ -50,8 +57,10 @@ describe('assignment value completion', () => {
 	it('offers source-defined enum members', () => {
 		expect(accepted('facing = ', 'Enum Direction\nNorth = 1\nSouth = 2\nEnd Enum\nDim facing As Direction')?.constants.map(c => c.name)).toEqual(['North', 'South']);
 	});
-	it('offers VBA runtime enums in assignments', () => {
+	it('offers VBA runtime enums in assignments and arguments with defaults', () => {
 		expect(accepted('answer = ', 'Dim answer As VbMsgBoxResult')?.constants.map(c => c.name)).toContain('vbYes');
+		const source = 'Sub T()\nMsgBox "Continue?", ';
+		expect(resolveArgumentValueCompletion(source, source.length)?.constants.map(c => c.name)).toContain('vbYesNo');
 	});
 	it('offers known enum values for Variant properties', () => {
 		expect(accepted('ActiveCell.Interior.Pattern = ')?.constants.map(c => c.name)).toContain('xlPatternSolid');

@@ -13,7 +13,7 @@ describe('property assignment diagnostics', () => {
   const hits = diagnostics.filter(d=>d.code==='host-readonly-value-assignment');
   expect(hits).toHaveLength(1);
   expect(source.slice(hits[0].span.start,hits[0].span.end)).toBe('Height');
-  expect(hits[0]).toMatchObject({severity:'error',origin:'run'});
+  expect(hits[0]).toMatchObject({severity:'error',origin:'walk'});
   expect(hits[0].message).toContain('RowHeight');
   expect(hits[0].message).not.toContain('compile error');
  });
@@ -27,7 +27,7 @@ describe('property assignment diagnostics', () => {
   expect(excel(statement).diagnostics).toEqual([expect.objectContaining({code:'host-property-value-out-of-range',severity:'error'})]);
  });
  it('flags the actual Boolean host setter without rejecting valid conversions', () => {
-  expect(excel('ws.EnableCalculation = "nonsense"').diagnostics).toContainEqual(expect.objectContaining({code:'assignment-type-mismatch',severity:'error',origin:'run'}));
+  expect(excel('ws.EnableCalculation = "nonsense"').diagnostics).toContainEqual(expect.objectContaining({code:'assignment-type-mismatch',severity:'error',origin:'walk'}));
   expect(excel('ws.EnableCalculation = True').diagnostics).toEqual([]);
   expect(excel('ws.EnableCalculation = "True"').diagnostics).toEqual([]);
  });

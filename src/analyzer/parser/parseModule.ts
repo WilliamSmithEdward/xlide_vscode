@@ -1021,6 +1021,7 @@ class Parser {
 			returnType,
 			...(attributes.length > 0 ? { attributes } : {}),
 			body,
+			bodySpan: { start: attributes.at(-1)?.span.end ?? head.end, end: endStmt?.start ?? end },
 			closed,
 			span: { start: head.start, end },
 		};

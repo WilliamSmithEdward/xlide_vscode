@@ -15,7 +15,26 @@ function hits(...lines: string[]) {
 }
 
 describe('errors literal ranges and a new sheet prove (issue #472)', () => {
-	it('reports Intersect that is Nothing, Union across sheets, and an empty new sheet', () => {
+	it('does not assume a sheet loaded from a template is empty', () => {
+		expect(hits('Set w2 = Worksheets.Add(Type:="Report.xltx")', 'Main = w2.Cells.Find("zzz").Row')).toEqual([]);
+	});
+
+	it('does not assume a handled Add succeeded', () => {
+		expect(hits('On Error Resume Next', 'Set w2 = Worksheets.Add', 'On Error GoTo 0', 'Main = w2.Cells.Find("zzz").Row')).toEqual([]);
+	});
+
+	it.each([
+		'ActiveSheet.Range("A1").Value = "zzz"',
+		'Worksheets(1).Range("A1").Value = "zzz"',
+		'Dim alias As Worksheet\n    Set alias = w2\n    alias.Range("A1").Value = "zzz"',
+		'Application.Run "PopulateSheet"',
+		'DoEvents',
+	])('does not assume a new sheet stays empty after another reference or call: %s', change => {
+		expect(hits(change, 'Main = w2.Cells.Find("zzz").Row')).toEqual([]);
+		expect(hits(change, 'Main = w2.Cells.SpecialCells(xlCellTypeConstants).Count')).toEqual([]);
+	});
+
+	it('reports literal range failures without inferring new-sheet contents', () => {
 		const cases: Array<[string, string]> = [
 			['Main = Intersect(w2.Range("A1"), w2.Range("B2")).Count', "'91'"],
 			['Main = Union(w1.Range("A1"), w2.Range("A1")).Count', "'1004'"],
@@ -29,8 +48,8 @@ describe('errors literal ranges and a new sheet prove (issue #472)', () => {
 		];
 		for (const [line, error] of cases) {
 			const found = hits(line);
-			expect(found, line).toHaveLength(1);
-			expect(found[0].message, line).toContain(error);
+			expect(found, line).toHaveLength(/Intersect|Union/.test(line) ? 1 : 0);
+			if (found.length) { expect(found[0].message, line).toContain(error); }
 		}
 	});
 

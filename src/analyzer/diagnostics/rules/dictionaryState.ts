@@ -23,7 +23,7 @@
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import { jumpTargetLabelDeclaration } from '../../flow/procedureLabels';
 import type { VbaToken } from '../../lexer/tokenKinds';
-import type { BodyNode, ModuleNode, Span } from '../../parser/nodes';
+import type { BodyNode, ModuleNode, Span , ProcedureNode } from '../../parser/nodes';
 import { isLeafStatement } from '../../parser/nodes';
 import type { PushFn } from '../analysisContext';
 import { walkEnteringBlocks } from '../dataflow';
@@ -31,6 +31,7 @@ import { stringLiteralValue } from '../typeInference';
 import {
 	activeModuleMembers,
 	blockHeaderLineSpan,
+	forEachVariableGroup,
 	matchParenFrom,
 	setAssignmentTarget,
 	statementTokensAfterLeadingLabel,
@@ -58,12 +59,24 @@ export function checkDictionaryState(
 	mod: ModuleNode,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	procedureFilter?: (member: ProcedureNode) => boolean,
 ): void {
 	const calleeCalls = calleeMemberCalls(source);
 	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'Procedure' && procedureFilter && !procedureFilter(member)) { continue; }
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
+		// A failed Add/Remove/Set can leave earlier contents in place.
+		if (/\bon\s+error\b/i.test(source.slice(member.span.start, member.span.end))) { continue; }
+		// A module field or parameter can be changed by code that does not
+		// mention it at the call site. Follow only freshly created local objects.
+		const locals = new Set<string>();
+		forEachVariableGroup(member.body, group => {
+			if (!group.isConst && group.modifier.toLowerCase() !== 'static') {
+				for (const decl of group.declarations) { locals.add(decl.name.toLowerCase()); }
+			}
+		}, activity);
 		const states = new Map<string, DictionaryKeys>();
 		const forget = (names: Iterable<string>): void => {
 			for (const lower of names) {
@@ -100,7 +113,7 @@ export function checkDictionaryState(
 					push('variantValueMisuse', `'${value.map((tok) => tok.rawText).join('')}' holds a ${item}, not an object, so Set has nothing to assign. This will raise Run-time error '424': Object required.`, { start: node.span.start + value[0].start, end: node.span.start + value[value.length - 1].end });
 				}
 				forget(namesIn(source, node.span));
-				if (createsDictionary(value)) {
+				if (locals.has(lower) && createsDictionary(value)) {
 					states.set(lower, { keys: [] });
 				}
 				return;
@@ -201,6 +214,16 @@ function literalKind(value: readonly VbaToken[]): 'number' | 'string' | undefine
 	return value[0].kind === 'stringLiteral' ? 'string' : value[0].kind === 'integerLiteral' || value[0].kind === 'floatLiteral' ? 'number' : undefined;
 }
 
+/** Literal values cannot call a helper, property getter or Dictionary.Item. */
+function literalItemArgument(value: readonly VbaToken[]): boolean {
+	if (value.length === 1) {
+		return ['integerLiteral', 'floatLiteral', 'stringLiteral', 'dateLiteral'].includes(value[0].kind)
+			|| ['true', 'false', 'nothing', 'empty', 'null'].includes(tokenText(value[0]));
+	}
+	return value.length === 2 && ['+', '-'].includes(value[0].rawText)
+		&& ['integerLiteral', 'floatLiteral'].includes(value[1].kind);
+}
+
 /** `CreateObject("Scripting.Dictionary")`, `VBA.CreateObject(...)` or `New Scripting.Dictionary`. */
 function createsDictionary(value: readonly VbaToken[]): boolean {
 	const text = value.map((tok) => tok.rawText).join('').toLowerCase();
@@ -252,6 +275,9 @@ function checkStatement(base: Span, toks: readonly VbaToken[], states: Map<strin
 	// Under `CompareMode = 1` "k" and "K" are one key.
 	const keyOf = (arg: readonly VbaToken[], held: DictionaryKeys): string | undefined => {
 		const key = literalKey(arg);
+		// VBA text comparison uses the runtime locale. JavaScript lowercasing
+		// cannot prove equality for Unicode or the Turkish I/i variants.
+		if (key && held.textCompare && key.startsWith('s:') && /[^\x20-\x7e]|i/i.test(key.slice(2))) { return undefined; }
 		return key && held.textCompare && key.startsWith('s:') ? `s:${key.slice(2).toLowerCase()}` : key;
 	};
 	const eq = toks.findIndex((tok) => tok.rawText === '=');
@@ -269,7 +295,8 @@ function checkStatement(base: Span, toks: readonly VbaToken[], states: Map<strin
 		if (text || binary) {
 			state.textCompare = text;
 		} else {
-			states.delete(head!);
+			// Evaluating an unknown mode can mutate any aliased dictionary.
+			states.clear();
 		}
 		return;
 	}
@@ -278,7 +305,7 @@ function checkStatement(base: Span, toks: readonly VbaToken[], states: Map<strin
 		const from = keyOf(toks.slice(4, eq - 1), state);
 		const to = keyOf(toks.slice(eq + 1), state);
 		if (!from || !to) {
-			states.delete(head!);
+			states.clear();
 			return;
 		}
 		if (!state.keys.includes(from)) {
@@ -305,7 +332,17 @@ function checkStatement(base: Span, toks: readonly VbaToken[], states: Map<strin
 		const key = args[0] ? keyOf(args[0], state) : undefined;
 		// `d.Add Array(1), 1`: an array is no key (issue #349, measured).
 		if (method === 'add' && args.length === 2 && tokenText(args[0][0]) === 'array' && args[0][1]?.rawText === '(' && matchParenFrom(args[0], 1) === args[0].length - 1) {
+			// Argument evaluation may still change other tracked dictionaries.
+			states.clear();
 			push('collectionAddArgument', `The key of '${toks[0].rawText}.Add' is an array, which a Dictionary takes as no key. This will raise Run-time error '5': Invalid procedure call or argument.`, at(args[0][0], args[0][args[0].length - 1]));
+			return;
+		}
+		if (method === 'add' && args.length === 2 && (!key || !literalItemArgument(args[1]))) {
+			// Both arguments run before Add checks its key. A helper/getter can
+			// remove keys, and reading d("missing") can create one. Neither the
+			// current Add nor later statements may rely on the previous contents.
+			// Other dictionaries may be passed to the expression as well.
+			states.clear();
 			return;
 		}
 		if (method === 'add' && args.length === 2 && key) {

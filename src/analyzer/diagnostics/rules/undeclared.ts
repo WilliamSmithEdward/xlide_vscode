@@ -686,6 +686,7 @@ export function checkUndeclaredVariables(
 	referencedHosts: readonly string[] | undefined,
 	push: PushFn,
 	ownMembers: ReadonlySet<string> = new Set(),
+	procedureFilter?: (member: ProcedureNode) => boolean,
 ): void {
 	if (!hasOptionExplicit(mod, activity) || !knownIdentifiers) {
 		return;
@@ -771,6 +772,7 @@ export function checkUndeclaredVariables(
 		projectVisibleSymbols,
 	};
 	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'Procedure' && procedureFilter && !procedureFilter(member)) { continue; }
 		if (member.kind !== 'Procedure') {
 			continue;
 		}

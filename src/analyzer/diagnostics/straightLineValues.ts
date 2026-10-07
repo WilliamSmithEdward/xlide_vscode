@@ -185,10 +185,15 @@ function cachedWalk(
 ): CachedWalk {
 	// Rules share the same retained start within one bound analysis. Weak keys
 	// prevent calls with different arguments from retaining every prior walk.
-	const byStart = WALKS.get(body) ?? new WeakMap<ReachingAssignments, CachedWalk>();
-	WALKS.set(body, byStart);
+	let bucket = WALKS.get(body);
+ if (bucket && (bucket.firstWalk.source !== source || bucket.firstWalk.activity !== activity)) { bucket = undefined; }
+ const byStart = bucket?.byStart ?? new WeakMap<ReachingAssignments, CachedWalk>();
 	const callEffects = CALL_EFFECTS.get(initial);
 	const declaredFacts = DECLARED_FACTS.get(initial);
+ if (bucket && bucket.firstWalk.callEffects === callEffects && bucket.firstWalk.declaredFacts === declaredFacts
+  && equalStarts(bucket.firstStart, initial)) {
+  bucket.firstStart = initial; byStart.set(initial, bucket.firstWalk); return bucket.firstWalk;
+ }
 	const cached = byStart.get(initial);
 	if (cached && cached.source === source && cached.activity === activity
 		&& cached.callEffects === callEffects && cached.declaredFacts === declaredFacts) {
@@ -225,7 +230,31 @@ function cachedWalk(
 	}
 	const walk: CachedWalk = { source, activity, callEffects, declaredFacts, result: out, dead, deadSpans, exit: exit === UNREACHED ? undefined : exit };
 	byStart.set(initial, walk);
+ WALKS.set(body, { byStart, firstStart: initial, firstWalk: walk });
 	return walk;
+}
+
+function equalStarts(left: ReachingAssignments, right: ReachingAssignments): boolean {
+	if (left.size !== right.size) {
+		return false;
+	}
+	for (const [name, value] of right) {
+		const other = left.get(name);
+		if (!other || (other !== value && startValueKey(other) !== startValueKey(value))) {
+			return false;
+		}
+	}
+	return true;
+}
+
+/** Immutable constant/default token arrays are shared by many procedure starts. */
+function startValueKey(value: readonly VbaToken[]): string {
+	let key = START_VALUE_KEYS.get(value);
+	if (key === undefined) {
+		key = value.map(tok => tok.rawText).join(' ');
+		START_VALUE_KEYS.set(value, key);
+	}
+	return key;
 }
 
 interface CachedWalk {
@@ -255,7 +284,8 @@ interface WalkOut {
 /** The end of a statement list no path reaches. */
 const UNREACHED: ReachingAssignments = new Map();
 
-const WALKS = new WeakMap<readonly BodyNode[], WeakMap<ReachingAssignments, CachedWalk>>();
+const WALKS = new WeakMap<readonly BodyNode[], { byStart: WeakMap<ReachingAssignments, CachedWalk>; firstStart: ReachingAssignments; firstWalk: CachedWalk }>();
+const START_VALUE_KEYS = new WeakMap<readonly VbaToken[], string>();
 
 /**
  * Walks one statement list from `entry` and returns what holds after it. The

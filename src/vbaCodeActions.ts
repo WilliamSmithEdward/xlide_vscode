@@ -131,7 +131,9 @@ export class VbaCodeActionProvider implements vscode.CodeActionProvider {
             const location = missing ? moduleLocationOfDocument(document) : undefined;
             if (missing && location) {
                 const action = new vscode.CodeAction(
-                    `Add a reference to the ${libraryDisplayName(missing.library)} object library`,
+                    missing.library === 'scripting'
+                        ? 'Add a reference to Microsoft Scripting Runtime'
+                        : `Add a reference to the ${libraryDisplayName(missing.library)} object library`,
                     vscode.CodeActionKind.QuickFix,
                 );
                 action.diagnostics = [diagnostic];

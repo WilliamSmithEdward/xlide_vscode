@@ -490,6 +490,16 @@ function completionMemberPrefix(token: VbaToken): string | undefined {
 	return undefined;
 }
 
+const PRIVATE_MEMBER_NAMES = new WeakMap<NonNullable<MemberCompletionContext['memberSurfaceCache']>, WeakMap<readonly string[], ReadonlySet<string>>>();
+function privateMemberNames(members: readonly string[], ctx: MemberCompletionContext): ReadonlySet<string> {
+ if (!ctx.memberSurfaceCache) { return new Set(members.map(name => name.toLowerCase())); }
+ let queries = PRIVATE_MEMBER_NAMES.get(ctx.memberSurfaceCache);
+ if (!queries) { queries = new WeakMap(); PRIVATE_MEMBER_NAMES.set(ctx.memberSurfaceCache, queries); }
+ let names = queries.get(members);
+ if (!names) { names = new Set(members.map(name => name.toLowerCase())); queries.set(members, names); }
+ return names;
+}
+
 function memberSurfaceAtDot(
 	source: string,
 	offset: number,
@@ -634,7 +644,7 @@ export function privateMemberOwnerAt(
 		?? (currentType.startsWith(PROJECT_TYPE_PREFIX) ? currentType.slice(PROJECT_TYPE_PREFIX.length) : undefined);
 	const projectType = projectKey ? projectTypes.get(projectKey) : undefined;
 	const lower = memberName.toLowerCase();
-	if (!projectType?.privateMembers?.some((name) => name.toLowerCase() === lower)) {
+	if (!projectType?.privateMembers || !privateMemberNames(projectType.privateMembers, ctx).has(lower)) {
 		return undefined;
 	}
 	const surface = memberSurfaceForType(currentType, ctx);

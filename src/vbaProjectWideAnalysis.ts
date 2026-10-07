@@ -575,11 +575,17 @@ async function runProjectAnalysis(
         // drops every one of them and the toast sits on "Reading VBA
         // modules..." for the whole run - which reads as a hang, however fast
         // the run actually is.
+        const pendingModules = new Set(modules.map(mod => mod.name));
         let completedModules = 0;
         const reportModuleDone = (name: string): void => {
             completedModules++;
+            pendingModules.delete(name);
+            const remaining = [...pendingModules];
+            const pendingLabel = remaining.length > 0
+                ? `; remaining: ${remaining.slice(0, 3).join(', ')}${remaining.length > 3 ? ', ...' : ''}`
+                : '';
             progress.report(
-                `Analyzed ${name} (${completedModules}/${modules.length})`,
+                `Analyzed ${name} (${completedModules}/${modules.length})${pendingLabel}`,
                 { force: true },
             );
         };

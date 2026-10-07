@@ -1035,6 +1035,8 @@ export const DIAGNOSTIC_RULES = {
 		confidence: 'high',
 	},
 	sheetNotInWorkbook: {
+		// Retired: kept for existing diagnostic settings, but no rule emits it.
+		// Saved workbook contents do not prove runtime sheet existence.
 		code: 'sheet-not-in-workbook',
 		title: 'Sheet the workbook does not have',
 		defaultSeverity: 'error',

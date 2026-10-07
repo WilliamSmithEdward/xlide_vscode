@@ -387,4 +387,32 @@ describe('analyzeProject progress', () => {
 		expect(done.some((m) => m.includes('(1/2)'))).toBe(true);
 		expect(done.some((m) => m.includes('(2/2)'))).toBe(true);
 	});
+
+    it('names pending modules while a large worker analysis is still running', async () => {
+        const large = deferred<{ diagnostics: []; suppressedDiagnostics: [] }>();
+        const firstDone = deferred<void>();
+        setProjectAnalysisWorker({
+            available: true,
+            ensureSeeded() {},
+            analyze(request) {
+                return request.moduleName === 'Large' ? large.promise
+                    : Promise.resolve({ diagnostics: [], suppressedDiagnostics: [] });
+            },
+        });
+        const messages: string[] = [];
+        const run = analyzeProject(fakeProjectEngine([
+            { name: 'Small', type: 'standard', source: 'Sub A()\nEnd Sub' },
+            { name: 'Large', type: 'standard', source: 'Sub B()\nEnd Sub' },
+        ]), 'Progress.xlsm', { progress: message => {
+            messages.push(message);
+            if (message.startsWith('Analyzed ') && message.includes('(1/2)')) { firstDone.resolve(); }
+        } });
+        await firstDone.promise;
+        expect(messages.find(message => message.includes('(1/2)'))).toContain('remaining: Large');
+        large.resolve({ diagnostics: [], suppressedDiagnostics: [] });
+        await run;
+        expect(messages.find(message => message.startsWith('Analyzed ') && message.includes('(2/2)')))
+            .not.toContain('remaining:');
+    });
+
 });

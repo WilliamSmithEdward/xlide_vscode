@@ -16,7 +16,8 @@ import type { VbaModuleAnalysisDiagnostic, VbaModuleAnalysisFailure } from './vb
 import type { WorkbookSheetInfo } from './analyzer/symbols/sheetChanges';
 
 export interface WorkerAnalyzeRequest {
-	/** Live diagnostics may replace queued snapshots of the same document. */
+	errorsOnly?: boolean;
+	/** Live diagnostics replace queued snapshots and cancel superseded work for this document. */
 	latestOnly?: boolean;
 	docKey: string;
 	projectKey?: string;
@@ -50,6 +51,7 @@ export interface WorkerAnalyzeResult {
 }
 
 interface PendingRequest {
+	cancellation?: Int32Array;
 	resolve: (result: WorkerAnalyzeResult) => void;
 	reject: (err: Error) => void;
 	request: WorkerAnalyzeRequest;
@@ -111,6 +113,7 @@ export class AnalysisWorkerClient {
 		}
 		return new Promise<WorkerAnalyzeResult>((resolve, reject) => {
 			if (request.latestOnly) {
+				this._cancelLiveDocument(request.docKey);
 				for (let i = this._queue.length - 1; i >= 0; i--) {
 					const queued = this._queue[i];
 					if (queued.request.latestOnly && queued.request.docKey === request.docKey) {
@@ -122,6 +125,7 @@ export class AnalysisWorkerClient {
 				}
 			}
 			this._queue.push({ resolve, reject, request, retried: false,
+				cancellation: request.latestOnly && typeof SharedArrayBuffer !== 'undefined' ? new Int32Array(new SharedArrayBuffer(4)) : undefined,
 				seedProvider: request.projectKey ? this._seedProviders.get(request.projectKey) : undefined });
 			this._dispatchNext();
 		});
@@ -146,7 +150,8 @@ export class AnalysisWorkerClient {
 				this._postSeed(worker, next.request.projectKey, next.request.generation, next.seedProvider);
 			}
 			this._track(requestId, next);
-			worker.postMessage({ kind: 'analyze', requestId, ...next.request } satisfies AnalysisWorkerRequest);
+			worker.postMessage({ kind: 'analyze', requestId, ...next.request,
+				...(next.cancellation ? { cancellationSignal: next.cancellation } : {}) } satisfies AnalysisWorkerRequest);
 			return true;
 		} catch (err) {
 			const pending = this._pending.get(requestId);
@@ -184,6 +189,7 @@ export class AnalysisWorkerClient {
 	}
 
 	forget(docKey: string): void {
+		this._cancelLiveDocument(docKey);
 		for (let i = this._queue.length - 1; i >= 0; i--) {
 			if (this._queue[i].request.docKey !== docKey) { continue; }
 			const queued = this._queue.splice(i, 1)[0];
@@ -193,6 +199,12 @@ export class AnalysisWorkerClient {
 		}
 		if (this._worker && !this._failed) {
 			this._worker.postMessage({ kind: 'forget', docKey } satisfies AnalysisWorkerRequest);
+		}
+	}
+
+	private _cancelLiveDocument(docKey: string): void {
+		for (const pending of this._pending.values()) {
+			if (pending.request.docKey === docKey && pending.cancellation) { Atomics.store(pending.cancellation, 0, 1); }
 		}
 	}
 
@@ -243,6 +255,15 @@ export class AnalysisWorkerClient {
 		if (worker !== this._worker) { return; }
 		const pending = this._pending.get(response.requestId);
 		if (!pending) {
+			return;
+		}
+		if (response.kind === 'cancelled' || pending.cancellation && Atomics.load(pending.cancellation, 0) !== 0) {
+			this._pending.delete(response.requestId);
+			clearTimeout(pending.watchdog);
+			const error = new Error('Analysis snapshot superseded.');
+			error.name = 'AnalysisSnapshotSuperseded';
+			pending.reject(error);
+			this._dispatchNext();
 			return;
 		}
 		if (response.kind === 'needSeed') {

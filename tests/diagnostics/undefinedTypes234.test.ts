@@ -33,6 +33,15 @@ describe('a type no referenced library holds (issue #234)', () => {
 		expect(errors('Qwerty', DEFAULT_REFERENCES, 'Private Type Qwerty\n    v As Long\nEnd Type\n')).toEqual([]);
 	});
 
+	it('includes the implicit VBA and host libraries omitted from the dir stream', () => {
+		const storedReferences = ['stdole', 'Office'];
+		for (const type of ['VbVarType', 'Collection', 'VbCompareMethod', 'XlDirection', 'Range']) {
+			expect(errors(type, storedReferences), type).toEqual([]);
+		}
+		expect(errors('Qwerty', storedReferences)).toEqual(['invalid-as-type-name']);
+		expect(errors('DataObject', storedReferences)).toEqual(['invalid-as-type-name']);
+	});
+
 	it('leaves the Scripting Runtime to missing-library-reference', () => {
 		expect(errors('Dictionary')).toEqual(['missing-library-reference']);
 	});

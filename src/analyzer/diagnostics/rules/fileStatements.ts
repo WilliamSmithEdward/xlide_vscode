@@ -39,15 +39,13 @@ import type { BodyNode, LeafStatementNode, ModuleNode, Span } from '../../parser
 import { isLeafStatement } from '../../parser/nodes';
 import { trackedLocalsNamedWhole, walkEnteringBlocks } from '../dataflow';
 import type { PushFn } from '../analysisContext';
-import { mergeOpenedFileNumbers, openedFileNumbersIn, type OpenedFileNumbers } from '../openedFileNumbers';
+import type { OpenedFileNumbers } from '../openedFileNumbers';
 import { stringLiteralValue } from '../typeInference';
 import {
 	activeModuleMembers,
 	bareAssignmentTarget,
 	blockHeaderLineSpan,
-	forEachStatement,
 	matchParenFrom,
-	statementAndBranchSpans,
 	statementTokensAfterLeadingLabel,
 	tokenName,
 	tokenText,
@@ -116,16 +114,27 @@ export function checkFileStatements(
 	mod: ModuleNode,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
-	projectOpened?: OpenedFileNumbers,
+	_projectOpened?: OpenedFileNumbers,
+	projectCallables?: Iterable<string>,
 ): void {
-	if (projectOpened) {
-		checkUnopenedNumbers(source, mod, activity, push, mergeOpenedFileNumbers([projectOpened, openedFileNumbersIn(source)]));
-	}
+	// A project index cannot prove a valid file number is unopened at runtime.
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
 		const states: FileStates = new Map();
+		const trackState = !/\bon\s+error\b/i.test(source.slice(member.span.start, member.span.end));
+		const callables = new Set([
+			...mod.members.filter(node => node.kind === 'Procedure').map(node => node.name.toLowerCase()),
+			...[...(projectCallables ?? [])].map(name => name.toLowerCase()),
+		]);
+		const mayInvoke = (toks: readonly VbaToken[]): boolean => toks.some((tok, i) => {
+			const name = tokenText(tok);
+			if (!tokenName(tok) || (name === member.name.toLowerCase() && toks[i + 1]?.rawText === '=')) { return false; }
+			if (callables.has(name)) { return true; }
+			return toks[i + 1]?.rawText === '(' && (toks[i - 1]?.rawText === '.'
+				|| (!FILE_STATE_FUNCTIONS.has(name) && !READ_ONLY_INTRINSICS.has(name) && !['freefile', 'environ', 'environ$', 'input', 'input$'].includes(name)));
+		});
 		// Under On Error Resume Next a statement that fails goes on to the
 		// next: nothing it would raise is reported (issue #682).
 		let resumeNext = false;
@@ -143,8 +152,24 @@ export function checkFileStatements(
 				resumeNext = tokenText(toks[2]) === 'resume';
 				return;
 			}
+			if (!trackState) {
+				// A handled failed Open can leave an earlier mode or handle intact.
+				// Keep intrinsic argument checks, without propagating successful I/O.
+				checkStatement(node.span, toks, new Map(), push, resumeNext);
+				return;
+			}
+			if (mayInvoke(toks)) {
+				// Calls in arguments and assignments can open/close files too.
+				states.clear();
+			}
 			if (node.kind === 'Statement' && node.singleLineIfBranches) {
-				// A single-line If runs its statement on one path only.
+				markChecked(states, toks);
+				// Check each arm independently; either arm may execute but does not
+				// establish state after the branch. Cached token arrays stay immutable.
+				for (const span of node.singleLineIfBranches) {
+					const tokens = statementTokensAfterLeadingLabel(source, span);
+					checkStatement(span, tokenText(tokens[0]) === 'else' ? tokens.slice(1) : tokens, new Map(states), push, resumeNext);
+				}
 				for (const key of fileNumberKeysIn(toks)) {
 					states.delete(key);
 				}
@@ -202,76 +227,23 @@ export function checkFileStatements(
 					forgetPath(states, `path:${key}`);
 				}
 			},
-			touches: (stmt) => fileKeysTouchedBy(source, stmt),
+			touches: (stmt) => mayInvoke(statementTokensAfterLeadingLabel(source, stmt.span)) ? new Set(['*']) : fileKeysTouchedBy(source, stmt),
 			enter: (node) => {
 				// `Do Until EOF(f)` checks before its body reads.
 				const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span));
+				if (mayInvoke(header)) { states.clear(); }
 				markChecked(states, header);
 				// A condition may test the path: `If Len(Dir(p)) > 0 Then Kill p`.
 				forgetPathsNamedIn(states, header);
 				if (node.kind === 'IfBlock') {
 					for (const branch of node.branches) {
-						forgetPathsNamedIn(states, statementTokensAfterLeadingLabel(source, branch.headerSpan));
+						const branchTokens = statementTokensAfterLeadingLabel(source, branch.headerSpan);
+						if (mayInvoke(branchTokens)) { states.clear(); }
+						forgetPathsNamedIn(states, branchTokens);
 					}
 				}
 			},
 		});
-	}
-}
-
-/** File statements that raise 52 on a number nothing opened; Close runs (issue #419). */
-const NUMBERED_STATEMENTS: ReadonlySet<string> = new Set(['print', 'write', 'input', 'line', 'get', 'put', 'seek', 'lock', 'unlock', 'width']);
-
-/**
- * A literal file number no Open in the project names, while none names a
- * variable or FreeFile: `Print #1, "x"` and `EOF(1)` raise 52, "Bad file
- * name or number", wherever they run (issue #419, measured in Excel 16.0).
- * The project's Opens come from the index, and this module's from its text
- * as it stands.
- */
-function checkUnopenedNumbers(source: string, mod: ModuleNode, activity: ConditionalActivityTracker | undefined, push: PushFn, opened: OpenedFileNumbers): void {
-	if (opened.any) {
-		return;
-	}
-	const unopened = (tok: VbaToken | undefined): number | undefined => {
-		const value = tok?.kind === 'integerLiteral' && /^\d+$/.test(tok.rawText) ? Number(tok.rawText) : undefined;
-		return value !== undefined && value >= 1 && value <= MAX_FILE_NUMBER && !opened.numbers.has(value) ? value : undefined;
-	};
-	const report = (base: Span, tok: VbaToken, value: number): void => {
-		push('fileNumberZero', `File number ${value} is opened by no Open statement in this project, so nothing can be open on it. This will raise Run-time error '52': Bad file name or number.`, { start: base.start + tok.start, end: base.start + tok.end });
-	};
-	for (const member of activeModuleMembers(mod, activity)) {
-		if (member.kind !== 'Procedure') {
-			continue;
-		}
-		forEachStatement(member.body, (stmt) => {
-			for (const span of statementAndBranchSpans(stmt)) {
-				const toks = statementTokensAfterLeadingLabel(source, span).filter((tok) => tokenText(tok) !== 'else');
-				const head = tokenText(toks[0]);
-				const numberAt = head === 'line' ? (tokenText(toks[1]) === 'input' ? 2 : -1) : NUMBERED_STATEMENTS.has(head) ? 1 : -1;
-				if (numberAt > 0 && toks[numberAt]?.rawText === '#') {
-					const value = unopened(toks[numberAt + 1]);
-					if (value !== undefined) {
-						report(span, toks[numberAt + 1], value);
-						continue;
-					}
-				}
-				// `EOF(1)`, `LOF(1)`, `Input(1, #1)`.
-				for (let i = 0; i + 2 < toks.length; i++) {
-					const name = tokenText(toks[i]);
-					if (toks[i + 1].rawText !== '(' || toks[i - 1]?.rawText === '.') {
-						continue;
-					}
-					const number = FILE_STATE_FUNCTIONS.has(name) ? toks[i + 2]
-						: name === 'input' && toks[i + 3]?.rawText === ',' && toks[i + 4]?.rawText === '#' ? toks[i + 5]
-						: undefined;
-					const value = toks[toks.indexOf(number!) + 1]?.rawText === ')' || toks[toks.indexOf(number!) + 1]?.rawText === ',' ? unopened(number) : undefined;
-					if (value !== undefined) {
-						report(span, number!, value);
-					}
-				}
-			}
-		}, activity);
 	}
 }
 

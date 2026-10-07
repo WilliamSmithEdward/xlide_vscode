@@ -176,6 +176,7 @@ export function checkObjectVariableNotSet(
 	memberCtx: MemberCompletionContext,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	procedureFilter?: (member: ProcedureNode) => boolean,
 ): void {
 	const defaultQueries = createObjectDefaultQueries(memberCtx);
 	const resolveObjectType = defaultQueries.resolveType;
@@ -186,6 +187,7 @@ export function checkObjectVariableNotSet(
 			&& resolveObjectType(member.returnType) !== undefined)
 		.map((member) => [member.name.toLowerCase(), member]));
 	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'Procedure' && procedureFilter && !procedureFilter(member)) { continue; }
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
@@ -1456,6 +1458,18 @@ const OBJECT_READ_ONLY_INTRINSICS: ReadonlySet<string> = new Set([
 	'typename', 'vartype', 'isobject', 'isnull', 'isempty', 'ismissing', 'objptr',
 ]);
 
+const MODULE_OBJECT_VARIABLE_CANDIDATES = new WeakMap<ReturnType<typeof buildModuleSymbols>, readonly VbaSymbol[]>();
+
+function moduleObjectVariableCandidates(symbols: ReturnType<typeof buildModuleSymbols>): readonly VbaSymbol[] {
+	let candidates = MODULE_OBJECT_VARIABLE_CANDIDATES.get(symbols);
+	if (!candidates) {
+		candidates = (symbols.root.children ?? []).filter(child =>
+			child.kind === 'moduleVariable' && !child.isArray && !child.isAutoInstantiated && !!child.asType);
+		MODULE_OBJECT_VARIABLE_CANDIDATES.set(symbols, candidates);
+	}
+	return candidates;
+}
+
 function localObjectVariablesFor(
 	source: string,
 	symbols: ReturnType<typeof buildModuleSymbols>,
@@ -1496,7 +1510,11 @@ function localObjectVariablesFor(
 	}
 	// A Variant is followed only where the procedure sets it to Nothing.
 	const text = source.slice(proc.span.start, proc.span.end);
-	for (const child of procSym?.children ?? []) {
+	// Avoid constructing a per-variable regex when the required Set or
+	// Nothing-assignment text is absent. These are necessary
+	// conditions only; candidate names still use the original exact check.
+	const setsNothing = /\bset\s+/i.test(text) && /=\s*nothing\b/i.test(text);
+	for (const child of setsNothing ? (procSym?.children ?? []) : []) {
 		const type = normalizeType(child.asType);
 		if (child.kind === 'localVariable' && child.visibility !== 'Static' && !child.isArray && (type === undefined || type === 'variant')
 			&& new RegExp(`\\bset\\s+${child.name}\\s*=\\s*nothing\\b`, 'i').test(text)) {
@@ -1506,8 +1524,8 @@ function localObjectVariablesFor(
 	// A module's object variable, where the procedure sets it to Nothing and
 	// no local or parameter hides it (issue #618, measured in Excel 16.0).
 	const hidden = new Set([...(procSym?.children ?? []).map((child) => child.name.toLowerCase()), proc.name.toLowerCase()]);
-	for (const child of symbols.root.children ?? []) {
-		if (child.kind === 'moduleVariable' && !child.isArray && !child.isAutoInstantiated && !hidden.has(child.name.toLowerCase()) && child.asType
+	for (const child of setsNothing ? moduleObjectVariableCandidates(symbols) : []) {
+		if (!hidden.has(child.name.toLowerCase()) && child.asType
 			&& resolveObjectType(child.asType) !== undefined && new RegExp(`\\bset\\s+${child.name}\\s*=\\s*nothing\\b`, 'i').test(text)) {
 			out.set(child.name.toLowerCase(), { name: child.name, asType: child.asType, module: true });
 		}

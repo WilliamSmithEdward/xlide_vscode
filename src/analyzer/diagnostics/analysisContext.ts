@@ -150,6 +150,8 @@ export interface AnalysisFailure {
 }
 
 export interface AnalyzeModuleOptions {
+	/** Editor's early pass: all rules whose effective severity is error. */
+	errorsOnly?: boolean;
 	/** VB component name (used only for symbol container labels). */
 	moduleName?: string;
 	/** Workbook-project role of the module. */
@@ -263,12 +265,11 @@ export interface AnalyzeModuleOptions {
 	projectNameMentions?: ReadonlyMap<string, number>;
 	/**
 	 * The sheets of the workbook the project lives in, as saved, in tab order
-	 * (issue #229). `ThisWorkbook.Sheets("name")` and `(index)` are checked
-	 * against them, and only when `projectSheetChanges` says no code in the
-	 * project could have made the sheet. Absent for anything but an Excel file.
+	 * (issue #229). Retained as project metadata; these are not runtime facts
+	 * and must not drive missing-sheet diagnostics. Absent outside Excel files.
 	 */
 	workbookSheets?: readonly WorkbookSheetInfo[];
-	/** What the project's code may do to the workbook's sheets (ProjectIndex.sheetChanges). */
+	/** Project sheet-operation metadata, not proof of runtime collection contents. */
 	projectSheetChanges?: SheetChanges;
 	/** The file numbers the project's Open statements name (ProjectIndex.openedFileNumbers). */
 	projectOpenedFileNumbers?: OpenedFileNumbers;
@@ -314,6 +315,8 @@ export interface AnalyzeModuleOptions {
 	 * level bookkeeping stays identical to a full pass.
 	 */
 	walkProcedureFilter?: (member: ProcedureNode) => boolean;
+	/** Worker control flow: obsolete snapshots stop without publishing partial findings. */
+	isCancelled?: () => boolean;
 }
 
 /** The diagnostics sink every rule reports through. */

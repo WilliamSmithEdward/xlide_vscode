@@ -12,17 +12,17 @@
 // Issue #610 adds, each measured: a variable added again after its value
 // was written, or through another name for the document, `Set d2 = d`
 // (5903); a custom property named "" (-2147418113); and, on a
-// presentation the procedure made with Presentations.Add, the slides it
-// adds: each is named Slide1, Slide2 in the order it was added, so
-// `a.Name = b.Name` and `a.Name = "Slide2"` raise -2147188160, as does
-// `p.Slides(2).Name` given a name another slide has; and `p.Slides.Add 3`
-// or `a.MoveTo 2` past the count raise -2147188160 too.
+// presentation the procedure made with Presentations.Add. Default names,
+// index order and positive bounds are not inferred: new-slide events can
+// change them before Add returns.
 //
 // What is known is followed in a straight line. Any other mention of the
 // document or slide variable, a label, a block or a call into the
 // project's own code ends it.
 
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
+import type { MemberCompletionContext } from '../../completion/memberAccess';
+import { resolveReceiverTypeAt } from '../../completion/memberAccess';
 import { statementLabelDeclaration } from '../../flow/procedureLabels';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type { BodyNode, ModuleNode } from '../../parser/nodes';
@@ -50,14 +50,6 @@ const WORD_NAMED: ReadonlyMap<string, { error: string; noun: string }> = new Map
 /** The state key of a slide the procedure added; a variable name holds no `#`. */
 const SLIDE = '#slide:';
 
-/** A presentation the procedure made, and the slides it holds, in order. */
-interface PresentationState {
-	/** Slide state keys in order; undefined for a slide not followed. */
-	order: (string | undefined)[];
-	/** How many slides were added, which numbers the next default name. */
-	added: number;
-}
-
 export function checkDocumentNames(
 	source: string,
 	mod: ModuleNode,
@@ -65,6 +57,7 @@ export function checkDocumentNames(
 	callables: ReadonlySet<string>,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	memberCtx: MemberCompletionContext,
 ): void {
 	if (host !== 'Word' && host !== 'PowerPoint') {
 		return;
@@ -73,12 +66,19 @@ export function checkDocumentNames(
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
+		// Failed mutations can be skipped by an error handler.
+		if (/\bon\s+error\b/i.test(source.slice(member.span.start, member.span.end))) { continue; }
 		// `d.variables` -> the names added; `#slide:a` -> the name slide a was given ('' none).
 		const state = new Map<string, Set<string>>();
 		// By presentation variable (issue #610).
-		const presentations = new Map<string, PresentationState>();
+		const presentations = new Set<string>();
 		// The presentation each followed slide is in, by slide state key.
 		const slideIn = new Map<string, string>();
+		const forgetAll = (): void => {
+			state.clear();
+			presentations.clear();
+			slideIn.clear();
+		};
 		const forget = (names: Iterable<string>): void => {
 			const gone = new Set(names);
 			for (const key of [...state.keys()]) {
@@ -92,11 +92,10 @@ export function checkDocumentNames(
 				presentations.delete(lower);
 			}
 		};
-		// The slide `p.Slides(2)` names, by its state key, or undefined.
-		const slideAt = (pres: string, index: number): string | undefined => presentations.get(pres)?.order[index - 1];
-		// A name another followed slide holds, in any case: its variable.
+		// Duplicate names require fixed slides in the same known presentation.
 		const holder = (key: string, lower: string): string | undefined => [...state]
-			.find(([other, held]) => other.startsWith(SLIDE) && other !== key && held.has(lower))?.[0].slice(SLIDE.length);
+			.find(([other, held]) => other.startsWith(SLIDE) && other !== key
+				&& slideIn.has(key) && slideIn.get(other) === slideIn.get(key) && held.has(lower))?.[0].slice(SLIDE.length);
 		const nameSlide = (key: string, name: string, nameAt: VbaToken, at: (tok: VbaToken) => { start: number; end: number }): void => {
 			const lower = name.toLowerCase();
 			const taken = holder(key, lower);
@@ -106,26 +105,13 @@ export function checkDocumentNames(
 			}
 			state.set(key, new Set([lower]));
 		};
-		// `Slides.Add(i, ...)` on a presentation the procedure made: a new
-		// slide at i, named Slide<n> by the order it was added.
-		const addSlide = (pres: string, index: number | undefined, key: string, indexAt: VbaToken | undefined, at: (tok: VbaToken) => { start: number; end: number }): void => {
-			const held = presentations.get(pres);
-			if (!held) {
-				return;
+		// New-slide events can change names and order before Add returns.
+		const addSlide = (pres: string | undefined, key: string): void => {
+			for (const [other] of state) {
+				if (other.startsWith(SLIDE)) { state.set(other, new Set()); }
 			}
-			if (index === undefined || index < 1) {
-				presentations.delete(pres);
-				return;
-			}
-			if (index > held.order.length + 1) {
-				push('hostArgumentOutOfRange', `'${pres}' holds ${held.order.length} slide${held.order.length === 1 ? '' : 's'}, so a new one goes at 1 to ${held.order.length + 1}; ${index} is past that. This will raise Run-time error '-2147188160': Integer out of range.`, at(indexAt!));
-				presentations.delete(pres);
-				return;
-			}
-			held.added++;
-			held.order.splice(index - 1, 0, key);
-			state.set(key, new Set([`slide${held.added}`]));
-			slideIn.set(key, pres);
+			state.set(key, new Set());
+			if (pres && presentations.has(pres)) { slideIn.set(key, pres); }
 		};
 		const visit = (node: BodyNode): void => {
 			if (!isLeafStatement(node)) {
@@ -134,19 +120,29 @@ export function checkDocumentNames(
 			const toks = statementTokensAfterLeadingLabel(source, node.span);
 			if (statementLabelDeclaration(source, node.span) || tokenText(toks[0]) === 'gosub'
 				|| toks.some((tok) => tokenName(tok) !== undefined && callables.has(tokenText(tok)))) {
-				state.clear();
+				forgetAll();
 			}
 			if (node.kind === 'Statement' && node.singleLineIfBranches) {
-				forget(namesIn(source, node.span));
+				forgetAll();
 				return;
 			}
 			const at = (tok: VbaToken) => ({ start: node.span.start + tok.start, end: node.span.start + tok.end });
 			if (host === 'Word') {
-				const add = wordAdd(toks);
+				const candidate = wordAdd(toks);
+				const collection = toks.findIndex(tok => WORD_NAMED.has(tokenText(tok)));
+				const actualDocument = collection > 0 && resolveReceiverTypeAt(source, node.span.start + toks[collection - 1].end, memberCtx) === 'Word.Document';
+				const add = actualDocument ? candidate : undefined;
 				if (add && add.name === '' && add.key.endsWith('.customdocumentproperties')) {
 					push('hostArgumentOutOfRange', `A custom property needs a name, and "" is none. This will raise Run-time error '-2147418113': Automation error.`, at(add.nameToken));
 				}
 				if (add) {
+					// Arguments can invoke helpers/getters before Add runs.
+					const addIndex = toks.findIndex(tok => tokenText(tok) === 'add');
+					if (toks.slice(addIndex + 1).some((tok, i, args) => tok.kind === 'identifier' && args[i + 1]?.rawText !== ':='
+						&& !['msopropertytypeboolean', 'msopropertytypedate', 'msopropertytypefloat', 'msopropertytypenumber', 'msopropertytypestring'].includes(tokenText(tok)))) {
+						forgetAll();
+						return;
+					}
 					const held = state.get(add.key) ?? new Set<string>();
 					const name = add.name.toLowerCase();
 					if (held.has(name)) {
@@ -162,6 +158,8 @@ export function checkDocumentNames(
 				// `.Delete` takes the name out (issue #610).
 				const use = variableUse(toks);
 				if (use && state.has(use.key)) {
+					const eq = toks.findIndex(tok => tok.rawText === '=');
+					if (eq >= 0 && toks.slice(eq + 1).some(tok => tok.kind === 'identifier')) { forgetAll(); return; }
 					if (use.deletes) {
 						state.get(use.key)!.delete(use.name);
 					}
@@ -185,18 +183,15 @@ export function checkDocumentNames(
 					state.set(key, held);
 					state.set(lower + key.slice(alias!.length), held);
 				}
-				if (host === 'PowerPoint' && call > 0 && value[call + 1]?.rawText === '(' && matchParenFrom(value, call + 1) === value.length - 1) {
-					state.set(SLIDE + lower, new Set());
-					// `p.Slides.Add(1, ...)` on a presentation the procedure made.
-					if (pres && presentations.has(pres)) {
-						const index = value[call + 2];
-						addSlide(pres, index?.kind === 'integerLiteral' ? Number(index.rawText) : undefined, SLIDE + lower, index, at);
-					}
+				if (host === 'PowerPoint' && call > 0 && value[call + 1]?.rawText === '(' && matchParenFrom(value, call + 1) === value.length - 1
+					&& resolveReceiverTypeAt(source, node.span.start + value[call - 1].end, memberCtx) === 'PowerPoint.Slides') {
+					addSlide(pres, SLIDE + lower);
 				}
 				// `Set p = Presentations.Add(...)`: a new presentation, no slides.
 				if (host === 'PowerPoint' && tokenText(value[0]) === 'presentations' && value[1]?.rawText === '.' && tokenText(value[2]) === 'add'
+					&& resolveReceiverTypeAt(source, node.span.start + value[1].end, memberCtx) === 'PowerPoint.Presentations'
 					&& (value.length === 3 || (value[3]?.rawText === '(' && matchParenFrom(value, 3) === value.length - 1))) {
-					presentations.set(lower, { order: [], added: 0 });
+					presentations.add(lower);
 				}
 				return;
 			}
@@ -204,27 +199,10 @@ export function checkDocumentNames(
 				// `p.Slides.Add 3, ppLayoutBlank` as a statement.
 				const pres = tokenName(toks[0])?.toLowerCase();
 				if (pres && presentations.has(pres) && toks[1]?.rawText === '.' && tokenText(toks[2]) === 'slides' && toks[3]?.rawText === '.' && tokenText(toks[4]) === 'add' && toks[5]?.rawText !== '(') {
-					const index = toks[5];
-					addSlide(pres, index?.kind === 'integerLiteral' ? Number(index.rawText) : undefined, `${SLIDE}#${node.span.start}`, index, at);
+					addSlide(pres, `${SLIDE}#${node.span.start}`);
 					return;
 				}
-				// `p.Slides(2).Name = "zq"`.
-				if (pres && presentations.has(pres) && toks[1]?.rawText === '.' && tokenText(toks[2]) === 'slides' && toks[3]?.rawText === '(' && toks[4]?.kind === 'integerLiteral' && toks[5]?.rawText === ')'
-					&& toks[6]?.rawText === '.' && tokenText(toks[7]) === 'name' && toks[8]?.rawText === '=' && toks.length === 10 && toks[9].kind === 'stringLiteral') {
-					const key = slideAt(pres, Number(toks[4].rawText));
-					if (key) {
-						nameSlide(key, stringLiteralValue(toks[9].rawText), toks[9], at);
-						return;
-					}
-				}
-				// `a.MoveTo 2` past the slides of the presentation a is in.
-				const moved = tokenName(toks[0])?.toLowerCase();
-				const movedIn = moved ? slideIn.get(SLIDE + moved) : undefined;
-				const count = movedIn ? presentations.get(movedIn)?.order.length : undefined;
-				if (count !== undefined && toks[1]?.rawText === '.' && tokenText(toks[2]) === 'moveto' && toks.length === 4 && toks[3].kind === 'integerLiteral' && Number(toks[3].rawText) > count) {
-					push('hostArgumentOutOfRange', `'${movedIn}' holds ${count} slide${count === 1 ? '' : 's'}, so ${toks[3].rawText} is past the last. This will raise Run-time error '-2147188160': Integer out of range.`, at(toks[3]));
-					return;
-				}
+
 			}
 			// `a.Name = "Zq"` or `a.Name = b.Name` on a slide the procedure added.
 			const slide = toks[1]?.rawText === '.' && tokenText(toks[2]) === 'name' && toks[3]?.rawText === '=' ? tokenName(toks[0])?.toLowerCase() : undefined;
@@ -239,7 +217,7 @@ export function checkDocumentNames(
 				}
 				return;
 			}
-			forget(namesIn(source, node.span));
+			forgetAll();
 		};
 		walkEnteringBlocks(source, member.body, (node) => activity?.isInactive(node.span) === true, visit, {
 			// A block forgets the presentations; what it names it forgets too.
@@ -252,7 +230,7 @@ export function checkDocumentNames(
 				}
 			},
 			forget,
-			touches: (stmt) => namesIn(source, stmt.span),
+			touches: (stmt) => new Set([...namesIn(source, stmt.span), ...presentations.keys(), ...[...state.keys()].map(key => key.startsWith(SLIDE) ? key.slice(SLIDE.length) : key.split('.')[0])]),
 		});
 	}
 }

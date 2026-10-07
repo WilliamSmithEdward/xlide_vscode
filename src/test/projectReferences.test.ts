@@ -76,6 +76,29 @@ suite('Project references', () => {
 		);
 	});
 
+	test('offers the Scripting Runtime fix for a Dictionary diagnostic and clears it', async () => {
+		const moduleName = 'DictionaryProbe';
+		writeModule(probe, moduleName, 'Option Explicit\r\nPrivate values As New Dictionary\r\n', 'standard');
+		const document = await open(encodeModuleUri(probe, moduleName));
+		const diagnostic = await until(
+			() => vscode.languages.getDiagnostics(document.uri).find((one) => one.code === 'missing-library-reference'),
+			'the missing Scripting reference should be reported',
+		);
+		const actions = await vscode.commands.executeCommand<vscode.CodeAction[]>(
+			'vscode.executeCodeActionProvider', document.uri, diagnostic.range, vscode.CodeActionKind.QuickFix.value,
+		) ?? [];
+		const fix = actions.find((one) => one.title === 'Add a reference to Microsoft Scripting Runtime');
+		assert.ok(fix?.command, `quick fixes offered: ${actions.map((one) => one.title).join(', ')}`);
+		assert.equal(fix.isPreferred, true);
+		assert.deepEqual(fix.command.arguments, [probe, 'scripting']);
+		await vscode.commands.executeCommand(fix.command.command, ...fix.command.arguments ?? []);
+		assert.ok(listReferences(probe).some((one) => one.name === 'Scripting'));
+		await until(
+			() => vscode.languages.getDiagnostics(document.uri).every((one) => one.code !== 'missing-library-reference') || undefined,
+			'the Scripting reference finding should clear',
+		);
+	});
+
 	test('removes a reference again, through the command the tree calls', async () => {
 		// PowerPoint, which nothing in the probe names: the command warns
 		// before it takes a library the code still uses, and a modal has

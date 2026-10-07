@@ -13,7 +13,7 @@
 //    end of statement". In a one-line If's Then or Else list it is a comment.
 
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
-import type { ModuleNode, Span } from '../../parser/nodes';
+import type { ModuleNode, ProcedureNode, Span } from '../../parser/nodes';
 import { isDecimalLineNumber } from '../../lexer/tokenHelpers';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import { tokenizeCached } from '../../lexer/tokenize';
@@ -48,6 +48,7 @@ export function checkStatementForms(
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 	memberCtx: MemberCompletionContext = {},
+	procedureFilter?: (member: ProcedureNode) => boolean,
 ): void {
 	checkRemPlacement(source, mod, activity, push);
 	// The project's other standard modules, and the names this module declares.
@@ -129,6 +130,7 @@ export function checkStatementForms(
 		return false;
 	};
 	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'Procedure' && procedureFilter && !procedureFilter(member)) { continue; }
 		if (member.kind !== 'Procedure') {
 			continue;
 		}

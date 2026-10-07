@@ -80,7 +80,7 @@ describe('XLIDE agent tool manifest', () => {
         }));
         expect(tool?.inputSchema?.required).toEqual(['filePath', 'library']);
         expect((tool?.inputSchema?.properties?.library as { enum?: string[] })?.enum)
-            .toEqual(['excel', 'word', 'powerpoint', 'access']);
+            .toEqual(['excel', 'word', 'powerpoint', 'access', 'scripting']);
         // Late binding needs no reference, and an agent that adds one for code
         // that would run without it has changed the project for nothing.
         expect(tool?.modelDescription).toContain('Late binding');

@@ -13,9 +13,9 @@
 //
 // Pure analyzer code: no `vscode` dependency.
 
-import { tokenizeCached } from '../lexer/tokenize';
 import { isIdentLike } from '../lexer/tokenHelpers';
-import { getHostEnumMembers, resolveHostEnum } from '../host/hostModel';
+import { completionCursorContext } from './cursorContext';
+import { resolveEnumValues } from './assignmentValueCompletion';
 import type { HostConstant } from '../host/excelObjectModel';
 import { resolveSignatureHelp, type SignatureHelpContext } from '../signature/signatureHelp';
 
@@ -35,7 +35,7 @@ export interface ArgumentValueCompletion {
 
 /** Type name from a parameter label: "Type As XlLinkType" -> "XlLinkType". */
 function parameterTypeName(label: string): string | undefined {
-	return label.replace(/[[\]]/g, '').trim().match(/\bAs\s+([A-Za-z_][A-Za-z0-9_.]*)$/)?.[1];
+	return label.replace(/[[\]]/g, '').trim().match(/\bAs\s+([\p{L}_][\p{L}\p{M}\p{N}_.]*)(?:\s*=.*)?$/u)?.[1];
 }
 
 /**
@@ -44,14 +44,12 @@ function parameterTypeName(label: string): string | undefined {
  * tip's active parameter.
  */
 function namedArgumentAt(source: string, offset: number): string | undefined {
-	const tokens = tokenizeCached(source);
+	const cursor = completionCursorContext(source, offset);
+	const tokens = cursor.significantTokens;
 	// Last two significant tokens ending at or before the caret, skipping the
 	// partial value already typed.
 	let i = tokens.length - 1;
-	while (i >= 0 && tokens[i].start >= offset) {
-		i -= 1;
-	}
-	if (i >= 0 && isIdentLike(tokens[i]) && tokens[i].end <= offset) {
+	if (cursor.partialToken) {
 		i -= 1;   // a value being typed: `Type:=xlLink`
 	}
 	if (i < 1 || tokens[i].rawText !== ':=') {
@@ -94,12 +92,6 @@ export function resolveArgumentValueCompletion(
 	if (!typeName) {
 		return undefined;
 	}
-	const hostEnum = resolveHostEnum(typeName, ctx.model);
-	if (!hostEnum) {
-		return undefined;
-	}
-	const constants = getHostEnumMembers(hostEnum.displayName, ctx.model);
-	return constants.length > 0
-		? { enumName: hostEnum.displayName, constants, parameter: label }
-		: undefined;
+	const values = resolveEnumValues(source, typeName, ctx);
+	return values ? { ...values, parameter: label } : undefined;
 }

@@ -65,6 +65,9 @@ export type AnalysisWorkerRequest =
 	}
 	| {
 		kind: 'analyze';
+		errorsOnly?: boolean;
+		/** Shared atomic flag; nonzero asks a live snapshot to stop cooperatively. */
+		cancellationSignal?: Int32Array;
 		requestId: number;
 		docKey: string;
 		/** Present for project-backed modules; undefined analyzes standalone. */
@@ -114,6 +117,7 @@ export type AnalysisWorkerRequest =
 	| { kind: 'forget'; docKey: string };
 
 export type AnalysisWorkerResponse =
+	| { kind: 'cancelled'; requestId: number; docKey: string }
 	| {
 		kind: 'result';
 		requestId: number;

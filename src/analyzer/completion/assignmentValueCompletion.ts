@@ -3,7 +3,7 @@ import { completionLineCursorContext } from './cursorContext';
 import { resolveMemberCompletionNamed, type MemberCompletionContext } from './memberAccess';
 import { resolveExpressionType, resolveSourceAssignmentBindingAt } from '../expression/resolveExpressionType';
 import { getHostEnumMembers, getHostType, hostDisplayName, resolveHostEnum } from '../host/hostModel';
-import { resolveRuntimeFunction, resolveVbaLibraryQualifier } from '../runtime/vbaRuntime';
+import { VBA_RUNTIME_CONSTANTS, resolveRuntimeFunction, resolveVbaLibraryQualifier } from '../runtime/vbaRuntime';
 import type { ArgumentValueCompletion } from './argumentValueCompletion';
 import type { VbaToken } from '../lexer/tokenKinds';
 import { editorModuleSymbols } from '../symbols/editorModuleSymbols';
@@ -29,6 +29,7 @@ const PROPERTY_VALUE_ENUMS: Readonly<Record<string, string>> = {
 	'excel.border.linestyle': 'XlLineStyle',
 	'excel.border.weight': 'XlBorderWeight',
 	'excel.interior.pattern': 'XlPattern',
+	'excel.interior.colorindex': 'XlColorIndex',
 };
 
 /** Assignment target when the caret follows `=` and at most a partial value. */
@@ -88,6 +89,10 @@ export function resolveAssignmentValueCompletion(
 		?? member?.writeType ?? member?.declaredType ?? sourceType ?? resolveExpressionType(
 			source, { start: target[0].start, end: last.end }, expressionCtx,
 		)?.type;
+	if (isColorAssignmentTarget(target) && (!type || /^(Variant|Long|OLE_COLOR|stdole\.OLE_COLOR)$/i.test(type))) {
+  return { enumName: 'ColorConstants', parameter: last.rawText,
+   constants: VBA_RUNTIME_CONSTANTS.filter(c => c.module === 'ColorConstants'), origin: 'runtime', qualifiedEnumName: 'VBA.ColorConstants' };
+ }
 	if (!type) { return undefined; }
 	const ownerModule = sourceOwner ?? (member && ctx.projectClassMembers?.find(surface =>
 		surface.name.toLowerCase() === member.owner.toLowerCase() || surface.moduleName.toLowerCase() === member.owner.toLowerCase())?.moduleName);
@@ -164,4 +169,8 @@ function libraryEnumValues(type: string, ctx: AssignmentValueCompletionContext):
 	const constants = getHostEnumMembers(enumeration.displayName, ctx.model);
 	return constants.length ? { enumName: enumeration.displayName, constants, origin: 'host',
 		qualifiedEnumName: `${enumeration.library ?? hostDisplayName(ctx.model)}.${enumeration.displayName}` } : undefined;
+}
+
+export function isColorAssignmentTarget(tokens: readonly VbaToken[]): boolean {
+ return tokens.at(-2)?.rawText === '.' && /^(Color|BackColor|ForeColor|FillColor|BorderColor)$/i.test(tokenName(tokens.at(-1)!) ?? '');
 }

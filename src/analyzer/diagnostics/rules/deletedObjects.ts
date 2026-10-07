@@ -20,9 +20,10 @@
 // Only a straight run of a procedure's statements is followed: a block that
 // names a variable ends what is known of it.
 
+import { lineIndexOf, lineStartOffsets } from '../../../vbaSourceScan';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import type { VbaToken } from '../../lexer/tokenKinds';
-import type { BodyNode, ModuleNode } from '../../parser/nodes';
+import type { BodyNode, ModuleNode , ProcedureNode } from '../../parser/nodes';
 import { isLeafStatement } from '../../parser/nodes';
 import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
@@ -30,16 +31,18 @@ import { normalizeType } from '../typeInference';
 import { statementLabelDeclaration } from '../../flow/procedureLabels';
 import { activeModuleMembers, isInactiveNode, matchParenFrom, statementTokensAfterLeadingLabel, tokenName, tokenText } from '../walker';
 
-/** What deletes or closes each type, and what a member of it then raises. */
-const ENDINGS: Readonly<Record<string, { verb: string; error: string }>> = {
-	worksheet: { verb: 'delete', error: "'-2147221080': Method 'MEMBER' of object '_Worksheet' failed" },
-	workbook: { verb: 'close', error: "'-2147221080': Method 'MEMBER' of object '_Workbook' failed" },
+/** What a successful deletion/closure raises. Cancellable operations cannot
+ * establish ended-object state: Excel prompts and Office BeforeClose events
+ * can leave the object alive without raising an error. */
+const ENDINGS: Readonly<Record<string, { verb: string; error: string; cancellable?: boolean }>> = {
+	worksheet: { cancellable: true, verb: 'delete', error: "'-2147221080': Method 'MEMBER' of object '_Worksheet' failed" },
+	workbook: { cancellable: true, verb: 'close', error: "'-2147221080': Method 'MEMBER' of object '_Workbook' failed" },
 	shape: { verb: 'delete', error: "'424': Object required" },
 	name: { verb: 'delete', error: "'424': Object required" },
 	listobject: { verb: 'unlist', error: "'1004': Application-defined or object-defined error" },
 	// Word and PowerPoint (issue #683, measured in Word and PowerPoint 16.0).
-	document: { verb: 'close', error: "'5825': Object has been deleted" },
-	presentation: { verb: 'close', error: "'-2147188720': Presentation (unknown member) : Object does not exist" },
+	document: { cancellable: true, verb: 'close', error: "'5825': Object has been deleted" },
+	presentation: { cancellable: true, verb: 'close', error: "'-2147188720': Presentation (unknown member) : Object does not exist" },
 	slide: { verb: 'delete', error: "'-2147188720': Slide (unknown member) : Object does not exist" },
 };
 
@@ -98,11 +101,20 @@ export function checkDeletedObjects(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	procedureFilter?: (member: ProcedureNode) => boolean,
 ): void {
+	// Build only when a delete/close actually needs a location. Recounting the
+	// entire source prefix for every statement was quadratic on large modules.
+	let lineStarts: number[] | undefined;
 	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'Procedure' && procedureFilter && !procedureFilter(member)) { continue; }
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
+		// Delete/Close/Unlist may fail and execution may continue in a handler.
+		// Until successful mutations are tracked through error flow, infer no
+		// ended-object state in procedures that install an error handler.
+		if (/\bon\s+error\b/i.test(source.slice(member.span.start, member.span.end))) { continue; }
 		const locals = (procedureSymbolFor(symbols, member)?.children ?? []).filter((child) => child.kind === 'localVariable' && child.visibility !== 'Static');
 		const typeOf = new Map(locals.filter((child) => !child.isArray).map((child) => [child.name.toLowerCase(), normalizeType(child.asType) ?? 'variant']));
 		if (![...typeOf.values()].some((type) => ENDINGS[type] || type === 'range' || type === 'variant')) {
@@ -140,7 +152,6 @@ export function checkDeletedObjects(
 					rangesOf.clear();
 				}
 				const toks = statementTokensAfterLeadingLabel(source, node.span);
-				const line = source.slice(0, node.span.start).split('\n').length;
 				const head = tokenText(toks[0]);
 				// `Set x = ...` gives x a new object.
 				if (head === 'set' && tokenName(toks[1]) && toks[2]?.rawText === '=') {
@@ -158,7 +169,8 @@ export function checkDeletedObjects(
 				// `ws.Delete`, `wb.Close False`, `lo.Unlist`.
 				const subject = tokenName(toks[0])?.toLowerCase();
 				const ending = subject ? ENDINGS[typeOf.get(subject) ?? ''] : undefined;
-				if (subject && ending && toks[1]?.rawText === '.' && tokenText(toks[2]) === ending.verb && (toks.length === 3 || ending.verb === 'close')) {
+				if (subject && ending && !ending.cancellable && toks[1]?.rawText === '.' && tokenText(toks[2]) === ending.verb && (toks.length === 3 || ending.verb === 'close')) {
+					const line = lineIndexOf(lineStarts ??= lineStartOffsets(source), node.span.start) + 1;
 					const how = `${ending.verb === 'close' ? 'closed' : ending.verb === 'unlist' ? 'unlisted' : 'deleted'} on line ${line}`;
 					ended.set(subject, { how, error: ending.error });
 					// What was taken from it, and from that in turn: a sheet of a
@@ -173,6 +185,17 @@ export function checkDeletedObjects(
 					};
 					endFrom(subject, toks[0].rawText);
 					continue;
+				}
+				// Bare call arguments can be rebound ByRef, including the first
+				// argument (`Restore n`). Forget them before inspecting uses.
+				for (let i = 0; i < toks.length; i++) {
+					const lower = tokenName(toks[i])?.toLowerCase();
+					const firstArg = i === 1 || (i === 2 && head === 'call');
+					if (lower && (toks[i - 1]?.rawText === '(' || toks[i - 1]?.rawText === ',' || (firstArg && toks[i - 1]?.kind === 'identifier'))
+						&& (toks[i + 1]?.rawText === ')' || toks[i + 1]?.rawText === ',' || !toks[i + 1])) {
+						forget(lower);
+						rangesOf.delete(lower);
+					}
 				}
 				report(toks, node.span.start, ended, push);
 				// What the statement assigns or passes whole is no longer known.

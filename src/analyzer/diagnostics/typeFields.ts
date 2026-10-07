@@ -117,31 +117,37 @@ function constantDimensions(bounds: readonly VbaToken[], constants: IntegerConst
 	return out.length > 0 ? out : undefined;
 }
 
-const VARIABLES = new WeakMap<ReturnType<typeof buildModuleSymbols>, Map<ProcedureNode, Map<string, VbaSymbol | undefined>>>();
+const VARIABLES = new WeakMap<ReturnType<typeof buildModuleSymbols>, {
+	module: ReadonlyMap<string, VbaSymbol>;
+	procedures: WeakMap<ProcedureNode, ReadonlyMap<string, VbaSymbol | undefined>>;
+}>();
 
 /** The variable a name means inside a procedure: a parameter or local first, then a module variable. */
 export function variableSymbolIn(symbols: ReturnType<typeof buildModuleSymbols>, proc: ProcedureNode, lower: string): VbaSymbol | undefined {
-	let byProc = VARIABLES.get(symbols);
-	if (!byProc) {
-		byProc = new Map();
-		VARIABLES.set(symbols, byProc);
-	}
-	let names = byProc.get(proc);
-	if (!names) {
-		// Module variables first, so a parameter or local of the same name replaces one.
-		names = new Map();
+	let scopes = VARIABLES.get(symbols);
+	if (!scopes) {
+		const module = new Map<string, VbaSymbol>();
 		for (const child of symbols.root.children ?? []) {
-			if (child.kind === 'moduleVariable' && !names.has(child.name.toLowerCase())) {
-				names.set(child.name.toLowerCase(), child);
+			if (child.kind === 'moduleVariable' && !module.has(child.name.toLowerCase())) {
+				module.set(child.name.toLowerCase(), child);
 			}
 		}
+		scopes = { module, procedures: new WeakMap() };
+		VARIABLES.set(symbols, scopes);
+	}
+	let names = scopes.procedures.get(proc);
+	if (!names) {
+		// Keep only the procedure overlay; an explicit undefined shadows a
+		// module variable with a declaration that is not a variable.
+		const ownNames = new Map<string, VbaSymbol | undefined>();
 		const own = procedureSymbolFor(symbols, proc)?.children ?? [];
 		for (const child of [...own].reverse()) {
-			names.set(child.name.toLowerCase(), child.kind === 'parameter' || child.kind === 'localVariable' ? child : undefined);
+			ownNames.set(child.name.toLowerCase(), child.kind === 'parameter' || child.kind === 'localVariable' ? child : undefined);
 		}
-		byProc.set(proc, names);
+		names = ownNames;
+		scopes.procedures.set(proc, names);
 	}
-	return names.get(lower);
+	return names.has(lower) ? names.get(lower) : scopes.module.get(lower);
 }
 
 /** A value of a module Type that a chain of fields starts from. */

@@ -40,7 +40,6 @@ describe('#584: what still raises', () => {
 			[`${COLLECTION}With c\n        .Add 10\n        .Add 20\n    End With\n    Main = c(3)`, '9'],
 			[`${COLLECTION}With c\n        .Add 10, "k"\n    End With\n    Main = c("zz")`, '5'],
 			[`${COLLECTION}c.Add 10\n    c.Add 20\n    With c\n        .Remove 1\n    End With\n    Main = c(2)`, '9'],
-			['Dim w2 As Worksheet\n    Set w2 = Worksheets.Add\n    Application.DisplayAlerts = False\n    w2.Delete\n    Application.DisplayAlerts = True\n    Main = w2.Name', '-2147221080'],
 		];
 		for (const [body, error] of cases) {
 			expect(raised(body), body).toEqual([error]);

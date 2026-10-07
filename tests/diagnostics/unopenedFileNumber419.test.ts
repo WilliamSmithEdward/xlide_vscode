@@ -15,11 +15,11 @@ function errors(body: string, opened: OpenedFileNumbers | 'unknown' = NONE): str
 }
 
 describe('a file number nothing opens (issue #419)', () => {
-	it('raises 52 in every file statement and function but Close', () => {
+	it('does not infer runtime handle absence from project Open statements', () => {
 		for (const body of ['Print #1, "x"', 'Write #1, "x"', 'Dim s As String\n    Input #1, s', 'Dim s As String\n    Line Input #1, s',
 			'Dim n As Long\n    Get #1, , n', 'Dim n As Long\n    Put #1, , n', 'Seek #1, 1', 'Width #1, 10', 'Lock #1', 'Unlock #1',
 			'Main = EOF(1)', 'Main = LOF(1)', 'Main = Loc(1)', 'Main = FileAttr(1, 1)', 'Main = Seek(1)', 'Main = Input(1, #1)']) {
-			expect(errors(body), body).toEqual(['file-number-zero']);
+			expect(errors(body), body).toEqual([]);
 		}
 		expect(errors('Close #1')).toEqual([]);
 	});

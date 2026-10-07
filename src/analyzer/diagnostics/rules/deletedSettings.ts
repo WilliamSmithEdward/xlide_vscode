@@ -11,12 +11,11 @@
 // Deleting a key the code never saved raises 5 too, but the registry keeps
 // settings from earlier runs, so that is not for a static rule.
 
-import { bareCallStatementTarget } from '../../call/callContext';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import { statementLabelDeclaration } from '../../flow/procedureLabels';
 import { splitTopLevelTokenGroups } from '../../lexer/tokenHelpers';
 import type { VbaToken } from '../../lexer/tokenKinds';
-import type { BodyNode, ModuleNode } from '../../parser/nodes';
+import type { BodyNode, ModuleNode , ProcedureNode } from '../../parser/nodes';
 import { isLeafStatement } from '../../parser/nodes';
 import type { PushFn } from '../analysisContext';
 import { stringLiteralValue } from '../typeInference';
@@ -40,8 +39,10 @@ export function checkDeletedSettings(
 	mod: ModuleNode,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	procedureFilter?: (member: ProcedureNode) => boolean,
 ): void {
 	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'Procedure' && procedureFilter && !procedureFilter(member)) { continue; }
 		if (member.kind !== 'Procedure' || !/\bdeletesetting\b/i.test(source.slice(member.span.start, member.span.end))) {
 			continue;
 		}
@@ -106,10 +107,9 @@ export function checkDeletedSettings(
 					gone.add(`${app}|${section ?? '*'}|${key ?? '*'}`);
 					continue;
 				}
-				// A call may save or delete settings.
-				if (bareCallStatementTarget(source, node.span) || toks.some((tok, i) => tokenText(tok) === 'call' && i === 0)) {
-					gone.clear();
-				}
+				// Assignments, getters and expressions can invoke code that restores
+				// settings too. Keep facts only across modeled setting operations.
+				gone.clear();
 			}
 		};
 		run(member.body);

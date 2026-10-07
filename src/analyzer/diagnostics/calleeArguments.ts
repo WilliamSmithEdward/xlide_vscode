@@ -233,6 +233,14 @@ function memberCallsOn(source: string, proc: ProcedureNode, lower: string): read
 	return known ? calls : undefined;
 }
 
+/** Stable replay facts used when deciding whether an edit can affect callers. */
+export function calleeMemberCallFingerprint(source: string, name: string, index: number): string {
+	const proc = procedureNamed(source, name.toLowerCase());
+	const param = proc?.params[index];
+	const calls = proc && param ? memberCallsOn(source, proc, param.name.toLowerCase()) : undefined;
+	return JSON.stringify(calls?.map(tokens => tokens.map(token => token.rawText)) ?? null);
+}
+
 /** The member calls of the module's own callees (issue #685). */
 export function calleeMemberCalls(source: string): CalleeMemberCalls {
 	return (toks) => {

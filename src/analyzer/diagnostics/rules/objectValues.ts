@@ -37,7 +37,7 @@ import { parseVbaIntegerLiteral } from '../../constants/integerConstantExpressio
 import type { VbaProjectClassMember, VbaProjectClassMembers } from '../../symbols/symbolModel';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
-import { createObjectDefaultQueries, daoWholeValueError, inferMemberExpressionType, isKnownObjectAssignmentType, isKnownScalarType, normalizeType, objectLetAssignmentVerdict, typeEnvironmentFor, typeFieldDeclaredType } from '../typeInference';
+import { createObjectDefaultQueries, daoWholeValueError, defTypeOf, inferMemberExpressionType, isKnownObjectAssignmentType, isKnownScalarType, normalizeType, objectLetAssignmentVerdict, typeEnvironmentFor, typeFieldDeclaredType } from '../typeInference';
 import {
 	bareAssignmentTarget,
 	firstExecutableTokenIndex,
@@ -86,10 +86,21 @@ export function checkObjectDefaultValues(
 		return enumerators.get(cls);
 	};
 	const moduleAutoInstanced = new Set<string>();
+	const moduleArrays = new Set<string>();
+	const moduleDefaultCandidates = new Set<string>();
+	const host = memberCtx.model?.hostName ?? 'Excel';
+	const readsByType = host === 'Excel' ? EXCEL_DEFAULT_READS : host === 'Word' ? WORD_DEFAULT_READS : new Set<string>();
 	const moduleNames = new Set((symbols.root.children ?? []).map((child) => child.name.toLowerCase()));
 	for (const child of symbols.root.children ?? []) {
 		if (child.isAutoInstantiated) {
 			moduleAutoInstanced.add(child.name.toLowerCase());
+		}
+		if (child.isArray) {
+			moduleArrays.add(child.name.toLowerCase());
+		}
+		const type = normalizeType(child.asType ?? (child.kind === 'moduleVariable' ? defTypeOf(symbols, child.name) : undefined));
+		if (type === 'object' || (type !== undefined && readsByType.has(type))) {
+			moduleDefaultCandidates.add(child.name.toLowerCase());
 		}
 	}
 	return (proc: ProcedureNode) => {
@@ -101,7 +112,7 @@ export function checkObjectDefaultValues(
 		const arrays = new Set([
 			...own.filter((child) => child.isArray).map((child) => child.name.toLowerCase()),
 			...proc.params.filter((param) => param.isArray).map((param) => param.name.toLowerCase()),
-			...(symbols.root.children ?? []).filter((child) => child.isArray && !ownNames.has(child.name.toLowerCase())).map((child) => child.name.toLowerCase()),
+			...[...moduleArrays].filter(lower => !ownNames.has(lower)),
 		]);
 		const verdicts = new Map<string, ReturnType<typeof objectLetAssignmentVerdict>>();
 		const verdictFor = (lower: string): ReturnType<typeof objectLetAssignmentVerdict> => {
@@ -142,19 +153,28 @@ export function checkObjectDefaultValues(
 		// An Object holding a Collection, `Set x = New Collection` with x As
 		// Object, is late bound: its value read raises 450 when it runs, and
 		// a Let to it 438 (issue #415, measured in Excel 16.0).
-		const lateBound = new Set([...env].filter(([, type]) => normalizeType(type) === 'object').map(([lower]) => lower));
+		// Candidates are a superset: the environment still resolves shadowing,
+		// return types and DefType locals before either table includes a name.
+		const candidates = new Set([...moduleDefaultCandidates, ...ownNames, proc.name.toLowerCase(), ...(symbols.implicitLocals?.get(proc.span.start) ?? [])]);
+		const lateBound = new Set<string>();
+		// Excel's Application and Names, and Word's Document, by their own
+		// rules (issues #415 and #438). An Object holding one is read late.
+		const hostDefaults = new Map<string, string>();
+		for (const lower of candidates) {
+			const type = normalizeType(env.get(lower));
+			if (type === 'object') {
+				lateBound.add(lower);
+			}
+			if (lower !== proc.name.toLowerCase() && type !== undefined
+				&& (readsByType.has(type) || (readsByType.size > 0 && type === 'object'))) {
+				hostDefaults.set(lower, type);
+			}
+		}
 		// An Object holding any other host object, `Set o = Range("A1").Font`,
 		// reads as that object does, late (issue #685).
 		let heldAt: ((node: BodyNode) => HeldObjects) | undefined;
 		const heldOf = (stmt: BodyNode, lower: string): string | undefined => (heldAt ??= heldObjectsAt(source, proc, symbols, activity,
 			(value, offset) => hostChainType(source, value, offset, memberCtx, (name) => env.has(name) || moduleNames.has(name))))(stmt).classes.get(lower);
-		// Excel's Application and Names, and Word's Document, by their own
-		// rules (issues #415 and #438). An Object holding one is read late.
-		const host = memberCtx.model?.hostName ?? 'Excel';
-		const readsByType = host === 'Excel' ? EXCEL_DEFAULT_READS : host === 'Word' ? WORD_DEFAULT_READS : new Set<string>();
-		const hostDefaults = new Map([...env].filter(([lower, type]) => lower !== proc.name.toLowerCase()
-			&& (readsByType.has(normalizeType(type) ?? '') || (readsByType.size > 0 && normalizeType(type) === 'object')))
-			.map(([lower, type]) => [lower, normalizeType(type)!]));
 		return (stmt) => {
 			if (lateBound.size > 0) {
 				checkHeldObjects(source, stmt, lateBound, (lower) => heldOf(stmt, lower), defaultQueries, push);

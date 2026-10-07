@@ -34,8 +34,8 @@ describe('UserForm code the VBE runs (issue #315)', () => {
 		expect(insideForm('Public Function Probe(n As String) As Variant\n    Me.Controls.Add "Forms.TextBox.1", n\n    Probe = Me.Controls("Other").Name\nEnd Function\n')).toEqual([]);
 	});
 
-	it('still reports a name nothing adds', () => {
-		expect(insideForm('Public Function Probe() As Variant\n    Me.Controls.Add "Forms.TextBox.1", "Dyn"\n    Probe = Me.Controls("Nope").Name\nEnd Function\n')).toEqual(['runtime-member-not-found']);
+	it('does not assume other runtime control names are absent', () => {
+		expect(insideForm('Public Function Probe() As Variant\n    Me.Controls.Add "Forms.TextBox.1", "Dyn"\n    Probe = Me.Controls("Nope").Name\nEnd Function\n')).toEqual([]);
 	});
 
 	it('knows UserForms, the loaded forms', () => {
@@ -49,8 +49,8 @@ describe('UserForm code the VBE refuses (issue #315)', () => {
 		expect(insideForm('Public Sub P()\n    Dim Answer As Object\n    Set Answer = Nothing\nEnd Sub\n')).toEqual([]);
 	});
 
-	it('raises past the last control', () => {
-		expect(insideForm('Public Function P() As Variant\n    P = Me.Controls(99).Name\nEnd Function\n')).toEqual(['runtime-member-not-found']);
+	it('does not infer runtime control indexes from the designer', () => {
+		expect(insideForm('Public Function P() As Variant\n    P = Me.Controls(99).Name\nEnd Function\n')).toEqual([]);
 		expect(insideForm('Public Function P() As Variant\n    P = Me.Controls(3).Name\nEnd Function\n')).toEqual([]);
 		expect(insideForm('Public Function P() As Variant\n    Me.Controls.Add "Forms.TextBox.1", "Dyn"\n    P = Me.Controls(4).Name\nEnd Function\n')).toEqual([]);
 	});

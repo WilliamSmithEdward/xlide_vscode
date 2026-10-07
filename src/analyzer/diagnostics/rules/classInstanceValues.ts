@@ -22,7 +22,7 @@ import { topLevelEqualsIndex } from '../../lexer/tokenHelpers';
 import type { MemberCompletionContext } from '../../completion/memberAccess';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import type { VbaToken } from '../../lexer/tokenKinds';
-import type { ModuleNode, Span } from '../../parser/nodes';
+import type { ModuleNode, Span , ProcedureNode } from '../../parser/nodes';
 import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { VbaProjectClassMember, VbaProjectClassMembers, VbaSymbol } from '../../symbols/symbolModel';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
@@ -43,6 +43,7 @@ export function checkClassInstanceValues(
 	memberCtx: MemberCompletionContext,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	procedureFilter?: (member: ProcedureNode) => boolean,
 ): void {
 	const classes = new Map((memberCtx.projectClassMembers ?? []).filter((type) => type.kind === 'class').map((type) => [type.name.toLowerCase(), type]));
 	if (classes.size === 0) {
@@ -69,6 +70,7 @@ export function checkClassInstanceValues(
 		return index.get(name);
 	};
 	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'Procedure' && procedureFilter && !procedureFilter(member)) { continue; }
 		if (member.kind !== 'Procedure') {
 			continue;
 		}

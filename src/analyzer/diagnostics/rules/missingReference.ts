@@ -175,6 +175,7 @@ export function checkMissingScriptingReference(
 			`'${name}' is the Scripting Runtime's, which this project does not reference. Add a reference to Microsoft Scripting Runtime, or bind late: `
 			+ `Dim x As Object: Set x = CreateObject("Scripting.${name}"). This is a VBE compile error: User-defined type not defined.`,
 			{ start: toks[at].start, end: (qualified ? toks[at + 2] : toks[at]).end },
+			{ addLibraryReference: { library: 'scripting' } },
 		);
 		return;
 	}

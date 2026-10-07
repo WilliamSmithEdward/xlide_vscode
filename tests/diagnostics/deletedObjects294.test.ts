@@ -13,10 +13,10 @@ function found(body: string): string[] {
 const ADD = 'Dim ws As Worksheet\n    Set ws = Worksheets.Add\n    ';
 
 describe('an object after the statement that ends it', () => {
-	it('raises on a member', () => {
-		expect(found(`${ADD}ws.Delete\n    Main = ws.Name`)).toEqual(['object-used-after-delete']);
-		expect(found(`${ADD}Dim r As Range\n    Set r = ws.Range("A1")\n    ws.Delete\n    Main = r.Address`)).toEqual(['object-used-after-delete']);
-		expect(found('Dim wb As Workbook\n    Set wb = Workbooks.Add\n    wb.Close False\n    Main = wb.Name')).toEqual(['object-used-after-delete']);
+	it('suppresses cancellable operations and retains definite deletion', () => {
+		expect(found(`${ADD}ws.Delete\n    Main = ws.Name`)).toEqual([]);
+		expect(found(`${ADD}Dim r As Range\n    Set r = ws.Range("A1")\n    ws.Delete\n    Main = r.Address`)).toEqual([]);
+		expect(found('Dim wb As Workbook\n    Set wb = Workbooks.Add\n    wb.Close False\n    Main = wb.Name')).toEqual([]);
 		expect(found('Dim n As Name\n    Set n = ThisWorkbook.Names.Add("xlideNameOne", "=1")\n    n.Delete\n    Main = n.Name')).toEqual(['object-used-after-delete']);
 	});
 

@@ -94,6 +94,7 @@ export function checkStatementTypes(
 	projectTypes: readonly ProjectTypeName[] | undefined,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	procedureFilter?: (member: ProcedureNode) => boolean,
 ): void {
 	const udts = new Set<string>();
 	const enums = new Set<string>();
@@ -123,6 +124,7 @@ export function checkStatementTypes(
 		types: moduleTypes(source, mod, activity),
 	};
 	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'Procedure' && procedureFilter && !procedureFilter(member)) { continue; }
 		if (member.kind === 'VariableGroup') {
 			checkDeclarationGroup(ctx, undefined, member);
 		}

@@ -56,6 +56,7 @@ export function registerVbaLanguageProviders(
     bridge: ProjectEngine,
     workerClient?: AnalysisWorker,
     log: (line: string) => void = () => undefined,
+    errorWorker?: AnalysisWorker,
 ): VbaSymbolIndex {
     const index = new VbaSymbolIndex(bridge);
     const projectIndexService = new VbaProjectIndexService(index);
@@ -63,7 +64,7 @@ export function registerVbaLanguageProviders(
     // needs before it can treat a VB6 module like a project module.
     registerVb6ProjectLocator(context, bridge);
 
-    registerVbaDiagnostics(context, projectIndexService, workerClient);
+    registerVbaDiagnostics(context, projectIndexService, workerClient, errorWorker);
     registerVbaAutoBlock(context);
     registerVbaLoopIteratorSync(context);
     const docMetadata = new DocMetadataLoader();

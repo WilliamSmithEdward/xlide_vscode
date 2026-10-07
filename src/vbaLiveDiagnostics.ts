@@ -83,9 +83,10 @@ const DIAGNOSTIC_EDIT_FULL_DELAY_MS = 450;
 // short enough to read as immediate.
 const DIAGNOSTIC_PROJECT_CHANGE_DELAY_MS = 300;
 // Above this size the edit-time full pass backs off proportionally (see
-// editScheduleDelaysFor), capped so diagnostics never lag more than 2s. Only
-// applies when analysis runs in-host: the worker path has no thread contention
-// to pace around, so it keeps the flat fast cadence.
+// editScheduleDelaysFor), with the debounce capped at 2s. Analysis and worker
+// queue time are additional latency. Only
+// applies when analysis runs in-host. Worker edits keep a flat fast cadence;
+// the full pass also yields to the current early pass before dispatch.
 const DIAGNOSTIC_LARGE_MODULE_LINES = 8000;
 const DIAGNOSTIC_EDIT_FULL_DELAY_MAX_MS = 2000;
 // While the project has not yet reported a module's kind (backend starting on
@@ -114,12 +115,13 @@ interface DiagnosticScheduleDelays {
  * roughly linear time in module size (about 1s at ~24k lines even after the
  * analyzer optimizations), so on very large modules it is paced further behind
  * the typing burst instead of contending with it on every 450ms pause. The
- * cheap local pass keeps its fast cadence regardless, so structural squiggles
- * stay responsive. document.lineCount is O(1).
+ * local pass uses a separate worker for all severities when supplied. Without it local
+ * still runs the complete analyzer. document.lineCount is O(1).
  */
 export function editScheduleDelaysFor(
     document: vscode.TextDocument,
     offThreadHealthy: boolean,
+    earlyPassHealthy = false,
 ): DiagnosticScheduleDelays {
     if (offThreadHealthy) {
         // Passes run on the worker thread: no extension-host contention, so
@@ -139,7 +141,7 @@ export function editScheduleDelaysFor(
     // paced full pass above covers them - running both would block the host
     // twice for one result), and loose .bas documents - which never get a full
     // pass - keep a local pass paced to the same backoff.
-    const localDelayMs = lines <= DIAGNOSTIC_LARGE_MODULE_LINES
+    const localDelayMs = (earlyPassHealthy && document.uri.scheme === XLIDE_SCHEME) || lines <= DIAGNOSTIC_LARGE_MODULE_LINES
         ? DIAGNOSTIC_EDIT_LOCAL_DELAY_MS
         : document.uri.scheme === XLIDE_SCHEME
             ? undefined
@@ -160,6 +162,7 @@ class DiagnosticScheduler {
             pass: DiagnosticPassKind,
         ) => void,
         private readonly _offThreadHealthy: () => boolean = () => false,
+        private readonly _earlyPassHealthy: () => boolean = () => false,
     ) {}
 
     schedule(
@@ -167,7 +170,7 @@ class DiagnosticScheduler {
         delays?: DiagnosticScheduleDelays,
     ): void {
         if (!isVbaDocument(document)) { return; }
-        delays ??= editScheduleDelaysFor(document, this._offThreadHealthy());
+        delays ??= editScheduleDelaysFor(document, this._offThreadHealthy(), this._earlyPassHealthy());
         const key = document.uri.toString();
         const generation = this._nextGeneration(key);
         this._clearTimer(this._localTimers, key);
@@ -309,11 +312,13 @@ export function registerVbaDiagnostics(
     context: vscode.ExtensionContext,
     projectIndexService: VbaProjectIndexService,
     workerClient?: AnalysisWorker,
+    errorWorker?: AnalysisWorker,
 ): void {
     const collection = vscode.languages.createDiagnosticCollection('vba');
     const scheduler = new DiagnosticScheduler(
         (document, generation, pass) => runPass(document, generation, pass),
         () => workerClient?.available === true,
+        () => errorWorker?.available === true,
     );
     // Last-known project metadata per document, learned from successful full
     // passes. Local passes reuse it so they never analyze a class module under
@@ -367,6 +372,15 @@ export function registerVbaDiagnostics(
         diagnostics: vscode.Diagnostic[];
     }>();
     const lastSuppressedLine = new Map<string, number | undefined>();
+    const lastEarlyDiagnostics = new Map<string, {
+        uri: vscode.Uri;
+        version: number;
+        diagnostics: vscode.Diagnostic[];
+        completeGeneration?: number;
+    }>();
+
+    const usesEarlyDiagnosticPass = (document: vscode.TextDocument, pass: DiagnosticPassKind): boolean =>
+        pass === 'local' && errorWorker !== undefined && document.uri.scheme === XLIDE_SCHEME;
 
     const activeSuppressedLine = (uri: vscode.Uri): number | undefined => {
         const editor = vscode.window.activeTextEditor;
@@ -386,10 +400,37 @@ export function registerVbaDiagnostics(
             (d) => heldWhileTyping.has(d),
         );
 
-    const publish = (uri: vscode.Uri, version: number, diagnostics: vscode.Diagnostic[]): void => {
-        lastDiagnostics.set(uri.toString(), { uri, version, diagnostics });
+    const combinedDiagnostics = (uri: vscode.Uri): vscode.Diagnostic[] => {
+        const key = uri.toString();
+        const full = lastDiagnostics.get(key);
+        const errors = lastEarlyDiagnostics.get(key);
+        if (!errors || (full && errors.version < full.version)) { return full?.diagnostics ?? []; }
+        if (errors.completeGeneration !== undefined) { return errors.diagnostics; }
+        return [
+            ...(full?.diagnostics ?? []).filter(d => diagnosticMetadataForCode(String(d.code)) === undefined
+                && !errors.diagnostics.some(early => String(early.code) === String(d.code))),
+            ...errors.diagnostics,
+        ];
+    };
+
+    const refreshPublished = (uri: vscode.Uri): void => {
         lastSuppressedLine.set(uri.toString(), activeSuppressedLine(uri));
-        collection.set(uri, filterForActiveLine(uri, diagnostics));
+        collection.set(uri, filterForActiveLine(uri, combinedDiagnostics(uri)));
+    };
+
+    const publish = (uri: vscode.Uri, version: number, diagnostics: vscode.Diagnostic[], earlyPass = false, completeGeneration?: number): void => {
+        const key = uri.toString();
+        if (earlyPass) {
+            lastEarlyDiagnostics.set(key, { uri, version, diagnostics, completeGeneration });
+        } else {
+            lastDiagnostics.set(key, { uri, version, diagnostics });
+            // A current full pass also supersedes early results for unchanged text:
+            // project references can change without bumping document.version.
+            if ((lastEarlyDiagnostics.get(key)?.version ?? version) <= version) {
+                lastEarlyDiagnostics.delete(key);
+            }
+        }
+        refreshPublished(uri);
     };
 
     const run = (
@@ -399,6 +440,8 @@ export function registerVbaDiagnostics(
         scheduler.schedule(document, delays);
     };
 
+    const earlyRuns = new Map<string, { version: number; settled: Promise<void> }>();
+
     const runPass = (
         document: vscode.TextDocument,
         generation: number,
@@ -406,7 +449,26 @@ export function registerVbaDiagnostics(
     ): void => {
         const documentVersion = document.version;
         const trace = startPerformanceTrace(`liveDiagnostics.${pass}`, document.uri.scheme);
-        void runPassAsync(document, generation, pass).then(() => {
+        const key = document.uri.toString();
+        const work = (async () => {
+            // Let the current early pass publish all severities before starting
+            // the full pass on the same edit, avoiding competing scans.
+            const early = earlyRuns.get(key);
+            if (pass === 'full' && early?.version === documentVersion) {
+                await early.settled;
+                if (!scheduler.isCurrentRun(document, key, generation, documentVersion)) { return; }
+            }
+            const completed = lastEarlyDiagnostics.get(key);
+            if (pass === 'full' && completed?.completeGeneration === generation && completed.version === documentVersion
+                && scheduler.isCurrentRun(document, key, generation, documentVersion)) {
+                // The early worker already analyzed all rules with the current
+                // project/settings context. A new scheduler generation still
+                // runs after external changes, even when the text is unchanged.
+                scheduler.shouldPublish(key, generation, pass);
+                return;
+            }
+            await runPassAsync(document, generation, pass);
+        })().then(() => {
             trace.end('ok', document.uri.scheme);
         }, (err) => {
             trace.end('failed', document.uri.scheme);
@@ -422,8 +484,14 @@ export function registerVbaDiagnostics(
             if (!scheduler.shouldPublish(key, generation, pass)) {
                 return;
             }
+            if (usesEarlyDiagnosticPass(document, pass)) { return; } // Full pass still reports failures.
             publish(document.uri, documentVersion, [diagnosticForAnalysisRunError(document, err)]);
         });
+        if (usesEarlyDiagnosticPass(document, pass)) {
+            const entry = { version: documentVersion, settled: work };
+            earlyRuns.set(key, entry);
+            void work.finally(() => { if (earlyRuns.get(key) === entry) { earlyRuns.delete(key); } });
+        }
     };
 
     const diagnosticForAnalysisRunError = (
@@ -501,6 +569,8 @@ export function registerVbaDiagnostics(
         if (!isVbaDocument(document)) { return; }
         const key = document.uri.toString();
         const documentVersion = document.version;
+        const earlyPass = usesEarlyDiagnosticPass(document, pass);
+        const selectedWorker = earlyPass ? errorWorker : workerClient;
         const config = vscode.workspace.getConfiguration('xlide');
         const settingsDiagnostics = diagnosticsForGlobalSettingsProblems(
             document,
@@ -514,10 +584,12 @@ export function registerVbaDiagnostics(
                 return;
             }
             if (settingsDiagnostics.length > 0) {
+                lastEarlyDiagnostics.delete(key);
                 publish(document.uri, documentVersion, settingsDiagnostics);
             } else {
                 collection.delete(document.uri);
                 lastDiagnostics.delete(key);
+                lastEarlyDiagnostics.delete(key);
                 lastSuppressedLine.delete(key);
             }
         };
@@ -563,7 +635,7 @@ export function registerVbaDiagnostics(
             try {
                 projectPath = location.projectPath;
                 settingsWatchers.ensure(projectPath);
-                if (pass === 'full' || workerClient?.available === true) {
+                if (pass === 'full' || selectedWorker?.available === true) {
                     const diagnosticProject = await projectIndexService.contextForProject(projectPath);
                     projectRecord = diagnosticProject;
                     referencedHostsByProject.set(
@@ -624,18 +696,15 @@ export function registerVbaDiagnostics(
         const analysisSettings = await analysisSettingsForDiagnostics(projectPath);
         if (!scheduler.isCurrentRun(document, key, generation, documentVersion)) { return; }
         const activeEditor = vscode.window.activeTextEditor;
-        const activeIncompleteExpressionOffset = activeEditor?.document === document
+        // Early results are retained unfiltered; the editor holds syntax findings
+        // on the active line and can reveal them on cursor movement alone.
+        const activeIncompleteExpressionOffset = !earlyPass && activeEditor?.document === document
             ? document.offsetAt(activeEditor.selection.active)
             : undefined;
 
-        // Both passes run on the analysis worker thread when it is healthy, so
-        // a large module's pass never blocks the extension host. In-host, the
-        // local pass on a ~24k-line class costs ~700ms on the extension-host
-        // thread 90ms after every typing pause - the worker path is off-thread
-        // and keeps per-document incremental state, so the follow-up full pass
-        // of the same generation re-analyzes only what changed. Any failure
-        // falls through to the identical in-host pass below.
-        if (workerClient?.available && (!projectPath || projectRecord)) {
+        // The independent early worker publishes every severity while the full
+        // worker is busy. Both reuse the shared analyzer/rule code.
+        if (selectedWorker?.available && (!projectPath || projectRecord)) {
             try {
                 // Standalone exports do not need a project seed, but their
                 // analysis still belongs on the worker rather than the host.
@@ -643,7 +712,7 @@ export function registerVbaDiagnostics(
                 const wbKey = projectPath ? projectKey(projectPath) : undefined;
                 const crossGeneration = record?.crossModuleGeneration(moduleName);
                 if (record && wbKey !== undefined && crossGeneration !== undefined) {
-                    workerClient.ensureSeeded(wbKey, crossGeneration, () => record.modules.map((m) => ({
+                    selectedWorker.ensureSeeded(wbKey, crossGeneration, () => record.modules.map((m) => ({
                         moduleName: m.moduleName,
                         source: m.source,
                         type: m.type,
@@ -653,7 +722,8 @@ export function registerVbaDiagnostics(
                         designerClass: m.designerClass,
                     })));
                 }
-                const workerResult = await workerClient.analyze({
+                const workerResult = await selectedWorker.analyze({
+                    errorsOnly: false,
                     latestOnly: true,
                     docKey: key,
                     projectKey: wbKey,
@@ -678,7 +748,7 @@ export function registerVbaDiagnostics(
                     analysisSettings.untrackedRules,
                     settingsDiagnostics,
                 );
-                publishDiagnosticsIfCurrent(document, key, generation, documentVersion, pass, diagnostics);
+                publishDiagnosticsIfCurrent(document, key, generation, documentVersion, pass, diagnostics, !workerResult.analysisFailures?.length);
                 return;
             } catch (err) {
                 if (err instanceof Error && err.name === 'AnalysisSnapshotSuperseded') { return; }
@@ -700,6 +770,7 @@ export function registerVbaDiagnostics(
             );
         }
         const moduleAnalysis = analyzeVbaModuleSource({
+            errorsOnly: false,
             source: text,
             moduleName,
             moduleType,
@@ -722,7 +793,7 @@ export function registerVbaDiagnostics(
             analysisSettings.untrackedRules,
             settingsDiagnostics,
         );
-        publishDiagnosticsIfCurrent(document, key, generation, documentVersion, pass, diagnostics);
+        publishDiagnosticsIfCurrent(document, key, generation, documentVersion, pass, diagnostics, !moduleAnalysis.analysisFailures?.length);
     };
 
     const diagnosticsFromModuleAnalysis = (
@@ -774,14 +845,15 @@ export function registerVbaDiagnostics(
         documentVersion: number,
         pass: DiagnosticPassKind,
         diagnostics: vscode.Diagnostic[],
+        complete = true,
     ): void => {
         if (!scheduler.isCurrentRun(document, key, generation, documentVersion)) {
             return;
         }
-        if (!scheduler.shouldPublish(key, generation, pass)) {
+        if (!usesEarlyDiagnosticPass(document, pass) && !scheduler.shouldPublish(key, generation, pass)) {
             return;
         }
-        publish(document.uri, documentVersion, diagnostics);
+        publish(document.uri, documentVersion, diagnostics, usesEarlyDiagnosticPass(document, pass), complete ? generation : undefined);
     };
 
     /** The open modules of a project - of every project for an empty path - but `except`. */
@@ -836,7 +908,7 @@ export function registerVbaDiagnostics(
             // Re-apply current-line suppression for every cached document: the doc
             // we left should reveal its held diagnostics, and the doc we entered
             // should hide them on its cursor line.
-            for (const entry of lastDiagnostics.values()) {
+            for (const entry of new Map([...lastDiagnostics, ...lastEarlyDiagnostics]).values()) {
                 const key = entry.uri.toString();
                 const line = activeSuppressedLine(entry.uri);
                 // Skip docs whose suppressed line did not change - i.e. every doc
@@ -846,7 +918,7 @@ export function registerVbaDiagnostics(
                     continue;
                 }
                 lastSuppressedLine.set(key, line);
-                collection.set(entry.uri, filterForActiveLine(entry.uri, entry.diagnostics));
+                refreshPublished(entry.uri);
             }
             if (editor) {
                 scheduler.schedule(editor.document, {
@@ -858,10 +930,11 @@ export function registerVbaDiagnostics(
         vscode.window.onDidChangeTextEditorSelection((e) => {
             const doc = e.textEditor.document;
             const entry = lastDiagnostics.get(doc.uri.toString());
+            const syntax = lastEarlyDiagnostics.get(doc.uri.toString());
             // Re-apply suppression when the cursor line changes. Skip when an edit is
             // pending (version drift) - the debounced re-run will republish with
             // correct positions - or when the active line is unchanged.
-            if (!entry || entry.version !== doc.version) {
+            if (entry?.version !== doc.version && syntax?.version !== doc.version) {
                 return;
             }
             const line = activeSuppressedLine(doc.uri);
@@ -869,16 +942,18 @@ export function registerVbaDiagnostics(
                 return;
             }
             lastSuppressedLine.set(doc.uri.toString(), line);
-            collection.set(doc.uri, filterForActiveLine(doc.uri, entry.diagnostics));
+            refreshPublished(doc.uri);
         }),
         vscode.workspace.onDidCloseTextDocument((doc) => {
             scheduler.cancel(doc.uri.toString());
             collection.delete(doc.uri);
             lastDiagnostics.delete(doc.uri.toString());
+            lastEarlyDiagnostics.delete(doc.uri.toString());
             lastSuppressedLine.delete(doc.uri.toString());
             moduleMetaByDoc.delete(doc.uri.toString());
             fullPassMetadataRetries.delete(doc.uri.toString());
             workerClient?.forget(doc.uri.toString());
+            errorWorker?.forget(doc.uri.toString());
             settingsWatchers.prune();
         }),
         vscode.workspace.onDidChangeConfiguration((e) => {

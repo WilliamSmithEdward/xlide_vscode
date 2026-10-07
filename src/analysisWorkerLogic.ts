@@ -19,6 +19,7 @@ import type {
 import type { ModuleSymbolKind } from './analyzer/symbols/symbolModel';
 import { parseProjectConditionalConstants, type EventHandlerDocumentType } from './analyzer';
 import type { DiagnosticSeverityOverrides } from './analyzer/diagnostics/analysisContext';
+import { AnalysisCancelled, checkAnalysisCancellation } from './analyzer/diagnostics/analysisCancellation';
 
 interface ProjectState {
 	generation: number;
@@ -50,10 +51,23 @@ interface ProjectState {
 export class AnalysisWorkerState {
 	private readonly _workbooks = new Map<string, ProjectState>();
 	private readonly _incrementalByDoc = new Map<string, ModuleRulesIncrementalState>();
+	// The local and full live passes often request the identical snapshot.
+	// Incremental rules still repeat all eager module checks, so keep one exact
+	// completed result per document, separately from procedure-level reuse.
+	private readonly _completedByDoc = new Map<string, {
+		projectKey: string | undefined;
+		source: string;
+		fingerprint: readonly unknown[];
+		activeIncompleteExpressionOffset: number | undefined;
+		result: Extract<AnalysisWorkerResponse, { kind: 'result' }>;
+	}>();
 
 	handle(request: AnalysisWorkerRequest): AnalysisWorkerResponse | undefined {
 		switch (request.kind) {
 			case 'seed': {
+				for (const [key, completed] of this._completedByDoc) {
+					if (completed.projectKey === request.projectKey) { this._completedByDoc.delete(key); }
+				}
 				const project = buildVbaProjectIndex(request.modules.map((m) => ({
 					moduleName: m.moduleName,
 					source: m.source,
@@ -91,12 +105,14 @@ export class AnalysisWorkerState {
 			}
 			case 'forget': {
 				this._incrementalByDoc.delete(request.docKey);
+				this._completedByDoc.delete(request.docKey);
 				return undefined;
 			}
 			case 'analyze': {
 				try {
 					return this._analyze(request);
 				} catch (err) {
+					if (err instanceof AnalysisCancelled) { return { kind: 'cancelled', requestId: request.requestId, docKey: request.docKey }; }
 					return {
 						kind: 'error',
 						requestId: request.requestId,
@@ -111,6 +127,8 @@ export class AnalysisWorkerState {
 	private _analyze(
 		request: Extract<AnalysisWorkerRequest, { kind: 'analyze' }>,
 	): AnalysisWorkerResponse {
+		const cancellation = { isCancelled: request.cancellationSignal ? () => Atomics.load(request.cancellationSignal!, 0) !== 0 : undefined };
+		checkAnalysisCancellation(cancellation);
 		let projectOptions: VbaProjectAnalysisOptions = {};
 		let seededImplicitMembers: WorkerImplicitMember[] | undefined;
 		let surfaceDigest = '';
@@ -160,6 +178,8 @@ export class AnalysisWorkerState {
 		}
 
 		const fingerprint = [
+			request.errorsOnly === true,
+			request.moduleName,
 			request.projectKey ?? '',
 			// The project surface this module consumes, NOT the seed's
 			// generation: a re-seed with unchanged cross-module content keeps
@@ -184,8 +204,17 @@ export class AnalysisWorkerState {
 			// `ThisWorkbook.Sheets("x")` reaches without changing a line of code.
 			JSON.stringify(request.workbookSheets ?? null),
 		] as const;
+		const completed = this._completedByDoc.get(request.docKey);
+		if (completed && completed.source === request.source
+			&& completed.activeIncompleteExpressionOffset === request.activeIncompleteExpressionOffset
+			&& completed.fingerprint.length === fingerprint.length
+			&& completed.fingerprint.every((value, i) => Object.is(value, fingerprint[i]))) {
+			return { ...completed.result, requestId: request.requestId };
+		}
 
 		const result = analyzeVbaModuleSource({
+			...cancellation,
+			errorsOnly: request.errorsOnly,
 			source: request.source,
 			moduleName: request.moduleName,
 			moduleType: request.moduleType,
@@ -204,10 +233,11 @@ export class AnalysisWorkerState {
 				fingerprint,
 			},
 		});
+		checkAnalysisCancellation(cancellation);
 		if (result.rulesIncrementalState) {
 			this._incrementalByDoc.set(request.docKey, result.rulesIncrementalState);
 		}
-		return {
+		const response: Extract<AnalysisWorkerResponse, { kind: 'result' }> = {
 			kind: 'result',
 			requestId: request.requestId,
 			docKey: request.docKey,
@@ -216,6 +246,17 @@ export class AnalysisWorkerState {
 			incrementalMode: result.rulesIncrementalMode,
 			...(result.analysisFailures ? { analysisFailures: result.analysisFailures } : {}),
 		};
+		if (!result.analysisFailures?.length) {
+			this._completedByDoc.set(request.docKey, {
+				projectKey: request.projectKey,
+				source: request.source, fingerprint,
+				activeIncompleteExpressionOffset: request.activeIncompleteExpressionOffset,
+				result: response,
+			});
+		} else {
+			this._completedByDoc.delete(request.docKey);
+		}
+		return response;
 	}
 }
 

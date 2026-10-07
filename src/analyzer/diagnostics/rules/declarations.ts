@@ -1306,6 +1306,7 @@ export function checkFixedLengthStringBounds(
 	mod: ModuleNode,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	procedureFilter?: (member: ProcedureNode) => boolean,
 ): void {
 	const moduleConstants = collectModuleLiteralIntegerConstants(mod, activity);
 	const inspectDeclaration = (
@@ -1336,6 +1337,7 @@ export function checkFixedLengthStringBounds(
 	};
 
 	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'Procedure' && procedureFilter && !procedureFilter(member)) { continue; }
 		if (member.kind === 'VariableGroup') {
 			inspectGroup(member);
 			continue;
@@ -1619,7 +1621,12 @@ export function checkInvalidAsTypeNames(
 		// all known (issue #234, measured in Excel 16.0).
 		// The Scripting Runtime's own types are missing-library-reference's, which
 		// names the reference to add.
-		libraries ??= opts.referencedLibraries?.map((library) => libraryTypeNames(library));
+		// The dir stream omits the implicit VBA and container-host libraries.
+		// They still contribute types even when only stdole/Office are recorded.
+		libraries ??= opts.referencedLibraries === undefined ? undefined :
+			[...new Set(opts.referencedLibraries.length
+				? ['VBA', opts.hostModel?.hostName ?? opts.host ?? 'Excel', ...opts.referencedLibraries] : opts.referencedLibraries)]
+				.map((library) => libraryTypeNames(library));
 		ownTypes ??= new Set(activeModuleMembers(mod, activity).filter((member) => member.kind === 'Type' || member.kind === 'Enum').map((member) => member.name.toLowerCase()));
 		if (!ref.qualifier && !SCRIPTING_TYPE_NAMES.has(ref.name.toLowerCase()) && !ownTypes.has(ref.name.toLowerCase()) && libraries !== undefined && libraries.length > 0 && libraries.every((names) => names !== undefined && !names.has(ref.name.toLowerCase()))) {
 			push(

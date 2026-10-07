@@ -41,6 +41,7 @@ import {
 	activeModuleMembers,
 	blockHeaderLineSpan,
 	forEachStatement,
+	forEachVariableGroup,
 	matchParenFrom,
 	setAssignmentTarget,
 	statementAndBranchSpans,
@@ -82,7 +83,15 @@ export function checkAccessData(
 				checkSqlLiterals(span, statementTokens(source, span), isDatabase, push);
 			}
 		}, activity);
-		checkRecordsets(source, member.body, isDatabase, isRecordset, activity, push);
+		// An error handler may resume after a failed Open/Edit/Close.
+		if (/\bon\s+error\b/i.test(source.slice(member.span.start, member.span.end))) { continue; }
+		const locals = new Set<string>();
+		forEachVariableGroup(member.body, group => {
+			if (!group.isConst && group.modifier.toLowerCase() !== 'static') {
+				for (const decl of group.declarations) { locals.add(decl.name.toLowerCase()); }
+			}
+		}, activity);
+		checkRecordsets(source, member.body, isDatabase, lower => locals.has(lower) && isRecordset(lower), activity, push);
 	}
 }
 
@@ -156,7 +165,6 @@ function checkSqlLiterals(span: Span, toks: readonly VbaToken[], isDatabase: (lo
 /** Why Access refuses this SQL text, with the error it raises, or undefined. */
 function sqlProblem(kind: string, sql: string): string | undefined {
 	const first = /^[\s(]*([A-Za-z]+)/.exec(sql)?.[1]?.toLowerCase();
-	const readsAsSql = /\b(?:from|into|set|values|where)\b/i.test(sql);
 	const quotes = openQuote(sql);
 	if (kind === 'runsql') {
 		if (first === 'select') {
@@ -172,11 +180,8 @@ function sqlProblem(kind: string, sql: string): string | undefined {
 	if (sql.trim() === '' && kind === 'execute') {
 		return `Execute has no SQL to run, and no query is named "". This will raise Run-time error '3078': The Microsoft Access database engine cannot find the input table or query`;
 	}
-	if (first && !SQL_VERBS.has(first) && readsAsSql) {
-		return `"${first}" starts no SQL statement, so the text is taken for the name of a table or query, and none has that name. This will raise Run-time error '3078': The Microsoft Access database engine cannot find the input table or query`;
-	}
-	// The SQL is parsed before Execute asks what kind it is: a SELECT with a
-	// parenthesis left open raises 3075, not 3065 (issue #611).
+	// Execute/OpenRecordset may receive the name of a runtime QueryDef,
+	// even when that name resembles misspelled SQL. Absence is not proven.
 	if (quotes) {
 		return `The SQL leaves a quote open. This will raise Run-time error '3075': Syntax error in string in query expression`;
 	}
@@ -279,9 +284,9 @@ function checkRecordsets(
 	const state = new Map<string, RecordsetState>();
 	const withSubjects: Array<string | undefined> = [];
 	const forget = (names: Iterable<string>): void => {
-		for (const lower of names) {
-			state.delete(lower);
-		}
+		// Escaping one alias makes every reference to that recordset uncertain.
+		const escaped = new Set([...names].map(lower => state.get(lower)).filter(Boolean));
+		for (const [lower, held] of state) { if (escaped.has(held)) { state.delete(lower); } }
 	};
 	const visit = (node: BodyNode): void => {
 		if (!isLeafStatement(node)) {
@@ -327,6 +332,15 @@ function checkRecordsets(
 			return;
 		}
 		const lower = tokenName(toks[0])?.toLowerCase();
+		const member = toks[1]?.rawText === '.' ? tokenText(toks[2]) : undefined;
+		const eq = toks.findIndex((tok) => tok.rawText === '=');
+		const fieldWrite = eq > 1 && (toks[1]?.rawText === '!' || toks[1]?.rawText === '(' || member === 'fields');
+		if (fieldWrite && toks.slice(eq + 1).some(tok => tokenName(tok))) {
+			// Evaluate helpers/getters before checking the receiver's edit or
+			// closed state: they can start Edit or replace a closed recordset.
+			state.clear();
+			return;
+		}
 		// A recordset read past the statement's head: `Main = rs!Nm`, `x = rs.EOF`.
 		for (const name of namesIn(source, node.span)) {
 			const other = name === lower ? undefined : state.get(name);
@@ -343,7 +357,8 @@ function checkRecordsets(
 		}
 		const held = lower ? state.get(lower) : undefined;
 		if (!held) {
-			forget([...namesIn(source, node.span)].filter((name) => !state.has(name)));
+			// Unmodeled statements may run helpers, including in their RHS.
+			state.clear();
 			return;
 		}
 		const shown = toks[0].rawText;
@@ -353,10 +368,7 @@ function checkRecordsets(
 			state.delete(lower!);
 			return;
 		}
-		const member = toks[1]?.rawText === '.' ? tokenText(toks[2]) : undefined;
-		const eq = toks.findIndex((tok) => tok.rawText === '=');
 		// `rs!Nm = x`, `rs("Nm") = x`, `rs.Fields("Nm") = x`, `rs.Fields("Nm").Value = x`.
-		const fieldWrite = eq > 1 && (toks[1]?.rawText === '!' || toks[1]?.rawText === '(' || member === 'fields');
 		if (fieldWrite || (member === 'update' && toks.length === 3)) {
 			if (!held.editing) {
 				push('hostArgumentOutOfRange', `'${shown}' is not being edited: no Edit or AddNew came since it was opened or last updated. This will raise Run-time error '3020': Update or CancelUpdate without AddNew or Edit.`, at(0, eq > 1 ? eq - 1 : 2));

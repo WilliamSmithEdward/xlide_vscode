@@ -56,6 +56,7 @@ import {
 	type VbaTestDirectiveCompletion,
 } from './vbaTestDirectiveCompletion';
 import { startPerformanceTrace } from './performanceTrace';
+import { vbaColorNameShadowedAt } from './vbaColors';
 
 export const KEYWORD_SNIPPET_ACCEPTED_COMMAND = 'xlide.vba.keywordSnippetAccepted';
 const KEYBOARD_NAV_TEXT_CHANGE_GRACE_MS = 150;
@@ -324,7 +325,6 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 				position.line > 0 && /_\s*$/.test(document.lineAt(position.line - 1).text))) {
 			return new vscode.CompletionList([], false);
 		}
-
 		const source = document.getText();
 		const offset = document.offsetAt(position);
 		if (completionLineCursorContext(source, offset).inComment) {
@@ -441,6 +441,37 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 		if (!argumentValues && (context?.triggerCharacter === '=' ||
 			(context?.triggerCharacter === ' ' && assignmentTargetAt(source, offset)))) { return list([]); }
 		const idents = resolveIdentifierCompletions(source, offset, identCtx);
+		if (argumentValues?.enumName === 'ColorConstants') {
+		const identifiersByName = new Map((argumentValues ? idents : []).map(id => [id.name.toLowerCase(), id]));
+		const prioritizedNames = new Set((argumentValues?.constants ?? []).map(c => c.name.toLowerCase()));
+		const colorValues = argumentValues?.enumName === 'ColorConstants';
+		const shadowedColors = new Set(colorValues ? argumentValues.constants
+			.filter(c => vbaColorNameShadowedAt(source, c.name, offset)).map(c => c.name.toLowerCase()) : []);
+		const rgbShadowed = colorValues && vbaColorNameShadowedAt(source, 'rgb', offset);
+		const rgbInsertion = rgbShadowed
+			? (vbaColorNameShadowedAt(source, 'vba', offset) ? '&H000000&' : 'VBA.RGB(0, 0, 0)') : 'RGB(0, 0, 0)';
+		return list([
+			...directiveItems,
+			...(colorValues ? [this._toRgbItem(range, rgbInsertion)] : []),
+			...(argumentValues?.constants ?? []).map(
+				(constant) => {
+					const item = this._toArgumentValueItem(constant, argumentValues!, range);
+					const binding = identifiersByName.get(constant.name.toLowerCase());
+					if ((binding && binding.kind !== 'constant' && binding.kind !== 'enumMember')
+						|| shadowedColors.has(constant.name.toLowerCase())) {
+						item.insertText = colorValues && vbaColorNameShadowedAt(source, 'colorconstants', offset)
+							? String(constant.value) : `${argumentValues!.enumName}.${constant.name}`;
+					}
+					return item;
+				},
+			),
+			...idents.filter(id => !(colorValues && id.name.toLowerCase() === 'rgb' && !rgbShadowed)
+				&& (!prioritizedNames.has(id.name.toLowerCase()) || shadowedColors.has(id.name.toLowerCase())
+					|| (id.kind !== 'constant' && id.kind !== 'enumMember')))
+				.map((id) => this._toIdentItem(id, range, shouldInsertParens)),
+			...keywords.items.map((item) => this._toKeywordItem(item, range, document)),
+		]);
+		}
 		const preferred = new Set((argumentValues?.constants ?? []).map(c => c.name.toLowerCase()));
 		const identifiers = new Map(idents.map(id => [id.name.toLowerCase(), id]));
 		let unfilteredIdentifiers: Map<string, IdentifierCompletion> | undefined;
@@ -475,6 +506,16 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 				.map((id) => this._toIdentItem(id, range, shouldInsertParens)),
 			...keywords.items.map((item) => this._toKeywordItem(item, range, document)),
 		]);
+	}
+
+	private _toRgbItem(range: vscode.Range, insertText: string): vscode.CompletionItem {
+		const item = new vscode.CompletionItem(insertText === 'RGB(0, 0, 0)' ? 'RGB' : 'RGB color', vscode.CompletionItemKind.Color);
+		item.filterText = 'RGB';
+		item.detail = 'Insert a color; hover the swatch to open the color picker';
+		item.insertText = insertText;
+		item.range = range;
+		item.sortText = '0:RGB';
+		return item;
 	}
 
 	/**

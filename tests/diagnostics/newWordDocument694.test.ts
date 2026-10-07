@@ -26,10 +26,9 @@ describe('a new Word document (issue #694)', () => {
 		['Hyperlinks(1)', '', 'Main = d.Hyperlinks(1).Address'],
 		['Lists(1)', '', 'Main = d.Lists(1).Range.Text'],
 		['Comments(1)', '', 'Main = d.Comments(1).Range.Text'],
-	])('reports %s', (_label, setup, use) => {
+	])('does not infer bounds for %s', (_label, setup, use) => {
 		const messages = found(setup, use);
-		expect(messages, use).toHaveLength(1);
-		expect(messages[0]).toContain("Run-time error '5941'");
+		expect(messages, use).toHaveLength(0);
 	});
 
 	it.each([

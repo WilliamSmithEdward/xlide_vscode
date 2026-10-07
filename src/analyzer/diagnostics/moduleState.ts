@@ -36,11 +36,36 @@ const DECLARING_HEADS: ReadonlySet<string> = new Set([
 /** Heads after which an `=` compares rather than assigns. */
 const COMPARING_HEADS: ReadonlySet<string> = new Set(['if', 'elseif', 'while', 'do', 'loop', 'until', 'case', 'select', 'debug', 'print', 'return', 'call']);
 
+// Source-only facts are shared by the project index and module rules. Bound
+// retained source text to four entries, like the lexer/parser source caches.
+const WRITTEN_NAMES_CACHE_MAX = 4;
+const writtenNamesCache: { source: string; names: ReadonlySet<string> }[] = [];
+
 /**
  * The lowercased names a module's code may write, by the rules at the top
  * of this file. Over-reporting a write only keeps a rule quiet.
  */
 export function writtenNamesIn(source: string): ReadonlySet<string> {
+	const index = writtenNamesCache.findIndex(entry => entry.source === source);
+	if (index >= 0) {
+		const entry = writtenNamesCache[index];
+		// Adopt a re-materialized equal string, as the lexer caches do.
+		entry.source = source;
+		if (index > 0) {
+			writtenNamesCache.splice(index, 1);
+			writtenNamesCache.unshift(entry);
+		}
+		return entry.names;
+	}
+	const names = scanWrittenNames(source);
+	writtenNamesCache.unshift({ source, names });
+	if (writtenNamesCache.length > WRITTEN_NAMES_CACHE_MAX) {
+		writtenNamesCache.pop();
+	}
+	return names;
+}
+
+function scanWrittenNames(source: string): ReadonlySet<string> {
 	const written = new Set<string>();
 	const procedures = procedureNamesIn(source);
 	let statement: VbaToken[] = [];

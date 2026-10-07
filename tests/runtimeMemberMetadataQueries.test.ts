@@ -37,7 +37,7 @@ for (const scope of Object.keys(messages) as (keyof typeof messages)[]) for (con
 		const expected = Array.from({ length: count }, () => { const marker = scope === 'formControls' ? '"Missing"' : 'Missing', start = f.source.indexOf(marker, from); from = start + marker.length; return [api === 'public' ? 'runtimeMemberNotFound' : 'runtime-member-not-found', messages[scope], { start, end: from }]; });
 		const errors: unknown[] = [];
 		const actual = api === 'public' ? run(f.source, f.model, f.classes) : analyzeModule(f.source, { hostModel: f.model, projectClassMembers: f.classes, onInternalError: e => errors.push(e) }).map(d => [d.code, d.message, d.span]);
-		expect(actual).toEqual(expected); expect(errors).toEqual([]); expect(f.reads()).toBeLessThanOrEqual(count * 5 + 20);
+		expect(actual).toEqual(scope === 'formControls' ? [] : expected); expect(errors).toEqual([]); expect(f.reads()).toBeLessThanOrEqual(count * 5 + 20);
 	});
 }
 it.each(['worksheetFunction', 'activeSheet'] as const)('preserves known %s member and casing', scope => {
@@ -56,28 +56,28 @@ it.each(['class', 'document', 'userform', 'standardModule'] as const)('preserves
 it('preserves shadowed ActiveSheet bindings', () => {
 	const f = fixture('activeSheet', 3); expect(run(f.source.replace('Sub Go()', 'Sub Go()\nDim ActiveSheet As Object'), f.model, f.classes)).toEqual([]);
 });
-it('preserves control name casing and filters non-control fields', () => {
+it('does not infer runtime Controls from designer names or scalar fields', () => {
 	const f = fixture('formControls', 3); expect(run(f.source.replaceAll('"Missing"', '"cOnTrOl1"'), f.model, f.classes)).toEqual([]);
 	f.classes[0].members.push({ name: 'Missing', moduleName: 'Form1', kind: 'property', returns: 'Long' });
-	expect(run(f.source, f.model, f.classes)).toHaveLength(3);
+	expect(run(f.source, f.model, f.classes)).toEqual([]);
 });
-it.each([0, 1, 2])('preserves duplicate control count with index %i', index => {
+it.each([0, 1, 2])('does not infer runtime control count from duplicate designer names with index %i', index => {
 	const f = fixture('formControls', 2); f.classes[0].members[1].name = 'Control0';
 	const text = f.source.replaceAll('"Missing"', String(index)); const out = run(text, f.model, f.classes);
 	if (index < 2) expect(out).toEqual([]);
-	else { let from = 0; expect(out).toEqual(Array.from({ length: 2 }, () => { const start = text.indexOf('Controls(2)', from) + 9; from = start + 1; return ['runtimeMemberNotFound', "The form Form1 has 2 controls, indexed 0 to 1; 2 is none of them. This will raise Run-time error '-2147024809': Invalid argument.", { start, end: from }]; })); }
+	else expect(out).toEqual([]);
 });
 it('preserves incomplete form and dynamic added-control guards', () => {
 	const f = fixture('formControls', 3); f.classes[0].exhaustive = false; expect(run(f.source, f.model, f.classes)).toEqual([]); f.classes[0].exhaustive = true;
 	const named = f.source.replace('Dim actor As New Form1', 'Dim actor As New Form1\nactor.Controls.Add "Forms.TextBox.1", "Missing"'); expect(run(named, f.model, f.classes)).toEqual([]);
 	const unknown = f.source.replace('Dim actor As New Form1', 'Dim actor As New Form1\nDim newName As String\nactor.Controls.Add "Forms.TextBox.1", newName'); expect(run(unknown, f.model, f.classes)).toEqual([]);
 });
-it('refreshes retained form metadata between public invocations', () => {
+it('keeps designer metadata separate from runtime Controls across invocations', () => {
 	const f = fixture('formControls', 3), parsed = parseModule(f.source);
-	expect(run(f.source, f.model, f.classes, parsed)).toHaveLength(3);
+	expect(run(f.source, f.model, f.classes, parsed)).toEqual([]);
 	f.classes[0].members.push({ name: 'Missing', moduleName: 'Form1', kind: 'property', returns: 'MSForms.TextBox' });
 	expect(run(f.source, f.model, f.classes, parsed)).toEqual([]);
-	f.classes[0].members.pop(); expect(run(f.source, f.model, f.classes, parsed)).toHaveLength(3);
+	f.classes[0].members.pop(); expect(run(f.source, f.model, f.classes, parsed)).toEqual([]);
 });
 it('refreshes host queries with new models and a retained AST', () => {
 	for (const scope of ['worksheetFunction', 'activeSheet'] as const) {
@@ -91,5 +91,5 @@ it.each(['worksheetFunction', 'activeSheet', 'formControls'] as const)('shares %
 	const text = ['Option Explicit', ...Array.from({ length: count }, (_, i) => ['Sub P' + i + '()', ...(scope === 'formControls' ? ['Dim actor As New Form1'] : []), line, 'End Sub'].join('\n')), ''].join('\n');
 	let from = 0;
 	const expected = Array.from({ length: count }, () => { const marker = scope === 'formControls' ? '"Missing"' : 'Missing', start = text.indexOf(marker, from); from = start + marker.length; return ['runtimeMemberNotFound', messages[scope], { start, end: from }]; });
-	expect(run(text, f.model, f.classes)).toEqual(expected); expect(f.reads()).toBeLessThanOrEqual(count * 5 + 20);
+	expect(run(text, f.model, f.classes)).toEqual(scope === 'formControls' ? [] : expected); expect(f.reads()).toBeLessThanOrEqual(count * 5 + 20);
 });

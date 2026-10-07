@@ -308,6 +308,22 @@ describe('adding a reference the project is missing', () => {
 		expect(listReferences(file).map((one) => one.name)).toEqual(['stdole', 'Office', 'Word']);
 	});
 
+	it('adds Scripting once and clears the Dictionary reference diagnostic', () => {
+		const file = copy('ShapesFixture.xlsm');
+		const source = 'Option Explicit\nPrivate values As New Dictionary\n';
+		const diagnostics = () => analyzeModule(source, {
+			referencedLibraries: listReferences(file).map((reference) => reference.name),
+		}).filter((diagnostic) => diagnostic.code === 'missing-library-reference');
+		expect(diagnostics()).toHaveLength(1);
+		expect(addReference(file, 'scripting')).toEqual({ ok: true, added: true, name: 'Scripting' });
+		expect(listReferences(file).map((reference) => reference.name)).toEqual(['stdole', 'Office', 'Scripting']);
+		expect(listReferences(file).at(-1)?.libid).toContain('{420B2830-E718-11CF-893D-00A0C9054228}#1.0#0#');
+		expect(addReference(file, 'SCRIPTING')).toEqual({ ok: true, added: false, name: 'Scripting' });
+		expect(diagnostics()).toEqual([]);
+		expect(removeReference(file, 'scripting')).toMatchObject({ removed: true });
+		expect(diagnostics()).toHaveLength(1);
+	});
+
 	it('is what clears the diagnostic, end to end', () => {
 		const file = copy('ShapesFixture.xlsm');
 		const analyze = () => {

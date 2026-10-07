@@ -24,7 +24,7 @@ import { assignmentTargetFromTokens } from '../../completion/assignmentTarget';
 import { topLevelEqualsIndex } from '../../lexer/tokenHelpers';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import type { VbaToken } from '../../lexer/tokenKinds';
-import type { BodyNode, ForBlockNode, ModuleNode } from '../../parser/nodes';
+import type { BodyNode, ForBlockNode, ModuleNode , ProcedureNode } from '../../parser/nodes';
 import { isLeafStatement } from '../../parser/nodes';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
@@ -64,9 +64,11 @@ export function checkVariantValueMisuse(
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 	projectVisibleSymbols?: readonly VbaSymbol[],
+	procedureFilter?: (member: ProcedureNode) => boolean,
 ): void {
 	const optionBase = moduleOptionBase(mod, activity);
 	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'Procedure' && procedureFilter && !procedureFilter(member)) { continue; }
 		if (member.kind !== 'Procedure') {
 			continue;
 		}

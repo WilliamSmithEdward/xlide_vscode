@@ -37,6 +37,7 @@ export function checkTypeMembers(
 	memberCtx: MemberCompletionContext,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	procedureFilter?: (member: ProcedureNode) => boolean,
 ): void {
 	const types = moduleTypes(source, mod, activity);
 	if (types.size === 0) {
@@ -45,6 +46,7 @@ export function checkTypeMembers(
 	const optionBase = moduleOptionBase(mod, activity);
 	const isObjectType = (type: string): boolean => !types.has(type) && type !== 'variant' && isKnownObjectAssignmentType(type, memberCtx);
 	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'Procedure' && procedureFilter && !procedureFilter(member)) { continue; }
 		if (member.kind !== 'Procedure') {
 			continue;
 		}

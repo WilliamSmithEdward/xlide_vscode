@@ -13,6 +13,15 @@ function doc(lineCount: number, scheme: string): vscode.TextDocument {
 const XLIDE = 'xlide-vba';
 
 describe('diagnostic pass scheduling', () => {
+    it('keeps early errors responsive while pacing a failed full-worker fallback', () => {
+        expect(editScheduleDelaysFor(doc(24000, XLIDE), false, true)).toEqual({
+            localDelayMs: 90, fullDelayMs: 2000,
+        });
+        // A loose file has no separate full pass and retains full analysis.
+        expect(editScheduleDelaysFor(doc(24000, 'file'), false, true)).toEqual({
+            localDelayMs: 2000, fullDelayMs: 2000,
+        });
+    });
     it('keeps the flat fast cadence when the worker is healthy, at any size', () => {
         // Both passes run off-thread, so a 24k-line class types like a small
         // module: local at 90ms, full at 450ms, no host contention to pace.

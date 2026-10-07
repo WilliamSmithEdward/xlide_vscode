@@ -378,16 +378,16 @@ describe('the workbook\'s sheets reach the analysis (issue #229)', () => {
 		return response?.kind === 'result' ? response.diagnostics.filter((d) => d.code === 'sheet-not-in-workbook') : undefined;
 	};
 
-	it('reports a sheet the workbook lacks, and re-analyzes when the sheets change', () => {
+	it('does not infer runtime sheet existence when the snapshot changes', () => {
 		const state = new AnalysisWorkerState();
-		expect(analyze(state, 1, ['Data'])).toHaveLength(1);
+		expect(analyze(state, 1, ['Data'])).toEqual([]);
 		expect(analyze(state, 2, ['Data', '2024'])).toEqual([]);
-		expect(analyze(state, 3, ['Data'])).toHaveLength(1);
+		expect(analyze(state, 3, ['Data'])).toEqual([]);
 	});
 
 	it('re-analyzes when another module starts naming the sheet', () => {
 		const state = new AnalysisWorkerState();
-		expect(analyze(state, 1, ['Data'], ['Sub A()\n    Worksheets.Add\nEnd Sub\n'])).toHaveLength(1);
+		expect(analyze(state, 1, ['Data'], ['Sub A()\n    Worksheets.Add\nEnd Sub\n'])).toEqual([]);
 		expect(analyze(state, 2, ['Data'], ['Sub A()\n    Worksheets.Add.Name = "2024"\nEnd Sub\n'])).toEqual([]);
 	});
 });

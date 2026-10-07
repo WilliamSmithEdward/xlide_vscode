@@ -15,7 +15,7 @@ function hits(...lines: string[]) {
 }
 
 describe('unqualified corners of another sheet\'s Range (issue #470)', () => {
-	it('reports the corner that belongs to the active sheet', () => {
+	it('does not infer active-sheet identity from an earlier Add', () => {
 		for (const lines of [
 			['Set r = w1.Range(Cells(1, 1), Cells(2, 2))'],
 			['Set r = w1.Range(Range("A1"), Range("B2"))'],
@@ -23,8 +23,7 @@ describe('unqualified corners of another sheet\'s Range (issue #470)', () => {
 			['With w1', '    Set r = .Range(Cells(1, 1), .Cells(2, 2))', 'End With'],
 		]) {
 			const found = hits(...lines);
-			expect(found, lines.join(' / ')).toHaveLength(1);
-			expect(found[0].message).toContain("'1004'");
+			expect(found, lines.join(' / ')).toHaveLength(0);
 		}
 	});
 

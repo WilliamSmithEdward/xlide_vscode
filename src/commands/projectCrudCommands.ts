@@ -568,9 +568,9 @@ export function registerProjectCrudCommands(deps: CommandDeps): vscode.Disposabl
                 ? target
                 : target?.kind === 'project' ? target.filePath : undefined;
             if (!filePath) { return; }
-            const chosen = library ?? await pickLibrary(filePath);
-            if (!chosen) { return; }
             try {
+                const chosen = library ?? await pickLibrary(bridge, filePath);
+                if (!chosen) { return; }
                 const result = await runWriteWithHostCoordination(filePath, () =>
                     bridge.call<{ added: boolean; name: string }>('addReference', {
                         path: filePath,
@@ -735,11 +735,22 @@ async function confirmReferenceRemoval(
  * file's own host is left out: that library is implicit in the project, which
  * is why the VBE shows it checked and greyed.
  */
-async function pickLibrary(filePath: string): Promise<string | undefined> {
+async function pickLibrary(bridge: ProjectEngine, filePath: string): Promise<string | undefined> {
     const own = hostTokenForFileName(filePath);
+    const { references } = await bridge.call<{ references: VbaProjectReference[] }>(
+        'listReferences', { path: filePath },
+    );
+    const available = Object.entries(HOST_LIBRARIES).filter(([token, library]) =>
+        token !== own && !references.some((reference) =>
+            reference.name.toLowerCase() === library.name.toLowerCase() ||
+            reference.libid.toLowerCase().includes(library.guid.toLowerCase())),
+    );
+    if (available.length === 0) {
+        void vscode.window.showInformationMessage('XLIDE: this project already has all supported references.');
+        return undefined;
+    }
     const picked = await vscode.window.showQuickPick(
-        Object.entries(HOST_LIBRARIES)
-            .filter(([token]) => token !== own)
+        available
             .map(([token, library]) => ({
                 label: library.name,
                 description: library.description,
