@@ -350,4 +350,12 @@ describe('incremental rule re-analysis', () => {
         expect(incremental.diagnostics.find(d => d.code === finding!.code)).not.toBe(finding);
     });
 
+    it.each(['"'.repeat(20000), '0'.repeat(20000), '000.'.repeat(5000)])('handles long literal output without ambiguous regex matching', body => {
+        const source = 'Sub P()\nDebug.Print "' + body.replaceAll('"', '""') + '"\nEnd Sub\n';
+        const previous = run(source);
+        const edited = source.replace('Debug.Print "', 'Debug.Print "changed');
+        const incremental = run(edited, previous.rulesIncrementalState);
+        expect(key(incremental)).toBe(key(full(edited)));
+    });
+
 });

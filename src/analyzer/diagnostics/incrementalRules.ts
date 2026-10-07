@@ -93,7 +93,16 @@ function procedureEffects(member: ProcedureNode, source: string, shadows: Readon
 			const text = source.slice(span.start, span.end);
 			const head = /^\s*(Debug|MsgBox)\b/i.exec(text)?.[1].toLowerCase();
 			if (!head || shadows.has(head)) { return false; }
-			return /^\s*(?:Debug\s*\.\s*Print|MsgBox)\b\s*(?:"(?:[^"\r\n]|"")*"|\d+(?:\.\d+)?|[ \t()+*/&^=<>,-])*\s*$/i.test(text);
+			// Use lexer tokens rather than a repeated regex with overlapping
+            // numeric/string alternatives: adversarial source must stay linear.
+            const tokens = statementTokens(source, span);
+            const start = head === 'debug' && tokens[1]?.rawText === '.' && tokens[2]?.rawText.toLowerCase() === 'print' ? 3
+                : head === 'msgbox' ? 1 : undefined;
+            if (start === undefined) { return false; }
+            return tokens.slice(start).every(token =>
+                token.kind === 'stringLiteral' ? token.rawText.length >= 2 && token.rawText.endsWith('"')
+                    : token.kind === 'integerLiteral' || token.kind === 'floatLiteral'
+                    || [...token.rawText].every(char => '()+*/&^=<>,-'.includes(char)));
 		});
 	const parts: string[] = [];
 	let pos = member.body[0]?.span.start ?? member.span.start;
