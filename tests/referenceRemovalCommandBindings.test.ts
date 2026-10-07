@@ -26,3 +26,10 @@ it('requires the existing warning for a genuine early-bound dependency',async()=
  expect(vscode.window.showWarningMessage).toHaveBeenCalled();
  expect(call).not.toHaveBeenCalled();
 });
+
+it('removes references without a false warning for implicit local receivers',async()=>{
+ const call=setup([{moduleName:'Caller',source:'Sub T()\nSet Word = ThisWorkbook.Worksheets(1)\nWord.EnableCalculation = True\nEnd Sub'}]);
+ await handlers.get('xlide.removeProjectReference')!('/test.xlsm','Word');
+ expect(vscode.window.showWarningMessage).not.toHaveBeenCalled();
+ expect(call).toHaveBeenCalledWith('removeReference',{path:'/test.xlsm',library:'Word'});
+});

@@ -18,7 +18,7 @@ it('keeps type and New qualifiers separate from a local value shadow',()=>{
  expect(missing('Sub T()\nDim Word As Object\nSet Word = New Word.Application\nEnd Sub')).toHaveLength(1);
 });
 it('does not leak a local shadow into another procedure',()=>{
- const source='Sub T(ByVal Word As Range)\nWord.HorizontalAlignment = xlHAlignCenter\nEnd Sub\nSub U()\nDebug.Print Word.wdFormatPDF\nEnd Sub';
+ const source='Option Explicit\nSub T(ByVal Word As Range)\nWord.HorizontalAlignment = xlHAlignCenter\nEnd Sub\nSub U()\nDebug.Print Word.wdFormatPDF\nEnd Sub';
  const errors=missing(source);
  expect(errors).toHaveLength(1);
  expect(source.slice(errors[0].span.start,errors[0].span.end)).toBe('Word.wdFormatPDF');
@@ -44,6 +44,20 @@ it('walks enclosing procedures once across many property writes',()=>{
 });
 
 it('retains the Range alignment value menu for a library-named parameter',()=>{
- const source='Sub T(ByVal Word As Range)\nWord.HorizontalAlignment = ';
+ const source='Option Explicit\nSub T(ByVal Word As Range)\nWord.HorizontalAlignment = ';
  expect(resolveAssignmentValueCompletion(source,source.length)?.constants.map(value=>value.name)).toContain('xlHAlignCenter');
+});
+
+it('does not classify an implicit receiver as a missing-library compile error',()=>{
+ const source='Sub T()\nSet Word = ThisWorkbook.Worksheets(1)\nWord.EnableCalculation = True\nEnd Sub';
+ expect(missing(source)).toEqual([]);
+ expect(librariesNamedIn(source).has('word')).toBe(false);
+ expect(missing('Sub T()\nDebug.Print Word.wdFormatPDF\nEnd Sub')).toEqual([]);
+ expect(missing('Option Explicit\nSub T()\nDebug.Print Word.wdFormatPDF\nEnd Sub')).toHaveLength(1);
+});
+it('keeps implicit locals scoped and preserves true type dependencies',()=>{
+ const source='Sub T()\nSet Word = ThisWorkbook.Worksheets(1)\nWord.EnableCalculation = True\nEnd Sub\nSub U()\nDebug.Print Word.wdFormatPDF\nEnd Sub';
+ expect(librariesNamedIn(source).has('word')).toBe(true);
+ expect(missing(source+'\nPrivate app As Word.Application')).toHaveLength(1);
+ expect(missing('Sub T()\nSet Word = New Word.Application\nEnd Sub')).toHaveLength(1);
 });

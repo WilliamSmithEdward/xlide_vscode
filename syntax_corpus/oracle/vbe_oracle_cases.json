@@ -111975,6 +111975,69 @@
       "source": "Function Factory() As LongLong()\nDim data(1) As LongLong\nFactory = data\nEnd Function\nFunction Main() As Variant\nDim values() As LongPtr\nvalues = Factory()\nMain = 1\nEnd Function",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
-    }
+    },
+      {
+        "id": "implicit_library_receiver_assigned_audit",
+        "description": "An undeclared value assigned before a library-named property write.",
+        "mode": "compile_then_run",
+        "entryPoint": "Main",
+        "expected": "accepted",
+        "provenance": "vbe-oracle-verified",
+        "source": "Function Main() As Variant\nSet Word = ThisWorkbook.Worksheets(1)\nWord.EnableCalculation = True\nMain = 1\nEnd Function",
+        "evidencePhase": "runtime",
+        "diagnosticMeaning": "runtime-valid"
+      },
+      {
+        "id": "implicit_library_receiver_unassigned_audit",
+        "description": "An absent library qualifier in value context without Option Explicit.",
+        "mode": "compile_then_run",
+        "entryPoint": "Main",
+        "expected": "rejected",
+        "provenance": "vbe-oracle-verified",
+        "source": "Function Main() As Variant\nMain = Word.wdFormatPDF\nEnd Function",
+        "evidencePhase": "runtime",
+        "diagnosticMeaning": "runtime-error"
+      },
+      {
+        "id": "audit_function_result_index_bare",
+        "description": "Indexed default assignment through a zero-argument function.",
+        "mode": "compile_then_run",
+        "entryPoint": "Main",
+        "expected": "accepted",
+        "provenance": "vbe-oracle-verified",
+        "modules": [
+          {
+            "name": "Caller",
+            "type": "standard",
+            "entry": true,
+            "source": "Public Function Factory() As Collection\nDim c As Collection\nSet c = New Collection\nc.Add ThisWorkbook.Worksheets(1).Range(\"A1\")\nSet Factory = c\nEnd Function\nFunction Main() As Variant\nFactory(1) = 20\nMain = 1\nEnd Function"
+          }
+        ],
+        "evidencePhase": "runtime",
+        "diagnosticMeaning": "runtime-valid"
+      },
+      {
+        "id": "audit_function_result_index_member",
+        "description": "Indexed default assignment through a zero-argument function.",
+        "mode": "compile_then_run",
+        "entryPoint": "Main",
+        "expected": "accepted",
+        "provenance": "vbe-oracle-verified",
+        "modules": [
+          {
+            "name": "Widget",
+            "type": "class",
+            "source": "Public Function Factory() As Collection\nDim c As Collection\nSet c = New Collection\nc.Add ThisWorkbook.Worksheets(1).Range(\"A1\")\nSet Factory = c\nEnd Function"
+          },
+          {
+            "name": "Caller",
+            "type": "standard",
+            "entry": true,
+            "source": "Function Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Factory(1) = 20\nMain = 1\nEnd Function"
+          }
+        ],
+        "evidencePhase": "runtime",
+        "diagnosticMeaning": "runtime-valid"
+      }
   ]
 }
