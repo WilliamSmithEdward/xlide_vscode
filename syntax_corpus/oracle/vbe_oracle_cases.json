@@ -111186,6 +111186,221 @@
       ],
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "implicit_setter_foreign_bare_bad",
+      "description": "Cross-module default type belongs to setter declaration.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "DefBool V\nPublic Property Let State(ByVal value)\nEnd Property"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nState = \"nonsense\"\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "implicit_setter_foreign_qualified_bad",
+      "description": "Cross-module default type belongs to setter declaration.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "DefBool V\nPublic Property Let State(ByVal value)\nEnd Property"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nLibrary.State = \"nonsense\"\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "implicit_setter_foreign_valid",
+      "description": "Cross-module default type belongs to setter declaration.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "DefBool V\nPublic Property Let State(ByVal value)\nEnd Property"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nState = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "function_result_write_range",
+      "description": "Object-returning function assignment uses returned default contract.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Factory() As Range\nSet Factory = ThisWorkbook.Worksheets(1).Range(\"A1\")\nEnd Function\nFunction Main() As Variant\nFactory() = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "function_result_write_worksheet",
+      "description": "Object-returning function assignment uses returned default contract.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Factory() As Worksheet\nSet Factory = ThisWorkbook.Worksheets(1)\nEnd Function\nFunction Main() As Variant\nFactory() = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "function_result_write_collection",
+      "description": "Object-returning function assignment uses returned default contract.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Factory() As Collection\nSet Factory = New Collection\nEnd Function\nFunction Main() As Variant\nFactory() = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "function_result_write_widget",
+      "description": "Object-returning function assignment uses returned default contract.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Option Explicit"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Factory() As Widget\nSet Factory = New Widget\nEnd Function\nFunction Main() As Variant\nFactory() = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "member_function_result_write_collection",
+      "description": "Member/With function result default contracts.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Function Factory() As Collection\nSet Factory = New Collection\nEnd Function"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Factory() = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "member_function_result_write_range",
+      "description": "Member/With function result default contracts.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Function Factory() As Range\nSet Factory = ThisWorkbook.Worksheets(1).Range(\"A1\")\nEnd Function"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nWith item\n.Factory() = 20\nEnd With\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "member_function_result_write_worksheet",
+      "description": "Member/With function result default contracts.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Function Factory() As Worksheet\nSet Factory = ThisWorkbook.Worksheets(1)\nEnd Function"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Factory() = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }

@@ -44,7 +44,6 @@ import { resolveRuntimeFunction } from '../../runtime/vbaRuntime';
 import {procedureParamsFromSymbol} from '../../symbols/symbolModel';
 import type {
 	VbaProcedureSignature,
-	VbaProcedureParam,
 	VbaProjectClassMember,
 	VbaProjectClassMembers,
 	VbaSymbol,
@@ -79,6 +78,7 @@ import {
 	objectHoldingDefault,
 	readOnlyHostDefault,
 	getterMayReturnObject,
+	parseRuntimeDisplaySignature,
 	objectLetAssignmentVerdict,
 	sameByRefType,
 	inferArgumentType,
@@ -205,7 +205,7 @@ function readOnlyProjectDefault(type: string, projectClassNamed: ReturnType<type
 	return member && member.kind === 'property' && !member.letAccessor && member.writable !== true ? member.name : undefined;
 }
 
-function invalidGetterArgumentCount(source: string, name: string, span: Span, params: readonly VbaProcedureParam[], tokens: VbaToken[], base: number): boolean {
+function invalidGetterArgumentCount(source: string, name: string, span: Span, params: readonly CallableParamType[], tokens: VbaToken[], base: number): boolean {
 	const split = tokens.length ? splitArgSlots(tokens,base) : {slots:[],spans:[]};
 	let invalid = false;
 	validateArity(source,{name,params:params.map(param => ({...param,optional:Boolean(param.optional),paramArray:Boolean(param.paramArray)}))},
@@ -348,7 +348,7 @@ export function checkAssignmentTypes(
 		}
 		return facts;
 	};
-	const checkGetterObjectDefault = (type: string, label: string, span: Span): boolean => {
+	const checkReturnedObjectDefault = (type: string, label: string, span: Span): boolean => {
 		const facts = objectFactsFor(type);
 		if (facts.holding || facts.readOnlyDefault) {
 			const member = facts.holding?.name ?? facts.readOnlyDefault;
@@ -360,7 +360,7 @@ export function checkAssignmentTypes(
 			return true;
 		}
 		if (facts.verdict === 'noDefault') {
-			push('runtimeMemberNotFound', `'${label}' returns ${type}, which has no default member to receive this Let assignment. This will raise Run-time error '438': Object doesn't support this property or method, or error '91' if the getter returns Nothing.`, span);
+			push('runtimeMemberNotFound', `'${label}' returns ${type}, which has no default member to receive this Let assignment. This will raise Run-time error '438': Object doesn't support this property or method, or error '91' if the returned object is Nothing.`, span);
 			return true;
 		}
 		return false;
@@ -395,7 +395,7 @@ export function checkAssignmentTypes(
 	const setterNames = new Set([...(symbols.root.children ?? []), ...(projectVisibleSymbols ?? [])]
 		.filter(symbol => symbol.kind === 'propertyLet').map(symbol => symbol.name.toLowerCase()));
 	const variantArrayFunctions = arrayOnlyVariantFunctions(source, mod, activity);
-	const getterNames = new Set([...(symbols.root.children ?? []), ...(projectVisibleSymbols ?? [])].filter(symbol => symbol.kind === 'propertyGet').map(symbol => symbol.name.toLowerCase()));
+	const getterNames = new Set([...(symbols.root.children ?? []), ...(projectVisibleSymbols ?? [])].filter(symbol => symbol.kind === 'propertyGet' || symbol.kind === 'function').map(symbol => symbol.name.toLowerCase()));
 	let ownGetterValues: ReturnType<typeof classMemberValues> | undefined;
 
 	for (const member of activeModuleMembers(mod, activity)) {
@@ -587,9 +587,10 @@ export function checkAssignmentTypes(
 			if (!target || named?.index !== 0) { return false; }
 			const binding = sourceIdentifierBinding(symbols, procSym, projectVisibleSymbols, root, 'assignmentTarget');
 			if (binding.scope === 'ambiguous' || binding.definitions.some(def => def.kind === 'propertyLet' || def.kind === 'propertySet')) { return false; }
-			const getter = binding.definitions.find(def => def.kind === 'propertyGet');
+			const getter = binding.definitions.find(def => def.kind === 'propertyGet' || def.kind === 'function');
 			if (!getter || getter === procSym) { return false; }
 			const declared = getter.asType ?? (getter.moduleName.toLowerCase() === symbols.moduleName.toLowerCase() ? defTypeOf(symbols, getter.name) : 'Variant');
+			if (getter.kind === 'function' && !resolveObjectType(declared)) { return false; }
 			const parameters = procedureParamsFromSymbol(getter);
 			if (!named.indexed && parameters.some(param => !param.optional && !param.paramArray)) {
 				push('argumentCount', `Argument not optional: '${root}' requires a getter argument.`, {start:span.start+target[0].start,end:span.start+target[0].end});
@@ -598,8 +599,8 @@ export function checkAssignmentTypes(
 			const resultIndexed = named.indexed && target.length > named.index + 3 && parameters.length === 0;
 			const nameSpan = {start:span.start+target[0].start,end:span.start+target[0].end};
 			if (!resultIndexed && invalidGetterArgumentCount(source,root,nameSpan,parameters,named.indexed?target.slice(named.index+2,-1):[],span.start)) { return true; }
-			if (declared && getterMayReturnObject(declared,memberCtx) && !resultIndexed && checkGetterObjectDefault(declared,root,nameSpan)) { return true; }
-			if (normalizeType(declared) !== 'variant') { return false; }
+			if (declared && getterMayReturnObject(declared,memberCtx) && !resultIndexed && checkReturnedObjectDefault(declared,root,nameSpan)) { return true; }
+			if (getter.kind === 'function' || normalizeType(declared) !== 'variant') { return false; }
 
 			const value = getter.moduleName.toLowerCase() === symbols.moduleName.toLowerCase()
 				? (ownGetterValues ??= classMemberValues(source, symbols.root.children ?? [])).get(getter.name.toLowerCase())
@@ -925,7 +926,7 @@ export function checkAssignmentTypes(
 			objectAssignmentReason,
 			resolveObjectType,
 			defaultQueries.verdictFor,
-			checkGetterObjectDefault,
+			checkReturnedObjectDefault,
 			arrayValueAt,
 			resolveExpressionType,
 			resolveQualifiedExpressionType,
@@ -1739,7 +1740,7 @@ function checkMemberAssignmentTypes(
 	objectAssignmentReason: (expected: string | undefined, actual: ReturnType<typeof inferArgumentType>) => string | undefined,
 	resolveObjectType: ReturnType<typeof createObjectAssignmentTypeResolver>,
 	objectVerdict: (type: string | undefined) => ReturnType<typeof objectLetAssignmentVerdict>,
-	checkGetterObjectDefault: (type: string, label: string, span: Span) => boolean,
+	checkReturnedObjectDefault: (type: string, label: string, span: Span) => boolean,
 	arrayValueAt: (stmt: LeafStatementNode, name: string) => ArrayValue | undefined,
 	resolveExpressionType?: SourceDeclaredTypeResolver,
 	resolveQualifiedExpressionType?: SourceQualifiedDeclaredTypeResolver,
@@ -1800,6 +1801,17 @@ function checkMemberAssignmentTypes(
 			assignment.memberSpan.end,
 			memberCtx,
 		);
+		if (target?.kind === 'method' && !target.sub && !assignment.usesSet
+			&& !lateBoundReceiver(source, assignment.memberSpan.end, memberCtx)
+			&& getterMayReturnObject(target.returns ?? target.declaredType, memberCtx)) {
+			const parameters = memberParameterCounts(target.signature);
+			const resultIndexed = assignment.withArguments && parameters.total === 0 && assignment.hasArguments;
+			const params = target.procedureParams?.function ?? (target.signature
+				? parseRuntimeDisplaySignature(target.name,target.signature).params : undefined);
+			if (!resultIndexed && params && invalidGetterArgumentCount(source,target.name,assignment.memberSpan,params,assignment.argumentTokens,span.start)) { return; }
+			const returned = target.returns ?? target.declaredType;
+			if (!resultIndexed && returned && checkReturnedObjectDefault(returned,assignment.label,assignment.memberSpan)) { return; }
+		}
 		if (target?.access === 'read-only' && target.writable === undefined) {
 			const vbeError = hostReadOnlyAssignmentError(target, assignment.usesSet, memberCtx);
 			if (vbeError && !lateBoundReceiver(source, assignment.memberSpan.end, memberCtx)) {
@@ -1897,7 +1909,7 @@ function checkMemberAssignmentTypes(
 				const returned = target.returns ?? target.declaredType;
 				const getterParams = target.procedureParams?.propertyGet;
 				if (getterParams && invalidGetterArgumentCount(source,target.name,assignment.memberSpan,getterParams,assignment.argumentTokens,span.start)) { return; }
-				if (returned && checkGetterObjectDefault(returned,assignment.label,assignment.memberSpan)) { return; }
+				if (returned && checkReturnedObjectDefault(returned,assignment.label,assignment.memberSpan)) { return; }
 				const type = normalizeType(returned);
 				if ((!type || type === 'variant') && (target.knownValue === 'scalar' || target.knownValue === 'empty')) {
 					push('variantValueMisuse', `'${assignment.label}' has only a Property Get returning a Variant that holds no object. The Let writes through its returned value, which cannot receive a property assignment. This will raise Run-time error '424': Object required.`, assignment.memberSpan);
