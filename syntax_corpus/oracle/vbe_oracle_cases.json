@@ -111841,6 +111841,75 @@
       "source": "Enum VbInteger\nFirst = 1\nEnd Enum\nProperty Let State(ByVal value As VbInteger)\nEnd Property\nFunction Main() As Variant\nState = 50000\nMain = 1\nEnd Function",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "audit_enum_declaration_qualified",
+      "description": "Source enum qualification in an As declaration.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Types",
+          "type": "standard",
+          "source": "Public Enum Direction\nNorth = 1\nEnd Enum"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim value As Types.Direction\nvalue = Types.Direction.North\nMain = value\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "audit_enum_declaration_bare",
+      "description": "Source enum qualification in an As declaration.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Types",
+          "type": "standard",
+          "source": "Public Enum Direction\nNorth = 1\nEnd Enum"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim value As Direction\nvalue = Types.Direction.North\nMain = value\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "source_qualified_udt_audit",
+      "description": "Source module-qualified UDT As declaration.",
+      "mode": "compile_then_run",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Types",
+          "type": "standard",
+          "source": "Public Type Record\nFlag As Boolean\nEnd Type"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Function Main() As Variant\nDim value As Types.Record\nvalue.Flag = True\nMain = value.Flag\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

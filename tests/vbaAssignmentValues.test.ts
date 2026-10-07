@@ -21,9 +21,9 @@ describe('assignment value completion', () => {
 		const call = `${source}\nSub T()\nDim answer As VBA.VbMsgBoxResult\nanswer = `;
 		expect(resolveAssignmentValueCompletion(call, call.length)?.constants.map(c => c.name)).toContain('vbYes');
 	});
-	it('resolves a qualified enum in the current module', () => {
+	it('does not resolve an invalid module-qualified enum declaration', () => {
 		const source = 'Enum Direction\nNorth = 1\nEnd Enum\nSub T()\nDim facing As Module.Direction\nfacing = ';
-		expect(resolveAssignmentValueCompletion(source, source.length)?.constants.map(c => c.name)).toEqual(['North']);
+		expect(resolveAssignmentValueCompletion(source, source.length)).toBeUndefined();
 	});
 	it('handles leading-dot assignments inside With blocks', () => {
 		const source = 'Sub T()\nWith ActiveCell\n.HorizontalAlignment = ';

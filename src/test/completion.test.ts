@@ -256,6 +256,14 @@ suite('Completion editor surface', () => {
         await editor.edit(edit => edit.replace(finding.range, 'values(0)'));
         await until(() => !vscode.languages.getDiagnostics(document.uri).some(d => d.severity === vscode.DiagnosticSeverity.Error) || undefined, 'array element must clear the scalar setter error', 5000);
     });
+    test('source enum qualifier bug hunt rejects a module-qualified type declaration', async () => {
+        const source = 'Enum Direction\nNorth = 1\nEnd Enum\nSub Demo()\nDim value As SourceEnumQualifierDiagnostic.Direction\nvalue = SourceEnumQualifierDiagnostic.Direction.North\nEnd Sub\n';
+        const document = await open(await writeModule('SourceEnumQualifierDiagnostic', source));
+        const editor = vscode.window.activeTextEditor!;
+        await until(() => vscode.languages.getDiagnostics(document.uri).find(d => d.code === 'invalid-as-type-name'), 'module-qualified source enum type must fail', 5000);
+        await editor.edit(edit => edit.replace(document.lineAt(4).range, 'Dim value As Direction'));
+        await until(() => !vscode.languages.getDiagnostics(document.uri).some(d => d.severity === vscode.DiagnosticSeverity.Error) || undefined, 'unqualified enum type with qualified constant must work', 5000);
+    });
     test('vb type name bug hunt retains the source enum Long range', async () => {
         const source = 'Enum VbInteger\nFirst = 1\nEnd Enum\nProperty Let State(ByVal value As VbInteger)\nEnd Property\nSub Demo()\nState = 2147483648#\nEnd Sub\n';
         const document = await open(await writeModule('VbNamedEnumDiagnostic', source));

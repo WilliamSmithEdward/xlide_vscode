@@ -128,9 +128,14 @@ function localEnums(source: string): Map<string, VbaSymbol> {
 export function resolveEnumValues(source: string, type: string, ctx: AssignmentValueCompletionContext): Omit<ArgumentValueCompletion, 'parameter'> | undefined {
 	if (type.toLowerCase() === 'boolean') { return hostEnumValues(type, ctx); }
 	const bare = type.split('.').at(-1)!;
+	if (type.includes('.')) {
+		const library = libraryEnumValues(type,ctx);
+		if (library) { return library; }
+	}
 	const ownModule = type.slice(0, type.lastIndexOf('.')).toLowerCase() === (ctx.moduleName ?? 'Module').toLowerCase();
 	const local = ctx.projectClassMembers === undefined && (!type.includes('.') || ownModule)
 		? localEnums(source).get(bare.toLowerCase()) : undefined;
+	if (local && type.includes('.')) { return undefined; }
 	if (local) {
 		return { enumName: local.name, origin: 'source', qualifiedEnumName: `${ctx.moduleName ?? 'Module'}.${local.name}`,
 			constants: (local.children ?? []).map(s => ({ name: s.name, value: s.defaultRaw, doc: s.doc })) };
@@ -140,9 +145,15 @@ export function resolveEnumValues(source: string, type: string, ctx: AssignmentV
 	const projectEnum = projectEnums?.find(s => s.moduleName.toLowerCase() === ctx.moduleName?.toLowerCase())
 		?? (projectEnums?.length === 1 ? projectEnums[0] : undefined);
 	if (projectEnums && projectEnums.length > 1 && !projectEnum) { return undefined; }
+	if (projectEnum && type.includes('.')) { return undefined; }
 	if (projectEnum) {
 		return { enumName: projectEnum.name, origin: 'source', qualifiedEnumName: `${projectEnum.moduleName}.${projectEnum.name}`, constants: projectEnum.members.map(m => ({ name: m.name, doc: m.doc })) };
 	}
+	return libraryEnumValues(type,ctx);
+}
+
+function libraryEnumValues(type: string, ctx: AssignmentValueCompletionContext): Omit<ArgumentValueCompletion, 'parameter'> | undefined {
+	const bare = type.split('.').at(-1)!;
 	const qualifier = resolveVbaLibraryQualifier(type.replace(/^VBA\./i, ''));
 	const runtime = qualifier?.constants?.filter(c => c.type === qualifier.name) ?? [];
 	if (runtime.length) { return { enumName: runtime[0].type!, constants: runtime, origin: 'runtime', qualifiedEnumName: `VBA.${runtime[0].type!}` }; }
