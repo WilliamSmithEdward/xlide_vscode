@@ -200,6 +200,8 @@ export interface ModuleEntry {
 
 
 export interface ProtectionInfo {
+	/** True while the existing VBA password is still required in this session. */
+	isAccessLocked?: boolean;
 	isPasswordProtected: boolean;
 	isSigned: boolean;
 }
@@ -2055,7 +2057,10 @@ export function getProtectionInfo(filePath: string): ProtectionInfo {
 	if (!open) {
 		return { isPasswordProtected: false, isSigned: false };
 	}
-	return { isPasswordProtected: open.project.hasPassword, isSigned: detectSignature(open.cfb).present };
+	let isAccessLocked = false;
+	try { assertVbaProjectAccess(filePath, open.project.protection); }
+	catch (err) { if (err instanceof VbaProjectLockedError) { isAccessLocked = true; } else { throw err; } }
+	return { isPasswordProtected: open.project.protection.requiresPassword, isSigned: detectSignature(open.cfb).present, isAccessLocked };
 }
 
 export function getModulesAndProtectionInfo(filePath: string): ProtectionInfo & { modules: ModuleEntry[] } {

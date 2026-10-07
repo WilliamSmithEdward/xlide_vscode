@@ -3,6 +3,7 @@ const host = vi.hoisted(() => ({ findFiles: vi.fn() }));
 vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({
     workspace: { findFiles: host.findFiles, workspaceFolders: [{ uri: { fsPath: 'C:/work' } }] },
 }));
+import * as vscode from 'vscode';
 import { ProjectExplorer, type XlideNode } from '../src/projectExplorer';
 const BOOK = 'C:/work/Book.xlsm';
 const LOCKED = { isPasswordProtected: true, isSigned: true };
@@ -23,7 +24,7 @@ function create(probe: () => Promise<typeof OPEN>) {
         return Promise.resolve([]);
     });
     const explorer = new ProjectExplorer({ call } as unknown as ConstructorParameters<typeof ProjectExplorer>[0],
-        { appendLine } as unknown as ConstructorParameters<typeof ProjectExplorer>[1]);
+        { appendLine } as unknown as ConstructorParameters<typeof ProjectExplorer>[1], undefined, vscode.Uri.file('C:/extension'));
     explorers.push(explorer);
     const events: Array<XlideNode | undefined | null | void> = [];
     explorer.onDidChangeTreeData((node) => events.push(node));
@@ -135,5 +136,29 @@ describe('protection probe ownership', () => {
         explorer.setModuleFolder(BOOK, 'M', 'Edited'); explorer.forgetModuleFolder(BOOK, 'M');
         pending.resolve(LOCKED); await flush();
         expect(current).toMatchObject(LOCKED); expect(probe).toHaveBeenCalledTimes(1);
+    });
+});
+
+
+describe('protected file icons', () => {
+    it('probes a collapsed file without reading modules and draws its closed padlock', async () => {
+        const probe = vi.fn().mockResolvedValue({ ...LOCKED, isAccessLocked: true });
+        const { explorer } = create(probe);
+        const [node] = await explorer.getChildren();
+        explorer.getTreeItem(node);
+        expect(probe).not.toHaveBeenCalled();
+        await idle();
+        const item = explorer.getTreeItem(node);
+        expect((item.iconPath as { light: { path: string }; dark: { path: string } }).light.path).toContain('/light/file-code-locked.svg');
+        expect((item.iconPath as { dark: { path: string } }).dark.path).toContain('/dark/file-code-locked.svg');
+        expect(item.tooltip).toMatchObject({ value: expect.stringContaining('VBA project locked') });
+    });
+    it('shows an open padlock and keeps the signature badge after session authorization', async () => {
+        const { explorer, render } = create(async () => ({ ...LOCKED, isAccessLocked: false }));
+        const node = await render(); await idle();
+        const item = explorer.getTreeItem(node);
+        expect((item.iconPath as { light: { path: string } }).light.path).toContain('file-code-unlocked.svg');
+        expect(item.description).toContain('[unlocked for this session, signed]');
+        expect(item.tooltip).toMatchObject({ value: expect.stringContaining('VBA project unlocked for this session') });
     });
 });

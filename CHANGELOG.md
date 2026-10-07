@@ -18,6 +18,10 @@ Require the existing VBA project password before accessing protected Office file
   require verification again. Passwords are not saved, and writes preserve
   the Office protection records. VBA project protection remains an access
   restriction and does not encrypt module source.
+- **Protected-file icons**. Office files with protected VBA projects show a
+  closed padlock until authorized, then an open padlock for the current session.
+  Protection metadata does not prompt for a password, and the badge updates
+  after an unlock without requiring a tree refresh.
 - **Protection regression coverage**. Add a permanent protected workbook
   fixture, browser and multi-format password checks, and VS Code integration
   tests for cancelled access, incorrect-password retry, editor saves, the

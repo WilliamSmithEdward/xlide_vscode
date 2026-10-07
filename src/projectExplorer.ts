@@ -18,6 +18,7 @@ import { startPerformanceTrace } from './performanceTrace';
 import { osPlatform } from './util/osPlatform';
 import { ShapeRows, type ShapeRowContext } from './shapeRows';
 import type { ShapeInfo } from './vba/shapes';
+import { onDidUnlockVbaProject } from './projectPasswordPrompt';
 
 export type XlideNodeKind = 'project' | 'folder' | 'module' | 'designer' | 'sub' | 'loadError' | 'empty'
     // The shape rows, drawn by ShapeRows (shapeRows.ts): a Shapes or Slides
@@ -59,6 +60,8 @@ export interface XlideNode {
     moduleCount?: number;
     /** Workbook only: VBA project carries a password lock. */
     isPasswordProtected?: boolean;
+    /** Protected file is still waiting for session authorization. */
+    isAccessLocked?: boolean;
     /** loadError only: the failure message shown in the tooltip. */
     errorMessage?: string;
     /**
@@ -134,7 +137,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     private _subNodes = new Map<string, { nodes: XlideNode[]; byLabel: Map<string, XlideNode> }>();
     // Protection-state cache: {isPasswordProtected, isSigned} per projectNodeKey.
     // Loaded lazily after tree expansion has gone idle; cleared on refresh().
-    private _protectionCache = new Map<string, { isPasswordProtected: boolean; isSigned: boolean }>();
+    private _protectionCache = new Map<string, { isPasswordProtected: boolean; isSigned: boolean; isAccessLocked?: boolean }>();
     private _protectionLoads = new Map<string, Promise<void>>();
     private _protectionTimers = new Map<string, ReturnType<typeof setTimeout>>();
     // Accordion: only one module node is expanded at a time.
@@ -170,13 +173,22 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     private _childrenProbe: string[] | undefined;
     // The shape rows under worksheet and document modules and presentations.
     private readonly _shapes: ShapeRows;
+    private readonly _unlockSubscription: vscode.Disposable | undefined;
 
     constructor(
         private readonly _bridge: ProjectEngine,
         private readonly _out?: vscode.OutputChannel,
         private readonly _gitMarks?: GitChangeMarksSource,
+        private readonly _assetRoot?: vscode.Uri,
     ) {
         this._shapes = new ShapeRows(_bridge, (node) => this._emitter.fire(node), _out);
+        this._unlockSubscription = onDidUnlockVbaProject(filePath => {
+            const key = projectNodeKey(filePath);
+            this._protectionCache.delete(key);
+            this._protectionLoads.delete(key); // Ignore an older in-flight locked probe.
+            this._cancelProtectionTimer(filePath);
+            if (this._projectNodes.has(key)) { void this._loadProtection(filePath); }
+        });
     }
 
     dispose(): void {
@@ -189,6 +201,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         this._subsListLoads.clear();
         this._protectionLoads.clear();
         this._shapes.dispose();
+        this._unlockSubscription?.dispose();
         this._clearProtectionTimers();
         this._emitter.dispose();
         this._rowsReplaced.dispose();
@@ -799,6 +812,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                 // A VB6 project is a manifest over files, and its icon says so.
                 item.iconPath = new vscode.ThemeIcon(isVb6ProjectPath(node.filePath) ? 'project' : 'file-code');
                 item.tooltip = node.filePath;
+                if (!isVb6ProjectPath(node.filePath)) { this._scheduleProtectionLoad(node.filePath); }
                 // Always carried, so the row can light up the moment an agent
                 // edit lands in it without redrawing a tree the user has open.
                 item.resourceUri = projectDecorationUri(node.filePath);
@@ -809,14 +823,24 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                 item.contextValue = containerContextValue(node.filePath);
                 // Append protection/signature badges once known.
                 const badges: string[] = [];
-                if (node.isPasswordProtected) { badges.push('locked'); }
+                const accessLocked = node.isAccessLocked !== false;
+                if (node.isPasswordProtected) {
+                    const state = accessLocked ? 'locked' : 'unlocked';
+                    if (this._assetRoot) {
+                        item.iconPath = {
+                            light: vscode.Uri.joinPath(this._assetRoot, 'assets', 'icons', 'light', `file-code-${state}.svg`),
+                            dark: vscode.Uri.joinPath(this._assetRoot, 'assets', 'icons', 'dark', `file-code-${state}.svg`),
+                        };
+                    }
+                    badges.push(accessLocked ? 'locked' : 'unlocked for this session');
+                }
                 if (node.isSigned) { badges.push('signed'); }
                 if (badges.length > 0) {
                     const tag = `[${badges.join(', ')}]`;
                     item.description = item.description ? `${item.description}  ${tag}` : tag;
                     const tip = new vscode.MarkdownString(node.filePath);
                     if (node.isPasswordProtected) {
-                        tip.appendMarkdown('\n\n$(lock) VBA project is password-protected');
+                        tip.appendMarkdown(accessLocked ? '\n\n$(lock) VBA project locked' : '\n\n$(unlock) VBA project unlocked for this session');
                     }
                     if (node.isSigned) {
                         tip.appendMarkdown('\n\n$(shield) VBA project is digitally signed (edits will invalidate the signature)');
@@ -1389,7 +1413,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         const load: Promise<void> = Promise.resolve().then(async () => {
             if (this._disposed) { return; }
             try {
-                const info = await this._bridge.call<{ isPasswordProtected: boolean; isSigned: boolean }>(
+                const info = await this._bridge.call<{ isPasswordProtected: boolean; isSigned: boolean; isAccessLocked?: boolean }>(
                     'getProtectionInfo',
                     { path: filePath },
                 );
@@ -1398,6 +1422,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                 const node = this._projectNodes.get(key);
                 if (node) {
                     node.isPasswordProtected = info.isPasswordProtected;
+                    node.isAccessLocked = info.isAccessLocked;
                     node.isSigned = info.isSigned;
                     this._emitter.fire(node);
                 }

@@ -7,10 +7,11 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { ProjectEngine } from '../projectEngine';
+import { ProjectExplorer } from '../projectExplorer';
 import { encodeModuleUri, encodeFormMarkupUri, XlideFileSystemProvider } from '../xlideFileSystem';
 import { updateProjectModuleSyncSettings } from '../projectModuleSyncSettings';
 import { openMacroContainer } from '../vba/macroContainer';
-import { activate, closeAllEditors, EXTENSION_ID, until } from './support';
+import { activate, closeAllEditors, EXTENSION_ID, until, workspaceRoot } from './support';
 
 const PASSWORD = 'Test66';
 const SOURCE_MARKER = 'counter = 1';
@@ -77,6 +78,34 @@ suite('Protected VBA project integration', () => {
         await assert.rejects(async () => vscode.workspace.fs.readFile(moduleUri()));
         assert.equal(prompts.length, 1);
         assert.deepEqual(fs.readFileSync(file), before);
+    });
+    test('the tree shows a closed padlock before prompting and an open padlock after unlock', async () => {
+        const treeFile = path.join(workspaceRoot(), `PasswordIcon-${path.basename(dir)}.xlsm`);
+        fs.copyFileSync(file, treeFile);
+        const extension = vscode.extensions.getExtension(EXTENSION_ID)!;
+        const engine = new ProjectEngine({} as vscode.ExtensionContext);
+        const explorer = new ProjectExplorer(engine, undefined, undefined, vscode.Uri.file(extension.extensionPath));
+        try {
+            const node = (await explorer.getChildren()).find(row => row.filePath === treeFile)!;
+            assert.ok(node, 'real workspace discovery should find the protected fixture');
+            explorer.getTreeItem(node);
+            await until(() => node.isPasswordProtected, 'collapsed file should acquire its protection badge');
+            const icon = () => explorer.getTreeItem(node).iconPath as { light: vscode.Uri; dark: vscode.Uri };
+            assert.ok(icon().light.path.endsWith('file-code-locked.svg'));
+            assert.ok(fs.existsSync(icon().light.fsPath) && fs.existsSync(icon().dark.fsPath));
+            assert.equal(prompts.length, 0, 'badge metadata must never prompt');
+            answers = [undefined];
+            assert.equal((await explorer.getChildren(node))[0].kind, 'loadError');
+            assert.ok(icon().dark.path.endsWith('file-code-locked.svg'));
+            answers = [PASSWORD];
+            assert.ok((await explorer.getChildren(node)).some(row => row.moduleName === 'Runner'));
+            await until(() => node.isAccessLocked === false, 'successful unlock should update the existing tree row');
+            assert.ok(icon().dark.path.endsWith('file-code-unlocked.svg'));
+            assert.match(String(explorer.getTreeItem(node).description), /unlocked for this session/);
+            await explorer.getChildren(node);
+            assert.equal(prompts.length, 2, 'repeated expansion must reuse authorization');
+            assert.deepEqual(fs.readFileSync(treeFile), before);
+        } finally { explorer.dispose(); engine.dispose(); fs.unlinkSync(treeFile); }
     });
     test('cancelling a provider write leaves the protected file intact', async () => {
         answers = [undefined];

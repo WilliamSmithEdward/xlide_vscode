@@ -61,9 +61,10 @@ describe('MS-OVBA password verification', () => {
 describe('protected file access', () => {
     it('uses the permanent protected workbook fixture', () => {
         const permanent = path.join(__dirname, 'fixtures/binaries/PasswordProtectedFixture.xlsm');
-        expect(svc.getProtectionInfo(permanent).isPasswordProtected).toBe(true);
+        expect(svc.getProtectionInfo(permanent)).toMatchObject({ isPasswordProtected: true, isAccessLocked: true });
         expect(() => svc.readModule(permanent, 'Runner')).toThrow(/password-protected/);
         expect(svc.unlockProject(permanent, FIXTURE_PASSWORD)).toBe(true);
+        expect(svc.getProtectionInfo(permanent)).toMatchObject({ isPasswordProtected: true, isAccessLocked: false });
         expect(svc.readModule(permanent, 'Runner').source).toContain('counter = 1');
         const form = path.join(__dirname, 'fixtures/binaries/PasswordProtectedFormFixture.xlsm');
         expect(svc.unlockProject(form, FIXTURE_PASSWORD)).toBe(true);
