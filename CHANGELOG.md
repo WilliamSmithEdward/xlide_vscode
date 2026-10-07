@@ -2,6 +2,14 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [Unreleased]
+
+- Detect unqualified `Err.LastDllError` read-only assignments, retaining the
+  VBA compile error classification (#1303).
+- Detect whole-array assignments to a known host scalar setter reached through
+  `ThisWorkbook.Worksheets(...)`, retaining runtime error 13 and allowing scalar
+  array elements (#1304).
+
 ## [11.1.0] - 2026-10-06
 
 Require the existing VBA project password before accessing protected Office files.

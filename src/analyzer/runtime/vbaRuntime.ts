@@ -114,6 +114,7 @@ function prop(
 	return {
 		name,
 		kind: 'property',
+		returns: type,
 		signature: `${name} As ${type}`,
 		writeType: type,
 		...options,

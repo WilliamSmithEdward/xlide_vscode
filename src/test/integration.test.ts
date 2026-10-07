@@ -48,3 +48,5 @@ import './nativeEnterCaretOwnership.test';
 import './projectProtection.test';
 import './projectAnalysisPerformance.test';
 import './liveDiagnosticsPerformance.test';
+
+import './runtimeAssignment.test';

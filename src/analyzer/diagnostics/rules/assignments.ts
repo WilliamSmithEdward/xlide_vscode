@@ -19,7 +19,7 @@ import {
 	type MemberCompletionContext,
 } from '../../completion/memberAccess';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
-import { isDispatchOnlyHostType, resolveHostEnum, hostDisplayName } from '../../host/hostModel';
+import { getHostType, isDispatchOnlyHostType, resolveHostEnum, hostDisplayName } from '../../host/hostModel';
 import { formulaStringProblem, hostPropertyValueProblem, hostUnionPropertyValueProblem } from './hostPropertyValues';
 import {
 	matchParenFrom,
@@ -40,7 +40,7 @@ import { elementOperandStartingAt, elementsWrittenIn, knownArrayShapesAt, module
 import { functionResultAt, knownFunctionResults } from '../functionResults';
 import { straightLineAssignments } from '../straightLineValues';
 import { heldObjectsAt } from '../heldObjects';
-import { resolveRuntimeFunction, resolveVbaLibraryQualifier } from '../../runtime/vbaRuntime';
+import { resolveRuntimeFunction, resolveRuntimeObject, resolveVbaLibraryQualifier } from '../../runtime/vbaRuntime';
 import {procedureParamsFromSymbol} from '../../symbols/symbolModel';
 import type {
 	VbaProcedureSignature,
@@ -1728,6 +1728,16 @@ function lateBoundReceiver(source: string, offset: number, memberCtx: MemberComp
 	return receiver === undefined || isLateBoundTypeKey(receiver);
 }
 
+/** A late-bound host chain with one known runtime class still has that scalar setter contract. */
+function knownScalarSetterReceiver(source: string, offset: number, memberCtx: MemberCompletionContext): boolean {
+	const receiver = resolveReceiverTypeAt(source, offset, memberCtx);
+	if (receiver === undefined) { return false; }
+	if (!isLateBoundTypeKey(receiver)) { return true; }
+	const alternatives = receiver.slice('union:'.length).split('|');
+	return alternatives.length === 1 && getHostType(alternatives[0], memberCtx.model) !== undefined;
+}
+
+
 /**
  * A Set whose value cannot be the target's type. A scalar value is refused
  * when the module compiles: "Type mismatch" into a variable (`Set r = 5`),
@@ -1887,7 +1897,7 @@ function checkMemberAssignmentTypes(
 		if (target?.kind === 'property' && target.access === 'read/write' && target.writable === undefined
 			&& !assignment.usesSet && !assignment.withArguments && target.declaredType
 			&& (isKnownScalarType(normalizeType(target.declaredType) ?? '') || resolveHostEnum(target.declaredType, memberCtx.model))
-			&& !lateBoundReceiver(source, assignment.memberSpan.end, memberCtx)) {
+			&& knownScalarSetterReceiver(source, assignment.memberSpan.end, memberCtx)) {
 			const actual = inferArgumentType(assignment.valueTokens, span.start, env, moduleSignatures,
 				sourceNames, source, memberCtx, resolveExpressionType, resolveQualifiedExpressionType);
 			const expected = resolveHostEnum(target.declaredType, memberCtx.model) ? 'Long' : target.declaredType;
@@ -1931,7 +1941,8 @@ function checkMemberAssignmentTypes(
 		const indexedAccessor = target && (assignment.usesSet ? target.setAccessor : (target.letAccessor
 			|| (target.writable === false && target.signature !== undefined
 				&& (signatureDeclaresParameters(target.signature) || normalizeType(target.returns ?? target.declaredType) !== 'string'))));
-		if (!projectClasses || (assignment.withArguments && !indexedAccessor) || !target || target.writable === undefined || (target.isArray && !target.writeIsArray)) {
+		const runtimeTarget = target && resolveRuntimeObject(target.owner)?.members.some(member => member.name.toLowerCase() === target.name.toLowerCase());
+		if ((!projectClasses && !runtimeTarget) || (assignment.withArguments && !indexedAccessor) || !target || target.writable === undefined || (target.isArray && !target.writeIsArray)) {
 			return;
 		}
 		if (target.writable === false) {
@@ -1953,7 +1964,7 @@ function checkMemberAssignmentTypes(
 			}
 			push(
 				'readonlyMemberAssignment',
-				`Cannot assign to read-only property '${assignment.label}'.`,
+				`Cannot assign to read-only property '${assignment.label}'.${runtimeTarget ? " This is a VBE compile error: Can't assign to read-only property." : ''}`,
 				assignment.memberSpan,
 			);
 			return;
