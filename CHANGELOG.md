@@ -22,6 +22,19 @@ Require the existing VBA project password before accessing protected Office file
   closed padlock until authorized, then an open padlock for the current session.
   Protection metadata does not prompt for a password, and the badge updates
   after an unlock without requiring a tree refresh.
+- **Live diagnostics and editor responsiveness** (#1300). Cancel superseded
+  analysis work and reuse procedure, symbol, and value facts during incremental
+  diagnostics. Project reference changes now clear stale findings even when
+  the open document's text has not changed.
+- **VBA colors** (#1300). Add color completions and editor swatches, with
+  insertion that respects shadowed names.
+- **Scripting Runtime references** (#1300). Add Microsoft Scripting Runtime
+  through project reference actions and quick fixes for Dictionary and
+  FileSystemObject declarations.
+- **Runtime diagnostic accuracy** (#1300). Avoid inferring mutable Office
+  state from designer metadata, shared fields, or handled failed assignments;
+  preserve definite type checks and intrinsic file-number errors in both
+  single-line If branches.
 - **Protection regression coverage**. Add a permanent protected workbook
   fixture, browser and multi-format password checks, and VS Code integration
   tests for cancelled access, incorrect-password retry, editor saves, the
