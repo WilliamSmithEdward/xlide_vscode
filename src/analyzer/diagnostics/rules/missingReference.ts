@@ -21,6 +21,15 @@
 // does not exist yet, and guessing between the two would put a reference
 // suggestion on ordinary broken code.
 
+import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
+import { isProcedureKind, type ModuleSymbols, type VbaSymbol } from '../../symbols/symbolModel';
+import { resolveBareIdentifierBinding } from '../../symbols/nameResolution';
+
+interface SourceQualifierBindings {
+	symbols: ModuleSymbols;
+	projectVisibleSymbols?: readonly VbaSymbol[];
+}
+
 import type { HostObjectModel } from '../../host/excelObjectModel';
 import { HOST_LIBRARY_NAMES } from '../../host/hostLibraries';
 import { tokenName } from '../../lexer/tokenHelpers';
@@ -34,13 +43,20 @@ const ADDABLE = new Map<string, string>(
 		.map((token) => [HOST_LIBRARY_NAMES[token].toLowerCase(), HOST_LIBRARY_NAMES[token]]),
 );
 
+// Models are immutable for their identity; a reference change replaces the model.
+const MODEL_LIBRARIES = new WeakMap<HostObjectModel, ReadonlySet<string>>();
+
 /** Which libraries the model can already answer for, from its own type keys. */
-function librariesInModel(model: HostObjectModel | undefined): Set<string> {
+function librariesInModel(model: HostObjectModel | undefined): ReadonlySet<string> {
+	if (!model) { return new Set(); }
+	const cached = MODEL_LIBRARIES.get(model);
+	if (cached) { return cached; }
 	const out = new Set<string>();
-	for (const qualified of Object.keys(model?.types ?? {})) {
+	for (const qualified of Object.keys(model.types)) {
 		const dot = qualified.indexOf('.');
 		if (dot > 0) { out.add(qualified.slice(0, dot).toLowerCase()); }
 	}
+	MODEL_LIBRARIES.set(model, out);
 	return out;
 }
 
@@ -56,11 +72,32 @@ function librariesInModel(model: HostObjectModel | undefined): Set<string> {
  * A string literal is one token, so `CreateObject("Excel.Application")` is
  * not a match: late binding names nothing the compiler has to resolve.
  */
-function qualifiedNamesIn(source: string): Array<{ library: string; span: Span }> {
+function qualifiedNamesIn(source: string, bindings?: SourceQualifierBindings): Array<{ library: string; span: Span; typeQualifier: boolean }> {
 	// The pass has the module's token stream already; a second full lex of
 	// the module here was 2% of a large project's analysis (issue #139).
-	const toks = tokenizeCached(source).filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
-	const out: Array<{ library: string; span: Span }> = [];
+	const tokens = tokenizeCached(source);
+	const toks = tokens.filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
+	const out: Array<{ library: string; span: Span; typeQualifier: boolean }> = [];
+	const procedures = bindings?.symbols.root.children?.filter(symbol => isProcedureKind(symbol.kind)) ?? [];
+	// Direct assignments introduce implicit locals without Option Explicit. Keep
+	// them scoped to their procedure; a member write does not introduce its root.
+	const implicitWrites = new Map<VbaSymbol, Set<string>>();
+	let writeProcedureIndex = 0;
+	let previous = '';
+	for (let i = 0; i < tokens.length; i++) {
+		const token = tokens[i];
+		if (token.kind === 'comment') { continue; }
+		while (writeProcedureIndex < procedures.length && procedures[writeProcedureIndex].fullSpan.end < token.start) { writeProcedureIndex++; }
+		const procedure = procedures[writeProcedureIndex];
+		if (procedure && procedure.fullSpan.start <= token.start && token.kind === 'identifier'
+			&& tokens[i + 1]?.rawText === '=' && ['', 'set', 'let', 'then', 'else'].includes(previous)) {
+			let names = implicitWrites.get(procedure);
+			if (!names) { names = new Set(); implicitWrites.set(procedure, names); }
+			names.add(tokenName(token)!.toLowerCase());
+		}
+		previous = token.kind === 'newline' || token.kind === 'colon' ? '' : token.rawText.toLowerCase();
+	}
+	let procedureIndex = 0;
 	for (let i = 0; i < toks.length - 2; i++) {
 		const library = tokenName(toks[i]);
 		if (toks[i].kind !== 'identifier' || !library) { continue; }
@@ -69,21 +106,30 @@ function qualifiedNamesIn(source: string): Array<{ library: string; span: Span }
 		// A member access further along a chain (`a.b.c`) is not a library
 		// qualifier: `b` there is a member of whatever `a` is.
 		if (i > 0 && toks[i - 1].rawText === '.') { continue; }
-		out.push({ library, span: { start: toks[i].start, end: toks[i + 2].end } });
+		const typeQualifier = ['as', 'new', 'implements'].includes(toks[i - 1]?.rawText.toLowerCase() ?? '');
+		if (bindings && !typeQualifier) {
+			while (procedureIndex < procedures.length && procedures[procedureIndex].fullSpan.end < toks[i].start) { procedureIndex++; }
+			const procedure = procedures[procedureIndex];
+			const binding = resolveBareIdentifierBinding({currentModule: bindings.symbols, projectVisibleSymbols: bindings.projectVisibleSymbols,
+				enclosingProcedure: procedure && procedure.fullSpan.start <= toks[i].start ? procedure : undefined,
+				name: library, context: 'memberReceiver', offset: toks[i].start});
+			if (binding.scope !== 'unresolved' || (procedure && implicitWrites.get(procedure)?.has(library.toLowerCase()))) { continue; }
+		}
+		out.push({ library, typeQualifier, span: { start: toks[i].start, end: toks[i + 2].end } });
 	}
 	return out;
 }
 
 /**
  * The libraries the module names early bound, lowercased. Removing a
- * reference is the other half of this rule: a project can be told which of
- * its modules would stop compiling before the reference goes, which is what
+ * reference is the other half of this rule: a project can be told which
+ * modules may depend on it before the reference goes, which is what
  * the VBE's own Tools > References dialog never says.
  */
-export function librariesNamedIn(source: string): Set<string> {
+export function librariesNamedIn(source: string, bindings?: SourceQualifierBindings, projectModules: ReadonlySet<string> = new Set()): Set<string> {
 	const out = new Set<string>();
-	for (const found of qualifiedNamesIn(source)) {
-		out.add(found.library.toLowerCase());
+	for (const found of qualifiedNamesIn(source, bindings ?? {symbols: buildModuleSymbols('', 'standard', source)})) {
+		if (!projectModules.has(found.library.toLowerCase())) { out.add(found.library.toLowerCase()); }
 	}
 	return out;
 }
@@ -149,6 +195,7 @@ export function checkMissingLibraryReference(
 	push: PushFn,
 	/** The project's module names, lowercased: a module named Word is called as Word.Hi (issue #357). */
 	projectModules: ReadonlySet<string> = new Set(),
+	bindings?: SourceQualifierBindings,
 ): void {
 	const present = librariesInModel(model);
 	// Nothing is known about any library, so nothing can be said about one
@@ -157,7 +204,12 @@ export function checkMissingLibraryReference(
 		return;
 	}
 	const seen = new Set<string>();
-	for (const found of qualifiedNamesIn(source)) {
+	const tokens = tokenizeCached(source).filter(token => token.kind !== 'comment' && token.kind !== 'newline');
+	const explicit = tokens.some((token, i) => token.rawText.toLowerCase() === 'option' && tokens[i + 1]?.rawText.toLowerCase() === 'explicit');
+	for (const found of qualifiedNamesIn(source, bindings ?? {symbols: buildModuleSymbols('', 'standard', source)})) {
+		// Without Option Explicit an unknown value receiver is an implicit Variant,
+		// not a missing-library compile error (native Excel control).
+		if (!found.typeQualifier && !explicit) { continue; }
 		const lower = found.library.toLowerCase();
 		const library = ADDABLE.get(lower);
 		if (library === undefined || present.has(lower) || projectModules.has(lower) || seen.has(lower)) { continue; }

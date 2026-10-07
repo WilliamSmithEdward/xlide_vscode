@@ -26,8 +26,8 @@ describe('object read indexes', () => {
   expect(run(source)).toEqual([]);
   expect(spy.mock.calls.length).toBeLessThan(500);
  });
- it('keeps host types separate across procedures that shadow module variables', () => {
-  const source = 'Dim x As Application\nSub A()\nSet x = Application\nDebug.Print X + 1\nEnd Sub\nSub B()\nDim x As Long\nx = 2\nDebug.Print x + 1\nEnd Sub';
+ it('keeps local host types separate across procedures that shadow a module variable', () => {
+  const source = 'Dim x As Long\nSub A()\nDim x As Application\nSet x = Application\nDebug.Print X + 1\nEnd Sub\nSub B()\nDim x As Long\nx = 2\nDebug.Print x + 1\nEnd Sub';
   const hits = run(source);
   expect(hits).toHaveLength(1);
   expect(hits[0][0]).toBe('assignmentTypeMismatch');

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import * as esbuild from 'esbuild';
 import * as fs from 'fs';
 import * as path from 'path';
+import { raw } from './helpers/projectProtectionFixture';
 import { readModulesFromBuffer } from '../src/vba/projectService';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { webLeafSwap, webInject, FORBIDDEN_BUILTINS, ROOT } = require('../webBuild.js');
@@ -177,6 +178,18 @@ function bundleText(result: esbuild.BuildResult): string {
 }
 
 describe('the container engine bundles for a browser', () => {
+    it('verifies protected VBA passwords without Node globals', async () => {
+        const hex = raw('Browser-test!').toString('hex');
+        const result = await bundleSource(`
+            import { VbaProjectProtection } from './src/vba/projectProtection';
+            const protection = new VbaProjectProtection(Buffer.from('${hex}', 'hex'), 1252);
+            export const locked = protection.requiresPassword;
+            export const correct = protection.verify('Browser-test!');
+            export const wrong = protection.verify('wrong');
+        `);
+        expect(runWithoutNodeGlobals(bundleText(result))).toMatchObject({ locked: true, correct: true, wrong: false });
+    });
+
 	it('bundles every macro container format', async () => {
 		const result = await bundleForBrowser('src/vba/macroContainer.ts');
 		expect(result.errors).toEqual([]);

@@ -37,7 +37,7 @@ import { parseVbaIntegerLiteral } from '../../constants/integerConstantExpressio
 import type { VbaProjectClassMember, VbaProjectClassMembers } from '../../symbols/symbolModel';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
-import { daoWholeValueError, defTypeOf, inferMemberExpressionType, isKnownObjectAssignmentType, isKnownScalarType, normalizeType, objectLetAssignmentVerdict, objectValueNeedsIndex, typeEnvironmentFor, typeFieldDeclaredType } from '../typeInference';
+import { createObjectDefaultQueries, daoWholeValueError, defTypeOf, inferMemberExpressionType, isKnownObjectAssignmentType, isKnownScalarType, normalizeType, objectLetAssignmentVerdict, typeEnvironmentFor, typeFieldDeclaredType } from '../typeInference';
 import {
 	bareAssignmentTarget,
 	firstExecutableTokenIndex,
@@ -59,20 +59,13 @@ export function checkObjectDefaultValues(
 	push: PushFn,
 	activity?: ConditionalActivityTracker,
 ): ProcedureStatementVisitor {
-	// Facts belong to this invocation, so a later project metadata update is read anew.
-	const projectClasses = new Map<string, VbaProjectClassMembers | undefined>();
+	const defaultQueries = createObjectDefaultQueries(memberCtx);
+	// Facts belong to this invocation, so later metadata is read anew.
 	const classForType = (type: string | undefined): VbaProjectClassMembers | undefined => {
 		const lower = type?.trim().split('.').pop()?.toLowerCase();
-		if (!lower) {
-			return undefined;
-		}
-		if (!projectClasses.has(lower)) {
-			// Preserve the first class, including an incomplete surface that
-			// prevents a later same-name class from proving absence.
-			const found = (memberCtx.projectClassMembers ?? []).find((candidate) => candidate.kind === 'class' && candidate.name.toLowerCase() === lower);
-			projectClasses.set(lower, found?.exhaustive === true ? found : undefined);
-		}
-		return projectClasses.get(lower);
+		if (!lower) { return undefined; }
+		const found = defaultQueries.projectClassNamed(lower);
+		return found?.exhaustive === true ? found : undefined;
 	};
 	const defaultReads = new Map<VbaProjectClassMembers, { hasDefault: boolean; problem: string | undefined }>();
 	const defaultFactsFor = (cls: VbaProjectClassMembers): { hasDefault: boolean; problem: string | undefined } => {
@@ -128,7 +121,7 @@ export function checkObjectDefaultValues(
 				// The procedure's own name is its return value only as a target;
 				// read, it is a recursive call.
 				const type = lower === proc.name.toLowerCase() || arrays.has(lower) ? undefined : env.get(lower);
-				verdict = type ? objectLetAssignmentVerdict(type, memberCtx) : 'unknown';
+				verdict = type ? defaultQueries.verdictFor(type) : 'unknown';
 				verdicts.set(lower, verdict);
 			}
 			return verdict;
@@ -145,7 +138,7 @@ export function checkObjectDefaultValues(
 		}
 		const isObjectVariable = (name: string): boolean => {
 			const type = env.get(name.toLowerCase());
-			return type !== undefined && isKnownObjectAssignmentType(type, memberCtx);
+			return type !== undefined && isKnownObjectAssignmentType(type, memberCtx, defaultQueries.resolveType);
 		};
 		// A Let target of a declared scalar type: `s = c` with s a String.
 		const isTypedValue = (name: string): boolean => {
@@ -184,7 +177,7 @@ export function checkObjectDefaultValues(
 			(value, offset) => hostChainType(source, value, offset, memberCtx, (name) => env.has(name) || moduleNames.has(name))))(stmt).classes.get(lower);
 		return (stmt) => {
 			if (lateBound.size > 0) {
-				checkHeldObjects(source, stmt, lateBound, (lower) => heldOf(stmt, lower), memberCtx, push);
+				checkHeldObjects(source, stmt, lateBound, (lower) => heldOf(stmt, lower), defaultQueries, push);
 			}
 			if (hostDefaults.size > 0) {
 				const held = (lower: string): string | undefined => heldOf(stmt, lower)?.toLowerCase();
@@ -206,7 +199,7 @@ export function checkObjectDefaultValues(
 				push('objectDefaultValue', `'${hit.rawText}' is ${article(type)} ${type}, which has no default member, so it has no value to read here. This will raise Run-time error '438': Object doesn't support this property or method${nothing}.`, { start: stmt.span.start + hit.start, end: stmt.span.start + hit.end });
 			}
 			for (const span of statementAndBranchSpans(stmt)) {
-				for (const hit of hostChainReads(source, span, memberCtx, (lower) => env.has(lower) || moduleNames.has(lower), isObjectVariable)) {
+				for (const hit of hostChainReads(source, span, memberCtx, (lower) => env.has(lower) || moduleNames.has(lower), isObjectVariable, defaultQueries)) {
 					push(hit.rule, hit.message, { start: span.start + hit.start, end: span.start + hit.end });
 				}
 				for (const hit of collectionArguments(statementTokens(source, span), isCollection, moduleNames)) {
@@ -219,7 +212,7 @@ export function checkObjectDefaultValues(
 				}
 				const created = newObjectLetIntoVariant(source, span, env, proc, arrays, (variable, field) => typeFieldDeclaredType(symbols, procedureSymbolFor(symbols, proc), undefined, variable, field));
 				if (created) {
-					const verdict = objectLetAssignmentVerdict(created.type, memberCtx);
+					const verdict = defaultQueries.verdictFor(created.type);
 					if (verdict === 'noDefault' || (verdict === 'argument' && normalizeType(created.type) === 'collection')) {
 						push(
 							'objectDefaultValue',
@@ -256,7 +249,7 @@ export function checkObjectDefaultValues(
 					// A default member that needs an index raises 450 read as a
 					// value; with an operator, or into a typed value, it is a
 					// compile error, collection-operand's.
-					if (verdict === 'argument' && (read.operator || read.intoTypedValue || !objectValueNeedsIndex(type, memberCtx))) {
+					if (verdict === 'argument' && (read.operator || read.intoTypedValue || !defaultQueries.needsIndex(type))) {
 						continue;
 					}
 					const nothing = autoInstanced.has(lower) ? '' : `, or '91' while it is Nothing`;
@@ -383,7 +376,7 @@ const EXCEL_NO_DEFAULT: ReadonlySet<string> = new Set(['worksheetfunction', 'com
  * and #685, measured in Excel 16.0). Undefined where the class is not
  * judged here: Application and Document have rules of their own.
  */
-function heldValueError(held: string, memberCtx: MemberCompletionContext): { what: string; error: string } | undefined {
+function heldValueError(held: string, defaultQueries: ReturnType<typeof createObjectDefaultQueries>): { what: string; error: string } | undefined {
 	const key = hostTypeKey(held);
 	const needsIndex = "This will raise Run-time error '450': Wrong number of arguments or invalid property assignment.";
 	switch (key) {
@@ -408,10 +401,10 @@ function heldValueError(held: string, memberCtx: MemberCompletionContext): { wha
 	}
 	// A class of the project has rules of its own (issue #256).
 	const name = held.split('.').pop()!.toLowerCase();
-	if ((memberCtx.projectClassMembers ?? []).some((cls) => cls.name.toLowerCase() === name)) {
+	if (defaultQueries.projectTypeNamed(name) !== undefined) {
 		return undefined;
 	}
-	const verdict = objectLetAssignmentVerdict(held, memberCtx);
+	const verdict = defaultQueries.verdictFor(held);
 	return verdict === 'noDefault' ? { what: `${article(held)} ${held}, which has no default member`, error: "This will raise Run-time error '438': Object doesn't support this property or method." }
 		: verdict === 'argument' ? { what: `${article(held)} ${held}, whose default member Item needs an index`, error: needsIndex }
 			: undefined;
@@ -423,7 +416,7 @@ function checkHeldObjects(
 	stmt: LeafStatementNode,
 	lateBound: ReadonlySet<string>,
 	heldOf: (lower: string) => string | undefined,
-	memberCtx: MemberCompletionContext,
+	defaultQueries: ReturnType<typeof createObjectDefaultQueries>,
 	push: PushFn,
 ): void {
 	const toks = statementTokens(source, stmt.span);
@@ -444,7 +437,7 @@ function checkHeldObjects(
 	for (const tok of reads) {
 		const lower = tokenName(tok)?.toLowerCase();
 		const held = lower && isLateBound(lower) ? heldOf(lower) : undefined;
-		const problem = held ? heldValueError(held, memberCtx) : undefined;
+		const problem = held ? heldValueError(held, defaultQueries) : undefined;
 		if (problem) {
 			push('objectDefaultValue', `'${tok.rawText}' holds ${problem.what}, so it has no value to read here. ${problem.error}`, at(tok));
 		}
@@ -646,6 +639,7 @@ function hostChainReads(
 	memberCtx: MemberCompletionContext,
 	declared: (lower: string) => boolean,
 	isObjectVariable: (name: string) => boolean,
+	defaultQueries: ReturnType<typeof createObjectDefaultQueries>,
 ): Array<{ start: number; end: number; rule: 'objectDefaultValue' | 'collectionOperand'; message: string }> {
 	const toks = statementTokens(source, span);
 	const first = firstExecutableTokenIndex(toks);
@@ -696,7 +690,7 @@ function hostChainReads(
 		// Through ActiveSheet, an Object, the rest is bound late: what would
 		// not compile raises when it runs.
 		const late = tokenText(chain[0]) === 'activesheet' && chain.length > 1;
-		const verdict = normalized === 'worksheet or chart' || EXCEL_NO_DEFAULT.has(normalized) ? 'noDefault' : normalized === 'sheets' ? 'argument' : objectLetAssignmentVerdict(type, memberCtx);
+		const verdict = normalized === 'worksheet or chart' || EXCEL_NO_DEFAULT.has(normalized) ? 'noDefault' : normalized === 'sheets' ? 'argument' : defaultQueries.verdictFor(type);
 		if (verdict === 'noDefault') {
 			const what = normalized === 'worksheet or chart' ? 'a Worksheet or a Chart, neither of which has' : `${article(type)} ${type}, which has`;
 			const none = normalized === 'comment' ? ", or '91' where the cell has no comment" : '';

@@ -2178,7 +2178,7 @@ export function redimShapesAt(
 		return evaluateIntegerConstantExpression(parts.join(' '), withKnownLocals({ get: () => undefined }, known));
 	};
 	const computedDimension = (node: LeafStatementNode, span: Span): ArrayDimensionBound | undefined => {
-		const toks = rawExpressionTokens(source.slice(span.start, span.end)).filter((tok) => tok.kind !== 'comment');
+		const toks = rawExpressionTokens(source.slice(span.start, span.end));
 		const to = toks.findIndex((tok) => tokenText(tok) === 'to');
 		const upper = computedValue(node, to < 0 ? toks : toks.slice(to + 1));
 		const lowerValue = to < 0 ? undefined : computedValue(node, toks.slice(0, to));
@@ -2745,7 +2745,7 @@ function fixedArraySubscriptViolations(
 	source: string,
 	span: Span,
 	fixed: ReadonlyMap<string, FixedArrayBound>,
-	excluded: ReadonlySet<string>,
+	excluded: Pick<ReadonlySet<string>, 'has'>,
 	counters: CountersAt | undefined,
 	lookup?: IntegerConstantLookup,
 	entryLookup?: (loop: BodyNode) => IntegerConstantLookup,
@@ -2896,6 +2896,7 @@ function functionReturnShapes(
 	// Parse nodes survive analysis passes; facts also depend on the active branch.
 	const cached = RETURN_SHAPES.get(mod);
 	if (cached && cached.source === source && cached.activity === activity && cached.optionBase === optionBase) {
+		cached.source = source;
 		return cached.result;
 	}
 	const out = new Map<string, FixedArrayBound>();
@@ -3175,7 +3176,7 @@ function boundIntrinsicDimensionViolations(
 	source: string,
 	span: Span,
 	fixed: ReadonlyMap<string, FixedArrayBound>,
-	excluded: ReadonlySet<string>,
+	excluded: Pick<ReadonlySet<string>, 'has'>,
 ): Array<{ span: Span; message: string }> {
 	const toks = statementTokensAfterLeadingLabel(source, span);
 	const out: Array<{ span: Span; message: string }> = [];
@@ -3319,13 +3320,13 @@ export function checkFixedArraySubscriptBounds(
 			return fixed;
 		};
 		const redimTargets = redimTargetNamesInBody(source, member.body, activity);
-		const exclusions = new Map<ReadonlyMap<string, FixedArrayBound>, ReadonlySet<string>>();
-		const excludedAt = (stmt: LeafStatementNode): ReadonlySet<string> => {
+		const exclusions = new Map<ReadonlyMap<string, FixedArrayBound>, Pick<ReadonlySet<string>, 'has'>>();
+		const excludedAt = (stmt: LeafStatementNode): Pick<ReadonlySet<string>, 'has'> => {
 			const reshaped = redimmed.get(stmt);
 			if (!reshaped) { return redimTargets; }
 			let excluded = exclusions.get(reshaped);
 			if (!excluded) {
-				excluded = new Set([...redimTargets].filter((lower) => !reshaped.has(lower)));
+				excluded = { has: (lower: string) => redimTargets.has(lower) && !reshaped.has(lower) };
 				exclusions.set(reshaped, excluded);
 			}
 			return excluded;

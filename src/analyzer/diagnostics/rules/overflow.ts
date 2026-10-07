@@ -1355,8 +1355,7 @@ function constantLookup(
 			return undefined;
 		}
 		resolving.add(lower);
-		const toks = rawExpressionTokens(symbol.defaultRaw!)
-			.filter((tok) => tok.kind !== 'comment');
+		const toks = rawExpressionTokens(symbol.defaultRaw!);
 		const value = new TypedFolder(toks, 0, resolve).fold();
 		resolving.delete(lower);
 		if (value === undefined || isOverflow(value)) {
@@ -1389,7 +1388,7 @@ function constantLookup(
 			}
 			const value: Folded = member.defaultRaw === undefined
 				? (next === undefined ? undefined : { value: next, type: 'long' })
-				: new TypedFolder(rawExpressionTokens(member.defaultRaw).filter((tok) => tok.kind !== 'comment'), 0, resolve).fold();
+				: new TypedFolder(rawExpressionTokens(member.defaultRaw), 0, resolve).fold();
 			if (value === undefined || isOverflow(value) || !Number.isInteger(value.value) || !inRange(value.value, 'long')) {
 				next = undefined;
 				continue;
@@ -1533,11 +1532,11 @@ function chainOf(toks: readonly VbaToken[]): ChainSegment[] | undefined {
 		let end = i;
 		let args: VbaToken[][] | undefined;
 		if (toks[i + 1]?.rawText === '(') {
-			const close = matchParenFrom([...toks], i + 1);
+			const close = matchParenFrom(toks, i + 1);
 			if (close < 0) {
 				return undefined;
 			}
-			args = splitTopLevelTokenGroups([...toks], i + 2, ',', close);
+			args = splitTopLevelTokenGroups(toks, i + 2, ',', close);
 			end = close;
 		}
 		out.push({ name, ...(args ? { args } : {}) });

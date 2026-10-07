@@ -2,6 +2,117 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.1.0] - 2026-10-06
+
+Require the existing VBA project password before accessing protected Office files.
+
+- **Password-protected VBA projects** (#1298). A masked password prompt now
+  gates viewing and editing source, UserForm designers, analysis, imports,
+  exports, worksheet and shape tools, Office launch commands, VBA tests, and
+  agent tools. Modern hashed passwords and legacy password records are
+  verified using the project's code page; malformed or unreadable protection
+  refuses access.
+- **Unlock once per session**. A successful unlock is shared across repeated
+  editor, sidebar, designer, and agent actions for the same file. Code edits
+  preserve authorization; changed protection records and window reloads
+  require verification again. Passwords are not saved, and writes preserve
+  the Office protection records. VBA project protection remains an access
+  restriction and does not encrypt module source.
+- **Protection regression coverage**. Add a permanent protected workbook
+  fixture, browser and multi-format password checks, and VS Code integration
+  tests for cancelled access, incorrect-password retry, editor saves, the
+  UserForm designer, agent tools, and repeated sidebar actions after one
+  unlock.
+
+## [11.0.3] - 2026-10-06
+
+Correct Optional argument checks and improve analyzer source compatibility.
+
+- **Quoted Optional defaults** (#1244, contributed by Sam, @swsammy).
+  Commas, quotes and brackets inside default strings now count as part of one
+  parameter. Shared quote-aware readers prevent false argument errors and
+  restore late-bound argument checks, while preserving genuine missing,
+  excess and misnamed argument diagnostics. Array parameter parentheses are
+  matched correctly.
+- **Newer TypeScript library compatibility** (#1243, contributed by Sam,
+  @swsammy). Callable shadow scopes now expose the membership-only contract
+  their callers use. Removing unused set enumeration methods allows the
+  analyzer source to compile under ES2025 and ESNext while preserving module
+  and procedure shadowing.
+
+## [11.0.2] - 2026-10-05
+
+Resolve Scripting Runtime constants and RegExp IntelliSense in referenced projects.
+
+- **Scripting and RegExp references** (#1240, reported by @batGnat).
+  Projects referencing Microsoft Scripting Runtime now resolve constants such
+  as `ForAppending`, and FileSystemObject and RegExp completion offers the
+  receiver's own members. Hover and file-stream receiver chains use verified
+  pyVBAReference metadata. Libraries are loaded only when referenced, retaining
+  reference order and the project's host; genuine undeclared names remain errors.
+- **Build dependency security.** Update the transitive `source-map-js`
+  dependency to 1.2.2 to address GHSA-68fv-2mgg-jv7q. Release scanning also uses
+  the refreshed YARA Forge 20261004 rules.
+
+## [11.0.1] - 2026-10-04
+
+Correct implicit VBA argument types and reduce repeated worksheet reads.
+
+- **DefType caller bindings** (#1235). An implicit local, parameter, array
+  element or Function/Property Get result now uses its module's default
+  type during argument checks. Valid `DefLng` calls no longer report false
+  ByRef type or array-shape errors. Explicit types, type suffixes,
+  ParamArray elements and declarations from other modules retain their
+  existing types. Regressions cover LF, CRLF and CR source.
+- **Read large worksheet parts once when listing shapes and modules**
+  (#1236, contributed by Sam, @swsammy). Drawing references and controls
+  share the same decoded worksheet text; code-name lookup first reads a
+  bounded ZIP prefix and falls back to the whole part when needed.
+  No cache is added, and shape and module outputs remain unchanged.
+
+## [11.0.0] - 2026-10-04
+
+A substantial update to VBA analysis, large-project editing and the workbook
+explorer, incorporating the correctness and performance work since 10.14.6.
+
+- **More accurate VBA diagnostics.** Analysis follows values and object,
+  array and collection state through assignments, branches and jumps. It
+  checks more declaration and statement forms, event signatures, conditional
+  compilation, default members, argument conversions and runtime error
+  conditions. Office property and argument checks use measured host behavior.
+- **Less repeated analyzer work.** Procedure snapshots, symbol and member
+  indexes, type queries and diagnostic facts are reused where their inputs
+  remain unchanged. Large-module parse and token caches survive bursts of
+  small helper lookups. Many repeated whole-module scans and token copies
+  have been removed, and deep expression checks are bounded.
+- **Smoother completion, typing and hover in large modules.** Cursor checks
+  operate on the relevant logical line, completion filters candidates before
+  formatting them, and editor projections share immutable analysis facts.
+  Completion updates no longer wait for unrelated project loading.
+- **Reliable Backspace completion recovery.** Deleting a character from an
+  incomplete member name can restore suggestions even when the native caret
+  update is delayed. Pending recovery is cancelled when edits, navigation or
+  editor changes make it obsolete.
+- **Workbook tree and tab lifecycle fixes.** Closing a module tab collapses
+  its tree row correctly, switching unchanged tabs reuses procedure ranges,
+  and folding a project cancels pending editor-follow work. Obsolete loads
+  cannot restore stale rows. Sheet and shape identities remain stable,
+  including across case-only renames and unsaved code changes.
+- **Safer refactoring.** Extract Method preserves parameter, local, array,
+  reference and function-result bindings, including primitive inputs mutated
+  by the extracted code. Introduce Parameter preserves Optional and
+  ParamArray behavior. Refactoring handles continued declarations, escaped
+  names and line endings while preserving neighboring statements.
+- **Additional editor support.** Procedure names inside strings have
+  completion and hover support. Analysis has a rerun button and a last-run
+  timestamp. Smart Enter retains intervening navigation.
+- **File handling repairs.** Compound-file and ZIP readers handle damaged
+  inputs more carefully, version 4 compound files use the correct sectors,
+  and VB6 files respect the configured or system ANSI code page.
+- **Validation and packaging.** Expanded regression, differential and native
+  editor coverage accompanies the changes. Release packages continue to be
+  built and scanned in CI, with signed provenance and security reports.
+
 ## [10.14.6] - 2026-09-30
 
 Find All References and Rename are fast again in large projects.

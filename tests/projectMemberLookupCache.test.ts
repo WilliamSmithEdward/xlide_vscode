@@ -5,7 +5,7 @@ import type { VbaProjectClassMembers } from '../src/analyzer/symbols/symbolModel
 const source = 'Sub P()\nMe.Hit\nEnd Sub';
 const offset = source.indexOf('Me.Hit') + 'Me.Hit'.length;
 const context = (owner: VbaProjectClassMembers): MemberCompletionContext => ({
-    meProjectType: owner.name, projectClassMembers: [owner],
+    meProjectType: owner.name, projectClassMembers: [owner], memberSurfaceCache: new Map(),
 });
 
 describe('project member lookup snapshots', () => {

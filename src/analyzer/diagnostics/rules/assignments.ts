@@ -1,9 +1,16 @@
+import {sourceSetterAssignment, invalidSetterAssignmentArity} from '../setterAssignment';
+import { classMemberValues } from '../../symbols/classMemberFacts';
+import { memberParameterCounts } from '../memberParameterCounts';
+import { isLeafStatement } from '../../parser/nodes';
+import { projectSetterValueType, projectGetterKnownValue } from '../../completion/projectSetterValueType';
 // Rule family: assignment validation (audit #0).
 //
 // Extracted verbatim from analyzeModule.ts: Const reassignment, scalar and
 // member assignment type compatibility, Set assignment validation, and
 // missing Function/Property Get return assignments.
 
+import { createAssignmentCoercionType } from '../assignmentCoercionType';
+import { assignmentTargetFromTokens, assignmentTargetName } from '../../completion/assignmentTarget';
 import {
 	isLateBoundTypeKey,
 	resolveReceiverTypeAt,
@@ -12,7 +19,7 @@ import {
 	type MemberCompletionContext,
 } from '../../completion/memberAccess';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
-import { isDispatchOnlyHostType, resolveHostEnum } from '../../host/hostModel';
+import { isDispatchOnlyHostType, resolveHostEnum, hostDisplayName } from '../../host/hostModel';
 import { formulaStringProblem, hostPropertyValueProblem, hostUnionPropertyValueProblem } from './hostPropertyValues';
 import {
 	matchParenFrom,
@@ -33,7 +40,8 @@ import { elementOperandStartingAt, elementsWrittenIn, knownArrayShapesAt, module
 import { functionResultAt, knownFunctionResults } from '../functionResults';
 import { straightLineAssignments } from '../straightLineValues';
 import { heldObjectsAt } from '../heldObjects';
-import { resolveRuntimeFunction } from '../../runtime/vbaRuntime';
+import { resolveRuntimeFunction, resolveVbaLibraryQualifier } from '../../runtime/vbaRuntime';
+import {procedureParamsFromSymbol} from '../../symbols/symbolModel';
 import type {
 	VbaProcedureSignature,
 	VbaProjectClassMember,
@@ -49,12 +57,16 @@ import {
 	type CallableTypeSignature,
 	type CallArguments,
 	extractCall,
+	validateArity,
+	splitArgSlots,
 	type InferredArgumentType,
 	extractQualifiedCall,
 } from '../callExtraction';
 import {
 	buildModuleTypeSignatures,
 	createObjectAssignmentTypeResolver,
+	createObjectDefaultQueries,
+	createObjectTypeImplementationLookup,
 	createProjectInterfaceSharingLookup,
 	callableSignatureForCall,
 	callableTypeSignaturesFor,
@@ -65,7 +77,10 @@ import {
 	incompatibilityReason,
 	objectHoldingDefault,
 	readOnlyHostDefault,
+	getterMayReturnObject,
+	parseRuntimeDisplaySignature,
 	objectLetAssignmentVerdict,
+	sameByRefType,
 	inferArgumentType,
 	defTypeOf,
 	isKnownObjectAssignmentType,
@@ -183,11 +198,19 @@ export function checkConstAssignment(
  * the name is its return value and binds locally, so it never reaches here.
  */
 /** The default member of a project class when it is a Property Get with no Property Let. */
-function readOnlyProjectDefault(type: string, memberCtx: MemberCompletionContext): string | undefined {
+function readOnlyProjectDefault(type: string, projectClassNamed: ReturnType<typeof createObjectDefaultQueries>['projectClassNamed']): string | undefined {
 	const lower = type.trim().split('.').pop()?.toLowerCase();
-	const cls = (memberCtx.projectClassMembers ?? []).find((candidate) => candidate.kind === 'class' && candidate.name.toLowerCase() === lower);
+	const cls = lower ? projectClassNamed(lower) : undefined;
 	const member = cls?.exhaustive === true ? cls.members.find((candidate) => candidate.defaultMember) : undefined;
 	return member && member.kind === 'property' && !member.letAccessor && member.writable !== true ? member.name : undefined;
+}
+
+function invalidGetterArgumentCount(source: string, name: string, span: Span, params: readonly CallableParamType[], tokens: VbaToken[], base: number): boolean {
+	const split = tokens.length ? splitArgSlots(tokens,base) : {slots:[],spans:[]};
+	let invalid = false;
+	validateArity(source,{name,params:params.map(param => ({...param,optional:Boolean(param.optional),paramArray:Boolean(param.paramArray)}))},
+		{name,nameSpan:span,slots:split.slots,slotSpans:split.spans,sliceStart:base},()=>{invalid=true;});
+	return invalid;
 }
 
 function procedureAssignmentTarget(
@@ -221,6 +244,8 @@ function memberAssignmentTarget(
 	usesSet: boolean;
 	/** True for `wb.Name() = x`: the member is given arguments. */
 	withArguments: boolean;
+	hasArguments: boolean;
+	argumentTokens: VbaToken[];
 } | undefined {
 	const toks = statementTokens(source, span);
 	let i = firstExecutableTokenIndex(toks);
@@ -279,6 +304,8 @@ function memberAssignmentTarget(
 		valueTokens: toks.slice(equalsIndex + 1),
 		usesSet,
 		withArguments,
+		hasArguments: withArguments && lhs.length > memberIndex + 3,
+		argumentTokens: withArguments ? lhs.slice(memberIndex+2,-1) : [],
 	};
 }
 
@@ -294,6 +321,12 @@ export function checkAssignmentTypes(
 ): void {
 	const isDocumentModule = projectTypeNameLookup(memberCtx, 'document', false);
 	const isFormOwner = projectTypeNameLookup(memberCtx, 'userform', true);
+	const defaultQueries = createObjectDefaultQueries(memberCtx);
+	const resolveObjectType = defaultQueries.resolveType;
+	const shareInterfaces = createProjectInterfaceSharingLookup(memberCtx);
+	const implementsType = createObjectTypeImplementationLookup();
+	const objectAssignmentReason = (expected: string | undefined, actual: ReturnType<typeof inferArgumentType>) =>
+		objectAssignmentIncompatibilityReason(expected, actual, memberCtx, resolveObjectType, shareInterfaces, implementsType);
 	// Declared-type facts are stable within this rule invocation. Value and
 	// object-state facts below still depend on the individual statement.
 	const objectTypes = new Map<string, {
@@ -305,16 +338,33 @@ export function checkAssignmentTypes(
 	const objectFactsFor = (type: string) => {
 		let facts = objectTypes.get(type);
 		if (!facts) {
-			const isObject = isKnownObjectAssignmentType(type, memberCtx);
-			const verdict = isObject ? objectLetAssignmentVerdict(type, memberCtx) : 'unknown';
+			const isObject = resolveObjectType(type) !== undefined;
+			const verdict = isObject ? defaultQueries.verdictFor(type) : 'unknown';
 			const holding = isObject && verdict !== 'noDefault' ? objectHoldingDefault(type, memberCtx) : undefined;
-			const readOnlyDefault = isObject && verdict === 'lets' && !holding
-				? readOnlyProjectDefault(type, memberCtx) ?? readOnlyHostDefault(type, memberCtx)
+			const readOnlyDefault = isObject && !holding
+				? readOnlyProjectDefault(type, defaultQueries.projectClassNamed) ?? readOnlyHostDefault(type, memberCtx)
 				: undefined;
 			facts = { isObject, verdict, holding, readOnlyDefault };
 			objectTypes.set(type, facts);
 		}
 		return facts;
+	};
+	const checkReturnedObjectDefault = (type: string, label: string, span: Span): boolean => {
+		const facts = objectFactsFor(type);
+		if (facts.holding || facts.readOnlyDefault) {
+			const member = facts.holding?.name ?? facts.readOnlyDefault;
+			push('invalidPropertyUse', `Assignment through '${label}' reaches the default member ${member} of ${type}, which has no writable Let contract. This is a VBE compile error: Invalid use of property.`, span);
+			return true;
+		}
+		if (facts.verdict === 'argument') {
+			push('argumentCount', `Argument not optional: '${label}' returns ${type}, whose default member requires an index before a Let can reach it. This is a VBE compile error.`, span);
+			return true;
+		}
+		if (facts.verdict === 'noDefault') {
+			push('runtimeMemberNotFound', `'${label}' returns ${type}, which has no default member to receive this Let assignment. This will raise Run-time error '438': Object doesn't support this property or method, or error '91' if the returned object is Nothing.`, span);
+			return true;
+		}
+		return false;
 	};
 	// Base depends on this module/activity pass, not on a procedure or value.
 	// Resolve it only when array folding needs it; zero is a cached result too.
@@ -340,8 +390,37 @@ export function checkAssignmentTypes(
 	// per assignment. Keep this index within the current rule pass.
 	const enumNames = new Set([...(symbols.root.children ?? []), ...(projectVisibleSymbols ?? [])]
 		.filter((symbol) => symbol.kind === 'enum')
-		.map((symbol) => symbol.name.toLowerCase()));
+		.flatMap(symbol => [symbol.name.toLowerCase(), `${symbol.moduleName}.${symbol.name}`.toLowerCase()]));
+	const coercionType = createAssignmentCoercionType(memberCtx, enumNames);
+	const arrayElementIdentity = (type: string | undefined): string => {
+		const element = (type ?? 'Variant').replace(/\s*\(\s*\)\s*$/, '');
+		const valueType = coercionType(element);
+		const object = resolveObjectType(valueType);
+		const scalar = normalizeType(valueType) ?? 'variant';
+		// Match the existing 64-bit Office assumption used by ByRef type checks.
+		return object ? `${object.kind}:${object.key}` : scalar === 'longptr' ? 'longlong' : scalar;
+	};
+	const arrayByRefIdentity = (type: string | undefined): string => {
+		const element = (type ?? 'Variant').replace(/\s*\(\s*\)\s*$/, '').trim();
+		const key = element.toLowerCase();
+		if (enumNames.has(key)) { return `source-enum:${key.split('.').at(-1)}`; }
+		const enumeration = resolveHostEnum(element.split('.').at(-1)!, memberCtx.model);
+		const prefix = element.includes('.') ? element.slice(0,element.lastIndexOf('.')).toLowerCase() : undefined;
+		if (enumeration && (!prefix || prefix === (enumeration.library ?? hostDisplayName(memberCtx.model)).toLowerCase())) {
+			return `host-enum:${enumeration.library ?? hostDisplayName(memberCtx.model)}.${enumeration.displayName}`.toLowerCase();
+		}
+		const runtime = resolveVbaLibraryQualifier(element.replace(/^VBA\./i,''));
+		if (runtime?.constants?.some(c => c.type === runtime.name)) { return `runtime-enum:${runtime.name.toLowerCase()}`; }
+		const object = resolveObjectType(element);
+		return object ? `${object.kind}:${object.key}` : normalizeType(element) ?? 'variant';
+	};
+	const memberCoercionType = createAssignmentCoercionType(memberCtx);
+	const setterNames = new Set([...(symbols.root.children ?? []), ...(projectVisibleSymbols ?? [])]
+		.filter(symbol => symbol.kind === 'propertyLet').map(symbol => symbol.name.toLowerCase()));
 	const variantArrayFunctions = arrayOnlyVariantFunctions(source, mod, activity);
+	const getterNames = new Set([...(symbols.root.children ?? []), ...(projectVisibleSymbols ?? [])].filter(symbol => symbol.kind === 'propertyGet' || symbol.kind === 'function').map(symbol => symbol.name.toLowerCase()));
+	let ownGetterValues: ReturnType<typeof classMemberValues> | undefined;
+
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind === 'Procedure' && procedureFilter && !procedureFilter(member)) { continue; }
 		if (member.kind !== 'Procedure') {
@@ -354,11 +433,14 @@ export function checkAssignmentTypes(
 		const procSym = procedureSymbolFor(symbols, member);
 		// These value helpers inspect the same direct child declaration. Preserve
 		// first-match semantics, but share queried names (and misses) per procedure.
-		let localSymbols: Map<string, VbaSymbol | undefined> | undefined;
+		let localSymbols: Map<string, VbaSymbol> | undefined;
 		const localSymbolNamed = (lower: string): VbaSymbol | undefined => {
-			localSymbols ??= new Map();
-			if (!localSymbols.has(lower)) {
-				localSymbols.set(lower, procSym?.children?.find((child) => child.name.toLowerCase() === lower));
+			if (!localSymbols) {
+				localSymbols = new Map();
+				for (const child of procSym?.children ?? []) {
+					const key = child.name.toLowerCase();
+					if (!localSymbols.has(key)) { localSymbols.set(key, child); }
+				}
 			}
 			return localSymbols.get(lower);
 		};
@@ -502,6 +584,11 @@ export function checkAssignmentTypes(
 			}
 			const declared = declaredTypeForSourceBinding(symbols, procSym, projectVisibleSymbols, element.name, 'assignmentTarget');
 			const expected = declared.resolved ? declared.asType : undefined;
+			const facts = expected ? objectFactsFor(expected) : undefined;
+			if (facts?.readOnlyDefault) {
+				push('readonlyMemberAssignment', `Assignment to '${element.label}' reaches the default member ${facts.readOnlyDefault} of ${expected}, a Property Get with no Property Let. This is a VBE compile error: Invalid use of property.`, element.span);
+				return;
+			}
 			if (expected && objectFactsFor(expected).verdict === 'argument') {
 				push(
 					'setRequired',
@@ -511,7 +598,92 @@ export function checkAssignmentTypes(
 			}
 		}
 
+		function checkBareGetter(span: Span): boolean {
+			if (!getterNames.size) { return false; }
+			const tokens = statementTokensAfterLeadingLabel(source, span);
+			let first = firstExecutableTokenIndex(tokens);
+			if (tokenText(tokens[first]) === 'let') { first++; }
+			const root = tokenName(tokens[first]);
+			if (!root || !getterNames.has(root.toLowerCase())) { return false; }
+			const equals = topLevelOperatorIndex(tokens, '=');
+			if (equals < 0) { return false; }
+			const target = assignmentTargetFromTokens(tokens.slice(0, equals + 1)), named = target && assignmentTargetName(target);
+			if (!target || named?.index !== 0) { return false; }
+			const binding = sourceIdentifierBinding(symbols, procSym, projectVisibleSymbols, root, 'assignmentTarget');
+			if (binding.scope === 'ambiguous' || binding.definitions.some(def => def.kind === 'propertyLet' || def.kind === 'propertySet')) { return false; }
+			const getter = binding.definitions.find(def => def.kind === 'propertyGet' || def.kind === 'function');
+			if (!getter || getter === procSym) { return false; }
+			const declared = getter.asType ?? (getter.moduleName.toLowerCase() === symbols.moduleName.toLowerCase() ? defTypeOf(symbols, getter.name) : 'Variant');
+			if (getter.kind === 'function' && !resolveObjectType(declared)) { return false; }
+			const parameters = procedureParamsFromSymbol(getter);
+			if (!named.indexed && parameters.some(param => !param.optional && !param.paramArray)) {
+				push('argumentCount', `Argument not optional: '${root}' requires a getter argument.`, {start:span.start+target[0].start,end:span.start+target[0].end});
+				return true;
+			}
+			const resultIndexed = named.indexed && target.length > named.index + 3 && parameters.length === 0;
+			const nameSpan = {start:span.start+target[0].start,end:span.start+target[0].end};
+			if (!resultIndexed && invalidGetterArgumentCount(source,root,nameSpan,parameters,named.indexed?target.slice(named.index+2,-1):[],span.start)) { return true; }
+			if (declared && getterMayReturnObject(declared,memberCtx) && !resultIndexed && checkReturnedObjectDefault(declared,root,nameSpan)) { return true; }
+			if (getter.kind === 'function' || normalizeType(declared) !== 'variant') { return false; }
+
+			const value = getter.moduleName.toLowerCase() === symbols.moduleName.toLowerCase()
+				? (ownGetterValues ??= classMemberValues(source, symbols.root.children ?? [])).get(getter.name.toLowerCase())
+				: projectGetterKnownValue(memberCtx, getter.moduleName, getter.name);
+			if (value !== 'scalar' && value !== 'empty') { return false; }
+			push('variantValueMisuse', `'${root}' has only a Property Get returning a Variant that holds no object. The Let writes through its returned value, which cannot receive a property assignment. This will raise Run-time error '424': Object required.`, { start: span.start + target[0].start, end: span.start + target[0].end });
+			return true;
+		}
+
+		function checkBareSetter(span: Span, stmt: LeafStatementNode): boolean {
+			if (!setterNames.size) { return false; }
+			const tokens = statementTokensAfterLeadingLabel(source, span);
+			// Only names known to have a Let need syntax/binding work. If branches
+			// are visited separately, so the full If span is not an assignment here.
+			let first = firstExecutableTokenIndex(tokens);
+			if (tokens[first]?.kind === 'keyword' && tokenText(tokens[first]) === 'if') { return false; }
+			if (tokens[first]?.kind === 'keyword' && tokenText(tokens[first]) === 'let') { first++; }
+			const root = tokenName(tokens[first]);
+			if (!root || !setterNames.has(root.toLowerCase())) { return false; }
+			const equals = topLevelOperatorIndex(tokens, '=');
+			if (equals < 0) { return false; }
+			const target = assignmentTargetFromTokens(tokens.slice(0, equals + 1));
+			const named = target && assignmentTargetName(target);
+			if (!target || named?.index !== 0) { return false; }
+			const name = tokenName(target[0]);
+			if (!name || !setterNames.has(name.toLowerCase())) { return false; }
+			const binding = sourceIdentifierBinding(symbols, procSym, projectVisibleSymbols, name, 'assignmentTarget');
+			if (binding.scope === 'ambiguous') { return false; }
+			const setter = binding.definitions.find(definition => definition.kind === 'propertyLet');
+			const parameter = setter?.children?.filter(child => child.kind === 'parameter').at(-1);
+			const declared = parameter?.asType ?? (parameter?.moduleName.toLowerCase() === symbols.moduleName.toLowerCase() ? defTypeOf(symbols, parameter.name) : undefined)
+				?? (setter && projectSetterValueType(memberCtx, setter.moduleName, setter.name));
+			if (parameter?.isArray) {
+				const value = tokens.slice(equals + 1);
+				const actual = inferArgumentType(value, span.start, env, moduleSignatures, sourceNames,
+					source, memberCtx, resolveExpressionType, resolveQualifiedExpressionType);
+				checkArraySetterValue(name, declared, value, span.start, actual, coercionType, resolveExpressionType, resolveQualifiedExpressionType, push, sourceNames, projectDeclaresCollection, defaultQueries.verdictFor, (name) => arrayValueAt(stmt, name), arrayByRefIdentity);
+				return true;
+			}
+			if (!declared) { return false; }
+			const expected = coercionType(declared);
+			if (!isKnownScalarType(normalizeType(expected) ?? '')) { return false; }
+			const actual = inferArgumentType(tokens.slice(equals + 1), span.start, env, moduleSignatures, sourceNames,
+				source, memberCtx, resolveExpressionType, resolveQualifiedExpressionType);
+			const problem = arrayAssignmentProblem({ name, span: actual?.span ?? span, valueTokens: tokens.slice(equals + 1) }, span.start,
+				{ asType: expected, isArray: false, isFixedArray: false }, name => declaredShapeForSourceBinding(symbols,procSym,projectVisibleSymbols,name,'expression').shape,
+				name => arrayValueAt(stmt, name), () => actual, sourceNames,undefined,memberCtx,source);
+			if (problem) { push(problem.code, problem.message, problem.span); return true; }
+			const reason = actual && incompatibilityReason(expected, actual);
+			if (reason) {
+				push('assignmentTypeMismatch', `Assignment to '${name}' expects ${declared}, but got ${actual!.label}. ${reason}`, actual!.span);
+			}
+			return true;
+		}
+
 		function checkAssignmentSpan(span: Span, stmt: LeafStatementNode): void {
+			const setter = sourceSetterAssignment(source, span, symbols, procSym, projectVisibleSymbols, memberCtx);
+			if (setter && invalidSetterAssignmentArity(setter, source, push)) { return; }
+			if (checkBareSetter(span, stmt) || checkBareGetter(span)) { return; }
 			const assignment = bareAssignmentTarget(source, span);
 			if (!assignment) {
 				checkElementLet(span);
@@ -534,8 +706,7 @@ export function checkAssignmentTypes(
 				: env.get(assignment.name.toLowerCase())) ?? (untypedArray ? 'Variant' : undefined);
 			// A variable As an Enum is a Long: `x = "abc"` raises 13 and
 			// `x = 3000000000#` 6 (issue #436, measured in Excel 16.0).
-			const enumName = declaredExpected?.split('.').pop()?.toLowerCase();
-			const expected = enumName && enumNames.has(enumName) ? 'Long' : declaredExpected;
+			const expected = declaredExpected ? coercionType(declaredExpected) : undefined;
 			// `Sheet1 = 5` compiles as a Let through the document's default
 			// member, and a Worksheet or Workbook has none (issue #225).
 			if (!expected && !targetType.resolved && isDocumentModule(assignment.name)) {
@@ -558,8 +729,18 @@ export function checkAssignmentTypes(
 			if (!expected) {
 				return;
 			}
-			const objectType = objectFactsFor(expected);
-			if (objectType.isObject) {
+			const resolvedTargetShape = declaredShapeForSourceBinding(
+				symbols,
+				procSym,
+				projectVisibleSymbols,
+				assignment.name,
+				'assignmentTarget',
+			);
+			const targetShape = resolvedTargetShape.resolved
+				? resolvedTargetShape.shape
+				: shapes.get(assignment.name.toLowerCase());
+			const objectType = targetShape?.isArray ? undefined : objectFactsFor(expected);
+			if (objectType?.isObject) {
 				// The VBE compiles a bare `=` to an object variable as a Let
 				// through the type's default member (issue #107): `r = 5`
 				// writes the Range's Value. What is reported is what the
@@ -603,7 +784,7 @@ export function checkAssignmentTypes(
 					// once it holds one (issue #193). The object-state walk says
 					// which; this rule owns the report either way, since the fix is
 					// the Set.
-					const state = objectLetStateAt(source, mod, procedure, symbols, memberCtx, activity, assignment.span.start);
+					const state = objectLetStateAt(source, mod, procedure, symbols, memberCtx, activity, assignment.span.start, defaultQueries);
 					const lower = assignment.name.toLowerCase();
 					const declared = procSym?.children?.find((child) => child.name.toLowerCase() === lower)
 						?? symbols.root.children?.find((child) => child.name.toLowerCase() === lower);
@@ -652,16 +833,16 @@ export function checkAssignmentTypes(
 			// string's bytes, and a String takes the array back (issue #105,
 			// measured in Excel 16.0). The element type is not what the value
 			// is checked against there.
-			const resolvedTargetShape = declaredShapeForSourceBinding(
-				symbols,
-				procSym,
-				projectVisibleSymbols,
-				assignment.name,
-				'assignmentTarget',
-			);
-			const targetShape = resolvedTargetShape.resolved
-				? resolvedTargetShape.shape
-				: shapes.get(assignment.name.toLowerCase());
+
+			let inferred: InferredArgumentType | undefined;
+			let inferredKnown = false;
+			const inferAssignment = () => {
+				if (!inferredKnown) {
+					inferredKnown = true;
+					inferred = inferArgumentType(assignment.valueTokens,span.start,env,moduleSignatures,sourceNames,source,memberCtx,resolveExpressionType,resolveQualifiedExpressionType);
+				}
+				return inferred;
+			};
 			const arrayProblem = arrayAssignmentProblem(
 				assignment,
 				span.start,
@@ -671,10 +852,11 @@ export function checkAssignmentTypes(
 					return resolved.resolved ? resolved.shape : shapes.get(name.toLowerCase());
 				},
 				(name) => arrayValueAt(stmt, name),
-				(tokens) => inferArgumentType(tokens, span.start, env, moduleSignatures, sourceNames, source, memberCtx, resolveExpressionType, resolveQualifiedExpressionType),
+				() => inferAssignment(),
 				sourceNames,
 				(name) => variantArrayFunctions.has(name.toLowerCase())
 					&& !procSym?.children?.some((child) => child.name.toLowerCase() === name.toLowerCase()),
+				memberCtx,source,undefined,arrayElementIdentity,
 			);
 			if (arrayProblem) {
 				push(arrayProblem.code, arrayProblem.message, arrayProblem.span);
@@ -696,17 +878,7 @@ export function checkAssignmentTypes(
 				);
 				return;
 			}
-			const actual = inferArgumentType(
-				assignment.valueTokens,
-				span.start,
-				env,
-				moduleSignatures,
-				sourceNames,
-				source,
-				memberCtx,
-				resolveExpressionType,
-				resolveQualifiedExpressionType,
-			);
+			const actual = inferAssignment();
 			const nullCall = nullFromChoice(assignment.valueTokens, choiceModuleNameDeclared);
 			if (nullCall && isKnownScalarType(normalizeType(expected) ?? '')) {
 				push(
@@ -771,14 +943,87 @@ export function checkAssignmentTypes(
 			moduleSignatures,
 			sourceNames,
 			memberCtx,
+			memberCoercionType,
 			activity,
 			push,
 			projectDeclaresCollection,
 			isFormOwner,
+			objectAssignmentReason,
+			resolveObjectType,
+			defaultQueries.verdictFor,
+			checkReturnedObjectDefault,
+			arrayValueAt,
 			resolveExpressionType,
 			resolveQualifiedExpressionType,
 			symbols,
+			projectVisibleSymbols,
+			arrayByRefIdentity,
 		);
+	}
+}
+
+/** A Let's final array parameter is subject to compile-time shape rules. */
+function checkArraySetterValue(
+	label: string, expected: string | undefined, tokens: readonly VbaToken[], baseOffset: number,
+	actual: ReturnType<typeof inferArgumentType>, coercionType: (type: string) => string,
+	resolveType: SourceDeclaredTypeResolver | undefined,
+	resolveQualifiedType: SourceQualifiedDeclaredTypeResolver | undefined, push: PushFn,
+	sourceNames: SourceNameScope, projectDeclaresCollection: () => boolean,
+	objectVerdict: (type: string | undefined) => ReturnType<typeof objectLetAssignmentVerdict>,
+	variantValue: (name: string) => ArrayValue | undefined,
+	arrayByRefIdentity: (type: string | undefined) => string = elementType,
+): void {
+	const raw = tokens.filter(token => token.kind !== 'comment' && token.kind !== 'newline');
+	if (!raw.length) { return; }
+	let value = raw;
+	if (raw[0].rawText === '(') {
+		// Collect pairs once: peeling N nested groups with N scans is quadratic.
+		const opens: number[] = [], pairs = new Map<number, number>();
+		for (let i = 0; i < raw.length; i++) {
+			if (raw[i].rawText === '(') { opens.push(i); }
+			else if (raw[i].rawText === ')') { const open = opens.pop(); if (open !== undefined) { pairs.set(open, i); } }
+		}
+		let first = 0, last = raw.length - 1;
+		while (pairs.get(first) === last) { first++; last--; }
+		value = raw.slice(first, last + 1);
+	}
+	const expectedType = normalizeType(expected), actualType = normalizeType(actual?.type);
+	const typedArray = actual && /\(\s*\)\s*$/.test(actual.type);
+	const expectedArrayType = arrayByRefIdentity(expected), actualArrayType = arrayByRefIdentity(actual?.type);
+	const wrongElement = typedArray && expectedArrayType !== actualArrayType
+		&& !(isKnownScalarType(expectedArrayType) && isKnownScalarType(actualArrayType) && sameByRefType(actualArrayType,expectedArrayType));
+	const indexed = value[1]?.rawText === '(' && matchParenFrom(value, 1) === value.length - 1;
+	const name = value.length === 1 || indexed ? tokenName(value[0]) : undefined;
+	const qualified = value.length === 3 && value[1].rawText === '.' && tokenName(value[0]) && tokenName(value[2]);
+	const declared = name ? resolveType?.(name) : qualified ? resolveQualifiedType?.(value[0].rawText, value[2].rawText) : undefined;
+	const span = { start: baseOffset + raw[0].start, end: baseOffset + raw[raw.length - 1].end };
+	const arrayVariable = declared?.isArray && ['localVariable', 'moduleVariable', 'parameter'].includes(declared.kind ?? '');
+	if (arrayVariable && (!indexed || value.length === 3)) {
+		push('arrayTargetAssignment', `Assignment to '${label}' passes a whole array to a Property Let value parameter. This is a VBE compile error: Can't assign to array.`, span);
+		return;
+	}
+	// Byte-array assignments convert a String value, but not a whole String array.
+	const stringElement = arrayVariable && indexed && value.length > 3 && normalizeType(declared?.asType) === 'string';
+	if (expectedType === 'byte' && ((actualType === 'string' && !typedArray) || stringElement)) { return; }
+	if (value.length === 2 && tokenText(value[0]) === 'new' && normalizeType(value[1].rawText) === 'collection' && !projectDeclaresCollection()) {
+		push('argumentCount', `Assignment to '${label}' reads the Collection's default member Item, which requires an index. This is a VBE compile error: Argument not optional.`, span);
+		return;
+	}
+	const variantVariable = declared?.resolved && !declared.isArray
+		&& ['localVariable', 'moduleVariable', 'parameter'].includes(declared.kind ?? '')
+		&& (normalizeType(declared.asType) ?? 'variant') === 'variant';
+	if (expectedType === 'byte' && (variantVariable || arrayProducedBy(value, sourceNames))) {
+		const problem = arrayAssignmentProblem({ name: label, span, valueTokens: value }, baseOffset,
+			{ asType: 'Byte', isArray: true, isFixedArray: false },
+			name => { const binding = resolveType?.(name); return binding?.resolved ? { asType: binding.asType, isArray: !!binding.isArray, isFixedArray: false } : undefined; },
+			variantValue, () => actual, sourceNames);
+		if (problem) { push(problem.code, problem.message, problem.span); }
+		return;
+	}
+	if (wrongElement || (arrayVariable && indexed && value.length > 3) || variantVariable
+		|| (actual && !/\(\s*\)\s*$/.test(actual.type) && isKnownScalarType(normalizeType(coercionType(actual.type)) ?? ''))
+		|| arrayProducedBy(value, sourceNames) || (actual && !typedArray && objectVerdict(actual.type) === 'noDefault')) {
+		push('argumentShapeMismatch', `Assignment to '${label}' passes ${actual?.label ?? 'an array element'}, but the Property Let value parameter requires an array. This is a VBE compile error: Type mismatch: array or user-defined type expected.`, span);
 	}
 }
 
@@ -863,8 +1108,12 @@ function arrayAssignmentProblem(
 	scalarType: (tokens: VbaToken[]) => InferredArgumentType | undefined,
 	sourceNames: SourceNameScope,
 	returnsVariantArray: (name: string) => boolean = () => false,
-): { code: 'arrayTargetAssignment' | 'assignmentTypeMismatch'; message: string; span: Span } | undefined {
-	const value = assignment.valueTokens.filter((tok) => tok.kind !== 'comment');
+	memberCtx?: MemberCompletionContext,
+	source?: string,
+	arrayFailurePhase: 'compile' | 'runtime' = 'compile',
+	arrayElementIdentity: (type: string | undefined) => string = elementType,
+): { code: 'arrayTargetAssignment' | 'assignmentTypeMismatch' | 'arrayAssignmentToScalar'; message: string; span: Span } | undefined {
+	const value = unwrapOuterParens(assignment.valueTokens.filter((tok) => tok.kind !== 'comment'));
 	if (value.length === 0) {
 		return undefined;
 	}
@@ -877,7 +1126,11 @@ function arrayAssignmentProblem(
 		? { element: 'variant', text: `${value[0].rawText}(...), which returns Array(...) or Empty,` }
 		: undefined;
 	const produced = arrayProducedBy(value, sourceNames) ?? called ?? (name && !named?.isArray ? variantValue(name) : undefined);
-	const targetType = elementType(targetShape?.asType);
+	const last = value.at(-1);
+	const memberName = last && tokenName(last);
+	const member = source && memberCtx && memberName && value.at(-2)?.rawText === '.'
+		? resolveExactMemberCompletion(source,memberName,baseOffset+last!.end,memberCtx) : undefined;
+	const targetType = arrayElementIdentity(targetShape?.asType);
 	if (targetShape?.isArray) {
 		const elements = `an array of ${(targetShape.asType ?? 'Variant').replace(/\s*\(\s*\)\s*$/, '')}`;
 		const cannot = (what: string): { code: 'arrayTargetAssignment'; message: string; span: Span } => ({
@@ -889,15 +1142,19 @@ function arrayAssignmentProblem(
 			return cannot('a fixed-size array takes no assignment whole');
 		}
 		if (named?.isArray) {
-			return elementType(named.asType) === targetType ? undefined : cannot(`'${name}' is an array of ${named.asType ?? 'Variant'}`);
+			return arrayElementIdentity(named.asType) === targetType ? undefined : cannot(`'${name}' is an array of ${named.asType ?? 'Variant'}`);
+		}
+		if (member?.isArray) {
+			const element = member.returns ?? member.declaredType;
+			return arrayElementIdentity(element) === targetType ? undefined : cannot(`'${member.owner}.${member.name}' is an array of ${element ?? 'Variant'}`);
 		}
 		// A Function declared to return a typed array is held to the same
 		// rule as an array variable: `a = StrArr()` into Long() or Variant()
 		// does not compile (issue #222, measured in Excel 16.0).
-		const returned = !produced && isWholeCall(value) ? scalarType(value) : undefined;
+		const returned = !produced ? scalarType(value) : undefined;
 		if (returned && /\(\s*\)\s*$/.test(returned.type)) {
 			const element = returned.type.replace(/\s*\(\s*\)\s*$/, '');
-			return elementType(element) === targetType ? undefined : cannot(`${value[0].rawText}(...) returns an array of ${element}`);
+			return arrayElementIdentity(element) === targetType ? undefined : cannot(`${returned.label} returns an array of ${element}`);
 		}
 		if (produced) {
 			if (produced.element === targetType) {
@@ -921,6 +1178,18 @@ function arrayAssignmentProblem(
 			return cannot(`${shown} is a ${scalar.type}, not an array`);
 		}
 		return undefined;
+	}
+	if (targetShape && isKnownScalarType(targetType)) {
+		const typedCall = value.at(-1)?.rawText === ')' ? scalarType(value) : undefined;
+
+		const arrayType = named?.isArray ? named.asType : member?.isArray ? member.returns ?? member.declaredType : typedCall?.type;
+		// VBA supports whole Byte-array conversion to String (including function returns).
+		if (targetType === 'string' && elementType(arrayType) === 'byte') { return undefined; }
+		if (named?.isArray || /\(\s*\)\s*$/.test(named?.asType ?? '') || member?.isArray
+			|| /\(\s*\)\s*$/.test(member?.returns ?? member?.declaredType ?? '') || (!produced && typedCall && /\(\s*\)\s*$/.test(typedCall.type))) {
+			return {code:arrayFailurePhase === 'compile' ? 'arrayAssignmentToScalar' : 'assignmentTypeMismatch',
+				message:`Type mismatch: assignment to '${assignment.name}' expects ${targetShape.asType}, but this value is a whole typed array. ${arrayFailurePhase === 'compile' ? 'This is a VBE compile error.' : "This will raise Run-time error '13': Type mismatch."}`, span:valueSpan};
+		}
 	}
 	if (produced && produced.element !== 'empty' && targetShape && isKnownScalarType(targetType)) {
 		return {
@@ -1397,6 +1666,12 @@ function singleSlotNameEquals(slot: readonly VbaToken[], lowerName: string): boo
 	return toks.length === 1 && tokenName(toks[0])?.toLowerCase() === lowerName;
 }
 
+// These getter-only Variant properties return scalar values, never an object
+// whose default property could receive a Let. Their assignments compile but
+// cannot execute. Keep object-valued getters (e.g. Worksheet.UsedRange) alone.
+// https://learn.microsoft.com/en-us/office/vba/api/excel.range.height
+const RANGE_READONLY_VALUES = new Set(['height', 'width', 'left', 'top', 'text', 'countlarge', 'hasarray', 'hasformula']);
+
 /**
  * The compile error the VBE gives an assignment to a read-only host property,
  * or undefined when the assignment compiles or the models cannot say which
@@ -1491,13 +1766,21 @@ function checkMemberAssignmentTypes(
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
 	sourceNames: SourceNameScope,
 	memberCtx: MemberCompletionContext,
+	coercionType: (declared: string) => string,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 	projectDeclaresCollection: () => boolean,
 	isFormOwner: (name: string) => boolean,
+	objectAssignmentReason: (expected: string | undefined, actual: ReturnType<typeof inferArgumentType>) => string | undefined,
+	resolveObjectType: ReturnType<typeof createObjectAssignmentTypeResolver>,
+	objectVerdict: (type: string | undefined) => ReturnType<typeof objectLetAssignmentVerdict>,
+	checkReturnedObjectDefault: (type: string, label: string, span: Span) => boolean,
+	arrayValueAt: (stmt: LeafStatementNode, name: string) => ArrayValue | undefined,
 	resolveExpressionType?: SourceDeclaredTypeResolver,
 	resolveQualifiedExpressionType?: SourceQualifiedDeclaredTypeResolver,
 	symbols?: ReturnType<typeof buildModuleSymbols>,
+	projectVisibleSymbols?: readonly VbaSymbol[],
+	arrayByRefIdentity: (type: string | undefined) => string = elementType,
 ): void {
 	const projectClasses = (memberCtx.projectClassMembers?.length ?? 0) > 0;
 	let valuesAt: ReturnType<typeof knownLocalLiteralValuesAt> | undefined;
@@ -1528,6 +1811,10 @@ function checkMemberAssignmentTypes(
 			return boolean && held.value !== 0 ? undefined : held.value as number;
 		};
 		const assignment = memberAssignmentTarget(source, span);
+		if (symbols) {
+			const setter = sourceSetterAssignment(source, span, symbols, procedureSymbolFor(symbols, member), undefined, memberCtx);
+			if (setter && invalidSetterAssignmentArity(setter, source, () => {})) { return; }
+		}
 		if (!assignment) {
 			return;
 		}
@@ -1549,6 +1836,17 @@ function checkMemberAssignmentTypes(
 			assignment.memberSpan.end,
 			memberCtx,
 		);
+		if (target?.kind === 'method' && !target.sub && !assignment.usesSet
+			&& !lateBoundReceiver(source, assignment.memberSpan.end, memberCtx)
+			&& getterMayReturnObject(target.returns ?? target.declaredType, memberCtx)) {
+			const parameters = memberParameterCounts(target.signature);
+			const resultIndexed = assignment.withArguments && parameters.total === 0 && assignment.hasArguments;
+			const params = target.procedureParams?.function ?? (target.signature
+				? parseRuntimeDisplaySignature(target.name,target.signature).params : undefined);
+			if (!resultIndexed && params && invalidGetterArgumentCount(source,target.name,assignment.memberSpan,params,assignment.argumentTokens,span.start)) { return; }
+			const returned = target.returns ?? target.declaredType;
+			if (!resultIndexed && returned && checkReturnedObjectDefault(returned,assignment.label,assignment.memberSpan)) { return; }
+		}
 		if (target?.access === 'read-only' && target.writable === undefined) {
 			const vbeError = hostReadOnlyAssignmentError(target, assignment.usesSet, memberCtx);
 			if (vbeError && !lateBoundReceiver(source, assignment.memberSpan.end, memberCtx)) {
@@ -1557,6 +1855,13 @@ function checkMemberAssignmentTypes(
 					`Cannot assign to read-only property '${assignment.label}'. This is a VBE compile error: ${vbeError}.`,
 					assignment.memberSpan,
 				);
+			} else if (!vbeError && target.kind === 'property' && target.owner === 'Excel.Range'
+				&& RANGE_READONLY_VALUES.has(target.name.toLowerCase())) {
+				const alternative = /^(height|width)$/i.test(target.name)
+					? ` Use ${target.name.toLowerCase() === 'height' ? 'RowHeight' : 'ColumnWidth'} to change it.` : '';
+				push('hostReadonlyValueAssignment',
+					`Cannot assign to read-only property '${assignment.label}': it returns a value and has no setter. This assignment fails when it runs.${alternative}`,
+					assignment.memberSpan);
 			}
 			return;
 		}
@@ -1574,6 +1879,25 @@ function checkMemberAssignmentTypes(
 			const value = assignment.valueTokens.filter((tok) => tok.kind !== 'comment');
 			if (problem && value.length > 0) {
 				push('hostPropertyValueOutOfRange', problem, { start: span.start + value[0].start, end: span.start + value[value.length - 1].end });
+				return;
+			}
+		}
+		// Host scalar setters use the same provable VBA coercions as variables.
+		// Variant, Object and object-valued getters need host-specific knowledge.
+		if (target?.kind === 'property' && target.access === 'read/write' && target.writable === undefined
+			&& !assignment.usesSet && !assignment.withArguments && target.declaredType
+			&& (isKnownScalarType(normalizeType(target.declaredType) ?? '') || resolveHostEnum(target.declaredType, memberCtx.model))
+			&& !lateBoundReceiver(source, assignment.memberSpan.end, memberCtx)) {
+			const actual = inferArgumentType(assignment.valueTokens, span.start, env, moduleSignatures,
+				sourceNames, source, memberCtx, resolveExpressionType, resolveQualifiedExpressionType);
+			const expected = resolveHostEnum(target.declaredType, memberCtx.model) ? 'Long' : target.declaredType;
+			const arrayProblem = arrayAssignmentProblem({ name: assignment.label, span: assignment.memberSpan, valueTokens: assignment.valueTokens }, span.start,
+				{ asType: expected, isArray: false, isFixedArray: false }, name => symbols ? declaredShapeForSourceBinding(symbols,procedureSymbolFor(symbols,member),projectVisibleSymbols,name,'expression').shape : undefined,
+				name => isLeafStatement(stmt) ? arrayValueAt(stmt, name) : undefined, () => actual, sourceNames,undefined,memberCtx,source,'runtime');
+			if (arrayProblem) { push(arrayProblem.code, arrayProblem.message, arrayProblem.span); return; }
+			const reason = actual && incompatibilityReason(target.declaredType, actual);
+			if (reason) {
+				push('assignmentTypeMismatch', `Assignment to '${assignment.label}' expects ${target.declaredType}, but got ${actual!.label}. ${reason}`, actual!.span);
 				return;
 			}
 		}
@@ -1601,13 +1925,32 @@ function checkMemberAssignmentTypes(
 			);
 			return;
 		}
-		// The project-class checks read a bare property target only. A Type's
-		// array field takes an array, or a String As Byte: typeMembers.ts
-		// judges it (issue #417).
-		if (!projectClasses || assignment.withArguments || !target || target.writable === undefined || target.isArray) {
+		// Source accessors accept their value after the index arguments as well.
+		// An indexed field or array-valued property belongs to typeMembers.ts
+		// and propertyUse.ts, rather than a scalar setter-value check.
+		const indexedAccessor = target && (assignment.usesSet ? target.setAccessor : (target.letAccessor
+			|| (target.writable === false && target.signature !== undefined
+				&& (signatureDeclaresParameters(target.signature) || normalizeType(target.returns ?? target.declaredType) !== 'string'))));
+		if (!projectClasses || (assignment.withArguments && !indexedAccessor) || !target || target.writable === undefined || (target.isArray && !target.writeIsArray)) {
 			return;
 		}
 		if (target.writable === false) {
+			// A Let can write through the object returned by Get; it does not replace the property.
+			if (!assignment.usesSet && getterMayReturnObject(target.returns ?? target.declaredType, memberCtx)) {
+				const parameters = memberParameterCounts(target.signature);
+				if (assignment.withArguments && parameters.total === 0 && assignment.hasArguments) { return; } // Result indexing has its own value diagnostic.
+				if (!assignment.withArguments && parameters.required > 0) { return; } // Argument-count owns this target.
+
+				const returned = target.returns ?? target.declaredType;
+				const getterParams = target.procedureParams?.propertyGet;
+				if (getterParams && invalidGetterArgumentCount(source,target.name,assignment.memberSpan,getterParams,assignment.argumentTokens,span.start)) { return; }
+				if (returned && checkReturnedObjectDefault(returned,assignment.label,assignment.memberSpan)) { return; }
+				const type = normalizeType(returned);
+				if ((!type || type === 'variant') && (target.knownValue === 'scalar' || target.knownValue === 'empty')) {
+					push('variantValueMisuse', `'${assignment.label}' has only a Property Get returning a Variant that holds no object. The Let writes through its returned value, which cannot receive a property assignment. This will raise Run-time error '424': Object required.`, assignment.memberSpan);
+				}
+				return;
+			}
 			push(
 				'readonlyMemberAssignment',
 				`Cannot assign to read-only property '${assignment.label}'.`,
@@ -1615,7 +1958,15 @@ function checkMemberAssignmentTypes(
 			);
 			return;
 		}
-		const expected = target.writeType ?? target.returns;
+		if (!assignment.usesSet && target.writeIsArray) {
+			const actual = inferArgumentType(assignment.valueTokens, span.start, env, moduleSignatures, sourceNames,
+				source, memberCtx, resolveExpressionType, resolveQualifiedExpressionType);
+			checkArraySetterValue(assignment.label, target.writeType, assignment.valueTokens, span.start, actual, coercionType,
+				resolveExpressionType, resolveQualifiedExpressionType, push, sourceNames, projectDeclaresCollection, objectVerdict, (name) => isLeafStatement(stmt) ? arrayValueAt(stmt, name) : undefined, arrayByRefIdentity);
+			return; // The value is an array parameter, never a scalar value to coerce.
+		}
+		const declaredExpected = target.writeType ?? target.returns;
+		const expected = declaredExpected ? coercionType(declaredExpected) : undefined;
 		if (assignment.usesSet) {
 			// A Property Set takes the Set whatever the Let and Get are typed:
 			// `Set c.M = New Collection` runs beside a Long Let (issue #414).
@@ -1648,11 +1999,7 @@ function checkMemberAssignmentTypes(
 				resolveExpressionType,
 				resolveQualifiedExpressionType,
 			);
-			const reason = objectAssignmentIncompatibilityReason(
-				expected,
-				actual,
-				memberCtx,
-			);
+			const reason = objectAssignmentReason(expected, actual);
 			if (reason) {
 				pushObjectAssignmentMismatch(push, assignment.label, expected, actual, reason, assignment.memberSpan, 'Object required');
 			}
@@ -1670,7 +2017,7 @@ function checkMemberAssignmentTypes(
 			);
 			return;
 		}
-		if (!target.letAccessor && isKnownObjectAssignmentType(expected, memberCtx)) {
+		if (!target.letAccessor && isKnownObjectAssignmentType(expected, memberCtx, resolveObjectType)) {
 			push(
 				'setRequired',
 				`Object assignment to '${assignment.label}' requires Set because it expects ${expected}.`,
@@ -1681,6 +2028,20 @@ function checkMemberAssignmentTypes(
 		if (!expected || !isKnownScalarType(normalizeType(expected) ?? '')) {
 			return; // a Let of an object or unknown type: nothing provable about the value
 		}
+		let inferred: InferredArgumentType | undefined;
+		let inferredKnown = false;
+		const inferAssignment = () => {
+			if (!inferredKnown) {
+				inferredKnown = true;
+				inferred = inferArgumentType(assignment.valueTokens,span.start,env,moduleSignatures,sourceNames,source,memberCtx,resolveExpressionType,resolveQualifiedExpressionType);
+			}
+			return inferred;
+		};
+		const arrayProblem = arrayAssignmentProblem({ name: assignment.label, span: assignment.memberSpan, valueTokens: assignment.valueTokens }, span.start,
+			{ asType: expected, isArray: false, isFixedArray: false }, name => symbols ? declaredShapeForSourceBinding(symbols,procedureSymbolFor(symbols,member),projectVisibleSymbols,name,'expression').shape : undefined,
+			name => isLeafStatement(stmt) ? arrayValueAt(stmt, name) : undefined,
+			() => inferAssignment(), sourceNames,undefined,memberCtx,source);
+		if (arrayProblem) { push(arrayProblem.code, arrayProblem.message, arrayProblem.span); return; }
 		const stringArithmetic = nonnumericStringArithmeticOperand(
 			expected,
 			assignment.valueTokens,
@@ -1694,17 +2055,7 @@ function checkMemberAssignmentTypes(
 			);
 			return;
 		}
-		const actual = inferArgumentType(
-			assignment.valueTokens,
-			span.start,
-			env,
-			moduleSignatures,
-			sourceNames,
-			source,
-			memberCtx,
-			resolveExpressionType,
-			resolveQualifiedExpressionType,
-		);
+		const actual = inferAssignment();
 		if (!actual) {
 			return;
 		}
@@ -1714,7 +2065,7 @@ function checkMemberAssignmentTypes(
 		}
 		push(
 			'assignmentTypeMismatch',
-			`Assignment to '${assignment.label}' expects ${expected}, but got ${actual.label}. ${reason}`,
+			`Assignment to '${assignment.label}' expects ${declaredExpected}, but got ${actual.label}. ${reason}`,
 			actual.span,
 		);
 	};
@@ -1781,6 +2132,7 @@ export function checkSetAssignments(
 	const isProjectClass = projectTypeNameLookup(memberCtx, 'class', false);
 	const resolveObjectType = createObjectAssignmentTypeResolver(memberCtx);
 	const shareInterfaces = createProjectInterfaceSharingLookup(memberCtx);
+	const implementsType = createObjectTypeImplementationLookup();
 	// Form metadata is stable within this rule invocation; query only the names
 	// actually used, retaining the first matching control and missing results.
 	let formResolved = false;
@@ -1914,6 +2266,7 @@ export function checkSetAssignments(
 					memberCtx,
 					resolveObjectType,
 					shareInterfaces,
+					implementsType,
 				);
 				// `Set o = New Flat1` then `Set c = o`: the class an Object holds
 				// is checked as the Set runs (issue #246, measured in Excel 16.0).
@@ -1922,7 +2275,7 @@ export function checkSetAssignments(
 					const held = heldAt(stmt).classes.get(tokenName(value[0])!.toLowerCase());
 					if (held) {
 						shown = { type: held, label: `'${value[0].rawText}', which holds a ${held} here`, span: { start: span.start + value[0].start, end: span.start + value[0].end } };
-						reason = objectAssignmentIncompatibilityReason(expected, shown, memberCtx, resolveObjectType, shareInterfaces);
+						reason = objectAssignmentIncompatibilityReason(expected, shown, memberCtx, resolveObjectType, shareInterfaces, implementsType);
 					}
 				}
 				// `Set c = ActiveSheet`: a Worksheet or a Chart, never a

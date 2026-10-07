@@ -274,3 +274,22 @@ describe('VbaProjectIndexService', () => {
 		await Promise.all(views);
 	});
 });
+it('serves loaded project facts synchronously with one edited-module update and no reload', async () => {
+ const { projectIndexService, callCount } = service(Array.from({ length: 100 }, (_, i) => ({ name: 'Module' + i, type: 'standard', source: `Public Sub Proc${i}()\nEnd Sub\n` })));
+ expect(projectIndexService.cachedContextForProject(BOOK)).toBeUndefined();
+ expect(callCount()).toBe(0);
+ const loaded = await projectIndexService.contextForProject(BOOK);
+ const updates = vi.spyOn(loaded.project, 'setModule');
+ const doc = openXlideDocument('Module0', 'Public Sub Edited()\nEnd Sub\n');
+ (vscode.workspace.textDocuments as unknown[]).push(doc);
+ const ready = projectIndexService.cachedContextForProject(BOOK)!;
+ expect(ready).toBe(loaded);
+ expect(ready.project.visibleProcedureNames('Module1').has('edited')).toBe(true);
+ expect(updates).toHaveBeenCalledTimes(1);
+ for (let i = 0; i < 20; i++) expect(projectIndexService.cachedContextForProject(BOOK)).toBe(ready);
+ expect(updates).toHaveBeenCalledTimes(1);
+ expect(callCount()).toBe(1);
+ projectIndexService.invalidate(BOOK);
+ expect(projectIndexService.cachedContextForProject(BOOK)).toBeUndefined();
+ expect(callCount()).toBe(1);
+});

@@ -97,25 +97,32 @@ export function tabUris(tab: vscode.Tab): vscode.Uri[] {
  * `open` is every tab left after the change, so a module still shown in
  * another tab group - or in one side of a diff - is not in the answer: it is
  * still being edited, whatever just closed. A tab that shows no module at all
- * is skipped, which is most of them.
+ * is skipped, which is most of them. A lazy open-tab provider is only read
+ * when at least one closing tab belongs to a module.
  */
 export function modulesWithNoTabLeft(
 	closed: readonly vscode.Tab[],
-	open: readonly vscode.Tab[],
+	open: readonly vscode.Tab[] | (() => readonly vscode.Tab[]),
 ): ModuleLocation[] {
-	const stillOpen = new Set(open.flatMap(tabUris).map((uri) => uri.toString()));
-	const out: ModuleLocation[] = [];
-	const seen = new Set<string>();
+	const keyOf = (location: ModuleLocation): string =>
+		`${projectIdentityKey(location.projectPath)}::${moduleIdentityKey(location.moduleName)}`;
+	const candidates = new Map<string, ModuleLocation>();
 	for (const uri of closed.flatMap(tabUris)) {
-		if (stillOpen.has(uri.toString())) { continue; }
 		const location = moduleLocationOfUri(uri);
 		if (!location) { continue; }
-		// A form closes its code, its markup and its designer at once, and
-		// they are one module between them.
-		const key = `${projectIdentityKey(location.projectPath)}::${moduleIdentityKey(location.moduleName)}`;
-		if (seen.has(key)) { continue; }
-		seen.add(key);
-		out.push(location);
+		const key = keyOf(location);
+		if (!candidates.has(key)) { candidates.set(key, location); }
 	}
-	return out;
+	// Code, markup and a designer have different URIs but keep the same
+	// module open. Only scan remaining tabs if a module actually closed.
+	if (candidates.size === 0) { return []; }
+	const openTabs = typeof open === 'function' ? open() : open;
+	for (const tab of openTabs) {
+		for (const uri of tabUris(tab)) {
+			const location = moduleLocationOfUri(uri);
+			if (location) { candidates.delete(keyOf(location)); }
+		}
+		if (candidates.size === 0) { return []; }
+	}
+	return [...candidates.values()];
 }

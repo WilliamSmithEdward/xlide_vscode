@@ -424,7 +424,9 @@ export function registerVbaDiagnostics(
             lastEarlyDiagnostics.set(key, { uri, version, diagnostics, completeGeneration });
         } else {
             lastDiagnostics.set(key, { uri, version, diagnostics });
-            if ((lastEarlyDiagnostics.get(key)?.version ?? version) < version) {
+            // A current full pass also supersedes early results for unchanged text:
+            // project references can change without bumping document.version.
+            if ((lastEarlyDiagnostics.get(key)?.version ?? version) <= version) {
                 lastEarlyDiagnostics.delete(key);
             }
         }

@@ -71,11 +71,16 @@ function isIdentPart(ch: string): boolean {
 // a project pass touching sibling modules does not evict the active one.
 // Callers must not mutate the returned array or its tokens.
 const TOKENIZE_CACHE_MAX = 8;
-const tokenizeCache: { src: string; tokens: VbaToken[] }[] = [];
+const TOKENIZE_MODULE_MIN_LENGTH = 4096;
+// Short lookup strings must not evict full modules needed for the next edit.
+// Each pool keeps the existing entry cap; short strings are below the same
+// threshold used by incremental module lexing.
+const moduleTokenizeCache: { src: string; tokens: VbaToken[] }[] = [];
+const shortTokenizeCache: { src: string; tokens: VbaToken[] }[] = [];
 
-// Test hook (issue #139): the lengths of the sources one pass lexed from
-// scratch. A module that shows up more than once was evicted mid-pass, which
-// is what a raw expression string sent to the cached statement lexer does.
+// Test hook (issue #139): the lengths of sources or edit windows lexed from
+// scratch in one pass. A module lexed in full more than once was evicted
+// mid-pass, which a cached statement lookup can cause.
 let tokenizeMissLog: number[] | undefined;
 
 export function startTokenizeMissLogForTests(): void {
@@ -90,6 +95,7 @@ export function stopTokenizeMissLogForTests(): number[] {
 
 /** Cached variant of {@link tokenize} for read-only consumers on hot paths. */
 export function tokenizeCached(src: string): VbaToken[] {
+	const tokenizeCache = src.length >= TOKENIZE_MODULE_MIN_LENGTH ? moduleTokenizeCache : shortTokenizeCache;
 	for (let i = 0; i < tokenizeCache.length; i += 1) {
 		if (tokenizeCache[i].src === src) {
 			const hit = tokenizeCache[i];
@@ -103,13 +109,116 @@ export function tokenizeCached(src: string): VbaToken[] {
 			return hit.tokens;
 		}
 	}
-	tokenizeMissLog?.push(src.length);
-	const tokens = tokenize(src);
+	// Try only the newest module snapshot of a compatible size; do not
+	// compare edit windows against every cached module.
+	const previous = src.length >= TOKENIZE_MODULE_MIN_LENGTH
+		? tokenizeCache.find(entry => Math.abs(entry.src.length - src.length) <= 128)
+		: undefined;
+	let tokens = editedLineTokens(src, previous);
+	if (!tokens) {
+		tokenizeMissLog?.push(src.length);
+		tokens = tokenize(src);
+	}
 	tokenizeCache.unshift({ src, tokens });
 	if (tokenizeCache.length > TOKENIZE_CACHE_MAX) {
 		tokenizeCache.pop();
 	}
 	return tokens;
+}
+
+// Limit reuse to a small edit in a large source. Re-lex complete logical lines,
+// whose newline tokens reset lexical/contextual-keyword state. Changes to the
+// physical line-break sequence, large replacements, or a lost trailing boundary
+// use the full lexer.
+function editedLineTokens(src: string, previous: { src: string; tokens: VbaToken[] } | undefined): VbaToken[] | undefined {
+	if (!previous || src.length < TOKENIZE_MODULE_MIN_LENGTH || Math.abs(src.length - previous.src.length) > 128) {
+		return undefined;
+	}
+	const old = previous.src;
+	let start = 0;
+	const commonLength = Math.min(old.length, src.length);
+	while (start < commonLength && old.charCodeAt(start) === src.charCodeAt(start)) { start++; }
+	let oldEnd = old.length;
+	let newEnd = src.length;
+	while (oldEnd > start && newEnd > start && old.charCodeAt(oldEnd - 1) === src.charCodeAt(newEnd - 1)) {
+		oldEnd--;
+		newEnd--;
+	}
+	if (Math.max(oldEnd - start, newEnd - start) > 128) {
+		return undefined;
+	}
+	// Include both boundary neighbours: an edit can split or join a CRLF
+	// without containing either complete physical line break in its own span.
+	// Preserve the line coordinates of cached suffix tokens.
+	const contextStart = Math.max(0, start - 1);
+	const oldBreaks = old.slice(contextStart, oldEnd + 1).match(/\r\n|\r|\n/g) ?? [];
+	const newBreaks = src.slice(contextStart, newEnd + 1).match(/\r\n|\r|\n/g) ?? [];
+	if (oldBreaks.length !== newBreaks.length || oldBreaks.some((eol, index) => eol !== newBreaks[index])) {
+		return undefined;
+	}
+	const all = previous.tokens;
+	let lo = 0;
+	let hi = all.length;
+	while (lo < hi) {
+		const mid = (lo + hi) >> 1;
+		if (all[mid].end <= start) { lo = mid + 1; } else { hi = mid; }
+	}
+	let first = lo - 1;
+	while (first >= 0 && all[first].kind !== 'newline') { first--; }
+	const left = first >= 0 ? all[first] : undefined;
+	first = Math.max(0, first);
+	let last = lo;
+	while (last < all.length && !(all[last].kind === 'newline' && all[last].start >= oldEnd)) { last++; }
+	const right = all[last];
+	const windowStart = left?.start ?? 0;
+	const delta = src.length - old.length;
+	const windowEnd = right && !right.trailingTrivia ? right.end + delta : src.length;
+	if (windowEnd - windowStart > 16384) { return undefined; }
+	const window = src.slice(windowStart, windowEnd);
+	tokenizeMissLog?.push(window.length);
+	const fresh = tokenize(window);
+	const final = fresh[fresh.length - 1];
+	if (right && (!final || final.kind !== 'newline' || final.rawText !== right.rawText ||
+		final.start + windowStart !== right.start + delta || final.end + windowStart !== right.end + delta)) {
+		return undefined;
+	}
+	const lineBase = left?.line ?? 0;
+	const shifted = fresh.map(token => shiftToken(token, windowStart, lineBase));
+	if (left && shifted.length > 0) {
+		// The preceding newline is unchanged. Its leading trivia belongs to the
+		// earlier line and lies before our slice; its EOF trailing trivia may
+		// have changed and must come from the new lex instead.
+		shifted[0].character = left.character;
+		if (left.leadingTrivia) { shifted[0].leadingTrivia = left.leadingTrivia; }
+	}
+	const suffixStart = right ? last + 1 : all.length;
+	const out = new Array<VbaToken>(first + shifted.length + all.length - suffixStart);
+	let target = 0;
+	for (let i = 0; i < first; i++) { out[target++] = all[i]; }
+	for (const token of shifted) { out[target++] = token; }
+	for (let i = suffixStart; i < all.length; i++) {
+		out[target++] = delta === 0 ? all[i] : shiftToken(all[i], delta, 0);
+	}
+	return out;
+}
+
+function shiftTrivia(items: Trivia[], offset: number): Trivia[] {
+	return items.map(item => ({ kind: item.kind, text: item.text, start: item.start + offset, end: item.end + offset }));
+}
+
+function shiftToken(token: VbaToken, offset: number, line: number): VbaToken {
+	const shifted: VbaToken = {
+		kind: token.kind,
+		rawText: token.rawText,
+		start: token.start + offset,
+		end: token.end + offset,
+		line: token.line + line,
+		character: token.character,
+	};
+	if (token.canonicalText !== undefined) { shifted.canonicalText = token.canonicalText; }
+	if (token.leadingTrivia) { shifted.leadingTrivia = shiftTrivia(token.leadingTrivia, offset); }
+	if (token.trailingTrivia) { shifted.trailingTrivia = shiftTrivia(token.trailingTrivia, offset); }
+	return shifted;
 }
 
 /**

@@ -1,3 +1,4 @@
+import { memberParameterCounts } from '../memberParameterCounts';
 // Rule: a property of a project class used in a way its procedures do not
 // allow (issue #266). Measured in Excel 16.0 (build 20326, 2026-10-01), on a
 // variable declared As the class, each is the compile error "Invalid use of
@@ -177,9 +178,13 @@ function memberMisuse(member: MemberCompletion, use: MemberUse): { rule: Diagnos
 		}
 		return undefined;
 	}
-	const params = parameterCounts(member.signature);
+	const params = memberParameterCounts(member.signature);
 	const type = normalizeType(member.returns ?? member.declaredType);
 	const scalar = type !== undefined && type !== 'variant' && isKnownScalarType(type);
+	if (member.signature !== undefined && (member.knownValue === 'scalar' || member.knownValue === 'empty')
+		&& (!type || type === 'variant') && use.after === '.' && (use.indexed || params.required === 0)) {
+		return { rule: 'variantValueMisuse', message: "returns a Variant that holds no object to take a member of. This will raise Run-time error '424': Object required." };
+	}
 	// `c.M = 9` with M a Function returning Long (issue #423).
 	if (member.kind === 'method' && scalar && use.target && !use.indexed) {
 		return { rule: 'assignmentToProcedureName', message: `is a Function returning ${capitalized(type!)}, and a call cannot be assigned to. This is a VBE compile error: Function call on left-hand side of assignment must return Variant or Object.` };
@@ -200,7 +205,7 @@ function memberMisuse(member: MemberCompletion, use: MemberUse): { rule: Diagnos
 	}
 	if (member.kind === 'property' && member.signature === undefined && (member.letAccessor || member.setAccessor)) {
 		// `c.M(1) = 2` with M a Property Set and no Let (issue #414).
-		if (use.target && use.indexed && member.setAccessor && !member.letAccessor) {
+		if (writes && !use.setTarget && use.indexed && member.setAccessor && !member.letAccessor) {
 			return { rule: 'invalidPropertyUse', message: 'has a Property Set and no Property Let, so a value cannot be assigned to it. This is a VBE compile error: Invalid use of property.' };
 		}
 		if (use.after === '.') {
@@ -240,17 +245,6 @@ function memberMisuse(member: MemberCompletion, use: MemberUse): { rule: Diagnos
 
 const SCALAR_OPERATOR_TEXT: ReadonlySet<string> = new Set(['&', '+', '-', '*', '/', '\\', '^']);
 
-/** How many parameters a source signature declares, and how many a call must pass. */
-function parameterCounts(signature: string | undefined): { total: number; required: number } {
-	const open = signature?.indexOf('(') ?? -1;
-	const close = open >= 0 ? signature!.indexOf(')', open) : -1;
-	const inner = open >= 0 && close > open ? signature!.slice(open + 1, close).trim() : '';
-	if (!inner) {
-		return { total: 0, required: 0 };
-	}
-	const parts = inner.split(',').map((part) => part.trim());
-	return { total: parts.length, required: parts.filter((part) => !/^(Optional|ParamArray)\b/i.test(part) && !part.startsWith('[')).length };
-}
 
 function article(type: string): string {
 	return /^[aeiou]/i.test(type) ? 'an' : 'a';

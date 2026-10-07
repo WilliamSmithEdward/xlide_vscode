@@ -30,6 +30,8 @@ LIBS = {
     'Office': '{2DF8D04C-5BFA-101B-BDE5-00AA0044DE52}',
     'stdole': '{00020430-0000-0000-C000-000000000046}',
     'MSForms': '{0D452EE1-E08F-101A-852E-02608C4D0BB4}',
+    'Scripting': '{420B2830-E718-11CF-893D-00A0C9054228}',
+    'VBScript_RegExp_55': '{3F4DACA7-160D-11D2-A8E9-00104B365C9F}',
 }
 
 
@@ -62,8 +64,9 @@ lines += [
     '',
     '/** The type names of a library by the name a project reference records, lowercased; undefined for a library not read. */',
     'export function libraryTypeNames(library: string): ReadonlySet<string> | undefined {',
-    '\tconst names = NAMES[library.toLowerCase()];',
-    '\treturn names === undefined ? undefined : (CACHE[library.toLowerCase()] ??= new Set(names.split(\' \')));',
+    '\tconst key = library.toLowerCase();',
+    '\tif (!Object.hasOwn(NAMES, key)) { return undefined; }',
+    '\treturn CACHE[key] ??= new Set(NAMES[key].split(\' \'));',
     '}',
     '',
     'const CACHE: Record<string, Set<string>> = {};',

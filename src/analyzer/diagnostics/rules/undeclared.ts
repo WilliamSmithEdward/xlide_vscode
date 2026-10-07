@@ -6,14 +6,15 @@
 
 import {
 	detectEol,
-	lineStartAt,
+	lineStartAtAnyBreak,
+	lineEndAtOrAfter,
 	VBA_IDENTIFIER_NAME_RE,
 } from '../../../vbaSourceScan';
-import type { HostObjectModel } from '../../host/excelObjectModel';
+import { getExcelObjectModel, type HostObjectModel } from '../../host/excelObjectModel';
 import { HOST_LIBRARY_NAMES } from '../../host/hostLibraries';
 import type { VbaHostToken } from '../../host/hostRegistry';
 import { bareCallStatementTarget as callStatementTarget } from '../../call/callContext';
-import { privateMemberOwnerAt, projectClassMemberAt, projectTypeAt, type MemberCompletionContext } from '../../completion/memberAccess';
+import { privateMemberOwnerAt, projectClassMemberAt, projectTypeAt, resolveMemberPresenceSurfaceAt, type MemberCompletionContext } from '../../completion/memberAccess';
 import { MSFORMS_FORM_CONTROL_MEMBERS } from '../../host/msFormsFormControlMembers';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import {
@@ -65,7 +66,6 @@ import {
 } from '../callExtraction';
 import {
 	forEachUndeclaredReferenceSpan,
-	resolveExhaustiveMemberSurface,
 	valueReadReferences,
 } from '../rules/shared';
 import {
@@ -205,12 +205,13 @@ export function checkMemberNotFound(
 		});
 		return (stmt) => {
 		for (const ref of memberAccessReferences(source, stmt.span)) {
-			const surface = resolveExhaustiveMemberSurface(
+			const surface = resolveMemberPresenceSurfaceAt(
 				source,
 				ref.dotEndOffset,
 				memberCtx,
 			);
-			if (!surface || surface.hasMember(ref.member)) {
+			const hasMember = surface?.hasMember(ref.member) === true;
+			if (!surface?.exhaustive || hasMember) {
 				const form = projectMemberFormProblem(source, ref, memberCtx);
 				if (form) {
 					push('argumentCount', form, ref.memberSpan);
@@ -225,7 +226,9 @@ export function checkMemberNotFound(
 					);
 					continue;
 				}
-				const owner = privateMemberOwnerAt(source, ref.dotEndOffset, ref.member, memberCtx);
+				// A known public member cannot be private, even on a partial surface.
+				const owner = hasMember ? undefined
+					: privateMemberOwnerAt(source, ref.dotEndOffset, ref.member, memberCtx);
 				if (owner) {
 					push(
 						'memberNotFound',
@@ -274,6 +277,8 @@ function projectMemberFormProblem(source: string, ref: MemberAccessReference, me
 	if (!member || member.kind !== 'property') {
 		return undefined;
 	}
+	if (next?.rawText === '=' && member.letAccessor && member.procedureParams?.propertyLet) { return undefined; }
+
 	if (member.signature !== undefined) {
 		const open = member.signature.indexOf('(');
 		const firstParam = open >= 0 ? member.signature.slice(open + 1).trimStart() : '';
@@ -282,6 +287,8 @@ function projectMemberFormProblem(source: string, ref: MemberAccessReference, me
 			? `Argument not optional: property '${member.name}' takes an index, as in ${member.signature}. This is a VBE compile error.`
 			: undefined;
 	}
+	if (member.isArray) { return undefined; }
+
 	const field = member.writable === true && !member.letAccessor && !member.setAccessor;
 	const type = normalizeType(member.returns);
 	if (!field || type === undefined || type === 'variant' || !isKnownScalarType(type) || next?.rawText !== '(') {
@@ -327,11 +334,12 @@ function formControlWithoutMember(
 	} else {
 		// A bare `T1.Nope` inside the form, where no local or parameter
 		// takes the name.
+		if (ownNames.has(lower) || memberCtx.meProjectType === undefined) {
+			return undefined;
+		}
 		const self = (memberCtx.projectClassMembers ?? []).find((candidate) => candidate.kind === 'userform'
 			&& candidate.exhaustive === true && candidate.name.toLowerCase() === memberCtx.meProjectType?.toLowerCase());
-		type = ownNames.has(lower)
-			? undefined
-			: self?.members.find((member) => member.name.toLowerCase() === lower && /^MSForms\./i.test(member.returns ?? ''))?.returns;
+		type = self?.members.find((member) => member.name.toLowerCase() === lower && /^MSForms\./i.test(member.returns ?? ''))?.returns;
 	}
 	const members = type ? MSFORMS_FORM_CONTROL_MEMBERS[type] : undefined;
 	if (!members || members.some((member) => member.toLowerCase() === ref.member.toLowerCase())) {
@@ -967,20 +975,29 @@ function redimTargetNamesIn(
  * it), the libraries the project references, and the project itself, which is
  * `VBAProject` unless renamed. An absent model is Excel's by default.
  */
+const libraryQualifierModels = new WeakMap<HostObjectModel, {
+	types: HostObjectModel['types']; enums: HostObjectModel['enums']; names: ReadonlySet<string>;
+}>();
+
 function libraryQualifierNames(
 	hostModel: HostObjectModel | undefined,
 	referencedHosts: readonly string[] | undefined,
 ): Set<string> {
-	const out = new Set<string>(['vbaproject']);
-	if (hostModel === undefined) {
-		out.add('excel');
-	}
-	for (const qualified of Object.keys(hostModel?.types ?? {})) {
-		const dot = qualified.indexOf('.');
-		if (dot > 0) {
-			out.add(qualified.slice(0, dot).toLowerCase());
+	const model = hostModel ?? getExcelObjectModel();
+	let cached = libraryQualifierModels.get(model);
+	if (!cached || cached.types !== model.types || cached.enums !== model.enums) {
+		const names = new Set<string>();
+		for (const qualified of Object.keys(model.types)) {
+			const dot = qualified.indexOf('.');
+			if (dot > 0) { names.add(qualified.slice(0, dot).toLowerCase()); }
 		}
+		for (const enumeration of Object.values(model.enums ?? {})) {
+			if (enumeration.library) { names.add(enumeration.library.toLowerCase()); }
+		}
+		cached = { types: model.types, enums: model.enums, names };
+		libraryQualifierModels.set(model, cached);
 	}
+	const out = new Set<string>(['vbaproject', ...cached.names]);
 	for (const token of referencedHosts ?? []) {
 		const name = HOST_LIBRARY_NAMES[token as VbaHostToken];
 		if (name) {
@@ -1101,23 +1118,23 @@ function declarationInsertOffset(source: string, member: ProcedureNode): number 
 
 /** Start of the line following `offset`. */
 function lineStartAfter(source: string, offset: number): number {
-	const next = source.indexOf('\n', offset);
-	return next < 0 ? source.length : next + 1;
+	const next = lineEndAtOrAfter(source, offset);
+	return next < source.length ? next + (source[next] === '\r' && source[next + 1] === '\n' ? 2 : 1) : next;
 }
 
 /** Start of the first body line of a procedure, just after its header line. */
 function firstBodyLineStart(source: string, member: ProcedureNode): number | undefined {
-	const first = member.body.find((stmt) => isLeafStatement(stmt));
+	const first = member.body.find((stmt) => isLeafStatement(stmt) || 'body' in stmt);
 	if (first) {
-		return lineStartAt(source, first.span.start);
+		return lineStartAtAnyBreak(source, first.span.start);
 	}
 	return lineStartAfter(source, member.span.start);
 }
 
 /** The indentation of the line at `offset`, reused for the inserted line. */
 function leadingWhitespaceOfLineAt(source: string, offset: number): string {
-	const start = lineStartAt(source, offset);
-	const end = source.indexOf('\n', start);
-	const line = source.slice(start, end < 0 ? source.length : end);
+	const start = lineStartAtAnyBreak(source, offset);
+	const end = lineEndAtOrAfter(source, start);
+	const line = source.slice(start, end);
 	return /^[ \t]*/.exec(line)?.[0] ?? '';
 }

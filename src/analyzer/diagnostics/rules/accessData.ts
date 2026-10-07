@@ -112,9 +112,9 @@ function databaseAt(toks: readonly VbaToken[], end: number, isDatabase: (lower: 
 function callArguments(toks: readonly VbaToken[], i: number): VbaToken[][] | undefined {
 	if (toks[i + 1]?.rawText === '(') {
 		const close = matchParenFrom(toks, i + 1);
-		return close > i + 2 ? splitTopLevelTokenGroups([...toks], i + 2, ',', close) : close === i + 2 ? [] : undefined;
+		return close > i + 2 ? splitTopLevelTokenGroups(toks, i + 2, ',', close) : close === i + 2 ? [] : undefined;
 	}
-	return i + 1 < toks.length ? splitTopLevelTokenGroups([...toks], i + 1, ',', toks.length) : [];
+	return i + 1 < toks.length ? splitTopLevelTokenGroups(toks, i + 1, ',', toks.length) : [];
 }
 
 function checkSqlLiterals(span: Span, toks: readonly VbaToken[], isDatabase: (lower: string) => boolean, push: PushFn): void {

@@ -147,6 +147,44 @@ afterEach(() => {
 });
 
 describe('what the canonical-case controller counts as typing', () => {
+	it.each([1, 2])('cancels pending casing on history changes (reason %s)', async (reason) => {
+		const document = fakeDocument(SOURCE);
+		document.isDirty = true;
+		const editor = fakeEditor(document);
+		show(editor);
+		const casing = controller();
+		casing.handleTextDocumentChange(changed(document, 0, 15, 15, ' '));
+		const read = vi.spyOn(document, 'getText');
+		casing.handleTextDocumentChange({ ...changed(document, 0, 0, 15, 'option explicit'), reason } as vscodeTypes.TextDocumentChangeEvent);
+		await vi.advanceTimersByTimeAsync(250);
+		casing.handleSelectionChange({ textEditor: editor } as unknown as vscodeTypes.TextEditorSelectionChangeEvent);
+		expect(casing.pendingEditsForSave(document as never)).toEqual([]);
+		expect(editor.edit).not.toHaveBeenCalled();
+		expect(read).not.toHaveBeenCalled();
+
+		// The next real keystroke must still receive normal casing.
+		casing.handleTextDocumentChange(changed(document, 0, 15, 15, ' '));
+		await vi.advanceTimersByTimeAsync(250);
+		expect(editor.replaced).toEqual(['Option', 'Explicit']);
+	});
+
+	it('defers canonical analysis during caret updates caused by typing or Backspace', async () => {
+		const document = fakeDocument(SOURCE);
+		document.isDirty = true;
+		const editor = fakeEditor(document);
+		show(editor);
+		const casing = controller();
+		const read = vi.spyOn(document, 'getText');
+		for (let character = 1; character <= 10; character++) {
+			casing.handleTextDocumentChange(changed(document, 0, character - 1, character - 1, 'x'));
+			editor.selection = { active: new vscode.Position(0, character) };
+			casing.handleSelectionChange({ textEditor: editor } as unknown as vscodeTypes.TextEditorSelectionChangeEvent);
+		}
+		expect(read).not.toHaveBeenCalled();
+		await vi.advanceTimersByTimeAsync(250);
+		expect(editor.replaced).toEqual(['Option', 'Explicit']);
+	});
+
 	it('leaves a reloaded line alone: the change left the document matching its file', async () => {
 		const document = fakeDocument(SOURCE);
 		const editor = fakeEditor(document);
@@ -323,4 +361,171 @@ describe('an editor that closes under a pending recase', () => {
 		await expect(casing.applyCanonicalCaseForLine(document as never, 0, editor as never))
 			.rejects.toThrow('the edit failed for another reason');
 	});
+});
+
+
+describe('canonical casing lifecycle and idle work', () => {
+	it('recases another module while the first module edit is pending', async () => {
+		const firstDocument = fakeDocument(SOURCE);
+		const secondDocument = fakeDocument(SOURCE);
+		const firstEditor = fakeEditor(firstDocument);
+		const secondEditor = fakeEditor(secondDocument);
+		show(firstEditor);
+		show(secondEditor);
+		const casing = controller();
+		let finish!: (value: boolean) => void;
+		firstEditor.edit.mockImplementationOnce(() => new Promise<boolean>(resolve => { finish = resolve; }));
+		const first = casing.applyCanonicalCaseForLine(firstDocument as never, 0, firstEditor as never);
+		await casing.applyCanonicalCaseForLine(secondDocument as never, 1, secondEditor as never);
+		expect(secondEditor.replaced).toEqual(['Sub']);
+		finish(false);
+		await first;
+	});
+
+	it('drains each module queue only after that module edit completes', async () => {
+		const firstDocument = fakeDocument(SOURCE);
+		const secondDocument = fakeDocument(SOURCE);
+		const firstEditor = fakeEditor(firstDocument);
+		const secondEditor = fakeEditor(secondDocument);
+		show(firstEditor);
+		show(secondEditor);
+		const casing = controller();
+		let finishFirst!: (value: boolean) => void;
+		let finishSecond!: (value: boolean) => void;
+		firstEditor.edit.mockImplementationOnce(() => new Promise<boolean>(resolve => { finishFirst = resolve; }));
+		secondEditor.edit.mockImplementationOnce(() => new Promise<boolean>(resolve => { finishSecond = resolve; }));
+		const first = casing.applyCanonicalCaseForLine(firstDocument as never, 0, firstEditor as never);
+		const second = casing.applyCanonicalCaseForLine(secondDocument as never, 0, secondEditor as never);
+		await casing.applyCanonicalCaseForLine(firstDocument as never, 1, firstEditor as never);
+		await casing.applyCanonicalCaseForLine(secondDocument as never, 2, secondEditor as never);
+		expect(firstEditor.edit).toHaveBeenCalledTimes(1);
+		expect(secondEditor.edit).toHaveBeenCalledTimes(1);
+		finishSecond(false);
+		await second;
+		expect(secondEditor.replaced).toEqual(['End', 'Sub']);
+		expect(firstEditor.edit).toHaveBeenCalledTimes(1);
+		finishFirst(false);
+		await first;
+		expect(firstEditor.replaced).toEqual(['Sub']);
+	});
+
+	it('drops queued casing for an older document version before reading source', async () => {
+		const document = fakeDocument(SOURCE);
+		const editor = fakeEditor(document);
+		show(editor);
+		const casing = controller();
+		const read = vi.spyOn(document, 'getText');
+		let finish!: (value: boolean) => void;
+		editor.edit.mockImplementationOnce(() => new Promise<boolean>(resolve => { finish = resolve; }));
+		const first = casing.applyCanonicalCaseForLine(document as never, 0, editor as never);
+		await casing.applyCanonicalCaseForLine(document as never, 1, editor as never);
+		const readsBeforeTyping = read.mock.calls.length;
+		// A keystroke or line deletion makes the queued line/position stale.
+		document.version++;
+		finish(false);
+		await first;
+		await Promise.resolve();
+		expect(editor.edit).toHaveBeenCalledTimes(1);
+		expect(read).toHaveBeenCalledTimes(readsBeforeTyping);
+	});
+
+	it('continues past stale requests to casing queued by later typing', async () => {
+		const document = fakeDocument(SOURCE);
+		const editor = fakeEditor(document);
+		show(editor);
+		const casing = controller();
+		const read = vi.spyOn(document, 'getText');
+		let finish!: (value: boolean) => void;
+		editor.edit.mockImplementationOnce(() => new Promise<boolean>(resolve => { finish = resolve; }));
+		const first = casing.applyCanonicalCaseForLine(document as never, 0, editor as never);
+		await casing.applyCanonicalCaseForLine(document as never, 1, editor as never);
+		document.version++;
+		await casing.applyCanonicalCaseForLine(document as never, 2, editor as never);
+		finish(false);
+		await first;
+		await Promise.resolve();
+		expect(editor.replaced).toEqual(['End', 'Sub']);
+		expect(read.mock.calls.filter(args => args.length === 0)).toHaveLength(2);
+	});
+
+	it('keeps queued casing for the current document version', async () => {
+		const document = fakeDocument(SOURCE);
+		const editor = fakeEditor(document);
+		show(editor);
+		const casing = controller();
+		let finish!: (value: boolean) => void;
+		editor.edit.mockImplementationOnce(() => new Promise<boolean>(resolve => { finish = resolve; }));
+		const first = casing.applyCanonicalCaseForLine(document as never, 0, editor as never);
+		await casing.applyCanonicalCaseForLine(document as never, 1, editor as never);
+		finish(false);
+		await first;
+		await Promise.resolve();
+		expect(editor.replaced).toEqual(['Sub']);
+		expect(editor.edit).toHaveBeenCalledTimes(2);
+	});
+
+	it.each([1, 2])('drops queued recases when history changes during a pending edit (reason %s)', async (reason) => {
+		const document = fakeDocument(SOURCE);
+		document.isDirty = true;
+		const editor = fakeEditor(document);
+		show(editor);
+		const casing = controller();
+		let finish!: (value: boolean) => void;
+		editor.edit.mockImplementationOnce(() => new Promise<boolean>(resolve => { finish = resolve; }));
+		const first = casing.applyCanonicalCaseForLine(document as never, 0, editor as never);
+		await casing.applyCanonicalCaseForLine(document as never, 1, editor as never);
+		casing.handleTextDocumentChange({ ...changed(document, 0, 0, 15, 'option explicit'), reason } as vscodeTypes.TextDocumentChangeEvent);
+		finish(false);
+		await first;
+		await vi.advanceTimersByTimeAsync(250);
+		expect(editor.edit).toHaveBeenCalledTimes(1);
+	});
+
+    it('does not read an untouched module during save', () => {
+        const document = fakeDocument(SOURCE);
+        const read = vi.spyOn(document, 'getText');
+        expect(controller().pendingEditsForSave(document as never)).toEqual([]);
+        expect(read).not.toHaveBeenCalled();
+    });
+
+    it('drops queued recases when the document closes and reopens before an edit completes', async () => {
+        const document = fakeDocument(SOURCE);
+        const editor = fakeEditor(document);
+        show(editor);
+        const casing = controller();
+        let finish!: (value: boolean) => void;
+        editor.edit.mockImplementationOnce(() => new Promise<boolean>(resolve => { finish = resolve; }));
+        const first = casing.applyCanonicalCaseForLine(document as never, 0, editor as never);
+        await casing.applyCanonicalCaseForLine(document as never, 1, editor as never);
+        document.isClosed = true;
+        casing.handleDocumentClose(document as never);
+        document.isClosed = false;
+        finish(true);
+        await first;
+        await Promise.resolve();
+        expect(editor.edit).toHaveBeenCalledTimes(1);
+    });
+
+    it('cancels idle recases when the controller is disposed', async () => {
+        const document = fakeDocument(SOURCE);
+        document.isDirty = true;
+        const editor = fakeEditor(document);
+        show(editor);
+        const casing = controller();
+        casing.handleTextDocumentChange(changed(document, 0, 15, 15, ' '));
+        casing.dispose();
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(editor.edit).not.toHaveBeenCalled();
+    });
+
+    it('does not read a closed document even if an editor still shows it', async () => {
+        const document = fakeDocument(SOURCE);
+        const editor = fakeEditor(document);
+        show(editor);
+        document.isClosed = true;
+        const read = vi.spyOn(document, 'getText');
+        await controller().applyCanonicalCaseForLine(document as never, 0, editor as never);
+        expect(read).not.toHaveBeenCalled();
+        expect(editor.edit).not.toHaveBeenCalled();
+    });
 });

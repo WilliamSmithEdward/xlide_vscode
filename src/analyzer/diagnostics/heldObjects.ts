@@ -82,6 +82,19 @@ function createdByProgId(value: readonly VbaToken[], declared: ReadonlySet<strin
 /** Members that read a Collection without changing it. */
 const COLLECTION_READS: ReadonlySet<string> = new Set(['count', 'item']);
 
+type HeldFacts = (node: BodyNode) => HeldObjects;
+interface CachedHeldFacts {
+	source: string;
+	activity: ConditionalActivityTracker | undefined;
+	facts: HeldFacts;
+}
+// Symbol and procedure snapshots own the cache lifetime. Keep only the last
+// source/activity pair per procedure, with no chain of older source versions.
+const HELD_FACTS = new WeakMap<
+	ReturnType<typeof buildModuleSymbols>,
+	WeakMap<ProcedureNode, CachedHeldFacts>
+>();
+
 /**
  * What each statement, and each block as it is entered, sees. A statement
  * the walk never reached sees nothing.
@@ -93,15 +106,40 @@ export function heldObjectsAt(
 	activity: ConditionalActivityTracker | undefined,
 	/** The class of any other value a Set gives, `Set o = Range("A1").Font`, where the caller can tell (issue #685). */
 	classOfValue?: (value: readonly VbaToken[], offset: number) => string | undefined,
-): (node: BodyNode) => HeldObjects {
-	// Failed assignments and mutations cannot establish successful state.
+): HeldFacts {
 	if (/\bon\s+error\b/i.test(source.slice(proc.span.start, proc.span.end))) { return () => NOTHING_HELD; }
+	// Callbacks can capture changing host/type contexts: preserve their original
+	// evaluation behavior even when the function identity has not changed.
+	if (classOfValue) { return collectHeldObjects(source, proc, symbols, activity, classOfValue); }
+	let byProcedure = HELD_FACTS.get(symbols);
+	if (!byProcedure) {
+		byProcedure = new WeakMap();
+		HELD_FACTS.set(symbols, byProcedure);
+	}
+	const cached = byProcedure.get(proc);
+	if (cached?.source === source && cached.activity === activity) {
+		cached.source = source;
+		return cached.facts;
+	}
+	const facts = collectHeldObjects(source, proc, symbols, activity);
+	byProcedure.set(proc, {source, activity, facts});
+	return facts;
+}
+
+function collectHeldObjects(
+	source: string,
+	proc: ProcedureNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	activity: ConditionalActivityTracker | undefined,
+	classOfValue?: (value: readonly VbaToken[], offset: number) => string | undefined,
+): HeldFacts {
 	const seen = new Map<BodyNode, HeldObjects>();
 	const state: State = { classes: new Map(), items: new Map() };
 	const staticProcedure = /\bstatic\s+(?:sub|function|property)\b/i.test(source.slice(proc.span.start, proc.body[0]?.span.start ?? proc.span.end));
 	const locals = new Set((procedureSymbolFor(symbols, proc)?.children ?? [])
 		.filter(child => child.kind === 'localVariable' && child.visibility !== 'Static' && !staticProcedure)
 		.map(child => child.name.toLowerCase()));
+	for (const param of proc.params) { if (param.byVal) { locals.add(param.name.toLowerCase()); } }
 	// The names a local or parameter takes, which hide a host's global.
 	const declared = new Set([...(procedureSymbolFor(symbols, proc)?.children ?? []).map((child) => child.name.toLowerCase()), ...proc.params.map((param) => param.name.toLowerCase())]);
 	// `Dim c As New Collection` holds an empty one from the start.

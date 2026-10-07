@@ -55,6 +55,7 @@ export function typeKey(asType: string | undefined): string | undefined {
 export function moduleTypes(source: string, mod: ModuleNode, activity: ConditionalActivityTracker | undefined): ModuleTypes {
 	const cached = MODULE_TYPES.get(mod);
 	if (cached && cached.source === source && cached.activity === activity) {
+		cached.source = source;
 		return cached.result;
 	}
 	const out = new Map<string, Map<string, TypeFieldInfo>>();

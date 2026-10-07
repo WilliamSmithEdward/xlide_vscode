@@ -37,8 +37,8 @@ Usage, from the two jobs of update-yara-rules.yml:
 nothing in DIR it cannot check: the proposal may change only the pin file,
 only in the fields a move allows, from the commit the workflow ran on. It
 commits through the GitHub API (no git credentials on disk), opens the pull
-request, and starts CI, Security and Malware scan on the branch, because a
-branch the workflow's own token creates starts no workflow by itself. It turns
+request with a GitHub App token, which triggers normal pull-request checks
+without manual workflow approval. It turns
 on auto-merge, so the pull request merges itself once those pass and stays
 open if any fails. It never reopens a pull request someone closed, and never
 overwrites a branch it did not just create.
@@ -62,7 +62,6 @@ SOURCES = {
     "yara_forge": {"repo": "YARAHQ/yara-forge", "name": "YARA Forge", "cooldown_days": 0},
     "yara_x": {"repo": "VirusTotal/yara-x", "name": "YARA-X", "cooldown_days": 7},
 }
-DISPATCH = ("ci.yml", "security.yml", "malware-scan.yml")
 SHA256 = re.compile(r"[0-9a-f]{64}")
 
 Api = Callable[..., Any]
@@ -178,8 +177,8 @@ def body(moved: list[str], new: dict[str, Any]) -> str:
               for k, p in new.items()]
     lines += ["",
               "CI, Security and Malware scan run on this branch. If a new rule matches a file, the "
-              "Malware scan fails until the match is fixed or accepted with a reason. Nothing here "
-              "was merged or approved automatically."]
+              "Malware scan fails until the match is fixed or accepted with a reason. Auto-merge "
+              "is enabled only subject to the repository's required checks and review rules."]
     return "\n".join(lines) + "\n"
 
 
@@ -242,18 +241,8 @@ def propose(root: Path, inp: Path, repository: str, base_sha: str, api: Api = gh
         pull = api(f"{base}/pulls", "POST", {
             "title": expected_title, "head": branch, "base": "main",
             "body": (inp / "body.md").read_text(encoding="utf-8")})
-    # Every scan is started even if one refuses, and any refusal then fails
-    # the run, so a pull request never sits unchecked without anyone knowing.
-    failed = []
-    for workflow in DISPATCH:
-        if (root / ".github" / "workflows" / workflow).exists():
-            try:
-                api(f"{base}/actions/workflows/{workflow}/dispatches", "POST", {"ref": branch})
-            except ApiError as exc:
-                failed.append(str(exc))
-    if failed:
-        raise ApiError(f"{pull['html_url']} is open, but these scans did not start:\n"
-                       + "\n".join(failed))
+    # The App-created PR triggers checks normally. Do not dispatch duplicate
+    # branch runs or restart the checks on a PR already awaiting review.
     # It merges itself once CI, Security and Malware scan pass; a failing scan
     # leaves it open. Without the "Allow auto-merge" setting it simply stays
     # open for review, which is not a failure of this run.

@@ -285,8 +285,9 @@
         "issue318_62_compile",
         "issue318_63_compile",
         "issue423_71_compile",
-        "issue423_72_compile"
-      ],
+        "issue423_72_compile",
+      "qualified_office_office_constant"
+    ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
         "syntax_corpus/excel_vba_analysis_final_hardening_cases.md"
@@ -422,6 +423,38 @@
       "sourceOfTruth": "MS-VBAL 5.4.2.1 plus asserted Excel/VBE oracle cases plus deterministic project signature graph",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "member_function_result_write_collection",
+
+        "function_result_write_collection",
+
+        "getter_collection_default_missing",
+        "getter_collection_argument_result",
+        "getter_collection_empty_result",
+        "getter_default_mutable_missing",
+        "getter_default_mutable_indexed",
+        "getter_default_mutable_optional",
+        "getter_range_default_valid",
+        "getter_collection_range_item",
+        "getter_default_readonly_indexed",
+
+        "receiver_member_left_not_vba",
+
+        "setter_optional_required_value_decl",
+        "setter_optional_required_value_bare",
+        "setter_optional_required_value_empty",
+        "setter_optional_required_value_explicit",
+
+        "setter_index_missing",
+        "setter_index_empty",
+        "setter_index_extra",
+        "setter_index_valid",
+        "setter_index_set_missing",
+        "setter_index_set_valid",
+
+        "getter_write_missing_argument",
+
+        "array_setter_value_object",
+
         "missing_trailing_required_argument",
         "missing_leading_required_argument",
         "duplicate_named_argument_compile",
@@ -511,6 +544,12 @@
       "sourceOfTruth": "Excel/VBE compile and runtime oracle plus deterministic XLIDE literal, return-type, numeric-expression, string-concatenation, and project signature model",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "setter_index_byval_bad",
+        "setter_index_byref_parenthesized",
+        "setter_index_byval_integer",
+        "setter_index_named_bad",
+        "setter_index_set_bad",
+
         "nonnumeric_string_to_currency_argument",
         "nonnumeric_string_to_currency_argument_runtime",
         "numeric_string_to_currency_argument_runtime",
@@ -671,6 +710,20 @@
       "sourceOfTruth": "Excel/VBE compile oracle plus deterministic XLIDE source-backed callable signatures and shared expression value resolver",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "receiver_get_byref",
+        "receiver_get_parenthesized",
+        "receiver_get_byval",
+        "receiver_function_byref",
+        "receiver_function_default_long",
+        "receiver_with_byref",
+        "receiver_statement_byref",
+        "receiver_statement_copy",
+        "receiver_statement_glued",
+
+        "setter_index_byref_integer",
+        "setter_index_byref_parenthesized",
+        "setter_index_default_long",
+
         "byref_long_variable_compile",
         "byref_long_literal_compile",
         "byref_long_parenthesized_variable_compile",
@@ -723,6 +776,27 @@
       "sourceOfTruth": "Excel/VBE compile and runtime oracle plus deterministic XLIDE scalar assignment compatibility model",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "vb_named_enum_long_storage",
+        "implicit_setter_foreign_bare_bad",
+        "implicit_setter_foreign_qualified_bad",
+        "implicit_setter_foreign_valid",
+
+        "host_scalar_array_function",
+        "host_scalar_array_variable",
+
+        "host_scalar_property_array_boolean",
+
+        "byte_array_setter_variant_string",
+        "byte_array_setter_variant_array",
+        "byte_array_setter_string_variable",
+        "byte_array_setter_runtime_array",
+        "scalar_boolean_setter_variant_array",
+
+        "getter_udt_field_qualified_valid",
+        "getter_udt_field_qualified_bad",
+        "getter_udt_field_bare_valid",
+        "getter_udt_field_bare_bad",
+
         "number_to_string_assignment",
         "number_to_string_assignment_runtime",
         "nonnumeric_string_to_double_assignment",
@@ -1009,8 +1083,24 @@
         "issue457c_07_runtime",
         "issue457c_09_runtime",
         "issue457c_10_runtime",
-        "issue457c_12_runtime"
-      ],
+        "issue457c_12_runtime",
+      "assignment_host_boolean_bad_run",
+      "assignment_host_boolean_good_run",
+      "indexed_property_bad_runtime",
+      "indexed_property_good_runtime",
+      "bare_setter_bad",
+      "bare_setter_good",
+      "bare_setter_index_bad",
+      "bare_setter_index_good",
+      "host_enum_variable_bad",
+      "host_enum_bare_bad",
+      "host_enum_member_bad",
+      "host_enum_variable_good",
+      "host_enum_bare_good",
+      "host_enum_member_good",
+      "source_enum_member_bad",
+      "source_enum_member_good"
+    ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "notes": "This is not a VBE compile-equivalent error: focused compile oracle cases compile successfully. It is red when XLIDE proves a value cannot be coerced or fit into the target scalar type because focused runtime oracle cases deterministically raise runtime error 13 for type mismatch, runtime error 94 for Null assigned to scalar targets, and runtime error 6 for decimal Byte/Integer/Long/Currency overflow, while numeric/string/Boolean/property/public-field, Variant CVErr, Variant Null, and min/max boundary controls run successfully. Function, Property Get return-name assignments, and visible exported standard-module scalar globals use the same deterministic scalar path. Bare assignment targets ask the shared assignment-target resolver first, so local untyped shadows and ambiguous exported globals suppress type guessing. Intrinsic CVErr calls infer an Error Variant for scalar assignment compatibility when the bare runtime name is not source-shadowed, explicit VBA.CVErr remains runtime-bound, and Null literals infer the dedicated Null value type. Issue #222: a Function declared As Variant whose every assignment to its name is Array(...) returns Variant() or Empty, and into an array of another element type raises 13. Issue #239: a Variant local whose last straight-line assignment is Null, assigned to a String, Long or other scalar, raises 94 (v = Null then s = v). Measured in Excel 16.0 (build 20326), issue239_* oracle cases. Issue #243: a Choose, Switch or IIf whose literal arguments make it return Null, into a typed variable, raises 94: Choose(5, 1, 2), Choose(0, \"a\"), Switch(False, 1), IIf(False, 1, Null) (measured in Excel 16.0, build 20326, issue243_* oracle cases). Issue #255: a Const whose value is one string literal converts as the literal does: Const K = \"abc\" into a Long raises 13, Const K = \"40000\" into an Integer 6 (measured in Excel 16.0). A String the analyzer knows a local or an array element holds is checked like a literal (measured in Excel 16.0, 2026-10-01): s = \"b\" then n = s with n As Long, v = \"b\" with v a Variant, and v(1) of v = Array(\"1\", \"b\") raise 13; \"5\", \" 2 \", \"&H10\", \"1e3\" and \"$5\" convert. A String of unknown value into a Boolean is no longer reported: \"True\" and \"5\" convert. Issue #336: a String holding a number every locale reads into a Date is that day's serial: \"&HFF\" is 9/11/1900. Past 12/31/9999 or before 1/1/100 it raises 13. Issue #405: a String expression the analyzer can spell out, a & chain of literals, known locals, True and False, and Left, Right, Mid, UCase, LCase, Trim, LTrim, RTrim and CStr over them, is checked into a Boolean, a number or a Date like a literal; a Date written as text never converts to a number or a Boolean. Text a locale's currency symbol might explain (True5, x1) is left alone, as #188 leaves a literal. Issue #457: Chr, Hex, Oct, Space, String and StrConv over literals are spelled out, and MonthName, WeekdayName, Format of a Date literal as a month or day name, TypeName, a Range Address and Application.Name or PathSeparator stand for a word no locale reads as a number, a Boolean or a date: into a Long, Double, Boolean or Date each raises 13. Issue #451: a String * n local named nowhere else holds n Chr(0), which raise 13 into a Long, Double, Boolean or Date. Issue #436: a variable As an Enum is a Long, so x = \"abc\" raises 13 and x = 3000000000# raises 6. Issue #324: Null after an operator into a typed target raises 94: arithmetic, +, unary minus, Not, a comparison and Abs give Null; And gives Null unless the other side is False, Or unless it is True; & never does. Issue #448: n = F() with F a Function of the module whose only result is a literal: a string that is no number (13) or Null (94) into a typed target. Issue #556: And, Or and Imp with Null are Null only where a literal on the other side leaves it so.",
@@ -1022,6 +1112,16 @@
       "sourceOfTruth": "Excel/VBE compile oracle plus VBA array/scalar assignment binding",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "scalar_variable_array",
+        "scalar_variable_array_function",
+        "scalar_setter_qualified_array",
+        "scalar_setter_qualified_element",
+
+        "scalar_setter_array_variable",
+        "scalar_setter_array_function",
+        "scalar_setter_array_parenthesized",
+        "scalar_setter_array_element",
+
         "assign_array_to_scalar_compile"
       ],
       "observeOnlyOracleCases": [],
@@ -1075,6 +1175,8 @@
       "sourceOfTruth": "Excel/VBE runtime oracle (a Set of the wrong object class compiles and raises 13, issue #202) plus deterministic XLIDE object assignment compatibility model",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "indexed_property_set_wrongclass",
+
         "excel_collection_default_item_assignment_compile",
         "issue197_02_runtime",
         "issue197_17_runtime",
@@ -1131,6 +1233,14 @@
       "sourceOfTruth": "Excel/VBE compile oracle plus deterministic source-backed project class member model and host model property access",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "bare_default_required_readonly",
+        "array_default_required_readonly",
+
+        "getter_write_array_whole",
+        "getter_write_array_element",
+        "getter_write_variant_array",
+        "getter_write_object_array",
+
         "class_readonly_property_assignment_compile",
         "issue198_01_compile",
         "issue198_02_compile",
@@ -1183,8 +1293,17 @@
         "issue423_25_compile",
         "issue423_31_compile",
         "issue423_41_compile",
-        "issue423_49_compile"
-      ],
+        "issue423_49_compile",
+      "indexed_getonly_compile",
+      "empty_indexed_getonly_compile",
+      "getonly_default_range_bare",
+      "getonly_default_range_index",
+      "getonly_default_variant_bare",
+      "getonly_default_variant_index",
+      "module_getonly_default_range",
+      "module_getonly_default_variant",
+      "implicit_scalar_getter_readonly"
+    ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "notes": "This is a VBE compile-equivalent error when the receiver resolves to a workbook class and source proves the member has no setter. Public constants are not object members in VBE; public constant declarations in object modules fail at the declaration. Leading-dot assignments inside simple or nested With receiver stacks use the same source-backed member resolver. Issue #256: c = 5 on a class whose default member is a Property Get with no Property Let is Invalid use of property (measured in Excel 16.0). Issue #369: VBA.Err.LastDllError = 5 is Can't assign to read-only property, as Err.LastDllError = 5 is. Issue #305: c.Count = 2 on a local Collection is Function call on left-hand side of assignment must return Variant or Object.",
@@ -3326,6 +3445,10 @@
       "sourceOfTruth": "Excel/VBE compile oracle plus MS-VBAL reserved-name/type-identifier distinction",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "audit_enum_declaration_qualified",
+        "audit_enum_declaration_bare",
+        "source_qualified_udt_audit",
+
         "runtime_function_as_type_name_int",
         "issue212_62_compile",
         "issue490_03_compile",
@@ -3359,6 +3482,7 @@
       "sourceOfTruth": "VBE runtime error 91 (Object variable or With block variable not set): a bare assignment to an object target compiles cleanly and fails at runtime, not at compile time; MS-VBAL 5.4.3 Set statement",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "vb_named_class_scalar_default",
         "object_var_assignment_without_set_runtime_91",
         "funcret_object_assignment_without_set_runtime_91",
         "issue193b_01_runtime",
@@ -3548,6 +3672,8 @@
       "sourceOfTruth": "Excel/VBE compile oracle plus deterministic XLIDE scalar variable and assignment-target binding",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "indexed_property_set_scalar",
+
         "set_scalar_integer_assignment",
         "set_scalar_string_new_object_assignment_compile",
         "issue202_16_compile",
@@ -3870,6 +3996,15 @@
       "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-10-01 (issue #266): a project class property read with no Property Get, or called as a statement, is \"Invalid use of property\"",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "getter_custom_default_required",
+        "getter_custom_default_readonly",
+        "getter_custom_default_variant_object",
+        "bare_custom_default_variant_object",
+        "getter_custom_default_variant_scalar",
+
+        "indexed_property_set_worksheet",
+        "indexed_property_set_nothing",
+
         "issue266_12_compile",
         "issue266_13_compile",
         "issue266_14_compile",
@@ -4163,8 +4298,9 @@
         "issue423_15_compile",
         "issue423_57_compile",
         "issue423_63_compile",
-        "issue423_73_compile"
-      ],
+        "issue423_73_compile",
+      "boolean_function_target_compile"
+    ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "notes": "Assignment to a Sub (\"Expected Function or variable\") or to a Function returning a type of VBA's own (\"Function call on left-hand side of assignment must return Variant or Object\") from outside it. A Variant or Object Function takes it. Issue #254: a Declare Function too: GetTickCount = 5 on a Declare Function returning Long is Function call on left-hand side of assignment must return Variant or Object (measured in Excel 16.0).",
@@ -4573,13 +4709,18 @@
       "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, full project compile, 2026-09-30 (issue #212)",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "optional_value_bool_unused_audit",
+        "optional_value_variant_called_audit",
+        "audit_setter_optional_value",
+        "audit_setter_optional_index",
+
         "issue212_26_compile",
         "issue212_27_compile",
         "issue212_29_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "A Property Let or Set whose value parameter is Optional: \"Syntax error\". An Optional index before the value compiles.",
+      "notes": "A Property Let or Set whose value parameter is Optional is refused at compile time. Native controls show Syntax error and Argument not optional depending on form; do not universally label it Syntax error. An Optional index before a mandatory value compiles.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -5026,6 +5167,33 @@
       "sourceOfTruth": "MS-VBAL 5.3.1 (argument passing by reference/value) plus the Excel/VBE compile oracle (array/UDT-into-scalar 'ByRef argument type mismatch' / 'Type mismatch'; scalar-into-array 'Type mismatch: array or user-defined type expected') and the deterministic declared-shape resolver (SourceDeclaredShape.isArray plus same-module Type symbol names)",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "array_element_identity_setter_object_class",
+        "array_element_identity_setter_class_match",
+        "array_element_identity_setter_source_enum_long",
+
+        "receiver_get_array_index",
+
+        "setter_index_array_to_scalar",
+        "setter_index_scalar_to_array",
+        "setter_index_array_valid",
+
+        "array_setter_value_byte_string",
+        "array_setter_value_typed_wrong_element",
+        "byte_array_setter_number",
+        "byte_array_setter_wrong_typed_array",
+        "byte_array_setter_plain_object",
+
+        "array_setter_value_shadowed_split",
+        "array_setter_value_qualified_split",
+
+        "array_setter_scalar",
+        "class_array_setter_plain_scalar",
+        "class_array_setter_indexed_scalar",
+        "array_setter_value_variant",
+        "array_setter_value_function_array",
+        "array_setter_value_plain_object",
+        "array_setter_value_typed_function",
+
         "argshape_array_to_scalar_byref_compile",
         "argshape_array_to_scalar_byval_compile",
         "argshape_udt_to_scalar_byref_compile",
@@ -5187,6 +5355,13 @@
       "sourceOfTruth": "Excel/VBE compile oracle: a type named from an unreferenced library",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "implicit_library_receiver_assigned_audit",
+        "implicit_library_receiver_unassigned_audit",
+        "library_shadow_local_range",
+        "library_shadow_module_range",
+        "library_shadow_parameter_range",
+        "library_shadow_type_still_missing",
+
         "cross_application_early_binding_without_reference_compile",
         "cross_application_late_binding_compile"
       ],
@@ -7017,6 +7192,21 @@
       "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #121): 3 asserted cases from the issue's measured corpus",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "getter_write_variant_scalar",
+        "getter_write_variant_object",
+        "getter_write_indexed_literal",
+        "getter_write_indexed_parameter",
+        "getter_write_backing_field",
+        "getter_write_optional_function",
+        "getter_write_indexed_read",
+        "getter_write_indexed_receiver",
+        "getter_write_optional_object",
+        "getter_write_standard_scalar",
+
+        "host_scalar_property_array_alignment",
+
+        "with_range_value_array_assignment",
+
         "issue121_g_runtime",
         "issue121_h_runtime",
         "issue121_i_runtime",
@@ -7267,6 +7457,16 @@
       "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #121): 2 asserted cases from the issue's measured corpus",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "member_function_result_write_worksheet",
+        "member_function_result_write_range",
+
+        "function_result_write_worksheet",
+        "function_result_write_widget",
+        "function_result_write_range",
+
+        "getter_class_no_default",
+        "getter_worksheet_no_default",
+
         "issue121_k_runtime",
         "issue121_l_runtime",
         "issue224_05_runtime",
@@ -7813,6 +8013,29 @@
       "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-29 (issue #194): the issue's measured corpus",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "array_pointer_storage_ptr_to_longlong_audit",
+        "array_pointer_storage_longlong_to_ptr_audit",
+
+        "vb_named_class_array_identity",
+        "qualified_array_result_match",
+        "qualified_array_result_mismatch",
+        "qualified_array_result_grouped_mismatch",
+        "array_element_identity_host_alias_return",
+        "array_element_identity_host_alias_target",
+        "array_element_identity_host_enum_long",
+        "array_element_identity_object_class",
+        "array_element_identity_class_object",
+        "array_element_identity_class_match",
+        "array_element_identity_source_enum_long",
+        "array_element_identity_long_source_enum",
+        "array_element_identity_object_match",
+
+        "array_setter_array",
+        "class_array_setter_plain_array",
+        "class_array_setter_indexed_array",
+        "array_setter_value_empty_index",
+        "array_setter_value_parenthesized_array",
+
         "issue194_13_compile",
         "issue194_14_compile",
         "issue194_15_compile",
@@ -8273,6 +8496,27 @@
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "notes": "A formula String with a parenthesis or string left open, or an operator last, raises 1004 when assigned to a Range's Formula or Value, except on a cell formatted as Text, so it is a warning (issue #276, measured in Excel 16.0)."
+    },
+    {
+      "code": "host-readonly-value-assignment",
+      "status": "vbe-oracle-verified",
+      "diagnosticKind": "deterministic-runtime-error",
+      "sourceOfTruth": "Excel Range read-only scalar properties, verified through the repository Excel/VBE runtime oracle on 2026-10-06 (error 424); Microsoft Range.Height documentation recommends RowHeight.",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "assignment_height_run",
+        "assignment_width_run",
+        "assignment_left_run",
+        "assignment_top_run",
+        "assignment_text_run",
+        "assignment_countlarge_run",
+        "assignment_hasarray_run",
+        "assignment_hasformula_run",
+        "assignment_rowheight_run"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Getter-only Variant scalar values cannot receive an assignment at runtime. Object-valued getters and default-member writes remain outside this rule; writable RowHeight is the negative control."
     }
   ]
 }

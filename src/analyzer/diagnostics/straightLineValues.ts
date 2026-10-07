@@ -183,33 +183,21 @@ function cachedWalk(
 	activity: ConditionalActivityTracker | undefined,
 	initial: ReachingAssignments,
 ): CachedWalk {
-	// Six rules ask for the same procedure in one pass; a parse makes a new
-	// body, so the body is the key, with what holds at the start.
-	let cache = WALKS.get(body);
-	// A new source/activity cannot reuse any walk in this bucket. Discard it
-	// before comparing or serializing large starts from the previous snapshot.
-	if (cache && (cache.firstWalk.source !== source || cache.firstWalk.activity !== activity)) { cache = undefined; }
-	let key: string | undefined;
-	if (cache) {
-		if (cache.firstStart === initial && cache.firstWalk.source === source && cache.firstWalk.activity === activity) {
-			return cache.firstWalk;
-		}
-		// A fresh symbol snapshot often builds the same start again. Compare
-		// its entries directly before allocating and sorting a canonical key
-		// containing every module constant. The key remains the fallback.
-		if (!START_KEYS.has(initial) && cache.firstWalk.source === source && cache.firstWalk.activity === activity && equalStarts(cache.firstStart, initial)) {
-			cache.firstStart = initial;
-			return cache.firstWalk;
-		}
-		// Most bodies are walked repeatedly from the same kept start. Only
-		// serialize its hundreds of constants when another start needs value
-		// equality, preserving reuse across separately allocated equal maps.
-		key = startKey(initial);
-		cache.byStart ??= new Map([[startKey(cache.firstStart), cache.firstWalk]]);
-		const cached = cache.byStart.get(key);
-		if (cached && cached.source === source && cached.activity === activity) {
-			return cached;
-		}
+	// Rules share the same retained start within one bound analysis. Weak keys
+	// prevent calls with different arguments from retaining every prior walk.
+	let bucket = WALKS.get(body);
+ if (bucket && (bucket.firstWalk.source !== source || bucket.firstWalk.activity !== activity)) { bucket = undefined; }
+ const byStart = bucket?.byStart ?? new WeakMap<ReachingAssignments, CachedWalk>();
+	const callEffects = CALL_EFFECTS.get(initial);
+	const declaredFacts = DECLARED_FACTS.get(initial);
+ if (bucket && bucket.firstWalk.callEffects === callEffects && bucket.firstWalk.declaredFacts === declaredFacts
+  && equalStarts(bucket.firstStart, initial)) {
+  bucket.firstStart = initial; byStart.set(initial, bucket.firstWalk); return bucket.firstWalk;
+ }
+	const cached = byStart.get(initial);
+	if (cached && cached.source === source && cached.activity === activity
+		&& cached.callEffects === callEffects && cached.declaredFacts === declaredFacts) {
+		return cached;
 	}
 	const out = new Map<BodyNode, ReachingAssignments>();
 	const dead = new Set<BodyNode>();
@@ -225,8 +213,8 @@ function cachedWalk(
 	const outerCollections = walkCollections;
 	walkCollections = localCollectionNames(body, activity);
 	walkArrays = localArrayNames(body, activity);
-	walkCallEffects = CALL_EFFECTS.get(initial);
-	walkDeclared = DECLARED_FACTS.get(initial);
+	walkCallEffects = callEffects;
+	walkDeclared = declaredFacts;
 	let exit: ReachingAssignments;
 	walkProcedures = moduleProcedureNames(source);
 	walkElements = /\)\s*=\s*null\b/i.test(text);
@@ -240,15 +228,9 @@ function cachedWalk(
 		walkDeclared = outerDeclared;
 		walkCollections = outerCollections;
 	}
-	const walk: CachedWalk = { source, activity, result: out, dead, deadSpans, exit: exit === UNREACHED ? undefined : exit };
-	if (!cache) {
-		WALKS.set(body, { firstStart: initial, firstWalk: walk });
-	} else {
-		if (cache.firstStart === initial) {
-			cache.firstWalk = walk;
-		}
-		cache.byStart!.set(key!, walk);
-	}
+	const walk: CachedWalk = { source, activity, callEffects, declaredFacts, result: out, dead, deadSpans, exit: exit === UNREACHED ? undefined : exit };
+	byStart.set(initial, walk);
+ WALKS.set(body, { byStart, firstStart: initial, firstWalk: walk });
 	return walk;
 }
 
@@ -265,15 +247,6 @@ function equalStarts(left: ReachingAssignments, right: ReachingAssignments): boo
 	return true;
 }
 
-function startKey(initial: ReachingAssignments): string {
-	let key = START_KEYS.get(initial);
-	if (key === undefined) {
-		key = [...initial].map(([name, value]) => `${name}=${startValueKey(value)}`).sort().join('\n');
-		START_KEYS.set(initial, key);
-	}
-	return key;
-}
-
 /** Immutable constant/default token arrays are shared by many procedure starts. */
 function startValueKey(value: readonly VbaToken[]): string {
 	let key = START_VALUE_KEYS.get(value);
@@ -285,6 +258,8 @@ function startValueKey(value: readonly VbaToken[]): string {
 }
 
 interface CachedWalk {
+	callEffects: CallEffects | undefined;
+	declaredFacts: DeclaredFacts | undefined;
 	source: string;
 	activity: ConditionalActivityTracker | undefined;
 	result: ReadonlyMap<BodyNode, ReachingAssignments>;
@@ -309,14 +284,7 @@ interface WalkOut {
 /** The end of a statement list no path reaches. */
 const UNREACHED: ReachingAssignments = new Map();
 
-const WALKS = new WeakMap<readonly BodyNode[], {
-	firstStart: ReachingAssignments;
-	firstWalk: CachedWalk;
-	byStart?: Map<string, CachedWalk>;
-}>();
-
-/** Each start's cache key, by identity: a kept start is asked for by several rules. */
-const START_KEYS = new WeakMap<ReachingAssignments, string>();
+const WALKS = new WeakMap<readonly BodyNode[], { byStart: WeakMap<ReachingAssignments, CachedWalk>; firstStart: ReachingAssignments; firstWalk: CachedWalk }>();
 const START_VALUE_KEYS = new WeakMap<readonly VbaToken[], string>();
 
 /**
@@ -1444,7 +1412,7 @@ function datePartRange(value: readonly VbaToken[] | undefined): readonly [number
 			part = [n, n];
 			i++;
 		} else if (DATE_PART_RANGES[word] && toks[i + 1]?.rawText === '(' && toks[i - 1]?.rawText !== '.') {
-			const close = matchParenFrom([...toks], i + 1);
+			const close = matchParenFrom(toks, i + 1);
 			if (close < 0) {
 				return undefined;
 			}

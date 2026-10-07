@@ -33,7 +33,7 @@ export class WorkbookSheetsError extends Error {}
  * bytes after the namespace declarations; the compressed head inflates to
  * several times this.
  */
-const PART_HEAD_BYTES = 16 * 1024;
+export const PART_HEAD_BYTES = 16 * 1024;
 
 // ------------------------------------------------------------------- OOXML
 

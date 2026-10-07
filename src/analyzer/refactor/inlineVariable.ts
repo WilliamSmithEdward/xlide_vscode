@@ -3,7 +3,7 @@ import type { ModuleNode } from '../parser/nodes';
 import { procedureAtOffset } from '../parser/nodes';
 import { refactor, refuse, type VbaRefactorResult, type VbaTextEdit } from './refactorTypes';
 import { assignmentAt, localDeclaration, localUsesIn, nameAt } from './shared';
-import { wholeLineSpan } from '../../vbaSourceScan';
+import { statementRemovalSpan, mergeRemovals } from './shared';
 import { IDENT_RE } from '../lexer/tokenHelpers';
 
 /**
@@ -92,15 +92,15 @@ export function inlineVariable(input: InlineVariableInput): VbaRefactorResult {
 	}
 
 	const edits: VbaTextEdit[] = [
-		{ span: wholeLineSpan(source, group.span), newText: '' },
-		{ span: wholeLineSpan(source, assignment.span), newText: '' },
+		{ span: statementRemovalSpan(source, group.span), newText: '' },
+		{ span: statementRemovalSpan(source, assignment.span), newText: '' },
 		...reads.map((occ) => ({
 			span: { start: occ.offset, end: occ.offset + name.length },
 			newText: value,
 		})),
 	];
 
-	return refactor(`Inline '${name}'`, edits);
+	return refactor(`Inline '${name}'`, mergeRemovals(edits));
 }
 
 /**

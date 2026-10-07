@@ -35,7 +35,7 @@ import { leadingDocLines, scanDocTags } from '../../docs/docComment';
 import type { DocBlockLine, DocTagOccurrence } from '../../docs/docComment';
 import type { PushFn, VbaDocCommentFix } from '../analysisContext';
 import { activeModuleMembers } from '../walker';
-import { detectEol, leadingWhitespace, lineStartAt } from '../../../vbaSourceScan';
+import { detectEol, leadingWhitespace, wholeLineSpan } from '../../../vbaSourceScan';
 
 type DocumentedMember = ProcedureNode | DeclareNode | EventNode;
 
@@ -359,7 +359,7 @@ class DocBlock {
 		}
 		let start = first.start;
 		if (first.directivesStart < first.start) {
-			const above = lineStartAt(this.source, first.start - 1);
+			const above = wholeLineSpan(this.source, at(first.start - 1)).start;
 			if (NEXT_LINE_DIRECTIVE_RE.test(this.source.slice(above, first.start))) {
 				start = above;
 			}
@@ -386,7 +386,6 @@ class DocBlock {
 	}
 
 	private nextLineStart(line: DocBlockLine): number {
-		const lf = this.source.indexOf('\n', this.lineEnd(line));
-		return lf < 0 ? this.source.length : lf + 1;
+		return wholeLineSpan(this.source, { start: line.start, end: this.lineEnd(line) }).end;
 	}
 }

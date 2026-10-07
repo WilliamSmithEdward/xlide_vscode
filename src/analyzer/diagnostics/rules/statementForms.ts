@@ -21,7 +21,7 @@ import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { VbaProcedureSignature } from '../../symbols/symbolModel';
 import { statementLabelDeclarations, statementLabelReferences } from '../../flow/procedureLabels';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
-import { argumentlessHostDefault, buildModuleTypeSignatures, isKnownScalarType, normalizeType, objectHoldingDefault, objectValueNeedsIndex, typeEnvironmentFor } from '../typeInference';
+import { createObjectDefaultQueries, argumentlessHostDefault, buildModuleTypeSignatures, isKnownScalarType, normalizeType, objectHoldingDefault, typeEnvironmentFor } from '../typeInference';
 import { projectClassMemberAt, type MemberCompletionContext } from '../../completion/memberAccess';
 import { resolveHostAlias } from '../../host/hostModel';
 import {
@@ -59,6 +59,7 @@ export function checkStatementForms(
 	// An Enum of the module, unless a Function, Property Get or Declare of
 	// the module shares its name: that one is read, and runs (issue #639,
 	// measured in Excel 16.0). A variable or a Sub of the name does not.
+	const defaultQueries = createObjectDefaultQueries(memberCtx);
 	const ownValues = new Set((symbols.root.children ?? [])
 		.filter((symbol) => symbol.kind === 'function' || symbol.kind === 'propertyGet' || symbol.kind === 'declare')
 		.map((symbol) => symbol.name.toLowerCase()));
@@ -102,6 +103,32 @@ export function checkStatementForms(
 			needsArgument.set(lower.toLowerCase(), only.moduleName.toLowerCase());
 		}
 	}
+	let classSubNames: Set<string> | undefined;
+	let classIndex = 0;
+	let memberIndex = 0;
+	const mightBeClassSub = (name: string): boolean => {
+		const lower = name.toLowerCase();
+		classSubNames ??= new Set();
+		if (classSubNames.has(lower)) { return true; }
+		const types = memberCtx.projectClassMembers ?? [];
+		// Resume after the last candidate: a first hit need not scan the project.
+		while (classIndex < types.length) {
+			const type = types[classIndex];
+			if (type.kind === 'class') {
+				while (memberIndex < type.members.length) {
+					const member = type.members[memberIndex++];
+					if (member.sub) {
+						const candidate = member.name.toLowerCase();
+						classSubNames.add(candidate);
+						if (candidate === lower) { return true; }
+					}
+				}
+			}
+			classIndex++;
+			memberIndex = 0;
+		}
+		return false;
+	};
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind === 'Procedure' && procedureFilter && !procedureFilter(member)) { continue; }
 		if (member.kind !== 'Procedure') {
@@ -119,7 +146,7 @@ export function checkStatementForms(
 				// A variable As Sheets or Worksheets too, though its default is
 				// typed Object: `s = o` and `o & "x"` do not compile (issue #369).
 				const sheets = type !== undefined && SHEETS_TYPES.has(resolveHostAlias(type, memberCtx.model)?.toLowerCase() ?? '');
-				answer = type !== undefined && (sheets || objectValueNeedsIndex(type, memberCtx));
+				answer = type !== undefined && (sheets || defaultQueries.needsIndex(type));
 				needsIndex.set(lower, answer);
 			}
 			return answer;
@@ -157,12 +184,16 @@ export function checkStatementForms(
 				// #369, measured in Excel 16.0). `Foo.Foo` compiles.
 				// A line label is its own namespace: `Foo:`, `GoTo Foo` and
 				// `Resume Foo` compile beside a module Foo (issue #403).
-				const labels = new Set([...statementLabelDeclarations(source, span), ...statementLabelReferences(source, span)].map((label) => label.span.start));
-				const isLabel = (i: number): boolean => toks[i] !== undefined && labels.has(span.start + toks[i].start);
+				let labels: Set<number> | undefined;
+				const isLabel = (i: number): boolean => {
+					if (toks[i] === undefined) { return false; }
+					labels ??= new Set([...statementLabelDeclarations(source, span), ...statementLabelReferences(source, span)].map((label) => label.span.start));
+					return labels.has(span.start + toks[i].start);
+				};
 				const callee = tokenText(toks[first]) === 'call' ? first + 1 : first;
-				const calleeName = target === undefined && !isLabel(callee) ? tokenName(toks[callee])?.toLowerCase() : undefined;
+				const calleeName = target === undefined ? tokenName(toks[callee])?.toLowerCase() : undefined;
 				if (calleeName && toks[callee + 1]?.rawText !== '.' && toks[callee + 1]?.rawText !== '=' && otherModules.has(calleeName)
-					&& !locals.has(calleeName) && !ownNames.has(calleeName)) {
+					&& !locals.has(calleeName) && !ownNames.has(calleeName) && !isLabel(callee)) {
 					push('malformedStatement', `'${toks[callee].rawText}' names a module of this project before any procedure in it, so it cannot be called bare from another module; write ${toks[callee].rawText}.${toks[callee].rawText}. This is a VBE compile error: Expected variable or procedure, not module.`, at(callee));
 				}
 				const assigns = target !== undefined || tokenText(toks[first]) === 'set';
@@ -179,6 +210,7 @@ export function checkStatementForms(
 					// `x = c.DoIt()` with DoIt a Sub of c's class (issue #369).
 					// After AddressOf it is addressof-misuse's (issue #299).
 					if (name && target && i > eq && toks[i - 1]?.rawText === '.' && toks[i + 1]?.rawText !== '.' && tokenText(toks[i - 3]) !== 'addressof'
+						&& mightBeClassSub(name)
 						&& projectClassMemberAt(source, span.start + toks[i - 1].end, name, memberCtx)?.sub) {
 						push('subUsedAsValue', `'${name}' is a Sub of the class, which returns nothing, so it cannot be used as a value. This is a VBE compile error: Expected Function or variable.`, at(i));
 						continue;

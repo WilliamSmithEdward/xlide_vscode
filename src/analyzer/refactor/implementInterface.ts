@@ -1,8 +1,9 @@
 import { parseModule } from '../parser/parseModule';
-import type { ModuleNode, ProcedureNode, Span } from '../parser/nodes';
-import { detectEol, lineStartAt } from '../../vbaSourceScan';
+import { blockHeaderLineSpan } from '../parser/physicalLineSpans';
+import type { ModuleNode, ProcedureNode, ProcKind, Span } from '../parser/nodes';
+import { detectEol } from '../../vbaSourceScan';
 import { refactor, refuse, type VbaRefactorResult } from './refactorTypes';
-import { escapeForRegExp, lookupModuleSource } from './shared';
+import { lookupModuleSource } from './shared';
 import { isRefactorObjectType } from './typeKinds';
 
 /**
@@ -31,7 +32,6 @@ export interface ImplementInterfaceInput {
 }
 
 export function implementInterface(input: ImplementInterfaceInput): VbaRefactorResult {
-	const module: ModuleNode = parseModule(input.source);
 	const implemented = implementsNames(input.source);
 	if (implemented.length === 0) {
 		return refuse('This class implements no interface. Add an `Implements` statement first.');
@@ -57,12 +57,32 @@ export function implementInterface(input: ImplementInterfaceInput): VbaRefactorR
 		return refuse(`'${name}' has no public members to implement.`);
 	}
 
-	const already = new Set(
-		module.members
-			.filter((member): member is ProcedureNode => member.kind === 'Procedure')
-			.map((member) => member.name.toLowerCase()),
-	);
-	const missing = members.filter((member) => !already.has(`${name}_${member.name}`.toLowerCase()));
+	// The refusal checks above do not need the implementing class AST.
+	const module: ModuleNode = parseModule(input.source);
+
+	const requiredNames = new Set(members.map(member => `${name}_${member.name}`.toLowerCase()));
+	const kindsByName = new Map<string, Set<ProcKind>>();
+	for (const member of module.members) {
+		if (member.kind !== 'Procedure') { continue; }
+		const key = member.name.toLowerCase();
+		if (!requiredNames.has(key)) { continue; }
+		let kinds = kindsByName.get(key);
+		if (!kinds) { kinds = new Set(); kindsByName.set(key, kinds); }
+		kinds.add(member.procKind);
+	}
+	const missing: InterfaceMember[] = [];
+	for (const member of members) {
+		const qualifiedName = `${name}_${member.name}`;
+		const kinds = kindsByName.get(qualifiedName.toLowerCase());
+		if (kinds?.has(member.procKind)) { continue; }
+		// Property Get/Let/Set may share a name; Sub/Function cannot share one
+		// with a different callable kind. Refuse instead of creating a collision.
+		if (kinds && (member.procKind === 'Sub' || member.procKind === 'Function'
+			|| kinds.has('Sub') || kinds.has('Function'))) {
+			return refuse(`The class already has '${qualifiedName}' as a different procedure kind. Rename or correct it before implementing '${name}'.`);
+		}
+		missing.push(member);
+	}
 	if (missing.length === 0) {
 		return refuse(`'${name}' is already implemented in full.`);
 	}
@@ -85,6 +105,9 @@ export function implementInterface(input: ImplementInterfaceInput): VbaRefactorR
 /** A member the interface promises, with its header copied verbatim. */
 interface InterfaceMember {
 	name: string;
+	procKind: ProcKind;
+	/** Declared-name token relative to signature; absent on incomplete syntax. */
+	nameSpan?: Span;
 	/** `Property Get Total() As Long`, exactly as the interface writes it. */
 	signature: string;
 	/** The keyword that closes it: Sub, Function or Property. */
@@ -106,7 +129,8 @@ function publicMembersOf(source: string): InterfaceMember[] {
 			}
 			out.push({
 				name: member.name,
-				signature: headerText(source, member),
+				procKind: member.procKind,
+				...headerText(source, member),
 				closer: closerFor(member.procKind),
 			});
 			continue;
@@ -115,14 +139,20 @@ function publicMembersOf(source: string): InterfaceMember[] {
 			for (const decl of member.declarations) {
 				const type = decl.asType ?? 'Variant';
 				const isObject = isRefactorObjectType(type);
+				const fieldName = decl.nameSpan && source[decl.nameSpan.start] === '[' ? `[${decl.name}]` : decl.name;
+				const writerPrefix = `Property ${isObject ? 'Set' : 'Let'} `;
 				out.push({
 					name: decl.name,
-					signature: `Property Get ${decl.name}() As ${type}`,
+					procKind: 'PropertyGet',
+					signature: `Property Get ${fieldName}() As ${type}`,
+					nameSpan: { start: 'Property Get '.length, end: 'Property Get '.length + fieldName.length },
 					closer: 'Property',
 				});
 				out.push({
 					name: decl.name,
-					signature: `Property ${isObject ? 'Set' : 'Let'} ${decl.name}(ByVal RHS As ${type})`,
+					procKind: isObject ? 'PropertySet' : 'PropertyLet',
+					signature: `${writerPrefix}${fieldName}(ByVal RHS As ${type})`,
+					nameSpan: { start: writerPrefix.length, end: writerPrefix.length + fieldName.length },
 					closer: 'Property',
 				});
 			}
@@ -136,21 +166,17 @@ function publicMembersOf(source: string): InterfaceMember[] {
  * modifier: an implementing member is always Private, and VBA rejects it
  * otherwise.
  */
-function headerText(source: string, member: ProcedureNode): string {
-	const line = source.slice(member.span.start, headerEnd(source, member.span));
-	return line.trim().replace(/^\s*(?:Public|Private|Friend)\s+/i, '');
-}
-
-/** The end of the header, following any `_` line continuations. */
-function headerEnd(source: string, span: Span): number {
-	let at = source.indexOf('\n', span.start);
-	if (at === -1) { return span.end; }
-	while (/_[ \t]*\r?$/.test(source.slice(lineStartAt(source, at), at))) {
-		const next = source.indexOf('\n', at + 1);
-		if (next === -1) { break; }
-		at = next;
-	}
-	return Math.min(at, span.end);
+function headerText(source: string, member: ProcedureNode): Pick<InterfaceMember, 'signature' | 'nameSpan'> {
+	const header = blockHeaderLineSpan(source, member.span);
+	const line = source.slice(header.start, header.end);
+	const trimmed = line.trim();
+	const signature = trimmed.replace(/^\s*(?:Public|Private|Friend)\s+/i, '');
+	const removedPrefix = line.length - line.trimStart().length + trimmed.length - signature.length;
+	const nameSpan = member.nameSpan ? {
+		start: member.nameSpan.start - header.start - removedPrefix,
+		end: member.nameSpan.end - header.start - removedPrefix,
+	} : undefined;
+	return { signature, nameSpan };
 }
 
 function closerFor(procKind: ProcedureNode['procKind']): string {
@@ -163,10 +189,12 @@ function closerFor(procKind: ProcedureNode['procKind']): string {
 
 function stubFor(interfaceName: string, member: InterfaceMember, eol: string): string {
 	// The name VBA requires: the interface, an underscore, the member.
-	const renamed = member.signature.replace(
-		new RegExp(`(\\b(?:Sub|Function|Property\\s+(?:Get|Let|Set))\\s+)${escapeForRegExp(member.name)}\\b`, 'i'),
-		`$1${interfaceName}_${member.name}`,
-	);
+	const span = member.nameSpan;
+	const qualifiedName = `${interfaceName}_${member.name}`;
+	const writtenName = span && member.signature[span.start] === '[' ? `[${qualifiedName}]` : qualifiedName;
+	const renamed = span && span.start >= 0 && span.end > span.start && span.end <= member.signature.length
+		? member.signature.slice(0, span.start) + writtenName + member.signature.slice(span.end)
+		: member.signature;
 	return [
 		`Private ${renamed}`,
 		`    ${NOT_IMPLEMENTED}`,

@@ -1,9 +1,13 @@
+import { tokenize, tokenizeCached } from '../lexer/tokenize';
+import { firstTokenAtOrAfter, tokenName } from '../lexer/tokenHelpers';
+import { isRefactorObjectType } from './typeKinds';
+import { callSitesOf } from './callSites';
 import { parseModule } from '../parser/parseModule';
-import type { BodyNode, ModuleNode, ProcedureNode, Span, VariableDeclNode, VariableGroupNode } from '../parser/nodes';
+import type { BodyNode, ModuleNode, ProcedureNode, ParameterNode, Span, VariableDeclNode, VariableGroupNode } from '../parser/nodes';
 import { classifyReferenceKinds } from '../references/referenceKinds';
-import { detectEol, findIdentifierOccurrencesForNames, leadingWhitespace, lineStartAt, wholeLineSpan, type VbaIdentifierOccurrence } from '../../vbaSourceScan';
-import { refactor, refuse, type VbaRefactorResult, type VbaTextEdit } from './refactorTypes';
-import { procedureContainingSpan, walkBody } from './shared';
+import { detectEol, findIdentifierOccurrencesForNames, leadingWhitespace, lineStartAtAnyBreak, type VbaIdentifierOccurrence } from '../../vbaSourceScan';
+import { applyVbaTextEdits, refactor, refuse, type VbaRefactorResult, type VbaTextEdit } from './refactorTypes';
+import { procedureContainingSpan, walkBody, statementRemovalSpan, mergeRemovals, escapeForRegExp } from './shared';
 
 /**
  * Extract Method: selected whole statements become a Private procedure below
@@ -11,11 +15,15 @@ import { procedureContainingSpan, walkBody } from './shared';
  *
  * The signature is READ, not guessed. Every local the selection touches is
  * classified from the analyzer's reference kinds (issue #55) and its position
- * relative to the selection:
+ * relative to the selection. Existing procedure parameters instead retain
+ * their original invocation variable through a ByRef helper parameter.
+ * Touched arrays, Variants, and reference-capable or opaque local types also
+ * remain in the original invocation and go ByRef.
+ * The following table applies to primitive scalar declared locals:
  *
  * | inside the selection      | after it | becomes                     |
  * | ------------------------- | -------- | --------------------------- |
- * | read before it is written | -        | a parameter, ByVal          |
+ * | read before it is written | -        | a parameter, ByRef          |
  * | read before written, and written | read | a parameter, ByRef   |
  * | written first             | read     | the result, or ByRef        |
  * | written first             | not read | its Dim moves across        |
@@ -40,12 +48,14 @@ export interface ExtractMethodInput {
 
 interface LocalUse {
 	name: string;
+	sourceOrder: number;
 	declaration?: { group: VariableGroupNode; decl: VariableDeclNode };
-	isParameter: boolean;
+	parameter?: ParameterNode;
 	type: string;
 	readBeforeWriteInside: boolean;
 	writtenInside: boolean;
 	readAfter: boolean;
+	usedBefore: boolean;
 	isStatic: boolean;
 }
 
@@ -71,7 +81,7 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 	if (selected.length === 0) {
 		return refuse('Select whole statements to extract.');
 	}
-	const block = { start: lineStartAt(source, selected[0].span.start), end: selected[selected.length - 1].span.end };
+	const block = { start: lineStartAtAnyBreak(source, selected[0].span.start), end: selected[selected.length - 1].span.end };
 	// The selection has to BE those statements, give or take whitespace: half a
 	// statement cannot become a procedure body, and neither can the procedure's
 	// own header or End line. Both directions matter - a selection can fall
@@ -88,7 +98,7 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 			? refuse("The selection takes in the procedure's own header or End line.")
 			: refuse('Select whole statements to extract.');
 	}
-	if (block.start <= procedure.span.start || block.end >= endOfProcedureBody(source, procedure)) {
+	if (block.start <= procedure.span.start || block.end > endOfProcedureBody(source, procedure)) {
 		return refuse("The selection takes in the procedure's own header or End line.");
 	}
 
@@ -99,7 +109,13 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 		return refuse(`The module already has a procedure called '${name}'.`);
 	}
 
+	const resultBinding = functionResultBinding(source, procedure, block, name);
+	if (typeof resultBinding === 'string') { return refuse(resultBinding); }
 	const locals = classifyLocals(source, procedure, block);
+	const paramArray = locals.find(local => local.parameter?.paramArray);
+	if (paramArray) {
+		return refuse(`'${paramArray.name}' is a ParamArray. Extract Method cannot safely forward that binding.`);
+	}
 	const staticLocal = locals.find((local) => local.isStatic);
 	if (staticLocal) {
 		return refuse(
@@ -108,30 +124,97 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 		);
 	}
 
-	const byValIn = locals.filter((l) => l.readBeforeWriteInside && !(l.writtenInside && l.readAfter));
-	const byRefIn = locals.filter((l) => l.readBeforeWriteInside && l.writtenInside && l.readAfter);
-	const outputs = locals.filter((l) => !l.readBeforeWriteInside && l.writtenInside && l.readAfter);
-	const moved = locals.filter(
-		(l) => !l.readBeforeWriteInside && l.writtenInside && !l.readAfter && l.declaration && !l.isParameter,
+	const autoNew = locals.find(local => local.declaration?.decl.isNew);
+	if (autoNew) {
+		return refuse(`'${autoNew.name}' is declared As New. Extracting it would lose automatic object creation.`);
+	}
+	const unsupportedArray = locals.find(local => local.declaration?.decl.isArray
+		&& local.declaration.decl.fixedLength !== undefined);
+	if (unsupportedArray) {
+		return refuse(`'${unsupportedArray.name}' is a fixed-length String array. Extract Method cannot preserve its element type in a helper parameter.`);
+	}
+
+	const bindings: LocalUse[] = [], valueLocals: LocalUse[] = [];
+	for (const local of locals) {
+		const bound = local.parameter || local.declaration?.decl.isArray
+			|| local.type.toLowerCase() === 'variant' || isRefactorObjectType(local.type);
+		(bound ? bindings : valueLocals).push(local);
+	}
+	const inputs = valueLocals.filter((l) => l.readBeforeWriteInside && !(l.writtenInside && l.readAfter));
+	const byRefIn = valueLocals.filter((l) => l.readBeforeWriteInside && l.writtenInside && l.readAfter);
+	const outputs = valueLocals.filter((l) => !l.readBeforeWriteInside && l.writtenInside && l.readAfter);
+	const moved = valueLocals.filter(
+		(l) => !l.readBeforeWriteInside && l.writtenInside && !l.readAfter && l.declaration,
 	);
 
 	// One output becomes the result; more than one cannot, so they all go ByRef
 	// and the extraction stays a Sub.
 	const asFunction = outputs.length === 1;
 	const byRefOut = asFunction ? [] : outputs;
+	const fixedStringBinding = valueLocals.find(local => local.declaration?.decl.fixedLength !== undefined
+		&& (local.readBeforeWriteInside || (!asFunction && local.writtenInside && local.readAfter)));
+	if (fixedStringBinding) {
+		return refuse(`'${fixedStringBinding.name}' is a fixed-length String. Extract Method cannot preserve its binding in a helper parameter.`);
+	}
 
+	// A parent's ByVal parameter is already a private variable; ByRef here
+	// preserves that variable, while also preserving a parent's caller alias.
+	// Arrays and reference-capable/opaque locals also retain their original
+	// variable. ByRef avoids default-property coercion and works for Enums/UDTs
+	// without assuming every unknown type is an object. Primitive inputs also
+	// need the same variable: passing one to a ByRef callee is syntactically a
+	// read, but the callee can still assign to it.
+	const helperBinding = (local: LocalUse) => {
+		const binding = local.parameter ?? local.declaration!.decl;
+		return { text: bindingText(source, binding), argument: binding.nameSpan ? source.slice(binding.nameSpan.start, binding.nameSpan.end) : local.name };
+	};
 	const params = [
-		...byValIn.map((l) => ({ local: l, text: `ByVal ${l.name} As ${l.type}` })),
-		...byRefIn.map((l) => ({ local: l, text: `ByRef ${l.name} As ${l.type}` })),
-		...byRefOut.map((l) => ({ local: l, text: `ByRef ${l.name} As ${l.type}` })),
+		...(resultBinding ? [{ text: resultBinding.parameter, argument: resultBinding.argument }] : []),
+		...bindings.map(helperBinding),
+		...inputs.map(helperBinding),
+		...byRefIn.map(helperBinding),
+		...byRefOut.map(helperBinding),
 	];
+
+	if (params.some(parameter => parameter.argument.replace(/^\[([\s\S]*)\]$/, '$1').toLowerCase() === name.toLowerCase())) {
+		return refuse(`Choose a helper name other than '${name}'; that name is needed for a parameter binding.`);
+	}
 
 	const eol = detectEol(source);
 	const indent = leadingWhitespace(source.slice(block.start, selected[0].span.start));
-	const body = source.slice(block.start, block.end);
+	const movedDecls = new Set(moved.map((local) => local.declaration!.decl));
+	const resultDecl = asFunction ? outputs[0].declaration?.decl : undefined;
+	const callerDeclarations: string[] = [];
+	const bodyEdits: VbaTextEdit[] = resultBinding?.edits ?? [];
+	for (const group of walkBody(selected)) {
+		if (group.kind !== 'VariableGroup' || !containsSpan(block, group.span)) { continue; }
+		const inCaller = group.declarations.filter((decl) => !movedDecls.has(decl));
+		const inHelper = group.declarations.filter((decl) => movedDecls.has(decl) || decl === resultDecl);
+		if (inCaller.length > 0) {
+			callerDeclarations.push(indent + declarationText(source, group, inCaller));
+		}
+		if (inHelper.length !== group.declarations.length) {
+			const span = inHelper.length > 0 ? group.span : statementRemovalSpan(source, group.span);
+			bodyEdits.push({
+				span: { start: Math.max(block.start, span.start) - block.start, end: Math.min(block.end, span.end) - block.start },
+				newText: inHelper.length > 0 ? declarationText(source, group, inHelper) : '',
+			});
+		}
+	}
+	const body = applyVbaTextEdits(source.slice(block.start, block.end), mergeRemovals(bodyEdits));
 	const movedDeclarations = moved
-		.map((l) => `${indent}Dim ${l.name} As ${l.type}`)
+		.filter((l) => !containsSpan(block, l.declaration!.group.span))
+		.map((l) => `${indent}Dim ${source.slice(l.declaration!.decl.span.start, l.declaration!.decl.span.end)}`)
 		.join(eol);
+
+	const output = asFunction ? outputs[0] : undefined;
+	const outputDeclaration = output && output.name.toLowerCase() !== name.toLowerCase()
+		&& (!output.declaration || output.declaration.group.span.start < block.start
+			|| output.declaration.group.span.end > block.end)
+		? indent + 'Dim ' + (output.declaration
+			? source.slice(output.declaration.decl.span.start, output.declaration.decl.span.end)
+			: `${output.name} As ${output.type}`)
+		: '';
 
 	const header = asFunction
 		? `Private Function ${name}(${params.map((p) => p.text).join(', ')}) As ${outputs[0].type}`
@@ -143,17 +226,19 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 
 	const newProcedure = [
 		header,
+		...(outputDeclaration ? [outputDeclaration] : []),
 		...(movedDeclarations ? [movedDeclarations] : []),
 		body.replace(/\s+$/, ''),
 		...(returnLine ? [returnLine] : []),
 		closer,
 	].join(eol);
 
-	const argumentList = params.map((p) => p.local.name).join(', ');
-	const call = asFunction
+	const argumentList = params.map(parameter => parameter.argument).join(', ');
+	const invocation = asFunction
 		? `${indent}${outputs[0].name} = ${name}(${argumentList})`
 		: `${indent}${name}${argumentList ? ` ${argumentList}` : ''}`;
 
+	const call = [...callerDeclarations, invocation].join(eol);
 	const edits: VbaTextEdit[] = [
 		{ span: block, newText: call },
 		// The new procedure goes below the one it came out of, which is where a
@@ -163,15 +248,48 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 			newText: eol + eol + newProcedure + eol,
 		},
 	];
-	// A moved Dim leaves the caller with it.
-	for (const local of moved) {
-		edits.push({ span: wholeLineSpan(source, local.declaration!.group.span), newText: '' });
-	}
+	// Edit each declaration group once: siblings may remain in the caller.
+	edits.push(...movedDeclarationEdits(source, moved, block));
 
 	return refactor(`Extract '${name}'`, edits, {
 		start: block.start + call.indexOf(name),
 		end: block.start + call.indexOf(name) + name.length,
 	});
+}
+
+/** Whether the selection includes an entire declaration statement. */
+function containsSpan(outer: Span, inner: Span): boolean {
+	return inner.start >= outer.start && inner.end <= outer.end;
+}
+
+function movedDeclarationEdits(source: string, moved: readonly LocalUse[], block: Span): VbaTextEdit[] {
+	const groups = new Map<VariableGroupNode, Set<VariableDeclNode>>();
+	for (const local of moved) {
+		if (local.usedBefore) { continue; }
+		const { group, decl } = local.declaration!;
+		if (containsSpan(block, group.span)) { continue; }
+		let declarations = groups.get(group);
+		if (!declarations) { groups.set(group, declarations = new Set()); }
+		declarations.add(decl);
+	}
+	const edits: VbaTextEdit[] = [];
+	const removals: Span[] = [];
+	for (const [group, declarations] of groups) {
+		const remaining = group.declarations.filter((decl) => !declarations.has(decl));
+		if (remaining.length === 0) {
+			removals.push(statementRemovalSpan(source, group.span));
+		} else {
+			edits.push({ span: group.span, newText: declarationText(source, group, remaining) });
+		}
+	}
+	return mergeRemovals([...edits, ...removals.map((span) => ({ span, newText: '' }))]);
+}
+
+function declarationText(source: string, group: VariableGroupNode, declarations: readonly VariableDeclNode[]): string {
+	const first = group.declarations[0], last = group.declarations[group.declarations.length - 1];
+	return source.slice(group.span.start, first.span.start)
+		+ declarations.map((decl) => source.slice(decl.span.start, decl.span.end)).join(', ')
+		+ source.slice(last.span.end, group.span.end);
 }
 
 /** Every local and parameter the selection touches, typed by how it is used. */
@@ -188,7 +306,10 @@ function classifyLocals(source: string, procedure: ProcedureNode, block: Span): 
 
 	const out: LocalUse[] = [];
 	const names = new Set([...declarations.keys(), ...parameters.keys()]);
-	const foundByName = findIdentifierOccurrencesForNames(source, [...names]);
+	// Locals belong to this invocation; do not collect and discard matches
+	// from unrelated procedures elsewhere in a large module.
+	const foundByName = findIdentifierOccurrencesForNames(source, [...names], procedure.span);
+	const tokens = names.size > 0 ? tokenizeCached(source) : [];
 	const selected = new Map<string, {
 		occurrences: VbaIdentifierOccurrence[];
 		inside: VbaIdentifierOccurrence[];
@@ -196,8 +317,15 @@ function classifyLocals(source: string, procedure: ProcedureNode, block: Span): 
 	for (const lower of names) {
 		const declaration = declarations.get(lower);
 		const occurrences = (foundByName.get(lower) ?? [])
-			.filter((occ) => occ.offset >= procedure.span.start && occ.offset <= procedure.span.end)
-			.filter((occ) => !declaration || !within(occ.offset, declaration.group.span));
+			.filter((occ) => !declaration || !within(occ.offset, declaration.group.span))
+			.filter(occ => {
+				// A qualified member can share a local's spelling without using its
+				// binding, including members of an implicit With receiver.
+				let index = firstTokenAtOrAfter(tokens, occ.offset);
+				if (tokens[index - 1]?.end > occ.offset) { index--; }
+				const previous = tokens[index - 1]?.rawText;
+				return previous !== '.' && previous !== '!';
+			});
 		const inside = occurrences.filter((occ) => within(occ.offset, block));
 		if (inside.length > 0) { selected.set(lower, { occurrences, inside }); }
 	}
@@ -212,19 +340,37 @@ function classifyLocals(source: string, procedure: ProcedureNode, block: Span): 
 
 		out.push({
 			name: display,
+			sourceOrder: 0,
 			...(declaration ? { declaration } : {}),
-			isParameter: parameter !== undefined,
+			...(parameter ? { parameter } : {}),
 			type: declaration?.decl.asType ?? parameter?.asType ?? 'Variant',
 			readBeforeWriteInside: readsBeforeAnyWrite(inside, kinds),
 			writtenInside: inside.some((occ) => kinds.get(occ.offset) !== 'read'),
+			usedBefore: occurrences.some((occ) => occ.offset < block.start),
 			readAfter: occurrences.some(
 				(occ) => occ.offset > block.end && kinds.get(occ.offset) !== 'write',
 			),
 			isStatic: /^static$/i.test(declaration?.group.modifier ?? ''),
 		});
 	}
-	// Source order, so a generated signature reads the way the code does.
-	return out.sort((a, b) => source.indexOf(a.name) - source.indexOf(b.name));
+	if (out.length > 1) {
+		let rawOrder: Map<string, number> | undefined;
+		if (out.length >= 64) {
+			// Each declared spelling occurs by its name span. Unrelated suffix text
+			// must not make an otherwise small ordering query choose batching.
+			let searchEnd = 0;
+			for (const local of out) {
+				const span = local.declaration?.decl.nameSpan ?? parameters.get(local.name.toLowerCase())?.nameSpan;
+				searchEnd = Math.max(searchEnd, span?.end ?? source.length);
+			}
+			if (out.length * searchEnd >= 16_000_000) {
+				rawOrder = rawFirstOccurrences(source, out.map(local => local.name));
+			}
+		}
+		for (const local of out) { local.sourceOrder = rawOrder?.get(local.name) ?? source.indexOf(local.name); }
+	}
+	// Keep the original raw first-occurrence order without rescanning while sorting.
+	return out.sort((a, b) => a.sourceOrder - b.sourceOrder);
 }
 
 /**
@@ -295,4 +441,139 @@ function uniqueName(base: string, module: ModuleNode): string {
 
 function within(offset: number, span: Span): boolean {
 	return offset >= span.start && offset <= span.end;
+}
+
+/** First raw UTF-16 substring positions, including overlaps and same-position prefixes. */
+function rawFirstOccurrences(source: string, names: readonly string[]): Map<string, number> {
+	const positions = new Map(names.map(name => [name, -1]));
+	const nativeFallback = (): Map<string, number> => {
+		for (const name of names) {
+			if (positions.get(name) === -1) { positions.set(name, source.indexOf(name)); }
+		}
+		return positions;
+	};
+	const patterns = new Map<string, string>();
+	let patternLength = 0;
+	for (const name of names) {
+		const pattern = escapeForRegExp(name);
+		patternLength += pattern.length + 1;
+		// Bound dictionary allocations and retain the native path for extreme inputs.
+		if (patternLength > 65_536) { return nativeFallback(); }
+		patterns.set(name, pattern);
+	}
+	interface PrefixNode { next: Map<string, PrefixNode>; name?: string; }
+	const root: PrefixNode = { next: new Map() };
+	for (const name of names) {
+		let node = root;
+		for (let i = 0; i < name.length; i++) {
+			let next = node.next.get(name[i]);
+			if (!next) { next = { next: new Map() }; node.next.set(name[i], next); }
+			node = next;
+		}
+		node.name = name;
+	}
+	try {
+		let matcher = new RegExp([...patterns.values()].join('|'), 'g');
+		let remaining = names.length, rebuildAt = 1;
+		let match: RegExpExecArray | null;
+		while ((match = matcher.exec(source)) !== null) {
+			let node: PrefixNode | undefined = root;
+			for (let i = match.index; i < source.length; i++) {
+				node = node.next.get(source[i]);
+				if (!node) { break; }
+				if (node.name !== undefined && positions.get(node.name) === -1) {
+					positions.set(node.name, match.index); remaining--;
+				}
+			}
+			if (remaining === 0) { break; }
+			// Drop resolved short/common names without recompiling after every hit.
+			if (names.length - remaining >= rebuildAt) {
+				matcher = new RegExp(names.filter(name => positions.get(name) === -1).map(name => patterns.get(name)!).join('|'), 'g');
+				while (rebuildAt <= names.length - remaining) { rebuildAt *= 2; }
+			}
+			// One code unit preserves matches that begin inside a longer match.
+			matcher.lastIndex = match.index + 1;
+		}
+	} catch (error) {
+		if (!(error instanceof SyntaxError || error instanceof RangeError)) { throw error; }
+		return nativeFallback(); // Preserve the result if an engine rejects the dictionary.
+	}
+	return positions;
+}
+
+/** Retain array shape, suffixes, bracketed types, and module DefType inference. */
+function bindingText(source: string, parameter: ParameterNode | VariableDeclNode): string {
+	const name = parameter.nameSpan ? source.slice(parameter.nameSpan.start, parameter.nameSpan.end) : parameter.name;
+	const declared = name + (parameter.typeSuffix ?? '') + (parameter.isArray ? '()' : '');
+	if (parameter.hasAsClause) {
+		const tokens = tokenize(source.slice(parameter.span.start, parameter.span.end));
+		const as = tokens.findIndex(token => token.rawText.toLowerCase() === 'as');
+		const end = tokens.findIndex((token, index) => index > as && token.rawText === '=');
+		const type = tokens.slice(as + 1, end < 0 ? undefined : end).map(token => token.rawText).join('');
+		return `ByRef ${declared} As ${type}`;
+	}
+	return `ByRef ${declared}`;
+}
+
+/** A Function/Property Get result is owned by the original invocation. */
+function functionResultBinding(source: string, procedure: ProcedureNode, block: Span, helperName: string):
+	{ parameter: string; argument: string; edits: VbaTextEdit[] } | string | undefined {
+	if (procedure.procKind !== 'Function' && procedure.procKind !== 'PropertyGet') { return undefined; }
+	const lowerName = procedure.name.toLowerCase();
+	const selectedSource = source.slice(block.start, block.end);
+	const selected = findIdentifierOccurrencesForNames(selectedSource, [procedure.name]).get(lowerName) ?? [];
+	if (selected.length === 0) { return undefined; }
+	const kinds = classifyReferenceKinds(source, selected.map(occ => block.start + occ.offset));
+	const references = new Map<number, Span>();
+	callSitesOf(selectedSource, procedure.name, { accept: (offset, call, qualifier, span) => {
+		const absolute = block.start + offset;
+		if (!qualifier && (!call || kinds.get(absolute) === 'write' || kinds.get(absolute) === 'readwrite')) {
+			references.set(block.start + span.start, { start: block.start + span.start, end: block.start + span.end });
+		}
+		return false;
+	} });
+	const tokens = tokenizeCached(source);
+	// A bare result object can be the receiver of a member access; call-site
+	// scanning deliberately ignores receivers on its common fast path.
+	for (let i = firstTokenAtOrAfter(tokens, block.start); i < tokens.length && tokens[i].start <= block.end; i++) {
+		if (tokenName(tokens[i])?.toLowerCase() === lowerName
+			&& ['.', '!'].includes(tokens[i + 1]?.rawText ?? '') && !['.', '!'].includes(tokens[i - 1]?.rawText ?? '')
+			&& !/^(As|New|Is|AddressOf|GoTo|GoSub|Resume)$/i.test(tokens[i - 1]?.rawText ?? '')) {
+			references.set(tokens[i].start, { start: tokens[i].start, end: tokens[i].end });
+		}
+	}
+	if (references.size === 0) { return undefined; }
+	if (/\(\s*\)\s*$/.test(procedure.returnType ?? '')) {
+		return 'Extract Method cannot preserve assignment to an array-valued Function result yet.';
+	}
+	for (let i = firstTokenAtOrAfter(tokens, block.start); i < tokens.length && tokens[i].start <= block.end; i++) {
+		if (/^Exit$/i.test(tokens[i].rawText) && /^(Function|Property)$/i.test(tokens[i + 1]?.rawText ?? '')) {
+			return 'The selection exits the original procedure. Extract Method cannot move that exit into a helper.';
+		}
+	}
+	// Retain the first letter for module DefType and the declaration suffix.
+	// A separate name leaves recursive calls to the original procedure intact.
+	const names = new Set([helperName.toLowerCase()]);
+	for (const token of tokens) {
+		const name = tokenName(token);
+		if (name !== undefined) { names.add(name.toLowerCase()); }
+	}
+	const base = Array.from(procedure.name).slice(0, 120).join('') + 'Result';
+	let name = base;
+	for (let n = 2; names.has(name.toLowerCase()); n++) { name = base + n; }
+	const headerTokens = tokenize(source.slice(procedure.span.start, procedure.body[0].span.start));
+	const end = headerTokens.findIndex(token => token.kind === 'newline');
+	const header = end < 0 ? headerTokens : headerTokens.slice(0, end);
+	let depth = 0, close = -1;
+	for (let i = 0; i < header.length; i++) {
+		if (header[i].rawText === '(') { depth++; }
+		else if (header[i].rawText === ')' && --depth === 0) { close = i; break; }
+	}
+	const as = header.findIndex((token, index) => index > close && token.rawText.toLowerCase() === 'as');
+	const type = as < 0 ? '' : ' As ' + header.slice(as + 1).map(token => token.rawText).join('');
+	return {
+		parameter: 'ByRef ' + name + (procedure.typeSuffix ?? '') + type,
+		argument: procedure.nameSpan ? source.slice(procedure.nameSpan.start, procedure.nameSpan.end) : procedure.name,
+		edits: [...references.values()].map(span => ({ span: { start: span.start - block.start, end: span.end - block.start }, newText: name })),
+	};
 }

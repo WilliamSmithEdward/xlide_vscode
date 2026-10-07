@@ -2,11 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as vscodeTypes from 'vscode';
 
 vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({
-    window: { activeTextEditor: undefined, onDidChangeTextEditorSelection: vi.fn(() => ({ dispose: vi.fn() })) },
+    window: { activeTextEditor: undefined, onDidChangeTextEditorSelection: vi.fn(() => ({ dispose: vi.fn() })),
+        onDidChangeActiveTextEditor: vi.fn(() => ({ dispose: vi.fn() })) },
     workspace: { onDidCloseTextDocument: vi.fn(() => ({ dispose() {} })) },
 }));
 
 import * as vscode from 'vscode';
+import * as lexer from '../src/analyzer/lexer/tokenize';
 import { hasMemberCompletions, resolveMemberCompletions } from '../src/analyzer';
 import { VbaMemberCompletionProvider } from '../src/vbaCompletionProvider';
 import type { EditorProjectContext, VbaEditorProjectContextService } from '../src/vbaEditorProjectContext';
@@ -46,7 +48,7 @@ function deletion(line: string, options: { column?: number; prelude?: string } =
 }
 
 beforeEach(() => { vi.useFakeTimers(); vi.mocked(vscode.commands.executeCommand).mockClear(); });
-afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); });
+afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.restoreAllMocks(); });
 
 describe('member completion recovery on Backspace', () => {
     it.each(['ThisWorkbook.Sheets(1).[Ce', 'ThisWorkbook.Sheets(1).[Ce]'])(
@@ -85,18 +87,74 @@ describe('member completion recovery on Backspace', () => {
         await vi.runAllTimersAsync();
         expect(vscode.commands.executeCommand).not.toHaveBeenCalled();
     });
-    it('expires and disposes recovery if the expected caret update never arrives', async () => {
+    it('keeps recovery alive when host load delays the native caret beyond one second', async () => {
         const edit = deletion('ThisWorkbook.Sheets(1).ce');
         const expected = edit.editor.selection.active;
         edit.editor.selection.active = new vscode.Position(expected.line, expected.character + 1);
         const dispose = vi.fn();
         vi.mocked(vscode.window.onDidChangeTextEditorSelection).mockReturnValueOnce({ dispose });
         edit.send();
+        await vi.advanceTimersByTimeAsync(1500);
+        expect(dispose).not.toHaveBeenCalled();
+        expect(vscode.commands.executeCommand).not.toHaveBeenCalled();
+        edit.editor.selection.active = expected;
+        const listener = vi.mocked(vscode.window.onDidChangeTextEditorSelection).mock.calls.at(-1)![0];
+        listener({ textEditor: edit.editor } as unknown as vscodeTypes.TextEditorSelectionChangeEvent);
         await vi.runAllTimersAsync();
+        expect(vscode.commands.executeCommand).toHaveBeenCalledOnce();
+        expect(dispose).toHaveBeenCalledOnce();
+    });
+    it('preserves recovery through a dirty-state notification without text changes', async () => {
+        const edit = deletion('ThisWorkbook.Sheets(1).ce');
+        const expected = edit.editor.selection.active;
+        edit.editor.selection.active = new vscode.Position(expected.line, expected.character + 1);
+        edit.send();
+        await vi.advanceTimersByTimeAsync(1500);
+        edit.provider.handleTextDocumentChange({ ...edit.event, contentChanges: [] } as unknown as vscodeTypes.TextDocumentChangeEvent);
+        edit.editor.selection.active = expected;
+        const listener = vi.mocked(vscode.window.onDidChangeTextEditorSelection).mock.calls.at(-1)![0];
+        listener({ textEditor: edit.editor } as unknown as vscodeTypes.TextEditorSelectionChangeEvent);
+        await vi.runAllTimersAsync();
+        expect(vscode.commands.executeCommand).toHaveBeenCalledOnce();
+    });
+    it.each(['edit', 'close', 'switch', 'dispose'])('disposes delayed recovery after %s', async action => {
+        const edit = deletion('ThisWorkbook.Sheets(1).ce');
+        const expected = edit.editor.selection.active;
+        edit.editor.selection.active = new vscode.Position(expected.line, expected.character + 1);
+        const dispose = vi.fn();
+        vi.mocked(vscode.window.onDidChangeTextEditorSelection).mockReturnValueOnce({ dispose });
+        edit.send();
+        await vi.advanceTimersByTimeAsync(1500);
+        if (action === 'edit') {
+            edit.document.version++;
+            edit.provider.handleTextDocumentChange({ ...edit.event, contentChanges: [{ ...edit.event.contentChanges[0], text: 'x' }] } as unknown as vscodeTypes.TextDocumentChangeEvent);
+        }
+        if (action === 'close') { vi.mocked(vscode.workspace.onDidCloseTextDocument).mock.calls.at(-1)![0](edit.document as unknown as vscodeTypes.TextDocument); }
+        if (action === 'switch') { vi.mocked(vscode.window.onDidChangeActiveTextEditor).mock.calls.at(-1)![0](undefined); }
+        if (action === 'dispose') { edit.provider.dispose(); }
         expect(dispose).toHaveBeenCalledOnce();
         edit.editor.selection.active = expected;
         const listener = vi.mocked(vscode.window.onDidChangeTextEditorSelection).mock.calls.at(-1)![0];
         listener({ textEditor: edit.editor } as unknown as vscodeTypes.TextEditorSelectionChangeEvent);
+        await vi.runAllTimersAsync();
+        expect(vscode.commands.executeCommand).not.toHaveBeenCalled();
+        expect(dispose).toHaveBeenCalledOnce();
+    });
+    it('keeps only one selection wait across repeated native deletions', async () => {
+        const edit = deletion('ThisWorkbook.Sheets(1).ce');
+        const expected = edit.editor.selection.active;
+        edit.editor.selection.active = new vscode.Position(expected.line, expected.character + 1);
+        const disposals = Array.from({ length: 8 }, () => vi.fn());
+        for (const dispose of disposals) {
+            vi.mocked(vscode.window.onDidChangeTextEditorSelection).mockReturnValueOnce({ dispose });
+            edit.document.version++;
+            edit.send();
+        }
+        await vi.advanceTimersByTimeAsync(1500);
+        for (const dispose of disposals.slice(0, -1)) { expect(dispose).toHaveBeenCalledOnce(); }
+        expect(disposals.at(-1)).not.toHaveBeenCalled();
+        edit.provider.dispose();
+        expect(disposals.at(-1)).toHaveBeenCalledOnce();
         expect(vscode.commands.executeCommand).not.toHaveBeenCalled();
     });
     it('loads source members that extend a known Me host surface', async () => {
@@ -131,11 +189,12 @@ describe('member completion recovery on Backspace', () => {
         expect(vscode.commands.executeCommand).toHaveBeenCalledOnce();
     });
 
-    it.each(['version', 'move', 'switch'])('drops recovery superseded during project loading: %s', async action => {
+    it.each(['version', 'move', 'switch', 'dispose'])('drops recovery superseded during project loading: %s', async action => {
         const edit = deletion('obj.He', { prelude: 'Sub Demo()\nDim obj As Widget\n' });
         edit.projectContext.buildEditorProjectContext.mockImplementation(async () => {
             if (action === 'version') { edit.document.version++; }
             if (action === 'move') { edit.editor.selection.active = new vscode.Position(2, 0); }
+            if (action === 'dispose') { edit.provider.dispose(); }
             if (action === 'switch') { (vscode.window as unknown as { activeTextEditor: unknown }).activeTextEditor = undefined; }
             return { projectClassMembers: [{ name: 'Widget', kind: 'class', moduleName: 'Widget',
                 members: [{ name: 'Hello', kind: 'method', moduleName: 'Widget' }] }] };
@@ -170,7 +229,7 @@ describe('member completion recovery on Backspace', () => {
         });
         edit.send();
         await vi.runAllTimersAsync();
-        expect(vscode.commands.executeCommand).toHaveBeenCalledWith('editor.action.triggerSuggest');
+        expect(vscode.commands.executeCommand).toHaveBeenCalledWith('editor.action.triggerSuggest', { auto: true });
     });
     it('does not build full module/project contexts just to reopen host members', async () => {
         const edit = deletion('ThisWorkbook.Sheets(1).ce');
@@ -194,7 +253,7 @@ describe('member completion recovery on Backspace', () => {
         expect(vscode.commands.executeCommand).not.toHaveBeenCalled();
         edit.editor.selection.active = caret;
         await vi.runAllTimersAsync();
-        expect(vscode.commands.executeCommand).toHaveBeenCalledWith('editor.action.triggerSuggest');
+        expect(vscode.commands.executeCommand).toHaveBeenCalledWith('editor.action.triggerSuggest', { auto: true });
     });
 
     it.each([
@@ -249,4 +308,26 @@ describe('member completion recovery on Backspace', () => {
         expect(vscode.commands.executeCommand).not.toHaveBeenCalled();
         expect(edit.projectContext.localEditorProjectContext).not.toHaveBeenCalled();
     });
+});
+
+it('bounds cursor work before rejecting recovery in a continued comment of a large module', async () => {
+    const prelude = Array.from({ length: 1200 }, (_, i) =>
+        'Sub RecoveryPadding' + i + '()\nDebug.Print ' + i + '\nEnd Sub\n').join('') +
+        "Sub Probe()\n' continued comment _\n";
+    const line = 'ThisWorkbook.Sheets(1).ce';
+    const edit = deletion(line, { prelude });
+    const tokens = lexer.tokenizeCached(prelude + line + '\nEnd Sub');
+    let reads = 0;
+    vi.spyOn(lexer, 'tokenizeCached').mockReturnValue(new Proxy(tokens, {
+        get(target, property, receiver) {
+            if (typeof property === 'string' && /^\d+$/.test(property)) { reads++; }
+            return Reflect.get(target, property, receiver);
+        },
+    }));
+    edit.send();
+    await vi.runAllTimersAsync();
+    expect(reads).toBeLessThan(100);
+    expect(vscode.commands.executeCommand).not.toHaveBeenCalled();
+    expect(edit.projectContext.cachedEditorProjectContext).not.toHaveBeenCalled();
+    expect(edit.projectContext.cheapEditorProjectContext).not.toHaveBeenCalled();
 });

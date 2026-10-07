@@ -33,6 +33,7 @@
 
 import * as vscode from 'vscode';
 import { debounce } from './util/debounce';
+import { moduleIdentityKey, sameProjectPath } from './projectIdentity';
 import type { VbaCaretPosition } from './vbaCaretProcedure';
 import type { XlideNode } from './projectExplorer';
 
@@ -85,6 +86,7 @@ type FollowState = 'pending' | 'landed' | 'userLed';
 
 export class ExplorerFollow implements vscode.Disposable {
     private _generation = 0;
+    private _disposed = false;
     private _queue: Promise<void> = Promise.resolve();
     /** Rows a reveal of ours expands or selects: identity to when that stops being ours. */
     private readonly _ours = new Map<string, number>();
@@ -106,8 +108,11 @@ export class ExplorerFollow implements vscode.Disposable {
                     this.schedule();
                 }
             }),
-            explorer.onDidReplaceRows(() => {
-                if (this._state === 'pending') {
+            explorer.onDidReplaceRows((location) => {
+                const position = caret.current;
+                if (this._state === 'pending' && position && (!location
+                    || (sameProjectPath(location.filePath, position.projectPath)
+                        && moduleIdentityKey(location.moduleName) === moduleIdentityKey(position.moduleName)))) {
                     this.schedule();
                 }
             }),
@@ -136,8 +141,8 @@ export class ExplorerFollow implements vscode.Disposable {
                     return;
                 }
                 if (event.element.kind === 'module' && event.element.moduleName) {
+                    this._takeTreeControl();
                     explorer.setActiveModule(event.element.filePath, event.element.moduleName);
-                    this._state = 'userLed';
                 }
                 explorer.notifyFolderExpansion(event.element, true);
             }),
@@ -147,6 +152,12 @@ export class ExplorerFollow implements vscode.Disposable {
                 // spring it open again because it holds the active module.
                 if (event.element.kind === 'project') {
                     explorer.notifyProjectCollapsed(event.element.filePath);
+                    const position = caret.current;
+                    if (_deps.enabled() && position && sameProjectPath(event.element.filePath, position.projectPath)) {
+                        // A fold of the editor's own project takes control even
+                        // during reveal's grace period; pending follow must not undo it.
+                        this._takeTreeControl();
+                    }
                 }
                 if (_deps.enabled()) {
                     explorer.notifyFolderExpansion(event.element, false);
@@ -156,12 +167,15 @@ export class ExplorerFollow implements vscode.Disposable {
                 // Nothing open at all is the last editor closing, not focus
                 // moving to a panel: no module is being edited, so the folder
                 // layout goes back to its resting shape.
-                if (!editor && vscode.window.visibleTextEditors.length === 0 && _deps.enabled()) {
+                if (!editor && vscode.window.visibleTextEditors.length === 0
+                    && vscode.window.tabGroups.all.every((group) => group.tabs.length === 0) && _deps.enabled()) {
                     explorer.collapseAllFolders();
                 }
             }),
             vscode.window.tabGroups.onDidChangeTabs((event) => {
-                if (!_deps.enabled() || !_deps.modulesClosedBy) {
+                // Active-state and opening changes cannot close a module; do
+                // not enumerate all open tabs to prove that on every switch.
+                if (event.closed.length === 0 || !_deps.enabled() || !_deps.modulesClosedBy) {
                     return;
                 }
                 const closed = _deps.modulesClosedBy(event);
@@ -182,6 +196,7 @@ export class ExplorerFollow implements vscode.Disposable {
 
     /** Asks for a pass; any pass already asked for, or running, is overtaken. */
     schedule(): void {
+        if (this._disposed || !this._deps.enabled()) { return; }
         this._state = 'pending';
         this._generation += 1;
         this._run();
@@ -202,8 +217,15 @@ export class ExplorerFollow implements vscode.Disposable {
                 this._state = 'landed';
             }
         } else if (!this._isOurs(selection[0])) {
-            this._state = 'userLed';
+            this._takeTreeControl();
         }
+    }
+
+    /** A user's tree choice overtakes work already queued or loading rows. */
+    private _takeTreeControl(): void {
+        this._state = 'userLed';
+        this._generation += 1;
+        this._run.cancel();
     }
 
     /**
@@ -212,9 +234,9 @@ export class ExplorerFollow implements vscode.Disposable {
      * on a module the editor has left.
      */
     private async _pass(generation: number): Promise<void> {
-        const stale = (): boolean => generation !== this._generation;
-        const { explorer, treeView, caret, enabled } = this._deps;
-        if (stale() || !enabled()) {
+        const stale = (): boolean => this._disposed || !this._deps.enabled() || generation !== this._generation;
+        const { explorer, treeView, caret } = this._deps;
+        if (stale()) {
             return;
         }
         const position = caret.current;
@@ -311,6 +333,9 @@ export class ExplorerFollow implements vscode.Disposable {
     }
 
     dispose(): void {
+        if (this._disposed) { return; }
+        this._disposed = true;
+        this._generation += 1;
         this._run.dispose();
         for (const disposable of this._disposables) {
             disposable.dispose();

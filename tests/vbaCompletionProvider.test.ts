@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as vscodeTypes from 'vscode';
 
 vi.mock('vscode', async () => {
@@ -25,6 +25,9 @@ vi.mock('../src/analyzer/call/callContext', async () => {
 });
 
 import * as vscode from 'vscode';
+import { projectOptions } from './diagnostics/helpers';
+import * as lexer from '../src/analyzer/lexer/tokenize';
+import * as identifiers from '../src/analyzer/completion/identifierCompletion';
 import { VbaMemberCompletionProvider } from '../src/vbaCompletionProvider';
 import { callableCompletionShouldInsertParens } from '../src/analyzer/call/callContext';
 import { getWordObjectModel } from '../src/analyzer/host/wordObjectModel';
@@ -42,12 +45,13 @@ function prepareRequest(line: string, context: EditorProjectContext = {}, column
     };
     const projectContext = {
         cachedEditorProjectContext: vi.fn(() => context),
+        readyEditorProjectContext: vi.fn<() => EditorProjectContext | undefined>(() => undefined),
         localEditorProjectContext: vi.fn(() => context),
         warmEditorProjectContext: vi.fn(),
         buildEditorProjectContextWithin: vi.fn(async () => context),
     };
     const provider = new VbaMemberCompletionProvider(projectContext as unknown as VbaEditorProjectContextService);
-    return { projectContext, run: () => provider.provideCompletionItems(document as unknown as vscodeTypes.TextDocument, new vscode.Position(lineIndex, column)) };
+    return { projectContext, run: (trigger?: string) => provider.provideCompletionItems(document as unknown as vscodeTypes.TextDocument, new vscode.Position(lineIndex, column), undefined, trigger ? {triggerKind: vscode.CompletionTriggerKind.TriggerCharacter, triggerCharacter: trigger} : undefined) };
 }
 
 function request(line: string, context: EditorProjectContext = {}, column = line.length, prelude = 'Sub Demo()\n') {
@@ -55,37 +59,33 @@ function request(line: string, context: EditorProjectContext = {}, column = line
 }
 
 beforeEach(() => { vi.mocked(callableCompletionShouldInsertParens).mockClear(); });
+afterEach(() => vi.restoreAllMocks());
 
 describe('completion provider surface', () => {
-    it('qualifies shadowed color constants and retains local variable suggestions', async () => {
-        const result = await request('ActiveCell.Interior.Color = ', {}, undefined, 'Sub T()\nDim vbRed As Long\n');
-        const red = result.items.filter(item => item.label === 'vbRed');
-        expect(red).toHaveLength(2);
-        expect(red.find(item => item.sortText === '0:vbRed')?.insertText).toBe('ColorConstants.vbRed');
+    it('prioritizes assignment values while retaining ordinary variables', async () => {
+        const result = await request('ActiveCell.HorizontalAlignment = ', {}, undefined, 'Sub Demo()\nDim chosen As XlHAlign\n');
+        expect(result.items.map(item => item.label)).toContain('chosen');
+        expect(result.items.find(item => item.label === 'xlHAlignLeft')?.sortText).toMatch(/^0:/);
     });
-    it('inserts a qualified RGB call when the runtime name is shadowed', async () => {
-        const result = await request('ActiveCell.Interior.Color = ', {}, undefined, 'Sub T()\nDim RGB As Long\n');
-        expect(result.items.find(item => item.label === 'RGB color')?.insertText).toBe('VBA.RGB(0, 0, 0)');
-        expect(result.items.filter(item => item.label === 'RGB')).toHaveLength(1);
+    it.each(['Dim xlHAlignLeft As Long', 'Const xlHAlignLeft = 123'])('qualifies the enum constant shadowed by %s', async declaration => {
+        const result = await request('ActiveCell.HorizontalAlignment = xlH', {}, undefined, `${declaration}\nSub Demo()\n`);
+        expect(result.items.find(item => item.label === 'xlHAlignLeft')?.insertText).toBe('Excel.XlHAlign.xlHAlignLeft');
+        expect(result.items.filter(item => item.label === 'xlHAlignLeft')).toHaveLength(2);
     });
-    it('retains shadowing local color constants alongside qualified runtime values', async () => {
-        const result = await request('ActiveCell.Interior.Color = ', {}, undefined, 'Sub T()\nConst vbRed = 123\n');
-        const red = result.items.filter(item => item.label === 'vbRed');
-        expect(red).toHaveLength(2);
-        expect(red.find(item => item.sortText === '0:vbRed')?.insertText).toBe('ColorConstants.vbRed');
+    it('does not let a source enum replace a same-named host constant', async () => {
+        const prelude = 'Enum XlHAlign\nxlHAlignLeft = 123\nEnd Enum\nSub Demo()\n';
+        const result = await request('ActiveCell.HorizontalAlignment = xlH', {}, undefined, prelude);
+        expect(result.items.find(item => item.label === 'xlHAlignLeft')?.insertText).toBe('Excel.XlHAlign.xlHAlignLeft');
+        expect(result.items.filter(item => item.label === 'xlHAlignLeft')).toHaveLength(2);
     });
-    it('prioritizes enum values in assignment completion without duplicates', async () => {
-        const result = await request('ActiveCell.HorizontalAlignment = ');
-        const items = result.items.filter(item => item.label === 'xlHAlignCenter');
-        expect(items).toHaveLength(1);
-        expect(items[0].sortText).toBe('0:xlHAlignCenter');
+    it.each(['If x =', 'Debug.Print x =', "' x =", 'Set item ='])('rejects automatic equals without project loading: %s', async line => {
+        const prepared = prepareRequest(line);
+        expect((await prepared.run('=')).items).toEqual([]);
+        expect(prepared.projectContext.cachedEditorProjectContext).not.toHaveBeenCalled();
+        expect(prepared.projectContext.localEditorProjectContext).not.toHaveBeenCalled();
     });
-    it('offers a color literal to start using the native picker', async () => {
-        const result = await request('ThisWorkbook.Sheets(1).Cells(1).Interior.Color = ');
-        const rgb = result.items.filter(item => item.label === 'RGB');
-        expect(rgb).toHaveLength(1);
-        expect(rgb[0].insertText).toBe('RGB(0, 0, 0)');
-        expect(result.items.filter(item => item.label === 'vbRed')).toHaveLength(1);
+    it.each(['=', ' '])('keeps an unknown property quiet on %s', async trigger => {
+        expect((await prepareRequest('ActiveCell.Value = ').run(trigger)).items).toEqual([]);
     });
     it('skips project lookups for ordinary comments while preserving directive suggestions', async () => {
         const plain = prepareRequest("' ordinary comment");
@@ -168,6 +168,23 @@ describe('completion provider surface', () => {
         expect(item?.range).toEqual(new vscode.Range(1, 8, 1, 12));
         expect(typeof item?.insertText === 'string' ? item.insertText : item?.insertText?.value).toBe('Left$($0)');
     });
+    it.each(['Err', 'Debug', 'UserForms'])('inserts the runtime object %s without call parentheses', async name => {
+        const line = `Set obj = ${name.slice(0, -1)}`;
+        const result = await request(line);
+        const item = result.items.find(item => item.label === name);
+        expect(item).toBeDefined();
+        expect(item?.insertText).toBe(name);
+        if (name !== 'Err') { expect(callableCompletionShouldInsertParens).not.toHaveBeenCalled(); }
+    });
+    it.each([
+        ['Set obj = Uni', 'Union', 'Union($0)'],
+        ['Call Uni', 'Union', 'Union($0)'],
+        ['Uni', 'Union', 'Union'],
+    ])('preserves callable host globals for %s', async (line, name, expected) => {
+        const item = (await request(line)).items.find(item => item.label === name);
+        expect(item).toBeDefined();
+        expect(typeof item?.insertText === 'string' ? item.insertText : item?.insertText?.value).toBe(expected);
+    });
     it('skips callable classification for a property-only list', async () => {
         const result = await request('ThisWorkbook.Sheets(1).ce');
         expect(result.items.map(item => item.label)).toContain('Cells');
@@ -178,4 +195,99 @@ describe('completion provider surface', () => {
         expect(result.items.length).toBeGreaterThan(100);
         expect(callableCompletionShouldInsertParens).toHaveBeenCalledTimes(1);
     });
+});
+
+
+describe('ordinary string completion work', () => {
+    it.each(['value = "ordinary', 'obj.Caption = "ordinary', 'obj.Configure caption:="ordinary', 'Application.Run "Main.Go"'])('skips project context work at %s', async line => {
+        const request = prepareRequest(line);
+        expect((await request.run()).items).toEqual([]);
+        expect(request.projectContext.cachedEditorProjectContext).not.toHaveBeenCalled();
+        expect(request.projectContext.localEditorProjectContext).not.toHaveBeenCalled();
+        expect(request.projectContext.warmEditorProjectContext).not.toHaveBeenCalled();
+    });
+});
+
+describe('completion provider cursor work', () => {
+    it.each(["' ordinary comment", 'value = "ordinary', 'Application.Run "Main.Go"'])(
+        'does not copy preceding procedures to classify %s', async line => {
+            const prelude = Array.from({ length: 1200 }, (_, i) =>
+                'Sub Padding' + i + '()\nDebug.Print ' + i + '\nEnd Sub\n').join('') + 'Sub Probe()\n';
+            const prepared = prepareRequest(line, {}, line.length, prelude);
+            const tokens = lexer.tokenizeCached(prelude + line + '\nEnd Sub');
+            let reads = 0;
+            vi.spyOn(lexer, 'tokenizeCached').mockReturnValue(new Proxy(tokens, {
+                get(target, property, receiver) {
+                    if (typeof property === 'string' && /^\d+$/.test(property)) { reads++; }
+                    return Reflect.get(target, property, receiver);
+                },
+            }));
+            expect((await prepared.run()).items).toEqual([]);
+            expect(reads).toBeLessThan(100);
+            expect(prepared.projectContext.cachedEditorProjectContext).not.toHaveBeenCalled();
+            expect(prepared.projectContext.localEditorProjectContext).not.toHaveBeenCalled();
+        });
+
+    it('preserves comment continuations when the caret is on the following physical line', async () => {
+        const prepared = prepareRequest('ThisWorkbook.Sheets(1).ce', {}, undefined,
+            "Sub Probe()\n' continued note _\n");
+        expect((await prepared.run()).items).toEqual([]);
+        expect(prepared.projectContext.cachedEditorProjectContext).not.toHaveBeenCalled();
+    });
+});
+
+it('serves exported assignment values from the loaded index while a background loader cannot finish', async () => {
+ const source = 'Sub Demo()\nSnapshot.Flag =\nEnd Sub';
+ const options = projectOptions([{ moduleName: 'Caller', source }, { moduleName: 'Types', source: 'Public Type Record\nFlag As Boolean\nEnd Type\nPublic Property Get Snapshot() As Record\nEnd Property' }], 'Caller');
+ const ready = { projectClassMembers: options.projectClassMembers, projectSymbols: options.projectVisibleSymbols };
+ const prepared = prepareRequest('Snapshot.Flag =', ready);
+ prepared.projectContext.cachedEditorProjectContext.mockReturnValue(undefined as never);
+ prepared.projectContext.readyEditorProjectContext.mockReturnValue(ready);
+ prepared.projectContext.buildEditorProjectContextWithin.mockImplementation(() => new Promise(() => {}));
+ expect((await prepared.run('=')).items.slice(0, 2).map(item => item.label)).toEqual(['True', 'False']);
+ expect(prepared.projectContext.localEditorProjectContext).not.toHaveBeenCalled();
+ expect(prepared.projectContext.warmEditorProjectContext).not.toHaveBeenCalled();
+ expect(prepared.projectContext.buildEditorProjectContextWithin).not.toHaveBeenCalled();
+});
+it('serves local assignment values immediately when the project is cold and its loader cannot finish', async () => {
+ const prepared = prepareRequest('flag =', {}, undefined, 'Sub Demo()\nDim flag As Boolean\n');
+ prepared.projectContext.cachedEditorProjectContext.mockReturnValue(undefined as never);
+ prepared.projectContext.buildEditorProjectContextWithin.mockImplementation(() => new Promise(() => {}));
+ expect((await prepared.run('=')).items.slice(0, 2).map(item => item.label)).toEqual(['True', 'False']);
+ expect(prepared.projectContext.buildEditorProjectContextWithin).not.toHaveBeenCalled();
+});
+
+it('avoids a shadowed library name when inserting a host enum constant',async()=>{
+ const result=await request('sh.Visible = msoT',{},undefined,'Sub Demo(ByVal sh As Shape)\nDim Office As Long\nDim msoTrue As Long\n');
+ expect(result.items.find(item=>item.label==='msoTrue')?.insertText).toBe('MsoTriState.msoTrue');
+});
+
+it('keeps the ordinary binding when every enum qualifier is shadowed',async()=>{
+ const result=await request('sh.Visible = msoT',{},undefined,'Sub Demo(ByVal sh As Shape)\nDim Office As Long\nDim MsoTriState As Long\nDim msoTrue As Long\n');
+ const items=result.items.filter(item=>item.label==='msoTrue');
+ expect(items).toHaveLength(1);
+ expect(items[0]?.sortText ?? '').not.toMatch(/^0:/);
+});
+
+it('uses the setter enum owner when another module has the same enum and member names',async()=>{
+ const prelude='Private Enum Direction\nNorth = 123\nEnd Enum\nSub Demo()\n';
+ const source=prelude+'Types.State = Nor\nEnd Sub';
+ const options=projectOptions([{moduleName:'Caller',source},{moduleName:'Types',source:'Public Enum Direction\nNorth = 1\nEnd Enum\nPublic Property Let State(ByVal value As Direction)\nEnd Property'}],'Caller');
+ const result=await request('Types.State = Nor',{moduleName:'Caller',projectClassMembers:options.projectClassMembers,projectSymbols:options.projectVisibleSymbols},undefined,prelude);
+ const choices=result.items.filter(item=>item.label==='North');
+ expect(choices[0]?.insertText).toBe('Types.Direction.North');
+ expect(choices).toHaveLength(2);
+});
+
+it('does not build an unfiltered binding list for ordinary enum values',async()=>{
+ const resolve=vi.spyOn(identifiers,'resolveIdentifierCompletions');
+ await request('sh.Visible = mso',{},undefined,'Sub Demo(ByVal sh As Shape)\n');
+ expect(resolve).toHaveBeenCalledTimes(1);
+});
+it('reuses the unfiltered binding list across shadowed enum constants',async()=>{
+ const resolve=vi.spyOn(identifiers,'resolveIdentifierCompletions');
+ const result=await request('sh.Visible = mso',{},undefined,'Sub Demo(ByVal sh As Shape)\nDim Office As Long\nDim msoTrue As Long\nDim msoFalse As Long\n');
+ expect(result.items.find(item=>item.label==='msoTrue')?.insertText).toBe('MsoTriState.msoTrue');
+ expect(result.items.find(item=>item.label==='msoFalse')?.insertText).toBe('MsoTriState.msoFalse');
+ expect(resolve).toHaveBeenCalledTimes(2);
 });

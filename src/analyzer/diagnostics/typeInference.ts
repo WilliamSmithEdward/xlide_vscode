@@ -44,6 +44,7 @@ import type { ConditionalActivityTracker } from '../conditional/conditionalCompi
 import type { buildModuleSymbols } from '../symbols/buildModuleSymbols';
 import type {
 	VbaProcedureSignature,
+	VbaProcedureParam,
 	VbaProjectClassMembers,
 	VbaSymbol,
 } from '../symbols/symbolModel';
@@ -308,6 +309,7 @@ function perProcedureCache<V>(
  * yields the module entries the overlay does not shadow, then the overlay.
  */
 class LayeredMap<V> implements ReadonlyMap<string, V> {
+	private cachedSize: number | undefined;
 	constructor(
 		private readonly base: ReadonlyMap<string, V>,
 		private readonly overlay: ReadonlyMap<string, V>,
@@ -323,6 +325,8 @@ class LayeredMap<V> implements ReadonlyMap<string, V> {
 	}
 
 	get size(): number {
+		// These views retain immutable module and procedure snapshots.
+		if (this.cachedSize !== undefined) { return this.cachedSize; }
 		let shadowed = 0;
 		for (const key of this.overlay.keys()) {
 			if (this.base.has(key)) {
@@ -332,7 +336,7 @@ class LayeredMap<V> implements ReadonlyMap<string, V> {
 		for (const key of this.hidden ?? []) {
 			if (!this.overlay.has(key) && this.base.has(key)) { shadowed++; }
 		}
-		return this.base.size + this.overlay.size - shadowed;
+		return this.cachedSize = this.base.size + this.overlay.size - shadowed;
 	}
 
 	*entries(): MapIterator<[string, V]> {
@@ -367,8 +371,11 @@ class LayeredMap<V> implements ReadonlyMap<string, V> {
 	}
 }
 
-/** The set counterpart of {@link LayeredMap}: a procedure's names over the module's. */
-class LayeredSet implements ReadonlySet<string> {
+/**
+ * The membership counterpart of {@link LayeredMap}: a procedure's names over
+ * the module's. Callers only ask `has`, so that is all it provides.
+ */
+class LayeredSet {
 	constructor(
 		private readonly base: ReadonlySet<string> | ReadonlyMap<string, unknown>,
 		private readonly overlay: ReadonlySet<string>,
@@ -376,45 +383,6 @@ class LayeredSet implements ReadonlySet<string> {
 
 	has(key: string): boolean {
 		return this.overlay.has(key) || this.base.has(key);
-	}
-
-	get size(): number {
-		let shadowed = 0;
-		for (const key of this.overlay) {
-			if (this.base.has(key)) {
-				shadowed++;
-			}
-		}
-		return this.base.size + this.overlay.size - shadowed;
-	}
-
-	*keys(): SetIterator<string> {
-		for (const key of this.base.keys()) {
-			if (!this.overlay.has(key)) {
-				yield key;
-			}
-		}
-		yield* this.overlay;
-	}
-
-	values(): SetIterator<string> {
-		return this.keys();
-	}
-
-	*entries(): SetIterator<[string, string]> {
-		for (const key of this.keys()) {
-			yield [key, key];
-		}
-	}
-
-	forEach(callback: (value: string, key: string, set: ReadonlySet<string>) => void, thisArg?: unknown): void {
-		for (const key of this.keys()) {
-			callback.call(thisArg, key, key, this);
-		}
-	}
-
-	[Symbol.iterator](): SetIterator<string> {
-		return this.keys();
 	}
 }
 
@@ -451,6 +419,17 @@ export function defTypeOf(symbols: ReturnType<typeof buildModuleSymbols>, name: 
 	return type === 'Variant' || type === 'Decimal' ? undefined : type;
 }
 
+/** Resolve an implicit value type only in the module that owns its declaration. */
+function effectiveDeclaredValueType(symbols: ReturnType<typeof buildModuleSymbols>, symbol: VbaSymbol): string | undefined {
+	if (symbol.asType || symbol.paramArray || symbol.moduleName.toLowerCase() !== symbols.moduleName.toLowerCase()) {
+		return symbol.asType;
+	}
+	return symbol.kind === 'localVariable' || symbol.kind === 'parameter' || symbol.kind === 'moduleVariable'
+		|| symbol.kind === 'function' || symbol.kind === 'propertyGet'
+		? defTypeOf(symbols, symbol.name)
+		: undefined;
+}
+
 export function typeEnvironmentFor(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	proc: ProcedureNode,
@@ -468,7 +447,7 @@ export function typeEnvironmentFor(
 		own.set(proc.name.toLowerCase(), returnType);
 	}
 	for (const child of procSym?.children ?? []) {
-		const type = child.asType ?? (child.kind === 'localVariable' || child.kind === 'parameter' ? defTypeOf(symbols, child.name) : undefined);
+		const type = effectiveDeclaredValueType(symbols, child);
 		if (type) {
 			own.set(child.name.toLowerCase(), type);
 		}
@@ -511,7 +490,7 @@ function declarationShapeModuleBase(
 	for (const sym of symbols.root.children ?? []) {
 		if (isValueDeclarationSymbol(sym)) {
 			base.set(sym.name.toLowerCase(), {
-				asType: sym.asType,
+				asType: effectiveDeclaredValueType(symbols, sym),
 				isArray: sym.isArray === true,
 				isFixedArray: sym.arrayBounds !== undefined,
 			});
@@ -532,7 +511,8 @@ export function declarationShapeEnvironmentFor(
 	}
 	const own = new Map<string, DeclaredValueShape>();
 	const procSym = procedureSymbolFor(symbols, proc);
-	const returnType = returnAssignmentTypeFor(proc);
+	const returnType = returnAssignmentTypeFor(proc)
+		?? ((proc.procKind === 'Function' || proc.procKind === 'PropertyGet') && !proc.typeSuffix ? defTypeOf(symbols, proc.name) : undefined);
 	if (returnType) {
 		own.set(proc.name.toLowerCase(), {
 			asType: returnType,
@@ -543,7 +523,7 @@ export function declarationShapeEnvironmentFor(
 	for (const child of procSym?.children ?? []) {
 		if (isValueDeclarationSymbol(child)) {
 			own.set(child.name.toLowerCase(), {
-				asType: child.asType,
+				asType: effectiveDeclaredValueType(symbols, child),
 				isArray: child.isArray === true,
 				isFixedArray: child.arrayBounds !== undefined,
 			});
@@ -579,7 +559,7 @@ export function constantStringValue(symbol: VbaSymbol): string | undefined {
 	if (symbol.kind !== 'constant' || symbol.defaultRaw === undefined) {
 		return undefined;
 	}
-	const toks = rawExpressionTokens(symbol.defaultRaw).filter((tok) => tok.kind !== 'comment');
+	const toks = rawExpressionTokens(symbol.defaultRaw);
 	return toks.length === 1 && toks[0].kind === 'stringLiteral' ? stringLiteralValue(toks[0].rawText) : undefined;
 }
 
@@ -640,8 +620,8 @@ export function declaredTypeForSourceBinding(
 	if (binding.scope === 'unresolved' || binding.scope === 'ambiguous') {
 		return { resolved: binding.scope === 'ambiguous' };
 	}
-	const typed = binding.definitions.find((definition) => definition.asType);
-	return { resolved: true, asType: typed?.asType };
+	const typed = binding.definitions.find((definition) => effectiveDeclaredValueType(symbols, definition));
+	return { resolved: true, asType: typed ? effectiveDeclaredValueType(symbols, typed) : undefined };
 }
 
 export function declaredValueTypeForSourceBinding(
@@ -664,10 +644,10 @@ export function declaredValueTypeForSourceBinding(
 	if (valueDefinitions.length === 0) {
 		return { resolved: false };
 	}
-	const typed = valueDefinitions.find((definition) => definition.asType);
+	const typed = valueDefinitions.find((definition) => effectiveDeclaredValueType(symbols, definition));
 	const chosen = typed ?? valueDefinitions[0];
 	const stringValue = valueDefinitions.length === 1 ? constantStringValue(chosen) : undefined;
-	return { resolved: true, asType: typed?.asType, kind: chosen.kind, isArray: chosen.isArray === true, ...(stringValue !== undefined ? { stringValue } : {}) };
+	return { resolved: true, asType: effectiveDeclaredValueType(symbols, chosen), kind: chosen.kind, isArray: chosen.isArray === true, ...(stringValue !== undefined ? { stringValue } : {}) };
 }
 
 export function declaredValueTypeForQualifiedSourceBinding(
@@ -697,8 +677,8 @@ export function declaredValueTypeForQualifiedSourceBinding(
 	if (matchingValues.length === 0) {
 		return { resolved: true };
 	}
-	const typed = matchingValues.find((definition) => definition.asType);
-	return { resolved: true, asType: typed?.asType };
+	const typed = matchingValues.find((definition) => effectiveDeclaredValueType(symbols, definition));
+	return { resolved: true, asType: typed ? effectiveDeclaredValueType(symbols, typed) : undefined };
 }
 
 /**
@@ -766,12 +746,12 @@ export function declaredShapeForSourceBinding(
 		return { resolved: binding.scope === 'ambiguous' };
 	}
 	const shaped = binding.definitions.find(
-		(definition) => definition.asType || definition.isArray === true,
+		(definition) => effectiveDeclaredValueType(symbols, definition) || definition.isArray === true,
 	);
 	return {
 		resolved: true,
 		shape: {
-			asType: shaped?.asType,
+			asType: shaped ? effectiveDeclaredValueType(symbols, shaped) : undefined,
 			isArray: shaped?.isArray === true,
 			isFixedArray: shaped?.arrayBounds !== undefined,
 		},
@@ -783,7 +763,7 @@ export interface SourceNameScope {
 	 * Non-callable names visible at the current expression/call site. These block
 	 * bare callable resolution before same-module, project, or runtime signatures.
 	 */
-	callableShadows: ReadonlySet<string>;
+	callableShadows: { has(lowerName: string): boolean };
 	/**
 	 * Any source-backed identifier visible in the current procedure. These block
 	 * runtime fallback once source/project callable signatures have not resolved.
@@ -1175,8 +1155,27 @@ export function parenthesizedCallNameAt(
 }
 
 export interface BoundMemberCall {
+	/** Parameter contracts originate from source declarations. */
+	sourceParameters?: boolean;
 	call: CallArguments;
 	signature: CallableTypeSignature;
+}
+
+// Source parameter arrays are immutable contributions; a declaration edit
+// supplies a new identity. Preserve passing/default types without reparsing
+// the display label, and reuse conversion across statements and rule walks.
+const SOURCE_MEMBER_PARAMS = new WeakMap<readonly VbaProcedureParam[], CallableParamType[]>();
+function memberCallableSignature(member: MemberCompletion): CallableTypeSignature {
+	const kind = member.kind === 'method' ? (member.sub ? 'sub' : 'function') : 'propertyGet';
+	const source = member.procedureParams?.[kind];
+	if (!source) { return parseRuntimeDisplaySignature(member.name, member.signature!); }
+	let params = SOURCE_MEMBER_PARAMS.get(source);
+	if (!params) {
+		params = source.map(param => ({name:stripHeaderBrackets(param.name),type:param.type,
+			optional:Boolean(param.optional),paramArray:Boolean(param.paramArray),isArray:param.isArray,byRef:isByRefProcedureParam(param)}));
+		SOURCE_MEMBER_PARAMS.set(source,params);
+	}
+	return {name:member.name,params,returnType:member.returns ?? member.declaredType,valued:kind !== 'sub'};
 }
 
 export function memberExpressionCalls(
@@ -1217,7 +1216,7 @@ export function memberExpressionCalls(
 		) {
 			continue;
 		}
-		const parsed = parseRuntimeDisplaySignature(member.name, member.signature);
+		const parsed = memberCallableSignature(member);
 		if (isPropertyResultIndexing(member, parsed, inner)) {
 			continue;
 		}
@@ -1227,10 +1226,16 @@ export function memberExpressionCalls(
 			? { ...parsed, valued: true, returnType: member.returns ?? parsed.returnType }
 			: parsed;
 		const split = inner.length === 0 ? emptyArgSplit() : splitArgSlots(inner, span.start);
+		const copiedArgument = member.kind === 'method' && tokenText(toks[0]) !== 'call'
+			&& close === toks.length - 1
+			&& isMemberStatementChainThrough(toks,firstExecutableTokenIndex(toks),i);
 		out.push({
+			...(member.procedureParams ? {sourceParameters:true} : {}),
 			signature,
 			call: {
 				name: member.name,
+				...(member.procedureParams ? {qualifier:member.owner} : {}),
+				...(copiedArgument ? {argumentsParenthesized:true} : {}),
 				nameSpan: { start: callSpan.start, end: span.start + toks[i].end },
 				slots: split.slots,
 				slotSpans: split.spans,
@@ -1290,9 +1295,11 @@ export function memberStatementCalls(
 		const argToks = toks.slice(i + 1);
 		const split = argToks.length === 0 ? emptyArgSplit() : splitArgSlots(argToks, span.start);
 		out.push({
-			signature: parseRuntimeDisplaySignature(member.name, member.signature),
+			...(member.procedureParams ? {sourceParameters:true} : {}),
+			signature: memberCallableSignature(member),
 			call: {
 				name: member.name,
+				...(member.procedureParams ? {qualifier:member.owner} : {}),
 				nameSpan: { start: span.start + toks[i].start, end: span.start + toks[i].end },
 				explicitCall,
 				slots: split.slots,
@@ -1379,6 +1386,13 @@ export function isMemberParenlessArgumentStart(tok: VbaToken): boolean {
 	return tok.rawText === ',' || tok.rawText === '+' || tok.rawText === '-';
 }
 
+export interface ArgumentObjectQueries {
+	resolveType: ReturnType<typeof createObjectAssignmentTypeResolver>;
+	shareInterfaces: ReturnType<typeof createProjectInterfaceSharingLookup>;
+	implementsType: ReturnType<typeof createObjectTypeImplementationLookup>;
+	needsIndex?: ReturnType<typeof createObjectDefaultQueries>['needsIndex'];
+}
+
 export function validateArgumentTypes(
 	call: CallArguments,
 	env: ReadonlyMap<string, string>,
@@ -1392,6 +1406,7 @@ export function validateArgumentTypes(
 	heldClassOf?: (lower: string) => string | undefined,
 	heldNull?: (lower: string) => boolean,
 	heldNumber?: (lower: string) => number | string | undefined,
+	objectQueries?: ArgumentObjectQueries,
 ): void {
 	const sig = callableSignatureForCall(call, moduleSignatures, sourceNames);
 	if (!sig || sig.params.length === 0) {
@@ -1411,6 +1426,7 @@ export function validateArgumentTypes(
 		heldClassOf,
 		heldNull,
 		heldNumber,
+		objectQueries,
 	);
 }
 
@@ -1428,6 +1444,7 @@ export function validateArgumentTypesForSignature(
 	heldClassOf?: (lower: string) => string | undefined,
 	heldNull?: (lower: string) => boolean,
 	heldNumber?: (lower: string) => number | string | undefined,
+	objectQueries?: ArgumentObjectQueries,
 ): void {
 	if (sig.params.length === 0) {
 		return;
@@ -1519,7 +1536,7 @@ export function validateArgumentTypesForSignature(
 		);
 		const kindProblem = objectValueArgumentProblem(expected, valueSlot, actual, memberCtx, sourceNames, (name) =>
 			env.has(name.toLowerCase()) || resolveExpressionType?.(name).resolved === true, heldClassOf,
-			param.byRef === false || call.argumentsParenthesized === true, env);
+			param.byRef === false || call.argumentsParenthesized === true, env, objectQueries);
 		if (kindProblem) {
 			push(
 				kindProblem.rule,
@@ -1699,6 +1716,7 @@ function objectValueArgumentProblem(
 	heldClassOf?: (lower: string) => string | undefined,
 	byValue = false,
 	env: ReadonlyMap<string, string> = new Map(),
+	objectQueries?: ArgumentObjectQueries,
 ): { rule: 'argumentObjectTypeMismatch' | 'argumentTypeMismatch'; what: string; reason: string; tokens: readonly VbaToken[] } | undefined {
 	const toks = unwrapOuterParens(slot.filter((tok) => tok.kind !== 'comment' && tok.kind !== 'newline'));
 	if (toks.length === 0) {
@@ -1706,10 +1724,11 @@ function objectValueArgumentProblem(
 	}
 	const expectedType = normalizeType(expected);
 	if (expectedType && isKnownScalarType(expectedType)) {
+		const needsIndex = objectQueries?.needsIndex ?? ((type: string | undefined) => objectValueNeedsIndex(type, memberCtx));
 		if (toks.length === 1 && tokenText(toks[0]) === 'nothing') {
 			return { rule: 'argumentObjectTypeMismatch', what: 'Nothing', reason: 'This is a VBE compile error: Invalid use of object.', tokens: toks };
 		}
-		if (toks.length === 2 && tokenText(toks[0]) === 'new' && objectValueNeedsIndex(toks[1].rawText, memberCtx)) {
+		if (toks.length === 2 && tokenText(toks[0]) === 'new' && needsIndex(toks[1].rawText)) {
 			return { rule: 'argumentObjectTypeMismatch', what: `New ${toks[1].rawText}, whose default member Item needs an index`, reason: 'This is a VBE compile error: Argument not optional.', tokens: toks };
 		}
 		// A Collection variable passed by value is read for its value, the
@@ -1717,7 +1736,7 @@ function objectValueArgumentProblem(
 		// byref-argument-type-mismatch's.
 		const passedName = toks.length === 1 ? tokenName(toks[0])?.toLowerCase() : undefined;
 		const passedType = passedName ? env.get(passedName) : undefined;
-		if (byValue && passedType && isDeclared(toks[0].rawText) && objectValueNeedsIndex(passedType, memberCtx)) {
+		if (byValue && passedType && isDeclared(toks[0].rawText) && needsIndex(passedType)) {
 			return { rule: 'argumentObjectTypeMismatch', what: `'${toks[0].rawText}', declared ${passedType}, whose default member Item needs an index`, reason: 'This is a VBE compile error: Argument not optional.', tokens: toks };
 		}
 		const callee = tokenText(toks[0]);
@@ -1735,7 +1754,7 @@ function objectValueArgumentProblem(
 	// `b + 0` and `d + 0` with b a Boolean and d a Date too (issue #647).
 	const scalarExpression = toks.length > 1 && !literal
 		&& ((actual !== undefined && isKnownScalarType(normalizeType(actual.type) ?? '')) || arithmeticOfScalars(toks, env));
-	if ((literal || scalarExpression) && expectedType !== 'object' && isKnownObjectAssignmentType(expected, memberCtx)) {
+	if ((literal || scalarExpression) && expectedType !== 'object' && isKnownObjectAssignmentType(expected, memberCtx, objectQueries?.resolveType)) {
 		return { rule: 'argumentObjectTypeMismatch', what: actual?.label ?? toks.map((tok) => tok.rawText).join(' '), reason: 'An object parameter takes an object. This is a VBE compile error: Type mismatch.', tokens: toks };
 	}
 	// An object of another class, as a Set of it would be: TakeWs(Range("A1"))
@@ -1749,7 +1768,7 @@ function objectValueArgumentProblem(
 	// A scalar variable passed by value is a value, as a literal is; ByRef it
 	// is byref-argument-type-mismatch's. A Variant holding Empty or a value
 	// raises 424 (issue #410, measured in Excel 16.0).
-	if (declaredName && byValue && expectedType !== 'object' && isKnownObjectAssignmentType(expected, memberCtx)) {
+	if (declaredName && byValue && expectedType !== 'object' && isKnownObjectAssignmentType(expected, memberCtx, objectQueries?.resolveType)) {
 		const declared = normalizeType(env.get(tokenName(toks[0])!.toLowerCase()));
 		if (declared && isKnownScalarType(declared)) {
 			return { rule: 'argumentObjectTypeMismatch', what: `'${toks[0].rawText}', declared ${env.get(tokenName(toks[0])!.toLowerCase())}`, reason: 'An object parameter takes an object. This is a VBE compile error: Type mismatch.', tokens: toks };
@@ -1758,18 +1777,18 @@ function objectValueArgumentProblem(
 			return { rule: 'argumentTypeMismatch', what: `'${toks[0].rawText}', a Variant that holds no object here`, reason: "An object parameter takes an object. This will raise Run-time error '424': Object required.", tokens: toks };
 		}
 	}
-	if (held && held !== VALUE_HELD && expectedType !== 'object' && isKnownObjectAssignmentType(expected, memberCtx)) {
+	if (held && held !== VALUE_HELD && expectedType !== 'object' && isKnownObjectAssignmentType(expected, memberCtx, objectQueries?.resolveType)) {
 		const holding = { type: held, label: `'${toks[0].rawText}', which holds a ${held} here`, span: { start: toks[0].start, end: toks[0].end } };
-		const reason = objectAssignmentIncompatibilityReason(expected, holding, memberCtx);
+		const reason = objectAssignmentIncompatibilityReason(expected, holding, memberCtx, objectQueries?.resolveType, objectQueries?.shareInterfaces, objectQueries?.implementsType);
 		if (reason) {
 			return { rule: 'argumentTypeMismatch', what: holding.label, reason: `${reason} This will raise Run-time error '13': Type mismatch.`, tokens: toks };
 		}
 	}
 	// `TakeC(ActiveSheet)` into a Collection, as the Object holding it (issue #685).
 	if (!declaredName && toks.length === 1 && tokenText(toks[0]) === 'activesheet' && !isDeclared(toks[0].rawText)
-		&& resolveHostGlobal('ActiveSheet', memberCtx.model) !== undefined && expectedType !== 'object' && isKnownObjectAssignmentType(expected, memberCtx)) {
+		&& resolveHostGlobal('ActiveSheet', memberCtx.model) !== undefined && expectedType !== 'object' && isKnownObjectAssignmentType(expected, memberCtx, objectQueries?.resolveType)) {
 		const sheet = { type: 'Worksheet or Chart', label: `'${toks[0].rawText}', a Worksheet or a Chart`, span: { start: toks[0].start, end: toks[0].end } };
-		const reason = objectAssignmentIncompatibilityReason(expected, sheet, memberCtx);
+		const reason = objectAssignmentIncompatibilityReason(expected, sheet, memberCtx, objectQueries?.resolveType, objectQueries?.shareInterfaces, objectQueries?.implementsType);
 		if (reason) {
 			return { rule: 'argumentTypeMismatch', what: sheet.label, reason: `${reason} This will raise Run-time error '13': Type mismatch.`, tokens: toks };
 		}
@@ -1779,9 +1798,9 @@ function objectValueArgumentProblem(
 	if (sheets) {
 		return { rule: 'argumentTypeMismatch', what: `'${sheets.text}', which returns a Sheets object`, reason: `Excel's Worksheets and Charts properties return a Sheets object, never a ${sheets.collection} one. This will raise Run-time error '13': Type mismatch.`, tokens: toks };
 	}
-	if (actual && !declaredName && expectedType !== 'object' && isKnownObjectAssignmentType(expected, memberCtx)
+	if (actual && !declaredName && expectedType !== 'object' && isKnownObjectAssignmentType(expected, memberCtx, objectQueries?.resolveType)
 		&& !isKnownScalarType(normalizeType(actual.type) ?? '')) {
-		const reason = objectAssignmentIncompatibilityReason(expected, actual, memberCtx);
+		const reason = objectAssignmentIncompatibilityReason(expected, actual, memberCtx, objectQueries?.resolveType, objectQueries?.shareInterfaces, objectQueries?.implementsType);
 		if (reason) {
 			return { rule: 'argumentTypeMismatch', what: actual.label, reason: `${reason} This will raise Run-time error '13': Type mismatch.`, tokens: toks };
 		}
@@ -1918,7 +1937,7 @@ function byRefExact(type: string | undefined): boolean {
  * 64-bit Office, the platform the analyzer assumes: stdVBA passes a LongLong
  * array element to DispCallFunc's `paValues As LongPtr`, and it compiles.
  */
-function sameByRefType(actual: string | undefined, expected: string | undefined): boolean {
+export function sameByRefType(actual: string | undefined, expected: string | undefined): boolean {
 	const widen = (type: string | undefined): string | undefined => (type === 'longptr' ? 'longlong' : type);
 	return widen(actual) === widen(expected);
 }
@@ -2726,12 +2745,26 @@ export function parameterlessValueSignature(
 	return sig?.returnType && callableAcceptsZeroArguments(sig) ? sig : undefined;
 }
 
+/** Remove complete enclosing groups in one scan and one slice. */
 export function unwrapOuterParens(toks: VbaToken[]): VbaToken[] {
 	if (toks.length < 2 || toks[0].rawText !== '(') {
 		return toks;
 	}
-	const close = matchParenFrom(toks, 0);
-	return close === toks.length - 1 ? toks.slice(1, -1) : toks;
+	let wrappers = 0;
+	while (toks[wrappers]?.rawText === '(') { wrappers++; }
+	let depth = 0;
+	for (let i = 0; i < toks.length; i++) {
+		const text = toks[i].rawText;
+		if (text === '(') { depth++; }
+		else if (text === ')') {
+			depth--;
+			if (depth < 0) { return toks; }
+			// An opening prefix parenthesis encloses the whole expression
+			// only when its partner is at the mirrored suffix position.
+			if (depth < wrappers && i !== toks.length - 1 - depth) { wrappers = depth; }
+		}
+	}
+	return depth === 0 && wrappers > 0 ? toks.slice(wrappers, -wrappers) : toks;
 }
 
 export function inferArithmeticExpressionType(
@@ -3091,7 +3124,6 @@ export function normalizeType(type: string | undefined): string | undefined {
 	}
 	return type
 		.replace(/\s*\(\s*\)\s*$/, '')
-		.replace(/^vb/i, '')
 		.trim()
 		.toLowerCase();
 }
@@ -3111,8 +3143,9 @@ export function isKnownScalarType(type: string): boolean {
 export function isKnownObjectAssignmentType(
 	type: string | undefined,
 	memberCtx: MemberCompletionContext,
+	resolveType?: ReturnType<typeof createObjectAssignmentTypeResolver>,
 ): boolean {
-	return resolveKnownObjectAssignmentType(type, memberCtx) !== undefined;
+	return (resolveType ? resolveType(type) : resolveKnownObjectAssignmentType(type, memberCtx)) !== undefined;
 }
 
 export type KnownObjectAssignmentType =
@@ -3215,6 +3248,55 @@ export function resolveKnownObjectAssignmentType(
 	};
 }
 
+interface ObjectDefaultTypeQueries {
+	resolveType: ReturnType<typeof createObjectAssignmentTypeResolver>;
+	projectTypeNamed: (key: string) => VbaProjectClassMembers | undefined;
+}
+
+/** Lazy default-member facts for one public query, preserving first-surface lookup. */
+export function createObjectDefaultQueries(memberCtx: MemberCompletionContext) {
+	const resolveType = createObjectAssignmentTypeResolver(memberCtx);
+	const projectLookup = (kind?: 'class') => {
+		const projectTypes = new Map<string, VbaProjectClassMembers>();
+		let projectIndex = 0;
+		return (key: string): VbaProjectClassMembers | undefined => {
+			if (projectTypes.has(key)) { return projectTypes.get(key); }
+			const types = memberCtx.projectClassMembers ?? [];
+			while (projectIndex < types.length) {
+				const type = types[projectIndex++];
+				if (kind && type.kind !== kind) { continue; }
+				const lower = type.name.toLowerCase();
+				if (!projectTypes.has(lower)) { projectTypes.set(lower, type); }
+				if (lower === key) { return projectTypes.get(key); }
+			}
+			return undefined;
+		};
+	};
+	const projectTypeNamed = projectLookup(), projectClassNamed = projectLookup('class');
+	const types = { resolveType, projectTypeNamed };
+	const verdicts = new Map<string | undefined, ReturnType<typeof objectLetAssignmentVerdict>>();
+	const verdictFor = (type: string | undefined): ReturnType<typeof objectLetAssignmentVerdict> => {
+		let verdict = verdicts.get(type);
+		if (verdict === undefined) { verdict = objectLetAssignmentVerdict(type, memberCtx, types); verdicts.set(type, verdict); }
+		return verdict;
+	};
+	const indexes = new Map<string | undefined, boolean>();
+	const needsIndex = (type: string | undefined): boolean => {
+		let answer = indexes.get(type);
+		if (answer === undefined) { answer = objectValueNeedsIndex(type, memberCtx, verdictFor); indexes.set(type, answer); }
+		return answer;
+	};
+	return { resolveType, projectTypeNamed, projectClassNamed, verdictFor, needsIndex };
+}
+
+/** A getter can supply an object whose default property receives a Let. */
+export function getterMayReturnObject(type: string | undefined, memberCtx: MemberCompletionContext): boolean {
+	if (/\(\s*\)\s*$/.test(type ?? '')) { return false; }
+	const normalized = normalizeType(type);
+	return !normalized || normalized === 'variant' || normalized === 'object'
+		|| isKnownObjectAssignmentType(type, memberCtx);
+}
+
 /**
  * What a bare `name = value` does to a variable of a known object type
  * (issue #107, each case measured in Excel 16.0). The VBE compiles it as a
@@ -3234,8 +3316,9 @@ export function resolveKnownObjectAssignmentType(
 export function objectLetAssignmentVerdict(
 	expectedRaw: string | undefined,
 	memberCtx: MemberCompletionContext,
+	queries?: ObjectDefaultTypeQueries,
 ): 'lets' | 'argument' | 'noDefault' | 'unknown' {
-	const expected = resolveKnownObjectAssignmentType(expectedRaw, memberCtx);
+	const expected = queries ? queries.resolveType(expectedRaw) : resolveKnownObjectAssignmentType(expectedRaw, memberCtx);
 	if (!expected) {
 		return 'unknown';
 	}
@@ -3243,7 +3326,7 @@ export function objectLetAssignmentVerdict(
 		return expected.key === 'collection' ? 'argument' : 'lets';
 	}
 	if (expected.kind === 'project') {
-		const projectType = (memberCtx.projectClassMembers ?? []).find(
+		const projectType = queries ? queries.projectTypeNamed(expected.key) : (memberCtx.projectClassMembers ?? []).find(
 			(candidate) => candidate.name.toLowerCase() === expected.key,
 		);
 		if (!projectType || projectType.exhaustive !== true) {
@@ -3253,7 +3336,10 @@ export function objectLetAssignmentVerdict(
 		if (!defaultMember) {
 			return 'noDefault';
 		}
-		return defaultMember.signature && /\([^)]/.test(defaultMember.signature) ? 'argument' : 'lets';
+		const setter = defaultMember.procedureParams?.propertyLet;
+		const params = setter?.slice(0,-1) ?? defaultMember.procedureParams?.propertyGet ?? defaultMember.procedureParams?.function
+			?? (defaultMember.signature ? parseRuntimeDisplaySignature(defaultMember.name,defaultMember.signature).params : []);
+		return params.some(param => !param.optional && !param.paramArray) ? 'argument' : 'lets';
 	}
 	const resolved = resolveHostAlias(expectedRaw ?? '', memberCtx.model) ?? libraryObjectType(expectedRaw) ?? expectedRaw ?? '';
 	const libraryDefault = libraryDefaultVerdict(resolved);
@@ -3416,11 +3502,11 @@ function hostTypeHasNoDefault(resolved: string, memberCtx: MemberCompletionConte
  * (issue #221, measured in Excel 16.0). Names, whose default method takes
  * only optional parameters, raises 449 and is not judged.
  */
-export function objectValueNeedsIndex(type: string | undefined, memberCtx: MemberCompletionContext): boolean {
+export function objectValueNeedsIndex(type: string | undefined, memberCtx: MemberCompletionContext, verdictFor?: (type: string | undefined) => ReturnType<typeof objectLetAssignmentVerdict>): boolean {
 	if (normalizeType(type) === 'collection') {
 		return true;
 	}
-	if (objectLetAssignmentVerdict(type, memberCtx) !== 'argument') {
+	if ((verdictFor ? verdictFor(type) : objectLetAssignmentVerdict(type, memberCtx)) !== 'argument') {
 		return false;
 	}
 	const resolved = resolveHostAlias(type ?? '', memberCtx.model) ?? libraryObjectType(type);
@@ -3916,6 +4002,7 @@ export function knownLocalLiteralValuesAt(
 	const cache = perProcedureCache(LOCAL_VALUES_AT, symbols);
 	const cached = cache.get(proc);
 	if (cached && cached.source === source && cached.activity === activity) {
+		cached.source = source;
 		return cached.valuesAt;
 	}
 	const valuesAt = buildKnownLocalLiteralValuesAt(source, proc, symbols, activity);
@@ -4390,6 +4477,7 @@ export function unreachableStatementsIn(
 	const cache = perProcedureCache(UNREACHABLE, symbols);
 	const kept = cache.get(proc);
 	if (kept && kept.source === source && kept.activity === activity) {
+		kept.source = source;
 		return kept.dead;
 	}
 	// Walked even with no value known: `GoTo Done` leaves whatever the locals hold.
@@ -4488,6 +4576,7 @@ function mayLeaveEarly(
 function callEffectsFor(source: string, symbols: ReturnType<typeof buildModuleSymbols>, activity: ConditionalActivityTracker | undefined): CallEffects {
 	const kept = CALL_EFFECT_READERS.get(symbols);
 	if (kept && kept.source === source && kept.activity === activity) {
+		kept.source = source;
 		return kept.effects;
 	}
 	let procedures: Map<string, ProcedureNode | null> | undefined;
@@ -4543,10 +4632,10 @@ function callEffectsFor(source: string, symbols: ReturnType<typeof buildModuleSy
 		const first = firstExecutableTokenIndex(toks);
 		const head = tokenText(toks[first]);
 		if (head === 'call' && tokenName(toks[first + 1]) && toks[first + 2]?.rawText === '(') {
-			const close = matchParenFrom([...toks], first + 2);
-			apply(procedureNamed(tokenName(toks[first + 1])!.toLowerCase()), close > first + 3 ? splitTopLevelTokenGroups([...toks], first + 3, ',', close) : []);
+			const close = matchParenFrom(toks, first + 2);
+			apply(procedureNamed(tokenName(toks[first + 1])!.toLowerCase()), close > first + 3 ? splitTopLevelTokenGroups(toks, first + 3, ',', close) : []);
 		} else if (tokenName(toks[first]) && toks[first + 1]?.rawText !== '=' && toks[first + 1]?.rawText !== '.' && toks[first + 1]?.rawText !== '(') {
-			apply(procedureNamed(tokenName(toks[first])!.toLowerCase()), toks.length > first + 1 ? splitTopLevelTokenGroups([...toks], first + 1, ',', toks.length) : []);
+			apply(procedureNamed(tokenName(toks[first])!.toLowerCase()), toks.length > first + 1 ? splitTopLevelTokenGroups(toks, first + 1, ',', toks.length) : []);
 		}
 		for (let i = first + 1; i + 1 < toks.length; i++) {
 			const name = tokenName(toks[i])?.toLowerCase();
@@ -4555,8 +4644,8 @@ function callEffectsFor(source: string, symbols: ReturnType<typeof buildModuleSy
 			}
 			const proc = procedureNamed(name);
 			if (proc?.procKind === 'Function') {
-				const close = matchParenFrom([...toks], i + 1);
-				apply(proc, close > i + 2 ? splitTopLevelTokenGroups([...toks], i + 2, ',', close) : []);
+				const close = matchParenFrom(toks, i + 1);
+				apply(proc, close > i + 2 ? splitTopLevelTokenGroups(toks, i + 2, ',', close) : []);
 			}
 		}
 		return out;
@@ -4589,7 +4678,15 @@ const OPTION_BASE_ONE = /^[ \t]*Option[ \t]+Base[ \t]+1\b/im;
  * its declared type ("long", "long()" for an array), and a fixed
  * one-dimension array's bounds.
  */
+const DECLARED_FACT_READERS = new WeakMap<ReturnType<typeof buildModuleSymbols>, WeakMap<ProcedureNode, { source: string; facts: DeclaredFacts }>>();
+
 function declaredFactsFor(source: string, symbols: ReturnType<typeof buildModuleSymbols>, proc: ProcedureNode): DeclaredFacts {
+	const cache = perProcedureCache(DECLARED_FACT_READERS, symbols);
+	const kept = cache.get(proc);
+	if (kept?.source === source) {
+		kept.source = source;
+		return kept.facts;
+	}
 	const types = new Map<string, string>();
 	const bounds = new Map<string, readonly [number, number]>();
 	let base: number | undefined;
@@ -4609,12 +4706,14 @@ function declaredFactsFor(source: string, symbols: ReturnType<typeof buildModule
 	// The module's Consts and Enum members, which a local or parameter of the same name hides.
 	let constants: ReadonlyMap<string, number | undefined> | undefined;
 	const params = new Set(proc.params.map((param) => param.name.toLowerCase()));
-	return {
+	const facts: DeclaredFacts = {
 		type: (lower) => types.get(lower),
 		bounds: (lower) => bounds.get(lower),
 		constant: (lower) => (types.has(lower) || params.has(lower) ? undefined
 			: (constants ??= collectModuleLiteralIntegerConstants(parseModule(source), undefined)).get(lower)),
 	};
+	cache.set(proc, { source, facts });
+	return facts;
 }
 
 /** Statement heads after which a Function may end before its last line. */
@@ -4648,6 +4747,7 @@ export function functionResultFor(
 		cache.set(proc, kept);
 	}
 	if (kept.calls.has(key)) {
+		kept.source = source;
 		return kept.calls.get(key);
 	}
 	const result = runFunctionFor(source, proc, symbols, activity, args, objectResult);
@@ -4863,6 +4963,7 @@ export function objectAssignmentIncompatibilityReason(
 	memberCtx: MemberCompletionContext,
 	resolveType: typeof resolveKnownObjectAssignmentType = resolveKnownObjectAssignmentType,
 	shareInterfaces?: (expected: string, actual: string) => boolean,
+	implementsType?: typeof implementsObjectType,
 ): string | undefined {
 	const expected = resolveType(expectedRaw, memberCtx);
 	if (!expected || !actual) {
@@ -4906,14 +5007,16 @@ export function objectAssignmentIncompatibilityReason(
 	if (expected.kind === 'generic' || actualObject.kind === 'generic') {
 		// A project class that implements Collection can stand in for one.
 		const project = actualObject.kind === 'project' ? actualObject : expected.kind === 'project' ? expected : undefined;
-		return project?.implements.some((name) => name.toLowerCase() === 'collection')
+		return project && (implementsType
+			? implementsType(project, { kind: 'generic', display: 'Collection', key: 'collection' })
+			: project.implements.some((name) => name.toLowerCase() === 'collection'))
 			? undefined
 			: `This object type is not compatible with ${expected.display}.`;
 	}
 	if (actualObject.kind === 'host' && HOST_VALUES_ALSO_OF_TYPE.get(actualObject.key) === expected.key) {
 		return undefined;
 	}
-	if (actualObject.kind === 'project' && implementsObjectType(actualObject, expected)) {
+	if (actualObject.kind === 'project' && (implementsType ?? implementsObjectType)(actualObject, expected)) {
 		return undefined;
 	}
 	// A Set between two class types is checked when it runs, by QueryInterface,
@@ -4922,7 +5025,7 @@ export function objectAssignmentIncompatibilityReason(
 	// (`Set c = o`, casting back), and two interfaces one class implements can
 	// hold each other's (`Set b = o`). Only project interfaces are known here.
 	if (expected.kind === 'project' && actualObject.kind === 'project'
-		&& projectTypesCanShareInstance(expected, actualObject, memberCtx, shareInterfaces)) {
+		&& projectTypesCanShareInstance(expected, actualObject, memberCtx, shareInterfaces, implementsType)) {
 		return undefined;
 	}
 	return `This object type is not compatible with ${expected.display}.`;
@@ -4998,8 +5101,9 @@ function projectTypesCanShareInstance(
 	actual: Extract<KnownObjectAssignmentType, { kind: 'project' }>,
 	memberCtx: MemberCompletionContext,
 	shareInterfaces?: (expected: string, actual: string) => boolean,
+	implementsType?: typeof implementsObjectType,
 ): boolean {
-	if (implementsObjectType(expected, actual)) {
+	if ((implementsType ?? implementsObjectType)(expected, actual)) {
 		return true;
 	}
 	if (shareInterfaces) {
@@ -5019,6 +5123,35 @@ export function implementsObjectType(
 	actual: Extract<KnownObjectAssignmentType, { kind: 'project' }>,
 	expected: KnownObjectAssignmentType,
 ): boolean {
+	const expectedNames = objectTypeExpectedNames(expected);
+	return actual.implements.some((implemented) => {
+		const lower = implemented.toLowerCase();
+		return expectedNames.has(lower) || expectedNames.has(`excel.${lower}`);
+	});
+}
+
+/** Index direct interface memberships only when consulted, against one pass's metadata. */
+export function createObjectTypeImplementationLookup(): typeof implementsObjectType {
+	const namesByList = new WeakMap<readonly string[], ReadonlySet<string>>();
+	return (actual, expected) => {
+		let names = namesByList.get(actual.implements);
+		if (!names) {
+			const indexed = new Set<string>();
+			// Like some, forEach skips sparse array holes.
+			actual.implements.forEach((name) => indexed.add(name.toLowerCase()));
+			namesByList.set(actual.implements, indexed);
+			names = indexed;
+		}
+		for (const name of objectTypeExpectedNames(expected)) {
+			if (names.has(name) || (name.startsWith('excel.') && names.has(name.slice(6)))) {
+				return true;
+			}
+		}
+		return false;
+	};
+}
+
+function objectTypeExpectedNames(expected: KnownObjectAssignmentType): ReadonlySet<string> {
 	const expectedNames = new Set([expected.key]);
 	const simple = simpleTypeNameForAssignment(expected.display);
 	if (simple) {
@@ -5028,10 +5161,7 @@ export function implementsObjectType(
 	if (expectedLastSegment) {
 		expectedNames.add(expectedLastSegment);
 	}
-	return actual.implements.some((implemented) => {
-		const lower = implemented.toLowerCase();
-		return expectedNames.has(lower) || expectedNames.has(`excel.${lower}`);
-	});
+	return expectedNames;
 }
 
 // One-way proof only: strings with digits are left unknown until VBA conversion

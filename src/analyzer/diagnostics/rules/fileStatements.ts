@@ -163,7 +163,13 @@ export function checkFileStatements(
 				states.clear();
 			}
 			if (node.kind === 'Statement' && node.singleLineIfBranches) {
-				// A single-line If runs its statement on one path only.
+				markChecked(states, toks);
+				// Check each arm independently; either arm may execute but does not
+				// establish state after the branch. Cached token arrays stay immutable.
+				for (const span of node.singleLineIfBranches) {
+					const tokens = statementTokensAfterLeadingLabel(source, span);
+					checkStatement(span, tokenText(tokens[0]) === 'else' ? tokens.slice(1) : tokens, new Map(states), push, resumeNext);
+				}
 				for (const key of fileNumberKeysIn(toks)) {
 					states.delete(key);
 				}

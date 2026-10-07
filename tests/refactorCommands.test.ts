@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 const registered = vi.hoisted(() => new Map<string, (...args: unknown[]) => unknown>());
+const replacementTexts = vi.hoisted(() => [] as unknown[]);
 
 vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({
     commands: {
@@ -18,7 +19,7 @@ vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock(
         applyEdit: vi.fn(async () => true),
     },
     WorkspaceEdit: class {
-        replace(): void { /* the open module's own edits; not under test */ }
+        replace(...args: unknown[]): void { replacementTexts.push(args[2]); }
     },
 }));
 vi.mock('../src/projectModuleOperations', () => ({
@@ -90,4 +91,20 @@ describe('Move to Module', () => {
         expect(refreshProjectState).toHaveBeenCalledWith(deps, PROJECT);
         expect(bridge.call).not.toHaveBeenCalledWith('writeModule', expect.anything());
     });
+});
+
+
+describe('Introduce Parameter host module roles',()=>{
+ it('updates With Me recursion using the class role reported by listModules',async()=>{
+  replacementTexts.length=0;
+  const source=['Public Sub Report(ByVal depth As Long)','Dim limit As Long','limit = 3','With Me','.Report depth - 1','End With','End Sub',''].join('\r\n');
+  const caret=source.indexOf('limit');
+  const editor=reportsEditor();editor.document.getText=()=>source;editor.document.offsetAt=()=>caret;
+  (vscode.window as {activeTextEditor:unknown}).activeTextEditor=editor;
+  const bridge={call:vi.fn(async(method:string)=>{if(method==='listModules')return[{name:'Reports',type:'class'}];throw new Error(method);})};
+  registerRefactorCommands({bridge,explorer:{},fsProvider:{},vbaIndex:{},out:{},context:{}} as never);
+  await registered.get('xlide.refactor.introduceParameter')!();
+  expect(replacementTexts).toContain(', 3');
+  expect(replacementTexts).toContain(', ByVal limit As Long');
+ });
 });

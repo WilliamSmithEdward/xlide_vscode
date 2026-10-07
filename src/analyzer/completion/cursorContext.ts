@@ -7,8 +7,11 @@
 // pass per cursor position) stops the per-resolver reimplementations from
 // drifting and gives the resolvers a single seam for sharing token state.
 
+import { assignmentTargetFromTokens } from './assignmentTarget';
 import { tokenize, tokenizeCached } from '../lexer/tokenize';
-import type { VbaToken } from '../lexer/tokenKinds';
+import { isWsc } from '../lexer/tokenKinds';
+import { lineStartAtAnyBreak, lineEndAtOrAfter } from '../../vbaSourceScan';
+import type { VbaToken, Trivia } from '../lexer/tokenKinds';
 import { isIdentLike, tokensWithoutLeadingLineNumber } from '../lexer/tokenHelpers';
 
 export interface CompletionCursorContext {
@@ -72,9 +75,83 @@ export function completionCursorContext(
 	return context;
 }
 
+type PrefixWindow = 'all' | 'line' | 'type';
+
+// Physical rows ending in an underscore may belong to the same logical line.
+// Include them conservatively: comments can continue as well as code, and an
+// underscore inside a token may only be distinguishable after lexing the row.
+function beforePhysicalBreak(source: string, start: number): number {
+	return source[start - 1] === '\n' && source[start - 2] === '\r' ? start - 2 : start - 1;
+}
+
+function possibleContinuationLineStart(source: string, offset: number): number {
+	let start = lineStartAtAnyBreak(source, offset);
+	while (start > 0) {
+		const priorEnd = beforePhysicalBreak(source, start);
+		const priorStart = lineStartAtAnyBreak(source, priorEnd);
+		let at = priorEnd;
+		while (at > priorStart && isWsc(source[at - 1])) { at--; }
+		if (at <= priorStart || source[at - 1] !== '_') { break; }
+		start = priorStart;
+	}
+	return start;
+}
+
+function boundedLineTokens(source: string, offset: number): VbaToken[] {
+	if (Number.isNaN(offset)) { return []; }
+	// A cut inside CRLF belongs to the preceding physical line.
+	let anchor = Math.trunc(offset);
+	if (source[anchor] === '\n' && source[anchor - 1] === '\r') { anchor--; }
+	const currentStart = possibleContinuationLineStart(source, anchor);
+	// Include one preceding logical line to preserve the leading trivia and
+	// column of the newline that starts the returned grammar window.
+	const start = currentStart > 0
+		? possibleContinuationLineStart(source, beforePhysicalBreak(source, currentStart))
+		: 0;
+	let end = anchor;
+	while (true) {
+		const lineStart = lineStartAtAnyBreak(source, end);
+		const lineEnd = lineEndAtOrAfter(source, end);
+		let at = lineEnd;
+		while (at > lineStart && isWsc(source[at - 1])) { at--; }
+		const continues = at > lineStart && source[at - 1] === '_';
+		const breakWidth = source[lineEnd] === '\r' && source[lineEnd + 1] === '\n' ? 2 : 1;
+		end = lineEnd < source.length ? lineEnd + breakWidth : lineEnd;
+		if (!continues || end >= source.length) { break; }
+	}
+	// Typing resolvers consume spans and grammar, not absolute line numbers.
+	// Count the prefix only if a caller explicitly asks for line metadata, and
+	// share that result across every token in this window.
+	let lineBase: number | undefined;
+	const absoluteLineBase = (): number => {
+		if (lineBase !== undefined) { return lineBase; }
+		lineBase = 0;
+		for (let i = 0; i < start; i++) {
+			if (source[i] === '\n' || (source[i] === '\r' && source[i + 1] !== '\n')) { lineBase++; }
+		}
+		return lineBase;
+	};
+	const shiftTrivia = (items: Trivia[]): Trivia[] => items.map(item => ({
+		...item, start: item.start + start, end: item.end + start,
+	}));
+	return tokenize(source.slice(start, end)).map(token => {
+		const shifted: VbaToken = {
+			kind: token.kind, rawText: token.rawText,
+			start: token.start + start, end: token.end + start,
+			get line() { return token.line + absoluteLineBase(); },
+			character: token.character,
+		};
+		if (token.canonicalText !== undefined) { shifted.canonicalText = token.canonicalText; }
+		if (token.leadingTrivia) { shifted.leadingTrivia = shiftTrivia(token.leadingTrivia); }
+		if (token.trailingTrivia) { shifted.trailingTrivia = shiftTrivia(token.trailingTrivia); }
+		return shifted;
+	});
+}
+
 /**
- * Prefix token stream up to `safeOffset`, derived from the memoized
- * full-module stream instead of re-lexing the prefix: every keystroke asks
+ * Full-prefix/type windows derive from the memoized full-module stream; line
+ * windows lex their own logical boundary. Each avoids re-lexing the prefix.
+ * Every keystroke asks
  * for a new offset, and lexing a large module's prefix per keystroke was
  * the completion path's dominant cost. Tokens ending at or before the
  * offset are shared with the cached stream verbatim; when the offset lands
@@ -83,8 +160,10 @@ export function completionCursorContext(
  * lexing the truncated prefix produces since tokenization is local from a
  * token boundary onward.
  */
-function prefixTokens(source: string, safeOffset: number): VbaToken[] {
-	const all = tokenizeCached(source);
+function prefixTokens(source: string, safeOffset: number, window: PrefixWindow = 'all'): VbaToken[] {
+	const all = window === 'line'
+		? boundedLineTokens(source, safeOffset)
+		: tokenizeCached(source);
 	// First token that ends after the offset.
 	let lo = 0;
 	let hi = all.length;
@@ -94,6 +173,24 @@ function prefixTokens(source: string, safeOffset: number): VbaToken[] {
 			lo = mid + 1;
 		} else {
 			hi = mid;
+		}
+	}
+	// Keep only the grammar window the caller needs. Newlines in the cached
+	// stream are logical boundaries: absorbed continuations must stay intact.
+	let headStart = 0;
+	if (window === 'line') {
+		headStart = Math.max(0, lo - 1);
+		while (headStart > 0 && all[headStart].kind !== 'newline') {
+			headStart -= 1;
+		}
+	} else if (window === 'type') {
+		headStart = lo;
+		let remaining = 5;
+		while (headStart > 0 && remaining > 0) {
+			const token = all[--headStart];
+			if (token.kind !== 'comment' && token.kind !== 'newline') {
+				remaining -= 1;
+			}
 		}
 	}
 	const rebase = (base: number) => (token: VbaToken): VbaToken => ({
@@ -109,7 +206,7 @@ function prefixTokens(source: string, safeOffset: number): VbaToken[] {
 		// materializes a dangling token the full stream absorbed. Re-lex the
 		// residue (at most a few whitespace characters) to reproduce exactly
 		// what lexing the prefix produces.
-		const head = all.slice(0, lo);
+		const head = all.slice(headStart, lo);
 		const residueStart = lo > 0 ? all[lo - 1].end : 0;
 		if (residueStart < safeOffset) {
 			const residue = tokenize(source.slice(residueStart, safeOffset)).map(rebase(residueStart));
@@ -120,14 +217,15 @@ function prefixTokens(source: string, safeOffset: number): VbaToken[] {
 		return head;
 	}
 	const tail = tokenize(source.slice(boundary.start, safeOffset)).map(rebase(boundary.start));
-	return [...all.slice(0, lo), ...tail];
+	return [...all.slice(headStart, lo), ...tail];
 }
 
 function buildCursorContext(
 	source: string,
 	safeOffset: number,
+	window: PrefixWindow = 'all',
 ): CompletionCursorContext {
-	const tokens = prefixTokens(source, safeOffset);
+	const tokens = prefixTokens(source, safeOffset, window);
 	const significantTokens = tokens.filter((t) => t.kind !== 'comment');
 	const last = tokens[tokens.length - 1];
 	const lastSignificant = significantTokens[significantTokens.length - 1];
@@ -148,6 +246,40 @@ function buildCursorContext(
 		inComment: last?.kind === 'comment' && last.end === safeOffset,
 		inString: last?.kind === 'stringLiteral' && last.end === safeOffset,
 	};
+}
+
+/** Last five grammar tokens, preserving type detection's existing newline semantics. */
+export function completionTypeTokens(source: string, offset: number): VbaToken[] {
+	const safeOffset = Math.max(0, Math.min(offset, source.length));
+	return prefixTokens(source, safeOffset, 'type')
+		.filter(token => token.kind !== 'comment' && token.kind !== 'newline')
+		.slice(-5);
+}
+
+const lineContextCache: { source: string; offset: number; context: CompletionCursorContext }[] = [];
+
+/**
+ * Cursor analysis limited to the current logical line (including its leading
+ * newline). Callers must not mutate the returned arrays or look into earlier
+ * statements. Fresh source versions lex only this logical line and its
+ * preceding boundary; absolute line metadata is calculated on demand.
+ * Truncated tokens and continuation residue are re-lexed just as
+ * in the full-prefix API.
+ */
+export function completionLineCursorContext(source: string, offset: number): CompletionCursorContext {
+	const safeOffset = Math.max(0, Math.min(offset, source.length));
+	const index = lineContextCache.findIndex(entry => entry.source === source && entry.offset === safeOffset);
+	if (index >= 0) {
+		const [entry] = lineContextCache.splice(index, 1);
+		lineContextCache.unshift(entry);
+		return entry.context;
+	}
+	const context = buildCursorContext(source, safeOffset, 'line');
+	lineContextCache.unshift({ source, offset: safeOffset, context });
+	if (lineContextCache.length > CURSOR_CONTEXT_CACHE_MAX) {
+		lineContextCache.pop();
+	}
+	return context;
 }
 
 /** Start of the statement containing the cursor (after the last newline/':'). */
@@ -203,7 +335,7 @@ export function spaceTriggerMayComplete(
 	if (!head) {
 		return true; // fresh statement after a ':' separator
 	}
-	return head.kind === 'keyword' || head.kind === 'directive';
+	return Boolean(assignmentTargetFromTokens(statement)) || head.kind === 'keyword' || head.kind === 'directive';
 }
 
 /**
@@ -227,4 +359,13 @@ export function identifierSpanEndingAt(
 		return undefined;
 	}
 	return { start, end };
+}
+
+/** Line-local gate for automatic value suggestions on '=' (including ':='). */
+export function assignmentValueTriggerMayComplete(linePrefix: string, continued = false): boolean {
+	const cursor = completionLineCursorContext(linePrefix, linePrefix.length);
+	if (cursor.inComment || cursor.inString) { return false; }
+	if (continued) { return true; }
+	const tokens = cursor.significantTokens.filter(t => t.start >= cursor.statementStart);
+	return tokens.at(-1)?.rawText === ':=' || Boolean(assignmentTargetFromTokens(tokens));
 }

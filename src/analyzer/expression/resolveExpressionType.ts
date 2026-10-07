@@ -22,10 +22,12 @@ import type { ExprNode, ProcedureNode, Span } from '../parser/nodes';
 import { parseModule } from '../parser/parseModule';
 import { buildModuleSymbols } from '../symbols/buildModuleSymbols';
 import type { ModuleSymbolKind, VbaProjectClassMembers, VbaSymbol } from '../symbols/symbolModel';
+import { resolveBareIdentifierBinding, type BareIdentifierResolution } from '../symbols/nameResolution';
 import { procedureSymbolFor } from '../diagnostics/analysisContext';
 import { resolveRuntimeObject } from '../runtime/vbaRuntime';
 import {
 	buildModuleTypeSignatures,
+	defTypeOf,
 	declaredValueTypeForQualifiedSourceBinding,
 	declaredValueTypeForSourceBinding,
 	inferExpressionType,
@@ -72,6 +74,9 @@ export interface ExpressionTypeInfo {
 // modules does not evict the active one. Callers must not mutate what they get.
 const BOUND_MODULE_CACHE_MAX = 8;
 interface BoundModule {
+	queriedProcedure?: boolean;
+	/** null retains the original scan for overlapping or unordered spans. */
+	procedureLookup?: readonly ProcedureNode[] | null;
 	source: string;
 	moduleName: string;
 	moduleKind: ModuleSymbolKind;
@@ -120,7 +125,7 @@ function expressionTokens(source: string, span: Span): VbaToken[] {
 }
 
 /** The procedure whose body contains `span`, if any. */
-function enclosingProcedure(
+function linearEnclosingProcedure(
 	members: readonly { kind: string; span: Span }[],
 	span: Span,
 ): ProcedureNode | undefined {
@@ -130,6 +135,30 @@ function enclosingProcedure(
 		}
 	}
 	return undefined;
+}
+
+/** Build only after a second query; ordinary one-shot selections stay cheap. */
+function enclosingProcedure(bound: BoundModule, span: Span): ProcedureNode | undefined {
+	if (!bound.queriedProcedure) {
+		bound.queriedProcedure = true;
+		return linearEnclosingProcedure(bound.module.members, span);
+	}
+	if (bound.procedureLookup === undefined) {
+		const procedures = bound.module.members.filter((member): member is ProcedureNode => member.kind === 'Procedure');
+		bound.procedureLookup = procedures.every((proc, i) => proc.span.start <= proc.span.end
+			&& (i === 0 || procedures[i - 1].span.end <= proc.span.start)) ? procedures : null;
+	}
+	const procedures = bound.procedureLookup;
+	if (!procedures) { return linearEnclosingProcedure(bound.module.members, span); }
+	// First interval ending at or after the selection: choosing the first also
+	// preserves the original inclusive-boundary behavior for empty selections.
+	let lo = 0, hi = procedures.length;
+	while (lo < hi) {
+		const mid = (lo + hi) >>> 1;
+		if (procedures[mid].span.end < span.end) { lo = mid + 1; } else { hi = mid; }
+	}
+	const proc = procedures[lo];
+	return proc && proc.span.start <= span.start && span.end <= proc.span.end ? proc : undefined;
 }
 
 /**
@@ -177,12 +206,13 @@ export function resolveExpressionType(
 		&& parsed.diagnostics.length === 0
 		&& parsed.endIndex === tokens.length;
 
-	const { module, symbols } = boundModule(
+	const bound = boundModule(
 		source,
 		ctx.moduleName ?? 'Module',
 		ctx.moduleKind ?? 'standard',
 	);
-	const proc = enclosingProcedure(module.members, span);
+	const { symbols } = bound;
+	const proc = enclosingProcedure(bound, span);
 	const procSym = proc ? procedureSymbolFor(symbols, proc) : undefined;
 	const env = proc ? typeEnvironmentFor(symbols, proc) : new Map<string, string>();
 	const sourceNames = proc
@@ -218,6 +248,22 @@ export function resolveExpressionType(
 	// even when the type table does not carry the class.
 	const isObject = isNewExpression(tokens) || needsSetAssignment(type, memberCtx);
 	return { type, isObject, complete };
+}
+
+/** Bind an assignment name using the same cached module and procedure lookup as expression typing. */
+export function resolveSourceAssignmentBindingAt(
+	source: string, span: Span, name: string, ctx: ExpressionTypeContext = {},
+): BareIdentifierResolution & { setterValueType?: string; setterValueIsArray?: boolean } {
+	const bound = boundModule(source, ctx.moduleName ?? 'Module', ctx.moduleKind ?? 'standard');
+	const proc = enclosingProcedure(bound, span);
+	const binding = resolveBareIdentifierBinding({
+		currentModule: bound.symbols,
+		enclosingProcedure: proc ? procedureSymbolFor(bound.symbols, proc) : undefined,
+		projectVisibleSymbols: ctx.projectVisibleSymbols,
+		name, offset: span.start, context: 'assignmentTarget',
+	});
+	const value = binding.definitions.find(d => d.kind === 'propertyLet')?.children?.filter(d => d.kind === 'parameter').at(-1);
+	return { ...binding, ...(value ? { setterValueType: value.asType ?? (value.moduleName.toLowerCase() === bound.symbols.moduleName.toLowerCase() ? defTypeOf(bound.symbols, value.name) : undefined), setterValueIsArray: value.isArray === true } : {}) };
 }
 
 /** Whether the expression is `New SomeClass`, which is always a reference. */

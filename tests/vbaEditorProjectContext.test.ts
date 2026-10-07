@@ -1,8 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as vscodeTypes from 'vscode';
 
+const closeEvents = vi.hoisted(() => ({ listeners: [] as Array<(document: vscodeTypes.TextDocument) => void> }));
+const services: VbaEditorProjectContextService[] = [];
+
 vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({
-    workspace: { onDidCloseTextDocument: vi.fn(() => ({ dispose() {} })), textDocuments: [] },
+    workspace: { onDidCloseTextDocument: (listener: (document: vscodeTypes.TextDocument) => void) => { closeEvents.listeners.push(listener); return { dispose() { closeEvents.listeners.splice(closeEvents.listeners.indexOf(listener), 1); } }; }, textDocuments: [] },
 }));
 vi.mock('../src/vbaProjectAnalysis', async () => {
     const actual = await vi.importActual<typeof import('../src/vbaProjectAnalysis')>('../src/vbaProjectAnalysis');
@@ -29,11 +32,12 @@ function setup() {
         getText: () => '' } as unknown as vscodeTypes.TextDocument;
     (vscode.workspace as unknown as { textDocuments: vscodeTypes.TextDocument[] }).textDocuments = [doc];
     const service = new VbaEditorProjectContextService({} as VbaProjectIndexService);
+    services.push(service);
     return { doc, service };
 }
 
 beforeEach(() => { vi.mocked(buildLiveVbaProjectIndexAsync).mockReset(); vi.mocked(buildLiveVbaProjectIndex).mockClear(); });
-afterEach(() => { vi.restoreAllMocks(); });
+afterEach(() => { for (const service of services.splice(0)) service.dispose(); vi.useRealTimers(); vi.restoreAllMocks(); });
 
 describe('editor completion context loading races', () => {
     it('keeps current-module macros separate from external bare-call procedures', () => {
@@ -136,13 +140,16 @@ describe('editor completion context loading races', () => {
         expect(service.cachedEditorProjectContext(doc)?.projectTypes?.map(type => type.name)).toContain('NewType');
     });
     it('warms the latest document version even while a previous build is pending', async () => {
+        vi.useFakeTimers();
         const { doc, service } = setup();
         const oldLoad = pending<ReturnType<typeof project>>();
         const newLoad = pending<ReturnType<typeof project>>();
         vi.mocked(buildLiveVbaProjectIndexAsync).mockReturnValueOnce(oldLoad.promise).mockReturnValueOnce(newLoad.promise);
         service.warmEditorProjectContext(doc, 'old');
+        await vi.advanceTimersByTimeAsync(0);
         (doc as unknown as { version: number }).version++;
         service.warmEditorProjectContext(doc, 'new');
+        await vi.advanceTimersByTimeAsync(0);
         expect(buildLiveVbaProjectIndexAsync).toHaveBeenCalledTimes(2);
         oldLoad.resolve(project('OldType')); newLoad.resolve(project('NewType'));
         await service.buildEditorProjectContextWithin(doc, '', 1000);
@@ -156,5 +163,59 @@ describe('editor completion context loading races', () => {
         (doc as unknown as { version: number }).version++;
         load.resolve(project('OldType'));
         expect((await request)?.projectTypes ?? []).toEqual([]);
+    });
+});
+
+
+describe('editor context document lifetimes', () => {
+    it('clears caches and active builds when close/open reuses the same document object', async () => {
+        const { doc, service } = setup();
+        vi.mocked(buildLiveVbaProjectIndexAsync).mockResolvedValueOnce(project('OldType'));
+        await service.buildEditorProjectContext(doc, 'old');
+        for (const listener of closeEvents.listeners) listener(doc);
+        expect(service.cachedEditorProjectContext(doc)).toBeUndefined();
+        vi.mocked(buildLiveVbaProjectIndexAsync).mockResolvedValueOnce(project('NewType'));
+        expect((await service.buildEditorProjectContext(doc, 'new')).projectTypes?.map(type => type.name)).toContain('NewType');
+    });
+
+    it('does not reuse cached project types after reopening the same URI and version', async () => {
+        const { doc, service } = setup();
+        vi.mocked(buildLiveVbaProjectIndexAsync).mockResolvedValueOnce(project('OldType'));
+        await service.buildEditorProjectContext(doc, 'old');
+        (doc as unknown as { isClosed: boolean }).isClosed = true;
+        const reopened = { ...doc, isClosed: false } as vscodeTypes.TextDocument;
+        expect(service.cachedEditorProjectContext(reopened)).toBeUndefined();
+        vi.mocked(buildLiveVbaProjectIndexAsync).mockResolvedValueOnce(project('NewType'));
+        expect((await service.buildEditorProjectContext(reopened, 'new')).projectTypes?.map(type => type.name)).toContain('NewType');
+    });
+
+    it('does not share an old in-flight build with a reopened document', async () => {
+        const { doc, service } = setup();
+        const oldLoad = pending<ReturnType<typeof project>>();
+        const newLoad = pending<ReturnType<typeof project>>();
+        vi.mocked(buildLiveVbaProjectIndexAsync).mockReturnValueOnce(oldLoad.promise).mockReturnValueOnce(newLoad.promise);
+        const oldRequest = service.buildEditorProjectContext(doc, 'old');
+        (doc as unknown as { isClosed: boolean }).isClosed = true;
+        const reopened = { ...doc, isClosed: false } as vscodeTypes.TextDocument;
+        const newRequest = service.buildEditorProjectContext(reopened, 'new');
+        expect(buildLiveVbaProjectIndexAsync).toHaveBeenCalledTimes(2);
+        newLoad.resolve(project('NewType'));
+        expect((await newRequest).projectTypes?.map(type => type.name)).toContain('NewType');
+        oldLoad.resolve(project('OldType'));
+        await oldRequest;
+        expect(service.cachedEditorProjectContext(reopened)?.projectTypes?.map(type => type.name)).toContain('NewType');
+    });
+
+    it('warms the reopened document even when its old lifetime has a scheduled warm', async () => {
+        vi.useFakeTimers();
+        const { doc, service } = setup();
+        vi.mocked(buildLiveVbaProjectIndexAsync).mockResolvedValue(project('NewType'));
+        service.warmEditorProjectContext(doc, 'old');
+        (doc as unknown as { isClosed: boolean }).isClosed = true;
+        const reopened = { ...doc, isClosed: false } as vscodeTypes.TextDocument;
+        service.warmEditorProjectContext(reopened, 'new');
+        await vi.advanceTimersByTimeAsync(0);
+        expect(buildLiveVbaProjectIndexAsync).toHaveBeenCalledTimes(1);
+        expect(service.cachedEditorProjectContext(reopened)?.projectTypes?.map(type => type.name)).toContain('NewType');
     });
 });

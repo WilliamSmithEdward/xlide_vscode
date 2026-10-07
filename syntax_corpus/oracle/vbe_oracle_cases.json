@@ -108107,6 +108107,3937 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant\r\n    Dim o As Object\r\n    Set o = Range(\"A1\").Comment\r\n    Range(\"A1\").ClearComments\r\n    v = o & \"\"\r\n    Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
-    }
+    },
+    {
+      "id": "assignment_height_run",
+      "description": "Getter-only Range values and writable RowHeight contrasted in Excel. Verified through the repository Excel/VBE oracle on 2026-10-06: runtime error 424 (Object required).",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPublic Function Main() As Variant\nDim ws As Worksheet\nSet ws = ThisWorkbook.Worksheets(1)\nws.Range(\"A1\").EntireRow.Height = 20\nMain = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "assignment_width_run",
+      "description": "Getter-only Range values and writable RowHeight contrasted in Excel. Verified through the repository Excel/VBE oracle on 2026-10-06: runtime error 424 (Object required).",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPublic Function Main() As Variant\nDim ws As Worksheet\nSet ws = ThisWorkbook.Worksheets(1)\nws.Range(\"A1\").EntireRow.Width = 20\nMain = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "assignment_left_run",
+      "description": "Getter-only Range values and writable RowHeight contrasted in Excel. Verified through the repository Excel/VBE oracle on 2026-10-06: runtime error 424 (Object required).",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPublic Function Main() As Variant\nDim ws As Worksheet\nSet ws = ThisWorkbook.Worksheets(1)\nws.Range(\"A1\").EntireRow.Left = 20\nMain = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "assignment_top_run",
+      "description": "Getter-only Range values and writable RowHeight contrasted in Excel. Verified through the repository Excel/VBE oracle on 2026-10-06: runtime error 424 (Object required).",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPublic Function Main() As Variant\nDim ws As Worksheet\nSet ws = ThisWorkbook.Worksheets(1)\nws.Range(\"A1\").EntireRow.Top = 20\nMain = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "assignment_text_run",
+      "description": "Getter-only Range values and writable RowHeight contrasted in Excel. Verified through the repository Excel/VBE oracle on 2026-10-06: runtime error 424 (Object required).",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPublic Function Main() As Variant\nDim ws As Worksheet\nSet ws = ThisWorkbook.Worksheets(1)\nws.Range(\"A1\").EntireRow.Text = 20\nMain = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "assignment_countlarge_run",
+      "description": "Getter-only Range values and writable RowHeight contrasted in Excel. Verified through the repository Excel/VBE oracle on 2026-10-06: runtime error 424 (Object required).",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPublic Function Main() As Variant\nDim ws As Worksheet\nSet ws = ThisWorkbook.Worksheets(1)\nws.Range(\"A1\").EntireRow.CountLarge = 20\nMain = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "assignment_hasarray_run",
+      "description": "Getter-only Range values and writable RowHeight contrasted in Excel. Verified through the repository Excel/VBE oracle on 2026-10-06: runtime error 424 (Object required).",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPublic Function Main() As Variant\nDim ws As Worksheet\nSet ws = ThisWorkbook.Worksheets(1)\nws.Range(\"A1\").EntireRow.HasArray = 20\nMain = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "assignment_hasformula_run",
+      "description": "Getter-only Range values and writable RowHeight contrasted in Excel. Verified through the repository Excel/VBE oracle on 2026-10-06: runtime error 424 (Object required).",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPublic Function Main() As Variant\nDim ws As Worksheet\nSet ws = ThisWorkbook.Worksheets(1)\nws.Range(\"A1\").EntireRow.HasFormula = 20\nMain = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "assignment_rowheight_run",
+      "description": "Getter-only Range values and writable RowHeight contrasted in Excel. Verified through the repository Excel/VBE oracle on 2026-10-06: ran successfully.",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPublic Function Main() As Variant\nDim ws As Worksheet\nSet ws = ThisWorkbook.Worksheets(1)\nws.Range(\"A1\").EntireRow.RowHeight = 20\nMain = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "assignment_host_boolean_bad_run",
+      "description": "Worksheet.EnableCalculation Boolean setter coercion. Verified through the repository Excel/VBE oracle on 2026-10-06: runtime error 13 (Type mismatch).",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPublic Function Main() As Variant\nDim ws As Worksheet\nSet ws = ThisWorkbook.Worksheets(1)\nws.EnableCalculation = \"nonsense\"\nMain = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "assignment_host_boolean_good_run",
+      "description": "Worksheet.EnableCalculation Boolean setter coercion. Verified through the repository Excel/VBE oracle on 2026-10-06: ran successfully.",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPublic Function Main() As Variant\nDim ws As Worksheet\nSet ws = ThisWorkbook.Worksheets(1)\nws.EnableCalculation = True\nMain = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "indexed_property_bad_runtime",
+      "description": "Indexed Property Let Boolean value conversion. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Private held As Boolean\nPublic Property Get State(ByVal index As Long) As Boolean\nState = held\nEnd Property\nPublic Property Let State(ByVal index As Long, ByVal value As Boolean)\nheld = value\nEnd Property\n"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nPublic Function Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.State(1) = \"nonsense\"\nMain = 1\nEnd Function\n"
+        }
+      ],
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "indexed_property_good_runtime",
+      "description": "Indexed Property Let Boolean value conversion. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Private held As Boolean\nPublic Property Get State(ByVal index As Long) As Boolean\nState = held\nEnd Property\nPublic Property Let State(ByVal index As Long, ByVal value As Boolean)\nheld = value\nEnd Property\n"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nPublic Function Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.State(1) = True\nMain = 1\nEnd Function\n"
+        }
+      ],
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "indexed_getonly_compile",
+      "description": "Assignment to a getter-only scalar indexed property. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get State(ByVal index As Long) As Boolean\nState = True\nEnd Property\n"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nPublic Sub Main()\nDim item As Widget\nSet item = New Widget\nitem.State(1) = True\nEnd Sub\n"
+        }
+      ],
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "boolean_function_target_compile",
+      "description": "Boolean function call is not an assignment target. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "compile",
+      "source": "Option Explicit\nSub Main()\nIsNumeric(\"x\") = True\nEnd Sub\n",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "boolean_array_element_runtime",
+      "description": "Boolean array element is an assignment target. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As Variant\nDim enabled(1) As Boolean\nenabled(1) = True\nMain = enabled(1)\nEnd Function\n",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "getonly_default_range_bare",
+      "description": "Let through an object returned by a getter-only property. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get State() As Range\nSet State = ThisWorkbook.Worksheets(1).Range(\"A1\")\nEnd Property\n"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nPublic Function Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.State = 20\nMain = ThisWorkbook.Worksheets(1).Range(\"A1\").Value\nEnd Function\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "getonly_default_range_index",
+      "description": "Let through an object returned by a getter-only property. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get State(ByVal index As Long) As Range\nSet State = ThisWorkbook.Worksheets(1).Range(\"A1\")\nEnd Property\n"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nPublic Function Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.State(1) = 20\nMain = ThisWorkbook.Worksheets(1).Range(\"A1\").Value\nEnd Function\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "getonly_default_variant_bare",
+      "description": "Let through an object returned by a getter-only property. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get State() As Variant\nSet State = ThisWorkbook.Worksheets(1).Range(\"A1\")\nEnd Property\n"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nPublic Function Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.State = 20\nMain = ThisWorkbook.Worksheets(1).Range(\"A1\").Value\nEnd Function\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "getonly_default_variant_index",
+      "description": "Let through an object returned by a getter-only property. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get State(ByVal index As Long) As Variant\nSet State = ThisWorkbook.Worksheets(1).Range(\"A1\")\nEnd Property\n"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nPublic Function Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.State(1) = 20\nMain = ThisWorkbook.Worksheets(1).Range(\"A1\").Value\nEnd Function\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "module_getonly_default_range",
+      "description": "Bare standard-module getter result supports a Let through Range.Value. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPublic Property Get State() As Range\nSet State = ThisWorkbook.Worksheets(1).Range(\"A1\")\nEnd Property\nFunction Main() As Variant\nState = 20\nMain = ThisWorkbook.Worksheets(1).Range(\"A1\").Value\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "module_getonly_default_variant",
+      "description": "Bare standard-module getter result supports a Let through Range.Value. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPublic Property Get State() As Variant\nSet State = ThisWorkbook.Worksheets(1).Range(\"A1\")\nEnd Property\nFunction Main() As Variant\nState = 20\nMain = ThisWorkbook.Worksheets(1).Range(\"A1\").Value\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "empty_indexed_getonly_compile",
+      "description": "Explicit empty parentheses do not make a scalar getter-only property writable. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get State() As Boolean\nState = True\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\nDim item As Widget\nSet item = New Widget\nitem.State() = True\nEnd Sub"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "bare_setter_bad",
+      "description": "Bare setter-only Boolean Property Let assignment. Verified with the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPublic Property Let State(ByVal value As Boolean)\nEnd Property\nFunction Main() As Variant\nState = \"nonsense\"\nMain = 1\nEnd Function\n",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "bare_setter_good",
+      "description": "Bare setter-only Boolean Property Let assignment. Verified with the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPublic Property Let State(ByVal value As Boolean)\nEnd Property\nFunction Main() As Variant\nState = True\nMain = 1\nEnd Function\n",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "bare_setter_index_bad",
+      "description": "Bare setter-only Boolean Property Let assignment. Verified with the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPublic Property Let State(ByVal index As Long, ByVal value As Boolean)\nEnd Property\nFunction Main() As Variant\nState(1) = \"nonsense\"\nMain = 1\nEnd Function\n",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "bare_setter_index_good",
+      "description": "Bare setter-only Boolean Property Let assignment. Verified with the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPublic Property Let State(ByVal index As Long, ByVal value As Boolean)\nEnd Property\nFunction Main() As Variant\nState(1) = True\nMain = 1\nEnd Function\n",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "qualified_excel_office_constant",
+      "description": "Office enum qualification when a local variable shadows its constant. Verified with the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "compile",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As Variant\nDim sh As Shape, msoTrue As Long\nSet sh = ThisWorkbook.Worksheets(1).Shapes.AddShape(1,0,0,10,10)\nsh.Visible = Excel.MsoTriState.msoTrue\nMain = 1\nEnd Function\n",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "qualified_office_office_constant",
+      "description": "Office enum qualification when a local variable shadows its constant. Verified with the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As Variant\nDim sh As Shape, msoTrue As Long\nSet sh = ThisWorkbook.Worksheets(1).Shapes.AddShape(1,0,0,10,10)\nsh.Visible = Office.MsoTriState.msoTrue\nMain = 1\nEnd Function\n",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "host_enum_variable_bad",
+      "description": "Host-enum Long coercion in variables and property setters. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As Variant\nDim value As XlHAlign\nvalue = \"abc\"\nMain = 1\nEnd Function\n",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "host_enum_bare_bad",
+      "description": "Host-enum Long coercion in variables and property setters. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Public Property Let State(ByVal value As XlHAlign)\nEnd Property\nOption Explicit\nFunction Main() As Variant\nState = \"abc\"\nMain = 1\nEnd Function\n",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "host_enum_member_bad",
+      "description": "Host-enum Long coercion in variables and property setters. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal value As XlHAlign)\nEnd Property\n"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.State = \"abc\"\nMain = 1\nEnd Function\n"
+        }
+      ],
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "host_enum_variable_good",
+      "description": "Host-enum Long coercion in variables and property setters. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As Variant\nDim value As XlHAlign\nvalue = 999\nMain = 1\nEnd Function\n",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "host_enum_bare_good",
+      "description": "Host-enum Long coercion in variables and property setters. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Public Property Let State(ByVal value As XlHAlign)\nEnd Property\nOption Explicit\nFunction Main() As Variant\nState = 999\nMain = 1\nEnd Function\n",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "host_enum_member_good",
+      "description": "Host-enum Long coercion in variables and property setters. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal value As XlHAlign)\nEnd Property\n"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.State = 999\nMain = 1\nEnd Function\n"
+        }
+      ],
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "source_enum_member_bad",
+      "description": "Source enum Property Let uses Long coercion. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "modules": [
+        {
+          "name": "Types",
+          "type": "standard",
+          "source": "Public Enum Direction\nNorth = 1\nEnd Enum"
+        },
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal value As Direction)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.State = \"abc\"\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "source_enum_member_good",
+      "description": "Source enum Property Let uses Long coercion. Verified through the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "modules": [
+        {
+          "name": "Types",
+          "type": "standard",
+          "source": "Public Enum Direction\nNorth = 1\nEnd Enum"
+        },
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal value As Direction)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.State = 999\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "array_setter_array",
+      "description": "Array-valued Boolean Property Let assignment. Verified with the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nProperty Let Flags(ByRef value() As Boolean)\nEnd Property\nFunction Main() As Variant\nDim values(1) As Boolean\nvalues(0) = True\nFlags = values\nMain = 1\nEnd Function",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "array_setter_scalar",
+      "description": "Array-valued Boolean Property Let assignment. Verified with the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nProperty Let Flags(ByRef value() As Boolean)\nEnd Property\nFunction Main() As Variant\nFlags = True\nMain = 1\nEnd Function",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "implicit_boolean_setter",
+      "description": "DefBool supplies a Property Let parameter type. Verified with the repository Excel/VBE oracle on 2026-10-06.",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nDefBool V\nProperty Let State(ByVal value)\nEnd Property\nFunction Main() As Variant\nState = True\nMain = 1\nEnd Function",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "implicit_scalar_getter_readonly",
+      "description": "DefBool makes a getter-only property scalar and read-only. Verified with the repository Excel/VBE oracle on 2026-10-06.",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "DefBool S\nPublic Property Get State()\nState = True\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\nDim item As Widget\nSet item = New Widget\nitem.State = True\nEnd Sub"
+        }
+      ]
+    },
+    {
+      "id": "indexed_property_set_worksheet",
+      "description": "Indexed Property Set Worksheet compatibility.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Set Item(ByVal index As Long, ByVal value As Worksheet)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim holder As Widget, ws As Worksheet\nSet holder = New Widget\nSet ws = ThisWorkbook.Worksheets(1)\nSet holder.Item(1) = ws\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "indexed_property_set_nothing",
+      "description": "Indexed Property Set Worksheet compatibility.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Set Item(ByVal index As Long, ByVal value As Worksheet)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim holder As Widget, ws As Worksheet\nSet holder = New Widget\nSet ws = ThisWorkbook.Worksheets(1)\nSet holder.Item(1) = Nothing\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "indexed_property_set_wrongclass",
+      "description": "Indexed Property Set Worksheet compatibility.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Set Item(ByVal index As Long, ByVal value As Worksheet)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim holder As Widget, ws As Worksheet\nSet holder = New Widget\nSet ws = ThisWorkbook.Worksheets(1)\nSet holder.Item(1) = New Collection\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "indexed_property_set_scalar",
+      "description": "Indexed Property Set Worksheet compatibility.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Set Item(ByVal index As Long, ByVal value As Worksheet)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim holder As Widget, ws As Worksheet\nSet holder = New Widget\nSet ws = ThisWorkbook.Worksheets(1)\nSet holder.Item(1) = 5\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "getter_udt_field_qualified_valid",
+      "description": "Assignment through a returned UDT field.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "modules": [
+        {
+          "name": "Types",
+          "type": "standard",
+          "source": "Public Type Record\nFlag As Boolean\nEnd Type\nPublic Property Get Snapshot() As Record\nDim result As Record\nSnapshot = result\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nTypes.Snapshot.Flag = True\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "getter_udt_field_qualified_bad",
+      "description": "Assignment through a returned UDT field.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "modules": [
+        {
+          "name": "Types",
+          "type": "standard",
+          "source": "Public Type Record\nFlag As Boolean\nEnd Type\nPublic Property Get Snapshot() As Record\nDim result As Record\nSnapshot = result\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nTypes.Snapshot.Flag = \"nonsense\"\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "getter_udt_field_bare_valid",
+      "description": "Assignment through a returned UDT field.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "modules": [
+        {
+          "name": "Types",
+          "type": "standard",
+          "source": "Public Type Record\nFlag As Boolean\nEnd Type\nPublic Property Get Snapshot() As Record\nDim result As Record\nSnapshot = result\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nSnapshot.Flag = True\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "getter_udt_field_bare_bad",
+      "description": "Assignment through a returned UDT field.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "modules": [
+        {
+          "name": "Types",
+          "type": "standard",
+          "source": "Public Type Record\nFlag As Boolean\nEnd Type\nPublic Property Get Snapshot() As Record\nDim result As Record\nSnapshot = result\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nSnapshot.Flag = \"nonsense\"\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "class_array_setter_plain_scalar",
+      "description": "Array value parameter on a class Property Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let Flags(ByRef value() As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nDim values(1) As Boolean\nvalues(0) = True\nitem.Flags = True\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "class_array_setter_plain_array",
+      "description": "Array value parameter on a class Property Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let Flags(ByRef value() As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nDim values(1) As Boolean\nvalues(0) = True\nitem.Flags = values\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "class_array_setter_indexed_scalar",
+      "description": "Array value parameter on a class Property Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let Flags(ByVal index As Long, ByRef value() As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nDim values(1) As Boolean\nvalues(0) = True\nitem.Flags(1) = True\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "class_array_setter_indexed_array",
+      "description": "Array value parameter on a class Property Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let Flags(ByVal index As Long, ByRef value() As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nDim values(1) As Boolean\nvalues(0) = True\nitem.Flags(1) = values\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "array_setter_value_variant",
+      "description": "Additional expression shapes in an array-valued Property Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "source": "Option Explicit\nProperty Let Flags(ByRef value() As Boolean)\nEnd Property\nFunction Main() As Variant\nDim value As Variant\nvalue = Array(True)\nFlags = value\nMain = 1\nEnd Function"
+    },
+    {
+      "id": "array_setter_value_empty_index",
+      "description": "Additional expression shapes in an array-valued Property Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "source": "Option Explicit\nProperty Let Flags(ByRef value() As Boolean)\nEnd Property\nFunction Main() As Variant\nDim values(1) As Boolean\nFlags = values()\nMain = 1\nEnd Function"
+    },
+    {
+      "id": "array_setter_value_function_array",
+      "description": "Additional expression shapes in an array-valued Property Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "source": "Option Explicit\nProperty Let Flags(ByRef value() As Boolean)\nEnd Property\nFunction Main() As Variant\n\nFlags = Array(True)\nMain = 1\nEnd Function"
+    },
+    {
+      "id": "array_setter_value_object",
+      "description": "Additional expression shapes in an array-valued Property Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "source": "Option Explicit\nProperty Let Flags(ByRef value() As Boolean)\nEnd Property\nFunction Main() As Variant\n\nFlags = New Collection\nMain = 1\nEnd Function"
+    },
+    {
+      "id": "array_setter_value_typed_function",
+      "description": "Typed function, parentheses and object values for array-valued Property Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Flag As Boolean"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nProperty Let Flags(ByRef value() As Boolean)\nEnd Property\nFunction MakeFlags() As Boolean()\nDim result(1) As Boolean\nMakeFlags = result\nEnd Function\nFunction Main() As Variant\n\nFlags = MakeFlags()\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "array_setter_value_parenthesized_array",
+      "description": "Typed function, parentheses and object values for array-valued Property Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Flag As Boolean"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nProperty Let Flags(ByRef value() As Boolean)\nEnd Property\nFunction MakeFlags() As Boolean()\nDim result(1) As Boolean\nMakeFlags = result\nEnd Function\nFunction Main() As Variant\nDim values(1) As Boolean\nFlags = (values)\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "array_setter_value_plain_object",
+      "description": "Typed function, parentheses and object values for array-valued Property Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Flag As Boolean"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nProperty Let Flags(ByRef value() As Boolean)\nEnd Property\nFunction MakeFlags() As Boolean()\nDim result(1) As Boolean\nMakeFlags = result\nEnd Function\nFunction Main() As Variant\n\nFlags = New Widget\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "array_setter_value_shadowed_split",
+      "description": "Source Split function shadowing and qualified runtime VBA.Split.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nProperty Let Flags(ByRef value() As Boolean)\nEnd Property\nFunction Split(ByVal ignored As Boolean) As Boolean()\nDim result(1) As Boolean\nSplit = result\nEnd Function\nFunction Main() As Variant\nFlags = Split(True)\nMain = 1\nEnd Function",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "array_setter_value_qualified_split",
+      "description": "Source Split function shadowing and qualified runtime VBA.Split.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nProperty Let Flags(ByRef value() As Boolean)\nEnd Property\nFunction Split(ByVal ignored As Boolean) As Boolean()\nDim result(1) As Boolean\nSplit = result\nEnd Function\nFunction Main() As Variant\nFlags = VBA.Split(\"x\")\nMain = 1\nEnd Function",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "array_setter_value_byte_string",
+      "description": "Byte/String conversion and typed function element compatibility in Property Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nProperty Let Flags(ByRef value() As Byte)\nEnd Property\nFunction MakeFlags() As Byte()\nDim result(1) As Byte\nMakeFlags = result\nEnd Function\nFunction Main() As Variant\nFlags = \"text\"\nMain = 1\nEnd Function",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "array_setter_value_typed_wrong_element",
+      "description": "Byte/String conversion and typed function element compatibility in Property Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nProperty Let Flags(ByRef value() As Boolean)\nEnd Property\nFunction MakeFlags() As Long()\nDim result(1) As Long\nMakeFlags = result\nEnd Function\nFunction Main() As Variant\nFlags = MakeFlags()\nMain = 1\nEnd Function",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "byte_array_setter_variant_string",
+      "description": "String/Variant conversion into a Byte-array Property Let value.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nProperty Let Flags(ByRef bytes() As Byte)\nEnd Property\nFunction Main() As Variant\nDim value As Variant\nvalue = \"text\"\nFlags = value\nMain = 1\nEnd Function",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "byte_array_setter_variant_array",
+      "description": "String/Variant conversion into a Byte-array Property Let value.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nProperty Let Flags(ByRef bytes() As Byte)\nEnd Property\nFunction Main() As Variant\nDim value As Variant\nvalue = Array(1,2)\nFlags = value\nMain = 1\nEnd Function",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "byte_array_setter_string_variable",
+      "description": "String/Variant conversion into a Byte-array Property Let value.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nProperty Let Flags(ByRef bytes() As Byte)\nEnd Property\nFunction Main() As Variant\nDim value As String\nvalue = \"text\"\nFlags = value\nMain = 1\nEnd Function",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "byte_array_setter_number",
+      "description": "Numeric and array expressions for a Byte-array Property Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nProperty Let Flags(ByRef bytes() As Byte)\nEnd Property\nFunction MakeFlags() As Long()\nDim result(1) As Long\nMakeFlags = result\nEnd Function\nFunction Main() As Variant\nFlags = 20\nMain = 1\nEnd Function",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "byte_array_setter_runtime_array",
+      "description": "Numeric and array expressions for a Byte-array Property Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nProperty Let Flags(ByRef bytes() As Byte)\nEnd Property\nFunction MakeFlags() As Long()\nDim result(1) As Long\nMakeFlags = result\nEnd Function\nFunction Main() As Variant\nFlags = Array(1,2)\nMain = 1\nEnd Function",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "byte_array_setter_wrong_typed_array",
+      "description": "Numeric and array expressions for a Byte-array Property Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nProperty Let Flags(ByRef bytes() As Byte)\nEnd Property\nFunction MakeFlags() As Long()\nDim result(1) As Long\nMakeFlags = result\nEnd Function\nFunction Main() As Variant\nFlags = MakeFlags()\nMain = 1\nEnd Function",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "with_range_value_array_assignment",
+      "source": "Option Explicit\nFunction Main() As Variant\nDim values As Variant\nvalues = Array(1,2)\nWith ThisWorkbook.Worksheets(1).Range(\"A1:B1\")\n.Value = values\nEnd With\nMain = 1\nEnd Function",
+      "description": "Array setter conversion and assignment-equals classification controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "scalar_boolean_setter_variant_array",
+      "source": "Option Explicit\nProperty Let Flag(ByVal value As Boolean)\nEnd Property\nFunction Main() As Variant\nDim value As Variant\nvalue = Array(1,2)\nFlag = value\nMain = 1\nEnd Function",
+      "description": "Array setter conversion and assignment-equals classification controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "byte_array_setter_plain_object",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Flag As Boolean"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nProperty Let Flags(ByRef bytes() As Byte)\nEnd Property\nFunction Main() As Variant\nFlags = New Widget\nMain = 1\nEnd Function"
+        }
+      ],
+      "description": "Array setter conversion and assignment-equals classification controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "host_scalar_property_array_boolean",
+      "description": "Tracked array assigned to a scalar host property.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As Variant\nDim ws As Worksheet\nSet ws = ThisWorkbook.Worksheets(1)\nDim values As Variant\nvalues = Array(1,2)\nws.EnableCalculation = values\nMain = 1\nEnd Function",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "host_scalar_property_array_alignment",
+      "description": "Tracked array assigned to a scalar host property.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As Variant\nDim ws As Worksheet\nSet ws = ThisWorkbook.Worksheets(1)\nDim values As Variant\nvalues = Array(1,2)\nws.Range(\"A1\").HorizontalAlignment = values\nMain = 1\nEnd Function",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "getter_write_array_whole",
+      "description": "Writes to getter-only array and Variant property results.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Flags() As Boolean()\nDim result(1) As Boolean\nFlags = result\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction MakeFlags() As Boolean()\nDim result(1) As Boolean\nMakeFlags = result\nEnd Function\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Flags = MakeFlags()\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "getter_write_array_element",
+      "description": "Writes to getter-only array and Variant property results.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Flags() As Boolean()\nDim result(1) As Boolean\nFlags = result\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction MakeFlags() As Boolean()\nDim result(1) As Boolean\nMakeFlags = result\nEnd Function\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Flags(0) = True\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "getter_write_variant_scalar",
+      "description": "Writes to getter-only array and Variant property results.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Height() As Variant\nHeight = 20\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction MakeFlags() As Boolean()\nDim result(1) As Boolean\nMakeFlags = result\nEnd Function\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Height = 30\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "getter_write_variant_object",
+      "description": "Writes to getter-only array and Variant property results.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Height() As Variant\nSet Height = ThisWorkbook.Worksheets(1).Range(\"A1\")\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction MakeFlags() As Boolean()\nDim result(1) As Boolean\nMakeFlags = result\nEnd Function\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Height = 30\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "getter_write_indexed_literal",
+      "description": "A getter-only Variant returning a provable scalar cannot receive a Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Height(ByVal index As Long) As Variant\nHeight = 20\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Height(1) = 30\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "getter_write_indexed_parameter",
+      "description": "A getter-only Variant returning a provable scalar cannot receive a Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Height(ByVal index As Long) As Variant\nHeight = index\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Height(1) = 30\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "getter_write_backing_field",
+      "description": "A getter-only Variant returning a provable scalar cannot receive a Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Private stored As Long\nPublic Property Get Height() As Variant\nHeight = stored\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Height = 30\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "getter_write_optional_function",
+      "description": "Getter/function argument lists and scalar Variant receiver controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Function Height(Optional ByVal index As Long) As Variant\nHeight = 20\nEnd Function"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Height = 30\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "getter_write_indexed_read",
+      "description": "Getter/function argument lists and scalar Variant receiver controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Height(ByVal index As Long) As Variant\nHeight = index\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nMain = item.Height(1)\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "getter_write_indexed_receiver",
+      "description": "Getter/function argument lists and scalar Variant receiver controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Height(ByVal index As Long) As Variant\nHeight = index\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Height(1).Value = 30\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "getter_write_missing_argument",
+      "description": "Mandatory/optional getter arguments precede returned-value writes.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Height(ByVal index As Long) As Variant\nHeight = 20\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Height = 30\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "getter_write_optional_object",
+      "description": "Mandatory/optional getter arguments precede returned-value writes.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Height(Optional ByVal index As String = \"1,2\") As Variant\nSet Height = ThisWorkbook.Worksheets(1).Range(\"A1\")\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Height = 30\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "getter_write_standard_scalar",
+      "description": "A bare standard-module getter-only Variant returning a scalar cannot receive a Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Option Explicit\nProperty Get Height() As Variant\nHeight = 20\nEnd Property\nFunction Main() As Variant\nHeight = 30\nMain = 1\nEnd Function"
+    },
+    {
+      "id": "getter_write_variant_array",
+      "description": "A getter-only typed array cannot receive a whole-value Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Height() As Variant()\nDim values(1) As Variant\nHeight = values\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Height = 30\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "getter_write_object_array",
+      "description": "A getter-only typed array cannot receive a whole-value Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Height() As Widget()\nDim values(1) As Widget\nHeight = values\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Height = 30\nMain = 1\nEnd Function"
+        }
+      ]
+    },
+    {
+      "id": "library_shadow_local_range",
+      "description": "Source values named after Office libraries must not request unrelated references.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "source": "Option Explicit\nFunction Main() As Variant\nDim Word As Range\nSet Word = ThisWorkbook.Worksheets(1).Range(\"A1\")\nWord.HorizontalAlignment = xlHAlignCenter\nMain = Word.HorizontalAlignment\nEnd Function",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "library_shadow_module_range",
+      "description": "Source values named after Office libraries must not request unrelated references.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "source": "Option Explicit\nPrivate Word As Range\nFunction Main() As Variant\nSet Word = ThisWorkbook.Worksheets(1).Range(\"A1\")\nWord.HorizontalAlignment = xlHAlignCenter\nMain = Word.HorizontalAlignment\nEnd Function",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "library_shadow_parameter_range",
+      "description": "Source values named after Office libraries must not request unrelated references.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "source": "Option Explicit\nPrivate Function Assign(ByVal Word As Range) As Variant\nWord.HorizontalAlignment = xlHAlignCenter\nAssign = Word.HorizontalAlignment\nEnd Function\nFunction Main() As Variant\nMain = Assign(ThisWorkbook.Worksheets(1).Range(\"A1\"))\nEnd Function",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "library_shadow_type_still_missing",
+      "description": "Source values named after Office libraries must not request unrelated references.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "source": "Option Explicit\nFunction Main() As Variant\nDim Word As Range\nDim app As Word.Application\nMain = 1\nEnd Function",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "setter_index_missing",
+      "description": "Indexed setter argument counts must be checked without a Property Get.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal index As Long, ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.State = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "setter_index_empty",
+      "description": "Indexed setter argument counts must be checked without a Property Get.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal index As Long, ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.State() = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "setter_index_extra",
+      "description": "Indexed setter argument counts must be checked without a Property Get.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal index As Long, ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.State(1,2) = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "setter_index_valid",
+      "description": "Indexed setter argument counts must be checked without a Property Get.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal index As Long, ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.State(1) = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "setter_index_set_missing",
+      "description": "Optional setter indices and Set accessor argument controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Set State(ByVal index As Long, ByVal value As Worksheet)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nSet item.State = ThisWorkbook.Worksheets(1)\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "setter_index_set_valid",
+      "description": "Optional setter indices and Set accessor argument controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Set State(ByVal index As Long, ByVal value As Worksheet)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nSet item.State(1) = ThisWorkbook.Worksheets(1)\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "setter_optional_required_value_decl",
+      "description": "Determine valid Optional index syntax with a required setter value.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(Optional ByVal index As String = \"1,2\", ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\n\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "setter_optional_required_value_bare",
+      "description": "Determine valid Optional index syntax with a required setter value.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(Optional ByVal index As String = \"1,2\", ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.State = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "setter_optional_required_value_empty",
+      "description": "Determine valid Optional index syntax with a required setter value.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(Optional ByVal index As String = \"1,2\", ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.State() = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "setter_optional_required_value_explicit",
+      "description": "Determine valid Optional index syntax with a required setter value.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(Optional ByVal index As String = \"1,2\", ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.State(\"x\") = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "setter_index_byval_bad",
+      "description": "Setter index type and ByRef conversion parity.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal index As Long, ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nDim i As Integer\nSet item = New Widget\nitem.State(\"bad\") = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "setter_index_byref_integer",
+      "description": "Setter index type and ByRef conversion parity.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByRef index As Long, ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nDim i As Integer\nSet item = New Widget\nitem.State(i) = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "setter_index_byref_parenthesized",
+      "description": "Setter index type and ByRef conversion parity.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByRef index As Long, ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nDim i As Integer\nSet item = New Widget\nitem.State((i)) = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "setter_index_byval_integer",
+      "description": "Setter index type and ByRef conversion parity.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal index As Long, ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nDim i As Integer\nSet item = New Widget\nitem.State(i) = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "setter_index_named_bad",
+      "description": "Setter index type and ByRef conversion parity.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal index As Long, ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nDim i As Integer\nSet item = New Widget\nitem.State(index:=\"bad\") = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "setter_index_array_to_scalar",
+      "description": "Array shape, default type and Set index controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal index As Long, ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nDim values(1) As Long\nSet item = New Widget\nitem.State(values) = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "setter_index_scalar_to_array",
+      "description": "Array shape, default type and Set index controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByRef index() As Long, ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\n\nSet item = New Widget\nitem.State(1) = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "setter_index_array_valid",
+      "description": "Array shape, default type and Set index controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByRef index() As Long, ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nDim values(1) As Long\nSet item = New Widget\nitem.State(values) = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "setter_index_default_long",
+      "description": "Array shape, default type and Set index controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "DefLng I\nPublic Property Let State(ByRef index, ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nDim i As Integer\nSet item = New Widget\nitem.State(i) = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "setter_index_set_bad",
+      "description": "Array shape, default type and Set index controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Set State(ByVal index As Long, ByVal value As Worksheet)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\n\nSet item = New Widget\nSet item.State(\"bad\") = ThisWorkbook.Worksheets(1)\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "receiver_get_byref",
+      "description": "Source receiver call passing/default type contracts before property writes.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get At(ByRef index As Long) As Worksheet\nSet At = ThisWorkbook.Worksheets(1)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nDim i As Integer\nSet item = New Widget\nitem.At(i).EnableCalculation = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "receiver_get_parenthesized",
+      "description": "Source receiver call passing/default type contracts before property writes.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get At(ByRef index As Long) As Worksheet\nSet At = ThisWorkbook.Worksheets(1)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nDim i As Integer\nSet item = New Widget\nitem.At((i)).EnableCalculation = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "receiver_get_byval",
+      "description": "Source receiver call passing/default type contracts before property writes.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get At(ByVal index As Long) As Worksheet\nSet At = ThisWorkbook.Worksheets(1)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nDim i As Integer\nSet item = New Widget\nitem.At(i).EnableCalculation = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "receiver_function_byref",
+      "description": "Source receiver call passing/default type contracts before property writes.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Function At(ByRef index As Long) As Worksheet\nSet At = ThisWorkbook.Worksheets(1)\nEnd Function"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nDim i As Integer\nSet item = New Widget\nitem.At(i).EnableCalculation = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "receiver_function_default_long",
+      "description": "Source receiver call passing/default type contracts before property writes.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "DefLng I\nPublic Function At(ByRef index) As Worksheet\nSet At = ThisWorkbook.Worksheets(1)\nEnd Function"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nDim i As Integer\nSet item = New Widget\nitem.At(i).EnableCalculation = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "receiver_with_byref",
+      "description": "Source receiver call passing/default type contracts before property writes.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get At(ByRef index As Long) As Worksheet\nSet At = ThisWorkbook.Worksheets(1)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nDim i As Integer\nSet item = New Widget\nWith item.At(i)\n.EnableCalculation = True\nEnd With\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "receiver_statement_byref",
+      "description": "Source member statement ByRef and argument-parentheses controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Sub Take(ByRef index As Long)\nEnd Sub"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nDim i As Integer\nSet item = New Widget\nitem.Take i\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "receiver_statement_copy",
+      "description": "Source member statement ByRef and argument-parentheses controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Sub Take(ByRef index As Long)\nEnd Sub"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nDim i As Integer\nSet item = New Widget\nitem.Take (i)\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "receiver_statement_glued",
+      "description": "Source member statement ByRef and argument-parentheses controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Sub Take(ByRef index As Long)\nEnd Sub"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nDim i As Integer\nSet item = New Widget\nitem.Take(i)\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "receiver_get_array_index",
+      "description": "Source getter index takes a scalar, not an array.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get At(ByVal index As Long) As Worksheet\nSet At = ThisWorkbook.Worksheets(1)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nDim values(1) As Long\nSet item = New Widget\nitem.At(values).EnableCalculation = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "receiver_member_left_not_vba",
+      "description": "A source member named Left does not use VBA arity fallback.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Sub Left()\nEnd Sub"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nCall item.Left(\"abc\",1)\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "getter_collection_default_missing",
+      "description": "Let writes through object-returning getter default contracts.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Child() As Collection\nSet Child = New Collection\nChild.Add 1\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Child = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "getter_collection_scalar_item",
+      "description": "Let writes through object-returning getter default contracts.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Child() As Collection\nSet Child = New Collection\nChild.Add 1\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Child(1) = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "getter_collection_range_item",
+      "description": "Let writes through object-returning getter default contracts.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Child() As Collection\nSet Child = New Collection\nChild.Add ThisWorkbook.Worksheets(1).Range(\"A1\")\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Child(1) = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "getter_range_default_valid",
+      "description": "Let writes through object-returning getter default contracts.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Child() As Range\nSet Child = ThisWorkbook.Worksheets(1).Range(\"A1\")\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Child = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "getter_class_no_default",
+      "description": "Let writes through object-returning getter default contracts.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Child() As Widget\nSet Child = Me\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Child = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "getter_worksheet_no_default",
+      "description": "Let writes through object-returning getter default contracts.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Child() As Worksheet\nSet Child = ThisWorkbook.Worksheets(1)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Child = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "getter_custom_default_required",
+      "description": "Source default-member writes through getter results and Variant controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Leaf",
+          "type": "class",
+          "source": "Public Property Get Item(ByVal index As Long) As Variant\nAttribute Item.VB_UserMemId = 0\nItem = index\nEnd Property"
+        },
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Child() As Leaf\nSet Child = New Leaf\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Child = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "getter_custom_default_readonly",
+      "description": "Source default-member writes through getter results and Variant controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Leaf",
+          "type": "class",
+          "source": "Public Property Get Item() As Long\nAttribute Item.VB_UserMemId = 0\nItem = 1\nEnd Property"
+        },
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Child() As Leaf\nSet Child = New Leaf\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Child = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "getter_custom_default_variant_object",
+      "description": "Source default-member writes through getter results and Variant controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Leaf",
+          "type": "class",
+          "source": "Public Property Get Item() As Variant\nAttribute Item.VB_UserMemId = 0\nSet Item = ThisWorkbook.Worksheets(1).Range(\"A1\")\nEnd Property"
+        },
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Child() As Leaf\nSet Child = New Leaf\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Child = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "bare_custom_default_variant_object",
+      "description": "Source default-member writes through getter results and Variant controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Leaf",
+          "type": "class",
+          "source": "Public Property Get Item() As Variant\nAttribute Item.VB_UserMemId = 0\nSet Item = ThisWorkbook.Worksheets(1).Range(\"A1\")\nEnd Property"
+        },
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Child() As Leaf\nSet Child = New Leaf\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nDim value As Leaf\nSet value = New Leaf\nvalue = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "getter_custom_default_variant_scalar",
+      "description": "Source default-member writes through getter results and Variant controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Leaf",
+          "type": "class",
+          "source": "Public Property Get Item() As Variant\nAttribute Item.VB_UserMemId = 0\nItem = 1\nEnd Property"
+        },
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Child() As Leaf\nSet Child = New Leaf\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Child = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "getter_default_mutable_missing",
+      "description": "Getter argument/result index distinction and default writability.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Leaf",
+          "type": "class",
+          "source": "Private stored As Long\nPublic Property Get Item(ByVal index As Long) As Long\nAttribute Item.VB_UserMemId = 0\nItem = stored\nEnd Property\nPublic Property Let Item(ByVal index As Long, ByVal value As Long)\nAttribute Item.VB_UserMemId = 0\nstored = value\nEnd Property"
+        },
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Child() As Leaf\nSet Child = New Leaf\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Child = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "getter_default_mutable_indexed",
+      "description": "Getter argument/result index distinction and default writability.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Leaf",
+          "type": "class",
+          "source": "Private stored As Long\nPublic Property Get Item(ByVal index As Long) As Long\nAttribute Item.VB_UserMemId = 0\nItem = stored\nEnd Property\nPublic Property Let Item(ByVal index As Long, ByVal value As Long)\nAttribute Item.VB_UserMemId = 0\nstored = value\nEnd Property"
+        },
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Child() As Leaf\nSet Child = New Leaf\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Child(1) = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "getter_default_readonly_indexed",
+      "description": "Getter argument/result index distinction and default writability.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Leaf",
+          "type": "class",
+          "source": "Public Property Get Item(ByVal index As Long) As Variant\nAttribute Item.VB_UserMemId = 0\nSet Item = ThisWorkbook.Worksheets(1).Range(\"A1\")\nEnd Property"
+        },
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Child() As Leaf\nSet Child = New Leaf\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Child(1) = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "getter_collection_argument_result",
+      "description": "Getter argument/result index distinction and default writability.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Child(ByVal key As String) As Collection\nSet Child = New Collection\nChild.Add 1\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Child(\"key\") = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "getter_collection_empty_result",
+      "description": "Getter argument/result index distinction and default writability.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Child() As Collection\nSet Child = New Collection\nChild.Add 1\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Child() = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "bare_default_required_readonly",
+      "description": "Readonly source defaults win over missing index in variable and array-element Lets.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Leaf",
+          "type": "class",
+          "source": "Public Property Get Item(ByVal index As Long) As Long\nAttribute Item.VB_UserMemId = 0\nItem = index\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim value As Leaf\nSet value = New Leaf\nvalue = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "array_default_required_readonly",
+      "description": "Readonly source defaults win over missing index in variable and array-element Lets.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Leaf",
+          "type": "class",
+          "source": "Public Property Get Item(ByVal index As Long) As Long\nAttribute Item.VB_UserMemId = 0\nItem = index\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim values(0) As Leaf\nSet values(0) = New Leaf\nvalues(0) = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "getter_default_mutable_optional",
+      "description": "An optional default-member index does not forbid a whole getter-result Let.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Leaf",
+          "type": "class",
+          "source": "Private stored As Long\nPublic Property Get Item(Optional ByVal index As Long = 1) As Long\nAttribute Item.VB_UserMemId = 0\nItem = stored\nEnd Property\nPublic Property Let Item(Optional ByVal index As Long = 1, ByVal value As Long)\nAttribute Item.VB_UserMemId = 0\nstored = value\nEnd Property"
+        },
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Get Child() As Leaf\nSet Child = New Leaf\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Child = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "scalar_setter_array_variable",
+      "description": "Whole typed arrays cannot be scalar setter values; elements can.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction MakeFlags() As Boolean()\nDim values(1) As Boolean\nMakeFlags = values\nEnd Function\nFunction Main() As Variant\nDim item As Widget\nDim values(1) As Boolean\nSet item = New Widget\nitem.State = values\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "scalar_setter_array_function",
+      "description": "Whole typed arrays cannot be scalar setter values; elements can.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction MakeFlags() As Boolean()\nDim values(1) As Boolean\nMakeFlags = values\nEnd Function\nFunction Main() As Variant\nDim item As Widget\nDim values(1) As Boolean\nSet item = New Widget\nitem.State = MakeFlags()\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "scalar_setter_array_parenthesized",
+      "description": "Whole typed arrays cannot be scalar setter values; elements can.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction MakeFlags() As Boolean()\nDim values(1) As Boolean\nMakeFlags = values\nEnd Function\nFunction Main() As Variant\nDim item As Widget\nDim values(1) As Boolean\nSet item = New Widget\nitem.State = (MakeFlags())\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "scalar_setter_array_element",
+      "description": "Whole typed arrays cannot be scalar setter values; elements can.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction MakeFlags() As Boolean()\nDim values(1) As Boolean\nMakeFlags = values\nEnd Function\nFunction Main() As Variant\nDim item As Widget\nDim values(1) As Boolean\nSet item = New Widget\nitem.State = values(0)\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "scalar_variable_array",
+      "description": "Typed array scalar assignments and qualified element controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "Public values(1) As Boolean"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction MakeFlags() As Boolean()\nDim values(1) As Boolean\nMakeFlags = values\nEnd Function\nFunction Main() As Variant\nDim item As Widget\nDim values(1) As Boolean\nSet item = New Widget\nDim flag As Boolean\nflag = values\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "host_scalar_array_function",
+      "description": "Typed array scalar assignments and qualified element controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "Public values(1) As Boolean"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction MakeFlags() As Boolean()\nDim values(1) As Boolean\nMakeFlags = values\nEnd Function\nFunction Main() As Variant\nDim item As Widget\nDim values(1) As Boolean\nSet item = New Widget\nThisWorkbook.Worksheets(1).EnableCalculation = MakeFlags()\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "scalar_setter_qualified_array",
+      "description": "Typed array scalar assignments and qualified element controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "Public values(1) As Boolean"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction MakeFlags() As Boolean()\nDim values(1) As Boolean\nMakeFlags = values\nEnd Function\nFunction Main() As Variant\nDim item As Widget\nDim values(1) As Boolean\nSet item = New Widget\nitem.State = Library.values\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "scalar_setter_qualified_element",
+      "description": "Typed array scalar assignments and qualified element controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Property Let State(ByVal value As Boolean)\nEnd Property"
+        },
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "Public values(1) As Boolean"
+        },
+        {
+          "name": "OracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction MakeFlags() As Boolean()\nDim values(1) As Boolean\nMakeFlags = values\nEnd Function\nFunction Main() As Variant\nDim item As Widget\nDim values(1) As Boolean\nSet item = New Widget\nitem.State = Library.values(0)\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "host_scalar_array_variable",
+      "description": "Host versus variable typed-array diagnostic phase controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "source": "Option Explicit\nFunction MakeFlags() As Boolean()\nDim values(1) As Boolean\nMakeFlags = values\nEnd Function\nFunction Main() As Variant\nDim values(1) As Boolean\nThisWorkbook.Worksheets(1).EnableCalculation = values\nMain = 1\nEnd Function",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "scalar_variable_array_function",
+      "description": "Host versus variable typed-array diagnostic phase controls.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "source": "Option Explicit\nFunction MakeFlags() As Boolean()\nDim values(1) As Boolean\nMakeFlags = values\nEnd Function\nFunction Main() As Variant\nDim values(1) As Boolean\nDim flag As Boolean\nflag = MakeFlags()\nMain = 1\nEnd Function",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "enum_library_shadow_library",
+      "description": "Constant insertion qualifier under a shadowed library name.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "source": "Option Explicit\nFunction Main() As Variant\nDim Office As Long\nDim msoTrue As Long\nOffice = 1\nmsoTrue = 0\nMain = Office.MsoTriState.msoTrue\nEnd Function",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "enum_library_shadow_enum",
+      "description": "Constant insertion qualifier under a shadowed library name.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "source": "Option Explicit\nFunction Main() As Variant\nDim Office As Long\nDim msoTrue As Long\nOffice = 1\nmsoTrue = 0\nMain = MsoTriState.msoTrue\nEnd Function",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "enum_library_shadow_bare",
+      "description": "Constant insertion qualifier under a shadowed library name.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "source": "Option Explicit\nFunction Main() As Variant\nDim Office As Long\nDim msoTrue As Long\nOffice = 1\nmsoTrue = 0\nMain = msoTrue\nEnd Function",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "enum_source_owner_bare_binding",
+      "description": "Duplicate source enum names and insertion owner.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Types",
+          "type": "standard",
+          "source": "Public captured As Long\nPublic Enum Direction\nNorth = 1\nEnd Enum\nPublic Property Let State(ByVal value As Direction)\ncaptured = value\nEnd Property"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nPrivate Enum Direction\nNorth = 123\nEnd Enum\nFunction Main() As Variant\nTypes.State = North\nMain = North\nIf Types.captured <> 123 Then Err.Raise 513\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "enum_source_owner_module_binding",
+      "description": "Duplicate source enum names and insertion owner.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Types",
+          "type": "standard",
+          "source": "Public captured As Long\nPublic Enum Direction\nNorth = 1\nEnd Enum\nPublic Property Let State(ByVal value As Direction)\ncaptured = value\nEnd Property"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nPrivate Enum Direction\nNorth = 123\nEnd Enum\nFunction Main() As Variant\nTypes.State = Types.North\nMain = Types.North\nIf Types.captured <> 1 Then Err.Raise 513\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "enum_source_owner_enum_binding",
+      "description": "Duplicate source enum names and insertion owner.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Types",
+          "type": "standard",
+          "source": "Public captured As Long\nPublic Enum Direction\nNorth = 1\nEnd Enum\nPublic Property Let State(ByVal value As Direction)\ncaptured = value\nEnd Property"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nPrivate Enum Direction\nNorth = 123\nEnd Enum\nFunction Main() As Variant\nTypes.State = Types.Direction.North\nMain = Types.Direction.North\nIf Types.captured <> 1 Then Err.Raise 513\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "implicit_setter_foreign_bare_bad",
+      "description": "Cross-module default type belongs to setter declaration.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "DefBool V\nPublic Property Let State(ByVal value)\nEnd Property"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nState = \"nonsense\"\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "implicit_setter_foreign_qualified_bad",
+      "description": "Cross-module default type belongs to setter declaration.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "DefBool V\nPublic Property Let State(ByVal value)\nEnd Property"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nLibrary.State = \"nonsense\"\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "implicit_setter_foreign_valid",
+      "description": "Cross-module default type belongs to setter declaration.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "DefBool V\nPublic Property Let State(ByVal value)\nEnd Property"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nState = True\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "function_result_write_range",
+      "description": "Object-returning function assignment uses returned default contract.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Factory() As Range\nSet Factory = ThisWorkbook.Worksheets(1).Range(\"A1\")\nEnd Function\nFunction Main() As Variant\nFactory() = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "function_result_write_worksheet",
+      "description": "Object-returning function assignment uses returned default contract.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Factory() As Worksheet\nSet Factory = ThisWorkbook.Worksheets(1)\nEnd Function\nFunction Main() As Variant\nFactory() = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "function_result_write_collection",
+      "description": "Object-returning function assignment uses returned default contract.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Factory() As Collection\nSet Factory = New Collection\nEnd Function\nFunction Main() As Variant\nFactory() = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "function_result_write_widget",
+      "description": "Object-returning function assignment uses returned default contract.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Option Explicit"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Factory() As Widget\nSet Factory = New Widget\nEnd Function\nFunction Main() As Variant\nFactory() = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "member_function_result_write_collection",
+      "description": "Member/With function result default contracts.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Function Factory() As Collection\nSet Factory = New Collection\nEnd Function"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Factory() = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "member_function_result_write_range",
+      "description": "Member/With function result default contracts.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Function Factory() As Range\nSet Factory = ThisWorkbook.Worksheets(1).Range(\"A1\")\nEnd Function"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nWith item\n.Factory() = 20\nEnd With\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "member_function_result_write_worksheet",
+      "description": "Member/With function result default contracts.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Function Factory() As Worksheet\nSet Factory = ThisWorkbook.Worksheets(1)\nEnd Function"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Factory() = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "qualified_array_result_match",
+      "description": "Whole qualified typed array function result compatibility.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "Public Function MakeFlags() As Boolean()\nDim result(1) As Boolean\nMakeFlags = result\nEnd Function"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim values() As Boolean\nvalues = Library.MakeFlags()\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "qualified_array_result_mismatch",
+      "description": "Whole qualified typed array function result compatibility.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "Public Function MakeFlags() As Long()\nDim result(1) As Long\nMakeFlags = result\nEnd Function"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim values() As Boolean\nvalues = Library.MakeFlags()\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "qualified_array_result_grouped_mismatch",
+      "description": "Whole qualified typed array function result compatibility.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "Public Function MakeFlags() As Long()\nDim result(1) As Long\nMakeFlags = result\nEnd Function"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim values() As Boolean\nvalues = (Library.MakeFlags())\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "array_element_identity_host_alias_return",
+      "description": "Typed array element identity for qualified functions.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "Public Function Factory() As Excel.XlHAlign()\nDim data(1) As Excel.XlHAlign\nFactory = data\nEnd Function"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim values() As XlHAlign\nvalues = Library.Factory()\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "array_element_identity_host_alias_target",
+      "description": "Typed array element identity for qualified functions.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "Public Function Factory() As XlHAlign()\nDim data(1) As XlHAlign\nFactory = data\nEnd Function"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim values() As Excel.XlHAlign\nvalues = Library.Factory()\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "array_element_identity_host_enum_long",
+      "description": "Typed array element identity for qualified functions.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "Public Function Factory() As Long()\nDim data(1) As Long\nFactory = data\nEnd Function"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim values() As XlHAlign\nvalues = Library.Factory()\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "array_element_identity_object_class",
+      "description": "Typed array element identity for qualified functions.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Option Explicit"
+        },
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "Public Function Factory() As Widget()\nDim data(1) As Widget\nFactory = data\nEnd Function"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim values() As Object\nvalues = Library.Factory()\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "array_element_identity_class_object",
+      "description": "Typed array element identity for qualified functions.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Option Explicit"
+        },
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "Public Function Factory() As Object()\nDim data(1) As Object\nFactory = data\nEnd Function"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim values() As Widget\nvalues = Library.Factory()\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "array_element_identity_class_match",
+      "description": "Typed array element identity for qualified functions.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Option Explicit"
+        },
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "Public Function Factory() As Widget()\nDim data(1) As Widget\nFactory = data\nEnd Function"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim values() As Widget\nvalues = Library.Factory()\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "array_element_identity_source_enum_long",
+      "description": "Typed array element identity for qualified functions.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "Public Enum Direction\nNorth = 1\nEnd Enum\nPublic Function Factory() As Long()\nDim data(1) As Long\nFactory = data\nEnd Function"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim values() As Direction\nvalues = Library.Factory()\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "array_element_identity_long_source_enum",
+      "description": "Typed array element identity for qualified functions.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "Public Enum Direction\nNorth = 1\nEnd Enum\nPublic Function Factory() As Direction()\nDim data(1) As Direction\nFactory = data\nEnd Function"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim values() As Long\nvalues = Library.Factory()\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "array_element_identity_setter_object_class",
+      "description": "Typed array Property Let value and element identity.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Option Explicit"
+        },
+        {
+          "name": "Receiver",
+          "type": "class",
+          "source": "Public Property Let Flags(ByRef value() As Object)\nEnd Property"
+        },
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "Public Function Factory() As Widget()\nDim data(1) As Widget\nFactory = data\nEnd Function"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Receiver\nSet item = New Receiver\nitem.Flags = Library.Factory()\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "array_element_identity_setter_class_match",
+      "description": "Typed array Property Let value and element identity.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Option Explicit"
+        },
+        {
+          "name": "Receiver",
+          "type": "class",
+          "source": "Public Property Let Flags(ByRef value() As Widget)\nEnd Property"
+        },
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "Public Function Factory() As Widget()\nDim data(1) As Widget\nFactory = data\nEnd Function"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Receiver\nSet item = New Receiver\nitem.Flags = Library.Factory()\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "array_element_identity_setter_source_enum_long",
+      "description": "Typed array Property Let value and element identity.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Option Explicit"
+        },
+        {
+          "name": "Receiver",
+          "type": "class",
+          "source": "Public Property Let Flags(ByRef value() As Direction)\nEnd Property"
+        },
+        {
+          "name": "Library",
+          "type": "standard",
+          "source": "Public Enum Direction\nNorth = 1\nEnd Enum\nPublic Function Factory() As Long()\nDim data(1) As Long\nFactory = data\nEnd Function"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim item As Receiver\nSet item = New Receiver\nitem.Flags = Library.Factory()\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "array_element_identity_object_match",
+      "description": "A function copies and returns an Object array.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "source": "Option Explicit\nFunction Factory() As Object()\nDim data(1) As Object\nFactory = data\nEnd Function\nFunction Main() As Variant\nDim values() As Object\nvalues = Factory()\nMain = 1\nEnd Function",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "vb_named_class_array_identity",
+      "description": "Vb-prefixed source classes retain their own identity.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Option Explicit"
+        },
+        {
+          "name": "VbWidget",
+          "type": "class",
+          "source": "Option Explicit"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Function Factory() As VbWidget()\nDim data(1) As VbWidget\nFactory = data\nEnd Function\nFunction Main() As Variant\nDim values() As Widget\nvalues = Factory()\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "vb_named_class_scalar_default",
+      "description": "VbCollection is a source class, not the runtime Collection.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "VbCollection",
+          "type": "class",
+          "source": "Option Explicit"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Function Main() As Variant\nDim item As VbCollection\nSet item = New VbCollection\nitem = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "vb_named_enum_long_storage",
+      "description": "VbInteger enum values use Long storage.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "source": "Enum VbInteger\nFirst = 1\nEnd Enum\nProperty Let State(ByVal value As VbInteger)\nEnd Property\nFunction Main() As Variant\nState = 50000\nMain = 1\nEnd Function",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "audit_enum_declaration_qualified",
+      "description": "Source enum qualification in an As declaration.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Types",
+          "type": "standard",
+          "source": "Public Enum Direction\nNorth = 1\nEnd Enum"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim value As Types.Direction\nvalue = Types.Direction.North\nMain = value\nEnd Function"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "audit_enum_declaration_bare",
+      "description": "Source enum qualification in an As declaration.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Types",
+          "type": "standard",
+          "source": "Public Enum Direction\nNorth = 1\nEnd Enum"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As Variant\nDim value As Direction\nvalue = Types.Direction.North\nMain = value\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "source_qualified_udt_audit",
+      "description": "Source module-qualified UDT As declaration.",
+      "mode": "compile_then_run",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Types",
+          "type": "standard",
+          "source": "Public Type Record\nFlag As Boolean\nEnd Type"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Function Main() As Variant\nDim value As Types.Record\nvalue.Flag = True\nMain = value.Flag\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "optional_value_bool_unused_audit",
+      "description": "Optional Boolean setter value with explicit default, unused.",
+      "mode": "compile",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "source": "Property Let State(Optional ByVal value As Boolean = False)\nEnd Property\nFunction Main() As Variant\nMain = 1\nEnd Function",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "optional_value_variant_called_audit",
+      "description": "Optional Variant setter value at an assignment.",
+      "mode": "compile_then_run",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "entryPoint": "Main",
+      "source": "Property Let State(Optional ByVal value As Variant)\nEnd Property\nFunction Main() As Variant\nState = True\nMain = 1\nEnd Function",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "audit_setter_optional_value",
+      "description": "Optional index versus optional final setter value.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "source": "Public Property Let State(Optional ByVal value As Boolean = False)\nEnd Property\nFunction Main() As Variant\nState = True\nMain = 1\nEnd Function",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "audit_setter_optional_index",
+      "description": "Optional index versus optional final setter value.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "source": "Public Property Let State(Optional ByVal index As Long = 1, ByVal value As Boolean)\nEnd Property\nFunction Main() As Variant\nState = True\nMain = 1\nEnd Function",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "array_pointer_storage_ptr_to_longlong_audit",
+      "description": "LongPtr/LongLong whole-array storage on the native compiler architecture.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "source": "Function Factory() As LongPtr()\nDim data(1) As LongPtr\nFactory = data\nEnd Function\nFunction Main() As Variant\nDim values() As LongLong\nvalues = Factory()\nMain = 1\nEnd Function",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "array_pointer_storage_longlong_to_ptr_audit",
+      "description": "LongPtr/LongLong whole-array storage on the native compiler architecture.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "source": "Function Factory() As LongLong()\nDim data(1) As LongLong\nFactory = data\nEnd Function\nFunction Main() As Variant\nDim values() As LongPtr\nvalues = Factory()\nMain = 1\nEnd Function",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+      {
+        "id": "implicit_library_receiver_assigned_audit",
+        "description": "An undeclared value assigned before a library-named property write.",
+        "mode": "compile_then_run",
+        "entryPoint": "Main",
+        "expected": "accepted",
+        "provenance": "vbe-oracle-verified",
+        "source": "Function Main() As Variant\nSet Word = ThisWorkbook.Worksheets(1)\nWord.EnableCalculation = True\nMain = 1\nEnd Function",
+        "evidencePhase": "runtime",
+        "diagnosticMeaning": "runtime-valid"
+      },
+      {
+        "id": "implicit_library_receiver_unassigned_audit",
+        "description": "An absent library qualifier in value context without Option Explicit.",
+        "mode": "compile_then_run",
+        "entryPoint": "Main",
+        "expected": "rejected",
+        "provenance": "vbe-oracle-verified",
+        "source": "Function Main() As Variant\nMain = Word.wdFormatPDF\nEnd Function",
+        "evidencePhase": "runtime",
+        "diagnosticMeaning": "runtime-error"
+      },
+      {
+        "id": "audit_function_result_index_bare",
+        "description": "Indexed default assignment through a zero-argument function.",
+        "mode": "compile_then_run",
+        "entryPoint": "Main",
+        "expected": "accepted",
+        "provenance": "vbe-oracle-verified",
+        "modules": [
+          {
+            "name": "Caller",
+            "type": "standard",
+            "entry": true,
+            "source": "Public Function Factory() As Collection\nDim c As Collection\nSet c = New Collection\nc.Add ThisWorkbook.Worksheets(1).Range(\"A1\")\nSet Factory = c\nEnd Function\nFunction Main() As Variant\nFactory(1) = 20\nMain = 1\nEnd Function"
+          }
+        ],
+        "evidencePhase": "runtime",
+        "diagnosticMeaning": "runtime-valid"
+      },
+      {
+        "id": "audit_function_result_index_member",
+        "description": "Indexed default assignment through a zero-argument function.",
+        "mode": "compile_then_run",
+        "entryPoint": "Main",
+        "expected": "accepted",
+        "provenance": "vbe-oracle-verified",
+        "modules": [
+          {
+            "name": "Widget",
+            "type": "class",
+            "source": "Public Function Factory() As Collection\nDim c As Collection\nSet c = New Collection\nc.Add ThisWorkbook.Worksheets(1).Range(\"A1\")\nSet Factory = c\nEnd Function"
+          },
+          {
+            "name": "Caller",
+            "type": "standard",
+            "entry": true,
+            "source": "Function Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Factory(1) = 20\nMain = 1\nEnd Function"
+          }
+        ],
+        "evidencePhase": "runtime",
+        "diagnosticMeaning": "runtime-valid"
+      }
   ]
 }

@@ -5,6 +5,7 @@
 // browser. platformFeaturesNode registers these and platformFeaturesWeb
 // does not, which is also what keeps child_process out of the web bundle.
 
+import { ensureProjectPassword } from '../projectPasswordPrompt';
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as cp from 'child_process';
@@ -71,7 +72,7 @@ export function registerOfficeAppCommands(deps: CommandDeps): vscode.Disposable[
         const filePath = resolveProjectPath(node)
             ?? (await resolveProjectTarget({ workspaceState: deps.context.workspaceState }))?.filePath;
         if (filePath) {
-            openInHostApp(filePath, readOnly, tag);
+            await openInHostApp(filePath, readOnly, tag);
             return;
         }
         log(`[${tag}] No project to open: nothing in this window says which one is meant.`);
@@ -104,9 +105,10 @@ export function registerOfficeAppCommands(deps: CommandDeps): vscode.Disposable[
         return false;
     }
 
-    function openInHostApp(filePath: string, readOnly: boolean, tag: string): void {
+    async function openInHostApp(filePath: string, readOnly: boolean, tag: string): Promise<void> {
         log(`[${tag}] Requested for: ${filePath}`);
         try {
+            await ensureProjectPassword(filePath);
             if (process.platform === 'win32' && officeHostForPath(filePath)) {
                 // Remember XLIDE opened this file so closeTracked coordination can
                 // later close it without touching files the user opened manually.

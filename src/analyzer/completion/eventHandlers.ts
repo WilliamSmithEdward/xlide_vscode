@@ -379,13 +379,16 @@ export function resolveEventHandlerCompletions(
 		return [];
 	}
 
+	const prefix = line.currentWord.toLowerCase();
 	const documentType = eventHandlerDocumentTypeForContext(ctx);
 	// An Access form raises Form_Load and AddLine_Click, not
 	// UserForm_Initialize, so it never reads the UserForm table.
 	const definitions = isAccessDesignerClass(ctx.meType)
-		? accessEventDefinitions(ctx)
-		: ctx.host === 'vb6' ? vb6EventDefinitions(ctx) : definitionsForDocumentType(documentType);
-	if (definitions.length === 0) {
+		? accessEventDefinitions(ctx, prefix)
+		: ctx.host === 'vb6' ? vb6EventDefinitions(ctx, prefix) : definitionsForDocumentType(documentType);
+	// No handler can match this prefix, so source/scope facts cannot affect output.
+	const matching = prefix ? definitions.filter((def) => def.name.toLowerCase().startsWith(prefix)) : definitions;
+	if (matching.length === 0) {
 		return [];
 	}
 
@@ -404,11 +407,9 @@ export function resolveEventHandlerCompletions(
 			.map((proc) => proc.name.toLowerCase())
 			.filter((name) => name.length > 0),
 	);
-	const prefix = line.currentWord.toLowerCase();
 
-	return definitions
+	return matching
 		.filter((def) => !existing.has(def.name.toLowerCase()))
-		.filter((def) => !prefix || def.name.toLowerCase().startsWith(prefix))
 		.map((def) => toCompletion(def, line.insertMode));
 }
 
@@ -472,6 +473,12 @@ export const ALL_EVENT_DEFINITIONS: readonly EventHandlerDefinition[] = [
 	...DOCUMENT_EVENTS,
 ];
 
+/** Any event under `owner_` can match only these overlapping prefixes. */
+function canMatchHandlerOwner(owner: string, prefix: string): boolean {
+	const lead = `${owner}_`.toLowerCase();
+	return lead.startsWith(prefix) || prefix.startsWith(lead);
+}
+
 /**
  * The event stubs a VB6 form can declare: its own class's events under the
  * `Form_` (or `MDIForm_`) prefix the VB6 IDE uses whatever the form is
@@ -481,7 +488,7 @@ export const ALL_EVENT_DEFINITIONS: readonly EventHandlerDefinition[] = [
  * from twinBASIC's documentation) are the only source, so a type the model
  * lacks offers no stubs rather than wrong ones.
  */
-function vb6EventDefinitions(ctx: EventHandlerCompletionContext): EventHandlerDefinition[] {
+function vb6EventDefinitions(ctx: EventHandlerCompletionContext, prefix: string): EventHandlerDefinition[] {
 	const model = ctx.model;
 	if (!model || ctx.moduleKind !== 'userform') {
 		return [];
@@ -489,10 +496,15 @@ function vb6EventDefinitions(ctx: EventHandlerCompletionContext): EventHandlerDe
 	const formType = ctx.meType?.includes('|') ? ctx.meType.slice(ctx.meType.lastIndexOf('|') + 1) : ctx.meType ?? 'VB.Form';
 	const out: EventHandlerDefinition[] = [];
 	const handlerPrefix = getHostType(formType, model)?.displayName === 'MDIForm' ? 'MDIForm' : 'Form';
-	for (const event of getHostEvents(formType, model)) {
-		out.push(vb6Definition(handlerPrefix, event, getHostType(formType, model)?.displayName ?? formType, false));
+	if (canMatchHandlerOwner(handlerPrefix, prefix)) {
+		for (const event of getHostEvents(formType, model)) {
+			out.push(vb6Definition(handlerPrefix, event, getHostType(formType, model)?.displayName ?? formType, false));
+		}
 	}
 	for (const control of ctx.implicitMembers ?? []) {
+		if (!canMatchHandlerOwner(control.name, prefix)) {
+			continue;
+		}
 		const owner = getHostType(control.type, model)?.displayName ?? control.type;
 		for (const event of getHostEvents(control.type, model)) {
 			out.push(vb6Definition(control.name, event, owner, control.array === true));
@@ -528,19 +540,22 @@ function vb6Definition(prefix: string, event: HostMember, owner: string, indexed
  * does not compile. So a type the model lacks, or an event it carries no
  * parameter list for, offers no stub rather than a wrong one.
  */
-function accessEventDefinitions(ctx: EventHandlerCompletionContext): EventHandlerDefinition[] {
+function accessEventDefinitions(ctx: EventHandlerCompletionContext, prefix: string): EventHandlerDefinition[] {
 	const model = ctx.model;
 	if (!model || !ctx.meType) {
 		return [];
 	}
 	const out: EventHandlerDefinition[] = [];
 	const design = getHostType(ctx.meType, model)?.displayName;
-	if (design) {
+	if (design && canMatchHandlerOwner(design, prefix)) {
 		for (const event of getHostEvents(ctx.meType, model)) {
 			pushAccessDefinition(out, design, event, design);
 		}
 	}
 	for (const member of ctx.implicitMembers ?? []) {
+		if (!canMatchHandlerOwner(member.name, prefix)) {
+			continue;
+		}
 		const owner = getHostType(member.type, model)?.displayName ?? member.type;
 		for (const event of getHostEvents(member.eventClass ?? member.type, model)) {
 			pushAccessDefinition(out, member.name, event, owner);
@@ -608,28 +623,54 @@ function insideProcedureBody(
 	offset: number,
 	moduleEnd: number,
 ): boolean {
+	let memberStarts: number[] | undefined;
+	let searchedOpenBoundary = false;
 	return procedures.some((proc) => {
 		if (proc.closed) {
 			return offset >= proc.span.start && offset <= proc.span.end;
 		}
-		const bodyEnd = nextMemberStartAfter(members, proc.span.start, moduleEnd);
-		return offset >= proc.span.start && offset < bodyEnd;
+		const start = proc.span.start;
+		if (offset < start) {
+			return false;
+		}
+		let bodyEnd: number;
+		if (!searchedOpenBoundary) {
+			// One open procedure needs no index, including an early body hit.
+			searchedOpenBoundary = true;
+			bodyEnd = moduleEnd;
+			for (const member of members) {
+				const memberStart = member.span.start;
+				if (memberStart > start && memberStart < bodyEnd) {
+					bodyEnd = memberStart;
+				}
+			}
+		} else {
+			// Recovery can leave many open procedures. Build later boundaries
+			// once, instead of rescanning all members for every procedure.
+			memberStarts ??= members.map((member) => member.span.start).sort((a, b) => a - b);
+			bodyEnd = nextMemberStartAfter(memberStarts, start, moduleEnd);
+		}
+		return offset < bodyEnd;
 	});
 }
 
-/** Start offset of the first module member that begins after `start`, else `moduleEnd`. */
+/** First sorted member start strictly after `start`, capped at module end. */
 function nextMemberStartAfter(
-	members: readonly ModuleMember[],
+	memberStarts: readonly number[],
 	start: number,
 	moduleEnd: number,
 ): number {
-	let next = moduleEnd;
-	for (const member of members) {
-		if (member.span.start > start && member.span.start < next) {
-			next = member.span.start;
+	let lo = 0;
+	let hi = memberStarts.length;
+	while (lo < hi) {
+		const mid = lo + Math.floor((hi - lo) / 2);
+		if (memberStarts[mid] <= start) {
+			lo = mid + 1;
+		} else {
+			hi = mid;
 		}
 	}
-	return next;
+	return Math.min(memberStarts[lo] ?? moduleEnd, moduleEnd);
 }
 
 function lineCompletionContext(source: string, offset: number): LineCompletionContext | undefined {

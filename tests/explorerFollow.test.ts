@@ -2,11 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const host = vi.hoisted(() => ({
     tabsChanged: undefined as undefined | ((event: unknown) => void),
+    activeEditorChanged: undefined as undefined | ((editor: unknown) => void),
 }));
 
 vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({
     window: {
-        onDidChangeActiveTextEditor: vi.fn(() => ({ dispose: () => undefined })),
+        onDidChangeActiveTextEditor: vi.fn((listener: (editor: unknown) => void) => {
+            host.activeEditorChanged = listener;
+            return { dispose: () => undefined };
+        }),
         visibleTextEditors: [],
         tabGroups: {
             all: [],
@@ -22,12 +26,13 @@ import { ExplorerFollow, FOLLOW_QUIET_MS, REVEAL_EVENT_GRACE_MS, type ExplorerFo
 import type { XlideNode } from '../src/projectExplorer';
 import type { VbaCaretPosition } from '../src/vbaCaretProcedure';
 import { EventEmitter } from './helpers/vscodeMock';
+import * as vscode from 'vscode';
 
 const PROJECT = 'C:\\work\\Book.xlsm';
 const project: XlideNode = { kind: 'project', label: 'Book.xlsm', filePath: PROJECT };
 
 /** Project Book.xlsm with modules A and B, each holding Sub <name>First and Sub <name>Second. */
-function world(options: { enabled?: () => boolean } = {}) {
+function world(options: { enabled?: () => boolean; modulesClosedBy?: ExplorerFollowDeps['modulesClosedBy'] } = {}) {
     const modules = new Map<string, XlideNode>();
     const procedures = new Map<string, XlideNode>();
     for (const name of ['A', 'B']) {
@@ -100,16 +105,18 @@ function world(options: { enabled?: () => boolean } = {}) {
         },
     };
 
+    const modulesClosedBy = vi.fn(options.modulesClosedBy ?? ((event) => event.closed.length > 0 ? [{ projectPath: PROJECT, moduleName: 'A' }] : []));
     const follow = new ExplorerFollow({
         explorer,
         treeView: treeView as unknown as ExplorerFollowDeps['treeView'],
         caret,
         enabled: options.enabled ?? (() => true),
-        modulesClosedBy: () => [{ projectPath: PROJECT, moduleName: 'A' }],
+        modulesClosedBy,
     });
     return {
-        modules, procedures, listed, explorer, rowsReplaced, treeView, caret, follow,
+        modules, procedures, listed, explorer, rowsReplaced, treeView, caret, follow, modulesClosedBy,
         expand: (element: XlideNode) => expanded.fire({ element }),
+        collapse: (element: XlideNode) => collapsed.fire({ element }),
         revealed: () => treeView.reveal.mock.calls.map(([node]) => node.label),
     };
 }
@@ -132,10 +139,11 @@ describe('the explorer following the editor', () => {
 
     afterEach(() => {
         follows.forEach((follow) => follow.dispose());
+        (vscode.window.tabGroups as unknown as { all: unknown[] }).all = [];
         vi.useRealTimers();
     });
 
-    function make(options?: { enabled?: () => boolean }) {
+    function make(options?: { enabled?: () => boolean; modulesClosedBy?: ExplorerFollowDeps['modulesClosedBy'] }) {
         const made = world(options);
         follows.push(made.follow);
         return made;
@@ -182,6 +190,105 @@ describe('the explorer following the editor', () => {
         expect(revealed()).toEqual(['Sub BFirst']);
     });
 
+    for (const stop of ['dispose', 'disable'] as const) {
+        it(`stops an in-flight load after ${stop}`, async () => {
+            let enabled = true;
+            const { caret, explorer, follow, revealed } = make({ enabled: () => enabled });
+            let release: () => void = () => undefined;
+            explorer.resolveModuleNode.mockImplementationOnce(async (_path, name) => {
+                await new Promise<void>((resolve) => { release = resolve; });
+                return { kind: 'module', label: name, filePath: PROJECT, moduleName: name };
+            });
+            caret.moveTo('A', 'First');
+            await settle();
+            if (stop === 'dispose') { follow.dispose(); } else { enabled = false; }
+            release();
+            await settle();
+            expect(explorer.setActiveModule).not.toHaveBeenCalled();
+            expect(revealed()).toEqual([]);
+        });
+    }
+
+    it('lets a user choose the tree while a module is loading', async () => {
+        const { caret, explorer, expand, modules, revealed } = make();
+        let release: () => void = () => undefined;
+        explorer.resolveModuleNode.mockImplementationOnce(async (_path, name) => {
+            await new Promise<void>((resolve) => { release = resolve; });
+            return { kind: 'module', label: name, filePath: PROJECT, moduleName: name };
+        });
+        caret.moveTo('A', 'First');
+        await settle();
+        expand(modules.get('B')!);
+        release();
+        await settle();
+        expect(explorer.setActiveModule.mock.calls).toEqual([[PROJECT, 'B']]);
+        expect(revealed()).toEqual([]);
+    });
+
+    it('cancels a queued follow when its project is collapsed', async () => {
+        const { caret, collapse, explorer, revealed } = make();
+        caret.moveTo('A', 'First');
+        collapse(project);
+        await settle();
+        expect(explorer.resolveModuleNode).not.toHaveBeenCalled();
+        expect(revealed()).toEqual([]);
+        caret.moveTo('A', 'Second');
+        await settle();
+        expect(revealed()).toEqual(['Sub ASecond']);
+    });
+
+    it('cancels a loading follow when its project is collapsed', async () => {
+        const { caret, collapse, explorer, revealed, rowsReplaced } = make();
+        let release!: () => void;
+        explorer.resolveModuleNode.mockImplementationOnce(async (_path, name) => {
+            await new Promise<void>(yes => { release = yes; });
+            return { kind: 'module', label: name, filePath: PROJECT, moduleName: name };
+        });
+        caret.moveTo('A', 'First');
+        await settle();
+        collapse(project);
+        rowsReplaced.fire(undefined);
+        release();
+        await settle();
+        expect(explorer.setActiveModule).not.toHaveBeenCalled();
+        expect(revealed()).toEqual([]);
+    });
+
+    it('does not follow selection loss caused by collapsing the current project', async () => {
+        const { caret, collapse, revealed, treeView, rowsReplaced } = make();
+        caret.moveTo('A', 'First');
+        await settle();
+        collapse(project);
+        treeView.select([]);
+        rowsReplaced.fire(undefined);
+        await settle();
+        expect(revealed()).toEqual(['Sub AFirst']);
+    });
+
+    it('ignores another project being folded while following this one', async () => {
+        const { caret, collapse, revealed } = make();
+        caret.moveTo('A', 'First');
+        collapse({ ...project, filePath: 'C:\\work\\Other.xlsm' });
+        await settle();
+        expect(revealed()).toEqual(['Sub AFirst']);
+    });
+
+    it('does not restart a pending reveal for another module being redrawn', async () => {
+        const { caret, explorer, rowsReplaced, revealed } = make();
+        let release: () => void = () => undefined;
+        explorer.resolveModuleNode.mockImplementationOnce(async (_path, name) => {
+            await new Promise<void>((resolve) => { release = resolve; });
+            return { kind: 'module', label: name, filePath: PROJECT, moduleName: name };
+        });
+        caret.moveTo('A', 'First');
+        await settle();
+        rowsReplaced.fire({ filePath: PROJECT, moduleName: 'B' });
+        release();
+        await settle();
+        expect(explorer.resolveModuleNode).toHaveBeenCalledTimes(1);
+        expect(revealed()).toEqual(['Sub AFirst']);
+    });
+
     it('does not take the expansions its own reveal causes for clicks', async () => {
         const { caret, explorer, expand, modules } = make();
         caret.moveTo('A', 'First');
@@ -213,7 +320,7 @@ describe('the explorer following the editor', () => {
         caret.moveTo('A', 'First');
         await settle();
         caret.current = undefined;
-        host.tabsChanged?.({ closed: [], opened: [], changed: [] });
+        host.tabsChanged?.({ closed: [{ input: undefined }], opened: [], changed: [] });
         release();
         await settle();
 
@@ -338,7 +445,7 @@ describe('the explorer following the editor', () => {
         await settle();
         caret.current = { ...caret.current!, moduleName: 'B', label: 'Sub BFirst' };
 
-        host.tabsChanged?.({ closed: [], opened: [], changed: [] });
+        host.tabsChanged?.({ closed: [{ input: undefined }], opened: [], changed: [] });
         await settle();
         expect(explorer.clearActiveModule).toHaveBeenCalledWith(PROJECT, 'A');
         expect(revealed()).toEqual(['Sub AFirst', 'Sub BFirst']);
@@ -359,6 +466,22 @@ describe('the explorer following the editor', () => {
         expect(explorer.notifyFolderExpansion).not.toHaveBeenCalled();
     });
 
+    it.each(['opened', 'changed', 'empty'])('does not enumerate open tabs for a %s event with no closures', async (kind) => {
+        const enumerateOpenTabs = vi.fn(() => []);
+        const { caret, explorer, revealed, modulesClosedBy } = make({ modulesClosedBy: enumerateOpenTabs });
+        caret.moveTo('A', 'First');
+        await settle();
+        const tab = { input: undefined };
+        for (let i = 0; i < 200; i++) {
+            host.tabsChanged?.({ closed: [], opened: kind === 'opened' ? [tab] : [], changed: kind === 'changed' ? [tab] : [] });
+        }
+        await settle();
+        expect(modulesClosedBy).not.toHaveBeenCalled();
+        expect(enumerateOpenTabs).not.toHaveBeenCalled();
+        expect(explorer.clearActiveModule).not.toHaveBeenCalled();
+        expect(revealed()).toEqual(['Sub AFirst']);
+    });
+
     it('leaves the tree as it is when no module is in front', async () => {
         const { caret, explorer, revealed } = make();
         caret.current = undefined;
@@ -367,5 +490,15 @@ describe('the explorer following the editor', () => {
 
         expect(explorer.setActiveModule).not.toHaveBeenCalled();
         expect(revealed()).toEqual([]);
+    });
+
+    it('keeps folders open when a designer replaces the visible text editor', () => {
+        const { explorer } = make();
+        (vscode.window.tabGroups as unknown as { all: unknown[] }).all = [{ tabs: [{ input: undefined }] }];
+        host.activeEditorChanged?.(undefined);
+        expect(explorer.collapseAllFolders).not.toHaveBeenCalled();
+        (vscode.window.tabGroups as unknown as { all: unknown[] }).all = [];
+        host.activeEditorChanged?.(undefined);
+        expect(explorer.collapseAllFolders).toHaveBeenCalledTimes(1);
     });
 });

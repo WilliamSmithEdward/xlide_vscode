@@ -200,7 +200,15 @@ export function lineStartAtAnyBreak(source: string, offset: number): number {
     if (offset <= 0) {
         return 0;
     }
-    return Math.max(source.lastIndexOf('\n', offset - 1), source.lastIndexOf('\r', offset - 1)) + 1;
+    // Stop at the nearest break: separate LF/CR searches rescan the prefix
+    // whenever a file uses only one of those terminators.
+    const from = offset - 1;
+    const start = Number.isNaN(from) ? source.length - 1
+        : Math.min(source.length - 1, Math.max(0, Math.trunc(from)));
+    for (let i = start; i >= 0; i--) {
+        if (source[i] === '\n' || source[i] === '\r') { return i + 1; }
+    }
+    return 0;
 }
 
 /** Offset of the first CR or LF at or after `from`, or source.length at EOF. */
@@ -215,8 +223,19 @@ export function lineEndAtOrAfter(source: string, from: number): number {
 
 /** `span` widened to whole lines, the last line's break included. */
 export function wholeLineSpan(source: string, span: Span): Span {
-    const next = source.indexOf('\n', span.end);
-    return { start: lineStartAt(source, span.start), end: next === -1 ? source.length : next + 1 };
+    const lines = wholeLineSpanAnyBreak(source, span);
+    // Preserve LF-based boundary behavior when a span begins inside CRLF.
+    if (source[lines.start] === '\n' && source[lines.start - 1] === '\r') {
+        lines.start = lineStartAtAnyBreak(source, lines.start - 1);
+    }
+    return lines;
+}
+
+/** Physical lines may end with LF, CRLF or a lone CR. */
+export function wholeLineSpanAnyBreak(source: string, span: Span): Span {
+    const end = lineEndAtOrAfter(source, span.end);
+    const breakLength = end < source.length ? (source[end] === '\r' && source[end + 1] === '\n' ? 2 : 1) : 0;
+    return { start: lineStartAtAnyBreak(source, span.start), end: end + breakLength };
 }
 
 /** The physical line around `offset`: after the previous LF up to the next, minus a trailing CR. */
@@ -243,7 +262,8 @@ export function normalizeEol(text: string): string {
 
 /** Line terminator to use when re-serializing edits to `source`. */
 export function detectEol(source: string): string {
-    return source.includes('\r\n') ? '\r\n' : '\n';
+    if (source.includes('\r\n')) { return '\r\n'; }
+    return source.includes('\n') || !source.includes('\r') ? '\n' : '\r';
 }
 
 /** True for VBE attribute header lines such as `Attribute VB_Name = "..."`. */
@@ -316,14 +336,15 @@ const STRIPPED_SOURCE_BUDGET_CHARS = 16_000_000;
 const strippedSources = new Map<string, { lines: readonly string[]; starts: readonly number[] }>();
 let strippedSourceChars = 0;
 
-function strippedSource(source: string): { lines: readonly string[]; starts: readonly number[] } {
-    const kept = strippedSources.get(source);
+function strippedSource(source: string, cache = true): { lines: readonly string[]; starts: readonly number[] } {
+    const kept = cache ? strippedSources.get(source) : undefined;
     if (kept) {
         strippedSources.delete(source);
         strippedSources.set(source, kept);
         return kept;
     }
     const entry = { lines: stripVbaLines(source.split(/\r\n|\r|\n/)), starts: lineStartOffsets(source) };
+    if (!cache) { return entry; }
     strippedSources.set(source, entry);
     strippedSourceChars += source.length;
     for (const oldest of strippedSources.keys()) {
@@ -336,6 +357,11 @@ function strippedSource(source: string): { lines: readonly string[]; starts: rea
     return entry;
 }
 
+export interface IdentifierOccurrenceOptions {
+    /** Scoped slices can retain a large parent string; keep their stripping ephemeral. */
+    cacheStrippedSource?: boolean;
+}
+
 /**
  * Finds whole-word identifier occurrences while ignoring strings and comments.
  * Offsets are absolute source offsets so callers do not recompute line starts.
@@ -343,24 +369,34 @@ function strippedSource(source: string): { lines: readonly string[]; starts: rea
 export function findIdentifierOccurrences(
     source: string,
     name: string,
+    /** Inclusive bounds on an occurrence's starting offset. */
+    range?: Span,
+    options: IdentifierOccurrenceOptions = {},
 ): VbaIdentifierOccurrence[] {
-    return findIdentifierOccurrencesForNames(source, [name]).get(name.toLowerCase()) ?? [];
+    return findIdentifierOccurrencesForNames(source, [name], range, options).get(name.toLowerCase()) ?? [];
 }
 
 /** Finds several names in one source sweep, keyed by their lowercase spelling. */
 export function findIdentifierOccurrencesForNames(
     source: string,
     names: readonly string[],
+    /** Inclusive bounds on an occurrence's starting offset. */
+    range?: Span,
+    options: IdentifierOccurrenceOptions = {},
 ): Map<string, VbaIdentifierOccurrence[]> {
     const out = new Map<string, VbaIdentifierOccurrence[]>();
     for (const name of names) { out.set(name.toLowerCase(), []); }
-    if (out.size === 0) { return out; }
+    if (out.size === 0 || (range && range.start > range.end)) { return out; }
     // Keep the common single-name path a direct string comparison, avoiding
     // a map lookup for every unrelated identifier in references/rename.
     const singleName = out.size === 1 ? out.keys().next().value : undefined;
     const singleMatches = singleName !== undefined ? out.get(singleName) : undefined;
-    const { lines, starts } = strippedSource(source);
-    for (let i = 0; i < lines.length; i++) {
+    const { lines, starts } = strippedSource(source, options.cacheStrippedSource !== false);
+    // Reuse whole-source stripping so comments continued from earlier lines
+    // keep their context. Only the identifier sweep is confined to the range.
+    const firstLine = range ? lineIndexOf(starts, range.start) : 0;
+    const lastLine = range ? lineIndexOf(starts, range.end) : lines.length - 1;
+    for (let i = firstLine; i <= lastLine; i++) {
         const stripped = lines[i];
         VBA_IDENTIFIER_WORD_RE.lastIndex = 0;
         let m: RegExpExecArray | null;
@@ -370,10 +406,12 @@ export function findIdentifierOccurrencesForNames(
                 ? (lower === singleName ? singleMatches : undefined)
                 : out.get(lower);
             if (matches) {
+                const offset = (starts[i] ?? 0) + m.index;
+                if (range && (offset < range.start || offset > range.end)) { continue; }
                 matches.push({
                     line: i,
                     column: m.index,
-                    offset: (starts[i] ?? 0) + m.index,
+                    offset,
                     text: m[0],
                 });
             }

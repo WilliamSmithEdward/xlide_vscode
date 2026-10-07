@@ -557,6 +557,7 @@ export async function openFileInHost(
     options: Pick<HostOpenScriptOptions, 'attachToRunning' | 'readOnly' | 'background' | 'place'>,
     log: (message: string) => void,
 ): Promise<HostOpenOutcome> {
+    await (await import('./projectPasswordPrompt.js')).ensureProjectPassword(filePath);
     const host = requireOfficeHost(filePath);
     const appName = OFFICE_HOST_APPS[host].noun;
     const script = buildHostOpenScript({ host, filePath, ...options });
@@ -591,6 +592,7 @@ export async function runHostMacro(
     options: { attachToRunning: boolean },
     log: (message: string) => void,
 ): Promise<void> {
+    await (await import('./projectPasswordPrompt.js')).ensureProjectPassword(filePath);
     const host = requireOfficeHost(filePath);
     const appName = OFFICE_HOST_APPS[host].noun;
     const macroName = hostMacroReference(host, macro.moduleName, macro.procedureName);
@@ -621,6 +623,7 @@ export async function showAccessDesign(
     options: { attachToRunning: boolean },
     log: (message: string) => void,
 ): Promise<void> {
+    await (await import('./projectPasswordPrompt.js')).ensureProjectPassword(filePath);
     const script = buildAccessShowDesignScript(filePath, design, options.attachToRunning);
     log(`[runForm] Opening ${design.kind} in Access: ${design.name}`);
     log(`[runForm] Script:\n${script}`);

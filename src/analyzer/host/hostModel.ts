@@ -273,8 +273,6 @@ export function getHostEvents(
 	return (type?.members ?? []).filter((member) => member.kind === 'event');
 }
 
-const HOST_MEMBER_NAMES = new WeakMap<HostObjectModel, Set<string>>();
-
 /**
  * True when `name` is a member of ANY type in the host object model.
  *
@@ -283,21 +281,7 @@ const HOST_MEMBER_NAMES = new WeakMap<HostObjectModel, Set<string>>();
  * in the host model at all?". Answering yes keeps them quiet; the set is
  * deliberately broad for that reason. Case-insensitive.
  */
-export function isHostMemberName(
-	name: string,
-	model: HostObjectModel = getExcelObjectModel(),
-): boolean {
-	let names = HOST_MEMBER_NAMES.get(model);
-	if (!names) {
-		names = new Set<string>();
-		for (const type of hostModelIndex(model).membersByType.values()) {
-			for (const lower of type.byLowerName.keys()) { names.add(lower); }
-			for (const lower of type.rawByLowerName.keys()) { names.add(lower); }
-		}
-		HOST_MEMBER_NAMES.set(model, names);
-	}
-	return names.has(name.toLowerCase());
-}
+export { isHostMemberNameAnywhere as isHostMemberName };
 
 /**
  * Resolves a bare identifier as a member of the host's hidden Global

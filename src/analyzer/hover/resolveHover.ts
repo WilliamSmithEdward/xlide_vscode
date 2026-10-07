@@ -10,9 +10,10 @@
 
 import { tokenizeCached } from '../lexer/tokenize';
 import { VbaToken } from '../lexer/tokenKinds';
-import { isIdentLike } from '../lexer/tokenHelpers';
-import { buildModuleSymbols } from '../symbols/buildModuleSymbols';
+import { firstTokenEndingAtOrAfter, isIdentLike } from '../lexer/tokenHelpers';
+import { editorModuleSymbols } from '../symbols/editorModuleSymbols';
 import {
+	type ModuleSymbols,
 	ModuleSymbolKind,
 	VbaProcedureSignature,
 	VbaSymbol,
@@ -49,7 +50,7 @@ import {
 import { DocRegistry } from '../docs/docRegistry';
 import { VbaDoc, hasDocContent, renderDocMarkdown } from '../docs/docModel';
 import type { VbaProjectClassMembers } from '../symbols/symbolModel';
-import { macroNameStringAt, macroNameTarget } from '../completion/macroNames';
+import { macroNameStringAt, macroNameStringMayResolveAt, macroNameTarget } from '../completion/macroNames';
 
 /** A resolved hover description for the identifier under the cursor. */
 export interface HoverInfo {
@@ -112,6 +113,14 @@ function hostConstantDocumentation(
 
 function contains(span: Span, offset: number): boolean {
 	return offset >= span.start && offset <= span.end;
+}
+
+/** Whether project context could produce a hover here. String literals stay
+ * eligible because their parameter can name a macro in project metadata. */
+export function hoverMayResolveAt(source: string, offset: number): boolean {
+	const tokens = tokenizeCached(source);
+	if (findIdentTokenIndex(tokens, offset) >= 0) { return true; }
+	return macroNameStringMayResolveAt(source, offset, true);
 }
 
 /**
@@ -425,8 +434,11 @@ function externalDocMarkdown(
 
 /** Finds the index of the identifier-like token whose span covers `offset`. */
 function findIdentTokenIndex(tokens: VbaToken[], offset: number): number {
+	// Jump to the first token that can touch the offset. At a shared boundary
+	// inspect both neighbors to preserve the identifier preference below.
+	const lo = firstTokenEndingAtOrAfter(tokens, offset);
 	let fallback = -1;
-	for (let i = 0; i < tokens.length; i += 1) {
+	for (let i = lo; i < tokens.length && tokens[i].start <= offset; i += 1) {
 		const t = tokens[i];
 		if (offset >= t.start && offset <= t.end && isIdentLike(t)) {
 			// Prefer a token that strictly contains the offset over one that only
@@ -563,6 +575,68 @@ function resolveProjectModuleHover(
 	};
 }
 
+interface HoverSymbolIndex {
+	procedures: VbaSymbol[];
+	ordered: boolean;
+	top: ReadonlyMap<string, VbaSymbol>;
+	enumMembers: ReadonlyMap<string, VbaSymbol>;
+	locals: WeakMap<VbaSymbol, ReadonlyMap<string, VbaSymbol>>;
+}
+
+// The borrowed editor symbol graph is immutable; output and external docs stay fresh.
+const HOVER_SYMBOL_INDEXES = new WeakMap<ModuleSymbols, HoverSymbolIndex>();
+
+function firstSymbolsByName(symbols: readonly VbaSymbol[]): Map<string, VbaSymbol> {
+	const first = new Map<string, VbaSymbol>();
+	for (const symbol of symbols) {
+		const lower = symbol.name.toLowerCase();
+		if (!first.has(lower)) { first.set(lower, symbol); }
+	}
+	return first;
+}
+
+function hoverSymbolIndex(module: ModuleSymbols): HoverSymbolIndex {
+	const cached = HOVER_SYMBOL_INDEXES.get(module);
+	if (cached) { return cached; }
+	const procedures: VbaSymbol[] = [];
+	let ordered = true;
+	for (const symbol of module.all) {
+		if (!isProcedureKind(symbol.kind)) { continue; }
+		const previous = procedures[procedures.length - 1];
+		if (symbol.fullSpan.start > symbol.fullSpan.end || previous && previous.fullSpan.end > symbol.fullSpan.start) { ordered = false; }
+		procedures.push(symbol);
+	}
+	const top = firstSymbolsByName(module.root.children ?? []);
+	const enumMembers = new Map<string, VbaSymbol>();
+	for (const symbol of module.root.children ?? []) {
+		if (symbol.kind !== 'enum') { continue; }
+		for (const member of symbol.children ?? []) {
+			const lower = member.name.toLowerCase();
+			if (!enumMembers.has(lower)) { enumMembers.set(lower, member); }
+		}
+	}
+	const index = { procedures, ordered, top, enumMembers, locals: new WeakMap<VbaSymbol, ReadonlyMap<string, VbaSymbol>>() };
+	HOVER_SYMBOL_INDEXES.set(module, index);
+	return index;
+}
+
+function enclosingHoverProcedure(index: HoverSymbolIndex, offset: number): VbaSymbol | undefined {
+	if (!index.ordered) { return index.procedures.find(symbol => contains(symbol.fullSpan, offset)); }
+	// Lower-bound by inclusive end preserves the first match at touching spans.
+	let lo = 0, hi = index.procedures.length;
+	while (lo < hi) {
+		const mid = (lo + hi) >>> 1;
+		if (index.procedures[mid].fullSpan.end < offset) { lo = mid + 1; }
+		else { hi = mid; }
+	}
+	const symbol = index.procedures[lo];
+	return symbol && contains(symbol.fullSpan, offset) ? symbol : undefined;
+}
+
+// Only read-only editor snapshots reach buildSymbolHover. Keep the immutable
+// signature with its symbol; details, documentation and spans stay request-local.
+const PROCEDURE_HOVER_SIGNATURES = new WeakMap<VbaSymbol, string>();
+
 /** Finds the user symbol the cursor resolves to, or undefined. */
 function findUserSymbol(
 	source: string,
@@ -573,41 +647,24 @@ function findUserSymbol(
 ): VbaSymbol | undefined {
 	let mod;
 	try {
-		mod = buildModuleSymbols(moduleName, ctx.moduleKind ?? 'standard', source);
+		mod = editorModuleSymbols(moduleName, ctx.moduleKind ?? 'standard', source);
 	} catch {
 		return undefined;
 	}
+	const index = hoverSymbolIndex(mod);
 	const lower = name.toLowerCase();
-	const matches = (s: VbaSymbol): boolean => s.name.toLowerCase() === lower;
-
-	// 1. Symbols in the enclosing procedure (parameters, locals, constants).
-	const enclosing = mod.all.find(
-		(s) => isProcedureKind(s.kind) && contains(s.fullSpan, offset),
-	);
-	if (enclosing?.children) {
-		const local = enclosing.children.find(matches);
-		if (local) {
-			return local;
+	const enclosing = enclosingHoverProcedure(index, offset);
+	if (enclosing) {
+		let locals = index.locals.get(enclosing);
+		if (!locals) {
+			locals = firstSymbolsByName(enclosing.children ?? []);
+			index.locals.set(enclosing, locals);
 		}
+		const local = locals.get(lower);
+		if (local) { return local; }
 	}
+	return index.top.get(lower) ?? index.enumMembers.get(lower);
 
-	// 2. Module-level declarations.
-	const top = (mod.root.children ?? []).find(matches);
-	if (top) {
-		return top;
-	}
-
-	// 3. Enum members declared anywhere in the module.
-	for (const child of mod.root.children ?? []) {
-		if (child.kind === 'enum') {
-			const member = (child.children ?? []).find(matches);
-			if (member) {
-				return member;
-			}
-		}
-	}
-
-	return undefined;
 }
 
 const PROC_KEYWORD: Record<string, string> = {
@@ -628,13 +685,19 @@ function buildSymbolHover(
 	let signature: string;
 
 	if (isProcedureKind(symbol.kind)) {
-		const keyword = PROC_KEYWORD[symbol.kind] ?? 'Sub';
-		const params = (symbol.children ?? [])
-			.filter((c) => c.kind === 'parameter')
-			.map((p) => (p.asType ? `${p.name} As ${p.asType}` : p.name))
-			.join(', ');
-		const ret = symbol.asType ? ` As ${symbol.asType}` : '';
-		signature = `${keyword} ${symbol.name}(${params})${ret}`;
+		const cached = PROCEDURE_HOVER_SIGNATURES.get(symbol);
+		if (cached !== undefined) {
+			signature = cached;
+		} else {
+			const keyword = PROC_KEYWORD[symbol.kind] ?? 'Sub';
+			const params = (symbol.children ?? [])
+				.filter((c) => c.kind === 'parameter')
+				.map((p) => (p.asType ? `${p.name} As ${p.asType}` : p.name))
+				.join(', ');
+			const ret = symbol.asType ? ` As ${symbol.asType}` : '';
+			signature = `${keyword} ${symbol.name}(${params})${ret}`;
+			PROCEDURE_HOVER_SIGNATURES.set(symbol, signature);
+		}
 		details.push(`Declared in Module: ${moduleName}`);
 		details.push(`Visibility: ${symbol.visibility ?? 'Public'}`);
 	} else if (symbol.kind === 'declare') {

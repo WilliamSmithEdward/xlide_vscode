@@ -17,7 +17,7 @@ import {
 	type MsFormsMember,
 } from '../host/msformsReferenceMembers';
 import { VBA_USERFORM_EXTENDER_MEMBERS, VBA_USERFORM_TYPE } from '../host/userFormExtenderMembers';
-import { completionCursorContext } from './cursorContext';
+import { completionLineCursorContext } from './cursorContext';
 import { parseModule } from '../parser/parseModule';
 import {
 	BodyNode,
@@ -25,6 +25,7 @@ import {
 	LeafStatementNode,
 	ModuleNode,
 	ProcedureNode,
+	procedureAtOffset,
 	VariableGroupNode,
 } from '../parser/nodes';
 import type {
@@ -55,10 +56,12 @@ import type { VbaDoc } from '../docs/docModel';
 import {
 	isAccessDesignerClass,
 	type VbaProjectClassMemberDefinition,
+	type VbaSymbol,
 	type VbaProjectClassMember,
 	type VbaProjectClassMembers,
 	type VbaSymbolAttribute,
 } from '../symbols/symbolModel';
+import { projectSymbolsNamed } from '../symbols/nameResolution';
 import type { FormControlInfo } from '../symbols/projectIndex';
 
 /** Project/module facts the resolver needs that come from outside the source. */
@@ -73,6 +76,8 @@ export interface MemberCompletionContext {
 	meType?: string;
 	/** Project object type that `Me` resolves to in the current class/document module. */
 	meProjectType?: string;
+	/** Source-backed symbols exported by standard modules, already filtered for visibility. */
+	projectSymbols?: readonly VbaSymbol[];
 	/** Source-declared project object members and visible UDT fields, keyed by type. */
 	projectClassMembers?: readonly VbaProjectClassMembers[];
 	/**
@@ -146,7 +151,9 @@ export interface MemberCompletion {
 	writable?: boolean;
 	/** Declared value type accepted by assignment when source provides one. */
 	writeType?: string;
-	/** A user-defined type's field that holds an array (issue #417). */
+	/** The setter value parameter is an array, rather than a scalar element. */
+	writeIsArray?: boolean;
+	/** A source field or module variable that holds an array (issue #417). */
 	isArray?: boolean;
 	/** Qualified type the member belongs to (for detail text). */
 	owner: string;
@@ -167,6 +174,8 @@ export interface MemberCompletion {
 	setAccessor?: boolean;
 	/** How many parameters a project property's Let declares, the value's included (issue #414). */
 	letParamCount?: number;
+	/** Source accessor parameters, including the setter value at the end. */
+	procedureParams?: VbaProjectClassMember['procedureParams'];
 	/** What a project class member is known to hold or return: Nothing, Empty or a value (issue #414). */
 	knownValue?: 'nothing' | 'empty' | 'scalar';
 	/** Exported attribute lines attached to this member. */
@@ -194,6 +203,8 @@ type CompletionMemberSource = Pick<
 > & {
 	writable?: boolean;
 	writeType?: string;
+	/** The setter value parameter is an array, rather than a scalar element. */
+	writeIsArray?: boolean;
 	isArray?: boolean;
 	definitions?: readonly VbaProjectClassMemberDefinition[];
 	defaultMember?: boolean;
@@ -320,6 +331,9 @@ export function resolveHostMemberKindAt(
 	if (!hit || !hostReceiverTypesOf(hit.currentType).some((type) => getHostType(type, ctx.model))) {
 		return undefined;
 	}
+	if (ctx.memberSurfaceCache) {
+		return surfaceMemberNamed(hit.surface, memberName)?.kind;
+	}
 	const lowerName = memberName.toLowerCase();
 	return hit.surface.members.find((member) => member.name.toLowerCase() === lowerName)?.kind;
 }
@@ -362,7 +376,9 @@ export function resolveMemberDefinitionsAt(
 	prefixTokens?: VbaToken[],
 ): readonly VbaProjectClassMemberDefinition[] {
 	const safeOffset = Math.max(0, Math.min(offset, source.length));
-	if (!precededByMemberAccessDot(source, safeOffset - memberName.length)) {
+	const bracketed = source[safeOffset - 1] === ']' && source[safeOffset - memberName.length - 2] === '['
+		&& source.slice(safeOffset - memberName.length - 1, safeOffset - 1).toLowerCase() === memberName.toLowerCase();
+	if (!precededByMemberAccessDot(source, safeOffset - memberName.length - (bracketed ? 2 : 0))) {
 		return [];
 	}
 	// Only trust supplied tokens that end exactly with the member name; when a
@@ -377,6 +393,9 @@ export function resolveMemberDefinitionsAt(
 	const hit = memberSurfaceAtDot(source, safeOffset, ctx, tokens);
 	if (!hit) {
 		return [];
+	}
+	if (ctx.memberSurfaceCache) {
+		return surfaceMemberNamed(hit.surface, memberName)?.definitions ?? [];
 	}
 	const lowerName = memberName.toLowerCase();
 	return hit.surface.members.find((m) => m.name.toLowerCase() === lowerName)
@@ -459,7 +478,7 @@ function prefixSignificantTokens(
 			return shared.slice(start, found + 1);
 		}
 	}
-	return completionCursorContext(source, offset).significantTokens;
+	return completionLineCursorContext(source, offset).significantTokens;
 }
 
 /** Bracketed foreign names are prefixes too, including an unfinished escape. */
@@ -469,6 +488,16 @@ function completionMemberPrefix(token: VbaToken): string | undefined {
 		return token.rawText.slice(1).replace(/\]$/, '');
 	}
 	return undefined;
+}
+
+const PRIVATE_MEMBER_NAMES = new WeakMap<NonNullable<MemberCompletionContext['memberSurfaceCache']>, WeakMap<readonly string[], ReadonlySet<string>>>();
+function privateMemberNames(members: readonly string[], ctx: MemberCompletionContext): ReadonlySet<string> {
+ if (!ctx.memberSurfaceCache) { return new Set(members.map(name => name.toLowerCase())); }
+ let queries = PRIVATE_MEMBER_NAMES.get(ctx.memberSurfaceCache);
+ if (!queries) { queries = new WeakMap(); PRIVATE_MEMBER_NAMES.set(ctx.memberSurfaceCache, queries); }
+ let names = queries.get(members);
+ if (!names) { names = new Set(members.map(name => name.toLowerCase())); queries.set(members, names); }
+ return names;
 }
 
 function memberSurfaceAtDot(
@@ -540,6 +569,36 @@ export interface ExhaustiveMemberSurface {
 	hasMember: (memberName: string) => boolean;
 }
 
+/** A lightweight presence check, retaining whether absence can be proven. */
+export interface MemberPresenceSurface extends ExhaustiveMemberSurface {
+	exhaustive: boolean;
+}
+
+/** Known public members, including non-exhaustive host/designer surfaces. */
+export function resolveMemberPresenceSurfaceAt(
+	source: string,
+	offset: number,
+	ctx: MemberCompletionContext = {},
+): MemberPresenceSurface | undefined {
+	const surface = memberPresenceSurfaceAt(source, offset, ctx, false);
+	return surface ? {
+		owner: surface.owner,
+		exhaustive: surface.exhaustive,
+		hasMember: (memberName) => surfaceMemberNamed(surface, memberName) !== undefined,
+	} : undefined;
+}
+
+function memberPresenceSurfaceAt(
+	source: string,
+	offset: number,
+	ctx: MemberCompletionContext,
+	exhaustiveOnly: boolean,
+): MemberSurface | undefined {
+	const currentType = resolveReceiverTypeAt(source, offset, ctx);
+	const surface = currentType ? memberSurfaceForType(currentType, ctx) : undefined;
+	return surface && (!exhaustiveOnly || surface.exhaustive) ? surface : undefined;
+}
+
 /**
  * The member surface of the receiver ending at `offset` when the surface can
  * prove a member absent, without building a completion row for every member
@@ -551,12 +610,8 @@ export function resolveExhaustiveMemberSurfaceAt(
 	offset: number,
 	ctx: MemberCompletionContext = {},
 ): ExhaustiveMemberSurface | undefined {
-	const currentType = resolveReceiverTypeAt(source, offset, ctx);
-	if (!currentType) {
-		return undefined;
-	}
-	const surface = memberSurfaceForType(currentType, ctx);
-	if (!surface?.exhaustive) {
+	const surface = memberPresenceSurfaceAt(source, offset, ctx, true);
+	if (!surface) {
 		return undefined;
 	}
 	return {
@@ -579,15 +634,17 @@ export function privateMemberOwnerAt(
 	memberName: string,
 	ctx: MemberCompletionContext = {},
 ): string | undefined {
+	const projectTypes = projectClassMembersByName(ctx);
+	if (projectTypes.size === 0) { return undefined; }
 	const currentType = resolveReceiverTypeAt(source, offset, ctx);
 	if (!currentType) {
 		return undefined;
 	}
 	const projectKey = parseCombinedTypeKey(currentType)?.projectKey
 		?? (currentType.startsWith(PROJECT_TYPE_PREFIX) ? currentType.slice(PROJECT_TYPE_PREFIX.length) : undefined);
-	const projectType = projectKey ? projectClassMembersByName(ctx).get(projectKey) : undefined;
+	const projectType = projectKey ? projectTypes.get(projectKey) : undefined;
 	const lower = memberName.toLowerCase();
-	if (!projectType?.privateMembers || !privateMemberNames(projectType.privateMembers).has(lower)) {
+	if (!projectType?.privateMembers || !privateMemberNames(projectType.privateMembers, ctx).has(lower)) {
 		return undefined;
 	}
 	const surface = memberSurfaceForType(currentType, ctx);
@@ -600,13 +657,15 @@ export function projectTypeAt(
 	offset: number,
 	ctx: MemberCompletionContext = {},
 ): VbaProjectClassMembers | undefined {
+	const projectTypes = projectClassMembersByName(ctx);
+	if (projectTypes.size === 0) { return undefined; }
 	const currentType = resolveReceiverTypeAt(source, offset, ctx);
 	if (!currentType) {
 		return undefined;
 	}
 	const projectKey = parseCombinedTypeKey(currentType)?.projectKey
 		?? (currentType.startsWith(PROJECT_TYPE_PREFIX) ? currentType.slice(PROJECT_TYPE_PREFIX.length) : undefined);
-	return projectKey ? projectClassMembersByName(ctx).get(projectKey) : undefined;
+	return projectKey ? projectTypes.get(projectKey) : undefined;
 }
 
 /** The member of a project class module a reference reaches, if the receiver is one. */
@@ -621,37 +680,44 @@ export function projectClassMemberAt(
 		return undefined;
 	}
 	const lower = memberName.toLowerCase();
-	return projectMembersByName(projectType.members).get(lower);
+	return projectMemberNamed(projectType, lower, ctx);
 }
 
-// Project-index snapshots keep these arrays immutable. Key by the arrays so
-// replacing a member list also replaces its lookup, even on the same owner.
-const PRIVATE_MEMBER_NAMES = new WeakMap<readonly string[], ReadonlySet<string>>();
-const PROJECT_MEMBERS_BY_NAME = new WeakMap<readonly VbaProjectClassMember[], ReadonlyMap<string, VbaProjectClassMember>>();
-
-function privateMemberNames(members: readonly string[]): ReadonlySet<string> {
-	let names = PRIVATE_MEMBER_NAMES.get(members);
-	if (!names) {
-		names = new Set(members.map(name => name.toLowerCase()));
-		PRIVATE_MEMBER_NAMES.set(members, names);
-	}
-	return names;
+// Raw project lookups must not include inherited host or implicit controls.
+// Scope their first-match index to the caller's existing immutable pass cache.
+interface ProjectMemberQuery {
+	cursor: number;
+	byName: Map<string, VbaProjectClassMember>;
 }
+const PROJECT_MEMBER_QUERIES = new WeakMap<
+	NonNullable<MemberCompletionContext['memberSurfaceCache']>,
+	WeakMap<VbaProjectClassMembers, ProjectMemberQuery>
+>();
 
-function projectMembersByName(members: readonly VbaProjectClassMember[]): ReadonlyMap<string, VbaProjectClassMember> {
-	let names = PROJECT_MEMBERS_BY_NAME.get(members);
-	if (!names) {
-		const indexed = new Map<string, VbaProjectClassMember>();
-		for (const member of members) {
-			const lower = member.name.toLowerCase();
-			if (!indexed.has(lower)) {
-				indexed.set(lower, member);
-			}
-		}
-		names = indexed;
-		PROJECT_MEMBERS_BY_NAME.set(members, names);
+function projectMemberNamed(type: VbaProjectClassMembers, name: string, ctx: MemberCompletionContext): VbaProjectClassMember | undefined {
+	const lower = name.toLowerCase();
+	if (!ctx.memberSurfaceCache) {
+		return type.members.find((member) => member.name.toLowerCase() === lower);
 	}
-	return names;
+	let types = PROJECT_MEMBER_QUERIES.get(ctx.memberSurfaceCache);
+	if (!types) {
+		types = new WeakMap();
+		PROJECT_MEMBER_QUERIES.set(ctx.memberSurfaceCache, types);
+	}
+	let query = types.get(type);
+	if (!query) {
+		query = { cursor: 0, byName: new Map() };
+		types.set(type, query);
+	}
+	const cached = query.byName.get(lower);
+	if (cached) { return cached; }
+	while (query.cursor < type.members.length) {
+		const member = type.members[query.cursor++];
+		const key = member.name.toLowerCase();
+		if (!query.byName.has(key)) { query.byName.set(key, member); }
+		if (key === lower) { return query.byName.get(lower); }
+	}
+	return undefined;
 }
 
 // A surface's members are looked up by name once per reference, and a host
@@ -691,11 +757,14 @@ function completionFromSurfaceMember(
 		name: mem.name,
 		kind: mem.kind,
 		returns: mem.returns,
-		signature: mem.signature ?? signatureForMember(currentType, mem.name, ctx),
+		// A pure project surface already selected the first project member.
+		// Its absent signature stays absent; rescanning cannot add one.
+		signature: mem.signature ?? (currentType.startsWith(PROJECT_TYPE_PREFIX) ? undefined : signatureForMember(currentType, mem.name, ctx)),
 		declaredType: mem.declaredType,
 		access: mem.access,
 		writable: mem.writable,
 		writeType: mem.writeType,
+		...(mem.writeIsArray ? { writeIsArray: true } : {}),
 		...(mem.isArray ? { isArray: true } : {}),
 		owner: surface.owner,
 		surfaceExhaustive: surface.exhaustive,
@@ -710,6 +779,7 @@ function completionFromSurfaceMember(
 		setAccessor: mem.setAccessor,
 		...(letParamsOf(mem) !== undefined ? { letParamCount: letParamsOf(mem) } : {}),
 		...((mem as { knownValue?: MemberCompletion['knownValue'] }).knownValue ? { knownValue: (mem as { knownValue?: MemberCompletion['knownValue'] }).knownValue } : {}),
+		...((mem as VbaProjectClassMember).procedureParams ? {procedureParams: (mem as VbaProjectClassMember).procedureParams} : {}),
 		attributes: mem.attributes,
 	};
 }
@@ -822,9 +892,7 @@ function projectMemberSignature(
 	ctx: MemberCompletionContext,
 ): string | undefined {
 	const projectType = projectClassMembersByName(ctx).get(projectKey);
-	return projectType?.members.find(
-		(member) => member.name.toLowerCase() === memberName.toLowerCase(),
-	)?.signature;
+	return projectType ? projectMemberNamed(projectType, memberName, ctx)?.signature : undefined;
 }
 
 /**
@@ -868,7 +936,11 @@ function receiverTypeFromTokens(
 	// A dot whose chain is the previous dot's plus one member takes that dot's
 	// chain and adds the member, instead of walking the whole chain back again
 	// (issue #135: a 4,000-member chain took 2.4 s, each dot re-walking it).
-	const chain = chainExtendedFromPreviousDot(tokens, dotIndex, ctx) ?? collectReceiverChainWithStart(tokens, dotIndex - 1);
+	// Expression-introducing keywords (Then, Else, Call, ...) mark a leading
+	// With dot; resolving them as identifier roots scans all preceding statements.
+	const before = tokens[dotIndex - 1];
+	const leading = before?.kind === 'keyword' && /^(Then|Else|Call)$/i.test(before.rawText) && tokens[dotIndex - 2]?.rawText !== '.';
+	const chain = leading ? undefined : chainExtendedFromPreviousDot(tokens, dotIndex, ctx) ?? collectReceiverChainWithStart(tokens, dotIndex - 1);
 	if (chain && ctx.receiverChainCache) {
 		ctx.receiverChainCache.set(tokens[dotIndex].start, chain);
 	}
@@ -1526,12 +1598,7 @@ function activeWithScanWindow(
 ): { text: string; sliceStart: number; procedureStart: number; windowEnd: number } {
 	const safeOffset = Math.max(0, offset);
 	const module: ModuleNode = ctx.parsedModule ?? parseModule(source);
-	const enclosing = module.members.find(
-		(mem): mem is ProcedureNode =>
-			mem.kind === 'Procedure' &&
-			safeOffset >= mem.span.start &&
-			safeOffset <= mem.span.end,
-	);
+	const enclosing = procedureAtOffset(module, safeOffset);
 	if (!enclosing) {
 		// Module level: the window is everything before the offset, and there is
 		// no procedure to key an index on.
@@ -1859,9 +1926,7 @@ function resolveAnyMemberReturnType(
 	const combined = parseCombinedTypeKey(ownerType);
 	if (combined) {
 		const projectType = projectClassMembersByName(ctx).get(combined.projectKey);
-		const projectMember = projectType?.members.find(
-			(m) => m.name.toLowerCase() === memberName.toLowerCase(),
-		);
+		const projectMember = projectType ? projectMemberNamed(projectType, memberName, ctx) : undefined;
 		if (projectMember?.returns) {
 			const type = resolveDeclaredObjectType(projectMember.returns, ctx, ctx.model);
 			return type ? { type, kind: projectMember.kind } : undefined;
@@ -1883,9 +1948,7 @@ function resolveAnyMemberReturnType(
 	}
 	const projectKey = ownerType.slice(PROJECT_TYPE_PREFIX.length);
 	const projectType = projectClassMembersByName(ctx).get(projectKey);
-	const member = projectType?.members.find(
-		(m) => m.name.toLowerCase() === memberName.toLowerCase(),
-	);
+	const member = projectType ? projectMemberNamed(projectType, memberName, ctx) : undefined;
 	if (!member?.returns) {
 		return implicitMemberReturn(projectKey, memberName, ctx);
 	}
@@ -2192,12 +2255,7 @@ function findSetAssignedObjectType(
 ): string | undefined {
 	const module: ModuleNode = ctx.parsedModule ?? parseModule(source);
 	const lower = name.toLowerCase();
-	const enclosing = module.members.find(
-		(mem): mem is ProcedureNode =>
-			mem.kind === 'Procedure' &&
-			offset >= mem.span.start &&
-			offset <= mem.span.end,
-	);
+	const enclosing = procedureAtOffset(module, offset);
 
 	if (enclosing) {
 		const hit = latestSetAssignmentInBody(enclosing.body, source, offset, lower);
@@ -2300,34 +2358,49 @@ function findDeclaredBinding(
 	const module: ModuleNode = ctx.parsedModule ?? parseModule(source);
 	const lower = name.toLowerCase();
 
-	const enclosing = module.members.find(
-		(mem): mem is ProcedureNode =>
-			mem.kind === 'Procedure' &&
-			offset >= mem.span.start &&
-			offset <= mem.span.end,
-	);
+	const enclosing = procedureAtOffset(module, offset);
 
 	if (enclosing) {
-		for (const param of enclosing.params) {
-			if (param.name.toLowerCase() === lower) {
-				return { asType: param.asType };
+		let locals = PROCEDURE_DECLARED_BINDINGS.get(enclosing);
+		if (!locals) {
+			locals = new Map();
+			for (const param of enclosing.params) {
+				const key = param.name.toLowerCase();
+				if (!locals.has(key)) { locals.set(key, { asType: param.asType }); }
 			}
+			addBodyBindings(enclosing.body, locals);
+			PROCEDURE_DECLARED_BINDINGS.set(enclosing, locals);
 		}
-		const local = findInBody(enclosing.body, lower);
-		if (local) {
-			return local;
-		}
+		const local = locals.get(lower);
+		if (local) { return local; }
 	}
+	let fields = MODULE_DECLARED_BINDINGS.get(module);
+	if (!fields) {
+		fields = new Map();
+		for (const member of module.members) {
+			if (member.kind === 'VariableGroup') { addGroupBindings(member, fields); }
+		}
+		MODULE_DECLARED_BINDINGS.set(module, fields);
+	}
+	const field = fields.get(lower);
+	if (field) { return field; }
 
-	for (const mem of module.members) {
-		if (mem.kind === 'VariableGroup') {
-			const hit = matchGroup(mem, lower);
-			if (hit) {
-				return hit;
-			}
-		}
-	}
-	return moduleProcedureBinding(module, lower);
+	return moduleProcedureBinding(module, lower) ?? exportedModuleBinding(ctx, lower);
+}
+
+/** Resolve only actual exported value names, preserving type and module qualifiers. */
+function exportedModuleBinding(ctx: MemberCompletionContext, lower: string): DeclaredBinding | undefined {
+	const symbols = projectSymbolsNamed(ctx.projectSymbols, lower).filter(symbol =>
+		['function', 'sub', 'propertyGet', 'propertyLet', 'propertySet', 'moduleVariable', 'constant', 'enumMember'].includes(symbol.kind));
+	if (!symbols.length) { return undefined; }
+	if (new Set(symbols.map(symbol => symbol.moduleName.toLowerCase())).size > 1) { return {}; }
+	const readable = symbols.find(symbol => ['function', 'propertyGet', 'moduleVariable', 'constant', 'enumMember'].includes(symbol.kind));
+	if (!readable) { return {}; } // A Sub or setter-only property still shadows host globals.
+	if (readable.asType) { return { asType: readable.asType }; }
+	// Untyped exports take defaults from their owning module, carried by its surface.
+	const surface = projectClassMembersByName(ctx).get(readable.moduleName.toLowerCase());
+	const member = surface ? projectMemberNamed(surface, readable.name, ctx) : undefined;
+	return { asType: member?.returns };
 }
 
 /**
@@ -2377,29 +2450,25 @@ function moduleProcedureBinding(module: ModuleNode, lower: string): DeclaredBind
 	return index.get(lower);
 }
 
-/** Searches a procedure body (recursing into block nodes) for a declaration. */
-function findInBody(body: BodyNode[], lower: string): DeclaredBinding | undefined {
+// Receiver walks ask about many names in the same immutable AST. Index each
+// scope once, retaining parameter/local/module precedence and the first
+// declaration in the existing depth-first body traversal.
+const PROCEDURE_DECLARED_BINDINGS = new WeakMap<ProcedureNode, Map<string, DeclaredBinding>>();
+const MODULE_DECLARED_BINDINGS = new WeakMap<ModuleNode, Map<string, DeclaredBinding>>();
+
+function addBodyBindings(body: BodyNode[], bindings: Map<string, DeclaredBinding>): void {
 	for (const node of body) {
 		if (node.kind === 'VariableGroup') {
-			const hit = matchGroup(node, lower);
-			if (hit) {
-				return hit;
-			}
+			addGroupBindings(node, bindings);
 		} else if ('body' in node && Array.isArray(node.body)) {
-			const hit = findInBody(node.body, lower);
-			if (hit) {
-				return hit;
-			}
+			addBodyBindings(node.body, bindings);
 		}
 	}
-	return undefined;
 }
 
-function matchGroup(group: VariableGroupNode, lower: string): DeclaredBinding | undefined {
+function addGroupBindings(group: VariableGroupNode, bindings: Map<string, DeclaredBinding>): void {
 	for (const decl of group.declarations) {
-		if (decl.name.toLowerCase() === lower) {
-			return { asType: decl.asType };
-		}
+		const key = decl.name.toLowerCase();
+		if (!bindings.has(key)) { bindings.set(key, { asType: decl.asType }); }
 	}
-	return undefined;
 }

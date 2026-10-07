@@ -40,9 +40,11 @@ export interface ShapeEditorDeps {
 
 /** Open editor tabs, so asking for one already open brings it forward. */
 const openEditors = new Map<string, vscode.WebviewPanel>();
+/** Repeated clicks share the reads that happen before a tab is registered. */
+const openingEditors = new Map<string, Promise<void>>();
 
-function editorKey(filePath: string, surface: string, shapeName: string | undefined): string {
-	return `${projectIdentityKey(filePath)}::${surface.toLowerCase()}::${shapeName?.toLowerCase() ?? '+'}`;
+function editorKey(filePath: string, surface: string, shapePath: readonly string[] | undefined): string {
+	return JSON.stringify([projectIdentityKey(filePath), surface.toLowerCase(), shapePath?.map(name => name.toLowerCase()) ?? null]);
 }
 
 /** The Subs a shape in this file can run; none when they cannot be read. */
@@ -102,12 +104,34 @@ export async function openShapeEditor(
 	filePath: string,
 	target: Omit<ShapeEditorTarget, 'fileName'> & { shapePath?: string[] },
 ): Promise<void> {
-	const key = editorKey(filePath, target.surface, target.shape?.name);
+	const key = editorKey(filePath, target.surface, target.shape ? target.shapePath ?? [target.shape.name] : undefined);
 	const open = openEditors.get(key);
 	if (open) {
 		open.reveal();
 		return;
 	}
+	const pending = openingEditors.get(key);
+	if (pending) {
+		await pending;
+		openEditors.get(key)?.reveal();
+		return;
+	}
+	const started = createShapeEditor(deps, context, filePath, target, key);
+	openingEditors.set(key, started);
+	try {
+		await started;
+	} finally {
+		if (openingEditors.get(key) === started) { openingEditors.delete(key); }
+	}
+}
+
+async function createShapeEditor(
+	deps: ShapeEditorDeps,
+	context: vscode.ExtensionContext,
+	filePath: string,
+	target: Omit<ShapeEditorTarget, 'fileName'> & { shapePath?: string[] },
+	key: string,
+): Promise<void> {
 	let fresh: ShapeEditorTarget = { ...target, fileName: path.basename(filePath) };
 	if (target.shape) {
 		const listing = await deps.bridge.call<{ surfaces: Array<{ surface: string; shapes: ShapeInfo[] }> }>(
@@ -136,7 +160,12 @@ export async function openShapeEditor(
 	);
 	openEditors.set(key, panel);
 	panel.webview.html = renderShapeEditorHtml(model);
+	let writePending = false, disposed = false;
 	const messages = panel.webview.onDidReceiveMessage(async (message: { type?: string; values?: ShapeFormValues; macro?: string }) => {
+		if (disposed) { return; }
+		const writing = message.type === 'save' || message.type === 'delete';
+		if (writing && writePending) { return; }
+		if (writing) { writePending = true; }
 		try {
 			switch (message.type) {
 				case 'cancel':
@@ -146,7 +175,7 @@ export async function openShapeEditor(
 					if (message.macro) { await deps.goToMacro(filePath, message.macro); }
 					return;
 				case 'delete':
-					await deleteFromEditor(deps, panel, filePath, model);
+					await deleteFromEditor(deps, panel, filePath, model, () => !disposed);
 					return;
 				case 'save':
 					if (message.values) { await saveFromEditor(deps, panel, filePath, model, message.values); }
@@ -158,9 +187,12 @@ export async function openShapeEditor(
 				reportProjectLocked(filePath, 'write', err);
 			}
 			await panel.webview.postMessage({ type: 'error', error: errorMessage(err) });
+		} finally {
+			if (writing) { writePending = false; }
 		}
 	});
 	panel.onDidDispose(() => {
+		disposed = true;
 		messages.dispose();
 		if (openEditors.get(key) === panel) { openEditors.delete(key); }
 	});
@@ -191,7 +223,7 @@ async function saveFromEditor(
 	);
 }
 
-async function deleteFromEditor(deps: ShapeEditorDeps, panel: vscode.WebviewPanel, filePath: string, model: ShapeEditorModel): Promise<void> {
+async function deleteFromEditor(deps: ShapeEditorDeps, panel: vscode.WebviewPanel, filePath: string, model: ShapeEditorModel, isOpen: () => boolean): Promise<void> {
 	const name = model.shape?.name;
 	if (!name) { return; }
 	const choice = await vscode.window.showWarningMessage(
@@ -199,6 +231,7 @@ async function deleteFromEditor(deps: ShapeEditorDeps, panel: vscode.WebviewPane
 		{ modal: true },
 		'Delete',
 	);
+	if (!isOpen()) { return; }
 	if (choice !== 'Delete') {
 		await panel.webview.postMessage({ type: 'idle' });
 		return;

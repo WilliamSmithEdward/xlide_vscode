@@ -23,6 +23,10 @@ import { resolveSignatureHelp, type SignatureHelpContext } from '../signature/si
 export interface ArgumentValueCompletion {
 	/** Enumeration name as declared, e.g. "XlLinkType". */
 	enumName: string;
+	/** Library-qualified enum name when a source declaration shadows its constants. */
+	qualifiedEnumName?: string;
+	/** Distinguishes library constants from same-named source enums. */
+	origin?: 'host' | 'runtime' | 'source';
 	/** The enumeration's constants, in declaration order. */
 	constants: readonly HostConstant[];
 	/** Parameter this came from, as written in the signature. */

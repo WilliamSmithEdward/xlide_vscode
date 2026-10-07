@@ -25,7 +25,8 @@ import {
 } from '../projectModuleOperations';
 import { registerXlideCommand } from '../xlideCommandRegistration';
 import { HOST_LIBRARIES, type VbaProjectReference } from '../vba/vbaProjectReferences';
-import { librariesNamedIn } from '../analyzer/diagnostics/rules/missingReference';
+import { projectLibraryDependencies } from '../vbaReferenceDependencies';
+import type { VbaProjectModuleInput } from '../vbaProjectAnalysis';
 import { hostTokenForFileName } from '../analyzer/host/hostRegistry';
 import { runWriteWithHostCoordination } from '../officeWriteCoordinator';
 import { containerAppNameForPath } from '../macroContainerUi';
@@ -628,7 +629,7 @@ export function registerProjectCrudCommands(deps: CommandDeps): vscode.Disposabl
             // The VBE takes a reference away without a word about the code
             // that needs it. XLIDE knows which modules name it, so it says so
             // while the project still compiles.
-            if (!await confirmReferenceRemoval(bridge, filePath, chosen)) { return; }
+            if (!await confirmReferenceRemoval(() => vbaIndex.getAllModules(filePath), filePath, chosen)) { return; }
             try {
                 const result = await runWriteWithHostCoordination(filePath, () =>
                     bridge.call<{ removed: boolean; name: string }>('removeReference', {
@@ -697,24 +698,19 @@ async function pickDeclaredReference(
 }
 
 /**
- * Warns when modules name the library, since they stop compiling the moment
+ * Warns when modules name the library, since they may fail after
  * the reference goes. Answers true when there is nothing to warn about, so
  * the caller asks nothing in the ordinary case.
  */
 async function confirmReferenceRemoval(
-    bridge: ProjectEngine,
+    loadModules: () => Promise<readonly VbaProjectModuleInput[]>,
     filePath: string,
     library: string,
 ): Promise<boolean> {
     let naming: string[] = [];
     try {
-        const modules = await bridge.call<Array<{ name: string; source?: string }>>(
-            'readModules', { path: filePath, full: true },
-        );
-        naming = modules
-            .filter((module) => module.source !== undefined
-                && librariesNamedIn(module.source).has(library.toLowerCase()))
-            .map((module) => module.name);
+        const modules = applyOpenDocumentSources(await loadModules(), filePath);
+        naming = await projectLibraryDependencies(modules, library);
     } catch {
         // Unreadable for the moment: the removal itself will surface that.
         return true;
@@ -727,7 +723,7 @@ async function confirmReferenceRemoval(
         : naming.join(', ');
     const choice = await vscode.window.showWarningMessage(
         `${listed} ${naming.length === 1 ? 'names' : 'name'} ${library} early bound. `
-        + 'Without the reference those modules stop compiling, and the whole project with them.',
+        + 'Removing the reference can prevent compilation or break this code when it runs.',
         { modal: true },
         'Remove Anyway',
     );

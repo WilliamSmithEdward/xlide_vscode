@@ -40,7 +40,6 @@ const LONG_MAX = 2147483647;
 const LONGLONG_MAX = 9223372036854775807n;
 const SINGLE_MAX = 3.402823e38;
 const CURRENCY_MAX = 922337203685477.5807;
-const OPERAND_STARTS: ReadonlySet<string> = new Set(['identifier', 'keyword', 'integerLiteral', 'floatLiteral', 'stringLiteral', 'dateLiteral', 'bracketedIdentifier']);
 
 export function checkSuffixedLiteralOverflow(
 	source: string,
@@ -84,11 +83,11 @@ export function checkSuffixedLiteralOverflow(
 		if (tok.kind !== 'integerLiteral' || activity?.isInactive(span)) {
 			continue;
 		}
-		checkInteger(tok, tokens[index - 1], tokens[index + 1], push);
+		checkInteger(tok, tokens[index + 1], push);
 	}
 }
 
-function checkInteger(tok: VbaToken, previous: VbaToken | undefined, next: VbaToken | undefined, push: PushFn): void {
+function checkInteger(tok: VbaToken, next: VbaToken | undefined, push: PushFn): void {
 	const raw = tok.rawText;
 	const span = { start: tok.start, end: tok.end };
 	const reject = (message: string): void => {
@@ -143,14 +142,11 @@ function checkInteger(tok: VbaToken, previous: VbaToken | undefined, next: VbaTo
 		// `3000000000&"x"` reads as concatenation; only a `&` nothing follows,
 		// or an operator follows, is the Long suffix.
 		if (next === undefined || next.kind === 'newline' || next.kind === 'colon' || next.kind === 'comment' || next.kind === 'operator' || next.kind === 'punctuation') {
-			if (!(next && OPERAND_STARTS.has(next.kind))) {
-				reject(`The literal '${raw}' is outside the Long range -2147483648 to 2147483647 of its '&' type suffix.`);
-			}
+			reject(`The literal '${raw}' is outside the Long range -2147483648 to 2147483647 of its '&' type suffix.`);
 		}
 	} else if (suffix === '^' && value > LONGLONG_MAX) {
 		reject(`The literal '${raw}' is outside the LongLong range of its '^' type suffix (at most 9223372036854775807).`);
 	}
-	void previous;
 }
 
 function checkFloat(tok: VbaToken, next: VbaToken | undefined, push: PushFn): void {
@@ -198,17 +194,17 @@ function currencyOverflows(raw: string): boolean {
 	return BigInt(plain[1]) * 10000n + BigInt(fraction) > 9223372036854775807n;
 }
 
-/**
- * What is wrong with a `#...#` date literal, or undefined when it is one
- * the VBE accepts or one this check does not judge (named months and other
- * regional forms are left alone).
- */
 /** Whether the '#' at `index` stands where only a value can: after `=`, an operator or `(`. */
 function startsDateLiteral(tokens: readonly VbaToken[], index: number): boolean {
 	const before = tokens[index - 1];
 	return before !== undefined && (before.rawText === '(' || (before.kind === 'operator' && before.rawText !== '#' && before.rawText !== ':='));
 }
 
+/**
+ * What is wrong with a `#...#` date literal, or undefined when it is one
+ * the VBE accepts or one this check does not judge (named months and other
+ * regional forms are left alone).
+ */
 function dateLiteralProblem(raw: string): string | undefined {
 	const body = raw.slice(1, -1).trim();
 	if (body.length === 0) {

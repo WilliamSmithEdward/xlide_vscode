@@ -230,6 +230,7 @@ function moduleStateFor(source: string, symbols: ModuleSymbols): ModuleState {
 	const project = PROJECT_WRITES.get(symbols);
 	const cached = MODULE_STATES.get(symbols);
 	if (cached && cached.source === source && cached.projectWrites === project) {
+		cached.source = source;
 		return cached;
 	}
 	const writes = writtenNamesIn(source);

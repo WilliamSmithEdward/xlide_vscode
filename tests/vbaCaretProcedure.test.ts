@@ -8,13 +8,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mock = vi.hoisted(() => ({
     editorChanged: undefined as unknown,
     selectionChanged: undefined as unknown,
+    documentChanged: undefined as unknown,
 }));
 
 vi.mock('vscode', async () => {
     const base = await import('./helpers/vscodeMock');
     mock.editorChanged = new base.EventEmitter<unknown>();
     mock.selectionChanged = new base.EventEmitter<unknown>();
+    mock.documentChanged = new base.EventEmitter<unknown>();
     return base.vscodeMock({
+        workspace: { onDidChangeTextDocument: (mock.documentChanged as { event: unknown }).event },
         window: {
             activeTextEditor: undefined,
             onDidChangeActiveTextEditor: (mock.editorChanged as { event: unknown }).event,
@@ -53,6 +56,8 @@ function editor(line: number, text = SOURCE, version = 1) {
         document: {
             uri: { scheme: 'xlide-vba', toString: () => 'xlide-vba:/Book.xlsm/Helpers.bas' },
             version,
+            lineCount: text.split('\n').length,
+            lineAt: vi.fn((line: number) => ({ text: text.split('\n')[line] })),
             getText: vi.fn(() => text),
         },
         selection: { active: { line } },
@@ -170,4 +175,214 @@ describe('what it costs', () => {
         moveTo(3, SOURCE.replace('Sub Post()', 'Sub Posted()'), 2);
         expect(seen.map((p) => p?.label)).toEqual(['Sub Posted']);
     });
+});
+
+function switchTo(value: ReturnType<typeof editor> | undefined): void {
+    setActiveEditor(value);
+    (mock.editorChanged as { fire: (v: unknown) => void }).fire(value);
+}
+
+describe('procedure ranges across tab switches', () => {
+    it('scans each unchanged document only once while alternating tabs', () => {
+        const a = editor(3);
+        const b = editor(8);
+        b.document.uri.toString = () => 'xlide-vba:/Book.xlsm/Other.bas';
+        setActiveEditor(a);
+        track();
+        for (let i = 0; i < 100; i++) {
+            switchTo(b);
+            expect(tracker?.current?.label).toBe('Function Total');
+            switchTo(a);
+            expect(tracker?.current?.label).toBe('Sub Post');
+        }
+        expect(a.document.getText).toHaveBeenCalledTimes(1);
+        expect(b.document.getText).toHaveBeenCalledTimes(1);
+    });
+
+    it('rescans an edited inactive document and keeps the other cache entry', () => {
+        const a = editor(3);
+        const b = editor(8);
+        b.document.uri.toString = () => 'xlide-vba:/Book.xlsm/Other.bas';
+        setActiveEditor(a);
+        track();
+        switchTo(b);
+        a.document.version++;
+        a.document.getText.mockReturnValue(SOURCE.replace('Sub Post()', 'Sub Posted()'));
+        switchTo(a);
+        expect(tracker?.current?.label).toBe('Sub Posted');
+        switchTo(b);
+        switchTo(a);
+        expect(a.document.getText).toHaveBeenCalledTimes(2);
+        expect(b.document.getText).toHaveBeenCalledTimes(1);
+    });
+
+    it('rescans a reopened document even when its URI and version repeat', () => {
+        setActiveEditor(editor(3));
+        track();
+        const reopened = editor(3, SOURCE.replace('Sub Post()', 'Sub Reopened()'));
+        switchTo(reopened);
+        expect(tracker?.current?.label).toBe('Sub Reopened');
+        expect(reopened.document.getText).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps cached ranges when focus leaves the editor and returns', () => {
+        const one = editor(3);
+        setActiveEditor(one);
+        track();
+        switchTo(undefined);
+        expect(tracker?.current).toBeUndefined();
+        switchTo(one);
+        expect(tracker?.current?.label).toBe('Sub Post');
+        expect(one.document.getText).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe('ordinary typing reuses procedure ranges', () => {
+    function change(one: ReturnType<typeof editor>, text: string, line: number, inserted: string, endLine = line,
+        notifySelection = true) {
+        one.document.version++;
+        one.document.lineCount = text.split('\n').length;
+        one.document.getText.mockReturnValue(text);
+        one.document.lineAt.mockImplementation((index) => ({ text: text.split('\n')[index] }));
+        (mock.documentChanged as { fire: (v: unknown) => void }).fire({
+            document: one.document,
+            contentChanges: [{ text: inserted, range: { start: { line }, end: { line: endLine } } }],
+        });
+        if (notifySelection) { fireSelection(); }
+    }
+
+    it('reports a renamed procedure without waiting for the caret to move', () => {
+        const one = editor(3);
+        setActiveEditor(one);
+        track();
+        change(one, SOURCE.replace('Sub Post()', 'Sub Posted()'), 2, 'ed', 2, false);
+        expect(tracker?.current?.label).toBe('Sub Posted');
+        expect(seen.map(position => position?.label)).toEqual(['Sub Posted']);
+        fireSelection();
+        expect(one.document.getText).toHaveBeenCalledTimes(2);
+        expect(seen).toHaveLength(1);
+    });
+
+    it('reports declarations when the last procedure is deleted with the caret still at zero', () => {
+        const one = editor(0, 'Sub Post()\nEnd Sub');
+        setActiveEditor(one);
+        track();
+        change(one, '', 0, '', 1, false);
+        expect(tracker?.current?.label).toBe('(Declarations)');
+        expect(seen.map(position => position?.label)).toEqual(['(Declarations)']);
+    });
+
+    it('updates procedure ownership when a lead-in changes without a selection event', () => {
+        const one = editor(6);
+        setActiveEditor(one);
+        track();
+        change(one, SOURCE.replace('End Sub\n\nFunction', 'End Sub\nx = 1\nFunction'), 6, 'x = 1', 6, false);
+        expect(tracker?.current?.label).toBe('Sub Post');
+    });
+
+    it('updates current range spans even when the procedure label stays the same', () => {
+        const one = editor(3);
+        setActiveEditor(one);
+        track();
+        const previous = tracker?.current?.procedure;
+        change(one, SOURCE.replace('End Sub\n\nFunction', 'End Sub\nx = 1\nFunction'), 6, 'x = 1', 6, false);
+        expect(tracker?.current?.label).toBe('Sub Post');
+        expect(tracker?.current?.procedure).not.toBe(previous);
+        expect(tracker?.current?.procedure?.lastLine).toBe(6);
+        expect(seen).toEqual([]);
+        expect(one.document.getText).toHaveBeenCalledTimes(1);
+    });
+
+    it('restores lead-in ownership after Backspace without rescanning source', () => {
+        const one = editor(6);
+        setActiveEditor(one);
+        track();
+        change(one, SOURCE.replace('End Sub\n\nFunction', 'End Sub\nx\nFunction'), 6, 'x', 6, false);
+        expect(tracker?.current?.label).toBe('Sub Post');
+        change(one, SOURCE, 6, '', 6, false);
+        expect(tracker?.current?.label).toBe('Function Total');
+        expect(seen.map(position => position?.label)).toEqual(['Sub Post', 'Function Total']);
+        expect(one.document.getText).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps ordinary body edits cached and quiet without selection events', () => {
+        const one = editor(3);
+        setActiveEditor(one);
+        track();
+        change(one, SOURCE.replace('Debug.Print 1', 'Debug.Print 10'), 3, '0', 3, false);
+        expect(one.document.getText).toHaveBeenCalledTimes(1);
+        expect(seen).toEqual([]);
+    });
+
+    it('defers an inactive document rescan until it is shown again', () => {
+        const one = editor(3), other = editor(8);
+        setActiveEditor(one);
+        track();
+        switchTo(other);
+        seen = [];
+        change(one, SOURCE.replace('Sub Post()', 'Sub Posted()'), 2, 'ed', 2, false);
+        expect(one.document.getText).toHaveBeenCalledTimes(1);
+        expect(seen).toEqual([]);
+        switchTo(one);
+        expect(tracker?.current?.label).toBe('Sub Posted');
+        expect(one.document.getText).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not reread the module while editing body code', () => {
+        const one = editor(3);
+        setActiveEditor(one);
+        track();
+        change(one, SOURCE.replace('Debug.Print 1', 'Debug.Print 10'), 3, '0');
+        change(one, SOURCE.replace('Debug.Print 1', 'Debug.Print 100'), 3, '0');
+        expect(one.document.getText).toHaveBeenCalledTimes(1);
+        expect(tracker?.current?.label).toBe('Sub Post');
+        expect(seen).toEqual([]);
+    });
+
+    it('rescans a renamed header', () => {
+        const one = editor(3);
+        setActiveEditor(one);
+        track();
+        change(one, SOURCE.replace('Sub Post()', 'Sub Posted()'), 2, 'ed');
+        expect(one.document.getText).toHaveBeenCalledTimes(2);
+        expect(tracker?.current?.label).toBe('Sub Posted');
+    });
+
+    it('updates the next procedure lead-in boundary without a full source read', () => {
+        const one = editor(6);
+        setActiveEditor(one);
+        track();
+        expect(tracker?.current?.label).toBe('Function Total');
+        change(one, SOURCE.replace('End Sub\n\nFunction', 'End Sub\nx = 1\nFunction'), 6, 'x = 1');
+        expect(one.document.getText).toHaveBeenCalledTimes(1);
+        expect(tracker?.current?.label).toBe('Sub Post');
+    });
+
+    it('rescans line insertion even when it is ordinary body code', () => {
+        const one = editor(3);
+        setActiveEditor(one);
+        track();
+        change(one, SOURCE.replace('Debug.Print 1', 'Debug.Print 1\n    x = 2'), 3, '\nx = 2');
+        expect(one.document.getText).toHaveBeenCalledTimes(2);
+    });
+    it('keeps comment lead-in edits local', () => {
+        const initial = SOURCE.replace('End Sub\n\nFunction', "End Sub\n' old\nFunction");
+        const one = editor(6, initial);
+        setActiveEditor(one);
+        track();
+        change(one, initial.replace("' old", "' updated"), 6, 'updated');
+        expect(one.document.getText).toHaveBeenCalledTimes(1);
+        expect(tracker?.current?.label).toBe('Function Total');
+    });
+
+    it('rescans when a document version was missed', () => {
+        const one = editor(3);
+        setActiveEditor(one);
+        track();
+        one.document.version++;
+        change(one, SOURCE.replace('Sub Post()', 'Sub Posted()'), 3, '0');
+        expect(one.document.getText).toHaveBeenCalledTimes(2);
+        expect(tracker?.current?.label).toBe('Sub Posted');
+    });
+
 });

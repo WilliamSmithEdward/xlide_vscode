@@ -108,8 +108,8 @@ export async function buildExportModuleSyncPlan(
 ): Promise<ModuleSyncPlan> {
     return measurePerformance('moduleSync.buildExportPlan', path.basename(params.projectPath), async () => {
     const exportMode = normalizeExportMode(params.exportMode);
-    await fs.promises.mkdir(params.exportFolder, { recursive: true });
     const { modules, sourceFor } = await loadProjectModulesWithSources(bridge, params.projectPath);
+    await fs.promises.mkdir(params.exportFolder, { recursive: true });
     const liveRelativeNames = new Set(modules.map(relativeNameForModule));
     const items = await Promise.all(modules.map(async (mod): Promise<ModuleSyncPlanItem> => {
         const relativeName = relativeNameForModule(mod);

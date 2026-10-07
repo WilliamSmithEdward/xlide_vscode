@@ -15,7 +15,7 @@
 
 import { tokenizeCached } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
-import { tokenWord } from '../lexer/tokenHelpers';
+import { firstTokenAtOrAfter, tokenWord } from '../lexer/tokenHelpers';
 
 export type ReferenceKind = 'read' | 'write' | 'readwrite';
 
@@ -52,6 +52,23 @@ function depthZeroIndexOf(seg: readonly VbaToken[], raw: string, from: number): 
 	return -1;
 }
 
+/** Endpoints for overlapping suffix queries within one assignment target. */
+function targetParenEnds(seg: readonly VbaToken[], from: number, eq: number): Map<number, number> {
+	const ends = new Map<number, number>();
+	const stack: number[] = [];
+	for (let i = from; i < seg.length; i++) {
+		// Malformed targets can close after '='; retain the old full scan.
+		if (i >= eq && stack.length === 0) { break; }
+		const raw = seg[i].rawText;
+		if (raw === '(') { stack.push(i); }
+		else if (raw === ')') {
+			const start = stack.pop();
+			if (start !== undefined) { ends.set(start, i + 1); }
+		}
+	}
+	return ends;
+}
+
 /**
  * The assignment-target rule: within `[from, eq)`, the WRITE lands on the
  * terminal name of the target chain - the name whose only suffix before the
@@ -63,13 +80,50 @@ function markAssignmentTarget(
 	seg: readonly VbaToken[],
 	from: number,
 	eq: number,
-	mark: (t: VbaToken, kind: ReferenceKind) => void,
+	wanted: ReadonlySet<number>,
+	out: Map<number, ReferenceKind>,
 ): void {
+	let firstSuffix = true;
+	let ends: Map<number, number> | undefined;
 	for (let k = from; k < eq; k++) {
-		if (!isName(seg[k])) { continue; }
+		if (!isName(seg[k]) || !wanted.has(seg[k].start)) { continue; }
 		let j = k + 1;
-		while (j < eq && seg[j].rawText === '(') { j = pastParens(seg, j); }
-		if (j === eq) { mark(seg[k], 'write'); }
+		while (j < eq && seg[j].rawText === '(') {
+			// A single suffix keeps the cheap scan; later queries share endpoints.
+			if (firstSuffix) { firstSuffix = false; j = pastParens(seg, j); }
+			else { ends ??= targetParenEnds(seg, from, eq); j = ends.get(j) ?? j + 1; }
+		}
+		if (j === eq) { out.set(seg[k].start, 'write'); }
+	}
+}
+
+/** First depth-zero Then tail, or end when this conditional has none. */
+function inlineThenTail(seg: readonly VbaToken[], head: number, end: number): number {
+	let depth = 0;
+	for (let i = head + 1; i < end; i++) {
+		const raw = seg[i].rawText;
+		if (raw === '(') { depth++; }
+		else if (raw === ')') { depth--; }
+		else if (depth === 0 && tokenWord(seg[i]) === 'then') { return i + 1; }
+	}
+	return end;
+}
+
+/** The caller has already split every depth-zero Else in this fragment. */
+function classifyInlineFragment(
+	seg: readonly VbaToken[], from: number, end: number,
+	wanted: ReadonlySet<number>, out: Map<number, ReferenceKind>,
+): void {
+	while (from < end) {
+		const head = tokenWord(seg[from]);
+		if (head === 'if' || head === 'elseif') {
+			// A depth-zero Then leaves the same parenthesis depth as the fragment's
+			// start, so its tail cannot contain an Else the caller did not split.
+			from = inlineThenTail(seg, from, end);
+		} else {
+			classifySegment(seg.slice(from, end), wanted, out);
+			return;
+		}
 	}
 }
 
@@ -90,7 +144,7 @@ function classifySegment(
 	// Set / Let are assignment statements with a keyword prefix.
 	if (headWord === 'set' || headWord === 'let' || headWord === 'lset' || headWord === 'rset') {
 		const eq = depthZeroIndexOf(seg, '=', head + 1);
-		if (eq > 0) { markAssignmentTarget(seg, head + 1, eq, mark); }
+		if (eq > 0) { markAssignmentTarget(seg, head + 1, eq, wanted, out); }
 		return;
 	}
 
@@ -214,23 +268,14 @@ function classifySegment(
 	// logical line: `If x = 1 Then y = 2 Else z = 3` reads its condition and
 	// writes both targets. Each tail classifies as its own statement.
 	if (headWord === 'if' || headWord === 'elseif' || headWord === 'else') {
-		const from = headWord === 'else' ? head + 1 : (() => {
-			let depth = 0;
-			for (let i = head + 1; i < seg.length; i++) {
-				const raw = seg[i].rawText;
-				if (raw === '(') { depth++; }
-				else if (raw === ')') { depth--; }
-				else if (depth === 0 && tokenWord(seg[i]) === 'then') { return i + 1; }
-			}
-			return seg.length;
-		})();
+		const from = headWord === 'else' ? head + 1 : inlineThenTail(seg, head, seg.length);
 		if (from < seg.length) {
 			let start = from;
 			let depth = 0;
 			for (let i = from; i <= seg.length; i++) {
 				const atElse = i < seg.length && depth === 0 && tokenWord(seg[i]) === 'else';
 				if (i === seg.length || atElse) {
-					if (i > start) { classifySegment(seg.slice(start, i), wanted, out); }
+					if (i > start) { classifyInlineFragment(seg, start, i, wanted, out); }
 					start = i + 1;
 					continue;
 				}
@@ -248,7 +293,7 @@ function classifySegment(
 	if (startsExpression) {
 		const eq = depthZeroIndexOf(seg, '=', head);
 		if (eq > 0 && seg[eq].kind === 'operator' && seg[eq].rawText === '=') {
-			markAssignmentTarget(seg, head, eq, mark);
+			markAssignmentTarget(seg, head, eq, wanted, out);
 		}
 	}
 }
@@ -297,18 +342,63 @@ export function classifyReferenceKinds(
 	if (offsets.length === 0) { return out; }
 	const wanted = new Set(offsets);
 	const all = tokenizeCached(source);
-	let seg: VbaToken[] = [];
-	const flush = (): void => {
-		if (seg.length > 0) { classifySegment(seg, wanted, out); seg = []; }
-	};
-	for (const t of all) {
-		if (t.kind === 'newline' || t.kind === 'colon') { flush(); continue; }
-		if (t.kind === 'comment') { continue; }
-		seg.push(t);
+	if (wanted.size * 8 >= all.length) {
+		// Dense queries retain the streaming pass rather than sorting offsets
+		// and binary-searching once per reference across the entire module.
+		classifyTokenStream(all, wanted, out);
+	} else {
+		// Sparse queries visit only statements containing exact token starts.
+		// Source order preserves the Map's write ordering; a statement already
+		// classified includes every wanted offset it contains.
+		let coveredThrough = -1;
+		for (const offset of [...wanted].filter(Number.isFinite).sort((a, b) => a - b)) {
+			const index = firstTokenAtOrAfter(all, offset);
+			if (index <= coveredThrough || index === all.length || all[index].start !== offset) { continue; }
+			const kind = all[index].kind;
+			if (kind === 'newline' || kind === 'colon' || kind === 'comment') { continue; }
+			let start = index;
+			while (start > 0 && index - start < 64
+				&& all[start - 1].kind !== 'newline' && all[start - 1].kind !== 'colon') {
+				start--;
+			}
+			if (index - start === 64) {
+				// A long statement would be traversed backward and forward. Use
+				// the streaming pass, resetting earlier sparse results so the
+				// complete Map keeps exactly the streaming insertion order.
+				out.clear();
+				classifyTokenStream(all, wanted, out);
+				break;
+			}
+			const seg: VbaToken[] = [];
+			let end = start;
+			for (; end < all.length; end++) {
+				const token = all[end];
+				if (token.kind === 'newline' || token.kind === 'colon') { break; }
+				if (token.kind !== 'comment') { seg.push(token); }
+			}
+			classifySegment(seg, wanted, out);
+			coveredThrough = end;
+		}
 	}
-	flush();
 	for (const offset of offsets) {
 		if (!out.has(offset)) { out.set(offset, 'read'); }
 	}
 	return out;
+}
+
+/** Shared streaming fallback for dense queries and long statement contexts. */
+function classifyTokenStream(
+	all: readonly VbaToken[],
+	wanted: ReadonlySet<number>,
+	out: Map<number, ReferenceKind>,
+): void {
+	let seg: VbaToken[] = [];
+	const flush = (): void => {
+		if (seg.length > 0) { classifySegment(seg, wanted, out); seg = []; }
+	};
+	for (const token of all) {
+		if (token.kind === 'newline' || token.kind === 'colon') { flush(); continue; }
+		if (token.kind !== 'comment') { seg.push(token); }
+	}
+	flush();
 }

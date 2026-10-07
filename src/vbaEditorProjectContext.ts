@@ -34,9 +34,10 @@ import {
 } from './analyzer/host/hostRegistry';
 import { hostTokensForProject } from './analyzer/host/hostLibraries';
 import type { HostObjectModel } from './analyzer/host/excelObjectModel';
-import { VbaProjectIndexService } from './vbaProjectIndexService';
+import { VbaProjectIndexService, type VbaProjectContext } from './vbaProjectIndexService';
 import { moduleLocationOfDocument, moduleLocationOfUri } from './vbaDocumentLocation';
 import { blankDesignerHeader } from './vba/moduleSource';
+import { editorModuleSymbols } from './analyzer/symbols/editorModuleSymbols';
 
 const WORKBOOK = 'Excel.Workbook';
 const WORKSHEET = 'Excel.Worksheet';
@@ -83,6 +84,7 @@ export interface EditorProjectContext {
 }
 
 interface CachedEditorProjectContext {
+	document: vscode.TextDocument;
 	documentVersion: number;
 	loadedAt: number;
 	context: EditorProjectContext;
@@ -93,6 +95,7 @@ interface CachedLocalEditorProjectContext extends CachedEditorProjectContext {
 }
 
 interface EditorProjectContextBuild {
+	document: vscode.TextDocument;
 	buildId: number;
 	documentVersion: number;
 	promise: Promise<EditorProjectContext>;
@@ -226,6 +229,7 @@ export function toMemberCompletionContext(ctx: EditorProjectContext): MemberComp
 		meType: ctx.meType,
 		meProjectType: ctx.meProjectType,
 		projectClassMembers: ctx.projectClassMembers,
+		projectSymbols: ctx.projectSymbols,
 		implicitMembers: ctx.implicitMembers,
 		model: ctx.hostModel,
 	};
@@ -265,13 +269,33 @@ export function toEventHandlerCompletionContext(ctx: EditorProjectContext): Even
 	};
 }
 
-export class VbaEditorProjectContextService {
+export class VbaEditorProjectContextService implements vscode.Disposable {
 	private readonly _projectContextCache = new Map<string, CachedEditorProjectContext>();
 	private readonly _localContextCache = new Map<string, CachedLocalEditorProjectContext>();
 	private readonly _projectContextBuilds = new Map<string, EditorProjectContextBuild>();
 	private _nextBuildId = 0;
+	private readonly _projectContextWarmTimers = new Map<string, { timer: ReturnType<typeof setTimeout>; document: vscode.TextDocument; documentVersion: number }>();
 
-	constructor(private readonly _projectIndexService: VbaProjectIndexService) {}
+	private readonly _documentCloseSubscription: vscode.Disposable;
+	private _disposed = false;
+
+	constructor(private readonly _projectIndexService: VbaProjectIndexService) {
+		this._documentCloseSubscription = vscode.workspace.onDidCloseTextDocument(document => {
+			const key = document.uri.toString();
+			this._projectContextCache.delete(key);
+			this._localContextCache.delete(key);
+			this._projectContextBuilds.delete(key);
+			const warm = this._projectContextWarmTimers.get(key);
+			if (warm) { clearTimeout(warm.timer); }
+			this._projectContextWarmTimers.delete(key);
+		});
+	}
+
+	dispose(): void {
+		this._disposed = true;
+		this._documentCloseSubscription.dispose();
+		this.invalidate();
+	}
 
 	/** Drop derived editor contexts for a project (e.g. after a project change). */
 	invalidate(projectPath?: string): void {
@@ -279,6 +303,8 @@ export class VbaEditorProjectContextService {
 			this._projectContextCache.clear();
 			this._localContextCache.clear();
 			this._projectContextBuilds.clear();
+			for (const pending of this._projectContextWarmTimers.values()) { clearTimeout(pending.timer); }
+			this._projectContextWarmTimers.clear();
 		} else {
 			this._clearProjectContextCacheForPath(projectPath);
 		}
@@ -287,7 +313,7 @@ export class VbaEditorProjectContextService {
 	cachedEditorProjectContext(document: vscode.TextDocument): EditorProjectContext | undefined {
 		const cached = this._projectContextCache.get(document.uri.toString());
 		if (
-			!cached ||
+			!cached || this._disposed || document.isClosed || cached.document !== document ||
 			cached.documentVersion !== document.version ||
 			Date.now() - cached.loadedAt > EDITOR_PROJECT_CONTEXT_CACHE_TTL_MS
 		) {
@@ -303,10 +329,11 @@ export class VbaEditorProjectContextService {
 	): EditorProjectContext {
 		const key = document.uri.toString();
 		const existing = this._projectContextCache.get(key);
-		if (existing && existing.documentVersion > documentVersion) {
+		if (existing?.document === document && existing.documentVersion > documentVersion) {
 			return existing.context;
 		}
 		this._projectContextCache.set(key, {
+			document,
 			documentVersion,
 			loadedAt: Date.now(),
 			context,
@@ -318,7 +345,7 @@ export class VbaEditorProjectContextService {
 	private _isCurrentProjectContextBuild(document: vscode.TextDocument, documentVersion: number, buildId: number): boolean {
 		const build = this._projectContextBuilds.get(document.uri.toString());
 		return !document.isClosed && document.version === documentVersion &&
-			build?.buildId === buildId;
+			build?.document === document && build.buildId === buildId;
 	}
 
 	private _pruneEditorProjectContextCache(cache = this._projectContextCache): void {
@@ -347,6 +374,13 @@ export class VbaEditorProjectContextService {
 				}
 			}
 		}
+		for (const [key, pending] of this._projectContextWarmTimers) {
+			const location = moduleLocationOfUri(vscode.Uri.parse(key));
+			if (!location || projectIdentityKey(location.projectPath) === projectKey) {
+				clearTimeout(pending.timer);
+				this._projectContextWarmTimers.delete(key);
+			}
+		}
 		for (const key of [...this._projectContextBuilds.keys()]) {
 			const location = moduleLocationOfUri(vscode.Uri.parse(key));
 			if (!location || projectIdentityKey(location.projectPath) === projectKey) {
@@ -359,13 +393,14 @@ export class VbaEditorProjectContextService {
 		document: vscode.TextDocument,
 		source: string,
 	): Promise<EditorProjectContext> {
+		if (this._disposed || document.isClosed) { return {}; }
 		const cached = this.cachedEditorProjectContext(document);
 		if (cached) {
 			return cached;
 		}
 		const buildKey = document.uri.toString();
 		const existingBuild = this._projectContextBuilds.get(buildKey);
-		if (existingBuild?.documentVersion === document.version) {
+		if (existingBuild?.document === document && existingBuild.documentVersion === document.version) {
 			return existingBuild.promise;
 		}
 		const documentVersion = document.version;
@@ -376,7 +411,7 @@ export class VbaEditorProjectContextService {
 					this._projectContextBuilds.delete(buildKey);
 				}
 			});
-		this._projectContextBuilds.set(buildKey, { buildId, documentVersion, promise: build });
+		this._projectContextBuilds.set(buildKey, { document, buildId, documentVersion, promise: build });
 		return build;
 	}
 
@@ -413,7 +448,6 @@ export class VbaEditorProjectContextService {
 
 		try {
 			const decoded = location;
-			const host = hostTokenForFileName(decoded.projectPath);
 			// The shared project context already folds in the open editors'
 			// text (including this document) one changed module at a time.
 			const projectContext = await this._projectIndexService.contextForProject(
@@ -423,55 +457,86 @@ export class VbaEditorProjectContextService {
 			if (!this._isCurrentProjectContextBuild(document, documentVersion, buildId)) {
 				return this.cachedEditorProjectContext(document) ?? {};
 			}
-			const allEntries: ModuleEntry[] = [...projectContext.moduleMetadata.values()].map(
-				(metadata) => ({
-					name: metadata.moduleName,
-					type: metadata.moduleType ?? 'standard',
-					documentType: metadata.documentType,
-					designerClass: metadata.designerClass,
-				}),
-			);
-			const current = allEntries.find(
-				(entry) => entry.name.toLowerCase() === decoded.moduleName.toLowerCase(),
-			);
-			const moduleKind = moduleKindFromType(current?.type);
-			const context = projectEditorSymbolContextForModule(
-				projectContext.project,
-				decoded.moduleName,
-			);
-			return this._storeEditorProjectContext(document, {
-				moduleName: decoded.moduleName,
-				moduleKind,
-				host,
-				// The project's references decide which object models answer
-				// here: a document that references Excel can name its types.
-				hostModel: hostObjectModelForTokens(
-					hostTokensForProject(host, projectContext.references),
-				),
-				documentType: documentTypeFor(current),
-				codeNameMap: codeNameHostTypesForModules(allEntries, host),
-				codeNameList: codeNameListFor(allEntries),
-				meType: meTypeFor(current, host),
-				meProjectType: meProjectTypeFor(current),
-				projectTypes: context.analysisOptions.projectTypes,
-				projectClassMembers: context.analysisOptions.projectClassMembers,
-				implicitMembers: context.analysisOptions.implicitMembers,
-				projectProcedures: context.externalProjectProcedures,
-				macroProcedures: moduleKind === 'standard' ? projectContext.project.visibleProcedureSignatures(decoded.moduleName) : context.externalProjectProcedures,
-				projectSymbols: context.externalProjectSymbols,
-			}, documentVersion);
+			return this._contextFromProject(document, decoded.projectPath, decoded.moduleName, projectContext, documentVersion);
 		} catch {
 			return {};
 		}
 	}
 
+	/** Serve current loaded project facts immediately after a document version changes. */
+	readyEditorProjectContext(document: vscode.TextDocument): EditorProjectContext | undefined {
+		if (this._disposed || document.isClosed) { return undefined; }
+		const location = moduleLocationOfDocument(document);
+		if (!location) { return undefined; }
+		const project = this._projectIndexService.cachedContextForProject?.(location.projectPath);
+		if (!project) { return undefined; }
+		return this._contextFromProject(document, location.projectPath, location.moduleName, project, document.version);
+	}
+
+	private _contextFromProject(document: vscode.TextDocument, projectPath: string, moduleName: string,
+		projectContext: VbaProjectContext, documentVersion: number): EditorProjectContext {
+		const host = hostTokenForFileName(projectPath);
+		const allEntries: ModuleEntry[] = [...projectContext.moduleMetadata.values()].map(
+			(metadata) => ({
+				name: metadata.moduleName,
+				type: metadata.moduleType ?? 'standard',
+				documentType: metadata.documentType,
+				designerClass: metadata.designerClass,
+			}),
+		);
+		const current = allEntries.find(
+			(entry) => entry.name.toLowerCase() === moduleName.toLowerCase(),
+		);
+		const moduleKind = moduleKindFromType(current?.type);
+		const context = projectEditorSymbolContextForModule(
+			projectContext.project,
+			moduleName,
+		);
+		return this._storeEditorProjectContext(document, {
+			moduleName: moduleName,
+			moduleKind,
+			host,
+			// The project's references decide which object models answer
+			// here: a document that references Excel can name its types.
+			hostModel: hostObjectModelForTokens(
+				hostTokensForProject(host, projectContext.references),
+			),
+			documentType: documentTypeFor(current),
+			codeNameMap: codeNameHostTypesForModules(allEntries, host),
+			codeNameList: codeNameListFor(allEntries),
+			meType: meTypeFor(current, host),
+			meProjectType: meProjectTypeFor(current),
+			projectTypes: context.analysisOptions.projectTypes,
+			projectClassMembers: context.analysisOptions.projectClassMembers,
+			implicitMembers: context.analysisOptions.implicitMembers,
+			projectProcedures: context.externalProjectProcedures,
+			macroProcedures: moduleKind === 'standard' ? projectContext.project.visibleProcedureSignatures(moduleName) : context.externalProjectProcedures,
+			projectSymbols: context.externalProjectSymbols,
+		}, documentVersion);
+	}
+
 	warmEditorProjectContext(document: vscode.TextDocument, source: string): void {
-		if (this._projectContextBuilds.get(document.uri.toString())?.documentVersion === document.version) {
+		if (this._disposed || document.isClosed) { return; }
+		const key = document.uri.toString();
+		const documentVersion = document.version;
+		const build = this._projectContextBuilds.get(key);
+		const warm = this._projectContextWarmTimers.get(key);
+		if ((build?.document === document && build.documentVersion === documentVersion) ||
+			(warm?.document === document && warm.documentVersion === documentVersion)) {
 			return;
 		}
-		void this._buildEditorProjectContext(document, source).catch(() => {
-			/* best-effort cache warm */
-		});
+		const pending = this._projectContextWarmTimers.get(key);
+		if (pending) { clearTimeout(pending.timer); }
+		// Start after the provider response, so project-index work cannot run
+		// synchronously in front of results already available from the module.
+		const timer = setTimeout(() => {
+			this._projectContextWarmTimers.delete(key);
+			if (document.isClosed || document.version !== documentVersion) { return; }
+			void this._buildEditorProjectContext(document, source).catch(() => {
+				/* best-effort cache warm */
+			});
+		}, 0);
+		this._projectContextWarmTimers.set(key, { timer, document, documentVersion });
 	}
 
 	/** Await the shared load without a timeout; callers must discard superseded results. */
@@ -514,16 +579,27 @@ export class VbaEditorProjectContextService {
 	}
 
 	/** Reuse the local symbol snapshot across completion/hover requests for unchanged text. */
-	localEditorProjectContext(document: vscode.TextDocument, source: string): EditorProjectContext {
+	localEditorProjectContext(document: vscode.TextDocument, source: string, bareIdentifierStatement = false): EditorProjectContext {
+		if (bareIdentifierStatement) {
+			const identity = this._localModuleIdentity(document);
+			if (identity.moduleKind === 'standard') {
+				// Bare identifiers get current-module declarations from the shared
+				// editor symbol snapshot. A one-module project has no external
+				// declarations; only its module name/documentation adds a row.
+				const symbols = editorModuleSymbols(identity.moduleName, identity.moduleKind, source);
+				return { ...identity, projectClassMembers: [{ name: identity.moduleName,
+					moduleName: identity.moduleName, kind: 'standardModule', members: [], doc: symbols.root.doc }] };
+			}
+		}
 		const key = document.uri.toString();
 		const cached = this._localContextCache.get(key);
-		if (!document.isClosed && cached?.documentVersion === document.version && cached.source === source &&
+		if (!document.isClosed && cached?.document === document && cached.documentVersion === document.version && cached.source === source &&
 			Date.now() - cached.loadedAt <= EDITOR_PROJECT_CONTEXT_CACHE_TTL_MS) {
 			return cached.context;
 		}
 		const context = this._buildLocalEditorProjectContext(document, source);
 		if (!document.isClosed) {
-			this._localContextCache.set(key, { documentVersion: document.version, source, loadedAt: Date.now(), context });
+			this._localContextCache.set(key, { document, documentVersion: document.version, source, loadedAt: Date.now(), context });
 			this._pruneEditorProjectContextCache(this._localContextCache);
 		}
 		return context;

@@ -34,9 +34,11 @@ import type { ConditionalActivityTracker } from '../../conditional/conditionalCo
 import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { PushFn } from '../analysisContext';
 import {
+	createObjectAssignmentTypeResolver,
+	createObjectTypeImplementationLookup,
+	createProjectInterfaceSharingLookup,
 	isKnownScalarType,
 	objectAssignmentIncompatibilityReason,
-	resolveKnownObjectAssignmentType,
 	typeEnvironmentFor,
 } from '../typeInference';
 import { tokenizeCached } from '../../lexer/tokenize';
@@ -76,16 +78,41 @@ export function checkTypeOfMissingOperand(
 	}
 }
 
+interface TypeOfQueries {
+	resolveType: ReturnType<typeof createObjectAssignmentTypeResolver>;
+	shareInterfaces: ReturnType<typeof createProjectInterfaceSharingLookup>;
+	implementsType: ReturnType<typeof createObjectTypeImplementationLookup>;
+	isImplemented: (key: string, display: string) => boolean;
+}
+
 export function checkTypeOfIsCompatibility(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	memberCtx: MemberCompletionContext,
 	push: PushFn,
 ): ProcedureExpressionVisitor {
+	// Project metadata is stable for this analysis query. Keep all derived
+	// lookups lazy and query-owned so the next query observes fresh metadata.
+	let implementedNames: Set<string> | undefined;
+	const queries: TypeOfQueries = {
+		resolveType: createObjectAssignmentTypeResolver(memberCtx),
+		shareInterfaces: createProjectInterfaceSharingLookup(memberCtx),
+		implementsType: createObjectTypeImplementationLookup(),
+		isImplemented: (key, display) => {
+			if (!implementedNames) {
+				implementedNames = new Set();
+				// The original exclusion considered every supplied surface kind.
+				for (const type of memberCtx.projectClassMembers ?? []) {
+					for (const name of type.implements ?? []) { implementedNames.add(name.toLowerCase()); }
+				}
+			}
+			return implementedNames.has(key) || implementedNames.has(display.toLowerCase());
+		},
+	};
 	return (member) => {
 		const env = typeEnvironmentFor(symbols, member);
 		return (expr) => {
 			if (expr.exprKind === 'TypeOfIsExpr') {
-				checkTypeOfIs(expr, env, memberCtx, push);
+				checkTypeOfIs(expr, env, memberCtx, queries, push);
 			}
 		};
 	};
@@ -95,6 +122,7 @@ function checkTypeOfIs(
 	expr: TypeOfIsExpr,
 	env: ReadonlyMap<string, string>,
 	memberCtx: MemberCompletionContext,
+	queries: TypeOfQueries,
 	push: PushFn,
 ): void {
 	if (expr.operand.exprKind !== 'IdentifierExpr') {
@@ -105,8 +133,8 @@ function checkTypeOfIs(
 	if (!declared) {
 		return; // undeclared / unknown type -> quiet
 	}
-	const operandType = resolveKnownObjectAssignmentType(declared, memberCtx);
-	const targetType = resolveKnownObjectAssignmentType(expr.typeName, memberCtx);
+	const operandType = queries.resolveType(declared);
+	const targetType = queries.resolveType(expr.typeName);
 	if (!operandType || !targetType) {
 		return; // not both known object types -> quiet
 	}
@@ -119,7 +147,7 @@ function checkTypeOfIs(
 	// Concrete-operand gate: an interface-typed operand could hold a subtype that
 	// is-a the target, so only fire when A cannot be an interface implemented by
 	// some class (host types are never user-implementable).
-	if (operandType.kind === 'project' && isImplementedByAnyProjectClass(operandType, memberCtx)) {
+	if (operandType.kind === 'project' && queries.isImplemented(operandType.key, operandType.display)) {
 		return;
 	}
 	// Mutual incompatibility: neither type is assignable to the other (reuses the
@@ -129,11 +157,17 @@ function checkTypeOfIs(
 		expr.typeName,
 		{ type: declared, label: declared, span: expr.span },
 		memberCtx,
+		queries.resolveType,
+		queries.shareInterfaces,
+		queries.implementsType,
 	) === undefined;
 	const targetCanBeOperand = objectAssignmentIncompatibilityReason(
 		declared,
 		{ type: expr.typeName, label: expr.typeName, span: expr.span },
 		memberCtx,
+		queries.resolveType,
+		queries.shareInterfaces,
+		queries.implementsType,
 	) === undefined;
 	if (operandCanBeTarget || targetCanBeOperand) {
 		return;
@@ -142,17 +176,6 @@ function checkTypeOfIs(
 		'typeOfIsAlwaysFalse',
 		`'TypeOf ... Is ${targetType.display}' is always False: '${operandName}' is declared As ${operandType.display}, which is never ${targetType.display}.`,
 		expr.span,
-	);
-}
-
-/** True when any project class declares `Implements <operandType>`. */
-function isImplementedByAnyProjectClass(
-	operandType: Extract<ReturnType<typeof resolveKnownObjectAssignmentType>, { kind: 'project' }>,
-	memberCtx: MemberCompletionContext,
-): boolean {
-	const names = new Set([operandType.key, operandType.display.toLowerCase()]);
-	return (memberCtx.projectClassMembers ?? []).some((projectType) =>
-		(projectType.implements ?? []).some((implemented) => names.has(implemented.toLowerCase())),
 	);
 }
 
@@ -208,15 +231,15 @@ export function checkIsOperandsInConditions(
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
+	const checkOperands = checkIsOperatorOperands(symbols, push);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
-		const env = typeEnvironmentFor(symbols, member);
+		const checkExpression = checkOperands(member);
 		const check = (span: Span, from: number, to: (toks: readonly VbaToken[]) => number): void => {
 			// Absolute offsets, so the parsed nodes carry the source's spans.
 			const toks = statementTokens(source, span)
-				.filter((tok) => tok.kind !== 'comment')
 				.map((tok) => ({ ...tok, start: span.start + tok.start, end: span.start + tok.end }));
 			const end = to(toks);
 			if (end <= from) {
@@ -226,15 +249,7 @@ export function checkIsOperandsInConditions(
 			if (!parsed) {
 				return;
 			}
-			forEachSubExpression(parsed, (expr) => {
-				if (expr.exprKind !== 'BinaryExpr' || expr.operator !== 'Is') {
-					return;
-				}
-				const offender = nonObjectOperand(expr.left, env) ?? nonObjectOperand(expr.right, env);
-				if (offender) {
-					push('isOperatorNonObject', `The 'Is' operator requires object operands, but ${offender.detail}, which is not an object.`, offender.span);
-				}
-			});
+			forEachSubExpression(parsed, checkExpression);
 		};
 		const visit = (body: readonly BodyNode[]): void => {
 			for (const node of body) {
@@ -284,11 +299,8 @@ function nonObjectOperand(
 		if (!declared) {
 			return undefined; // undeclared / unknown -> quiet
 		}
-		// Match the declared type name against the built-in scalar set WITHOUT
-		// normalizeType's leading-`vb` strip: a user class named `vbLong`/`vbString`
-		// is a real object type that the strip would collapse to a scalar word and
-		// wrongly flag (adversarial FP-hunt finding; VBE compiles `x As vbLong Is
-		// Nothing`). Strip only a trailing array `()` marker.
+		// Match declared names literally: vbLong/vbString can name source classes.
+		// Strip only a trailing array marker when recognizing built-in scalars.
 		const raw = declared.replace(/\s*\(\s*\)\s*$/, '').trim().toLowerCase();
 		if (isKnownScalarType(raw)) {
 			return { span: expr.span, detail: `'${expr.name}' is declared As ${declared}` };

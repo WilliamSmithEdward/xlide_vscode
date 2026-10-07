@@ -195,6 +195,12 @@ export function openSmartBlockClosersBefore(
     return stack.map((open) => open.closer);
 }
 
+/** Whether an edited line/column can need loop synchronization, without module text. */
+export function loopIteratorSyncMayApply(lineText: string, character: number): boolean {
+    const info = parseLoopLine({ text: lineText, start: 0, end: lineText.length });
+    return Boolean(info?.iterator && offsetTouchesSpan(character, info.iterator.span));
+}
+
 /**
  * When the edit position is on a simple `For` / `For Each` iterator or its
  * matching `Next name`, returns the paired iterator replacement.
@@ -350,6 +356,11 @@ export function commentContinuationText(
     if (previousLine === undefined) {
         return undefined;
     }
+    return commentContinuationForLine(previousLine, mirrorSpacing);
+}
+
+/** Comment continuation depends only on the previous physical line. */
+export function commentContinuationForLine(previousLine: string, mirrorSpacing: boolean): string | undefined {
     // Leading indentation, the apostrophe run, then the spaces that follow it.
     const match = /^([ \t]*)('+)([ \t]*)/.exec(previousLine);
     if (!match) {

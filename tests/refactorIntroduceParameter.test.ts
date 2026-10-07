@@ -94,7 +94,7 @@ describe('what it writes', () => {
 			'',
 		].join('\r\n');
 		const out = applied(source, 'limit');
-		expect(out).toContain('    Call Report 3\r\n');
+		expect(out.match(/    Call Report\(3\)\r\n/g)).toHaveLength(2);
 		expect(out).toContain('    Call Report(3)\r\n');
 	});
 

@@ -8,6 +8,11 @@ own README.
 It is a developer audit tool only. XLIDE production code must stay deterministic
 and must not depend on Excel, COM, Office, or VBE automation at runtime.
 
+Fixtures containing procedure `Attribute ... .VB_...` lines are imported from
+an exported component header, so default-member and enumeration attributes are
+real VBE metadata rather than invalid editor statements. The worker removes
+only its newly created component and deletes its temporary import file.
+
 ## Run
 
 ```powershell

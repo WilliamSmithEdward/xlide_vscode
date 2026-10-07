@@ -66,7 +66,7 @@ import {
 	inferArgumentType,
 	isKnownScalarType,
 	normalizeType,
-	resolveKnownObjectAssignmentType,
+	createObjectAssignmentTypeResolver,
 	spanForTokens,
 } from '../typeInference';
 import {
@@ -1528,11 +1528,25 @@ export function checkInvalidAsTypeNames(
 	const withEventsNewDeclarationSpans = collectWithEventsNewDeclarationSpans(mod, activity);
 	let variables: Set<string> | undefined;
 	let ownTypes: Set<string> | undefined;
+	let qualifiedEnumTypes: Set<string> | undefined;
+	let libraries: readonly (ReadonlySet<string> | undefined)[] | undefined;
 	for (const ref of collectTypeNameReferences(source)) {
 		if (activity?.isInactive(ref.span)) {
 			continue;
 		}
 		const lookupName = typeReferenceLookupName(ref);
+		if (ref.kind === 'declaration' && ref.qualifier && !qualifiedEnumTypes) {
+			qualifiedEnumTypes = new Set((opts.projectTypes ?? []).filter(type => type.kind === 'enum' && type.moduleName)
+				.map(type => `${type.moduleName}.${type.name}`.toLowerCase()));
+			for (const member of activeModuleMembers(mod,activity)) {
+				if (member.kind === 'Enum') { qualifiedEnumTypes.add(`${opts.moduleName ?? 'Module'}.${member.name}`.toLowerCase()); }
+			}
+		}
+		const qualifiedSourceEnum = ref.kind === 'declaration' && ref.qualifier && qualifiedEnumTypes?.has(lookupName.toLowerCase());
+		if (qualifiedSourceEnum && !resolveTypeName(lookupName, {model:opts.hostModel})) {
+			push('invalidAsTypeName', `'${lookupName}' qualifies a source Enum with its module name. Use '${ref.name}' as the type name. This is a VBE compile error: User-defined type not defined.`, ref.span);
+			continue;
+		}
 		const resolved = resolveTypeName(lookupName, {
 			projectTypes: opts.projectTypes,
 			model: opts.hostModel,
@@ -1609,8 +1623,9 @@ export function checkInvalidAsTypeNames(
 		// names the reference to add.
 		// The dir stream omits the implicit VBA and container-host libraries.
 		// They still contribute types even when only stdole/Office are recorded.
-		const libraries = opts.referencedLibraries === undefined ? undefined :
-			['VBA', opts.hostModel?.hostName ?? opts.host ?? 'Excel', ...opts.referencedLibraries]
+		libraries ??= opts.referencedLibraries === undefined ? undefined :
+			[...new Set(opts.referencedLibraries.length
+				? ['VBA', opts.hostModel?.hostName ?? opts.host ?? 'Excel', ...opts.referencedLibraries] : opts.referencedLibraries)]
 				.map((library) => libraryTypeNames(library));
 		ownTypes ??= new Set(activeModuleMembers(mod, activity).filter((member) => member.kind === 'Type' || member.kind === 'Enum').map((member) => member.name.toLowerCase()));
 		if (!ref.qualifier && !SCRIPTING_TYPE_NAMES.has(ref.name.toLowerCase()) && !ownTypes.has(ref.name.toLowerCase()) && libraries !== undefined && libraries.length > 0 && libraries.every((names) => names !== undefined && !names.has(ref.name.toLowerCase()))) {
@@ -1830,6 +1845,7 @@ export function checkParameterDefaultValues(
 	memberCtx: MemberCompletionContext,
 	push: PushFn,
 ): void {
+	const objectType = createObjectAssignmentTypeResolver(memberCtx);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
@@ -1846,7 +1862,7 @@ export function checkParameterDefaultValues(
 			if (!actual) {
 				continue;
 			}
-			const reason = parameterDefaultIncompatibilityReason(param, actual, memberCtx);
+			const reason = parameterDefaultIncompatibilityReason(param, actual, objectType);
 			if (!reason) {
 				continue;
 			}
@@ -1876,6 +1892,7 @@ export function checkNonConstantParameterDefaults(
 	memberCtx: MemberCompletionContext,
 	push: PushFn,
 ): void {
+	const objectType = createObjectAssignmentTypeResolver(memberCtx);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
@@ -1884,7 +1901,7 @@ export function checkNonConstantParameterDefaults(
 			if (!param.defaultRaw) {
 				continue;
 			}
-			if (resolveKnownObjectAssignmentType(param.asType, memberCtx)) {
+			if (objectType(param.asType)) {
 				continue;
 			}
 			const defaultTokens = parameterDefaultTokens(source, param);
@@ -2194,7 +2211,7 @@ function valueTokensAfterEquals(
 function parameterDefaultIncompatibilityReason(
 	param: ParameterNode,
 	actual: InferredArgumentType,
-	memberCtx: MemberCompletionContext,
+	objectType: ReturnType<typeof createObjectAssignmentTypeResolver>,
 ): string | undefined {
 	if (param.isArray && isKnownScalarDefaultType(actual.type)) {
 		return 'Optional array parameter defaults cannot be scalar values.';
@@ -2203,7 +2220,7 @@ function parameterDefaultIncompatibilityReason(
 	if (!expectedRaw) {
 		return undefined;
 	}
-	const expectedObject = resolveKnownObjectAssignmentType(expectedRaw, memberCtx);
+	const expectedObject = objectType(expectedRaw);
 	if (expectedObject) {
 		return normalizeType(actual.type) === 'nothing'
 			? undefined

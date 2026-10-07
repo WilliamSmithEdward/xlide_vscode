@@ -576,7 +576,26 @@ function Add-OracleComponent($VbProject, $ModuleSpec) {
     if ($ModuleSpec.PSObject.Properties.Name -contains "name" -and $ModuleSpec.name) {
         $component.Name = [string]$ModuleSpec.name
     }
-    $component.CodeModule.AddFromString([string]$ModuleSpec.source)
+    $source = [string]$ModuleSpec.source
+    # Procedure attributes are import metadata, not editor statements. Adding
+    # them as code creates a Syntax error during whole-project compilation.
+    if ($source -match '(?m)^\s*Attribute\s+[^\s.]+\.VB_\w+\s*=') {
+        $extension = if ($componentType -eq 2) { '.cls' } else { '.bas' }
+        $importPath = Join-Path ([IO.Path]::GetTempPath()) ('xlide-oracle-component-' + [Guid]::NewGuid().ToString('N') + $extension)
+        try {
+            $lineCount = $component.CodeModule.CountOfLines
+            if ($lineCount -gt 0) { $null = $component.CodeModule.DeleteLines(1, $lineCount) }
+            $null = $component.Export($importPath)
+            $encoding = [Text.Encoding]::Default
+            $header = [IO.File]::ReadAllText($importPath, $encoding)
+            $null = $VbProject.VBComponents.Remove($component)
+            [IO.File]::WriteAllText($importPath, $header + [Environment]::NewLine + $source, $encoding)
+            return $VbProject.VBComponents.Import($importPath)
+        } finally {
+            if (Test-Path -LiteralPath $importPath) { Remove-Item -LiteralPath $importPath -Force }
+        }
+    }
+    $component.CodeModule.AddFromString($source)
     return $component
 }
 

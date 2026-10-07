@@ -16,7 +16,7 @@
 
 import { VbaDoc, VbaDocParam, VbaDocSource } from './docModel';
 import type { Span } from '../parser/nodes';
-import { lineStartAt } from '../../vbaSourceScan';
+import { lineStartAtAnyBreak, lineEndAtOrAfter } from '../../vbaSourceScan';
 
 /** Decodes the five predefined XML entities. */
 function decodeEntities(text: string): string {
@@ -245,34 +245,26 @@ interface SourceLine {
 	end: number;
 }
 
-function sourceLines(source: string): SourceLine[] {
-	const rawLines = source.split('\n');
-	const out: SourceLine[] = [];
-	let offset = 0;
-	for (const raw of rawLines) {
-		const text = raw.replace(/\r$/, '');
-		out.push({
-			text,
-			start: offset,
-			end: offset + raw.length,
-		});
-		offset += raw.length + 1;
+function* sourceLines(source: string): Generator<SourceLine, void> {
+	let start = 0;
+	for (;;) {
+		const end = lineEndAtOrAfter(source, start);
+		const next = end + (source[end] === '\r' && source[end + 1] === '\n' ? 2 : 1);
+		yield { text: source.slice(start, end), start, end: end === source.length ? end : next - 1 };
+		if (end === source.length) { return; }
+		start = next;
 	}
-	return out;
 }
 
-function firstLineIndexAtOrAfter(lines: readonly SourceLine[], offset: number): number {
-	const safeOffset = Math.max(0, offset);
-	for (let i = 0; i < lines.length; i += 1) {
-		const line = lines[i];
-		if (line.start >= safeOffset) {
-			return i;
-		}
-		if (safeOffset <= line.end) {
-			return i + 1;
-		}
+/** Previous physical lines, excluding each CR, CRLF or LF terminator. */
+function* precedingLines(source: string, offset: number): Generator<SourceLine, void> {
+	let start = lineStartAtAnyBreak(source, offset);
+	while (start > 0) {
+		let end = start - 1;
+		if (source[end] === '\n' && source[end - 1] === '\r') { end--; }
+		start = lineStartAtAnyBreak(source, end);
+		yield { start, end, text: source.slice(start, end) };
 	}
-	return lines.length;
 }
 
 function isOrdinaryComment(trimmed: string): boolean {
@@ -310,37 +302,22 @@ export function extractModuleHeaderDoc(
 	source: string,
 	startOffset = 0,
 ): VbaDoc | undefined {
-	const lines = sourceLines(source);
-	let i = firstLineIndexAtOrAfter(lines, startOffset);
-	while (i < lines.length) {
-		const trimmed = lines[i].text.trimStart();
-		if (trimmed === '' || isOrdinaryComment(trimmed)) {
-			i += 1;
-			continue;
-		}
-		break;
-	}
-	if (i >= lines.length || !lines[i].text.trimStart().startsWith("'''")) {
-		return undefined;
-	}
-
+	const safeOffset = Math.max(0, startOffset);
+	if (Number.isNaN(safeOffset) || safeOffset > source.length) { return undefined; }
 	const docLines: string[] = [];
-	while (i < lines.length) {
-		const trimmed = lines[i].text.trimStart();
-		if (!trimmed.startsWith("'''")) {
-			break;
+	// Read only the header. Most symbol builds need the first few lines, not
+	// a line object and substring for every procedure in the whole class.
+	for (const line of sourceLines(source)) {
+		if (!(line.start >= safeOffset)) { continue; }
+		const trimmed = line.text.trimStart();
+		if (docLines.length === 0) {
+			if (trimmed === '' || isOrdinaryComment(trimmed)) { continue; }
+			if (!trimmed.startsWith("'''")) { return undefined; }
+		} else if (!trimmed.startsWith("'''")) {
+			return isModuleHeaderBoundary(trimmed) ? docFromLines(docLines) : undefined;
 		}
 		docLines.push(stripDocPrefix(trimmed));
-		i += 1;
 	}
-
-	if (i < lines.length) {
-		const next = lines[i].text.trimStart();
-		if (!isModuleHeaderBoundary(next)) {
-			return undefined;
-		}
-	}
-
 	return docFromLines(docLines);
 }
 
@@ -376,12 +353,8 @@ export function leadingDocLines(
 	// once per declaration while building module symbols, so slicing and
 	// splitting the whole module prefix here (the obvious implementation) makes
 	// symbol building quadratic in module size.
-	let lineStart = lineStartAt(source, declStart);
 	const lines: DocBlockLine[] = [];
-	while (lineStart > 0) {
-		const prevEnd = lineStart - 1; // the '\n' terminating the previous line
-		const prevStart = lineStartAt(source, prevEnd);
-		const line = source.slice(prevStart, prevEnd).replace(/\r$/, '');
+	for (const { start: prevStart, text: line } of precedingLines(source, declStart)) {
 		const trimmed = line.trimStart();
 		if (isXlideDirectiveComment(trimmed)) {
 			// Suppression and test directives are the product's own grammar;
@@ -390,7 +363,6 @@ export function leadingDocLines(
 			if (below) {
 				below.directivesStart = prevStart;
 			}
-			lineStart = prevStart;
 			continue;
 		}
 		if (!trimmed.startsWith("'''")) {
@@ -403,7 +375,6 @@ export function leadingDocLines(
 			textStart: prevStart + line.length - text.length,
 			text,
 		});
-		lineStart = prevStart;
 	}
 	return lines.reverse();
 }
@@ -416,16 +387,13 @@ export function leadingDocLines(
  * whatever declaration came next.
  */
 export function attachedCommentsStart(source: string, declStart: number): number {
-	let lineStart = lineStartAt(source, declStart);
-	while (lineStart > 0) {
-		const prevStart = lineStartAt(source, lineStart - 1);
-		const trimmed = source.slice(prevStart, lineStart - 1).replace(/\r$/, '').trimStart();
-		if (!trimmed.startsWith("'''") && !isXlideDirectiveComment(trimmed)) {
-			break;
-		}
-		lineStart = prevStart;
+	let start = lineStartAtAnyBreak(source, declStart);
+	for (const line of precedingLines(source, declStart)) {
+		const trimmed = line.text.trimStart();
+		if (!trimmed.startsWith("'''") && !isXlideDirectiveComment(trimmed)) { break; }
+		start = line.start;
 	}
-	return lineStart;
+	return start;
 }
 
 /**

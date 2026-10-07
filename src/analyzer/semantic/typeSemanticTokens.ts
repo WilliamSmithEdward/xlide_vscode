@@ -411,18 +411,31 @@ function collectImplements(source: string, out: TypeNameReference[], scanEnd: nu
 	}
 }
 
+// Parser edits retain immutable procedures with unchanged text and absolute spans.
+// Keep source-only references with those nodes; project resolution stays fresh.
+const PROCEDURE_TYPE_REFERENCES = new WeakMap<ProcedureNode, readonly TypeNameReference[]>();
+
 function collectProcedure(
 	source: string,
 	proc: ProcedureNode,
 	out: TypeNameReference[],
 ): void {
-	for (const param of proc.params) {
-		collectParameter(source, param, out);
+	let references = PROCEDURE_TYPE_REFERENCES.get(proc);
+	if (!references) {
+		const collected: TypeNameReference[] = [];
+		for (const param of proc.params) {
+			collectParameter(source, param, collected);
+		}
+		if (proc.returnType) {
+			pushTypeHit(collected, returnTypeNameSpan(source, proc));
+		}
+		collectBody(source, proc.body, collected);
+		references = collected;
+		PROCEDURE_TYPE_REFERENCES.set(proc, references);
 	}
-	if (proc.returnType) {
-		pushTypeHit(out, returnTypeNameSpan(source, proc));
+	for (const reference of references) {
+		out.push(reference);
 	}
-	collectBody(source, proc.body, out);
 }
 
 function collectModule(
@@ -478,8 +491,19 @@ export function typeReferenceLookupName(hit: TypeNameReference): string {
 	return hit.qualifier ? `${hit.qualifier}.${hit.name}` : hit.name;
 }
 
-export function collectTypeNameReferences(source: string): TypeNameReference[] {
-	return collectModule(source, parseModule(source));
+// Source-only facts follow the cached AST lifetime; project type resolution
+// still runs against the current context on every lookup.
+const TYPE_REFERENCES = new WeakMap<ModuleNode, readonly TypeNameReference[]>();
+
+/** Source-ordered type spans. Callers must not mutate the shared references. */
+export function collectTypeNameReferences(source: string): readonly TypeNameReference[] {
+	const module = parseModule(source);
+	let references = TYPE_REFERENCES.get(module);
+	if (!references) {
+		references = collectModule(source, module);
+		TYPE_REFERENCES.set(module, references);
+	}
+	return references;
 }
 
 // Token words that put the following identifier in a TYPE position, where a
@@ -577,6 +601,17 @@ export function collectHostGlobalTokens(
 		if (declared.has(lower)) {
 			continue;
 		}
+		// Member and type positions cannot be bare host values. Reject them
+		// before querying three host indexes for names we will discard.
+		const prev = tokens[i - 1];
+		if (prev) {
+			if (prev.rawText === '.' || prev.rawText === '!') {
+				continue; // member / bang access on another receiver
+			}
+			if (prev.kind === 'keyword' && TYPE_POSITION_LEADS.has(tokenWord(prev))) {
+				continue; // type position, owned by the type collector
+			}
+		}
 		// Resolved against the module's own host model (issue #24): Word's
 		// ActiveDocument paints in a Word module, and Excel's ActiveSheet
 		// does not. A name that is not an injected global may still be a
@@ -591,15 +626,6 @@ export function collectHostGlobalTokens(
 			: resolveHostConstant(tok.rawText, model);
 		if (!globalType && !globalMember && !constant) {
 			continue;
-		}
-		const prev = tokens[i - 1];
-		if (prev) {
-			if (prev.rawText === '.' || prev.rawText === '!') {
-				continue; // member / bang access on another receiver
-			}
-			if (prev.kind === 'keyword' && TYPE_POSITION_LEADS.has(tokenWord(prev))) {
-				continue; // type position, owned by the type collector
-			}
 		}
 		const span = { start: tok.start, end: tok.end };
 		if (constant) {
@@ -811,6 +837,8 @@ export function collectHostMemberMethodTokens(
 		parsedModule: parseModule(source),
 		// One With-stack scan per procedure for the whole pass, not one per dot.
 		withScanCache: new Map(),
+		// One member surface/index per receiver type for this immutable pass.
+		memberSurfaceCache: new Map(),
 		model: ctx.model,
 		codeNames: ctx.codeNames,
 		implicitMembers: ctx.implicitMembers as MemberCompletionContext['implicitMembers'],
@@ -874,9 +902,19 @@ export function resolveTypeReferenceAt(
 	offset: number,
 	ctx: TypeCompletionContext = {},
 ): ResolvedTypeReference | undefined {
-	const hit = collectTypeNameReferences(source).find(
-		(candidate) => offset >= candidate.span.start && offset <= candidate.span.end,
-	);
+	const references = collectTypeNameReferences(source);
+	let lo = 0;
+	let hi = references.length;
+	while (lo < hi) {
+		const mid = lo + Math.floor((hi - lo) / 2);
+		if (references[mid].span.end < offset) {
+			lo = mid + 1;
+		} else {
+			hi = mid;
+		}
+	}
+	const candidate = references[lo];
+	const hit = candidate && offset >= candidate.span.start ? candidate : undefined;
 	if (!hit) {
 		return undefined;
 	}

@@ -14,7 +14,10 @@
 // is unit-tested directly. The VS Code provider supplies the project type names.
 
 import type { VbaToken } from '../lexer/tokenKinds';
-import { completionCursorContext } from './cursorContext';
+import { tokenize } from '../lexer/tokenize';
+import { completionTypeTokens } from './cursorContext';
+import { isWsc } from '../lexer/tokenKinds';
+import { lineStartAtAnyBreak } from '../../vbaSourceScan';
 import {
 	getExcelObjectModel,
 	type HostObjectModel,
@@ -169,7 +172,16 @@ function readPartialTypeName(tokens: readonly VbaToken[]): {
 	return { prefix, qualifier, memberPrefix, beforeIndex: i };
 }
 
-function detectTypePosition(tokens: readonly VbaToken[]): TypePosition | undefined {
+function detectTypePosition(allTokens: readonly VbaToken[]): TypePosition | undefined {
+	// The longest suffix this detector reads is `As New Library.Type`: five
+	// non-newline tokens. Skip newlines as before, but avoid filtering the whole
+	// module prefix for every completion/casing word outside a type position.
+	const tokens: VbaToken[] = [];
+	for (let i = allTokens.length - 1; i >= 0 && tokens.length < 5; i--) {
+		const token = allTokens[i];
+		if (token.kind !== 'newline') { tokens.push(token); }
+	}
+	tokens.reverse();
 	if (tokens.length === 0) {
 		return undefined;
 	}
@@ -303,46 +315,36 @@ export function typeCompletionCandidates(
 	for (const t of OLE_AUTOMATION_TYPES) {
 		add(t.name, t.kind, t.detail, t.moduleName, t.documentation);
 	}
-	// 4. Host object-model types, labeled with the module's host (issue #28) and
-	// carrying the reference's own description of the type: before this,
-	// `Dim s As InlineShape` hovered with a bare name and no prose, even though
-	// the corpus had described the type all along.
-	// The host's own types first: `Range` is in both Word and Excel, and the
-	// bare name belongs to whichever library the project's host is - which is
-	// how the analyzer resolves it, and how VBA does, by the reference list
-	// with the host at the top. A merged model lists the referenced library's
-	// keys first, so iterating it as it comes handed `Range` to the wrong
-	// application and the one a developer picked was not the one that was
-	// then checked. The other stays reachable as `Excel.Range`.
-	for (const [qualified, type] of hostTypesOwnHostFirst(model)) {
-		const short = qualified.split('.').pop();
-		if (short) {
-			// Labelled with the type's own library rather than the project's
-			// host, so a referenced application's type does not read as the
-			// host's (issue #77).
-			add(
-				short,
-				'host',
-				`${hostLibraryDisplayName(qualified, model)} type`,
-				undefined,
-				hostTypeDocumentation(type),
-			);
-		}
-	}
-	// 5. Host enumerations. `Dim k As XlAxisType` is ordinary VBA and the name
-	// resolved to nothing at all: no completion, no hover, no coloring, across
-	// 899 enumerations. They come last so an object type of the same name wins.
-	for (const entry of getHostEnums(model)) {
-		add(
-			entry.displayName,
-			'enum',
-			`${entry.library ?? hostDisplayName(model)} enum`,
-			undefined,
-			hasDocContent(entry.doc) ? renderDocMarkdown(entry.doc) : undefined,
-		);
+	// 4/5. Immutable host types and enums are projected once per model.
+	// Project types above still win name collisions, including host enums.
+	for (const candidate of hostTypeCandidates(model)) {
+		add(candidate.name, candidate.kind, candidate.detail, candidate.moduleName, candidate.documentation);
 	}
 
 	return out;
+}
+
+// References are replaced with a new model identity when metadata changes.
+// Cache only host data; project visibility remains specific to this request.
+const HOST_TYPE_CANDIDATES = new WeakMap<HostObjectModel, readonly TypeCompletion[]>();
+function hostTypeCandidates(model: HostObjectModel): readonly TypeCompletion[] {
+	const cached = HOST_TYPE_CANDIDATES.get(model);
+	if (cached) { return cached; }
+	const candidates: TypeCompletion[] = [];
+	// In a merged model, the host's own Range must precede another library's
+	// Range. Each type's label and documentation still belong to its library.
+	for (const [qualified, type] of hostTypesOwnHostFirst(model)) {
+		const short = qualified.split('.').pop();
+		if (short) {
+			candidates.push({name: short, kind: 'host', detail: `${hostLibraryDisplayName(qualified, model)} type`, documentation: hostTypeDocumentation(type)});
+		}
+	}
+	// Object types precede enums, preserving the existing duplicate priority.
+	for (const entry of getHostEnums(model)) {
+		candidates.push({name: entry.displayName, kind: 'enum', detail: `${entry.library ?? hostDisplayName(model)} enum`, documentation: hasDocContent(entry.doc) ? renderDocMarkdown(entry.doc) : undefined});
+	}
+	HOST_TYPE_CANDIDATES.set(model, candidates);
+	return candidates;
 }
 
 function qualifiedTypeName(name: string): { qualifier: string; member: string } | undefined {
@@ -570,6 +572,38 @@ function exactTypeNameIndex(ctx: TypeCompletionContext): Map<string, TypeComplet
 	return byLower;
 }
 
+// Type detection consumes the last five grammar tokens across logical lines.
+// Lex only the chunks needed to find them; offsets/trivia stay local because
+// the detector reads kind and token text alone. A sparse tail of comments or
+// blank rows uses the shared full stream after a small number of chunks instead
+// of independently re-lexing thousands of rows on every request.
+const TYPE_GRAMMAR_CHUNK_LIMIT = 32;
+
+function boundedTypeGrammarTokens(source: string, offset: number): VbaToken[] {
+	let end = Math.max(0, Math.min(offset, source.length));
+	if (Number.isNaN(end)) { return []; }
+	let suffix: VbaToken[] = [];
+	const beforeBreak = (start: number): number => source[start - 1] === '\n' && source[start - 2] === '\r' ? start - 2 : start - 1;
+	for (let chunks = 0; chunks < TYPE_GRAMMAR_CHUNK_LIMIT; chunks++) {
+		let start = lineStartAtAnyBreak(source, end);
+		while (start > 0) {
+			const priorEnd = beforeBreak(start);
+			const priorStart = lineStartAtAnyBreak(source, priorEnd);
+			let at = priorEnd;
+			while (at > priorStart && isWsc(source[at - 1])) { at--; }
+			// Conservatively include underscore-ended lines, even when an
+			// identifier rather than trivia. This also covers comment chains.
+			if (at <= priorStart || source[at - 1] !== '_') { break; }
+			start = priorStart;
+		}
+		const chunk = tokenize(source.slice(start, end)).filter(token => token.kind !== 'comment' && token.kind !== 'newline');
+		suffix = [...chunk, ...suffix].slice(-5);
+		if (suffix.length >= 5 || start === 0) { return suffix; }
+		end = beforeBreak(start);
+	}
+	return completionTypeTokens(source, offset);
+}
+
 /**
  * Resolves the type-name completions available at `offset` in `source`. Returns
  * an empty array when the cursor is not in a declaration type position.
@@ -583,8 +617,7 @@ export function resolveTypeCompletions(
 	ctx: TypeCompletionContext = {},
 ): TypeCompletion[] {
 	const pos = detectTypePosition(
-		completionCursorContext(source, offset).significantTokens
-			.filter((tok) => tok.kind !== 'newline'),
+		boundedTypeGrammarTokens(source, offset),
 	);
 	if (!pos) {
 		return [];

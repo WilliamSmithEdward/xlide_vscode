@@ -295,16 +295,25 @@ export function projectEditorSymbolContextForModule(
     project: ProjectIndex,
     moduleName: string,
 ): VbaProjectEditorSymbolContext {
-    const analysisOptions = projectAnalysisOptionsForModule(project, moduleName);
-    const currentLower = moduleName.toLowerCase();
+    // Editor requests need symbol surfaces, not diagnostic facts such as
+    // writes, sheet changes, file handles, or inferred class member values. Those scan project bodies and
+    // used to run synchronously after each completion-triggering edit.
+    const analysisOptions: VbaProjectAnalysisOptions = {};
+    try {
+        Object.assign(analysisOptions, {
+            projectTypes: project.visibleTypeNames(moduleName),
+            projectClassMembers: project.projectMemberSurfaces(moduleName, { includeClassValueFacts: false }),
+            implicitMembers: project.moduleImplicitMembers?.(moduleName),
+        });
+    } catch (err) {
+        analysisOptions.projectContextFailure = err;
+    }
     let externalProjectProcedures: VbaProcedureSignature[] = [];
     let externalProjectSymbols: VbaSymbol[] = [];
     try {
         // Both or neither, as with the analysis options above.
-        const procedures = project.visibleProcedureSignatures(moduleName)
-            .filter((procedure) => procedure.moduleName.toLowerCase() !== currentLower);
-        const symbols = project.visibleIdentifierSymbols(moduleName)
-            .filter((symbol) => symbol.moduleName.toLowerCase() !== currentLower);
+        const procedures = project.visibleProcedureSignatures(moduleName, { excludeCurrentModule: true });
+        const symbols = project.visibleIdentifierSymbols(moduleName, { excludeCurrentModule: true });
         externalProjectProcedures = procedures;
         externalProjectSymbols = symbols;
     } catch {

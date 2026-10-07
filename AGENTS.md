@@ -53,3 +53,27 @@ Marketplace serves the signed file:
 gh release download vX.Y.Z --pattern '*.vsix'
 npx @vscode/vsce publish --packagePath xlide-X.Y.Z.vsix
 ```
+
+## Editor responsiveness
+
+The owner wants completion menus to update nearly instantaneously while typing
+(including `ThisWorkbook.Sheets(1).`) and symbol hover to be as snappy as
+possible. Treat typing latency, menu updates and mouse hover as product
+priorities, including slow outliers and cold-start behavior.
+
+- Return available cached/current-module results immediately. Do not wait for
+  full-project loading before a completion update, or before returning a hover
+  that can already be resolved.
+- Do not introduce fixed sleeps or debounce delays on the response path to
+  trade responsiveness for a more complete first result. Load additional facts
+  in the background and keep incomplete completion lists refreshable.
+- Keep background indexing from synchronously running ahead of an available
+  response. Avoid module-sized scans/projections per keystroke or mouse move
+  when a token, logical line or unchanged source snapshot suffices.
+- Verify changes with meaningful work-count/scheduling regressions and the
+  integration harness. Report both typical latency and slow samples, separate
+  warm behavior from startup, and distinguish provider response from menu or
+  tooltip painting. Fast analyzer averages alone do not establish a snappy UI.
+- Continue performance hunting proactively within the requested editor
+  surfaces. The owner authorizes using the integration harness and creating
+  issues and pull requests; the release rules above still apply.

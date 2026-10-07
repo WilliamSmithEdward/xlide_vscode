@@ -91,9 +91,9 @@ describe('a Let into a class Function or a Set-only property (issue #414)', () =
 		expect(found(VARIANT_FN, 'c.M(1) = 2')).toEqual(['variant-value-misuse']);
 	});
 
-	it('stays quiet where the Function may return an object, or takes a parameter', () => {
+	it('stays quiet for object results and checks a known scalar despite optional parameters', () => {
 		expect(found('Public Function M() As Variant\n    Set M = New Collection\nEnd Function', 'c.M = 5')).toEqual([]);
-		expect(found('Public Function M(Optional ByVal i As Long) As Variant\n    M = 1\nEnd Function', 'c.M = 5')).toEqual([]);
+		expect(found('Public Function M(Optional ByVal i As Long) As Variant\n    M = 1\nEnd Function', 'c.M = 5')).toEqual(['variant-value-misuse']);
 	});
 
 	it('reports a Let into a Property Set with no Let, indexed or not', () => {

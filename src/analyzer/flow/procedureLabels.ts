@@ -45,6 +45,31 @@ export interface VbaProcedureLabelDefinition {
 	label: VbaProcedureLabel;
 }
 
+interface ProcedureLabelFacts {
+	source: string;
+	activity: ConditionalActivityTracker | undefined;
+	declarations?: readonly VbaProcedureLabel[];
+	references?: readonly VbaProcedureLabelReference[];
+}
+
+const PROCEDURE_LABEL_FACTS = new WeakMap<ProcedureNode, ProcedureLabelFacts>();
+
+function procedureLabelFacts(source: string, procedure: ProcedureNode, activity: ConditionalActivityTracker | undefined): ProcedureLabelFacts {
+	const cached = PROCEDURE_LABEL_FACTS.get(procedure);
+	if (cached && cached.source === source && cached.activity === activity) {
+		cached.source = source;
+		return cached;
+	}
+	const facts = { source, activity };
+	PROCEDURE_LABEL_FACTS.set(procedure, facts);
+	return facts;
+}
+
+/** Public collections and their label/span objects remain caller-owned. */
+function copyLabels<T extends VbaProcedureLabel>(labels: readonly T[]): T[] {
+	return labels.map(label => ({ ...label, span: { ...label.span } }));
+}
+
 export function collectProcedureLabels(
 	source: string,
 	procedure: ProcedureNode,
@@ -64,11 +89,15 @@ export function collectProcedureLabelDeclarations(
 	procedure: ProcedureNode,
 	activity?: ConditionalActivityTracker,
 ): VbaProcedureLabel[] {
-	const labels: VbaProcedureLabel[] = [];
-	forEachStatement(procedure.body, (stmt) => {
-		labels.push(...statementLabelDeclarations(source, stmt.span));
-	}, activity);
-	return labels;
+	const facts = procedureLabelFacts(source, procedure, activity);
+	if (!facts.declarations) {
+		const labels: VbaProcedureLabel[] = [];
+		forEachStatement(procedure.body, (stmt) => {
+			labels.push(...statementLabelDeclarations(source, stmt.span));
+		}, activity);
+		facts.declarations = labels;
+	}
+	return copyLabels(facts.declarations);
 }
 
 export function collectProcedureLabelReferences(
@@ -76,11 +105,15 @@ export function collectProcedureLabelReferences(
 	procedure: ProcedureNode,
 	activity?: ConditionalActivityTracker,
 ): VbaProcedureLabelReference[] {
-	const refs: VbaProcedureLabelReference[] = [];
-	forEachStatement(procedure.body, (stmt) => {
-		refs.push(...statementLabelReferences(source, stmt.span));
-	}, activity);
-	return refs;
+	const facts = procedureLabelFacts(source, procedure, activity);
+	if (!facts.references) {
+		const refs: VbaProcedureLabelReference[] = [];
+		forEachStatement(procedure.body, (stmt) => {
+			refs.push(...statementLabelReferences(source, stmt.span));
+		}, activity);
+		facts.references = refs;
+	}
+	return copyLabels(facts.references);
 }
 
 export function resolveProcedureLabelCompletions(
@@ -182,9 +215,7 @@ function isProcedureLabelCompletionContext(
 }
 
 function isLabelTargetPrefix(tokens: readonly VbaToken[], prefixLength: number): boolean {
-	let toks = tokensWithoutLeadingLineNumber(
-		tokens.filter((tok) => tok.kind !== 'comment' && tok.kind !== 'newline'),
-	);
+	let toks = tokensWithoutLeadingLineNumber(tokens);
 	if (toks.length === 0) {
 		return false;
 	}
@@ -444,7 +475,7 @@ function labelReferenceGroup(
 	base: Span,
 	statementKind: VbaProcedureLabelReference['statementKind'],
 ): VbaProcedureLabelReference | undefined {
-	const content = group.filter((tok) => tok.kind !== 'comment');
+	const content = group;
 	if (content.length !== 1) {
 		return undefined;
 	}

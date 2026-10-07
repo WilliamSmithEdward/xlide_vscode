@@ -87,6 +87,22 @@ suite('The explorer following the editor', () => {
 		assert.deepEqual(second.selected, ['sub:Sub FollowBSecond'], JSON.stringify(second));
 	});
 
+	test('keeps the project folded when Collapse All overtakes a queued caret follow', async () => {
+		await showInSecond(moduleUri('FollowA'));
+		await settle();
+		const editor = vscode.window.activeTextEditor!;
+		editor.selection = new vscode.Selection(3, 1, 3, 1);
+		await vscode.commands.executeCommand('workbench.actions.treeView.xlide.explorer.collapseAll');
+		await settle();
+		const folded = await viewState();
+		assert.deepEqual(folded.expanded, [], JSON.stringify(folded));
+		editor.selection = new vscode.Selection(7, 1, 7, 1);
+		await settle();
+		const resumed = await viewState();
+		assert.deepEqual(modules(resumed), ['module:FollowA'], JSON.stringify(resumed));
+		assert.deepEqual(resumed.selected, ['sub:Sub FollowASecond'], JSON.stringify(resumed));
+	});
+
 	test('lands on the last module when tabs switch faster than the tree reveals', async () => {
 		// Each module visited once, so its procedure rows exist: the caret's
 		// row can then be revealed, which expands the module it sits in.
@@ -106,6 +122,25 @@ suite('The explorer following the editor', () => {
 			assert.deepEqual(modules(state), ['module:FollowC'], `switching every ${gap} ms: ${JSON.stringify(state)}`);
 			assert.equal(state.activeModule, 'module:FollowC', `switching every ${gap} ms: ${JSON.stringify(state)}`);
 			assert.deepEqual(state.selected, ['sub:Sub FollowCSecond'], `switching every ${gap} ms: ${JSON.stringify(state)}`);
+		}
+	});
+
+	test('selects the module when its last procedure is deleted without moving the caret', async () => {
+		await agentWrite(workbookPath(), 'CaretEmpty', 'Public Sub CaretOnly()\r\nEnd Sub\r\n');
+		await vscode.commands.executeCommand('xlide.refreshExplorer');
+		const editor = await vscode.window.showTextDocument(moduleUri('CaretEmpty'), { preview: false });
+		editor.selection = new vscode.Selection(0, 0, 0, 0);
+		await settle();
+		assert.deepEqual((await viewState()).selected, ['sub:Sub CaretOnly']);
+		try {
+			assert.ok(await editor.edit(edit => edit.delete(new vscode.Range(0, 0, editor.document.lineCount, 0))));
+			await settle();
+			assert.ok(editor.document.isDirty);
+			assert.equal(editor.selection.active.line, 0);
+			const state = await viewState();
+			assert.deepEqual(state.selected, ['module:CaretEmpty'], JSON.stringify(state));
+		} finally {
+			await vscode.commands.executeCommand('workbench.action.files.revert');
 		}
 	});
 
@@ -223,6 +258,56 @@ suite('The explorer following the editor', () => {
 		}
 	});
 
+	test('reveals an empty sheet module under Sheets With No Code or Shapes', async () => {
+		await agentWrite(workbookPath(), 'Sheet1', '');
+		await vscode.commands.executeCommand('xlide.refreshExplorer');
+		await vscode.window.showTextDocument(moduleUri('Sheet1'), { preview: false });
+		await settle();
+		const state = await viewState();
+		assert.ok(state.expanded.includes('shapes:Sheets With No Code or Shapes'), JSON.stringify(state));
+		assert.deepEqual(modules(state), ['module:Sheet1'], JSON.stringify(state));
+		assert.deepEqual(state.selected, ['module:Sheet1'], JSON.stringify(state));
+	});
+
+	test('moves an empty sheet out of the bare folder when code is typed without saving', async () => {
+		await agentWrite(workbookPath(), 'Sheet1', '');
+		await vscode.commands.executeCommand('xlide.refreshExplorer');
+		const editor = await vscode.window.showTextDocument(moduleUri('Sheet1'), { preview: false });
+		await settle();
+		try {
+			const edit = new vscode.WorkspaceEdit();
+			edit.replace(editor.document.uri, new vscode.Range(0, 0, editor.document.lineCount, 0),
+				'Public Sub SheetWork()\r\nEnd Sub\r\n');
+			assert.ok(await vscode.workspace.applyEdit(edit));
+			editor.selection = new vscode.Selection(1, 1, 1, 1);
+			await settle();
+			assert.ok(editor.document.isDirty, 'the tree should follow the unsaved editor');
+			const state = await viewState();
+			assert.ok(!state.expanded.includes('shapes:Sheets With No Code or Shapes'), JSON.stringify(state));
+			assert.deepEqual(state.selected, ['module:Sheet1'], JSON.stringify(state));
+		} finally {
+			await vscode.commands.executeCommand('workbench.action.files.revert');
+		}
+	});
+
+	test('moves a sheet back into the bare folder when its code is deleted without saving', async () => {
+		await agentWrite(workbookPath(), 'Sheet1', 'Public Sub SheetWork()\r\nEnd Sub\r\n');
+		await vscode.commands.executeCommand('xlide.refreshExplorer');
+		const editor = await vscode.window.showTextDocument(moduleUri('Sheet1'), { preview: false });
+		await settle();
+		try {
+			assert.ok(await editor.edit(edit => edit.delete(new vscode.Range(0, 0, editor.document.lineCount, 0))));
+			editor.selection = new vscode.Selection(0, 0, 0, 0);
+			await settle();
+			assert.ok(editor.document.isDirty);
+			const state = await viewState();
+			assert.ok(state.expanded.includes('shapes:Sheets With No Code or Shapes'), JSON.stringify(state));
+			assert.deepEqual(modules(state), ['module:Sheet1'], JSON.stringify(state));
+		} finally {
+			await vscode.commands.executeCommand('workbench.action.files.revert');
+		}
+	});
+
 	test('reveals a sheet module under the workbook s Sheets folder', async () => {
 		// The module row sits under Sheets, not the project, so the reveal
 		// has to walk up through that folder.
@@ -256,6 +341,35 @@ suite('The explorer following the editor', () => {
 		assert.equal(vscode.window.activeTextEditor?.document.uri.toString(), moduleUri('FollowB').toString());
 		assert.deepEqual(modules(state), ['module:FollowB'], JSON.stringify(state));
 		assert.deepEqual(state.selected, ['sub:Sub FollowBSecond'], JSON.stringify(state));
+	});
+
+	test('folds the module when its last tab closes, keeping the workbook open', async () => {
+		await closeAllEditors();
+		await showInSecond(moduleUri('FollowA'));
+		await settle();
+		assert.deepEqual(modules(await viewState()), ['module:FollowA']);
+
+		await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+		await settle();
+		const state = await viewState();
+		assert.equal(state.activeModule, undefined, JSON.stringify(state));
+		assert.deepEqual(modules(state), [], JSON.stringify(state));
+		assert.ok(state.expanded.includes(`project:${path.basename(workbookPath())}`), JSON.stringify(state));
+	});
+
+	test('folds the last workbook module while an unrelated editor stays open', async () => {
+		await closeAllEditors();
+		const notes = await vscode.workspace.openTextDocument({ content: 'Workbook notes' });
+		await vscode.window.showTextDocument(notes, { preview: false });
+		await showInSecond(moduleUri('FollowA'));
+		await settle();
+
+		await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+		await settle();
+		assert.equal(vscode.window.activeTextEditor?.document.uri.toString(), notes.uri.toString());
+		const state = await viewState();
+		assert.equal(state.activeModule, undefined, JSON.stringify(state));
+		assert.deepEqual(modules(state), [], JSON.stringify(state));
 	});
 
 	test('keeps one project open when the editor moves between two quickly', async () => {

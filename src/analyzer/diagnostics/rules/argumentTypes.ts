@@ -1,3 +1,4 @@
+import {sourceSetterAssignment, invalidSetterAssignmentArity} from '../setterAssignment';
 // Rule family: call-argument types (audit #0).
 //
 // Extracted verbatim from analyzeModule.ts: declared-signature argument-type
@@ -23,6 +24,9 @@ import {
 } from '../callExtraction';
 import {
 	callableTypeSignaturesFor,
+	createObjectDefaultQueries,
+	createProjectInterfaceSharingLookup,
+	createObjectTypeImplementationLookup,
 	expressionCalls,
 	knownLocalLiteralValuesAt,
 	memberExpressionCalls,
@@ -55,6 +59,13 @@ export function checkArgumentTypes(
 	activity?: ConditionalActivityTracker,
 ): ProcedureStatementVisitor {
 	const moduleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
+	const defaultQueries = createObjectDefaultQueries(memberCtx);
+	const objectQueries = {
+		resolveType: defaultQueries.resolveType,
+		needsIndex: defaultQueries.needsIndex,
+		shareInterfaces: createProjectInterfaceSharingLookup(memberCtx),
+		implementsType: createObjectTypeImplementationLookup(),
+	};
 	return (member) => {
 		const env = typeEnvironmentFor(symbols, member);
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
@@ -135,7 +146,15 @@ export function checkArgumentTypes(
 					push(code, message, span, data);
 				}
 			};
+			const setters = statementAndBranchSpans(stmt).map(span => sourceSetterAssignment(source,span,symbols,procSym,projectVisibleSymbols,memberCtx)).filter(setter => setter !== undefined);
+			const setterNames = new Set(setters.map(setter => setter.nameSpan.start));
+			for (const setter of setters) {
+				if (invalidSetterAssignmentArity(setter,source,()=>{})) { continue; }
+				validateArgumentTypesForSignature({name:setter.name,params:setter.indexParams},setter,env,moduleSignatures,sourceNames,
+					source,memberCtx,pushOnce,resolveExpressionType,resolveQualifiedExpressionType,heldClassOf,heldNull,heldNumber,objectQueries);
+			}
 			for (const call of expressionCalls(source, stmt.span, moduleSignatures, sourceNames)) {
+				if (setterNames.has(call.nameSpan.start)) { continue; }
 				validateArgumentTypes(
 					call,
 					env,
@@ -149,6 +168,7 @@ export function checkArgumentTypes(
 					heldClassOf,
 					heldNull,
 					heldNumber,
+					objectQueries,
 				);
 			}
 			for (const memberCall of memberExpressionCalls(
@@ -156,6 +176,7 @@ export function checkArgumentTypes(
 				stmt.span,
 				memberCtx,
 			)) {
+				if (setterNames.has(memberCall.call.nameSpan.start)) { continue; }
 				validateArgumentTypesForSignature(
 					memberCall.signature,
 					memberCall.call,
@@ -170,6 +191,7 @@ export function checkArgumentTypes(
 					heldClassOf,
 					heldNull,
 					heldNumber,
+					objectQueries,
 				);
 			}
 			for (const memberCall of memberStatementCalls(
@@ -177,6 +199,7 @@ export function checkArgumentTypes(
 				stmt.span,
 				memberCtx,
 			)) {
+				if (setterNames.has(memberCall.call.nameSpan.start)) { continue; }
 				validateArgumentTypesForSignature(
 					memberCall.signature,
 					memberCall.call,
@@ -191,6 +214,7 @@ export function checkArgumentTypes(
 					heldClassOf,
 					heldNull,
 					heldNumber,
+					objectQueries,
 				);
 			}
 			// A single-line If's branch is a statement call too: `If x Then Sl Nothing` (issue #254).
@@ -210,6 +234,7 @@ export function checkArgumentTypes(
 						heldClassOf,
 						heldNull,
 						heldNumber,
+						objectQueries,
 					);
 				}
 			}

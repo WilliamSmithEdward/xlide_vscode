@@ -10,6 +10,7 @@
 // PROJECTMODULES section is regenerated, and each module stream keeps its
 // original cache prefix byte-for-byte.
 
+import { VbaProjectProtection } from './projectProtection';
 import { Cfb } from './cfb';
 import { decodeCodePage, encodeCodePage } from './codePages';
 import { compress, decompress } from './ovba';
@@ -217,7 +218,8 @@ export class VbaProject {
 	 */
 	conditionalConstantsRaw = '';
 	modules: VbaModule[] = [];
-	hasPassword = false;
+	get hasPassword(): boolean { return this.protection.hasPassword; }
+	protection = new VbaProjectProtection(undefined, 1252);
 
 	private dirRaw: Buffer = Buffer.alloc(0);
 	private dirModulesOffset = -1;
@@ -463,7 +465,7 @@ export class VbaProject {
 
 		try {
 			project.projectStreamRaw = cfb.getStream('PROJECT');
-			project.hasPassword = projectStreamHasPassword(project.projectStreamRaw, project.codePage);
+			project.protection = new VbaProjectProtection(project.projectStreamRaw, project.codePage);
 		} catch {
 			project.projectStreamRaw = undefined;
 		}
@@ -639,20 +641,6 @@ export class VbaProject {
 		parts.push(rec(REC_DIR_TERMINATOR, Buffer.alloc(0)), Buffer.alloc(4));
 		return Buffer.concat(parts);
 	}
-}
-
-function projectStreamHasPassword(raw: Buffer, codePage: number): boolean {
-	const text = decodeAnsi(raw, codePage);
-	for (const line of text.split(/\r?\n/)) {
-		const trimmed = line.trim();
-		const eq = trimmed.indexOf('=');
-		if (eq <= 0) { continue; }
-		if (trimmed.slice(0, eq).trim() === 'DPB') {
-			// A placeholder DPB decodes to ~30 hex chars; a real password pushes it past ~60.
-			return trimmed.slice(eq + 1).trim().replace(/^"|"$/g, '').length >= 60;
-		}
-	}
-	return false;
 }
 
 /**

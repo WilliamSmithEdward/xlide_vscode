@@ -357,13 +357,19 @@ function projectObjectMemberWritable(symbol: VbaSymbol): boolean | undefined {
 	}
 }
 
-function projectObjectMemberWriteType(symbol: VbaSymbol): string | undefined {
+function projectObjectMemberParameters(symbol: VbaSymbol, mod: ModuleSymbols) {
+	return procedureParamsFromSymbol(symbol, {includePassing:true}).map(param => ({...param,
+		type:param.type ?? mod.defTypes?.get(param.name[0]?.toLowerCase())}));
+}
+
+function projectObjectMemberWriteType(symbol: VbaSymbol, mod: ModuleSymbols): string | undefined {
 	switch (symbol.kind) {
 		case 'propertyLet':
 		case 'propertySet':
-			return lastParameter(symbol)?.asType;
+			const value = lastParameter(symbol);
+			return value?.asType ?? (value ? mod.defTypes?.get(value.name[0]?.toLowerCase()) : undefined);
 		case 'moduleVariable':
-			return symbol.asType;
+			return symbol.asType ?? mod.defTypes?.get(symbol.name[0]?.toLowerCase());
 		default:
 			return undefined;
 	}
@@ -382,11 +388,11 @@ function enumContainerForMember(
 	);
 }
 
-function projectObjectMemberReturnType(symbol: VbaSymbol): string | undefined {
+function projectObjectMemberReturnType(symbol: VbaSymbol, mod: ModuleSymbols): string | undefined {
 	if (symbol.kind === 'enumMember') {
 		return symbol.containerName;
 	}
-	return symbol.asType;
+	return symbol.asType ?? (['function', 'propertyGet', 'moduleVariable'].includes(symbol.kind) ? mod.defTypes?.get(symbol.name[0]?.toLowerCase()) : undefined);
 }
 
 function projectObjectMemberDefinition(symbol: VbaSymbol): VbaProjectClassMemberDefinition {
@@ -558,16 +564,17 @@ export class ProjectIndex {
 	private readonly moduleResolvedConstants = new Map<string, Map<string, number | undefined>>();
 	/** Lazily scanned per-module Implements lists, dropped on module change. */
 	private readonly moduleImplementsLists = new Map<string, string[]>();
-	/**
-	 * Identifier-shaped words inside each module's string literals, taken
-	 * from the token stream while it is still hot from the module's own
-	 * parse. The whole-project set unions these; re-tokenizing every module
-	 * for it was one full lex per module per project build (issue #139).
-	 */
+	/** Literal-word facts are queried lazily and retained for unchanged source. */
 	private readonly moduleStringLiteralWords = new Map<string, ReadonlySet<string>>();
 	/** The names each module's code may write (issue #241), computed when first asked. */
 	private readonly moduleWrittenNames = new Map<string, ReadonlySet<string>>();
+	/** Open-file facts of unchanged modules survive edits elsewhere in the project. */
+	private readonly moduleOpenedFileNumbers = new Map<string, OpenedFileNumbers>();
+	/** Worksheet-change facts are retained only for the current source of each module. */
+	private readonly moduleSheetChanges = new Map<string, SheetChanges>();
 	private readonly moduleMentionedNames = new Map<string, ReadonlySet<string>>();
+	/** Local visibility contributions survive edits to other modules. */
+	private readonly moduleContributions = new Map<string, Map<string, unknown>>();
 	/** Whole-project query memo for the current index revision. */
 	private readonly queryCache = new Map<string, unknown>();
 
@@ -586,9 +593,12 @@ export class ProjectIndex {
 		);
 		const key = input.moduleName.toLowerCase();
 		this.modules.set(key, symbols);
+		const previousSource = this.moduleSources.get(key);
 		this.moduleSources.set(key, input.source);
-		this.moduleStringLiteralWords.set(key, stringLiteralWordsIn(input.source));
+		if (previousSource !== input.source) { this.moduleStringLiteralWords.delete(key); }
 		this.moduleWrittenNames.delete(key);
+		this.moduleOpenedFileNumbers.delete(key);
+		this.moduleSheetChanges.delete(key);
 		this.moduleMentionedNames.delete(key);
 		if (input.implicitMembers !== undefined) {
 			this.moduleImplicitMembersByName.set(key, input.implicitMembers);
@@ -615,6 +625,8 @@ export class ProjectIndex {
 		this.moduleSources.delete(key);
 		this.moduleStringLiteralWords.delete(key);
 		this.moduleWrittenNames.delete(key);
+		this.moduleOpenedFileNumbers.delete(key);
+		this.moduleSheetChanges.delete(key);
 		this.moduleMentionedNames.delete(key);
 		this.moduleImplicitMembersByName.delete(key);
 		this.modulePredeclaredIdByName.delete(key);
@@ -624,6 +636,7 @@ export class ProjectIndex {
 
 	/** Drops module-derived artifacts and every whole-project query memo. */
 	private invalidate(key: string): void {
+		this.moduleContributions.delete(key);
 		this.moduleResolvedConstants.delete(key);
 		this.moduleImplementsLists.delete(key);
 		this.queryCache.clear();
@@ -641,7 +654,7 @@ export class ProjectIndex {
 
 	/**
 	 * Memoizes one module's part of a per-module visibility query until the
-	 * indexed modules change. A module contributes one of two answers - to
+	 * contributing module changes. A module contributes one of two answers - to
 	 * its own queries, or to every other module's - so asking a query for
 	 * each of N modules no longer walks every module's symbols N times.
 	 * Callers keep their loop over modules, so answers and their order are
@@ -658,8 +671,17 @@ export class ProjectIndex {
 		sameModule: boolean,
 		compute: () => T,
 	): T {
-		const side = sameModule ? 'own' : 'other';
-		return this.cached(`contribution:${query}:${side}:${mod.moduleName.toLowerCase()}`, compute);
+		const moduleKey = mod.moduleName.toLowerCase();
+		let parts = this.moduleContributions.get(moduleKey);
+		if (!parts) {
+			parts = new Map<string, unknown>();
+			this.moduleContributions.set(moduleKey, parts);
+		}
+		const key = `${query}:${sameModule ? 'own' : 'other'}`;
+		if (!parts.has(key)) {
+			parts.set(key, compute());
+		}
+		return parts.get(key) as T;
 	}
 
 	/** Resolved integer constant values of one module, computed at most once. */
@@ -791,7 +813,12 @@ export class ProjectIndex {
 	stringLiteralWords(): ReadonlySet<string> {
 		return this.cached('stringLiteralWords', () => {
 			const words = new Set<string>();
-			for (const moduleWords of this.moduleStringLiteralWords.values()) {
+			for (const [key, source] of this.moduleSources) {
+				let moduleWords = this.moduleStringLiteralWords.get(key);
+				if (!moduleWords) {
+					moduleWords = stringLiteralWordsIn(source);
+					this.moduleStringLiteralWords.set(key, moduleWords);
+				}
 				for (const word of moduleWords) {
 					words.add(word);
 				}
@@ -877,7 +904,18 @@ export class ProjectIndex {
 	 * lacks may be one of these.
 	 */
 	sheetChanges(): SheetChanges {
-		return this.cached('sheetChanges', () => mergeSheetChanges([...this.moduleSources.values()].map(sheetChangesIn)));
+		return this.cached('sheetChanges', () => {
+			const parts: SheetChanges[] = [];
+			for (const [key, source] of this.moduleSources) {
+				let part = this.moduleSheetChanges.get(key);
+				if (!part) {
+					part = sheetChangesIn(source);
+					this.moduleSheetChanges.set(key, part);
+				}
+				parts.push(part);
+			}
+			return mergeSheetChanges(parts);
+		});
 	}
 
 	/**
@@ -885,7 +923,18 @@ export class ProjectIndex {
 	 * names a number that is no literal (issue #419).
 	 */
 	openedFileNumbers(): OpenedFileNumbers {
-		return this.cached('openedFileNumbers', () => mergeOpenedFileNumbers([...this.moduleSources.values()].map(openedFileNumbersIn)));
+		return this.cached('openedFileNumbers', () => {
+			const parts: OpenedFileNumbers[] = [];
+			for (const [key, source] of this.moduleSources) {
+				let part = this.moduleOpenedFileNumbers.get(key);
+				if (!part) {
+					part = openedFileNumbersIn(source);
+					this.moduleOpenedFileNumbers.set(key, part);
+				}
+				parts.push(part);
+			}
+			return mergeOpenedFileNumbers(parts);
+		});
 	}
 
 	/**
@@ -926,13 +975,15 @@ export class ProjectIndex {
 	 * Visible bare-call Sub/Function/Declare signatures from `moduleName`.
 	 * Same-module callables are visible to their own module. Other modules
 	 * contribute only exported standard-module callables, matching the
-	 * `visibleProcedureNames` rule used by diagnostics.
+	 * `visibleProcedureNames` rule used by diagnostics. Editor callers can exclude
+	 * the current module before signatures are materialized.
 	 */
-	visibleProcedureSignatures(moduleName: string): VbaProcedureSignature[] {
+	visibleProcedureSignatures(moduleName: string, options: { excludeCurrentModule?: boolean } = {}): VbaProcedureSignature[] {
 		const currentLower = moduleName.toLowerCase();
 		const out: VbaProcedureSignature[] = [];
 		for (const mod of this.modules.values()) {
 			const sameModule = mod.moduleName.toLowerCase() === currentLower;
+			if (sameModule && options.excludeCurrentModule) { continue; }
 			out.push(...this.contribution('procedureSignatures', mod, sameModule, () => {
 				const part: VbaProcedureSignature[] = [];
 				for (const symbol of mod.root.children ?? []) {
@@ -996,12 +1047,14 @@ export class ProjectIndex {
 	 * `moduleName`. Document/UserForm code names are intentionally not included
 	 * here because they are object-module globals rather than source
 	 * declarations; callers that need them should use the project module list.
+	 * Editor callers can exclude current-module symbols before projecting them.
 	 */
-	visibleIdentifierSymbols(moduleName: string): VbaSymbol[] {
+	visibleIdentifierSymbols(moduleName: string, options: { excludeCurrentModule?: boolean } = {}): VbaSymbol[] {
 		const currentLower = moduleName.toLowerCase();
 		const out: VbaSymbol[] = [];
 		for (const mod of this.modules.values()) {
 			const sameModule = mod.moduleName.toLowerCase() === currentLower;
+			if (sameModule && options.excludeCurrentModule) { continue; }
 			out.push(...this.visibleModuleLevelIdentifierSymbols(mod, sameModule));
 		}
 		return out;
@@ -1234,10 +1287,12 @@ export class ProjectIndex {
 	 * members are deliberately hidden. Public fields are represented as properties;
 	 * Property Get/Let/Set declarations collapse to one property item. Public
 	 * constants are intentionally excluded because VBE rejects them in object
-	 * modules.
+	 * modules. Editors can omit diagnostic-only class value facts; existing
+	 * callers include them by default. The two snapshots never share member rows.
 	 */
-	projectClassMembers(): VbaProjectClassMembers[] {
-		return this.cached('projectClassMembers', () => {
+	projectClassMembers(options: { includeClassValueFacts?: boolean } = {}): VbaProjectClassMembers[] {
+		const includeValueFacts = options.includeClassValueFacts !== false;
+		return this.cached(includeValueFacts ? 'projectClassMembers' : 'projectClassMembers:noValueFacts', () => {
 			const out: VbaProjectClassMembers[] = [];
 			for (const mod of this.modules.values()) {
 				const kind = moduleKindAsTypeName(mod.moduleKind);
@@ -1245,8 +1300,9 @@ export class ProjectIndex {
 					continue;
 				}
 				const members = this.visibleObjectMembers(mod);
-				if (kind === 'class') {
-					const values = classMemberValues(this.moduleSources.get(mod.moduleName.toLowerCase()) ?? '', mod.root.children ?? []);
+				if (kind === 'class' && includeValueFacts) {
+					const values = this.contribution('classMemberValues', mod, false, () =>
+						classMemberValues(this.moduleSources.get(mod.moduleName.toLowerCase()) ?? '', mod.root.children ?? []));
 					for (const member of members) {
 						const value = values.get(member.name.toLowerCase());
 						if (value) {
@@ -1318,7 +1374,8 @@ export class ProjectIndex {
 	 * names, but they are valid module-qualified receivers such as
 	 * `XlideAssert.AreEqual`.
 	 */
-	projectStandardModuleMembers(moduleName: string): VbaProjectClassMembers[] {
+	projectStandardModuleMembers(moduleName: string, options: { includeClassValueFacts?: boolean } = {}): VbaProjectClassMembers[] {
+		const includeValueFacts = options.includeClassValueFacts !== false;
 		const currentLower = moduleName.toLowerCase();
 		const out: VbaProjectClassMembers[] = [];
 		for (const mod of this.modules.values()) {
@@ -1326,14 +1383,19 @@ export class ProjectIndex {
 				continue;
 			}
 			const sameModule = mod.moduleName.toLowerCase() === currentLower;
-			out.push(this.contribution('standardModuleMembers', mod, sameModule, () => ({
-				name: mod.moduleName,
-				kind: 'standardModule',
-				moduleName: mod.moduleName,
-				doc: mod.root.doc,
-				exhaustive: true,
-				members: this.visibleStandardModuleMembers(mod, sameModule),
-			})));
+			const base = this.contribution('standardModuleMembers', mod, sameModule, () => ({
+				name: mod.moduleName, kind: 'standardModule' as const, moduleName: mod.moduleName,
+				doc: mod.root.doc, exhaustive: true, members: this.visibleStandardModuleMembers(mod, sameModule),
+			}));
+			out.push(!includeValueFacts ? base : this.contribution('standardModuleMembers:values', mod, sameModule, () => {
+				let values: ReturnType<typeof classMemberValues> | undefined;
+				const members = base.members.map(member => {
+					if (!member.procedureParams?.propertyGet || (member.returns ?? 'Variant').toLowerCase() !== 'variant') { return member; }
+					values ??= this.contribution('classMemberValues', mod, false, () => classMemberValues(this.moduleSources.get(mod.moduleName.toLowerCase()) ?? '', mod.root.children ?? []));
+					return {...member, knownValue: values.get(member.name.toLowerCase())};
+				});
+				return {...base, members};
+			}));
 		}
 		return out;
 	}
@@ -1343,11 +1405,12 @@ export class ProjectIndex {
 	 * modules, standard module-qualified members, plus visible `Type ... End Type`
 	 * declarations. UDT fields are exhaustive, writable property-like members.
 	 */
-	projectMemberSurfaces(moduleName: string): VbaProjectClassMembers[] {
+	projectMemberSurfaces(moduleName: string, options: { includeClassValueFacts?: boolean } = {}): VbaProjectClassMembers[] {
 		const currentLower = moduleName.toLowerCase();
-		return this.cached(`memberSurfaces:${currentLower}`, () => [
-			...this.projectClassMembers(),
-			...this.projectStandardModuleMembers(moduleName),
+		const valueFactsKey = options.includeClassValueFacts === false ? ':noValueFacts' : '';
+		return this.cached(`memberSurfaces:${currentLower}${valueFactsKey}`, () => [
+			...this.projectClassMembers(options),
+			...this.projectStandardModuleMembers(moduleName, options),
 			...this.projectUserTypeMembers(moduleName),
 			...this.projectEnumMembers(moduleName),
 		]).slice();
@@ -1758,7 +1821,7 @@ export class ProjectIndex {
 			const key = symbol.name.toLowerCase();
 			const existing = byName.get(key);
 			if (existing) {
-				const returns = projectObjectMemberReturnType(symbol);
+				const returns = projectObjectMemberReturnType(symbol, mod);
 				if (!existing.returns && returns) {
 					existing.returns = returns;
 				}
@@ -1769,8 +1832,9 @@ export class ProjectIndex {
 					existing.writable = false;
 				}
 				if (!existing.writeType) {
-					existing.writeType = projectObjectMemberWriteType(symbol);
+					existing.writeType = projectObjectMemberWriteType(symbol, mod);
 				}
+				if ((symbol.kind === 'propertyLet' || symbol.kind === 'propertySet') && lastParameter(symbol)?.isArray) { existing.writeIsArray = true; }
 				if (!existing.signature) {
 					existing.signature = projectObjectMemberSignature(symbol);
 				}
@@ -1787,7 +1851,7 @@ export class ProjectIndex {
 				}
 				const procedureKind = memberProcedureKind(symbol);
 				if (procedureKind) {
-					existing.procedureParams = { ...existing.procedureParams, [procedureKind]: procedureParamsFromSymbol(symbol, { includePassing: true }) };
+					existing.procedureParams = { ...existing.procedureParams, [procedureKind]: projectObjectMemberParameters(symbol, mod) };
 				}
 				existing.attributes = mergeMemberAttributes(existing.attributes, symbol.attributes);
 				existing.definitions = [
@@ -1799,10 +1863,12 @@ export class ProjectIndex {
 			byName.set(key, {
 				name: symbol.name,
 				kind,
-				returns: projectObjectMemberReturnType(symbol),
+				returns: projectObjectMemberReturnType(symbol, mod),
 				signature: projectObjectMemberSignature(symbol),
 				writable: projectObjectMemberWritable(symbol),
-				writeType: projectObjectMemberWriteType(symbol),
+				writeType: projectObjectMemberWriteType(symbol, mod),
+				...(symbol.kind === 'moduleVariable' && symbol.isArray ? {isArray:true} : {}),
+				...((symbol.kind === 'propertyLet' || symbol.kind === 'propertySet') && lastParameter(symbol)?.isArray ? { writeIsArray: true } : {}),
 				moduleName: mod.moduleName,
 				visibility: symbol.visibility,
 				doc: symbol.doc,
@@ -1811,7 +1877,7 @@ export class ProjectIndex {
 				...(symbol.kind === 'propertyLet' ? { letAccessor: true } : {}),
 				...(symbol.kind === 'propertySet' ? { setAccessor: true } : {}),
 				...(symbol.kind === 'sub' ? { sub: true } : {}),
-				...(memberProcedureKind(symbol) ? { procedureParams: { [memberProcedureKind(symbol)!]: procedureParamsFromSymbol(symbol, { includePassing: true }) } } : {}),
+				...(memberProcedureKind(symbol) ? { procedureParams: { [memberProcedureKind(symbol)!]: projectObjectMemberParameters(symbol, mod) } } : {}),
 				attributes: mergeMemberAttributes(undefined, symbol.attributes),
 			});
 		}

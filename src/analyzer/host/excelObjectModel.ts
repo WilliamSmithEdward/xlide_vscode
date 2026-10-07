@@ -14,6 +14,7 @@
 // docs/xlide_vba_language_service_roadmap.md it must never override core
 // MS-VBAL language resolution. LLM-generated member lists are never used here.
 
+import { enumsFromLibrary } from './enumLibrary';
 import {
 	EXCEL_REFERENCE_ENUM_CONSTANTS,
 	EXCEL_REFERENCE_ENUMS,
@@ -671,7 +672,7 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 		EXCEL_REFERENCE_ENUM_CONSTANTS,
 	),
 	// The host's own enumerations win a shared name, the way its constants do.
-	enums: { ...OFFICE_REFERENCE_ENUMS, ...EXCEL_REFERENCE_ENUMS },
+	enums: { ...enumsFromLibrary(OFFICE_REFERENCE_ENUMS, 'Office'), ...EXCEL_REFERENCE_ENUMS },
 	types: {
 		// A Shape's TextFrame2 hands back an Office TextRange2; without the
 		// shared library's types the chain dead-ends at that hop.

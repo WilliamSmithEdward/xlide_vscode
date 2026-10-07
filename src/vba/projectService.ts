@@ -6,6 +6,7 @@
 // renamed over the original, so a failure part-way through never leaves a
 // truncated project.
 
+import { assertVbaProjectAccess, authorizeVbaProject, VbaProjectLockedError } from './projectProtection';
 import { hostPlatform } from './hostPlatform';
 import * as path from 'path';
 import { evictOldest } from '../util/boundedMap';
@@ -384,13 +385,14 @@ function cachedPackage(filePath: string): ProjectCacheEntry {
 }
 
 /** Shared read-only parse. Callers must not mutate the returned project. */
-function openContainer(filePath: string): OpenContainer {
+function openContainer(filePath: string, allowLocked = false): OpenContainer {
 	if (isVb6ProjectPath(filePath)) {
 		throw vb6ProjectRefusal(filePath);
 	}
 	const entry = cachedPackage(filePath);
 	entry.cfb ??= entry.container.vbaCfb();
 	entry.project ??= VbaProject.parse(entry.cfb);
+	if (!allowLocked) { assertVbaProjectAccess(filePath, entry.project.protection); }
 	return { container: entry.container, cfb: entry.cfb, project: entry.project };
 }
 
@@ -404,9 +406,9 @@ function openContainer(filePath: string): OpenContainer {
  * yet"; surfaces asked for a NAMED module or a write still refuse, through
  * {@link noVbaProjectRefusal}, so the reason reaches the user as itself.
  */
-function openContainerIfAnyVba(filePath: string): OpenContainer | undefined {
+function openContainerIfAnyVba(filePath: string, allowLocked = false): OpenContainer | undefined {
 	try {
-		return openContainer(filePath);
+		return openContainer(filePath, allowLocked);
 	} catch (err) {
 		if (err instanceof NoVbaProjectError) {
 			return undefined;
@@ -437,7 +439,7 @@ export function hasVbaProject(filePath: string): boolean {
 	if (isVb6ProjectPath(filePath)) {
 		return true;
 	}
-	return openContainerIfAnyVba(filePath) !== undefined;
+	return openContainerIfAnyVba(filePath, true) !== undefined;
 }
 
 /**
@@ -497,7 +499,9 @@ function openContainerForWrite(filePath: string): OpenContainer {
 		}
 		throw err;
 	}
-	return { container, cfb, project: VbaProject.parse(cfb) };
+	const project = VbaProject.parse(cfb);
+	assertVbaProjectAccess(filePath, project.protection);
+	return { container, cfb, project };
 }
 
 /** The OOXML sheet/cell surface, or an honest refusal for containers without one. */
@@ -924,6 +928,7 @@ function vb6ProjectRefusal(filePath: string): Error {
 }
 
 export function listModules(filePath: string): ModuleEntry[] {
+	assertProjectAccess(filePath);
 	if (isVb6ProjectPath(filePath)) {
 		return listVb6Modules(filePath).map(vb6ModuleEntry);
 	}
@@ -949,6 +954,7 @@ export function listModules(filePath: string): ModuleEntry[] {
  * than a wrong one.
  */
 export function listReferences(filePath: string): VbaProjectReference[] {
+	assertProjectAccess(filePath);
 	if (isVb6ProjectPath(filePath)) {
 		return [];
 	}
@@ -966,6 +972,7 @@ export function listReferences(filePath: string): VbaProjectReference[] {
  * Adding one the project already has is a no-op rather than a duplicate.
  */
 export function addReference(filePath: string, library: string): { ok: true; added: boolean; name: string } {
+	assertProjectAccess(filePath);
 	const known = HOST_LIBRARIES[library.toLowerCase()];
 	if (!known) {
 		throw new Error(
@@ -1015,6 +1022,7 @@ export function addReference(filePath: string, library: string): { ok: true; add
  * implicit, which is why {@link addReference} refuses to write one.
  */
 export function removeReference(filePath: string, library: string): { ok: true; removed: boolean; name: string } {
+	assertProjectAccess(filePath);
 	if (isVb6ProjectPath(filePath)) {
 		throw new Error('A VB6 project keeps its references in the .vbp manifest, which XLIDE does not write.');
 	}
@@ -1046,6 +1054,7 @@ export function removeReference(filePath: string, library: string): { ok: true; 
 }
 
 export function readModules(filePath: string, full = false): ModuleEntry[] {
+	assertProjectAccess(filePath);
 	if (isVb6ProjectPath(filePath)) {
 		return readVb6Modules(filePath, full).map(vb6ModuleEntry);
 	}
@@ -1058,10 +1067,12 @@ export function readModules(filePath: string, full = false): ModuleEntry[] {
  * workbook as git committed it, say. Same entries as {@link readModules}
  * gives for the file on disk, so the two can be compared module by module.
  */
-export function readModulesFromBuffer(data: Buffer, full = false): ModuleEntry[] {
+export function readModulesFromBuffer(data: Buffer, full = false, projectPath?: string): ModuleEntry[] {
 	const container = openMacroContainer(data);
 	const cfb = container.vbaCfb();
-	return readModulesFromContainer({ container, cfb, project: VbaProject.parse(cfb) }, full);
+	const project = VbaProject.parse(cfb);
+	assertVbaProjectAccess(projectPath, project.protection, false);
+	return readModulesFromContainer({ container, cfb, project }, full);
 }
 
 function readModulesFromContainer({ container, cfb, project }: OpenContainer, full: boolean): ModuleEntry[] {
@@ -1301,6 +1312,7 @@ function moduleEntryWithDesigner(cfb: Cfb, project: VbaProject, module: VbaModul
 }
 
 export function readModule(filePath: string, moduleName: string, full = false): { source: string } {
+	assertProjectAccess(filePath);
 	if (isVb6ProjectPath(filePath)) {
 		return { source: readVb6Module(filePath, moduleName, full).source ?? '' };
 	}
@@ -1319,6 +1331,7 @@ export function readModule(filePath: string, moduleName: string, full = false): 
  * the designer storage's binary streams.
  */
 export function readFormExport(filePath: string, moduleName: string): { frm: string; frx: Buffer } {
+	assertProjectAccess(filePath);
 	const { cfb, project } = requireVbaProject(filePath);
 	const module = project.getModule(moduleName);
 	if (!module) {
@@ -1345,6 +1358,7 @@ export function writeFormDesigner(
 	frx: Buffer,
 	frmDesignerBlock?: string,
 ): WriteResult {
+	assertProjectAccess(filePath);
 	const streams = parseFormFrx(frx);
 	if (!streams) {
 		throw new Error('Not a .frx sidecar this importer understands.');
@@ -1408,6 +1422,7 @@ function oformsCodec(codePage: number): OformsTextCodec {
  * designer storage; no host is involved.
  */
 export function readFormMarkup(filePath: string, moduleName: string): { markup: string } {
+	assertProjectAccess(filePath);
 	const design = accessDesignFor(filePath, moduleName);
 	if (design) {
 		return {
@@ -1460,6 +1475,7 @@ export function readFormPreview(
 	markup?: string,
 	identityPath?: string,
 ): { html: string } {
+	assertProjectAccess(filePath);
 	const design = accessDesignFor(filePath, moduleName);
 	if (design) {
 		const { design: parsed, name, kind } = design.entry;
@@ -1551,6 +1567,7 @@ export function removeFormControls(
 	moduleName: string,
 	names: readonly string[],
 ): WriteResult & { removed: string[] } {
+	assertProjectAccess(filePath);
 	const markup = readFormMarkup(filePath, moduleName).markup;
 	const lines = markup.split('\r\n');
 	const found = names.map((name) => ({ name, block: formElementBlock(lines, name) }));
@@ -1594,6 +1611,7 @@ export function duplicateFormControls(
 	names: readonly string[],
 	offsetPt = 6,
 ): WriteResult & { newNames: string[] } {
+	assertProjectAccess(filePath);
 	const markup = readFormMarkup(filePath, moduleName).markup;
 	const lines = markup.split('\r\n');
 	const taken = new Set<string>();
@@ -1644,6 +1662,7 @@ export function applyFormMarkup(
 	moduleName: string,
 	markup: string,
 ): WriteResult & { applied: string[] } {
+	assertProjectAccess(filePath);
 	const root = parseOformsMarkup(markup);
 	const design = accessDesignFor(filePath, moduleName);
 	if (design) {
@@ -1755,6 +1774,7 @@ export function applyFormDesignerOp(
 	moduleName: string,
 	op: FormDesignerOp,
 ): WriteResult & { newName?: string } {
+	assertProjectAccess(filePath);
 	const design = accessDesignFor(filePath, moduleName);
 	if (design) {
 		return applyAccessDesignerOp(filePath, design.entry.name, op);
@@ -1873,6 +1893,7 @@ export function readFormDesignerSnapshot(
 	filePath: string,
 	moduleName: string,
 ): { streams: Record<string, string> } {
+	assertProjectAccess(filePath);
 	const { cfb, project } = requireVbaProject(filePath);
 	const module = project.getModule(moduleName);
 	if (!module) {
@@ -1902,6 +1923,7 @@ export function restoreFormDesignerSnapshot(
 	moduleName: string,
 	streams: Record<string, string>,
 ): WriteResult {
+	assertProjectAccess(filePath);
 	const wb = openContainerForWrite(filePath);
 	const signatureDropped = detectSignature(wb.cfb).present;
 	const module = wb.project.getModule(moduleName);
@@ -1944,6 +1966,7 @@ export function addFormModule(
 	body = '',
 	kind: 'form' | 'report' = 'form',
 ): WriteResult & { moduleName: string } {
+	assertProjectAccess(filePath);
 	// An Access database keeps its forms and reports as database objects, so a
 	// new one is a design rather than a module with a designer storage. The
 	// tree lists it as the module Access binds its code to, which is the name
@@ -2014,6 +2037,7 @@ function readDesignerStorage(
 }
 
 export function listSubs(filePath: string, moduleName: string): ProcedureEntry[] {
+	assertProjectAccess(filePath);
 	if (isVb6ProjectPath(filePath)) {
 		return listVb6Procedures(filePath, moduleName);
 	}
@@ -2026,7 +2050,7 @@ export function getProtectionInfo(filePath: string): ProtectionInfo {
 		// Files on disk: nothing to lock and nothing to sign.
 		return { isPasswordProtected: false, isSigned: false };
 	}
-	const open = openContainerIfAnyVba(filePath);
+	const open = openContainerIfAnyVba(filePath, true);
 	// No project is nothing to lock and nothing to sign either.
 	if (!open) {
 		return { isPasswordProtected: false, isSigned: false };
@@ -2035,6 +2059,7 @@ export function getProtectionInfo(filePath: string): ProtectionInfo {
 }
 
 export function getModulesAndProtectionInfo(filePath: string): ProtectionInfo & { modules: ModuleEntry[] } {
+	assertProjectAccess(filePath);
 	if (isVb6ProjectPath(filePath)) {
 		return { modules: listModules(filePath), isPasswordProtected: false, isSigned: false };
 	}
@@ -2050,6 +2075,7 @@ export function getModulesAndProtectionInfo(filePath: string): ProtectionInfo & 
 }
 
 export function listSheets(filePath: string): { sheets: SheetSummary[] } {
+	assertProjectAccess(filePath);
 	return { sheets: sheetSurface(filePath).sheetSummaries() };
 }
 
@@ -2061,6 +2087,7 @@ export function listSheets(filePath: string): { sheets: SheetSummary[] } {
  * answers too.
  */
 export function listWorkbookSheets(filePath: string): { sheets: WorkbookSheet[] } {
+	assertProjectAccess(filePath);
 	if (isVb6ProjectPath(filePath)) {
 		throw new Error(`${path.basename(filePath)} is a VB6 project; it has no sheets.`);
 	}
@@ -2084,6 +2111,7 @@ export function getProjectInfo(filePath: string): {
 	isPasswordProtected: boolean;
 	isSigned: boolean;
 } {
+	assertProjectAccess(filePath);
 	if (isVb6ProjectPath(filePath)) {
 		return { sheets: [], namedRanges: [], modules: listModules(filePath), isPasswordProtected: false, isSigned: false };
 	}
@@ -2107,10 +2135,12 @@ export function getProjectInfo(filePath: string): {
 }
 
 export function readCells(filePath: string, sheet: string, range: string): { data: CellValue[][] } {
+	assertProjectAccess(filePath);
 	return { data: sheetSurface(filePath).readCells(sheet, range, true) };
 }
 
 export function readFormulas(filePath: string, sheet: string, range: string): { data: CellValue[][] } {
+	assertProjectAccess(filePath);
 	return { data: sheetSurface(filePath).readCells(sheet, range, false) };
 }
 
@@ -2128,6 +2158,7 @@ export function validateProject(filePath: string): { issues: string[] } {
 	try {
 		wb = openContainerIfAnyVba(filePath);
 	} catch (err) {
+		if (err instanceof VbaProjectLockedError) { throw err; }
 		return { issues: [`VBA project could not be parsed: ${err instanceof Error ? err.message : String(err)}`] };
 	}
 	// Nothing to check and nothing wrong: a file with no VBA in it has no
@@ -2239,6 +2270,7 @@ export function writeModule(
 	source: string,
 	kind: 'standard' | 'class' = 'standard',
 ): WriteResult {
+	assertProjectAccess(filePath);
 	if (isVb6ProjectPath(filePath)) {
 		writeVb6Module(filePath, moduleName, source);
 		return { ok: true, signatureDropped: false };
@@ -2303,6 +2335,7 @@ export function renameModule(
 	moduleName: string,
 	newName: string,
 ): WriteResult & { moduleName: string } {
+	assertProjectAccess(filePath);
 	if (isVb6ProjectPath(filePath)) {
 		throw new Error(`Renaming a module of a VB6 project is not supported yet; rename ${moduleName} in the .vbp and its file.`);
 	}
@@ -2369,6 +2402,7 @@ function renameDesignerStorage(cfb: Cfb, designer: readonly string[], newName: s
 }
 
 export function deleteModule(filePath: string, moduleName: string): WriteResult {
+	assertProjectAccess(filePath);
 	if (isVb6ProjectPath(filePath)) {
 		throw new Error(`Deleting a module of a VB6 project is not supported yet; remove ${moduleName} from the .vbp and delete its file.`);
 	}
@@ -2449,6 +2483,7 @@ export function writeCells(
 	startCell: string,
 	data: CellValue[][],
 ): { ok: true } {
+	assertProjectAccess(filePath);
 	const xlsx = writableSheetSurface(filePath, 'cell writes');
 	xlsx.writeCells(sheet, startCell, data);
 	atomicContainerWrite(filePath, xlsx.toBytes());
@@ -2470,6 +2505,7 @@ export interface ShapeSurface {
  * body, a header, a footer - since that is what each host puts shapes on.
  */
 export function listShapes(filePath: string, surface?: string): { surfaces: ShapeSurface[] } {
+	assertProjectAccess(filePath);
 	const container = openMacroContainer(hostPlatform().readFile(filePath));
 	const drawing = shapeSurfaces(container, filePath, 'listing shapes');
 	if (drawing.host === 'excel') {
@@ -2497,6 +2533,7 @@ export function listShapes(filePath: string, surface?: string): { surfaces: Shap
  * finds a missing one only when someone clicks the shape.
  */
 export function editShape(filePath: string, surface: string, edit: ShapeEdit): { ok: true; name: string } {
+	assertProjectAccess(filePath);
 	const container = openMacroContainer(hostPlatform().readFile(filePath));
 	const drawing = shapeSurfaces(container, filePath, 'shape edits');
 	if (drawing.host === 'word' && edit.macro !== undefined) {
@@ -2580,6 +2617,7 @@ export interface ShapeMacro {
  * shape runs no macro, so a Word file lists none.
  */
 export function shapeMacros(filePath: string): { macros: ShapeMacro[] } {
+	assertProjectAccess(filePath);
 	const container = openMacroContainer(hostPlatform().readFile(filePath));
 	const drawing = shapeSurfaces(container, filePath, 'shape macros');
 	if (drawing.host === 'word') { return { macros: [] }; }
@@ -2671,6 +2709,7 @@ function checkedMacro(filePath: string, macro: string, host: 'excel' | 'word' | 
  * natively, and the agent tool refuses existing paths outright.
  */
 export function createProject(filePath: string, templatePath: string): { ok: true; path: string } {
+	if (hostPlatform().exists(filePath)) { assertProjectAccess(filePath); }
 	const template = hostPlatform().readFile(templatePath);
 	atomicContainerWrite(filePath, template);
 	return { ok: true, path: filePath };
@@ -2683,6 +2722,7 @@ export function createProject(filePath: string, templatePath: string): { ok: tru
  * inside records XLIDE does not write, and an Access database always has one.
  */
 export function addVbaProject(filePath: string, templatePath: string): { ok: true; modules: string[] } {
+	assertProjectAccess(filePath);
 	const data = hostPlatform().readFile(filePath);
 	if (!data.subarray(0, 2).equals(Buffer.from('PK', 'latin1'))) {
 		throw new Error(
@@ -2694,4 +2734,22 @@ export function addVbaProject(filePath: string, templatePath: string): { ok: tru
 	const added = addVbaProjectToPackage(data, extension, hostPlatform().readFile(templatePath));
 	atomicContainerWrite(filePath, added.bytes);
 	return { ok: true, modules: added.modules };
+}
+
+/** Checks access without returning any project contents. */
+export function assertProjectAccess(filePath: string): void {
+	if (isVb6ProjectPath(filePath)) { return; }
+	const open = openContainerIfAnyVba(filePath, true);
+	if (open) { assertVbaProjectAccess(filePath, open.project.protection); }
+}
+
+export function isProjectAccessLocked(filePath: string): boolean {
+	try { assertProjectAccess(filePath); return false; }
+	catch (err) { if (err instanceof VbaProjectLockedError) { return true; } throw err; }
+}
+
+export function unlockProject(filePath: string, password: string): boolean {
+	if (isVb6ProjectPath(filePath)) { return true; }
+	const open = openContainerIfAnyVba(filePath, true);
+	return !open || authorizeVbaProject(filePath, open.project.protection, password);
 }

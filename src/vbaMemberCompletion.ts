@@ -48,6 +48,9 @@ export function registerVbaMemberCompletion(
 
 	context.subscriptions.push(
 		vscode.languages.registerColorProvider(selector, new VbaColorProvider()),
+		provider,
+		projectContext,
+		canonicalCase,
 		vscode.commands.registerCommand(
 			KEYWORD_SNIPPET_ACCEPTED_COMMAND,
 			() => keywordSnippets.handleSnippetAccepted(),
@@ -56,6 +59,7 @@ export function registerVbaMemberCompletion(
 			selector,
 			provider,
 			'.',
+			'=',
 			' ',
 			'#',
 			'"',

@@ -12,6 +12,8 @@ import {
 } from '../analyzer';
 import { registerXlideCommand } from '../xlideCommandRegistration';
 import { moduleLocationOfDocument } from '../vbaDocumentLocation';
+import { moduleKindFromType } from '../vbaProjectAnalysis';
+import type { ModuleSymbolKind } from '../analyzer/symbols/symbolModel';
 import { isVbaDocument } from '../xlideFileSystem';
 import { workspaceEditFor } from '../vbaWorkspaceEdit';
 import { statusMessage, type CommandDeps } from './shared';
@@ -57,12 +59,14 @@ export function registerRefactorCommands(deps: CommandDeps): vscode.Disposable[]
                 offset: caretOffset(editor),
                 moduleName: project.moduleName,
                 otherModuleSources: project.sources,
+                moduleKinds: project.moduleKinds,
             }),
         )),
         registerXlideCommand('xlide.refactor.moveToModule', () => runProjectWide(
             deps,
             async (source, editor, project) => {
-                const target = await pickModule(Object.keys(project.sources), project.moduleName);
+                const targets = Object.keys(project.sources).filter(name => project.moduleKinds[name] === 'standard');
+                const target = await pickModule(targets, project.moduleName);
                 if (!target) {
                     return undefined;
                 }
@@ -72,6 +76,7 @@ export function registerRefactorCommands(deps: CommandDeps): vscode.Disposable[]
                     moduleName: project.moduleName,
                     targetModuleName: target,
                     otherModuleSources: project.sources,
+                    moduleKinds: project.moduleKinds,
                 });
             },
         )),
@@ -91,6 +96,7 @@ interface ProjectText {
     moduleName: string;
     /** Every OTHER module in the project, keyed by name. */
     sources: Record<string, string>;
+    moduleKinds: Record<string, ModuleSymbolKind>;
 }
 
 /** A refactoring that reads or writes other modules of the same project. */
@@ -111,11 +117,13 @@ async function runProjectWide(
     }
 
     const sources: Record<string, string> = {};
+    const moduleKinds: Record<string, ModuleSymbolKind> = {};
     try {
-        const modules = await deps.bridge.call<Array<{ name: string }>>(
+        const modules = await deps.bridge.call<Array<{ name: string; type?: string }>>(
             'listModules', { path: location.projectPath },
         );
         for (const module of modules) {
+            moduleKinds[module.name] = moduleKindFromType(module.type);
             if (module.name.toLowerCase() === location.moduleName.toLowerCase()) { continue; }
             const read = await deps.bridge.call<{ source: string }>(
                 'readModule', { path: location.projectPath, module: module.name },
@@ -132,7 +140,7 @@ async function runProjectWide(
     const result = await compute(
         editor.document.getText(),
         editor,
-        { moduleName: location.moduleName, sources },
+        { moduleName: location.moduleName, sources, moduleKinds },
     );
     if (!result) { return; }
     await applyResult(editor, result, deps, location.projectPath);
@@ -236,7 +244,7 @@ async function pickInterface(source: string): Promise<{ interfaceName: string } 
 async function pickModule(names: string[], exclude: string): Promise<string | undefined> {
     const choices = names.filter((name) => name.toLowerCase() !== exclude.toLowerCase()).sort();
     if (choices.length === 0) {
-        vscode.window.showInformationMessage('XLIDE: the project has no other module to move this to.');
+        vscode.window.showInformationMessage('XLIDE: the project has no other standard module to move this to.');
         return undefined;
     }
     return vscode.window.showQuickPick(choices, { title: 'Move the procedure to which module?' });

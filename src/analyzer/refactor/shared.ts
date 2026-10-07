@@ -1,6 +1,9 @@
+import { tokenize } from '../lexer/tokenize';
+import type { Trivia } from '../lexer/tokenKinds';
+import type { VbaTextEdit } from './refactorTypes';
 import type { BodyNode, ModuleNode, ProcedureNode, Span, VariableGroupNode } from '../parser/nodes';
 import { classifyReferenceKinds } from '../references/referenceKinds';
-import { findIdentifierOccurrences, type VbaIdentifierOccurrence } from '../../vbaSourceScan';
+import { findIdentifierOccurrences, lineStartAtAnyBreak, lineEndAtOrAfter, wholeLineSpan, type VbaIdentifierOccurrence } from '../../vbaSourceScan';
 import { IDENT_RE } from '../lexer/tokenHelpers';
 
 /**
@@ -21,8 +24,16 @@ export function procedureContainingSpan(module: ModuleNode, span: Span): Procedu
 
 /** The identifier the caret is inside, if any. */
 export function nameAt(source: string, offset: number): string | undefined {
-	const before = /[\p{L}_][\p{L}\p{M}\p{N}_]*$/u.exec(source.slice(0, offset));
-	const after = /^[\p{L}\p{M}\p{N}_]*/u.exec(source.slice(offset));
+	// Identifiers cannot cross a physical line break. Bound both regex inputs
+	// to this line rather than scanning every earlier identifier in a large
+	// class whenever typing triggers code actions.
+	// Normalize exactly as String.slice does, including negative offsets.
+	const integerOffset = Math.trunc(offset) || 0;
+	const caret = integerOffset < 0 ? Math.max(0, source.length + integerOffset) : Math.min(source.length, integerOffset);
+	const start = lineStartAtAnyBreak(source, caret);
+	const end = lineEndAtOrAfter(source, caret);
+	const before = /[\p{L}_][\p{L}\p{M}\p{N}_]*$/u.exec(source.slice(start, caret));
+	const after = /^[\p{L}\p{M}\p{N}_]*/u.exec(source.slice(caret, end));
 	const name = `${before?.[0] ?? ''}${after?.[0] ?? ''}`;
 	return IDENT_RE.test(name) ? name : undefined;
 }
@@ -84,8 +95,7 @@ export function localUsesIn(
 	declarationSpan: Span,
 	name: string,
 ): { uses: VbaIdentifierOccurrence[]; writes: VbaIdentifierOccurrence[] } {
-	const occurrences = findIdentifierOccurrences(source, name)
-		.filter((occ) => occ.offset >= procedure.span.start && occ.offset <= procedure.span.end);
+	const occurrences = findIdentifierOccurrences(source, name, procedure.span);
 	const kinds = classifyReferenceKinds(source, occurrences.map((occ) => occ.offset));
 	const uses = occurrences.filter(
 		(occ) => occ.offset < declarationSpan.start || occ.offset > declarationSpan.end,
@@ -114,7 +124,26 @@ export function assignmentAt(
 
 /** The right-hand side of `name = value` (or `Set name = value`). */
 export function assignedValue(source: string, span: Span, name: string): string | undefined {
-	const text = source.slice(span.start, span.end);
+	const code = statementCodeSpan(source, span);
+	let text = source.slice(code.start, code.end);
+	if (/[\r\n]/.test(text)) {
+		// Fold only lexer-recognized continuation trivia. String/date contents
+		// and ordinary logical line breaks must retain their original meaning.
+		const parts: string[] = [];
+		let cursor = 0;
+		const fold = (trivia: readonly Trivia[] | undefined): void => {
+			if (!trivia) { return; }
+			for (const part of trivia) {
+				if (part.kind !== 'lineContinuation') { continue; }
+				parts.push(text.slice(cursor, part.start), ' ');
+				cursor = part.end;
+			}
+		};
+		for (const token of tokenize(text)) {
+			fold(token.leadingTrivia); fold(token.trailingTrivia);
+		}
+		if (cursor > 0) { parts.push(text.slice(cursor)); text = parts.join(''); }
+	}
 	const match = new RegExp(`^\\s*(?:Set\\s+)?${escapeForRegExp(name)}\\s*=\\s*(.+?)\\s*$`, 'i')
 		.exec(text);
 	return match ? match[1] : undefined;
@@ -132,4 +161,40 @@ export function lookupModuleSource(
 
 export function escapeForRegExp(text: string): string {
 	return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Parser statement spans can include a trailing comment; it is not code. */
+function statementCodeSpan(source: string, span: Span): Span {
+	const text = source.slice(span.start, span.end);
+	if (!text.includes("'") && !/\brem\b/i.test(text)) { return span; }
+	const tokens = tokenize(text);
+	const comment = tokens.findIndex((token) => token.kind === 'comment');
+	return comment < 0 ? span : { start: span.start, end: span.start + (tokens[comment - 1]?.end ?? 0) };
+}
+
+/** Remove a statement without deleting its neighbors, label or trailing comment. */
+export function statementRemovalSpan(source: string, span: Span): Span {
+	span = statementCodeSpan(source, span);
+	const start = lineStartAtAnyBreak(source, span.start);
+	const end = lineEndAtOrAfter(source, span.end);
+	const before = source.slice(start, span.start), after = source.slice(span.end, end);
+	if (!before.trim() && !after.trim()) { return wholeLineSpan(source, span); }
+	const followingColon = /^[ \t]*:/.exec(after);
+	if (followingColon) { return { start: span.start, end: span.end + followingColon[0].length }; }
+	const precedingColon = /:[ \t]*$/.exec(before);
+	const label = /^[ \t]*(?:\d+[ \t]+)?(?:\d+|[\p{L}_][\p{L}\p{M}\p{N}_]*)[ \t]*:[ \t]*$/u.test(before);
+	if (precedingColon && !label) { return { start: start + precedingColon.index, end: span.end }; }
+	return { ...span };
+}
+
+/** Adjacent deleted statements can share a separator; union their removals. */
+export function mergeRemovals(edits: readonly VbaTextEdit[]): VbaTextEdit[] {
+	const out = edits.filter((edit) => edit.newText !== '');
+	const removals = edits.filter((edit) => edit.newText === '').sort((a, b) => a.span.start - b.span.start);
+	let previous: Span | undefined;
+	for (const { span } of removals) {
+		if (previous && span.start <= previous.end) { previous.end = Math.max(previous.end, span.end); }
+		else { previous = { ...span }; out.push({ span: previous, newText: '' }); }
+	}
+	return out;
 }

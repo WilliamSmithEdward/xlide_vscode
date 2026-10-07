@@ -16,6 +16,7 @@
 // Pure analyzer code: no `vscode` dependency.
 
 import { tokenizeCached } from '../lexer/tokenize';
+import { firstTokenEndingAtOrAfter } from '../lexer/tokenHelpers';
 import type { VbaToken } from '../lexer/tokenKinds';
 import type { Span } from '../parser/nodes';
 import type { VbaProcedureSignature } from '../symbols/symbolModel';
@@ -57,17 +58,9 @@ function previous(tokens: readonly VbaToken[], i: number): VbaToken | undefined 
  */
 export function macroNameStringAt(source: string, offset: number, ctx: SignatureHelpContext = {}): MacroNameString | undefined {
 	const tokens = tokenizeCached(source);
-	// Tokens are ordered and do not overlap. Locate the first token whose
-	// end reaches the caret instead of scanning the full module per request.
-	let lo = 0;
-	let hi = tokens.length;
-	while (lo < hi) {
-		const mid = (lo + hi) >> 1;
-		if (tokens[mid].end < offset) { lo = mid + 1; } else { hi = mid; }
-	}
-	const index = lo;
+	const index = firstTokenEndingAtOrAfter(tokens, offset);
 	const token = tokens[index];
-	if (!token || token.kind !== 'stringLiteral' || offset <= token.start || offset > token.end) {
+	if (!token || token.kind !== 'stringLiteral' || !(offset > token.start && offset <= token.end)) {
 		return undefined;
 	}
 	// Empty strings and strings ending in an escaped quote still have a closing delimiter.
@@ -90,6 +83,29 @@ export function macroNameStringAt(source: string, offset: number, ctx: Signature
 	const label = help?.parameters[help.activeParameter]?.label;
 	const name = label ? parameterName(label) : undefined;
 	return name && MACRO_PARAMETER.test(name) ? { text, contentSpan } : undefined;
+}
+
+/** Reject definite non-macro string positions before building editor project facts.
+ * Positional call arguments remain possible until their signature is known.
+ * Hovers may include the closing delimiter; completion requests may not. */
+export function macroNameStringMayResolveAt(source: string, offset: number, includeClosingQuote = false): boolean {
+	const tokens = tokenizeCached(source);
+	const index = firstTokenEndingAtOrAfter(tokens, offset);
+	const token = tokens[index];
+	if (!token || token.kind !== 'stringLiteral' || offset <= token.start || offset > token.end) {
+		return false;
+	}
+	const closed = /^"(?:[^"]|"")*"$/.test(token.rawText);
+	if (closed && !includeClosingQuote && offset > token.end - 1) { return false; }
+	const before = previous(tokens, index)?.rawText.toLowerCase();
+	if (before === '=') {
+		return previous(tokens, index - 1)?.rawText.toLowerCase() === 'onaction';
+	}
+	if (before === ':=') {
+		const parameter = previous(tokens, index - 1);
+		return !!parameter && MACRO_PARAMETER.test(parameter.rawText);
+	}
+	return true;
 }
 
 /** The project procedures a macro-name string can name, `Module.Proc`, Declares and class modules left out. */
@@ -127,7 +143,35 @@ export function macroNameTarget(text: string, ctx: SignatureHelpContext): VbaPro
 	const dot = trimmed.lastIndexOf('.');
 	const moduleName = dot > 0 ? trimmed.slice(0, dot).toLowerCase() : undefined;
 	const name = (dot > 0 ? trimmed.slice(dot + 1) : trimmed).toLowerCase();
-	const matches = macroNameCandidates(ctx).filter((candidate) => candidate.procedure.name.toLowerCase() === name
-		&& (moduleName === undefined || candidate.procedure.moduleName.toLowerCase() === moduleName));
-	return matches.length === 1 ? matches[0].procedure : undefined;
+	// Target lookup needs one procedure, not the complete completion rows.
+	// A qualified name has one deduplication key, so its first entry decides.
+	const qualifiedKey = moduleName === undefined ? undefined : `${moduleName}.${name}`;
+	const seen = qualifiedKey === undefined ? new Set<string>() : undefined;
+	let target: VbaProcedureSignature | undefined;
+	for (const procedure of ctx.macroProcedures ?? ctx.projectProcedures ?? []) {
+		if (procedure.external) {
+			continue;
+		}
+		const procedureName = procedure.name;
+		const key = `${procedure.moduleName}.${procedureName}`.toLowerCase();
+		if (qualifiedKey !== undefined) {
+			if (key !== qualifiedKey) {
+				continue;
+			}
+			return procedureName.toLowerCase() === name && procedure.moduleName.toLowerCase() === moduleName
+				? procedure : undefined;
+		}
+		if (seen!.has(key)) {
+			continue;
+		}
+		seen!.add(key);
+		if (procedureName.toLowerCase() !== name) {
+			continue;
+		}
+		if (target) {
+			return undefined;
+		}
+		target = procedure;
+	}
+	return target;
 }

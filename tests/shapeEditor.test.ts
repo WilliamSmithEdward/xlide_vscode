@@ -83,8 +83,8 @@ const shapesOn = (surface: string): ShapeInfo[] => listShapes(deck, surface).sur
 const shape = (surface: string, name: string) => shapesOn(surface).find((s) => s.name === name);
 
 /** The model the page was drawn from, as its script holds it. */
-function pageModel(): ShapeEditorModel {
-    const json = /const model = (\{.*\});/.exec(panel.webview.html)?.[1];
+function pageModel(targetPanel: FakePanel = panel): ShapeEditorModel {
+    const json = /const model = (\{.*\});/.exec(targetPanel.webview.html)?.[1];
     expect(json, 'the page carries its model').toBeDefined();
     return JSON.parse(json!) as ShapeEditorModel;
 }
@@ -95,6 +95,162 @@ async function openOn(name: string): Promise<ShapeFormValues> {
 }
 
 describe('the shape editor tab', () => {
+    it.each(['existing', 'new'] as const)('coalesces concurrent requests for the %s shape editor', async mode => {
+        let release!: () => void;
+        const ready = new Promise<void>(yes => { release = yes; });
+        const current = shape('Slide 1', 'Badge')!;
+        const call = vi.fn(async (method: string) => {
+            await ready;
+            return method === 'listShapes' ? { surfaces: [{ surface: 'Slide 1', shapes: [current] }] } : { macros: [] };
+        });
+        deps.bridge = { call } as unknown as ProjectEngine;
+        const target = { host: 'powerpoint' as const, surface: 'Slide 1', ...(mode === 'existing' ? { shape: current } : {}) };
+        const first = openShapeEditor(deps, context, deck, target);
+        const second = openShapeEditor(deps, context, deck, { ...target, surface: 'SLIDE 1' });
+        release();
+        await Promise.all([first, second]);
+        expect(vscode.window.createWebviewPanel).toHaveBeenCalledTimes(1);
+        expect(call.mock.calls.filter(([method]) => method === 'listShapes')).toHaveLength(mode === 'existing' ? 1 : 0);
+        expect(call.mock.calls.filter(([method]) => method === 'shapeMacros')).toHaveLength(1);
+        expect(panel.reveal).toHaveBeenCalledTimes(1);
+    });
+
+    it('lets a failed opening be retried after concurrent callers share the failure', async () => {
+        const call = vi.fn().mockRejectedValue(new Error('Read failed'));
+        deps.bridge = { call } as unknown as ProjectEngine;
+        const target = { host: 'powerpoint' as const, surface: 'Slide 1', shape: shape('Slide 1', 'Badge')! };
+        const attempts = await Promise.allSettled([
+            openShapeEditor(deps, context, deck, target),
+            openShapeEditor(deps, context, deck, target),
+        ]);
+        expect(attempts.map(result => result.status)).toEqual(['rejected', 'rejected']);
+        expect(call).toHaveBeenCalledTimes(1);
+        call.mockImplementation(async (method: string) => method === 'listShapes'
+            ? { surfaces: [{ surface: 'Slide 1', shapes: [target.shape] }] } : { macros: [] });
+        await openShapeEditor(deps, context, deck, target);
+        expect(vscode.window.createWebviewPanel).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not block a different surface behind an opening editor', async () => {
+        let release!: () => void;
+        const ready = new Promise<void>(yes => { release = yes; });
+        deps.bridge = { call: async (method: string, args: { surface?: string }) => {
+            if (method === 'listShapes') {
+                await ready;
+                return { surfaces: [{ surface: args.surface, shapes: [shape('Slide 1', 'Badge')!] }] };
+            }
+            return { macros: [] };
+        } } as unknown as ProjectEngine;
+        const other = fakePanel();
+        vi.mocked(vscode.window.createWebviewPanel)
+            .mockReturnValueOnce(other as unknown as vscode.WebviewPanel)
+            .mockReturnValue(panel as unknown as vscode.WebviewPanel);
+        const first = openShapeEditor(deps, context, deck, { host: 'powerpoint', surface: 'Slide 1', shape: shape('Slide 1', 'Badge')! });
+        try {
+            await openShapeEditor(deps, context, deck, { host: 'powerpoint', surface: 'Slide 2' });
+            expect(vscode.window.createWebviewPanel).toHaveBeenCalledTimes(1);
+        } finally { release(); await first; other.dispose(); }
+        expect(vscode.window.createWebviewPanel).toHaveBeenCalledTimes(2);
+    });
+
+    it('releases an opening that finds the shape missing', async () => {
+        const call = vi.fn(async (method: string) => method === 'listShapes' ? { surfaces: [] } : { macros: [] });
+        deps.bridge = { call } as unknown as ProjectEngine;
+        const target = { host: 'powerpoint' as const, surface: 'Slide 1', shape: shape('Slide 1', 'Badge')! };
+        await Promise.all([openShapeEditor(deps, context, deck, target), openShapeEditor(deps, context, deck, target)]);
+        expect(vscode.window.showWarningMessage).toHaveBeenCalledTimes(1);
+        expect(vscode.window.createWebviewPanel).not.toHaveBeenCalled();
+        call.mockImplementation(async (method: string) => method === 'listShapes'
+            ? { surfaces: [{ surface: 'Slide 1', shapes: [target.shape] }] } : { macros: [] });
+        await openShapeEditor(deps, context, deck, target);
+        expect(vscode.window.createWebviewPanel).toHaveBeenCalledTimes(1);
+    });
+
+    it.each(['existing', 'new'] as const)('keeps Add Shape separate from a shape named + when opening %s first', async first => {
+        editShape(deck, 'Slide 1', { action: 'update', name: 'Badge', newName: '+' });
+        const existing = { host: 'powerpoint' as const, surface: 'Slide 1', shape: shape('Slide 1', '+')! };
+        const adding = { host: 'powerpoint' as const, surface: 'Slide 1' };
+        await openShapeEditor(deps, context, deck, first === 'existing' ? existing : adding);
+        const firstPanel = panel;
+        panel = fakePanel();
+        vi.mocked(vscode.window.createWebviewPanel).mockReturnValue(panel as unknown as vscode.WebviewPanel);
+        try {
+            await openShapeEditor(deps, context, deck, first === 'existing' ? adding : existing);
+            expect(vscode.window.createWebviewPanel).toHaveBeenCalledTimes(2);
+            expect(pageModel().mode).toBe(first === 'existing' ? 'add' : 'edit');
+            if (first === 'new') { expect(pageModel().shape?.name).toBe('+'); }
+        } finally { firstPanel.dispose(); }
+    });
+
+    it('accepts only one save while a shape write is pending', async () => {
+        const values = await openOn('Badge');
+        let release!: () => void;
+        const ready = new Promise<void>(yes => { release = yes; });
+        const engine = deps.bridge;
+        const call = vi.fn(async (method: string, args: Record<string, unknown>) => {
+            await ready;
+            return engine.call(method, args);
+        });
+        deps.bridge = { call } as unknown as ProjectEngine;
+        const first = panel.send({ type: 'save', values: { ...values, text: 'First submission' } });
+        const second = panel.send({ type: 'save', values: { ...values, text: 'Second submission' } });
+        release();
+        await Promise.all([first, second]);
+        expect(call).toHaveBeenCalledTimes(1);
+        expect(shape('Slide 1', 'Badge')?.text).toBe('First submission');
+    });
+
+    it('blocks repeated delete and save requests while deletion is awaiting confirmation', async () => {
+        const values = await openOn('Caption');
+        let release!: (value: never) => void;
+        const confirmation = new Promise<never>(yes => { release = yes; });
+        vi.mocked(vscode.window.showWarningMessage).mockReturnValue(confirmation);
+        const deleting = panel.send({ type: 'delete' });
+        const duplicate = panel.send({ type: 'delete' });
+        const saving = panel.send({ type: 'save', values: { ...values, text: 'Unexpected edit' } });
+        release('Delete' as never);
+        await Promise.all([deleting, duplicate, saving]);
+        expect(vscode.window.showWarningMessage).toHaveBeenCalledTimes(1);
+        expect(deps.explorer.refreshShapes).toHaveBeenCalledTimes(1);
+        expect(panel.webview.postMessage).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }));
+    });
+
+    it('does not delete after its editor closes while confirmation is pending', async () => {
+        await openOn('Caption');
+        let release!: (value: never) => void;
+        vi.mocked(vscode.window.showWarningMessage).mockReturnValue(new Promise<never>(yes => { release = yes; }));
+        const deleting = panel.send({ type: 'delete' });
+        panel.dispose();
+        release('Delete' as never);
+        await deleting;
+        expect(shape('Slide 1', 'Caption')).toBeDefined();
+        expect(deps.explorer.refreshShapes).not.toHaveBeenCalled();
+    });
+
+    it.each(['invalid', 'failed'] as const)('allows a corrected save after an %s submission', async outcome => {
+        const values = await openOn('Badge');
+        if (outcome === 'failed') {
+            const engine = deps.bridge;
+            const call = vi.fn().mockRejectedValueOnce(new Error('Write failed'))
+                .mockImplementation((method: string, args: Record<string, unknown>) => engine.call(method, args));
+            deps.bridge = { call } as unknown as ProjectEngine;
+        }
+        await panel.send({ type: 'save', values: { ...values, text: 'Retry me', ...(outcome === 'invalid' ? { width: '-5' } : {}) } });
+        expect(panel.dispose).not.toHaveBeenCalled();
+        await panel.send({ type: 'save', values: { ...values, text: 'Corrected submission' } });
+        expect(shape('Slide 1', 'Badge')?.text).toBe('Corrected submission');
+        expect(panel.dispose).toHaveBeenCalledTimes(1);
+    });
+
+    it('ignores queued write messages after its editor has closed', async () => {
+        const values = await openOn('Badge');
+        const original = shape('Slide 1', 'Badge')?.text;
+        panel.dispose();
+        await panel.send({ type: 'save', values: { ...values, text: 'Queued after close' } });
+        expect(shape('Slide 1', 'Badge')?.text).toBe(original);
+        expect(deps.explorer.refreshShapes).not.toHaveBeenCalled();
+    });
+
     it('opens on what the file holds now, not on the tree\'s older listing', async () => {
         const listedEarlier = shape('Slide 1', 'ClickMe')!;
         editShape(deck, 'Slide 1', { action: 'update', name: 'ClickMe', text: 'Changed outside' });
@@ -177,9 +333,72 @@ describe('the shape editor tab', () => {
         expect(panel.reveal).toHaveBeenCalled();
     });
 
+    it('can reopen a shape after its shared editor is closed', async () => {
+        await Promise.all([openOn('Badge'), openOn('Badge')]);
+        panel.dispose();
+        panel = fakePanel();
+        vi.mocked(vscode.window.createWebviewPanel).mockReturnValue(panel as unknown as vscode.WebviewPanel);
+        await openOn('Badge');
+        expect(vscode.window.createWebviewPanel).toHaveBeenCalledTimes(2);
+        expect(pageModel().shape?.name).toBe('Badge');
+    });
+
     it('opens the Sub the form names', async () => {
         await openOn('ClickMe');
         await panel.send({ type: 'goToMacro', macro: 'Macros.SayHello' });
         expect(deps.goToMacro).toHaveBeenCalledWith(deck, 'Macros.SayHello');
     });
+});
+
+describe('shape editor target identity', () => {
+    it.each(['sequential', 'concurrent'] as const)('keeps same-named shape paths separate for %s requests', async mode => {
+        const top = { name: 'Shared', kind: 'shape' as const, text: 'Top level' };
+        const left = { ...top, text: 'Left group' }, right = { ...top, text: 'Right group' };
+        const call = vi.fn(async (method: string) => method === 'listShapes' ? { surfaces: [{ surface: 'Slide 1', shapes: [
+            top, { name: 'Left', kind: 'group', shapes: [left] }, { name: 'Right', kind: 'group', shapes: [right] },
+        ] }] } : { macros: [] });
+        deps.bridge = { call } as unknown as ProjectEngine;
+        const panels: FakePanel[] = [];
+        vi.mocked(vscode.window.createWebviewPanel).mockImplementation(() => {
+            const created = fakePanel();
+            panels.push(created);
+            return created as unknown as vscode.WebviewPanel;
+        });
+        const targets = [
+            { host: 'powerpoint' as const, surface: 'Slide 1', shape: top },
+            { host: 'powerpoint' as const, surface: 'Slide 1', shape: left, shapePath: ['Left', 'Shared'], inGroup: true },
+            { host: 'powerpoint' as const, surface: 'Slide 1', shape: right, shapePath: ['Right', 'Shared'], inGroup: true },
+        ];
+        try {
+            if (mode === 'concurrent') { await Promise.all(targets.map(target => openShapeEditor(deps, context, deck, target))); }
+            else { for (const target of targets) { await openShapeEditor(deps, context, deck, target); } }
+            expect(panels).toHaveLength(3);
+            expect(panels.map(created => pageModel(created).values.text).sort()).toEqual(['Left group', 'Right group', 'Top level']);
+            const reads = call.mock.calls.length;
+            for (const target of targets) {
+                await openShapeEditor(deps, context, deck, { ...target,
+                    shapePath: (target.shapePath ?? [target.shape.name]).map(name => name.toUpperCase()),
+                });
+            }
+            expect(panels).toHaveLength(3);
+            expect(call).toHaveBeenCalledTimes(reads);
+        } finally { for (const created of panels) { created.dispose(); } }
+    });
+
+    it.each(['existing', 'new'] as const)('keeps Add Shape separate from a shape named + when opening %s first', async first => {
+        editShape(deck, 'Slide 1', { action: 'update', name: 'Badge', newName: '+' });
+        const existing = { host: 'powerpoint' as const, surface: 'Slide 1', shape: shape('Slide 1', '+')! };
+        const adding = { host: 'powerpoint' as const, surface: 'Slide 1' };
+        await openShapeEditor(deps, context, deck, first === 'existing' ? existing : adding);
+        const firstPanel = panel;
+        panel = fakePanel();
+        vi.mocked(vscode.window.createWebviewPanel).mockReturnValue(panel as unknown as vscode.WebviewPanel);
+        try {
+            await openShapeEditor(deps, context, deck, first === 'existing' ? adding : existing);
+            expect(vscode.window.createWebviewPanel).toHaveBeenCalledTimes(2);
+            expect(pageModel().mode).toBe(first === 'existing' ? 'add' : 'edit');
+            if (first === 'new') { expect(pageModel().shape?.name).toBe('+'); }
+        } finally { firstPanel.dispose(); }
+    });
+
 });

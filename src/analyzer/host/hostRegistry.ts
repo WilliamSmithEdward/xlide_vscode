@@ -21,9 +21,10 @@ import { getWordObjectModel } from './wordObjectModel';
 import { getPowerPointObjectModel } from './powerpointObjectModel';
 import { getAccessObjectModel } from './accessObjectModel';
 import { getVb6ObjectModel } from './vb6ObjectModel';
+import { getScriptingObjectModel, getRegExpObjectModel } from './scriptingObjectModel';
 
 /**
- * The host tokens xlide_vbide sends with project/open, plus 'vb6': a VB6
+ * Host and reference-library tokens used by project contexts. A VB6
  * project is not an Office host at all, but the analyzer selects an object
  * model by this token, and a VB6 form's code-behind needs the VB runtime's
  * surface (App, Screen, Printer, the intrinsic controls), not Excel's.
@@ -37,7 +38,9 @@ export type VbaHostToken =
 	| 'visio'
 	| 'project'
 	| 'vb6'
-	| 'other';
+	| 'other'
+	| 'scripting'
+	| 'regexp';
 
 /** A model that knows nothing: every lookup misses, so nothing is asserted. */
 export const EMPTY_HOST_MODEL: HostObjectModel = Object.freeze({
@@ -53,14 +56,24 @@ const MODELS_BY_TOKEN = new Map<string, () => HostObjectModel>([
 	['powerpoint', getPowerPointObjectModel],
 	['access', getAccessObjectModel],
 	['vb6', getVb6ObjectModel],
+	['scripting', getScriptingObjectModel],
+	['regexp', getRegExpObjectModel],
 ]);
 
+/** Merged models, keyed by the token list that produced them. */
+const MERGED_BY_KEY = new Map<string, HostObjectModel>();
+
 /**
- * Registers a host's model under its token. Called by each host model module
- * at load; exported so tests can register throwaway models.
+ * Registers or replaces a host's model under its token. Embedders and tests
+ * can supply models; merged snapshots containing this token are invalidated.
  */
 export function registerHostObjectModel(token: VbaHostToken, model: () => HostObjectModel): void {
 	MODELS_BY_TOKEN.set(token, model);
+	for (const key of MERGED_BY_KEY.keys()) {
+		if (key.split('+').includes(token)) {
+			MERGED_BY_KEY.delete(key);
+		}
+	}
 }
 
 /**
@@ -79,9 +92,6 @@ export function hostObjectModelForToken(host: string | undefined): HostObjectMod
 	}
 	return MODELS_BY_TOKEN.get(token)?.() ?? EMPTY_HOST_MODEL;
 }
-
-/** Merged models, keyed by the token list that produced them. */
-const MERGED_BY_KEY = new Map<string, HostObjectModel>();
 
 /**
  * One model answering for a project's own host and every library it
@@ -108,7 +118,13 @@ const MERGED_BY_KEY = new Map<string, HostObjectModel>();
 export function hostObjectModelForTokens(
 	tokens: readonly string[],
 ): HostObjectModel | undefined {
-	const known = tokens.filter((token) => MODELS_BY_TOKEN.has(token));
+	const known: string[] = [];
+	for (const token of tokens) {
+		const normalized = token.trim().toLowerCase();
+		if (MODELS_BY_TOKEN.has(normalized)) {
+			known.push(normalized);
+		}
+	}
 	if (known.length <= 1) {
 		return hostObjectModelForToken(known[0] ?? tokens[0]);
 	}
@@ -129,7 +145,7 @@ export function hostObjectModelForTokens(
 	const labelled = layered.map((model) => (model === models[0]
 		? model.enums ?? {}
 		: Object.fromEntries(Object.entries(model.enums ?? {}).map(
-			([name, entry]) => [name, { ...entry, library: model.hostName }],
+			([name, entry]) => [name, { ...entry, library: entry.library ?? model.hostName }],
 		))));
 	const merged: HostObjectModel = {
 		source: models.map((one) => one.source).join(' + '),

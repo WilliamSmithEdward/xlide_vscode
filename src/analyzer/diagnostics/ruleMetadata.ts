@@ -414,7 +414,7 @@ export const DIAGNOSTIC_RULES = {
 		vbeCompileEquivalent: true,
 		diagnosticKind: 'compile-error',
 		source: 'XLIDE',
-		specReference: "VBE \"Can't assign to array\": a fixed-size array, a scalar into a dynamic array, or an array of another element type (issue #194, Excel 16.0)",
+		specReference: "VBE \"Can't assign to array\": a fixed-size array, a scalar into a dynamic array, an array of another element type, or a whole array passed as a Property Let value (issues #194 and #1260, Excel 16.0)",
 		confidence: 'high',
 	},
 	arrayBoundRequiresArray: {
@@ -471,6 +471,18 @@ export const DIAGNOSTIC_RULES = {
 		diagnosticKind: 'compile-error',
 		source: 'XLIDE',
 		specReference: "VBE oracle: Can't assign to read-only property; Wrong number of arguments or invalid property assignment; Assignment to constant not permitted",
+		confidence: 'high',
+	},
+	hostReadonlyValueAssignment: {
+		code: 'host-readonly-value-assignment',
+		title: 'Assignment to a read-only host value',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: false,
+		diagnosticKind: 'deterministic-runtime-error',
+		source: 'XLIDE',
+		specReference: 'Excel Range scalar-valued read-only properties: Height, Width, Left, Top, Text, CountLarge, HasArray and HasFormula',
+		allowSeverityDowngrade: true,
 		confidence: 'high',
 	},
 	setRequired: {
@@ -2186,7 +2198,7 @@ export const DIAGNOSTIC_RULES = {
 		vbeCompileEquivalent: true,
 		diagnosticKind: 'compile-error',
 		source: 'XLIDE',
-		specReference: 'MS-VBAL 5.3.1.7 property parameters; VBE "Syntax error" (issue #212, Excel 16.0)',
+		specReference: 'MS-VBAL 5.3.1.7 property parameters; VBE "Syntax error" or "Argument not optional", depending on declaration form (issue #212 and native audit controls)',
 		confidence: 'high',
 	},
 	eventParameterForm: {

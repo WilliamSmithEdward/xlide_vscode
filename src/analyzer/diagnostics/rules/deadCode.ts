@@ -48,7 +48,7 @@ import {
 	isInactiveNode,
 	tokenText,
 } from '../walker';
-import { wholeLineSpan } from '../../../vbaSourceScan';
+import { wholeLineSpan, lineStartAtAnyBreak, lineEndAtOrAfter, leadingWhitespace } from '../../../vbaSourceScan';
 import { attachedCommentsStart } from '../../docs/docComment';
 
 interface TrackedDeclaration {
@@ -440,6 +440,44 @@ interface Terminator {
 	text: string;
 }
 
+/** Bound a dead range to its statements, retaining live boundary text and comments. */
+function unreachableRemovalEdit(source: string, dead: Span): { span: Span; newText: string } {
+	const first = lineStartAtAnyBreak(source, dead.start), last = lineEndAtOrAfter(source, dead.end);
+	const before = source.slice(first, dead.start), after = source.slice(dead.end, last);
+	const breakAt = (at: number): string => source[at] === '\r' ? (source[at + 1] === '\n' ? '\r\n' : '\r') : source[at] === '\n' ? '\n' : '';
+	let start = dead.start, end = dead.end;
+	if (!before.trim() && !after.trim()) {
+		start = first; end = last + breakAt(last).length;
+	} else {
+		const following = /^[ \t]*:/.exec(after), preceding = /:[ \t]*$/.exec(before);
+		if (following) { end += following[0].length; }
+		else if (preceding) { start = first + preceding.index; }
+		if (!before.trim()) { start = first; }
+	}
+	let newText = '';
+	const text = source.slice(dead.start, dead.end);
+	if (text.includes("'") || /\brem\b/i.test(text)) {
+		const tokens = tokenizeCached(source);
+		for (let i = firstTokenAtOrAfter(tokens, dead.start); i < tokens.length && tokens[i].start < dead.end; i++) {
+			const token = tokens[i];
+			if (token.kind !== 'comment') { continue; }
+			const lineStart = lineStartAtAnyBreak(source, token.start);
+			const prefix = source.slice(lineStart, token.start);
+			if (!newText && before.trim() && lineStart > first) { newText += breakAt(lineEndAtOrAfter(source, dead.start)); }
+			if (lineStart > first || !before.trim()) {
+				if (prefix.trim()) { newText += leadingWhitespace(prefix); }
+			}
+			newText += (token.leadingTrivia ?? []).filter(trivia => trivia.kind === 'whitespace').map(trivia => trivia.text).join('') + token.rawText;
+			const ending = breakAt(token.end);
+			if (token.end + ending.length <= end) { newText += ending; }
+		}
+	}
+	if (before.trim() && after.trim() && lineStartAtAnyBreak(source, dead.end) > first && !/[\r\n]$/.test(newText)) {
+		newText += breakAt(lineEndAtOrAfter(source, dead.start));
+	}
+	return { span: { start, end }, newText };
+}
+
 /** Statements after an unconditional exit in the same block, until a landing point. */
 export function checkUnreachableCode(
 	source: string,
@@ -471,13 +509,13 @@ export function checkUnreachableCode(
 		let declaresInside = false;
 		const report = (): void => {
 			if (dead && terminator) {
-				const lines = wholeLineSpan(source, dead);
-				const keeps = declaresInside || declarations.some((decl) => decl.start < lines.end && decl.end > lines.start);
+				const edit = unreachableRemovalEdit(source, dead);
+				const keeps = declaresInside || declarations.some((decl) => decl.start < edit.span.end && decl.end > edit.span.start);
 				push(
 					'unreachableCode',
 					`Unreachable code after '${terminator.text}'.`,
 					dead,
-					keeps ? undefined : { removeUnreachableCode: { edit: { span: lines, newText: '' } } },
+					keeps ? undefined : { removeUnreachableCode: { edit } },
 				);
 			}
 			dead = undefined;

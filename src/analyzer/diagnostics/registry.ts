@@ -1018,6 +1018,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 		run: (ctx, push) => checkMissingLibraryReference(
 			ctx.source, ctx.opts.hostModel ?? getExcelObjectModel(), push,
 			new Set([ctx.opts.moduleName ?? '', ...(ctx.memberCtx.projectClassMembers ?? []).map((type) => type.name)].map((name) => name.toLowerCase())),
+			{symbols: ctx.symbols, projectVisibleSymbols: ctx.opts.projectVisibleSymbols},
 		),
 	},
 	{
@@ -1051,6 +1052,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'argumentCount',
+		blockHeaders: true,
 		procedureStatements: (ctx, push) => checkArgumentCount(
 			ctx.source,
 			ctx.symbols,
@@ -1073,6 +1075,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'argumentTypes',
+		blockHeaders: true,
 		procedureStatements: (ctx, push) => checkArgumentTypes(
 			ctx.source,
 			ctx.symbols,
@@ -1149,6 +1152,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'argumentShapeMismatch',
+		blockHeaders: true,
 		procedureStatements: (ctx, push) => checkArgumentShape(
 			ctx.source,
 			ctx.symbols,

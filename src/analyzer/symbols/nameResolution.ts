@@ -126,7 +126,7 @@ function localMatchIndex(procedure: VbaSymbol): Map<string, VbaSymbol[]> {
 // 7% of a large project's analysis in this one function).
 const PROJECT_MATCH_INDEXES = new WeakMap<readonly VbaSymbol[], Map<string, VbaSymbol[]>>();
 
-function projectSymbolsNamed(
+export function projectSymbolsNamed(
 	symbols: readonly VbaSymbol[] | undefined,
 	lowerName: string,
 ): readonly VbaSymbol[] {

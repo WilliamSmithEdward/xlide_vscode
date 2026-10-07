@@ -9,7 +9,9 @@ import {
 	DocRegistry,
 	HoverContext,
 	resolveHover,
+	hoverMayResolveAt,
 	resolveSignatureHelp,
+	findActiveCallSite,
 	SignatureHelpContext,
 } from './analyzer';
 import { startPerformanceTrace } from './performanceTrace';
@@ -36,8 +38,11 @@ export class VbaHoverSignatureProvider
 		token?: vscode.CancellationToken,
 	): Promise<vscode.Hover | undefined> {
 		const trace = startPerformanceTrace('hover', document.uri.scheme);
+		const requestVersion = document.version;
 		try {
-			return await this._provideHover(document, position, token);
+			const result = await this._provideHover(document, position, token);
+			return token?.isCancellationRequested || document.isClosed || document.version !== requestVersion
+				? undefined : result;
 		} finally {
 			trace.end(token?.isCancellationRequested ? 'canceled' : 'ok', document.uri.scheme);
 		}
@@ -48,11 +53,12 @@ export class VbaHoverSignatureProvider
 		position: vscode.Position,
 		token?: vscode.CancellationToken,
 	): Promise<vscode.Hover | undefined> {
-		if (token?.isCancellationRequested) {
+		if (token?.isCancellationRequested || document.isClosed) {
 			return undefined;
 		}
 		const source = document.getText();
 		const offset = document.offsetAt(position);
+		if (!hoverMayResolveAt(source, offset)) { return undefined; }
 		const info = await this._resolveWithProjectContext(
 			document,
 			source,
@@ -72,8 +78,11 @@ export class VbaHoverSignatureProvider
 		token?: vscode.CancellationToken,
 	): Promise<vscode.SignatureHelp | undefined> {
 		const trace = startPerformanceTrace('signatureHelp', document.uri.scheme);
+		const requestVersion = document.version;
 		try {
-			return await this._provideSignatureHelp(document, position, token);
+			const result = await this._provideSignatureHelp(document, position, token);
+			return token?.isCancellationRequested || document.isClosed || document.version !== requestVersion
+				? undefined : result;
 		} finally {
 			trace.end(token?.isCancellationRequested ? 'canceled' : 'ok', document.uri.scheme);
 		}
@@ -84,11 +93,14 @@ export class VbaHoverSignatureProvider
 		position: vscode.Position,
 		token?: vscode.CancellationToken,
 	): Promise<vscode.SignatureHelp | undefined> {
-		if (token?.isCancellationRequested) {
+		if (token?.isCancellationRequested || document.isClosed) {
 			return undefined;
 		}
 		const source = document.getText();
 		const offset = document.offsetAt(position);
+		// Spaces trigger this provider throughout ordinary code. No project
+		// context can produce a call tip when the syntax has no active call.
+		if (!findActiveCallSite(source, offset)) { return undefined; }
 		const info = await this._resolveWithProjectContext(
 			document,
 			source,
@@ -162,7 +174,7 @@ export class VbaHoverSignatureProvider
 		}
 		if (!info && !cached && document.uri.scheme === XLIDE_SCHEME) {
 			const projectCtx = await this._projectContext.buildEditorProjectContextWithin(document, source, budgetMs);
-			if (token?.isCancellationRequested || document.version !== requestVersion) {
+			if (token?.isCancellationRequested || document.isClosed || document.version !== requestVersion) {
 				return undefined;
 			}
 			if (projectCtx) {

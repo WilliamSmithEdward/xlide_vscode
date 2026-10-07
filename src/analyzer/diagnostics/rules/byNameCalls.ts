@@ -24,7 +24,7 @@ import type { VbaToken } from '../../lexer/tokenKinds';
 import type { ModuleNode, Span } from '../../parser/nodes';
 import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { PushFn } from '../analysisContext';
-import { normalizeType, stringLiteralValue, typeEnvironmentFor } from '../typeInference';
+import { normalizeType, runtimeSignatureParameterText, splitSignatureTopLevel, stringLiteralValue, typeEnvironmentFor } from '../typeInference';
 import {
 	activeModuleMembers,
 	forEachStatement,
@@ -160,24 +160,11 @@ function checkCallByName(
 
 /** The parameters a member signature lists: how many a call must pass, and may. */
 function parameterCounts(signature: string): { required: number; max: number } | undefined {
-	const open = signature.indexOf('(');
-	if (open < 0) {
-		return undefined;
-	}
-	let depth = 0;
-	let close = -1;
-	for (let i = open; i < signature.length; i++) {
-		depth += signature[i] === '(' ? 1 : signature[i] === ')' ? -1 : 0;
-		if (depth === 0) {
-			close = i;
-			break;
-		}
-	}
-	const list = close < 0 ? undefined : signature.slice(open + 1, close).trim();
+	const list = runtimeSignatureParameterText(signature)?.trim();
 	if (list === undefined) {
 		return undefined;
 	}
-	const params = list === '' ? [] : list.split(',').map((param) => param.trim());
+	const params = list === '' ? [] : splitSignatureTopLevel(list).map((param) => param.trim());
 	const required = params.filter((param) => !param.startsWith('[') && !/^paramarray\b/i.test(param)).length;
 	return { required, max: params.some((param) => /paramarray/i.test(param)) ? Infinity : params.length };
 }

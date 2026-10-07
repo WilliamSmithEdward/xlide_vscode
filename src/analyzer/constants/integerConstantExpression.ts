@@ -101,7 +101,12 @@ export function evaluateIntegerConstantExpression(
 	raw: string,
 	constants: IntegerConstantLookup,
 ): number | undefined {
-	return new IntegerConstantExpressionParser(raw, constants).parse();
+	const evaluation = new IntegerConstantExpressionParser(raw).parse();
+	let step = evaluation.next();
+	while (!step.done) {
+		step = evaluation.next(constants.get(step.value));
+	}
+	return step.value;
 }
 
 /**
@@ -125,6 +130,9 @@ const ROUNDING_CALLS: ReadonlyMap<string, readonly [number, number]> = new Map([
 	['round', [-Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER]],
 ]);
 
+type IntegerConstantEvaluation = Generator<string, number | undefined, number | undefined>;
+
+/** Yields each lookup without retaining another constant parser on the JS stack. */
 class IntegerConstantExpressionParser {
 	private readonly tokens: VbaToken[];
 	private index = 0;
@@ -132,29 +140,45 @@ class IntegerConstantExpressionParser {
 	/** Inside a call's arguments, where True and False pass as -1 and 0. */
 	private inArguments = 0;
 
-	constructor(
-		raw: string,
-		private readonly constants: IntegerConstantLookup,
-	) {
+	constructor(raw: string) {
 		this.tokens = tokenize(raw).filter((token) => token.kind !== 'comment' && token.kind !== 'newline');
 	}
 
-	parse(): number | undefined {
+	*parse(): IntegerConstantEvaluation {
 		if (this.tokens.length === 0) {
 			return undefined;
 		}
-		const value = this.expression();
+		// Single literals and aliases need no precedence frames. Aliases
+		// still yield to the same dependency scheduler.
+		if (this.tokens.length === 1) {
+			const token = this.tokens[0];
+			if (token.kind === 'integerLiteral') {
+				return parseVbaIntegerLiteral(token.rawText);
+			}
+			if (token.kind === 'keyword' && token.rawText.toLowerCase() === 'not') {
+				return undefined;
+			}
+			const name = tokenName(token);
+			return name ? yield name.toLowerCase() : undefined;
+		}
+		if (this.tokens.length === 3 && !(this.tokens[0].kind === 'keyword' && this.tokens[0].rawText.toLowerCase() === 'not')) {
+			const qualified = this.qualifiedName();
+			if (qualified) {
+				return yield qualified.toLowerCase();
+			}
+		}
+		const value = yield* this.expression();
 		return value !== undefined && !this.current() ? value : undefined;
 	}
 
-	private expression(): number | undefined {
+	private *expression(): IntegerConstantEvaluation {
 		// Depth guard: untrusted Const text can nest arbitrarily deep; bail to
 		// undefined rather than overflowing the stack.
 		if (++this.depth > MAX_RECURSION_DEPTH) {
 			this.depth--;
 			return undefined;
 		}
-		const result = this.logical(0);
+		const result = yield* this.logical(0);
 		this.depth--;
 		return result;
 	}
@@ -164,18 +188,24 @@ class IntegerConstantExpressionParser {
 	 * Long range: `Const K0 = 15 And 255` is 15 (issue #496, measured in Excel
 	 * 16.0).
 	 */
-	private logical(level: number): number | undefined {
+	private *logical(level: number): IntegerConstantEvaluation {
 		if (level === LOGICAL_LEVELS.length) {
-			if (this.acceptWord('not')) {
-				const operand = this.logical(level);
-				return operand === undefined || !isLong(operand) ? undefined : ~operand;
+			// A flat Not chain needs no recursive frames. Keep the range check
+			// even when an even number of operators would cancel each other.
+			if (!this.acceptWord('not')) {
+				return yield* this.expressionInner();
 			}
-			return this.expressionInner();
+			let invert = true;
+			while (this.acceptWord('not')) {
+				invert = !invert;
+			}
+			const operand = yield* this.expressionInner();
+			return operand === undefined || !isLong(operand) ? undefined : invert ? ~operand : operand | 0;
 		}
 		const word = LOGICAL_LEVELS[level];
-		let value = this.logical(level + 1);
+		let value = yield* this.logical(level + 1);
 		while (value !== undefined && this.acceptWord(word)) {
-			const right = this.logical(level + 1);
+			const right = yield* this.logical(level + 1);
 			if (right === undefined || !isLong(value) || !isLong(right)) {
 				return undefined;
 			}
@@ -184,16 +214,16 @@ class IntegerConstantExpressionParser {
 		return value;
 	}
 
-	private expressionInner(): number | undefined {
-		let value = this.modulo();
+	private *expressionInner(): IntegerConstantEvaluation {
+		let value = yield* this.modulo();
 		while (value !== undefined) {
 			if (this.accept('+')) {
-				const right = this.modulo();
+				const right = yield* this.modulo();
 				value = right === undefined ? undefined : safeInteger(value + right);
 				continue;
 			}
 			if (this.accept('-')) {
-				const right = this.modulo();
+				const right = yield* this.modulo();
 				value = right === undefined ? undefined : safeInteger(value - right);
 				continue;
 			}
@@ -203,58 +233,58 @@ class IntegerConstantExpressionParser {
 	}
 
 	/** Mod binds below `\`, and `\` below `*`: `50 Mod 7 + 10` is 11. */
-	private modulo(): number | undefined {
-		let value = this.integerDivision();
+	private *modulo(): IntegerConstantEvaluation {
+		let value = yield* this.integerDivision();
 		while (value !== undefined && this.acceptWord('mod')) {
-			const right = this.integerDivision();
+			const right = yield* this.integerDivision();
 			value = right === undefined || right === 0 ? undefined : safeInteger(value % right);
 		}
 		return value;
 	}
 
-	private integerDivision(): number | undefined {
-		let value = this.term();
+	private *integerDivision(): IntegerConstantEvaluation {
+		let value = yield* this.term();
 		while (value !== undefined && this.accept('\\')) {
-			const right = this.term();
+			const right = yield* this.term();
 			value = right === undefined || right === 0 ? undefined : safeInteger(Math.trunc(value / right));
 		}
 		return value;
 	}
 
-	private term(): number | undefined {
-		let value = this.factor();
+	private *term(): IntegerConstantEvaluation {
+		let value = yield* this.factor();
 		while (value !== undefined) {
 			if (!this.accept('*')) {
 				break;
 			}
-			const right = this.factor();
+			const right = yield* this.factor();
 			value = right === undefined ? undefined : safeInteger(value * right);
 		}
 		return value;
 	}
 
-	private factor(): number | undefined {
+	private *factor(): IntegerConstantEvaluation {
 		// Depth guard: unary +/- chains and nested parens recurse through factor;
 		// bail to undefined once the ceiling is hit (see expression()).
 		if (++this.depth > MAX_RECURSION_DEPTH) {
 			this.depth--;
 			return undefined;
 		}
-		const result = this.factorInner();
+		const result = yield* this.factorInner();
 		this.depth--;
 		return result;
 	}
 
-	private factorInner(): number | undefined {
+	private *factorInner(): IntegerConstantEvaluation {
 		if (this.accept('+')) {
-			return this.factor();
+			return yield* this.factor();
 		}
 		if (this.accept('-')) {
-			const value = this.factor();
+			const value = yield* this.factor();
 			return value === undefined ? undefined : safeInteger(-value);
 		}
 		if (this.accept('(')) {
-			const value = this.expression();
+			const value = yield* this.expression();
 			return value !== undefined && this.accept(')') ? value : undefined;
 		}
 		const token = this.current();
@@ -274,9 +304,9 @@ class IntegerConstantExpressionParser {
 		}
 		const qualified = this.qualifiedName();
 		if (qualified) {
-			return this.constants.get(qualified.toLowerCase());
+			return yield qualified.toLowerCase();
 		}
-		const rounded = this.roundingCall();
+		const rounded = yield* this.roundingCall();
 		if (rounded !== NOT_A_CALL) {
 			return rounded;
 		}
@@ -286,23 +316,23 @@ class IntegerConstantExpressionParser {
 			// `F()`: a lookup may know a Function's result as `f()` (issue #448).
 			if (this.tokens[this.index]?.rawText === '(' && this.tokens[this.index + 1]?.rawText === ')') {
 				this.index += 2;
-				return this.constants.get(`${name.toLowerCase()}()`);
+				return yield `${name.toLowerCase()}()`;
 			}
 			// `F(-1)`: a call with whole-number arguments is `f(-1)` to a lookup (issue #562).
 			if (this.tokens[this.index]?.rawText === '(' && this.tokens[this.index - 2]?.rawText !== '.') {
 				this.index++;
 				this.inArguments++;
-				const args: Array<number | undefined> = [this.expression()];
+				const args: Array<number | undefined> = [(yield* this.expression())];
 				while (this.accept(',')) {
-					args.push(this.expression());
+					args.push((yield* this.expression()));
 				}
 				this.inArguments--;
 				if (!this.accept(')') || args.some((arg) => arg === undefined)) {
 					return undefined;
 				}
-				return this.constants.get(`${name.toLowerCase()}(${args.join(',')})`);
+				return yield `${name.toLowerCase()}(${args.join(',')})`;
 			}
-			return this.constants.get(name.toLowerCase());
+			return yield name.toLowerCase();
 		}
 		return undefined;
 	}
@@ -315,7 +345,7 @@ class IntegerConstantExpressionParser {
 	 * undefined where it does and the argument is not known or the result
 	 * does not fit.
 	 */
-	private roundingCall(): number | undefined | typeof NOT_A_CALL {
+	private *roundingCall(): Generator<string, number | undefined | typeof NOT_A_CALL, number | undefined> {
 		const word = tokenName(this.current())?.toLowerCase();
 		// `Val("0,5")` is 0 in every locale (issue #703).
 		if (word === 'val' && this.tokens[this.index + 1]?.rawText === '(' && this.tokens[this.index + 2]?.kind === 'stringLiteral'
@@ -349,7 +379,7 @@ class IntegerConstantExpressionParser {
 			value = Number.isFinite(read) ? (negative ? -read : read) : undefined;
 		} else {
 			this.index = argument;
-			value = this.expression();
+			value = yield* this.expression();
 		}
 		if (value === undefined || !this.accept(')')) {
 			this.index = start;
@@ -411,31 +441,59 @@ export function resolveRawIntegerConstants(
 ): Map<string, number | undefined> {
 	const resolved = new Map<string, number | undefined>();
 	const resolving = new Set<string>();
-	const resolve = (name: string): number | undefined => {
+	// Suspended parsers keep their cursor and partial arithmetic values. Resume
+	// them directly so wide expressions never replay their already-read prefix.
+	type Frame = {key: string; evaluation: IntegerConstantEvaluation};
+	const pending: Frame[] = [];
+	for (const name of rawConstants.keys()) {
 		const key = name.toLowerCase();
 		if (resolved.has(key)) {
-			return resolved.get(key);
+			continue;
 		}
 		if (!rawConstants.has(key)) {
-			return base.get(key);
-		}
-		if (resolving.has(key)) {
-			resolved.set(key, undefined);
-			return undefined;
+			base.get(key);
+			continue;
 		}
 		const raw = rawConstants.get(key);
 		if (raw === undefined) {
 			resolved.set(key, undefined);
-			return undefined;
+			continue;
 		}
+		pending.push({key, evaluation: new IntegerConstantExpressionParser(raw).parse()});
 		resolving.add(key);
-		const value = evaluateIntegerConstantExpression(raw, { get: resolve });
-		resolving.delete(key);
-		resolved.set(key, value);
-		return value;
-	};
-	for (const key of rawConstants.keys()) {
-		resolve(key);
+		let value: number | undefined;
+		while (pending.length > 0) {
+			const frame = pending[pending.length - 1];
+			const step = frame.evaluation.next(value);
+			if (step.done) {
+				value = step.value;
+				resolved.set(frame.key, value);
+				resolving.delete(frame.key);
+				pending.pop();
+				continue;
+			}
+			const dependency = step.value.toLowerCase();
+			if (resolved.has(dependency)) {
+				value = resolved.get(dependency);
+				continue;
+			}
+			if (!rawConstants.has(dependency)) {
+				value = base.get(dependency);
+				continue;
+			}
+			if (resolving.has(dependency)) {
+				resolved.set(dependency, undefined); value = undefined;
+				continue;
+			}
+			const expression = rawConstants.get(dependency);
+			if (expression === undefined) {
+				resolved.set(dependency, undefined); value = undefined;
+				continue;
+			}
+			pending.push({key: dependency, evaluation: new IntegerConstantExpressionParser(expression).parse()});
+			resolving.add(dependency);
+			value = undefined;
+		}
 	}
 	return resolved;
 }

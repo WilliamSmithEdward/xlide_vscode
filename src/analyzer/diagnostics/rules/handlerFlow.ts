@@ -632,8 +632,8 @@ function procedureCallIn(
 	const byName = toks.findIndex((tok, i) => tokenText(tok) === 'callbyname' && toks[i - 1]?.rawText !== '.');
 	if (byName >= 0) {
 		const open = toks[byName + 1]?.rawText === '(' ? byName + 1 : -1;
-		const close = open > 0 ? matchParenFrom([...toks], open) : toks.length;
-		const args = splitTopLevelTokenGroups([...toks], open > 0 ? open + 1 : byName + 1, ',', close);
+		const close = open > 0 ? matchParenFrom(toks, open) : toks.length;
+		const args = splitTopLevelTokenGroups(toks, open > 0 ? open + 1 : byName + 1, ',', close);
 		const target = args[1]?.length === 1 && args[1][0].kind === 'stringLiteral' ? args[1][0].rawText.slice(1, -1).toLowerCase() : undefined;
 		const callee = target ? procedures.get(target) : undefined;
 		const callType = args[2]?.map((tok) => tokenText(tok)).join('');
@@ -680,8 +680,8 @@ function procedureCallIn(
 
 /** Whether the argument list opening at `open` passes the procedure's own parameters, in order. */
 function sameArgumentsAt(toks: readonly VbaToken[], open: number, proc: ProcedureNode): boolean {
-	const close = matchParenFrom([...toks], open);
-	const args = close > open + 1 ? splitTopLevelTokenGroups([...toks], open + 1, ',', close) : [];
+	const close = matchParenFrom(toks, open);
+	const args = close > open + 1 ? splitTopLevelTokenGroups(toks, open + 1, ',', close) : [];
 	return args.length === proc.params.length && args.every((arg, k) => arg.length === 1 && tokenName(arg[0])?.toLowerCase() === proc.params[k].name.toLowerCase());
 }
 

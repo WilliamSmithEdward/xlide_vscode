@@ -1,6 +1,7 @@
 import { tokenizeCached } from './analyzer/lexer/tokenize';
 import { VBA_RUNTIME_CONSTANTS } from './analyzer/runtime/vbaRuntime';
-import { assignmentTargetFromTokens, isColorAssignmentTarget } from './analyzer/completion/assignmentValueCompletion';
+import { assignmentTargetFromTokens } from './analyzer/completion/assignmentTarget';
+import { isColorAssignmentTarget } from './analyzer/completion/assignmentValueCompletion';
 import { buildModuleSymbols } from './analyzer/symbols/buildModuleSymbols';
 import { parseVbaIntegerLiteral } from './analyzer/constants/integerConstantExpression';
 import { isProcedureKind } from './analyzer/symbols/symbolModel';

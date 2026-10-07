@@ -1,3 +1,5 @@
+import { VbaProject } from '../src/vba/vbaProject';
+import { openMacroContainer } from '../src/vba/macroContainer';
 // Damaged compound files and ZIP packages, as the property tests in
 // tests/properties found them. Each reader refuses with its own error; none
 // reads past the end of the file or keeps allocating.
@@ -39,11 +41,17 @@ describe('a damaged compound file', () => {
 	});
 
 	// Issue #340: a file cut short reads the streams that lie before the cut.
-	it('reads the VBA modules of a legacy file cut a sector or more short', () => {
+	it('recovers truncated VBA only when its protection records remain readable', () => {
 		for (const [name, cut] of [['XlsFixture.xls', 59392], ['XlsFixture.xls', 66048], ['WordFixture.doc', 68096]] as const) {
 			const whole = fs.readFileSync(path.join(FIXTURES, name));
 			const expected = readModulesFromBuffer(whole).map((m) => [m.name, m.code]);
-			expect(readModulesFromBuffer(whole.subarray(0, cut)).map((m) => [m.name, m.code]), `${name} cut at ${cut}`).toEqual(expected);
+			const damaged = whole.subarray(0, cut);
+            const protection = VbaProject.parse(openMacroContainer(damaged).vbaCfb()).protection;
+            if (protection.requiresPassword) {
+                expect(() => readModulesFromBuffer(damaged), 'unreadable protection must refuse source recovery').toThrow(/password-protected/);
+            } else {
+                expect(readModulesFromBuffer(damaged).map((m) => [m.name, m.code]), `${name} cut at ${cut}`).toEqual(expected);
+            }
 		}
 	});
 

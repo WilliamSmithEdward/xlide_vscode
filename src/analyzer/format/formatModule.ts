@@ -186,7 +186,14 @@ export function formatVbaModule(source: string, options: VbaFormatOptions): VbaF
 		}
 		return -1;
 	};
-	const inProcedure = (): boolean => stack.some((block) => block.kind === 'Procedure');
+	// A new procedure removes the previous one; record its only stack position.
+	let procedureIndex = -1;
+	const truncateStack = (length: number): void => {
+		stack.length = length;
+		if (procedureIndex >= length) {
+			procedureIndex = -1;
+		}
+	};
 
 	let physical = 0;
 	while (physical < lines.length) {
@@ -258,14 +265,14 @@ export function formatVbaModule(source: string, options: VbaFormatOptions): VbaF
 						if (cls.kind === 'Procedure') {
 							// A stray End Sub still ends whatever was open: back
 							// to module level, where the next line belongs.
-							stack.length = 0;
+							truncateStack(0);
 							level = 0;
 							indent = 0;
 						}
 						break;
 					}
 					const target = stack[index];
-					stack.length = index;
+					truncateStack(index);
 					level = target.level;
 					indent = target.level;
 				}
@@ -277,7 +284,7 @@ export function formatVbaModule(source: string, options: VbaFormatOptions): VbaF
 					return lineIndent;
 				}
 				const target = stack[index];
-				stack.length = index + 1;
+				truncateStack(index + 1);
 				const own = cls.kind === 'Select' ? target.level + 1 : target.level;
 				level = own + 1;
 				return isFirst ? own : lineIndent;
@@ -291,13 +298,14 @@ export function formatVbaModule(source: string, options: VbaFormatOptions): VbaF
 					stack.pop();
 				}
 				const at = stack.length > 0 ? stack[stack.length - 1].level + 1 : 0;
+				procedureIndex = stack.length;
 				stack.push({ kind: 'Procedure', level: at, moduleLevel: false });
 				level = at + 1;
 				return isFirst ? at : lineIndent;
 			}
 			case 'opener': {
 				const at = isFirst ? lineIndent : level;
-				stack.push({ kind: cls.kind, level: at, moduleLevel: !inProcedure() });
+				stack.push({ kind: cls.kind, level: at, moduleLevel: procedureIndex < 0 });
 				level = at + 1;
 				return lineIndent;
 			}

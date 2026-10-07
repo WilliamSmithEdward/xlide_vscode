@@ -5,8 +5,9 @@
 // `Option `, `End `, and `On Error ` are exclusive because arbitrary identifiers
 // are invalid there; broad statement starts are additive.
 
+import { CLOSE_PHRASE } from '../../vbaStructuralDiagnostics';
 import { VbaToken } from '../lexer/tokenKinds';
-import { completionCursorContext } from './cursorContext';
+import { completionLineCursorContext } from './cursorContext';
 import {
 	openSmartBlockClosersBefore,
 	VBA_BLOCK_INDENT_UNIT,
@@ -398,8 +399,11 @@ export function resolveKeywordCompletions(
 		return complete(modifierSnippets(blockLayout), ctx.partial, true);
 	}
 	if (ctx.atStatementStart) {
-		const close = closingCompletion(source, ctx.statementStart);
-		const branchSnippets = branchSnippetsBefore(source, ctx.statementStart);
+		// Ordinary symbol prefixes cannot match any context-sensitive block row.
+		// Avoid scanning a large module (twice) for rows we would discard.
+		const closers = blockRowsMayMatch(ctx.partial) ? openBlockClosers(source, ctx.statementStart) : [];
+		const close = closingCompletion(closers);
+		const branchSnippets = branchSnippetsBefore(closers);
 		const snippets = statementSnippets(blockLayout);
 		return complete(close ? [close, ...branchSnippets, ...snippets] : [...branchSnippets, ...snippets], ctx.partial, false);
 	}
@@ -417,7 +421,7 @@ export function materializeKeywordSnippet(
 }
 
 function completionContext(source: string, offset: number): CompletionContext | undefined {
-	const cursor = completionCursorContext(source, offset);
+	const cursor = completionLineCursorContext(source, offset);
 	if (cursor.inComment || cursor.inString) {
 		return undefined;
 	}
@@ -766,8 +770,19 @@ function endCompletions(source: string, statementStart: number): KeywordSpec[] {
 	];
 }
 
-function branchSnippetsBefore(source: string, statementStart: number): readonly KeywordSpec[] {
-	const stack = openBlockClosers(source, statementStart);
+function blockRowsMayMatch(partial: string): boolean {
+	const lower = partial.toLowerCase();
+	const compact = compactKeywordText(lower);
+	// Next can include an arbitrary iterator name. Allow longer prefixes too,
+	// so compact spellings such as Nextitem still reach the actual matcher.
+	return Object.values(CLOSE_PHRASE).some(closer => {
+		const candidate = compactKeywordText(closer.toLowerCase());
+		return candidate.startsWith(compact) || compact.startsWith(candidate);
+	}) || [...IF_BRANCH_SNIPPETS, ...SELECT_BRANCH_SNIPPETS, ...DO_CLOSE_SNIPPETS]
+		.some(spec => matchesPartial(spec, lower));
+}
+
+function branchSnippetsBefore(stack: readonly string[]): readonly KeywordSpec[] {
 	const top = stack[stack.length - 1];
 	if (top === 'End If') {
 		return IF_BRANCH_SNIPPETS;
@@ -781,14 +796,28 @@ function branchSnippetsBefore(source: string, statementStart: number): readonly 
 	return [];
 }
 
-function closingCompletion(source: string, statementStart: number): KeywordSpec | undefined {
-	const closers = openBlockClosers(source, statementStart);
+function closingCompletion(closers: readonly string[]): KeywordSpec | undefined {
 	const closer = closers[closers.length - 1];
 	return closer ? keyword(closer, `Close ${closer}`, '000:close') : undefined;
 }
 
+// Editing the current partial statement does not change its enclosing blocks.
+// Bound the retained prefixes; a change before the statement selects a new key.
+const blockCloserCache: { prefix: string; closers: string[] }[] = [];
+
 function openBlockClosers(source: string, statementStart: number): string[] {
-	return openSmartBlockClosersBefore(source, statementStart);
+	const prefix = source.slice(0, statementStart);
+	const index = blockCloserCache.findIndex(entry => entry.prefix === prefix);
+	if (index >= 0) {
+		const [entry] = blockCloserCache.splice(index, 1);
+		entry.prefix = prefix;
+		blockCloserCache.unshift(entry);
+		return entry.closers;
+	}
+	const closers = openSmartBlockClosersBefore(prefix, prefix.length);
+	blockCloserCache.unshift({ prefix, closers });
+	if (blockCloserCache.length > 4) { blockCloserCache.pop(); }
+	return closers;
 }
 
 function word(token: VbaToken | undefined): string {

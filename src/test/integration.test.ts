@@ -4,9 +4,14 @@
 // the editor calls, so a passing run means the feature works in the product,
 // not only that its internals were exercised.
 
+import './typeLookbackSurfaces.test';
 import './formatting.test';
+import './hoverSnapshotSurfaces.test';
+import './prefixWindowSurfaces.test';
 import './deadCode.test';
 import './gitCompare.test';
+import './immediateCompletionSurfaces.test';
+import './largeClassLatency.test';
 import './officeIntegration.test';
 import './crossModuleDiagnostics.test';
 import './canonicalCasing.test';
@@ -18,11 +23,28 @@ import './saveConflicts.test';
 import './renameModule.test';
 import './vbeRename.test';
 import './treeFollow.test';
+import './treeLifecycle.test';
 import './deleteModule.test';
 import './docComments.test';
+import './identifierSurfaces.test';
 import './projectReferences.test';
+import './scriptingReferences.test';
+import './identifierSnapshotSurfaces.test';
 import './shapes.test';
+import './shapeEditorLifetime.test';
+import './shapeEditorIdentity.test';
+import './smartEnterSurfaces.test';
 import './grammar.test';
-import './projectAnalysisPerformance.test';
+
 import './completion.test';
+import './editorSurfaces.test';
+
+import './nativeBackspaceRouting.test';
+
+import './nativeSnippetRouting.test';
+
+import './nativeEnterCaretOwnership.test';
+
+import './projectProtection.test';
+import './projectAnalysisPerformance.test';
 import './liveDiagnosticsPerformance.test';

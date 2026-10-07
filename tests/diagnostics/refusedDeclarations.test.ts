@@ -122,3 +122,10 @@ describe('redim-type-change (issue #212)', () => {
 		expect(redim('', '    Dim v As Variant\n    ReDim v(1) As Long\n')).toHaveLength(0);
 	});
 });
+
+it('does not universally label an Optional setter value Syntax error',()=>{
+ const source='Property Let State(Optional ByVal value As Boolean = False)\nEnd Property\nSub T()\nState = True\nEnd Sub';
+ const finding=analyzeModule(source).find(d=>d.code==='optional-property-value');
+ expect(finding?.message).toContain('VBE compile error');
+ expect(finding?.message).not.toContain('Syntax error');
+});
