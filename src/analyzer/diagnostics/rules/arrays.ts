@@ -1065,10 +1065,12 @@ export function checkUnallocatedDynamicArrayAccess(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	procedureFilter?: (member: ProcedureNode) => boolean,
 ): void {
 	const unsetFunctions = arrayFunctionsNeverSet(source, mod, activity);
 	const erasedByCall = arraysErasedByCalls(source, mod, activity);
 	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'Procedure' && procedureFilter && !procedureFilter(member)) { continue; }
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
@@ -3265,11 +3267,16 @@ export function checkFixedArraySubscriptBounds(
 	projectIntegerConstants?: ReadonlyMap<string, string | undefined>,
 	projectVisibleSymbols?: readonly VbaSymbol[],
 	hostModel?: HostObjectModel,
+	procedureFilter?: (member: ProcedureNode) => boolean,
 ): void {
 	const optionBase = moduleOptionBase(mod, activity);
 	const moduleConstants = moduleIntegerConstants(mod, projectIntegerConstants, activity);
 	let moduleFixed: Map<string, FixedArrayBound> | undefined;
-	for (const member of activeModuleMembers(mod, activity)) {
+	let moduleReturned: ReadonlyMap<string, FixedArrayBound> | undefined;
+	let moduleParameterless: readonly string[] | undefined;
+	const members = activeModuleMembers(mod, activity);
+	for (const member of members) {
+		if (member.kind === 'Procedure' && procedureFilter && !procedureFilter(member)) { continue; }
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
@@ -3284,8 +3291,13 @@ export function checkFixedArraySubscriptBounds(
 		]);
 		const unallocated = new Map([...moduleVariables].filter(([, variable]) => variable.isArray && variable.arrayBounds === undefined));
 		const shapesAt = knownArrayShapesAt(source, symbols, member, activity, optionBase);
-		const returned = functionReturnShapes(source, mod, activity, optionBase);
-		const parameterless = new Set(activeModuleMembers(mod, activity).filter((one) => one.kind === 'Procedure' && one.procKind === 'Function' && one.params.length === 0).map((one) => (one as ProcedureNode).name.toLowerCase()).filter((lower) => !hiddenIn(symbols, member).has(lower)));
+		const returned = moduleReturned ??= functionReturnShapes(source, mod, activity, optionBase);
+		// Only known array-returning functions can reach the subscript check.
+		// Collect their parameterless names once, then apply this scope's hides.
+		moduleParameterless ??= returned.size === 0 ? [] : members
+			.filter((one): one is ProcedureNode => one.kind === 'Procedure' && one.procKind === 'Function' && one.params.length === 0)
+			.map(one => one.name.toLowerCase()).filter(lower => returned.has(lower));
+		const parameterless = new Set(moduleParameterless.filter(lower => !(hidden ??= hiddenIn(symbols, member)).has(lower)));
 		const redimmed = redimShapesAt(source, symbols, member, activity, optionBase);
 		const merged = new Map<ReadonlyMap<string, FixedArrayBound>, Map<ReadonlyMap<string, FixedArrayBound> | undefined, ReadonlyMap<string, FixedArrayBound>>>();
 		const fixedAt = (stmt: LeafStatementNode): ReadonlyMap<string, FixedArrayBound> => {

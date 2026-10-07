@@ -23,3 +23,6 @@ import './docComments.test';
 import './projectReferences.test';
 import './shapes.test';
 import './grammar.test';
+import './projectAnalysisPerformance.test';
+import './completion.test';
+import './liveDiagnosticsPerformance.test';

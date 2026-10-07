@@ -28,6 +28,15 @@ describe('an early-bound Dictionary without the Scripting reference (issue #349)
 		expect(found('Dim d As Object\n    Set d = CreateObject("Scripting.Dictionary")\n    Main = d.Count', EXCEL_DEFAULTS)).toEqual([]);
 	});
 
+	it('offers the reference fix for qualified and unqualified Scripting types', () => {
+		for (const type of ['Dictionary', 'Scripting.Dictionary', 'FileSystemObject', 'TextStream']) {
+			const src = `Option Explicit\nPrivate value As ${type}\n`;
+			const diagnostic = analyzeModule(src, { referencedLibraries: EXCEL_DEFAULTS })
+				.find((diag) => diag.code === 'missing-library-reference');
+			expect(diagnostic?.data?.addLibraryReference, type).toEqual({ library: 'scripting' });
+		}
+	});
+
 	it('leaves a Dictionary the project declares itself', () => {
 		const src = 'Option Explicit\nPrivate Type Dictionary\n    n As Long\nEnd Type\nFunction Main() As Variant\n    Dim d As Dictionary\n    Main = d.n\nEnd Function\n';
 		expect(analyzeModule(src, { referencedLibraries: EXCEL_DEFAULTS }).filter((diag) => diag.code === 'missing-library-reference')).toEqual([]);

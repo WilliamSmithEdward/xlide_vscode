@@ -94,13 +94,19 @@ export function heldObjectsAt(
 	/** The class of any other value a Set gives, `Set o = Range("A1").Font`, where the caller can tell (issue #685). */
 	classOfValue?: (value: readonly VbaToken[], offset: number) => string | undefined,
 ): (node: BodyNode) => HeldObjects {
+	// Failed assignments and mutations cannot establish successful state.
+	if (/\bon\s+error\b/i.test(source.slice(proc.span.start, proc.span.end))) { return () => NOTHING_HELD; }
 	const seen = new Map<BodyNode, HeldObjects>();
 	const state: State = { classes: new Map(), items: new Map() };
+	const staticProcedure = /\bstatic\s+(?:sub|function|property)\b/i.test(source.slice(proc.span.start, proc.body[0]?.span.start ?? proc.span.end));
+	const locals = new Set((procedureSymbolFor(symbols, proc)?.children ?? [])
+		.filter(child => child.kind === 'localVariable' && child.visibility !== 'Static' && !staticProcedure)
+		.map(child => child.name.toLowerCase()));
 	// The names a local or parameter takes, which hide a host's global.
 	const declared = new Set([...(procedureSymbolFor(symbols, proc)?.children ?? []).map((child) => child.name.toLowerCase()), ...proc.params.map((param) => param.name.toLowerCase())]);
 	// `Dim c As New Collection` holds an empty one from the start.
 	for (const child of procedureSymbolFor(symbols, proc)?.children ?? []) {
-		if (child.kind === 'localVariable' && child.isAutoInstantiated && !child.isArray && child.asType) {
+		if (locals.has(child.name.toLowerCase()) && child.isAutoInstantiated && !child.isArray && child.asType) {
 			state.classes.set(child.name.toLowerCase(), child.asType);
 			if (normalizeType(child.asType) === 'collection') {
 				state.items.set(child.name.toLowerCase(), []);
@@ -145,7 +151,7 @@ export function heldObjectsAt(
 			if (from && held) {
 				if (state.items.delete(from)) { currentSnapshot = undefined; }
 			}
-			if (held) {
+			if (held && locals.has(lower)) {
 				currentSnapshot = undefined;
 				state.classes.set(lower, held);
 				if (created && normalizeType(created) === 'collection') {

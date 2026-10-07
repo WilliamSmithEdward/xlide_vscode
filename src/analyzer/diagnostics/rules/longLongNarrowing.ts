@@ -17,7 +17,7 @@ import {
 	compilerConstantsWithDefaults,
 } from '../../conditional/conditionalCompilation';
 import type { VbaToken } from '../../lexer/tokenKinds';
-import type { ModuleNode, Span } from '../../parser/nodes';
+import type { ModuleNode, Span , ProcedureNode } from '../../parser/nodes';
 import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { VbaProcedureSignature, VbaSymbol } from '../../symbols/symbolModel';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
@@ -60,6 +60,7 @@ export function checkLongLongNarrowing(
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	procedureFilter?: (member: ProcedureNode) => boolean,
 ): void {
 	const win64 = compilerConstantsWithDefaults(conditionalCompilation).get('win64');
 	if (host?.toLowerCase() === 'vb6' || !(typeof win64 === 'number' ? win64 !== 0 : win64 === true)) {
@@ -67,6 +68,7 @@ export function checkLongLongNarrowing(
 	}
 	const signatures = callableTypeSignaturesFor(symbols, projectProcedures);
 	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'Procedure' && procedureFilter && !procedureFilter(member)) { continue; }
 		if (member.kind !== 'Procedure') {
 			continue;
 		}

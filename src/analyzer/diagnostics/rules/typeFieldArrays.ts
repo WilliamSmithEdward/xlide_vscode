@@ -58,12 +58,14 @@ export function checkTypeFieldArrays(
 	projectIntegerConstants?: ReadonlyMap<string, string | undefined>,
 	projectVisibleSymbols?: readonly VbaSymbol[],
 	hostModel?: HostObjectModel,
+	procedureFilter?: (member: ProcedureNode) => boolean,
 ): void {
 	const types = moduleTypes(source, mod, activity);
 	const moduleSignatures = buildModuleTypeSignatures(symbols);
 	const optionBase = moduleOptionBase(mod, activity);
 	const moduleConstants = collectModuleLiteralIntegerConstants(mod, activity, resolveRawIntegerConstants(projectIntegerConstants ?? new Map(), new Map()));
 	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'Procedure' && procedureFilter && !procedureFilter(member)) { continue; }
 		if (member.kind !== 'Procedure') {
 			continue;
 		}

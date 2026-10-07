@@ -101,17 +101,15 @@ describe('Set on a control, and a control name the form lacks (issue #226)', () 
 		expect(hits[0]).toMatch(/^set-requires-object: .*Invalid use of property/);
 	});
 
-	it('flags f.Controls("Nope"), error -2147024809', () => {
-		const hits = fromModule('Main = f.Controls("Nope").Text');
-		expect(hits).toHaveLength(1);
-		expect(hits[0]).toContain("'-2147024809'");
+	it('does not infer missing runtime controls from designer contents', () => {
+		expect(fromModule('Main = f.Controls("Nope").Text')).toEqual([]);
 	});
 
 	it.each(['Main = f.Controls("T1").Text', 'Main = f.Controls("t1").Name', 'Main = f.Controls("T2").Name'])('stays quiet on %s', (line) => {
 		expect(fromModule(line)).toHaveLength(0);
 	});
 
-	it('flags Me.Controls("Nope") inside the form', () => {
-		expect(insideForm('Public Function P() As Variant\n    P = Me.Controls("Nope").Name\nEnd Function\n')).toHaveLength(1);
+	it('leaves a runtime control lookup inside the form alone', () => {
+		expect(insideForm('Public Function P() As Variant\n    P = Me.Controls("Nope").Name\nEnd Function\n')).toHaveLength(0);
 	});
 });

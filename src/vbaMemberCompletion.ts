@@ -14,6 +14,7 @@ import { VbaProjectIndexService } from './vbaProjectIndexService';
 import { VbaCanonicalCaseController } from './vbaCanonicalCaseController';
 import { VbaEditorProjectContextService } from './vbaEditorProjectContext';
 import { VbaHoverSignatureProvider } from './vbaHoverSignatureProvider';
+import { VbaColorProvider } from './vbaColorProvider';
 import {
 	KEYWORD_SNIPPET_ACCEPTED_COMMAND,
 	VbaKeywordSnippetTracker,
@@ -46,6 +47,7 @@ export function registerVbaMemberCompletion(
 	});
 
 	context.subscriptions.push(
+		vscode.languages.registerColorProvider(selector, new VbaColorProvider()),
 		vscode.commands.registerCommand(
 			KEYWORD_SNIPPET_ACCEPTED_COMMAND,
 			() => keywordSnippets.handleSnippetAccepted(),
@@ -58,10 +60,12 @@ export function registerVbaMemberCompletion(
 			'#',
 			'"',
 			'@',
+			'=',
 		),
 		vscode.workspace.onDidChangeTextDocument((event) => {
 			keywordSnippets.handleTextDocumentChange(event);
 			canonicalCase.handleTextDocumentChange(event);
+			provider.handleTextDocumentChange(event);
 			// Drop the project's derived editor-context cache when ANY of its
 			// modules is edited (even unsaved), so completion/hover for one module
 			// does not serve stale cross-module symbols from a sibling module's

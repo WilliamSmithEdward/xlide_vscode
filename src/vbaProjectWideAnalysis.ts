@@ -1,3 +1,4 @@
+import { isAnalysisWorkerTimeoutError } from './analysisWorkerErrors';
 // Workbook-wide VBA analysis. Reads every module's source from a project and
 // runs the same two analysis passes the live editor uses - the structural
 // block-balance analyzer (analyzeVbaStructure) and the high-confidence semantic rule
@@ -574,11 +575,17 @@ async function runProjectAnalysis(
         // drops every one of them and the toast sits on "Reading VBA
         // modules..." for the whole run - which reads as a hang, however fast
         // the run actually is.
+        const pendingModules = new Set(modules.map(mod => mod.name));
         let completedModules = 0;
         const reportModuleDone = (name: string): void => {
             completedModules++;
+            pendingModules.delete(name);
+            const remaining = [...pendingModules];
+            const pendingLabel = remaining.length > 0
+                ? `; remaining: ${remaining.slice(0, 3).join(', ')}${remaining.length > 3 ? ', ...' : ''}`
+                : '';
             progress.report(
-                `Analyzed ${name} (${completedModules}/${modules.length})`,
+                `Analyzed ${name} (${completedModules}/${modules.length})${pendingLabel}`,
                 { force: true },
             );
         };
@@ -635,7 +642,7 @@ async function runProjectAnalysis(
                             ),
                         };
                     } catch (err) {
-                        if (err instanceof vscode.CancellationError) {
+                        if (err instanceof vscode.CancellationError || isAnalysisWorkerTimeoutError(err)) {
                             throw err;
                         }
                         // Worker died or rejected: identical in-host pass below.

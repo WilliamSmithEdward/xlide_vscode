@@ -29,12 +29,12 @@
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import { statementLabelDeclaration } from '../../flow/procedureLabels';
 import type { VbaToken } from '../../lexer/tokenKinds';
-import type { BodyNode, ModuleNode, Span } from '../../parser/nodes';
+import type { BodyNode, ModuleNode, Span , ProcedureNode } from '../../parser/nodes';
 import { isLeafStatement } from '../../parser/nodes';
 import type { PushFn } from '../analysisContext';
 import { walkEnteringBlocks } from '../dataflow';
 import { stringLiteralValue } from '../typeInference';
-import { activeModuleMembers, matchParenFrom, setAssignmentTarget, statementTokensAfterLeadingLabel, tokenName, tokenText } from '../walker';
+import { activeModuleMembers, forEachVariableGroup, matchParenFrom, setAssignmentTarget, statementTokensAfterLeadingLabel, tokenName, tokenText } from '../walker';
 import { splitTopLevelTokenGroups } from '../../lexer/tokenHelpers';
 import { namesIn } from './shared';
 import { foldStringExpression } from '../knownStringCalls';
@@ -75,12 +75,29 @@ export function checkLateBoundObjects(
 	mod: ModuleNode,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	procedureFilter?: (member: ProcedureNode) => boolean,
+	projectCallables?: Iterable<string>,
 ): void {
+	const callables = new Set(mod.members.filter(member => member.kind === 'Procedure').map(member => member.name.toLowerCase()));
+	for (const name of projectCallables ?? []) { callables.add(name.toLowerCase()); }
 	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'Procedure' && procedureFilter && !procedureFilter(member)) { continue; }
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
+		// A failed Set/Open/Close may leave the previous object or state intact
+		// when execution resumes. Successful mutations are not proven through
+		// error flow, so do not seed inferred state in error-handled procedures.
+		if (/\bon\s+error\b/i.test(source.slice(member.span.start, member.span.end))) { continue; }
 		const states = new Map<string, LateObject>();
+		// Shared fields and parameters may change without being named at a call
+		// site. Only freshly created, nonstatic locals establish object state.
+		const locals = new Set<string>();
+		forEachVariableGroup(member.body, group => {
+			if (!group.isConst && group.modifier.toLowerCase() !== 'static') {
+				for (const decl of group.declarations) { locals.add(decl.name.toLowerCase()); }
+			}
+		}, activity);
 		const forget = (names: Iterable<string>): void => {
 			for (const lower of names) {
 				states.delete(lower);
@@ -91,6 +108,20 @@ export function checkLateBoundObjects(
 				return;
 			}
 			const toks = statementTokensAfterLeadingLabel(source, node.span);
+			if (toks.some((tok, i) => tokenName(tok) !== undefined && callables.has(tokenText(tok))
+				&& !(tokenText(tok) === member.name.toLowerCase() && toks[i + 1]?.rawText === '='))) {
+				states.clear();
+			}
+			// File state belongs to the filesystem, rather than the FSO instance.
+			// Operations through another instance invalidate prior file facts and
+			// inferred emptiness of existing streams before evaluating the call.
+			const fileOwners = new Set(toks.filter((tok, i) => toks[i + 1]?.rawText === '.' && states.get(tokenText(tok))?.kind === 'fso').map(tok => tokenText(tok)));
+			if (fileOwners.size) {
+				for (const [lower, state] of states) {
+					if (state.kind === 'fso' && (!fileOwners.has(lower) || fileOwners.size > 1)) { state.files = {}; }
+					if (state.kind === 'textstream') { state.empty = undefined; }
+				}
+			}
 			if (statementLabelDeclaration(source, node.span) || tokenText(toks[0]) === 'gosub') {
 				states.clear();
 			}
@@ -154,7 +185,7 @@ export function checkLateBoundObjects(
 					named.delete(tokenName(value[0])?.toLowerCase() ?? '');
 				}
 				forget(named);
-				if (created) {
+				if (created && locals.has(lower)) {
 					states.set(lower, created);
 				}
 				return;

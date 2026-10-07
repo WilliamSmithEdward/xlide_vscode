@@ -188,6 +188,9 @@ export function spaceTriggerMayComplete(
 		return false;
 	}
 	const significant = tokens.filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
+	if (significant.at(-1)?.rawText === '=' || significant.at(-1)?.rawText === ':=') {
+		return true; // assignment or named argument value
+	}
 	let start = 0;
 	for (let i = significant.length - 1; i >= 0; i -= 1) {
 		if (significant[i].kind === 'colon') {

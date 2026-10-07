@@ -233,6 +233,27 @@ function isBoundary(token: VbaToken): boolean {
 	return token.kind === 'newline' || token.rawText === ':';
 }
 
+/** Whether suggestions exist, without materializing rows or rendering documentation. */
+export function hasMemberCompletions(
+	source: string,
+	offset: number,
+	ctx: MemberCompletionContext = {},
+): boolean {
+	return memberCompletionStatus(source, offset, ctx) === true;
+}
+
+/** True/false for a known surface; undefined when the receiver still needs context. */
+export function memberCompletionStatus(
+	source: string,
+	offset: number,
+	ctx: MemberCompletionContext = {},
+): boolean | undefined {
+	const hit = memberSurfaceAtDot(source, offset, ctx);
+	if (!hit) { return undefined; }
+	const prefix = hit.typedPrefix.toLowerCase();
+	return hit.surface.members.some(mem => !mem.hidden && mem.name.toLowerCase().startsWith(prefix));
+}
+
 /**
  * Resolves the member completions available at `offset`. Returns an empty array
  * when the cursor is not in a member-access position or the receiver type
@@ -441,6 +462,15 @@ function prefixSignificantTokens(
 	return completionCursorContext(source, offset).significantTokens;
 }
 
+/** Bracketed foreign names are prefixes too, including an unfinished escape. */
+function completionMemberPrefix(token: VbaToken): string | undefined {
+	if (isIdentLike(token)) { return token.rawText; }
+	if (token.kind === 'bracketedIdentifier') {
+		return token.rawText.slice(1).replace(/\]$/, '');
+	}
+	return undefined;
+}
+
 function memberSurfaceAtDot(
 	source: string,
 	offset: number,
@@ -457,8 +487,9 @@ function memberSurfaceAtDot(
 	// Identify the typed member prefix (text after the dot) and the dot itself.
 	let i = tokens.length - 1;
 	let typedPrefix = '';
-	if (isIdentLike(tokens[i]) && i > 0 && tokens[i - 1].rawText === '.') {
-		typedPrefix = tokens[i].rawText;
+	const memberPrefix = completionMemberPrefix(tokens[i]);
+	if (memberPrefix !== undefined && i > 0 && tokens[i - 1].rawText === '.') {
+		typedPrefix = memberPrefix;
 		i -= 1;
 	}
 	if (i < 0 || tokens[i].rawText !== '.') {
@@ -556,7 +587,7 @@ export function privateMemberOwnerAt(
 		?? (currentType.startsWith(PROJECT_TYPE_PREFIX) ? currentType.slice(PROJECT_TYPE_PREFIX.length) : undefined);
 	const projectType = projectKey ? projectClassMembersByName(ctx).get(projectKey) : undefined;
 	const lower = memberName.toLowerCase();
-	if (!projectType?.privateMembers?.some((name) => name.toLowerCase() === lower)) {
+	if (!projectType?.privateMembers || !privateMemberNames(projectType.privateMembers).has(lower)) {
 		return undefined;
 	}
 	const surface = memberSurfaceForType(currentType, ctx);
@@ -590,7 +621,37 @@ export function projectClassMemberAt(
 		return undefined;
 	}
 	const lower = memberName.toLowerCase();
-	return projectType.members.find((member) => member.name.toLowerCase() === lower);
+	return projectMembersByName(projectType.members).get(lower);
+}
+
+// Project-index snapshots keep these arrays immutable. Key by the arrays so
+// replacing a member list also replaces its lookup, even on the same owner.
+const PRIVATE_MEMBER_NAMES = new WeakMap<readonly string[], ReadonlySet<string>>();
+const PROJECT_MEMBERS_BY_NAME = new WeakMap<readonly VbaProjectClassMember[], ReadonlyMap<string, VbaProjectClassMember>>();
+
+function privateMemberNames(members: readonly string[]): ReadonlySet<string> {
+	let names = PRIVATE_MEMBER_NAMES.get(members);
+	if (!names) {
+		names = new Set(members.map(name => name.toLowerCase()));
+		PRIVATE_MEMBER_NAMES.set(members, names);
+	}
+	return names;
+}
+
+function projectMembersByName(members: readonly VbaProjectClassMember[]): ReadonlyMap<string, VbaProjectClassMember> {
+	let names = PROJECT_MEMBERS_BY_NAME.get(members);
+	if (!names) {
+		const indexed = new Map<string, VbaProjectClassMember>();
+		for (const member of members) {
+			const lower = member.name.toLowerCase();
+			if (!indexed.has(lower)) {
+				indexed.set(lower, member);
+			}
+		}
+		names = indexed;
+		PROJECT_MEMBERS_BY_NAME.set(members, names);
+	}
+	return names;
 }
 
 // A surface's members are looked up by name once per reference, and a host
@@ -784,7 +845,7 @@ export function resolveReceiverTypeAt(
 		return undefined;
 	}
 	let i = tokens.length - 1;
-	if (isIdentLike(tokens[i]) && i > 0 && tokens[i - 1].rawText === '.') {
+	if (completionMemberPrefix(tokens[i]) !== undefined && i > 0 && tokens[i - 1].rawText === '.') {
 		i -= 1;
 	}
 	if (i < 0 || tokens[i].rawText !== '.') {

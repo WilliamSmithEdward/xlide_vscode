@@ -73,6 +73,8 @@ export interface IdentifierCompletion {
 	kind: IdentifierCompletionKind;
 	detail: string;
 	documentation?: string;
+	/** Explicit insertion behavior when the origin kind alone cannot distinguish methods from objects. */
+	callable?: boolean;
 }
 
 /** Project/module facts the identifier resolver needs from outside the source. */
@@ -223,6 +225,7 @@ function identifierCompletionsAt(
 		kind: IdentifierCompletionKind,
 		detail: string,
 		documentation?: string,
+		callable?: boolean,
 	): void => {
 		if (!name || !IDENT_RE.test(name)) {
 			return;
@@ -232,7 +235,7 @@ function identifierCompletionsAt(
 			return;
 		}
 		seen.add(key);
-		out.push({ name, kind, detail, documentation });
+		out.push({ name, kind, detail, documentation, ...(callable === undefined ? {} : { callable }) });
 	};
 
 	if (isBooleanLiteralCompletionContext(tokens, last)) {
@@ -266,6 +269,7 @@ function identifierCompletionsAt(
 				'global',
 				hostGlobalMemberDetail(member, globalMemberHost),
 				hasDocContent(member.doc) ? renderDocMarkdown(member.doc) : undefined,
+				member.kind === 'method',
 			);
 		}
 	}
@@ -278,7 +282,7 @@ function identifierCompletionsAt(
 			add(f.name, 'runtime', f.signature, runtimeDocumentation(f));
 		}
 		for (const object of VBA_RUNTIME_OBJECTS) {
-			add(object.name, 'runtime', runtimeObjectDetail(object), runtimeObjectDocumentation(object));
+			add(object.name, 'runtime', runtimeObjectDetail(object), runtimeObjectDocumentation(object), false);
 		}
 		if (lowerPartial.length >= 2) {
 			for (const constant of VBA_RUNTIME_CONSTANTS) {

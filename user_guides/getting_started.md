@@ -135,6 +135,15 @@ Useful editor flows:
 - Type after `As`, `As New`, or `New` for type-name completion.
 - Type after `object.` for member completion when XLIDE can resolve the object
   type.
+- After `=` on an enum-valued variable or property, matching enum constants
+  appear first. Enum arguments also prioritize their matching values. Common
+  Excel formatting properties such as alignment, border style, and interior
+  pattern offer their documented constants even when declared as `Variant`.
+- After `.Color =`, choose `RGB` to insert `RGB(0, 0, 0)`, then hover the color
+  swatch to open the color picker. Swatches also appear for literal `RGB(...)`
+  calls, VBA color constants such as `vbRed`, and decimal or hexadecimal values
+  assigned to color properties. The picker can write RGB, hexadecimal, or
+  decimal VBA code. Dynamic expressions and system color values have no picker.
 - Use **Go to Definition**, **Find All References**, and **Rename Symbol** for
   source-backed project symbols where the analyzer can bind the reference.
 

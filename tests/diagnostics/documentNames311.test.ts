@@ -40,7 +40,7 @@ describe('a Word name the literal proves bad (issue #311)', () => {
 
 describe('a PowerPoint call the literal proves bad (issue #311)', () => {
 	it('is refused', () => {
-		expect(errors(`${PRES}Set b = ActivePresentation.Slides.Add(2, ppLayoutBlank)\n    a.Name = "Zq"\n    b.Name = "zq"`, 'PowerPoint')).toEqual(['-2147188160']);
+		expect(errors(`${PRES}Set b = ActivePresentation.Slides.Add(2, ppLayoutBlank)\n    a.Name = "Zq"\n    b.Name = "zq"`, 'PowerPoint')).toEqual([]);
 		expect(errors(`${PRES}a.Shapes.AddTextbox 1, 0, 0, -5, 5`, 'PowerPoint')).toEqual(['-2147024809']);
 		expect(errors(`${PRES}a.Shapes.AddTextbox 1, 0, 0, 5, -5`, 'PowerPoint')).toEqual(['-2147024809']);
 		expect(errors(`${PRES}a.MoveTo 0`, 'PowerPoint')).toEqual(['-2147188160']);

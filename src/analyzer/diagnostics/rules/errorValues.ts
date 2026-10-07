@@ -26,7 +26,7 @@ import type { ConditionalActivityTracker } from '../../conditional/conditionalCo
 import { statementLabelDeclaration } from '../../flow/procedureLabels';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import { splitTopLevelTokenGroups } from '../../lexer/tokenHelpers';
-import type { BodyNode, ModuleNode, Span } from '../../parser/nodes';
+import type { BodyNode, ModuleNode, Span , ProcedureNode } from '../../parser/nodes';
 import { isLeafStatement } from '../../parser/nodes';
 import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
@@ -81,9 +81,11 @@ export function checkErrorValues(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	procedureFilter?: (member: ProcedureNode) => boolean,
 ): void {
 	const optionBase = moduleOptionBase(mod, activity);
 	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'Procedure' && procedureFilter && !procedureFilter(member)) { continue; }
 		if (member.kind !== 'Procedure') {
 			continue;
 		}

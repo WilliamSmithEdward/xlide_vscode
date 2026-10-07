@@ -5,6 +5,13 @@ import type { ReachingAssignments } from './straightLineValues';
 // base and copy at most 32 overrides, with one bounded level of lookup.
 const SHARED_STATE_MIN_SIZE = 64;
 const MAX_OVERRIDES = 32;
+const immutableStarts = new WeakSet<ReachingAssignments>();
+
+/** Only analyzer-owned, immutable maps may opt into sharing their base. */
+export function shareImmutableReachingStart(start: ReachingAssignments): ReachingAssignments {
+	immutableStarts.add(start);
+	return start;
+}
 
 class ReachingSnapshot implements ReachingAssignments {
 	readonly #base: ReachingAssignments;
@@ -40,5 +47,5 @@ export function withReachingValue(before: ReachingAssignments, key: string, valu
 	if (before instanceof ReachingSnapshot) return before.withValue(key, value);
 	if (before.size < SHARED_STATE_MIN_SIZE) { const next = new Map(before); next.set(key, value); return next; }
 	// Detach the shared base once: callers may own a mutable initial Map.
-	return new ReachingSnapshot(new Map(before), new Map([[key, value]]), before.size + (before.has(key) ? 0 : 1));
+	return new ReachingSnapshot(immutableStarts.has(before) ? before : new Map(before), new Map([[key, value]]), before.size + (before.has(key) ? 0 : 1));
 }

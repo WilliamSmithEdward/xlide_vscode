@@ -76,14 +76,11 @@ import { isLeafStatement } from '../../parser/nodes';
 import { jumpTargetLabelDeclaration } from '../../flow/procedureLabels';
 import { splitTopLevelTokenGroups } from '../../lexer/tokenHelpers';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
-import { procedureSymbolFor, type AnalyzeModuleOptions, type PushFn } from '../analysisContext';
-import type { SheetChanges, WorkbookSheetInfo } from '../../symbols/sheetChanges';
-import { foldStringExpression } from '../knownStringCalls';
+import { procedureSymbolFor, type PushFn } from '../analysisContext';
 import { checkEachCounterPass, loopCountersAt } from '../loopCounters';
 import { knownLocalLiteralValuesAt, normalizeType, stringLiteralValue, typeEnvironmentFor, type KnownLocalValue } from '../typeInference';
 import {
 	bareAssignmentTarget,
-	blockHeaderLineSpan,
 	firstExecutableTokenIndex,
 	matchParenFrom,
 	statementTokens,
@@ -135,14 +132,12 @@ export function checkHostArguments(
 	memberCtx: MemberCompletionContext,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
-	sheets?: WorkbookSheetsCheck,
 ): ProcedureStatementVisitor {
 	const model = memberCtx.model;
 	const host = model?.hostName ?? 'Excel';
 	if (host !== 'Excel' && host !== 'Word' && host !== 'PowerPoint') {
 		return () => undefined;
 	}
-	const workbook = host === 'Excel' ? sheets : undefined;
 	const moduleNames = new Set<string>();
 	const moduleArrays = new Set<string>();
 	for (const child of symbols.root.children ?? []) {
@@ -185,8 +180,6 @@ export function checkHostArguments(
 		// A local known to hold one value here: `r = 0` then `Cells(r, 1)`
 		// (issue #345, measured in Excel 16.0).
 		let valuesAt: ReturnType<typeof knownLocalLiteralValuesAt> | undefined;
-		let documentsAt: ReturnType<typeof newDocumentsAt> | undefined;
-		let sheetsAt: ReturnType<typeof activeSheetsAt> | undefined;
 		let factsAt: ReturnType<typeof sheetFactsAt> | undefined;
 		// A sheet the code just protected (issue #471).
 		if (host === 'Excel' && /\.\s*protect\b/i.test(source.slice(proc.span.start, proc.span.end))) {
@@ -209,25 +202,12 @@ export function checkHostArguments(
 				return literalString(arg) ?? (held?.kind === 'string' ? held.value as string : undefined);
 			};
 			const literalOrKnown = (arg: readonly VbaToken[]): number | undefined => integerLiteralValue(arg) ?? knownNumber(arg);
-			// A document the procedure just added (issue #497).
-			const documents = host === 'Word' ? (documentsAt ??= newDocumentsAt(source, proc, activity)).get(stmt) : undefined;
-			if (documents) {
-				checkNewDocumentUses(stmt.span, statementTokens(source, stmt.span), documents, literalOrKnown, push);
-			}
-			// A sheet the code knows is not active (issue #470).
-			const sheetState = host === 'Excel' ? (sheetsAt ??= activeSheetsAt(source, proc, activity)).get(stmt) : undefined;
-			if (sheetState) {
-				checkUnqualifiedCorners(stmt.span, statementTokens(source, stmt.span), sheetState, push);
-			}
 			// Intersect and Union of literal ranges, and a sheet the code just added (issue #472).
-			if (host === 'Excel') {
+			if (host === 'Excel' && !['intersect', 'union', 'range', 'worksheets', 'sheets', 'thisworkbook', 'activeworkbook', 'application'].some(name => sourceNames.has(name))) {
 				checkSheetFacts(stmt.span, statementTokens(source, stmt.span), (factsAt ??= sheetFactsAt(source, proc, activity)).get(stmt), push);
 			}
 			if (!stmtCounters) {
 				checkSpan(source, stmt.span, host, model, memberCtx, env, arrays, sourceNames, literalOrKnown, push, stringOf);
-				if (workbook) {
-					checkWorkbookSheetAccess(source, stmt.span, workbook, sourceNames, literalOrKnown, push);
-				}
 				return;
 			}
 			checkEachCounterPass(source, stmt.span, stmtCounters, () => undefined, (values, report) => {
@@ -240,144 +220,35 @@ export function checkHostArguments(
 					return toks.length === 1 ? values.get(tokenName(toks[0])?.toLowerCase() ?? '') ?? knownNumber(arg) : undefined;
 				};
 				checkSpan(source, stmt.span, host, model, memberCtx, env, arrays, sourceNames, valueOf, report, stringOf);
-				if (workbook) {
-					checkWorkbookSheetAccess(source, stmt.span, workbook, sourceNames, valueOf, report);
-				}
 			}, push);
 		};
 	};
 }
 
-/** What a statement knows of the active sheet: the sheet variables known not to be it, and a With's subject. */
-interface ActiveSheetState {
-	notActive: ReadonlySet<string>;
-	subject?: string;
-}
+// Active-sheet identity is runtime state. Calls, property getters and Excel
+// activation events can change it even after a sheet is added. Do not infer
+// cross-sheet Range failures from a prior active-sheet snapshot.
 
-/**
- * The sheet variables each statement knows are not the active sheet (issue
- * #470, measured in Excel 16.0): `Set w2 = Worksheets.Add` activates the new
- * sheet, so every sheet the code held before is not active, and `w2` is.
- * `Set w1 = ActiveSheet` and `w1.Activate` make w1 the active one. Any
- * other statement that may activate a sheet, a call, a label, or a block
- * other than a With ends what is known.
- */
-function activeSheetsAt(source: string, proc: ProcedureNode, activity: ConditionalActivityTracker | undefined): Map<BodyNode, ActiveSheetState> {
-	const out = new Map<BodyNode, ActiveSheetState>();
-	const sheets = new Set<string>();
-	let notActive = new Set<string>();
-	const visit = (list: readonly BodyNode[], subject: string | undefined): void => {
-		for (const node of list) {
-			if (activity?.isInactive(node.span)) {
-				continue;
-			}
-			if (!isLeafStatement(node)) {
-				const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span));
-				// The body runs from the state the block is entered with; after
-				// it, what it may have activated is not known.
-				if ('body' in node && Array.isArray(node.body)) {
-					const entry = notActive;
-					notActive = new Set(entry);
-					visit(node.body as BodyNode[], node.kind === 'WithBlock' && header.length === 2 ? tokenName(header[1])?.toLowerCase() : subject);
-				}
-				notActive = new Set();
-				continue;
-			}
-			if (jumpTargetLabelDeclaration(source, node.span)) {
-				notActive = new Set();
-			}
-			if (notActive.size > 0) {
-				out.set(node, { notActive: new Set(notActive), subject });
-			}
-			const toks = statementTokensAfterLeadingLabel(source, node.span);
-			const words = toks.map((tok) => tok.rawText.toLowerCase());
-			if (words[0] === 'set' && words[2] === '=') {
-				const target = words[1];
-				const value = words.slice(3).join('');
-				if (value === 'activesheet') {
-					sheets.add(target);
-					notActive.delete(target);
-					continue;
-				}
-				// `Worksheets.Add`, `Sheets.Add(...)`, qualified by a workbook or not.
-				if (/^(?:\w+\.)*(?:worksheets|sheets)\.add(?:\(.*\))?$/.test(value)) {
-					notActive = new Set([...sheets].filter((sheet) => sheet !== target));
-					sheets.add(target);
-					continue;
-				}
-				if (!/[(]/.test(value) || /^(?:\w+\.)*(?:worksheets|sheets)\(/.test(value)) {
-					notActive.delete(target);
-					continue;
-				}
-			}
-			// A plain assignment with no call keeps what is known.
-			const bare = bareAssignmentTarget(source, node.span);
-			const calls = toks.some((tok, i) => toks[i + 1]?.rawText === '(' && tok.kind === 'identifier' && toks[i - 1]?.rawText === '.' && ['activate', 'select', 'add', 'copy', 'move'].includes(tokenText(tok)));
-			if ((bare || (words[0] === 'set' && words[2] === '=')) && !calls && !words.some((word) => word === 'activate' || word === 'select')) {
-				continue;
-			}
-			// `w1.Activate`: w1 is active, and nothing else is known.
-			notActive = new Set();
-		}
-	};
-	visit(proc.body, undefined);
-	return out;
-}
-
-/**
- * `w1.Range(Cells(1, 1), Cells(2, 2))` with w1 known not to be the active
- * sheet: the unqualified Cells, Range, Rows or Columns are the active
- * sheet's, so the Range raises 1004 (issue #470, measured in Excel 16.0).
- */
-function checkUnqualifiedCorners(span: Span, toks: readonly VbaToken[], state: ActiveSheetState, push: PushFn): void {
-	for (let i = 0; i + 3 < toks.length; i++) {
-		const dotted = toks[i].rawText === '.' && tokenText(toks[i + 1]) === 'range' && toks[i + 2]?.rawText === '(';
-		if (!dotted) {
-			continue;
-		}
-		const owner = toks[i - 1] && toks[i - 1].rawText !== ')' ? tokenName(toks[i - 1])?.toLowerCase() : undefined;
-		const sheet = owner ?? (i === 0 || ['=', '(', ','].includes(toks[i - 1]?.rawText ?? '') ? state.subject : undefined);
-		if (!sheet || !state.notActive.has(sheet)) {
-			continue;
-		}
-		const close = matchParenFrom(toks, i + 2);
-		const args = close > i + 3 ? splitTopLevelTokenGroups(toks, i + 3, ',', close) : [];
-		if (args.length !== 2) {
-			continue;
-		}
-		for (const arg of args) {
-			const part = arg.filter((tok) => tok.kind !== 'comment');
-			const word = tokenText(part[0]);
-			if (['cells', 'range', 'rows', 'columns'].includes(word) && part[1]?.rawText === '(' && matchParenFrom(part, 1) === part.length - 1) {
-				const shown = part.map((tok) => tok.rawText).join('');
-				push('hostArgumentOutOfRange', `${shown} here is the active sheet's, and '${owner ? toks[i - 1].rawText : `.${toks[i + 1].rawText}`}' is on a sheet that is not active, so Range cannot span them. This will raise Run-time error '1004': Method 'Range' of object '_Worksheet' failed.`, { start: span.start + part[0].start, end: span.start + part[part.length - 1].end });
-				break;
-			}
-		}
-	}
-}
-
-/** The sheets each statement knows: new and still empty, and those a new one differs from. */
+/** The sheets each statement knows: those a new one differs from. */
 interface SheetFacts {
-	/** Sheets from `Worksheets.Add` nothing has written to yet. */
-	empty: ReadonlySet<string>;
 	/** Pairs of sheet variables known to be different sheets, `a|b`. */
 	distinct: ReadonlySet<string>;
 }
 
-/** Members that write to a sheet or its cells, read on the way to a value. */
-const SHEET_EDITS: ReadonlySet<string> = new Set(['add', 'insert', 'paste', 'pastespecial', 'copy', 'autofill', 'fill', 'filldown', 'fillright', 'formula', 'formular1c1', 'value', 'value2', 'text', 'clear', 'clearcontents', 'delete', 'sort', 'autofilter', 'texttocolumns', 'removeduplicates']);
-
 /**
  * What each statement knows of the sheets the code just added (issue #472,
- * measured in Excel 16.0): `Set w2 = Worksheets.Add` gives an empty sheet,
- * different from every sheet the code held before. A statement that may
+ * measured in Excel 16.0): `Set w2 = Worksheets.Add` gives a new sheet,
+ * different from every sheet the code held before. Contents may be populated
+ * by new-sheet events, so emptiness is never inferred. A statement that may
  * write to it, a call, a label, or a block ends what is known.
  */
 function sheetFactsAt(source: string, proc: ProcedureNode, activity: ConditionalActivityTracker | undefined): Map<BodyNode, SheetFacts> {
 	const out = new Map<BodyNode, SheetFacts>();
+	// A handled failure may leave the variable pointing to an older sheet.
+	if (/\bon\s+error\b/i.test(source.slice(proc.span.start, proc.span.end))) {
+		return out;
+	}
 	const held = new Set<string>();
-	let empty = new Set<string>();
 	let distinct = new Set<string>();
 	const visit = (list: readonly BodyNode[]): void => {
 		for (const node of list) {
@@ -385,63 +256,59 @@ function sheetFactsAt(source: string, proc: ProcedureNode, activity: Conditional
 				continue;
 			}
 			if (!isLeafStatement(node)) {
+				// A condition or loop header may populate or rebind a sheet before
+				// its body runs, including through a helper's return value.
+				distinct.clear();
+				held.clear();
 				if ('body' in node && Array.isArray(node.body)) {
-					const [savedEmpty, savedDistinct] = [empty, distinct];
-					[empty, distinct] = [new Set(savedEmpty), new Set(savedDistinct)];
 					visit(node.body as BodyNode[]);
 				}
-				[empty, distinct] = [new Set(), new Set()];
+				distinct = new Set();
 				continue;
 			}
 			if (jumpTargetLabelDeclaration(source, node.span)) {
-				[empty, distinct] = [new Set(), new Set()];
+				distinct = new Set();
 			}
-			if (empty.size > 0 || distinct.size > 0) {
-				out.set(node, { empty: new Set(empty), distinct: new Set(distinct) });
+			if (distinct.size > 0) {
+				out.set(node, { distinct: new Set(distinct) });
 			}
 			const toks = statementTokensAfterLeadingLabel(source, node.span);
 			const words = toks.map((tok) => tok.rawText.toLowerCase());
 			if (words[0] === 'set' && words[2] === '=') {
 				const target = words[1];
 				const value = words.slice(3).join('');
-				empty.delete(target);
 				for (const pair of [...distinct]) {
 					if (pair.split('|').includes(target)) {
 						distinct.delete(pair);
 					}
 				}
-				if (/^(?:\w+\.)*(?:worksheets|sheets)\.add(?:\(.*\))?$/.test(value)) {
+				// Add(Type:=template) can contain existing data. Only a host Add
+				// establishes a distinct sheet here. Emptiness is never inferred.
+				if (/^(?:(?:thisworkbook|activeworkbook|application)\.)?(?:worksheets|sheets)\.add(?:\(\))?$/.test(value)) {
 					for (const sheet of held) {
 						if (sheet !== target) {
 							distinct.add([sheet, target].sort().join('|'));
 						}
 					}
-					empty.add(target);
+				} else {
+					// An alias or an unknown RHS can write through another reference.
+						distinct.clear();
 				}
 				if (value === 'activesheet' || /^(?:\w+\.)*(?:worksheets|sheets)/.test(value)) {
 					held.add(target);
 				}
 				continue;
 			}
-			// A read through the sheet into a variable keeps it; anything else may write.
-			const bare = bareAssignmentTarget(source, node.span);
-			const edits = toks.some((tok, i) => toks[i - 1]?.rawText === '.' && SHEET_EDITS.has(tokenText(tok)));
-			const readsOnly = bare !== undefined && !empty.has(bare.name.toLowerCase()) && !edits;
-			if (!readsOnly) {
-				for (const sheet of [...empty]) {
-					if (words.includes(sheet)) {
-						empty.delete(sheet);
-					}
-				}
-			}
+			// A write through ActiveSheet or a collection need not mention the
+			// tracked variable. Unknown calls can also mutate or rebind sheets.
+			// Keep no sheet facts across statements we do not model.
+			distinct.clear();
+			held.clear();
 		}
 	};
 	visit(proc.body);
 	return out;
 }
-
-/** The SpecialCells types an empty sheet has no cells of. */
-const EMPTY_SPECIAL_CELLS: ReadonlySet<string> = new Set(['xlcelltypeconstants', 'xlcelltypeformulas', 'xlcelltypeblanks', 'xlcelltypecomments', '2', '-4123', '4', '-4144']);
 
 /**
  * Errors the literals and a new sheet prove (issue #472, measured in Excel
@@ -472,40 +339,7 @@ function checkSheetFacts(span: Span, toks: readonly VbaToken[], facts: SheetFact
 			}
 			continue;
 		}
-		const sheet = tokenName(toks[i])?.toLowerCase();
-		if (!sheet || !facts?.empty.has(sheet) || toks[i - 1]?.rawText === '.' || toks[i + 1].rawText !== '.') {
-			continue;
-		}
-		// The chain from the sheet: `w2.Cells.SpecialCells(...)`, `w2.ShowAllData`.
-		for (let k = i + 2; k < toks.length; k++) {
-			const member = tokenText(toks[k]);
-			const open = toks[k + 1]?.rawText === '(' ? k + 1 : -1;
-			const close = open > 0 ? matchParenFrom(toks, open) : k;
-			// `w2.Range("A1:B5").AutoFilter Field:=1`: a call statement's arguments.
-			const bareCall = open < 0 && i === 0 && k + 1 < toks.length && toks[k + 1].rawText !== '.' && toks[k + 1].rawText !== '=';
-			const args = open > 0 && close > open + 1 ? splitTopLevelTokenGroups(toks, open + 1, ',', close)
-				: bareCall ? splitTopLevelTokenGroups(toks, k + 1, ',', toks.length) : [];
-			const first = args[0]?.filter((tok) => tok.kind !== 'comment').map((tok) => tok.rawText.toLowerCase()).join('');
-			let problem: string | undefined;
-			if (member === 'showalldata') {
-				problem = `'${toks[i].rawText}' is a sheet the code just added, with no filter to show. This will raise Run-time error '1004': Method 'ShowAllData' of object '_Worksheet' failed`;
-			} else if (member === 'specialcells' && first !== undefined && EMPTY_SPECIAL_CELLS.has(first)) {
-				problem = `'${toks[i].rawText}' is a sheet the code just added, which has no such cells. This will raise Run-time error '1004': No cells were found.`;
-			} else if ((member === 'autofilter' || member === 'texttocolumns') && args.length > 0) {
-				const why = member === 'autofilter' ? "This can't be applied to the selected range" : 'No data was selected to parse';
-				problem = `'${toks[i].rawText}' is a sheet the code just added, and ${toks[k].rawText} has no data to act on. This will raise Run-time error '1004': ${why}`;
-			} else if (member === 'find' && toks[close + 1]?.rawText === '.' && args[0]?.length === 1 && args[0][0].kind === 'stringLiteral' && args[0][0].rawText !== '""') {
-				problem = `'${toks[i].rawText}' is a sheet the code just added, so Find finds nothing and returns Nothing, which has no '.${toks[close + 2]?.rawText ?? ''}'. This will raise Run-time error '91': Object variable or With block variable not set`;
-			}
-			if (problem) {
-				push('hostArgumentOutOfRange', `${problem}.`, at(k, close));
-				break;
-			}
-			if (toks[close + 1]?.rawText !== '.') {
-				break;
-			}
-			k = close + 1;
-		}
+
 	}
 }
 
@@ -570,47 +404,6 @@ function overlaps(a: A1Area, b: A1Area): boolean {
 	return ar1 <= br2 && br1 <= ar2 && ac1 <= bc2 && bc1 <= ac2;
 }
 
-/** Range members a call statement edits cells with. */
-const CELL_EDITS: ReadonlySet<string> = new Set(['clearcontents', 'clear', 'clearformats', 'insert', 'delete', 'paste', 'pastespecial', 'autofill', 'filldown', 'fillright', 'merge', 'unmerge', 'sort']);
-
-/** The members of a sheet that reach its cells. */
-const CELL_PATHS: ReadonlySet<string> = new Set(['range', 'cells', 'rows', 'columns', 'usedrange']);
-
-/** The cell properties a write to still raises under any AllowFormatting flag. */
-const VALUE_PROPERTIES: ReadonlySet<string> = new Set(['value', 'value2', 'formula', 'formular1c1', 'formula2', 'formula2r1c1', 'formulaarray', 'formulalocal', 'formular1c1local']);
-
-/** A sheet the code protected: its password ('' for none) and the Allow flags it set True. */
-interface ProtectedSheet {
-	password: string;
-	allows: ReadonlySet<string>;
-}
-
-/**
- * Which Allow flag lets a protected sheet's edit run (issue #684, measured
- * in Excel 16.0): AllowInsertingRows a row insert, AllowInsertingColumns a
- * column insert, AllowFormattingColumns a ColumnWidth, AllowFormattingRows
- * a RowHeight, and AllowFormattingCells any other format. A value write,
- * ClearContents and a Delete raise whatever the flags: AllowDeletingRows
- * deletes only unlocked rows.
- */
-function allowedEdit(words: readonly string[], eq: number, edit: number, allows: ReadonlySet<string>): boolean {
-	if (edit > 0 && words[edit] === 'insert') {
-		const rows = words.slice(0, edit).some((word) => word === 'rows' || word === 'entirerow');
-		const columns = words.slice(0, edit).some((word) => word === 'columns' || word === 'entirecolumn');
-		return (rows && !columns && allows.has('allowinsertingrows')) || (columns && !rows && allows.has('allowinsertingcolumns'));
-	}
-	if (eq > 0) {
-		const property = words[eq - 1];
-		if (VALUE_PROPERTIES.has(property)) {
-			return false;
-		}
-		return property === 'columnwidth' ? allows.has('allowformattingcolumns')
-			: property === 'rowheight' ? allows.has('allowformattingrows')
-				: allows.has('allowformattingcells');
-	}
-	return false;
-}
-
 /** What each change to a workbook's sheets raises while its structure is protected (issue #684, measured in Excel 16.0). */
 const STRUCTURE_ERRORS: Readonly<Record<string, string>> = {
 	add: "Method 'Add' of object 'Sheets' failed",
@@ -631,13 +424,10 @@ function protectArguments(toks: readonly VbaToken[]): { args: VbaToken[][]; name
 
 /**
  * The sheets the code just protected, with their password, and the faults
- * that follow (issue #471, measured in Excel 16.0): after `w2.Protect`, a
- * write to its cells or a cell edit raises 1004, and `w2.Unprotect` with
- * another password raises 1004. `Protect UserInterfaceOnly:=True` lets the
- * code write, a right Unprotect ends it, and a cell's Locked set by the
- * code, a call, a label or the end of a block ends what is known. A sheet
- * protected with no password takes any at Unprotect, and the Allow flags
- * let their edits run (issue #684).
+ * that follow (issue #471, measured in Excel 16.0): `w2.Unprotect` with
+ * another password raises 1004. Cell write checks are retired: locked flags,
+ * editable ranges and runtime aliases are not established by Protect alone.
+ * Unprotect through any reference or an unmodeled operation ends all facts.
  *
  * The workbooks whose structure the code protected (issue #684, measured
  * in Excel 16.0): `wb.Protect "pw"`, Structure True unless given False.
@@ -645,13 +435,13 @@ function protectArguments(toks: readonly VbaToken[]): { args: VbaToken[][]; name
  * or copying a sheet the code took from it, until Unprotect.
  */
 function checkProtectedSheets(source: string, proc: ProcedureNode, activity: ConditionalActivityTracker | undefined, push: PushFn): void {
-	let protectedSheets = new Map<string, ProtectedSheet>();
+	// A failed Protect/Unprotect can leave a different state under a handler.
+	if (/\bon\s+error\b/i.test(source.slice(proc.span.start, proc.span.end))) { return; }
+	let protectedSheets = new Map<string, string>();
 	let protectedBooks = new Map<string, string>();
 	// The workbooks by name, and which one each sheet variable was taken from.
 	const books = new Set(['activeworkbook', 'thisworkbook']);
 	let sheetBooks = new Map<string, string>();
-	// Sheets the code unlocked a cell on: which cells stay writable is not followed.
-	const unlocked = new Set<string>();
 	const forgetAll = (): void => {
 		protectedSheets = new Map();
 		protectedBooks = new Map();
@@ -663,10 +453,9 @@ function checkProtectedSheets(source: string, proc: ProcedureNode, activity: Con
 				continue;
 			}
 			if (!isLeafStatement(node)) {
+				// Conditions and loop headers can change protection through calls.
+				forgetAll();
 				if ('body' in node && Array.isArray(node.body)) {
-					protectedSheets = new Map(protectedSheets);
-					protectedBooks = new Map(protectedBooks);
-					sheetBooks = new Map(sheetBooks);
 					visit(node.body as BodyNode[]);
 				}
 				forgetAll();
@@ -679,8 +468,18 @@ function checkProtectedSheets(source: string, proc: ProcedureNode, activity: Con
 			const words = toks.map((tok) => tok.rawText.toLowerCase());
 			const sheet = words[0];
 			const at = (from: number, to: number): Span => ({ start: node.span.start + toks[from].start, end: node.span.start + toks[to].end });
-			if (words.includes('locked')) {
-				unlocked.add(sheet);
+			// A bare getter on an assignment RHS can change protection too.
+			const eq = toks.findIndex(tok => tok.rawText === '=');
+			if (words[0] !== 'set' && eq >= 0 && toks.slice(eq + 1).some(tok => tok.kind === 'identifier'
+				&& !['xlsheethidden', 'xlsheetveryhidden', 'xlsheetvisible'].includes(tokenText(tok)))) {
+				forgetAll();
+				continue;
+			}
+			// An argument or RHS helper may unprotect before the operation runs.
+			// Only sheet collection lookups are modeled across parentheses here.
+			if (toks.some((tok, i) => tokenName(tok) && toks[i + 1]?.rawText === '(' && !['sheets', 'worksheets'].includes(tokenText(tok)))) {
+				forgetAll();
+				continue;
 			}
 			// Another workbook made active: what ActiveWorkbook was is not known.
 			if (words.includes('activate') || words.includes('workbooks')) {
@@ -703,9 +502,10 @@ function checkProtectedSheets(source: string, proc: ProcedureNode, activity: Con
 			if (words[0] === 'set' && words[2] === '=') {
 				const target = words[1];
 				const value = words.slice(3);
-				protectedSheets.delete(target);
-				protectedBooks.delete(target);
-				sheetBooks.delete(target);
+				// A Set RHS may call a helper or expose an alias of a protected
+				// object. Do not preserve protection facts across it.
+				forgetAll();
+				books.delete(target);
 				if (value[0] === 'workbooks' || ((value[0] === 'activeworkbook' || value[0] === 'thisworkbook') && value.length === 1)) {
 					books.add(target);
 				}
@@ -729,6 +529,8 @@ function checkProtectedSheets(source: string, proc: ProcedureNode, activity: Con
 					}
 				} else {
 					const held = protectedBooks.get(sheet);
+					// Another variable may name the same workbook or one of its sheets.
+					forgetAll();
 					if (held !== undefined && held !== '' && password !== undefined && password !== held && passwordArg) {
 						push('hostArgumentOutOfRange', `'${toks[0].rawText}' was protected with another password, which Unprotect must match. This will raise Run-time error '1004': The password you supplied is not correct.`, at(2, toks.length - 1));
 						continue;
@@ -752,15 +554,15 @@ function checkProtectedSheets(source: string, proc: ProcedureNode, activity: Con
 				const { named, passwordArg, password } = protectArguments(toks);
 				if (words[2] === 'protect') {
 					const uiOnly = named('userinterfaceonly');
-					if (password === undefined || unlocked.has(sheet) || (uiOnly && tokenText(uiOnly[0]) !== 'false')) {
+					if (password === undefined || (uiOnly && tokenText(uiOnly[0]) !== 'false')) {
 						protectedSheets.delete(sheet);
 					} else {
-						const allows = new Set(['allowinsertingrows', 'allowinsertingcolumns', 'allowformattingcells', 'allowformattingcolumns', 'allowformattingrows']
-							.filter((flag) => named(flag) !== undefined && tokenText(named(flag)![0]) !== 'false'));
-						protectedSheets.set(sheet, { password, allows });
+						protectedSheets.set(sheet, password);
 					}
 				} else {
-					const held = protectedSheets.get(sheet)?.password;
+					const held = protectedSheets.get(sheet);
+					// Unprotect through ActiveSheet or an alias invalidates every fact.
+					forgetAll();
 					// A sheet protected with no password takes any (issue #684).
 					if (held !== undefined && held !== '' && password !== undefined && password !== held && passwordArg) {
 						push('hostArgumentOutOfRange', `'${toks[0].rawText}' was protected with another password, which Unprotect must match. This will raise Run-time error '1004': The password you supplied is not correct.`, at(2, toks.length - 1));
@@ -770,195 +572,18 @@ function checkProtectedSheets(source: string, proc: ProcedureNode, activity: Con
 				}
 				continue;
 			}
-			const protection = protectedSheets.get(sheet);
-			if (protection && words[1] === '.' && CELL_PATHS.has(words[2])) {
-				const eq = toks.findIndex((tok, i) => tok.rawText === '=' && i > 2);
-				const edit = toks.findIndex((tok, i) => i > 2 && toks[i - 1]?.rawText === '.' && CELL_EDITS.has(tokenText(tok)));
-				const locked = words.includes('locked');
-				if (locked) {
-					protectedSheets.delete(sheet);
-					continue;
-				}
-				if ((eq > 0 || edit > 0) && !allowedEdit(words, eq, edit, protection.allows)) {
-					push('hostArgumentOutOfRange', `'${toks[0].rawText}' is protected here, so its cells cannot be changed. This will raise Run-time error '1004': The cell or chart you're trying to change is on a protected sheet.`, at(0, (eq > 0 ? eq : edit + 1) - 1));
-				}
-				continue;
-			}
-			// A read keeps what is known, and so does setting a property of
-			// Application, `Application.DisplayAlerts = False`; a call or another
-			// use of a sheet may unprotect it.
-			const bare = bareAssignmentTarget(source, node.span) ?? (words[0] === 'application' && words[1] === '.' && words[3] === '=' ? words[2] : undefined);
-			if (!bare || toks.some((tok) => tokenText(tok) === 'unprotect')) {
-				protectedSheets = new Map();
-				protectedBooks = new Map();
-			}
+			// Locked flags, editable ranges and other references are not known.
+			// Do not infer that cell writes fail from Protect alone, and keep no
+			// protection facts across operations we do not model.
+			forgetAll();
 		}
 	};
 	visit(proc.body);
 }
 
-/** Members that add to or edit a document, read on the way to a value. */
-const DOCUMENT_EDITS: ReadonlySet<string> = new Set([
-	'add', 'addfield', 'addpicture', 'addtable', 'insertafter', 'insertbefore', 'insertparagraph', 'insertparagraphafter',
-	'insertparagraphbefore', 'insertbreak', 'insertfile', 'paste', 'delete', 'cut', 'converttotable', 'typetext',
-]);
-
-/** A Word document the procedure just added, and the text it wrote into it, if any. */
-interface NewDocument {
-	/**
-	 * The whole text the code set through Content.Text, "" for an untouched
-	 * document, undefined for text an expression gives that is not known.
-	 */
-	text: string | undefined;
-}
-
-/** The text constants a document's text is built with (issue #694). */
-const TEXT_CONSTANTS: Readonly<Record<string, string>> = {
-	vbcr: '\r', vblf: '\n', vbcrlf: '\r\n', vbnewline: '\r\n', vbtab: '\t',
-};
-
-/**
- * The documents each statement sees as new (issue #497, measured in Word
- * 16.0): `Set d = Documents.Add` gives an empty document, and
- * `d.Content.Text = "..."` sets its whole text. A statement that names d
- * other than to read through it, a label, or a block that names it ends
- * what is known.
- */
-function newDocumentsAt(source: string, proc: ProcedureNode, activity: ConditionalActivityTracker | undefined): Map<BodyNode, ReadonlyMap<string, NewDocument>> {
-	const out = new Map<BodyNode, ReadonlyMap<string, NewDocument>>();
-	const visit = (list: readonly BodyNode[], state: Map<string, NewDocument>): void => {
-		for (const node of list) {
-			if (activity?.isInactive(node.span)) {
-				continue;
-			}
-			if (!isLeafStatement(node)) {
-				if ('body' in node && Array.isArray(node.body)) {
-					visit(node.body as BodyNode[], new Map(state));
-					const named = new Set(statementTokens(source, node.span).map((tok) => tokenName(tok)?.toLowerCase()));
-					for (const lower of [...state.keys()]) {
-						if (named.has(lower)) {
-							state.delete(lower);
-						}
-					}
-				}
-				continue;
-			}
-			if (jumpTargetLabelDeclaration(source, node.span)) {
-				state.clear();
-			}
-			if (state.size > 0) {
-				out.set(node, new Map(state));
-			}
-			const toks = statementTokensAfterLeadingLabel(source, node.span);
-			const words = toks.map((tok) => tok.rawText.toLowerCase());
-			// `Set d = Documents.Add` or `Set d = Documents.Add()`, plain.
-			const from = words[0] === 'set' && words[2] === '=' ? (words[3] === 'application' && words[4] === '.' ? 5 : 3) : -1;
-			if (from > 0 && words[from] === 'documents' && words[from + 1] === '.' && words[from + 2] === 'add'
-				&& (toks.length === from + 3 || (toks.length === from + 5 && words[from + 3] === '(' && words[from + 4] === ')'))) {
-				state.set(words[1], { text: '' });
-				continue;
-			}
-			// `d.Content.Text = "..."` writes the whole text, and so does an
-			// expression that does not read the document, its text known where
-			// every part is: `"One." & vbCr & "Two."` (issue #694).
-			const target = words[0];
-			if (state.has(target) && toks.length > 6 && words[1] === '.' && words[2] === 'content' && words[3] === '.' && words[4] === 'text' && words[5] === '='
-				&& !toks.slice(6).some((tok) => tokenName(tok)?.toLowerCase() === target)) {
-				const text = foldStringExpression(toks.slice(6), { nameValue: (tok) => TEXT_CONSTANTS[tokenText(tok)], integerValue: () => undefined });
-				state.set(target, { text });
-				continue;
-			}
-			// Anything but a read through the document may change it, and so
-			// may a method that adds or edits on the way: `x = d.Tables.Add(...)`.
-			const eq = toks.findIndex((tok) => tok.rawText === '=');
-			const edits = toks.some((tok, i) => toks[i - 1]?.rawText === '.' && DOCUMENT_EDITS.has(tokenText(tok)));
-			const reads = !edits && bareAssignmentTarget(source, node.span) !== undefined && !state.has(target);
-			for (const lower of [...state.keys()]) {
-				if (words.includes(lower) && !(reads && toks.every((tok, i) => i <= eq || tokenName(tok)?.toLowerCase() !== lower || toks[i + 1]?.rawText === '.'))) {
-					state.delete(lower);
-				}
-			}
-		}
-	};
-	visit(proc.body, new Map());
-	return out;
-}
-
-/** What a new document holds of each collection, counted from its text. */
-function newDocumentCount(document: NewDocument, member: string): number | undefined {
-	// Text adds no table, field, bookmark, hyperlink, list, comment or
-	// section: Chr(12) is a page break, and a URL stays text (issue #694,
-	// measured in Word 16.0).
-	switch (member) {
-		case 'tables':
-		case 'fields':
-		case 'inlineshapes':
-		case 'bookmarks':
-		case 'hyperlinks':
-		case 'lists':
-		case 'comments':
-			return 0;
-		case 'sections':
-			return 1;
-	}
-	const text = document.text;
-	if (text === undefined) {
-		return undefined;
-	}
-	// vbCr, vbLf and vbCrLf each end a paragraph; Chr(11) breaks a line.
-	const breaks = (text.match(/\r\n|\r|\n/g) ?? []).length;
-	switch (member) {
-		case 'paragraphs':
-			return breaks + 1;
-		case 'sentences':
-			// Each sentence ends at a stop or at the paragraph's end.
-			return breaks === 0 ? (text.match(/[.!?]/g) ?? []).length + 1 : undefined;
-		case 'words':
-		case 'characters':
-			return /\n/.test(text) ? undefined : text.length + 1; // the final paragraph mark
-	}
-	return undefined;
-}
-
-/** Members of a new document past what it holds: `d.Tables(1)`, `d.Words(50)`, `d.Range(0, 99999)`. */
-function checkNewDocumentUses(
-	span: Span,
-	toks: readonly VbaToken[],
-	documents: ReadonlyMap<string, NewDocument>,
-	valueOf: (arg: readonly VbaToken[]) => number | undefined,
-	push: PushFn,
-): void {
-	for (let i = 0; i + 4 < toks.length; i++) {
-		const name = tokenName(toks[i])?.toLowerCase();
-		const document = name ? documents.get(name) : undefined;
-		if (!document || toks[i - 1]?.rawText === '.' || toks[i + 1].rawText !== '.' || toks[i + 3].rawText !== '(') {
-			continue;
-		}
-		const member = tokenText(toks[i + 2]);
-		const close = matchParenFrom(toks, i + 3);
-		const args = close > i + 4 ? splitTopLevelTokenGroups(toks, i + 4, ',', close) : [];
-		const at = { start: span.start + toks[i + 2].start, end: span.start + toks[close].end };
-		const what = document.text === undefined ? 'whose text the code set' : document.text ? `whose text the code set to ${document.text.length} character(s)` : 'which the code just added';
-		if (member === 'range' && args.length === 2) {
-			const end = valueOf(args[1]);
-			const characters = document.text === undefined || /\n/.test(document.text) ? undefined : document.text.length + 1;
-			if (end !== undefined && characters !== undefined && end > characters) {
-				push('hostArgumentOutOfRange', `'${toks[i].rawText}' is a new document ${what}, so it ends at position ${characters}, and Range ends at ${end}. This will raise Run-time error '4608': Value out of range.`, at);
-			}
-			continue;
-		}
-		const count = newDocumentCount(document, member);
-		if (count === undefined || args.length !== 1) {
-			continue;
-		}
-		const named = member === 'bookmarks' && args[0].length === 1 && args[0][0].kind === 'stringLiteral';
-		const index = named ? undefined : valueOf(args[0]);
-		if (named || (index !== undefined && index > count)) {
-			const shown = toks.slice(i + 2, close + 1).map((tok) => tok.rawText).join('');
-			push('hostArgumentOutOfRange', `'${toks[i].rawText}' is a new document ${what}, which has ${count} ${toks[i + 2].rawText}, so ${shown} does not exist. This will raise Run-time error '5941': The requested member of the collection does not exist.`, at);
-		}
-	}
-}
+// Word collection contents and character limits are runtime state. A new
+// document can inherit template contents and be edited through other references.
+// Do not infer positive indexing bounds from Documents.Add or Content.Text.
 
 function checkSpan(
 	source: string,
@@ -986,7 +611,11 @@ function checkSpan(
 			}
 			const address = toks[i + 2].rawText.slice(1, -1);
 			const index = Number(toks[i + 7].rawText.replace(/[%&^]$/, ''));
-			if (/^\$?[A-Za-z]{1,3}\$?\d+(?::\$?[A-Za-z]{1,3}\$?\d+)?$/.test(address) && index > 1) {
+			const callee = hostCalleeAt(source, span, toks, i, model, memberCtx, sourceNames);
+			const excelRange = callee && ['global', 'Excel.Worksheet', 'Excel.Application', 'Excel.Range'].includes(callee.receiver);
+			// Out-of-grid spellings such as A0 or XFE1 can be defined names
+			// referring to multiple areas; a source-defined Range can do so too.
+			if (excelRange && parseA1Address(address)?.valid === true && /^\$?[A-Za-z]{1,3}\$?\d+(?::\$?[A-Za-z]{1,3}\$?\d+)?$/.test(address) && index > 1) {
 				push('hostArgumentOutOfRange', `Range("${address}") is one area, so Areas(${index}) names none. This will raise Run-time error '1004': Application-defined or object-defined error.`, at(i + 7, i + 7));
 			}
 		}
@@ -2364,116 +1993,8 @@ function parseA1Address(text: string): A1Area | undefined {
 }
 
 /** The whole-number value of an argument that is a literal, optionally negated. */
-/** The saved workbook's sheets, and what the project's code may do to them. */
-export interface WorkbookSheetsCheck {
-	sheets: readonly WorkbookSheetInfo[];
-	changes: SheetChanges;
-}
-
-/** Both halves or nothing: sheets alone cannot say what code adds at run time. */
-export function workbookSheetsToCheck(opts: AnalyzeModuleOptions): WorkbookSheetsCheck | undefined {
-	return opts.workbookSheets && opts.projectSheetChanges
-		? { sheets: opts.workbookSheets, changes: opts.projectSheetChanges }
-		: undefined;
-}
-
-/** The sheet kinds each of ThisWorkbook's sheet collections holds; undefined is every kind. */
-const SHEET_COLLECTION_KINDS: ReadonlyMap<string, WorkbookSheetInfo['kind'] | undefined> = new Map([
-	['sheets', undefined],
-	['worksheets', 'worksheet'],
-	['charts', 'chartsheet'],
-]);
-
-const SHEET_KIND_WORDS: Readonly<Record<WorkbookSheetInfo['kind'], string>> = {
-	worksheet: 'worksheet',
-	chartsheet: 'chart sheet',
-	dialogsheet: 'dialog sheet',
-	macrosheet: 'macro sheet',
-};
-
-/** Names Excel gives a sheet that code adds or copies: Sheet4, Chart2, Sheet1 (2). */
-const MADE_SHEET_NAME = /^(sheet|chart|dialog|macro)\d+$|\s\(\d+\)$/i;
-
-/**
- * `ThisWorkbook.Sheets("Missing")` and `ThisWorkbook.Worksheets(9)` on a
- * workbook without that sheet raise 9 (issue #229). ThisWorkbook only: a bare
- * `Sheets` is the active workbook's, which may be any workbook. A name or an
- * index that code in the project could have made - by adding, copying or
- * naming a sheet - is left alone.
- */
-function checkWorkbookSheetAccess(
-	source: string,
-	span: Span,
-	workbook: WorkbookSheetsCheck,
-	sourceNames: ReadonlySet<string>,
-	valueOf: (arg: readonly VbaToken[]) => number | undefined,
-	push: PushFn,
-): void {
-	if (sourceNames.has('thisworkbook')) {
-		return;
-	}
-	const toks = statementTokens(source, span);
-	const lower = (i: number): string => toks[i]?.rawText.toLowerCase() ?? '';
-	for (let i = 0; i < toks.length; i++) {
-		if (lower(i) !== 'thisworkbook' || lower(i + 1) !== '.') {
-			continue;
-		}
-		// `Application.ThisWorkbook` is the same object; `x.ThisWorkbook` is not known.
-		if (lower(i - 1) === '.' && !(lower(i - 2) === 'application' && lower(i - 3) !== '.')) {
-			continue;
-		}
-		const collection = lower(i + 2);
-		if (!SHEET_COLLECTION_KINDS.has(collection)) {
-			continue;
-		}
-		const kind = SHEET_COLLECTION_KINDS.get(collection);
-		let open = i + 3;
-		if (lower(open) === '.' && lower(open + 1) === 'item') {
-			open += 2;
-		}
-		if (lower(open) !== '(') {
-			continue;
-		}
-		const close = matchParenFrom(toks, open);
-		if (close < 0) {
-			continue;
-		}
-		const args = splitTopLevel(toks.slice(open + 1, close));
-		if (args.length !== 1) {
-			continue;
-		}
-		const held = workbook.sheets.filter((sheet) => kind === undefined || sheet.kind === kind);
-		const argTokens = args[0].filter((tok) => tok.kind !== 'comment');
-		const where = { start: span.start + toks[open + 1].start, end: span.start + toks[close - 1].end };
-		const what = collection === 'worksheets' ? 'worksheet' : collection === 'charts' ? 'chart sheet' : 'sheet';
-		if (argTokens.length === 1 && argTokens[0].kind === 'stringLiteral') {
-			const name = argTokens[0].rawText.slice(1, -1).replace(/""/g, '"');
-			// Excel matches names without regard to case; outside ASCII its rule is not known here.
-			if (/[^\x20-\x7e]/.test(name) || held.some((sheet) => sheet.name.toLowerCase() === name.toLowerCase())) {
-				continue;
-			}
-			const changes = workbook.changes;
-			if (changes.assignsComputedName || changes.namesAssigned.has(name.toLowerCase()) || (changes.addsSheets && MADE_SHEET_NAME.test(name))) {
-				continue;
-			}
-			const other = workbook.sheets.find((sheet) => sheet.name.toLowerCase() === name.toLowerCase());
-			const detail = other ? `'${other.name}' is a ${SHEET_KIND_WORDS[other.kind]}, not a ${what}` : `this workbook has no ${what} named '${name}'`;
-			push('sheetNotInWorkbook', `${capitalize(detail)}. This will raise Run-time error '9': Subscript out of range.`, where);
-			continue;
-		}
-		const index = valueOf(args[0]);
-		// Index 0 and below are host-argument-out-of-range's.
-		if (index === undefined || index < 1 || index <= held.length || workbook.changes.addsSheets) {
-			continue;
-		}
-		const count = held.length === 1 ? `1 ${what}` : `${held.length} ${what}s`;
-		push('sheetNotInWorkbook', `This workbook has ${count}, so index ${index} is past the last. This will raise Run-time error '9': Subscript out of range.`, where);
-	}
-}
-
-function capitalize(text: string): string {
-	return text.charAt(0).toUpperCase() + text.slice(1);
-}
+// Saved workbook contents are not runtime facts. Do not diagnose missing
+// sheet names or positive collection indexes from the workbook snapshot.
 
 /** The text of an argument that is one string literal. */
 function literalString(arg: readonly VbaToken[]): string | undefined {

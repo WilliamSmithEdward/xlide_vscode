@@ -13,7 +13,7 @@
 // ElseIf line, a loop's or a Select's opening line and a Do's Loop line.
 
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
-import type { BodyNode, LeafStatementNode, ModuleNode } from '../../parser/nodes';
+import type { BodyNode, LeafStatementNode, ModuleNode , ProcedureNode } from '../../parser/nodes';
 import { isLeafStatement } from '../../parser/nodes';
 import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
@@ -38,9 +38,11 @@ export function checkConditionValues(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	procedureFilter?: (member: ProcedureNode) => boolean,
 ): void {
 	const optionBase = moduleOptionBase(mod, activity);
 	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'Procedure' && procedureFilter && !procedureFilter(member)) { continue; }
 		if (member.kind !== 'Procedure') {
 			continue;
 		}

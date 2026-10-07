@@ -210,7 +210,7 @@ describe('the structural read against the scan it replaces', () => {
 	// the storage row names its stream. This pins the two together, so a change
 	// to either cannot quietly start answering differently.
 	const ALL = ['AccessFixture.accdb', 'AccessFixture.mdb', 'AccessFixture.mda',
-		'AccessEditedFixture.accdb', 'AccessEditedFixture.mdb'] as const;
+		'AccessEditedFixture.accdb', 'AccessEditedFixture.mdb', 'AccessFormFixture.accdb'] as const;
 
 	it.each(ALL)('agrees with the scan about every module of %s', (file) => {
 		const data = read(file);
@@ -220,6 +220,16 @@ describe('the structural read against the scan it replaces', () => {
 		const shape = (cfb: Cfb): string[] => VbaProject.parse(cfb).modules
 			.map((module) => `${module.name}:${module.kind}:${module.source.length}`);
 		expect(shape(structural!)).toEqual(shape(accessVbaCfbByScan(data)));
+	});
+
+	it('reads a class whose catalog and source header use different casing', () => {
+		const data = read('AccessFormFixture.accdb');
+		const structural = VbaProject.parse(accessVbaCfbStructural(data)!).getModule('basket')!;
+		const scanned = VbaProject.parse(accessVbaCfbByScan(data)).getModule('basket')!;
+		expect(structural.name).toBe('basket');
+		expect(structural.source).toContain('Attribute VB_Name = "Basket"');
+		expect(scanned.source).toBe(structural.source);
+		expect(scanned.source).toContain('Public Sub Clear()');
 	});
 
 	it('picks the right copy where a module has a shadow, without guessing', () => {

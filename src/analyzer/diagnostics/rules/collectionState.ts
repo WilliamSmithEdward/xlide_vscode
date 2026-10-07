@@ -109,15 +109,20 @@ export function checkCollectionState(
 	projectIntegerConstants?: ReadonlyMap<string, string | undefined>,
 	projectVisibleSymbols?: readonly VbaSymbol[],
 	hostModel?: HostObjectModel,
+	procedureFilter?: (member: ProcedureNode) => boolean,
 ): void {
 	const moduleConstants = collectModuleLiteralIntegerConstants(mod, activity, resolveRawIntegerConstants(projectIntegerConstants ?? new Map(), new Map()));
 	const calleeCalls = calleeMemberCalls(source);
 	const optionBase = moduleOptionBase(mod, activity);
 	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'Procedure' && procedureFilter && !procedureFilter(member)) { continue; }
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
-		const autoInstanced = collectionLocals(member, activity);
+		// Do not assume mutations succeeded when an error handler can resume.
+		if (/\bon\s+error\b/i.test(source.slice(member.span.start, member.span.end))) { continue; }
+		const staticProcedure = /\bstatic\s+(?:sub|function|property)\b/i.test(source.slice(member.span.start, member.body[0]?.span.start ?? member.span.end));
+		const autoInstanced = collectionLocals(member, activity, staticProcedure);
 		const states = new Map<string, CollectionContents>();
 		for (const name of autoInstanced.newLocals) {
 			states.set(name, emptyContents());
@@ -753,12 +758,13 @@ function cloneStates(states: ReadonlyMap<string, CollectionContents>): Map<strin
 function collectionLocals(
 	proc: ProcedureNode,
 	activity: ConditionalActivityTracker | undefined,
+	staticProcedure = false,
 ): { newLocals: Set<string>; plainLocals: Set<string>; variantLocals: Set<string> } {
 	const newLocals = new Set<string>();
 	const plainLocals = new Set<string>();
 	const variantLocals = new Set<string>();
 	forEachVariableGroup(proc.body, (group) => {
-		if (group.isConst || group.modifier.toLowerCase() === 'static') {
+		if (group.isConst || group.modifier.toLowerCase() === 'static' || staticProcedure) {
 			return;
 		}
 		for (const decl of group.declarations) {

@@ -104,7 +104,9 @@ export function accessVbaCfbByScan(data: Buffer): Cfb {
 			} catch {
 				continue;
 			}
-			if (head.subarray(0, probe.length).equals(probe)) {
+			// Access can preserve different casing in the catalog and VB_Name
+			// (for example, `basket` and `Basket`). VBA names ignore case.
+			if (head.subarray(0, probe.length).toString('latin1').toLowerCase() === probe.toString('latin1').toLowerCase()) {
 				carrier = blob;
 			}
 		}

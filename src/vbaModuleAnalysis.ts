@@ -28,6 +28,7 @@ import {
     type VbaStructuralDiagnostic,
 } from './vbaStructuralDiagnostics';
 import { discoverVbaTestsFromModule, validateVbaTestDirectivesFromModule } from './vbaTestRunner';
+import { AnalysisCancelled, checkAnalysisCancellation } from './analyzer/diagnostics/analysisCancellation';
 
 export interface VbaModuleAnalysisDiagnostic {
     code?: string;
@@ -50,9 +51,10 @@ export interface VbaModuleAnalysisInput extends AnalyzeModuleOptions {
     /**
      * Opt-in incremental rule re-analysis: pass the state returned by the
      * previous call (plus a fingerprint of every cross-module input) and the
-     * expensive per-procedure rule walks re-run only for procedures whose body
-     * changed. Any envelope change (declarations, signatures, directives) or
-     * fingerprint mismatch falls back to a full pass automatically.
+     * expensive per-procedure rules re-run for changed procedures and affected
+     * consumers. Ordinary declaration/signature edits retain unrelated results;
+     * unsupported declaration changes, directives and external-context changes
+     * fall back to a full pass automatically.
      */
     rulesIncremental?: {
         state?: ModuleRulesIncrementalState;
@@ -90,6 +92,7 @@ export interface VbaModuleAnalysisFailure {
  * checks, and XLIDE suppression directives cannot drift by surface.
  */
 export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModuleAnalysisResult {
+    checkAnalysisCancellation(input);
     const {
         source,
         moduleType,
@@ -104,6 +107,7 @@ export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModule
     const analyzeOptions = withResolvedHostModel(restOptions);
     const analysisFailures: VbaModuleAnalysisFailure[] = [];
     const recordFailure = (error: unknown, where: Pick<VbaModuleAnalysisFailure, 'stage' | 'rule'>): void => {
+        if (error instanceof AnalysisCancelled) { throw error; }
         analysisFailures.push({
             ...where,
             message: error instanceof Error ? error.message : String(error),
@@ -117,6 +121,7 @@ export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModule
     const starts = lineStartOffsets(source);
     // Lex and parse once per invocation; every pass below reuses these results.
     const module = analyzeOptions.parsedModule ?? parseModule(source);
+    checkAnalysisCancellation(analyzeOptions);
     analyzeOptions.parsedModule = module;
     const suppressions = scanAnalysisSuppressions(source, {
         tokens: tokenizeCached(source),
@@ -142,6 +147,7 @@ export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModule
             activity: createConditionalActivityTracker(module, analyzeOptions.conditionalCompilation),
         })),
     ];
+    checkAnalysisCancellation(analyzeOptions);
 
     try {
         const meta = DIAGNOSTIC_RULES.vbaTestDirective;
@@ -149,7 +155,7 @@ export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModule
             meta.code,
             analyzeOptions.severityOverrides?.[meta.code],
         );
-        if (override !== 'off') {
+        if (override !== 'off' && (!analyzeOptions.errorsOnly || (override ?? meta.defaultSeverity) === 'error')) {
             for (const issue of validateVbaTestDirectivesFromModule({
                 name: analyzeOptions.moduleName ?? 'Module',
                 type: moduleType ?? analyzeOptions.moduleKind ?? 'standard',
@@ -236,6 +242,7 @@ export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModule
     }
 
     let rulesIncrementalState: ModuleRulesIncrementalState | undefined;
+    checkAnalysisCancellation(analyzeOptions);
     let rulesIncrementalMode: 'full' | 'incremental' | undefined;
     try {
         let ruleDiagnostics: ReturnType<typeof analyzeModule>;
@@ -271,9 +278,11 @@ export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModule
         recordFailure(err, { stage: 'analysis' });
     }
 
-    const deduplicatedSuppressedDiagnostics = deduplicateDiagnostics(suppressedDiagnostics);
+    const selected = (items: VbaModuleAnalysisDiagnostic[]) => analyzeOptions.errorsOnly
+        ? items.filter(d => d.severity === 'error') : items;
+    const deduplicatedSuppressedDiagnostics = deduplicateDiagnostics(selected(suppressedDiagnostics));
     return {
-        diagnostics: deduplicateDiagnostics(diagnostics),
+        diagnostics: deduplicateDiagnostics(selected(diagnostics)),
         suppressedDiagnostics: deduplicatedSuppressedDiagnostics,
         suppressedCount: deduplicatedSuppressedDiagnostics.length,
         ...(rulesIncrementalState ? { rulesIncrementalState, rulesIncrementalMode } : {}),

@@ -39,6 +39,7 @@ export function checkLockedArrays(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	procedureFilter?: (member: ProcedureNode) => boolean,
 ): void {
 	const procedures = new Map<string, ProcedureNode | null>();
 	for (const member of activeModuleMembers(mod, activity)) {
@@ -49,6 +50,7 @@ export function checkLockedArrays(
 	}
 	const optionBase = moduleOptionBase(mod, activity);
 	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'Procedure' && procedureFilter && !procedureFilter(member)) { continue; }
 		if (member.kind !== 'Procedure') {
 			continue;
 		}

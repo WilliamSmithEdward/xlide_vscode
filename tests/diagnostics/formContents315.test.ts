@@ -27,12 +27,12 @@ function raised(body: string, extra = '', others: string[] = []): string[] {
 }
 
 describe('a MultiPage\'s pages, from the designer (issue #315)', () => {
-	it('reports a page past the count or a name it lacks', () => {
+	it('does not infer page existence or upper bounds from the designer', () => {
 		for (const body of ['Probe = Mp.Pages(9).Caption', 'Probe = Mp.Pages(2).Caption', 'Probe = Mp.Pages(-1).Caption', 'Probe = Mp.Pages("Page9").Caption', 'Probe = Me.Mp.Pages(9).Caption']) {
-			expect(raised(body), body).toEqual(['5']);
+			expect(raised(body), body).toEqual(body.includes('(-1)') ? ['5'] : []);
 		}
-		expect(raised('Mp.Value = 5')).toEqual(['380']);
-		expect(raised('Mp.Value = 2')).toEqual(['380']);
+		expect(raised('Mp.Value = 5')).toEqual([]);
+		expect(raised('Mp.Value = 2')).toEqual([]);
 	});
 
 	it('matches a page name in any case, and leaves Value = -1 alone', () => {
@@ -57,7 +57,7 @@ describe('a MultiPage\'s pages, from the designer (issue #315)', () => {
 });
 
 describe('a list the code fills, from empty (issue #315)', () => {
-	it('reports ListIndex, Selected and List past the items added', () => {
+	it('keeps intrinsic failures but does not infer positive list bounds', () => {
 		const cases: Array<[string, string]> = [
 			['L1.AddItem "a"\n    L1.ListIndex = 5', '380'],
 			['L1.ListIndex = 0', '380'],
@@ -76,7 +76,8 @@ describe('a list the code fills, from empty (issue #315)', () => {
 			['L1.AddItem "a"\n    Probe = L1.List(-1)', '381'],
 		];
 		for (const [body, error] of cases) {
-			expect(raised(body), body).toEqual([error]);
+			const intrinsic = body.includes('ListCount') || body.includes('ListIndex = -2') || body.includes('Selected(-1)') || body.includes('List(-1)');
+			expect(raised(body), body).toEqual(intrinsic ? [error] : []);
 		}
 	});
 

@@ -14,7 +14,7 @@ function found(body: string): string[] {
 	return analyzeModule(module(body)).filter((diag) => diag.severity === 'error').map((diag) => diag.code);
 }
 
-const NEW_SHEETS = 'Dim w1 As Worksheet, w2 As Worksheet\n    Set w1 = Worksheets.Add\n    Set w2 = Worksheets.Add\n    ';
+const NEW_SHEETS = 'Dim w1 As Worksheet, w2 As Worksheet\n    Set w1 = ThisWorkbook.Worksheets.Add\n    Set w2 = ThisWorkbook.Worksheets.Add\n    ';
 
 describe('an Excel method the code proves fails (issue #308)', () => {
 	it('reports the arguments the method refuses', () => {
@@ -43,9 +43,9 @@ describe('an Excel method the code proves fails (issue #308)', () => {
 		}
 	});
 
-	it('reports a PasteSpecial after the clipboard was emptied', () => {
-		expect(found('Range("A1").Copy\n    Application.CutCopyMode = False\n    Range("B1").PasteSpecial xlPasteValues')).toEqual(['paste-with-nothing-copied']);
-		expect(found('Application.CutCopyMode = False\n    ActiveSheet.Range("B1").PasteSpecial')).toEqual(['paste-with-nothing-copied']);
+	it('does not infer clipboard absence from CutCopyMode', () => {
+		expect(found('Range("A1").Copy\n    Application.CutCopyMode = False\n    Range("B1").PasteSpecial xlPasteValues')).toEqual([]);
+		expect(found('Application.CutCopyMode = False\n    ActiveSheet.Range("B1").PasteSpecial')).toEqual([]);
 	});
 
 	it('reports a second added sheet given the first one\'s name in another case', () => {
@@ -54,6 +54,29 @@ describe('an Excel method the code proves fails (issue #308)', () => {
 });
 
 describe('an Excel method used as it runs (issue #308)', () => {
+	it.each([
+		'Worksheets("Aa").Name = "Bb"',
+		'Worksheets("Aa").Delete',
+		'Application.Run "RenameSheet"',
+		'DoEvents',
+		'If True Then Worksheets("Aa").Name = "Bb"',
+		'If True Then\n    Worksheets("Aa").Delete\n    End If',
+		'Dim alias As Worksheet\n    Set alias = w1\n    alias.Name = "Bb"',
+	])('forgets duplicate-name facts after an unmodeled mutation: %s', change => {
+		const source = module(`${NEW_SHEETS}w1.Name = "Aa"\n    ${change}\n    w2.Name = "aa"`);
+		expect(analyzeModule(source).filter((diag) => diag.code === 'sheet-name-invalid')).toEqual([]);
+	});
+
+	it('does not assume a handled name assignment succeeded', () => {
+		const source = module(`On Error Resume Next\n    ${NEW_SHEETS}w1.Name = "Aa"\n    On Error GoTo 0\n    w2.Name = "aa"`);
+		expect(analyzeModule(source).filter((diag) => diag.code === 'sheet-name-invalid')).toEqual([]);
+	});
+
+	it('does not assume ThisWorkbook and ActiveWorkbook are the same workbook', () => {
+		const source = module('Dim w1 As Worksheet, w2 As Worksheet\n    Set w1 = ThisWorkbook.Worksheets.Add\n    Set w2 = ActiveWorkbook.Worksheets.Add\n    w1.Name = "Aa"\n    w2.Name = "aa"');
+		expect(analyzeModule(source).filter((diag) => diag.code === 'sheet-name-invalid')).toEqual([]);
+	});
+
 	it('stays quiet', () => {
 		const bodies = [
 			'Range("A1").AutoFill Range("A1:A3")',

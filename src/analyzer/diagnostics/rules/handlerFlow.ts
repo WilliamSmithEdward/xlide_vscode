@@ -67,10 +67,12 @@ export function checkHandlerFlow(
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 	className?: string,
+	procedureFilter?: (member: ProcedureNode) => boolean,
 ): void {
 	// `New Class1` inside Class1 makes another of this class (issue #613).
 	const ownClass = className?.toLowerCase();
 	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'Procedure' && procedureFilter && !procedureFilter(member)) { continue; }
 		if (member.kind !== 'Procedure') {
 			continue;
 		}

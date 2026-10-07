@@ -77,6 +77,21 @@ export function checkModuleMemberForms(
 		modules.add(symbols.moduleName.toLowerCase());
 	}
 	const visible = projectVisibleSymbols ?? [];
+	// These tests depend on declaration names, not on the statement. Index the
+	// candidate sets once; most assignments cannot name a Type or property.
+	const typeNames = new Set<string>();
+	const propertyNames = new Set<string>();
+	for (const sym of [...(symbols.root.children ?? []), ...visible]) {
+		const lower = sym.name.toLowerCase();
+		if (sym.kind === 'type') { typeNames.add(lower); }
+		if (modules.has(sym.moduleName.toLowerCase())
+			&& (sym.kind === 'propertyGet' || sym.kind === 'propertyLet' || sym.kind === 'propertySet')) {
+			propertyNames.add(lower);
+		}
+	}
+	const externalValueNames = new Set(visible.filter(sym => VALUE_KINDS.has(sym.kind)
+		&& sym.visibility !== 'Private' && sym.moduleName.toLowerCase() !== symbols.moduleName.toLowerCase())
+		.map(sym => sym.name.toLowerCase()));
 	return (member) => {
 		const procSym = procedureSymbolFor(symbols, member);
 		const locals = new Set([member.name, ...member.params.map((param) => param.name), ...(procSym?.children ?? []).map((child) => child.name)].map((name) => name.toLowerCase()));
@@ -128,18 +143,20 @@ export function checkModuleMemberForms(
 			if (!bare || toks[first + 1]?.rawText === '.' || toks[first + 1]?.rawText === '(') {
 				return;
 			}
-			const binding = sourceIdentifierBinding(symbols, procSym, projectVisibleSymbols, bare, 'call');
-			const inModule = binding.definitions.filter((sym) => modules.has(sym.moduleName.toLowerCase()));
-			// Inside the property, its name is its value: `M = 1` in Get M.
-			const own = bare.toLowerCase() === member.name.toLowerCase();
-			if (!own && binding.scope !== 'ambiguous' && inModule.length === binding.definitions.length && propertyOnly(inModule)) {
-				const where = at(span, toks[first], toks[first]);
-				if (assignAt === first + 1 && first === 0 && getOnly(inModule)) {
-					push('readonlyMemberAssignment', `'${bare}' has a Property Get and no Property Let, so it cannot be assigned. This is a VBE compile error: Can't assign to read-only property.`, where);
-				} else if (assignAt < 0 && head !== 'set') {
-					push('invalidPropertyUse', `'${bare}' is a property, and a statement cannot call one. This is a VBE compile error: Invalid use of property.`, where);
+			if (propertyNames.has(bare.toLowerCase())) {
+				const binding = sourceIdentifierBinding(symbols, procSym, projectVisibleSymbols, bare, 'call');
+				const inModule = binding.definitions.filter((sym) => modules.has(sym.moduleName.toLowerCase()));
+				// Inside the property, its name is its value: `M = 1` in Get M.
+				const own = bare.toLowerCase() === member.name.toLowerCase();
+				if (!own && binding.scope !== 'ambiguous' && inModule.length === binding.definitions.length && propertyOnly(inModule)) {
+					const where = at(span, toks[first], toks[first]);
+					if (assignAt === first + 1 && first === 0 && getOnly(inModule)) {
+						push('readonlyMemberAssignment', `'${bare}' has a Property Get and no Property Let, so it cannot be assigned. This is a VBE compile error: Can't assign to read-only property.`, where);
+					} else if (assignAt < 0 && head !== 'set') {
+						push('invalidPropertyUse', `'${bare}' is a property, and a statement cannot call one. This is a VBE compile error: Invalid use of property.`, where);
+					}
+					return;
 				}
-				return;
 			}
 			// `M = 9` and `Main = M` with M a Type: no variable of that name.
 			if (!explicit || assignAt < 0) {
@@ -159,11 +176,11 @@ export function checkModuleMemberForms(
 				// beside a Private Type Zq here runs (issue #639, measured in
 				// Excel 16.0).
 				const lower = name.toLowerCase();
-				if (visible.some((sym) => sym.name.toLowerCase() === lower && VALUE_KINDS.has(sym.kind) && sym.visibility !== 'Private' && sym.moduleName.toLowerCase() !== symbols.moduleName.toLowerCase())) {
+				if (!typeNames.has(lower) || externalValueNames.has(lower)) {
 					continue;
 				}
 				const found = sourceIdentifierBinding(symbols, procSym, projectVisibleSymbols, name, index === 0 ? 'assignmentTarget' : 'expression');
-				if ((found.scope === 'unresolved' || (found.definitions.length > 0 && found.definitions.every((sym) => sym.kind === 'type'))) && typeNamed(name, symbols, visible)) {
+				if (found.scope === 'unresolved' || (found.definitions.length > 0 && found.definitions.every((sym) => sym.kind === 'type'))) {
 					push('undeclaredVariable', `Variable not defined: '${name}'. It names a user-defined type, not a variable. This is a VBE compile error.`, at(span, tok, tok));
 				}
 			}
@@ -174,10 +191,4 @@ export function checkModuleMemberForms(
 			}
 		};
 	};
-}
-
-/** Whether a Type of that name is visible: the module's own, or another standard module's Public one. */
-function typeNamed(name: string, symbols: ReturnType<typeof buildModuleSymbols>, visible: readonly VbaSymbol[]): boolean {
-	const lower = name.toLowerCase();
-	return [...(symbols.root.children ?? []), ...visible].some((sym) => sym.kind === 'type' && sym.name.toLowerCase() === lower);
 }

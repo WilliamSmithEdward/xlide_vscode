@@ -55,6 +55,8 @@ export {
 	precededByMemberAccessDot,
 	resolveMemberCompletionNamed,
 	resolveMemberCompletions,
+	hasMemberCompletions,
+	memberCompletionStatus,
 	resolveMemberDefinitionsAt,
 } from './completion/memberAccess';
 export {

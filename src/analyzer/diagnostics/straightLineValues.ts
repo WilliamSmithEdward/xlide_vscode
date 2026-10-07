@@ -185,16 +185,31 @@ function cachedWalk(
 ): CachedWalk {
 	// Six rules ask for the same procedure in one pass; a parse makes a new
 	// body, so the body is the key, with what holds at the start.
-	let key = START_KEYS.get(initial);
-	if (key === undefined) {
-		key = [...initial].map(([name, value]) => `${name}=${value.map((tok) => tok.rawText).join(' ')}`).sort().join('\n');
-		START_KEYS.set(initial, key);
-	}
-	const byStart = WALKS.get(body) ?? new Map<string, CachedWalk>();
-	WALKS.set(body, byStart);
-	const cached = byStart.get(key);
-	if (cached && cached.source === source && cached.activity === activity) {
-		return cached;
+	let cache = WALKS.get(body);
+	// A new source/activity cannot reuse any walk in this bucket. Discard it
+	// before comparing or serializing large starts from the previous snapshot.
+	if (cache && (cache.firstWalk.source !== source || cache.firstWalk.activity !== activity)) { cache = undefined; }
+	let key: string | undefined;
+	if (cache) {
+		if (cache.firstStart === initial && cache.firstWalk.source === source && cache.firstWalk.activity === activity) {
+			return cache.firstWalk;
+		}
+		// A fresh symbol snapshot often builds the same start again. Compare
+		// its entries directly before allocating and sorting a canonical key
+		// containing every module constant. The key remains the fallback.
+		if (!START_KEYS.has(initial) && cache.firstWalk.source === source && cache.firstWalk.activity === activity && equalStarts(cache.firstStart, initial)) {
+			cache.firstStart = initial;
+			return cache.firstWalk;
+		}
+		// Most bodies are walked repeatedly from the same kept start. Only
+		// serialize its hundreds of constants when another start needs value
+		// equality, preserving reuse across separately allocated equal maps.
+		key = startKey(initial);
+		cache.byStart ??= new Map([[startKey(cache.firstStart), cache.firstWalk]]);
+		const cached = cache.byStart.get(key);
+		if (cached && cached.source === source && cached.activity === activity) {
+			return cached;
+		}
 	}
 	const out = new Map<BodyNode, ReachingAssignments>();
 	const dead = new Set<BodyNode>();
@@ -226,8 +241,47 @@ function cachedWalk(
 		walkCollections = outerCollections;
 	}
 	const walk: CachedWalk = { source, activity, result: out, dead, deadSpans, exit: exit === UNREACHED ? undefined : exit };
-	byStart.set(key, walk);
+	if (!cache) {
+		WALKS.set(body, { firstStart: initial, firstWalk: walk });
+	} else {
+		if (cache.firstStart === initial) {
+			cache.firstWalk = walk;
+		}
+		cache.byStart!.set(key!, walk);
+	}
 	return walk;
+}
+
+function equalStarts(left: ReachingAssignments, right: ReachingAssignments): boolean {
+	if (left.size !== right.size) {
+		return false;
+	}
+	for (const [name, value] of right) {
+		const other = left.get(name);
+		if (!other || (other !== value && startValueKey(other) !== startValueKey(value))) {
+			return false;
+		}
+	}
+	return true;
+}
+
+function startKey(initial: ReachingAssignments): string {
+	let key = START_KEYS.get(initial);
+	if (key === undefined) {
+		key = [...initial].map(([name, value]) => `${name}=${startValueKey(value)}`).sort().join('\n');
+		START_KEYS.set(initial, key);
+	}
+	return key;
+}
+
+/** Immutable constant/default token arrays are shared by many procedure starts. */
+function startValueKey(value: readonly VbaToken[]): string {
+	let key = START_VALUE_KEYS.get(value);
+	if (key === undefined) {
+		key = value.map(tok => tok.rawText).join(' ');
+		START_VALUE_KEYS.set(value, key);
+	}
+	return key;
 }
 
 interface CachedWalk {
@@ -255,10 +309,15 @@ interface WalkOut {
 /** The end of a statement list no path reaches. */
 const UNREACHED: ReachingAssignments = new Map();
 
-const WALKS = new WeakMap<readonly BodyNode[], Map<string, CachedWalk>>();
+const WALKS = new WeakMap<readonly BodyNode[], {
+	firstStart: ReachingAssignments;
+	firstWalk: CachedWalk;
+	byStart?: Map<string, CachedWalk>;
+}>();
 
 /** Each start's cache key, by identity: a kept start is asked for by several rules. */
 const START_KEYS = new WeakMap<ReachingAssignments, string>();
+const START_VALUE_KEYS = new WeakMap<readonly VbaToken[], string>();
 
 /**
  * Walks one statement list from `entry` and returns what holds after it. The

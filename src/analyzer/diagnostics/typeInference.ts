@@ -9,6 +9,7 @@
 // passed by the argument-type rules.
 
 import { untouchedModuleVariablesIn, writtenNamesIn } from './moduleState';
+import { shareImmutableReachingStart } from './reachingSnapshot';
 import type { VbaToken } from '../lexer/tokenKinds';
 import type { HostMember, HostObjectModel } from '../host/excelObjectModel';
 import { IDENT_RE, matchParenFrom, splitTopLevelTokenGroups } from '../lexer/tokenHelpers';
@@ -310,14 +311,15 @@ class LayeredMap<V> implements ReadonlyMap<string, V> {
 	constructor(
 		private readonly base: ReadonlyMap<string, V>,
 		private readonly overlay: ReadonlyMap<string, V>,
+		private readonly hidden?: ReadonlySet<string>,
 	) {}
 
 	get(key: string): V | undefined {
-		return this.overlay.has(key) ? this.overlay.get(key) : this.base.get(key);
+		return this.overlay.has(key) ? this.overlay.get(key) : this.hidden?.has(key) ? undefined : this.base.get(key);
 	}
 
 	has(key: string): boolean {
-		return this.overlay.has(key) || this.base.has(key);
+		return this.overlay.has(key) || (!this.hidden?.has(key) && this.base.has(key));
 	}
 
 	get size(): number {
@@ -327,12 +329,15 @@ class LayeredMap<V> implements ReadonlyMap<string, V> {
 				shadowed++;
 			}
 		}
+		for (const key of this.hidden ?? []) {
+			if (!this.overlay.has(key) && this.base.has(key)) { shadowed++; }
+		}
 		return this.base.size + this.overlay.size - shadowed;
 	}
 
 	*entries(): MapIterator<[string, V]> {
 		for (const entry of this.base.entries()) {
-			if (!this.overlay.has(entry[0])) {
+			if (!this.overlay.has(entry[0]) && !this.hidden?.has(entry[0])) {
 				yield entry;
 			}
 		}
@@ -578,18 +583,32 @@ export function constantStringValue(symbol: VbaSymbol): string | undefined {
 	return toks.length === 1 && toks[0].kind === 'stringLiteral' ? stringLiteralValue(toks[0].rawText) : undefined;
 }
 
+const MODULE_STRING_CONSTANTS = new WeakMap<ReturnType<typeof buildModuleSymbols>, ReadonlyMap<string, string>>();
+
 /**
  * The String Consts a procedure sees, each one string literal, by lowercased
  * name (issue #255). A local or parameter of the same name hides a module's.
  */
 export function stringConstantsInScope(symbols: ReturnType<typeof buildModuleSymbols>, proc: ProcedureNode): Map<string, string> {
-	const children = procedureSymbolFor(symbols, proc)?.children ?? [];
-	const out = new Map<string, string>();
-	for (const symbol of [...(symbols.root.children ?? []), ...children]) {
+	let module = MODULE_STRING_CONSTANTS.get(symbols);
+	if (!module) {
+		const constants = new Map<string, string>();
+		for (const symbol of symbols.root.children ?? []) {
+			const value = constantStringValue(symbol);
+			if (value !== undefined) {
+				constants.set(symbol.name.toLowerCase(), value);
+			}
+		}
+		module = constants;
+		MODULE_STRING_CONSTANTS.set(symbols, module);
+	}
+	// Keep the public result mutable without exposing the shared module table.
+	const out = new Map(module);
+	for (const symbol of procedureSymbolFor(symbols, proc)?.children ?? []) {
 		const value = constantStringValue(symbol);
 		if (value !== undefined) {
 			out.set(symbol.name.toLowerCase(), value);
-		} else if (children.includes(symbol)) {
+		} else {
 			out.delete(symbol.name.toLowerCase());
 		}
 	}
@@ -3957,7 +3976,7 @@ function buildKnownLocalLiteralValuesAt(
 		byName.set(lower, out);
 		return out;
 	};
-	return (stmt) => {
+	const valuesAtStatement = (stmt: BodyNode | undefined): ReadonlyMap<string, KnownLocalValue> => {
 		// No statement: a block header, which sees the procedure-wide values.
 		const assignments = stmt ? reaching.get(stmt) ?? (stmt.kind === 'Statement' && isLeafStatement(stmt) ? reaching.get(blockAt(stmt)!) : undefined) : undefined;
 		if (!assignments) {
@@ -3978,12 +3997,15 @@ function buildKnownLocalLiteralValuesAt(
 		// A module variable written in the straight line holds the value
 		// while nothing between could run other code (issue #348).
 		let withModule: Map<string, KnownLocalValue> | undefined;
-		for (const [lower, value] of assignments) {
-			if (!moduleVariables.has(lower) || locals.has(lower)) {
+		// The reaching state includes every module constant. Query only
+		// followable variables, avoiding a full scan for each statement.
+		for (const [lower, declaredKind] of moduleVariables) {
+			const value = assignments.get(lower);
+			if (!value || locals.has(lower)) {
 				continue;
 			}
-			const kind = moduleVariables.get(lower) ?? (unwrapOuterParens(value)[0]?.kind === 'stringLiteral' ? 'string' : 'number');
-			const literal = plainLiteralText([...value], kind, moduleVariables.get(lower) !== undefined, bytes.has(lower), wholes.has(lower));
+			const kind = declaredKind ?? (unwrapOuterParens(value)[0]?.kind === 'stringLiteral' ? 'string' : 'number');
+			const literal = plainLiteralText([...value], kind, declaredKind !== undefined, bytes.has(lower), wholes.has(lower));
 			// The reaching write is the last one that runs before the
 			// statement: a later one in a block would have ended the value.
 			const dead = unreachableStatementsIn(source, proc, symbols, activity);
@@ -4001,6 +4023,21 @@ function buildKnownLocalLiteralValuesAt(
 			withModule.set(lower, { kind, value: kind === 'number' ? Number(literal) : literal, origin: 'literal' });
 		}
 		return withModule ?? result;
+	};
+	// Rules can ask for the same statement once per expression/operand. The
+	// source, symbols and conditional activity are fixed for this reader.
+	const statementValues = new WeakMap<BodyNode, ReadonlyMap<string, KnownLocalValue>>();
+	return (stmt) => {
+		if (!stmt) {
+			return whole;
+		}
+		const cached = statementValues.get(stmt);
+		if (cached) {
+			return cached;
+		}
+		const values = valuesAtStatement(stmt);
+		statementValues.set(stmt, values);
+		return values;
 	};
 }
 
@@ -4054,24 +4091,31 @@ function wholeNumberVariables(proc: ProcedureNode, symbols: ReturnType<typeof bu
 	};
 }
 
+const FOLLOWABLE_MODULE_VARIABLES = new WeakMap<ReturnType<typeof buildModuleSymbols>, ReadonlyMap<string, 'number' | 'string' | undefined>>();
+
 function followedModuleVariables(
 	proc: ProcedureNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 ): ReadonlyMap<string, 'number' | 'string' | undefined> {
 	const hidden = new Set([proc.name, ...proc.params.map((param) => param.name), ...(procedureSymbolFor(symbols, proc)?.children ?? []).map((child) => child.name)]
 		.map((name) => name.toLowerCase()));
-	const out = new Map<string, 'number' | 'string' | undefined>();
-	for (const child of symbols.root.children ?? []) {
-		if (child.kind !== 'moduleVariable' || child.isArray || child.isAutoInstantiated || child.fixedLength !== undefined || hidden.has(child.name.toLowerCase())) {
-			continue;
+	let candidates = FOLLOWABLE_MODULE_VARIABLES.get(symbols);
+	if (!candidates) {
+		const module = new Map<string, 'number' | 'string' | undefined>();
+		for (const child of symbols.root.children ?? []) {
+			if (child.kind !== 'moduleVariable' || child.isArray || child.isAutoInstantiated || child.fixedLength !== undefined) {
+				continue;
+			}
+			const type = normalizeType(child.asType);
+			const kind = type === undefined || type === 'variant' ? undefined : isNumericType(type) ? 'number' : type === 'string' ? 'string' : 'other';
+			if (kind !== 'other') {
+				module.set(child.name.toLowerCase(), kind);
+			}
 		}
-		const type = normalizeType(child.asType);
-		const kind = type === undefined || type === 'variant' ? undefined : isNumericType(type) ? 'number' : type === 'string' ? 'string' : 'other';
-		if (kind !== 'other') {
-			out.set(child.name.toLowerCase(), kind);
-		}
+		candidates = module;
+		FOLLOWABLE_MODULE_VARIABLES.set(symbols, candidates);
 	}
-	return out;
+	return new Map([...candidates].filter(([lower]) => !hidden.has(lower)));
 }
 
 /** The statements of a procedure that assign a name, `x = value`, in source order, by lowercased name. */
@@ -4110,15 +4154,16 @@ function moduleVariableWrites(
 /** VBA functions that wait for the user or call by name, so other code may run meanwhile. */
 const CODE_RUNNING_FUNCTIONS: ReadonlySet<string> = new Set(['callbyname', 'doevents', 'inputbox', 'msgbox']);
 
-/**
- * Whether the tokens may run code other than the procedure's own, which
- * could write a module variable: a call to a procedure, a member of an
- * object (a class's property, or a host event), `New` of a class,
- * RaiseEvent, or a ByRef parameter, which may be the module variable itself.
- * The procedure's locals, its ByVal parameters, the module's variables and
- * Consts, and the VBA library's functions and constants run nothing.
- */
-function codeMayRun(toks: readonly VbaToken[], proc: ProcedureNode, symbols: ReturnType<typeof buildModuleSymbols>, leavesAlone?: (name: string) => boolean): boolean {
+// Safe-name sets belong to one immutable symbol snapshot and procedure.
+const PROCEDURE_CODE_SAFE_NAMES = new WeakMap<ReturnType<typeof buildModuleSymbols>, WeakMap<ProcedureNode, ReadonlySet<string>>>();
+const MODULE_CODE_SAFE_NAMES = new WeakMap<ReturnType<typeof buildModuleSymbols>, ReadonlySet<string>>();
+
+function procedureCodeSafeNames(proc: ProcedureNode, symbols: ReturnType<typeof buildModuleSymbols>): ReadonlySet<string> {
+	const cache = perProcedureCache(PROCEDURE_CODE_SAFE_NAMES, symbols);
+	const cached = cache.get(proc);
+	if (cached) {
+		return cached;
+	}
 	const safe = new Set<string>();
 	for (const child of procedureSymbolFor(symbols, proc)?.children ?? []) {
 		safe.add(child.name.toLowerCase());
@@ -4128,7 +4173,35 @@ function codeMayRun(toks: readonly VbaToken[], proc: ProcedureNode, symbols: Ret
 			safe.delete(param.name.toLowerCase());
 		}
 	}
-	return codeMayRunWith(toks, proc.name.toLowerCase(), safe, symbols, leavesAlone);
+	cache.set(proc, safe);
+	return safe;
+}
+
+/**
+ * Whether the tokens may run code other than the procedure's own, which
+ * could write a module variable: a call to a procedure, a member of an
+ * object (a class's property, or a host event), `New` of a class,
+ * RaiseEvent, or a ByRef parameter, which may be the module variable itself.
+ * The procedure's locals, its ByVal parameters, the module's variables and
+ * Consts, and the VBA library's functions and constants run nothing.
+ */
+function codeMayRun(toks: readonly VbaToken[], proc: ProcedureNode, symbols: ReturnType<typeof buildModuleSymbols>, leavesAlone?: (name: string) => boolean): boolean {
+	return codeMayRunWith(toks, proc.name.toLowerCase(), procedureCodeSafeNames(proc, symbols), symbols, leavesAlone);
+}
+
+function moduleCodeSafeNames(symbols: ReturnType<typeof buildModuleSymbols>): ReadonlySet<string> {
+	const cached = MODULE_CODE_SAFE_NAMES.get(symbols);
+	if (cached) {
+		return cached;
+	}
+	const safe = new Set<string>();
+	for (const child of symbols.root.children ?? []) {
+		if (child.kind === 'moduleVariable' || child.kind === 'constant') {
+			safe.add(child.name.toLowerCase());
+		}
+	}
+	MODULE_CODE_SAFE_NAMES.set(symbols, safe);
+	return safe;
 }
 
 /**
@@ -4143,12 +4216,10 @@ function codeMayRunWith(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	leavesAlone?: (name: string) => boolean,
 ): boolean {
-	const safe = new Set(ownSafe);
-	for (const child of symbols.root.children ?? []) {
-		if (child.kind === 'moduleVariable' || child.kind === 'constant') {
-			safe.add(child.name.toLowerCase());
-		}
-	}
+	// A statement used to rebuild this union by scanning the whole module.
+	// Symbol snapshots are immutable; keep each scope once and test membership
+	// without allocating a combined Set for every statement.
+	const moduleSafe = moduleCodeSafeNames(symbols);
 	for (let i = 0; i < toks.length; i++) {
 		const tok = toks[i];
 		if (tok.kind === 'comment') {
@@ -4180,7 +4251,7 @@ function codeMayRunWith(
 		if (tok.kind === 'keyword' && !resolveRuntimeFunction(name)) {
 			continue;
 		}
-		if (tokenText(prev) === 'as' || safe.has(name) || resolveRuntimeConstant(name)) {
+		if (tokenText(prev) === 'as' || ownSafe.has(name) || moduleSafe.has(name) || resolveRuntimeConstant(name)) {
 			continue;
 		}
 		// The procedure's own name is its result; with an argument list it is a call.
@@ -4259,6 +4330,19 @@ function calleeLeavesAlone(source: string, symbols: ReturnType<typeof buildModul
 		return alone;
 	};
 	return check(name);
+}
+
+/** Facts that can flow through a caller into its callers' module-value checks. */
+export function calleeModuleVariableEffects(source: string, symbols: ReturnType<typeof buildModuleSymbols>, name: string): string {
+	const effects: [string, boolean][] = [];
+	for (const child of symbols.root.children ?? []) {
+		if (child.kind !== 'moduleVariable' || child.isArray || child.isAutoInstantiated || child.fixedLength !== undefined) { continue; }
+		const type = normalizeType(child.asType);
+		if (type !== undefined && type !== 'variant' && type !== 'string' && !isNumericType(type)) { continue; }
+		const lower = child.name.toLowerCase();
+		effects.push([lower, calleeLeavesAlone(source, symbols, name.toLowerCase(), lower)]);
+	}
+	return JSON.stringify(effects);
 }
 
 /**
@@ -4358,7 +4442,7 @@ function walkStart(
 	const cache = perProcedureCache(WALK_STARTS, symbols);
 	let start = cache.get(proc);
 	if (!start) {
-		start = new Map([...conditionConstants(symbols, proc), ...declaredDefaults(locals), ...variantStarts(symbols, proc), ...objectStarts(symbols, proc)]);
+		start = shareImmutableReachingStart(conditionConstants(symbols, proc, new Map([...declaredDefaults(locals), ...variantStarts(symbols, proc), ...objectStarts(symbols, proc)])));
 		cache.set(proc, start);
 	}
 	return start;
@@ -4656,25 +4740,46 @@ function objectStarts(symbols: ReturnType<typeof buildModuleSymbols>, proc: Proc
  * runs its arm (issue #406). A local or parameter of the same name hides a
  * module's.
  */
-function conditionConstants(symbols: ReturnType<typeof buildModuleSymbols>, proc: ProcedureNode): Map<string, readonly VbaToken[]> {
-	const children = procedureSymbolFor(symbols, proc)?.children ?? [];
-	const out = new Map<string, readonly VbaToken[]>();
-	for (const symbol of [...(symbols.root.children ?? []), ...children]) {
-		const toks = symbol.kind === 'constant' && symbol.defaultRaw !== undefined
-			? rawExpressionTokens(symbol.defaultRaw).filter((tok) => tok.kind !== 'comment')
-			: [];
-		const word = toks.length === 1 ? tokenText(toks[0]) : '';
-		const value = word === 'true' ? CONSTANT_TRUE
-			: word === 'false' ? DEFAULT_NUMBER
-			: toks.length === 1 && (toks[0].kind === 'stringLiteral' || /^\d+$/.test(toks[0].rawText)) ? toks
-			: undefined;
+const MODULE_CONDITION_CONSTANTS = new WeakMap<ReturnType<typeof buildModuleSymbols>, ReadonlyMap<string, readonly VbaToken[]>>();
+
+function conditionConstantValue(symbol: VbaSymbol): readonly VbaToken[] | undefined {
+	if (symbol.kind !== 'constant' || symbol.defaultRaw === undefined) {
+		return undefined;
+	}
+	const toks = rawExpressionTokens(symbol.defaultRaw).filter((tok) => tok.kind !== 'comment');
+	const word = toks.length === 1 ? tokenText(toks[0]) : '';
+	return word === 'true' ? CONSTANT_TRUE
+		: word === 'false' ? DEFAULT_NUMBER
+		: toks.length === 1 && (toks[0].kind === 'stringLiteral' || /^\d+$/.test(toks[0].rawText)) ? toks
+		: undefined;
+}
+
+function conditionConstants(symbols: ReturnType<typeof buildModuleSymbols>, proc: ProcedureNode, defaults: ReadonlyMap<string, readonly VbaToken[]>): ReachingAssignments {
+	let module = MODULE_CONDITION_CONSTANTS.get(symbols);
+	if (!module) {
+		const constants = new Map<string, readonly VbaToken[]>();
+		for (const symbol of symbols.root.children ?? []) {
+			const value = conditionConstantValue(symbol);
+			if (value) {
+				constants.set(symbol.name.toLowerCase(), value);
+			}
+		}
+		module = constants;
+		MODULE_CONDITION_CONSTANTS.set(symbols, module);
+	}
+	const own = new Map<string, readonly VbaToken[]>();
+	const hidden = new Set<string>();
+	for (const symbol of procedureSymbolFor(symbols, proc)?.children ?? []) {
+		const value = conditionConstantValue(symbol);
 		if (value) {
-			out.set(symbol.name.toLowerCase(), value);
-		} else if (children.includes(symbol)) {
-			out.delete(symbol.name.toLowerCase());
+			own.set(symbol.name.toLowerCase(), value);
+		} else {
+			own.delete(symbol.name.toLowerCase());
+			hidden.add(symbol.name.toLowerCase());
 		}
 	}
-	return out;
+	for (const [name, value] of defaults) { own.set(name, value); }
+	return new LayeredMap(module, own, hidden);
 }
 
 const CONSTANT_TRUE: readonly VbaToken[] = rawExpressionTokens('-1');

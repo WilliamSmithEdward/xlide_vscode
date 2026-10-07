@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { withReachingValue } from '../src/analyzer/diagnostics/reachingSnapshot';
+import { shareImmutableReachingStart, withReachingValue } from '../src/analyzer/diagnostics/reachingSnapshot';
 import { rawExpressionTokens } from '../src/analyzer/diagnostics/walker';
 import type { ReachingAssignments } from '../src/analyzer/diagnostics/straightLineValues';
 const value = (n: number) => rawExpressionTokens(String(n));
@@ -11,6 +11,21 @@ function compare(actual: ReachingAssignments, expected: ReachingAssignments) {
  expect(actual.has('absent')).toBe(false); expect(actual.get('absent')).toBeUndefined();
 }
 describe('bounded reaching snapshots', () => {
+ it('shares analyzer-owned immutable starts without enumerating their constants on writes', () => {
+  let entries = 0;
+  class CountedMap extends Map<string, readonly ReturnType<typeof value>[number][]> {
+   override *[Symbol.iterator](): MapIterator<[string, readonly ReturnType<typeof value>[number][]]> { for (const entry of super[Symbol.iterator]()) { entries++; yield entry; } }
+  }
+  const base = new CountedMap(initial(1000)); entries = 0;
+  let state = shareImmutableReachingStart(base);
+  const first = withReachingValue(state, 'n', value(1)); state = first;
+  for (let i = 2; i < 100; i++) state = withReachingValue(state, 'n', value(i));
+  expect(entries).toBe(0);
+  expect(base.has('n')).toBe(false);
+  expect(first.get('n')?.[0].rawText).toBe('1');
+  expect(state.get('n')?.[0].rawText).toBe('99');
+  expect(state.get('k999')?.[0].rawText).toBe('999');
+ });
  it.each([0, 63, 64, 1000])('preserves native lookup and ordered iteration through updates/compaction (base=%s)', (size) => {
   let actual: ReachingAssignments = initial(size), expected = new Map(actual);
   const snapshots: [ReachingAssignments, Map<string, readonly ReturnType<typeof value>[number][]>][] = [];

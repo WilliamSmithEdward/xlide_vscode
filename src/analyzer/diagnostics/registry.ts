@@ -109,7 +109,7 @@ import { checkFileStatements } from './rules/fileStatements';
 import { checkEmptyFilePaths } from './rules/filePaths';
 import { checkInvalidPropertyUse } from './rules/propertyUse';
 import { checkOverflow } from './rules/overflow';
-import { checkHostArguments, workbookSheetsToCheck } from './rules/hostArguments';
+import { checkHostArguments } from './rules/hostArguments';
 import { checkCollectionLoopCounters, checkCollectionState } from './rules/collectionState';
 import { checkDictionaryState } from './rules/dictionaryState';
 import { checkDocumentNames } from './rules/documentNames';
@@ -208,6 +208,8 @@ import { checkDocComments } from './rules/docComments';
  */
 export interface DiagnosticRuleEntry {
 	name: string;
+	/** Eager rule keeps full module facts but can restrict its procedure body checks. */
+	incrementalProcedureBodies?: boolean;
 	run?(ctx: RulePassContext, push: PushFn): void;
 	procedureStatements?(ctx: RulePassContext, push: PushFn): ProcedureStatementVisitor;
 	/**
@@ -355,6 +357,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'undeclaredVariables',
+		incrementalProcedureBodies: true,
 		run: (ctx, push) => checkUndeclaredVariables(
 			ctx.source,
 			ctx.mod,
@@ -371,6 +374,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 			ctx.opts.referencedHosts,
 			push,
 			ownObjectMemberNames(ctx.opts),
+			ctx.opts.walkProcedureFilter,
 		),
 	},
 	{
@@ -391,27 +395,32 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'conditionValues',
-		run: (ctx, push) => checkConditionValues(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push),
+		incrementalProcedureBodies: true,
+		run: (ctx, push) => checkConditionValues(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push, ctx.opts.walkProcedureFilter),
 	},
 	{
 		name: 'lockedArrays',
-		run: (ctx, push) => checkLockedArrays(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push),
+		incrementalProcedureBodies: true,
+		run: (ctx, push) => checkLockedArrays(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push, ctx.opts.walkProcedureFilter),
 	},
 	{
 		name: 'deletedObjects',
-		run: (ctx, push) => checkDeletedObjects(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push),
+		incrementalProcedureBodies: true,
+		run: (ctx, push) => checkDeletedObjects(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push, ctx.opts.walkProcedureFilter),
 	},
 	{
 		name: 'deletedSettings',
-		run: (ctx, push) => checkDeletedSettings(ctx.source, ctx.mod, ctx.activity, push),
+		incrementalProcedureBodies: true,
+		run: (ctx, push) => checkDeletedSettings(ctx.source, ctx.mod, ctx.activity, push, ctx.opts.walkProcedureFilter),
 	},
 	{
 		name: 'handlerFlow',
-		run: (ctx, push) => checkHandlerFlow(ctx.source, ctx.mod, ctx.activity, push, ctx.moduleKind === 'class' ? ctx.opts.moduleName : undefined),
+		incrementalProcedureBodies: true,
+		run: (ctx, push) => checkHandlerFlow(ctx.source, ctx.mod, ctx.activity, push, ctx.moduleKind === 'class' ? ctx.opts.moduleName : undefined, ctx.opts.walkProcedureFilter),
 	},
 	{
 		name: 'fileStatements',
-		run: (ctx, push) => checkFileStatements(ctx.source, ctx.mod, ctx.activity, push, ctx.opts.projectOpenedFileNumbers),
+		run: (ctx, push) => checkFileStatements(ctx.source, ctx.mod, ctx.activity, push, ctx.opts.projectOpenedFileNumbers, ctx.opts.projectProcedures?.keys()),
 	},
 	{
 		name: 'emptyFilePaths',
@@ -419,18 +428,21 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'overflow',
+		incrementalProcedureBodies: true,
 		run: (ctx, push) => checkOverflow(
 			ctx.source, ctx.mod, ctx.symbols, ctx.opts.projectVisibleSymbols, ctx.opts.hostModel, ctx.activity, push,
+			ctx.opts.walkProcedureFilter,
 		),
 	},
 	{
 		name: 'hostArguments',
 		blockHeaders: true,
-		procedureStatements: (ctx, push) => checkHostArguments(ctx.source, ctx.symbols, ctx.memberCtx, ctx.activity, push, workbookSheetsToCheck(ctx.opts)),
+		procedureStatements: (ctx, push) => checkHostArguments(ctx.source, ctx.symbols, ctx.memberCtx, ctx.activity, push),
 	},
 	{
 		name: 'collectionState',
-		run: (ctx, push) => checkCollectionState(ctx.source, ctx.mod, ctx.activity, push, ctx.symbols, ctx.opts.projectIntegerConstants, ctx.opts.projectVisibleSymbols, ctx.opts.hostModel),
+		incrementalProcedureBodies: true,
+		run: (ctx, push) => checkCollectionState(ctx.source, ctx.mod, ctx.activity, push, ctx.symbols, ctx.opts.projectIntegerConstants, ctx.opts.projectVisibleSymbols, ctx.opts.hostModel, ctx.opts.walkProcedureFilter),
 	},
 	{
 		name: 'byNameCalls',
@@ -438,7 +450,8 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'dictionaryState',
-		run: (ctx, push) => checkDictionaryState(ctx.source, ctx.mod, ctx.activity, push),
+		incrementalProcedureBodies: true,
+		run: (ctx, push) => checkDictionaryState(ctx.source, ctx.mod, ctx.activity, push, ctx.opts.walkProcedureFilter),
 	},
 	{
 		name: 'documentNames',
@@ -452,10 +465,12 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 			]),
 			ctx.activity,
 			push,
+			ctx.memberCtx,
 		),
 	},
 	{
 		name: 'excelSessionState',
+		incrementalProcedureBodies: true,
 		run: (ctx, push) => checkExcelSessionState(
 			ctx.source,
 			ctx.mod,
@@ -466,11 +481,13 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 			ctx.memberCtx,
 			ctx.activity,
 			push,
+			ctx.opts.walkProcedureFilter,
 		),
 	},
 	{
 		name: 'errorValues',
-		run: (ctx, push) => checkErrorValues(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push),
+		incrementalProcedureBodies: true,
+		run: (ctx, push) => checkErrorValues(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push, ctx.opts.walkProcedureFilter),
 	},
 	{
 		name: 'accessData',
@@ -478,11 +495,16 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'lateBoundObjectState',
-		run: (ctx, push) => checkLateBoundObjects(ctx.source, ctx.mod, ctx.activity, push),
+		incrementalProcedureBodies: true,
+		run: (ctx, push) => checkLateBoundObjects(
+			ctx.source, ctx.mod, ctx.activity, push, ctx.opts.walkProcedureFilter,
+			ctx.opts.projectProcedures?.keys(),
+		),
 	},
 	{
 		name: 'variantValueMisuse',
-		run: (ctx, push) => checkVariantValueMisuse(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push, ctx.opts.projectVisibleSymbols),
+		incrementalProcedureBodies: true,
+		run: (ctx, push) => checkVariantValueMisuse(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push, ctx.opts.projectVisibleSymbols, ctx.opts.walkProcedureFilter),
 	},
 	{
 		name: 'objectDefaultValue',
@@ -490,7 +512,8 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'runtimeMemberNotFound',
-		run: (ctx, push) => checkRuntimeMemberNotFound(ctx.source, ctx.mod, ctx.symbols, ctx.memberCtx, ctx.activity, push),
+		incrementalProcedureBodies: true,
+		run: (ctx, push) => checkRuntimeMemberNotFound(ctx.source, ctx.mod, ctx.symbols, ctx.memberCtx, ctx.activity, push, ctx.opts.walkProcedureFilter, ctx.opts.projectProcedures?.keys()),
 	},
 	{
 		name: 'formContents',
@@ -498,7 +521,8 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'classInstanceValues',
-		run: (ctx, push) => checkClassInstanceValues(ctx.source, ctx.mod, ctx.symbols, ctx.memberCtx, ctx.activity, push),
+		incrementalProcedureBodies: true,
+		run: (ctx, push) => checkClassInstanceValues(ctx.source, ctx.mod, ctx.symbols, ctx.memberCtx, ctx.activity, push, ctx.opts.walkProcedureFilter),
 	},
 	{
 		name: 'declarationForms',
@@ -520,7 +544,8 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'statementForms',
-		run: (ctx, push) => checkStatementForms(ctx.source, ctx.mod, ctx.symbols, ctx.opts.projectProcedures, ctx.activity, push, ctx.memberCtx),
+		incrementalProcedureBodies: true,
+		run: (ctx, push) => checkStatementForms(ctx.source, ctx.mod, ctx.symbols, ctx.opts.projectProcedures, ctx.activity, push, ctx.memberCtx, ctx.opts.walkProcedureFilter),
 	},
 	{
 		name: 'vbaLibraryMembers',
@@ -528,6 +553,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'statementTypes',
+		incrementalProcedureBodies: true,
 		run: (ctx, push) => checkStatementTypes(
 			ctx.source,
 			ctx.mod,
@@ -536,6 +562,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 			ctx.opts.projectTypes,
 			ctx.activity,
 			push,
+			ctx.opts.walkProcedureFilter,
 		),
 	},
 	{
@@ -706,7 +733,8 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'unallocatedDynamicArrayAccess',
-		run: (ctx, push) => checkUnallocatedDynamicArrayAccess(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push),
+		incrementalProcedureBodies: true,
+		run: (ctx, push) => checkUnallocatedDynamicArrayAccess(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push, ctx.opts.walkProcedureFilter),
 	},
 	{
 		name: 'collectionLoopCounters',
@@ -714,7 +742,8 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'arraySubscriptOutOfBounds',
-		run: (ctx, push) => checkFixedArraySubscriptBounds(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push, ctx.opts.projectIntegerConstants, ctx.opts.projectVisibleSymbols, ctx.opts.hostModel),
+		incrementalProcedureBodies: true,
+		run: (ctx, push) => checkFixedArraySubscriptBounds(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push, ctx.opts.projectIntegerConstants, ctx.opts.projectVisibleSymbols, ctx.opts.hostModel, ctx.opts.walkProcedureFilter),
 	},
 	{
 		name: 'declareStatements',
@@ -726,11 +755,13 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'typeFieldArrays',
-		run: (ctx, push) => checkTypeFieldArrays(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push, ctx.opts.projectIntegerConstants, ctx.opts.projectVisibleSymbols, ctx.opts.hostModel),
+		incrementalProcedureBodies: true,
+		run: (ctx, push) => checkTypeFieldArrays(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push, ctx.opts.projectIntegerConstants, ctx.opts.projectVisibleSymbols, ctx.opts.hostModel, ctx.opts.walkProcedureFilter),
 	},
 	{
 		name: 'typeMembers',
-		run: (ctx, push) => checkTypeMembers(ctx.source, ctx.mod, ctx.symbols, ctx.memberCtx, ctx.activity, push),
+		incrementalProcedureBodies: true,
+		run: (ctx, push) => checkTypeMembers(ctx.source, ctx.mod, ctx.symbols, ctx.memberCtx, ctx.activity, push, ctx.opts.walkProcedureFilter),
 	},
 	{
 		name: 'midStatementLiteralTarget',
@@ -756,7 +787,8 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'fixedLengthStringBounds',
-		run: (ctx, push) => checkFixedLengthStringBounds(ctx.source, ctx.mod, ctx.activity, push),
+		incrementalProcedureBodies: true,
+		run: (ctx, push) => checkFixedLengthStringBounds(ctx.source, ctx.mod, ctx.activity, push, ctx.opts.walkProcedureFilter),
 	},
 	{
 		name: 'objectModulePublicMembers',
@@ -796,6 +828,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'longLongNarrowing',
+		incrementalProcedureBodies: true,
 		run: (ctx, push) => checkLongLongNarrowing(
 			ctx.source,
 			ctx.mod,
@@ -806,6 +839,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 			ctx.opts.projectVisibleSymbols,
 			ctx.activity,
 			push,
+			ctx.opts.walkProcedureFilter,
 		),
 	},
 	{
@@ -957,6 +991,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'objectVariableNotSet',
+		incrementalProcedureBodies: true,
 		run: (ctx, push) => checkObjectVariableNotSet(
 			ctx.source,
 			ctx.mod,
@@ -964,6 +999,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 			ctx.memberCtx,
 			ctx.activity,
 			push,
+			ctx.opts.walkProcedureFilter,
 		),
 	},
 	{
@@ -1075,6 +1111,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'assignmentTypes',
+		incrementalProcedureBodies: true,
 		run: (ctx, push) => checkAssignmentTypes(
 			ctx.source,
 			ctx.mod,
@@ -1083,6 +1120,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 			ctx.memberCtx,
 			ctx.activity,
 			push,
+			ctx.opts.walkProcedureFilter,
 		),
 	},
 	{
@@ -1182,7 +1220,8 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'unusedDeclarations',
-		run: (ctx, push) => checkUnusedDeclarations(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push),
+		incrementalProcedureBodies: true,
+		run: (ctx, push) => checkUnusedDeclarations(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push, ctx.opts.walkProcedureFilter),
 	},
 	{
 		// A Private procedure is reachable from its own module only, so the
@@ -1201,7 +1240,8 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'unreachableCode',
-		run: (ctx, push) => checkUnreachableCode(ctx.source, ctx.mod, ctx.activity, push),
+		incrementalProcedureBodies: true,
+		run: (ctx, push) => checkUnreachableCode(ctx.source, ctx.mod, ctx.activity, push, ctx.opts.walkProcedureFilter),
 	},
 	{
 		name: 'docComments',

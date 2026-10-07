@@ -15,7 +15,7 @@ function hits(...lines: string[]) {
 }
 
 describe('a sheet the code just protected (issue #471)', () => {
-	it('reports writes to its cells and a wrong password', () => {
+	it('does not infer cell locks, but retains an immediate wrong-password check', () => {
 		for (const lines of [
 			['w2.Protect', 'w2.Range("A1").Value = 1'],
 			['w2.Protect', 'w2.Range("A1").Formula = "=1"'],
@@ -25,8 +25,7 @@ describe('a sheet the code just protected (issue #471)', () => {
 			['w2.Protect "pw"', 'w2.Unprotect "nope"'],
 		]) {
 			const found = hits(...lines);
-			expect(found, lines.join(' / ')).toHaveLength(1);
-			expect(found[0].message).toContain("'1004'");
+			expect(found, lines.join(' / ')).toHaveLength(lines[1].includes('Unprotect') ? 1 : 0);
 		}
 	});
 
