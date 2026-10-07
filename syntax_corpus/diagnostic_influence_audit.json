@@ -776,6 +776,7 @@
       "sourceOfTruth": "Excel/VBE compile and runtime oracle plus deterministic XLIDE scalar assignment compatibility model",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "vb_named_enum_long_storage",
         "implicit_setter_foreign_bare_bad",
         "implicit_setter_foreign_qualified_bad",
         "implicit_setter_foreign_valid",
@@ -3477,6 +3478,7 @@
       "sourceOfTruth": "VBE runtime error 91 (Object variable or With block variable not set): a bare assignment to an object target compiles cleanly and fails at runtime, not at compile time; MS-VBAL 5.4.3 Set statement",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "vb_named_class_scalar_default",
         "object_var_assignment_without_set_runtime_91",
         "funcret_object_assignment_without_set_runtime_91",
         "issue193b_01_runtime",
@@ -8000,6 +8002,7 @@
       "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-29 (issue #194): the issue's measured corpus",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "vb_named_class_array_identity",
         "qualified_array_result_match",
         "qualified_array_result_mismatch",
         "qualified_array_result_grouped_mismatch",

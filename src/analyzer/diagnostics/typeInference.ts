@@ -3102,7 +3102,6 @@ export function normalizeType(type: string | undefined): string | undefined {
 	}
 	return type
 		.replace(/\s*\(\s*\)\s*$/, '')
-		.replace(/^vb/i, '')
 		.trim()
 		.toLowerCase();
 }
