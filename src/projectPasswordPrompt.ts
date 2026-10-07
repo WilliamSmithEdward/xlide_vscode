@@ -7,6 +7,9 @@ import { assertProjectAccess, isProjectAccessLocked, unlockProject } from './vba
 
 // Explorer, editors and agents can arrive together; one user prompt per file.
 const pending = new Map<string, Promise<void>>();
+const unlocked = new vscode.EventEmitter<string>();
+/** Raised only after successful authorization; listeners receive no password. */
+export const onDidUnlockVbaProject = unlocked.event;
 
 export async function ensureProjectPassword(filePath: string, allowMissing = false): Promise<void> {
     await enginePriming.prime([filePath]);
@@ -35,7 +38,7 @@ async function promptForPassword(filePath: string): Promise<void> {
         if (password === undefined) { throw new vscode.CancellationError(); }
         try {
             await enginePriming.prime([filePath]);
-            if (unlockProject(filePath, password)) { return; }
+            if (unlockProject(filePath, password)) { unlocked.fire(filePath); return; }
         } finally { password = undefined; }
         incorrect = true;
     }

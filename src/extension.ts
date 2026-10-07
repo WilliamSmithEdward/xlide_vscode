@@ -108,7 +108,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // once per change, and only for the projects the tree has drawn. A
     // workspace with no git to ask gets marks that are always absent.
     const gitMarks = platformFeatures.createChangeMarks(bridge, (line) => out.appendLine(line));
-    const explorer = new ProjectExplorer(bridge, out, gitMarks);
+    const explorer = new ProjectExplorer(bridge, out, gitMarks, context.extensionUri);
     // One answer to "which procedure is the caret in", shared by the status bar
     // and the tree so the two never disagree.
     const caret = new VbaCaretProcedureTracker();

@@ -202,6 +202,10 @@ export function vscodeMock(overrides: Record<string, unknown> = {}): Record<stri
 			Unavailable: (message?: string) => new Error(message),
 		},
 		Uri: {
+            joinPath: (base: { scheme: string; path: string; fsPath?: string; toString(): string }, ...parts: string[]) => {
+                const joined = [base.path.replace(/\/$/, ''), ...parts].join('/');
+                return { scheme: base.scheme, path: joined, fsPath: joined, toString: () => joined };
+            },
 			file: (fsPath: string) => ({
 				scheme: 'file',
 				fsPath,
