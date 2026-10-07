@@ -4203,7 +4203,10 @@
         "conditional_elseif_before_else_compile",
         "if_elseif_after_else_compile",
         "if_duplicate_else_compile",
-        "if_elseif_before_else_compile"
+        "if_elseif_before_else_compile",
+        "if_single_line_else_after_colon_in_block_if_compile",
+        "if_single_line_else_after_colon_header_else_then_tail_if_compile",
+        "if_single_line_else_after_colon_duplicate_in_block_if_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
@@ -4929,11 +4932,33 @@
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "corpus_ctrl_if_004_compile",
-        "issue272_42_compile"
+        "issue272_42_compile",
+        "if_single_line_else_after_colon_compile",
+        "if_single_line_else_after_colon_empty_statement_compile",
+        "if_single_line_else_after_colon_continued_compile",
+        "if_single_line_else_after_colon_for_next_compile",
+        "if_single_line_else_after_colon_with_compile",
+        "if_single_line_else_after_colon_labels_compile",
+        "if_single_line_else_after_colon_nested_header_else_compile",
+        "if_single_line_else_after_colon_two_open_compile",
+        "if_single_line_else_after_colon_if_in_tail_compile",
+        "if_single_line_else_after_colon_member_named_else_compile",
+        "if_single_line_else_after_colon_in_block_if_compile",
+        "if_single_line_else_after_colon_header_else_then_tail_if_compile",
+        "if_single_line_else_after_colon_else_if_chain_compile",
+        "if_single_line_else_after_colon_select_case_compile",
+        "if_single_line_else_after_colon_duplicate_compile",
+        "if_single_line_else_after_colon_after_header_else_compile",
+        "if_single_line_else_after_colon_without_if_compile",
+        "if_single_line_else_after_colon_elseif_compile",
+        "if_single_line_else_after_colon_member_named_if_duplicate_compile",
+        "if_single_line_else_after_colon_duplicate_then_new_if_compile",
+        "if_single_line_else_after_colon_elseif_in_block_if_compile",
+        "if_single_line_else_after_colon_duplicate_in_block_if_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Flags an Else or ElseIf clause that is not inside an If block (the parser places legit clauses directly under an IfBlock; a stray one sits under the procedure or a non-If block). A stray End If is covered separately by the block-balance pass (unmatched-block-closer).",
+      "notes": "Flags an Else or ElseIf clause that is not inside an If block (the parser places legit clauses directly under an IfBlock; a stray one sits under the procedure or a non-If block). A stray End If is covered separately by the block-balance pass (unmatched-block-closer). An Else after the colon of a one-line If (MS-VBAL 5.4.2.9) is accepted while that line still has a one-line If without an Else; an Else with no such If left, or any ElseIf, after such a colon is reported, inside a block If too (if_single_line_else_after_colon_* cases).",
       "diagnosticKind": "compile-error"
     },
     {

@@ -3474,6 +3474,226 @@
       "diagnosticMeaning": "compile-valid"
     },
     {
+      "id": "if_single_line_else_after_colon_compile",
+      "description": "Compile probe (MS-VBAL 5.4.2.9 single-line-else-clause): the Then list ends with a colon before Else.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim a As Boolean, x As Boolean\n    Dim b As Long, c As Long, d As Long, e As Long, f As Long, i As Long, y As Long\n    Dim o As Object\n    If a Then b = 1: Else c = 2\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "if_single_line_else_after_colon_empty_statement_compile",
+      "description": "Compile probe (MS-VBAL 5.4.2.9 single-line-else-clause): an empty statement follows the colon after Else.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim a As Boolean, x As Boolean\n    Dim b As Long, c As Long, d As Long, e As Long, f As Long, i As Long, y As Long\n    Dim o As Object\n    If a Then b = 1: Else: c = 2\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "if_single_line_else_after_colon_continued_compile",
+      "description": "Compile probe (MS-VBAL 5.4.2.9 single-line-else-clause): the colon is followed by a line continuation before Else.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim a As Boolean, x As Boolean\n    Dim b As Long, c As Long, d As Long, e As Long, f As Long, i As Long, y As Long\n    Dim o As Object\n    If a Then b = 1: _\n        Else c = 2\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "if_single_line_else_after_colon_for_next_compile",
+      "description": "Compile probe (MS-VBAL 5.4.2.9 single-line-else-clause): a For...Next closed in the Then list before Else.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim a As Boolean, x As Boolean\n    Dim b As Long, c As Long, d As Long, e As Long, f As Long, i As Long, y As Long\n    Dim o As Object\n    If a Then For i = 1 To 2: Next: Else c = 1\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "if_single_line_else_after_colon_with_compile",
+      "description": "Compile probe (MS-VBAL 5.4.2.9 single-line-else-clause): a With...End With closed in the Then list before Else.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim a As Boolean, x As Boolean\n    Dim b As Long, c As Long, d As Long, e As Long, f As Long, i As Long, y As Long\n    Dim o As Object\n    If a Then With Application: End With: Else c = 1\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "if_single_line_else_after_colon_labels_compile",
+      "description": "Compile probe (MS-VBAL 5.4.2.9 single-line-else-clause): a named label and a line number before the If.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim a As Boolean, x As Boolean\n    Dim b As Long, c As Long, d As Long, e As Long, f As Long, i As Long, y As Long\n    Dim o As Object\nL1: If a Then b = 1: Else c = 2\n10  If a Then b = 1: Else c = 2\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "if_single_line_else_after_colon_nested_header_else_compile",
+      "description": "Compile probe (MS-VBAL 5.4.2.9 single-line-else-clause): the header Else belongs to a nested one-line If, the colon Else to the outer one.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim a As Boolean, x As Boolean\n    Dim b As Long, c As Long, d As Long, e As Long, f As Long, i As Long, y As Long\n    Dim o As Object\n    If a Then If x Then c = 1 Else d = 2: Else e = 3\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "if_single_line_else_after_colon_two_open_compile",
+      "description": "Compile probe (MS-VBAL 5.4.2.9 single-line-else-clause): two one-line Ifs each take an Else after a colon.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim a As Boolean, x As Boolean\n    Dim b As Long, c As Long, d As Long, e As Long, f As Long, i As Long, y As Long\n    Dim o As Object\n    If a Then If x Then c = 1: Else d = 2: Else e = 3\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "if_single_line_else_after_colon_if_in_tail_compile",
+      "description": "Compile probe (MS-VBAL 5.4.2.9 single-line-else-clause): a one-line If opened after a colon takes the Else.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim a As Boolean, x As Boolean\n    Dim b As Long, c As Long, d As Long, e As Long, f As Long, i As Long, y As Long\n    Dim o As Object\n    If a Then b = 1: If x Then d = 2: Else e = 3\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "if_single_line_else_after_colon_member_named_else_compile",
+      "description": "Compile probe (MS-VBAL 5.4.2.9 single-line-else-clause): a member named Else in the Then list, then the If's own Else.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim a As Boolean, x As Boolean\n    Dim b As Long, c As Long, d As Long, e As Long, f As Long, i As Long, y As Long\n    Dim o As Object\n    If a Then o.Else = 1: Else b = 1\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "if_single_line_else_after_colon_in_block_if_compile",
+      "description": "Compile probe (MS-VBAL 5.4.2.9 single-line-else-clause): the one-line If sits inside a block If that has its own Else.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim a As Boolean, x As Boolean\n    Dim b As Long, c As Long, d As Long, e As Long, f As Long, i As Long, y As Long\n    Dim o As Object\n    If x Then\n        If a Then b = 1: Else c = 2\n    Else\n        y = 1\n    End If\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "if_single_line_else_after_colon_header_else_then_tail_if_compile",
+      "description": "Compile probe (MS-VBAL 5.4.2.9 single-line-else-clause): a header Else, then a one-line If opened in the tail takes an Else, inside a block If.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim a As Boolean, x As Boolean\n    Dim b As Long, c As Long, d As Long, e As Long, f As Long, i As Long, y As Long\n    Dim o As Object\n    If x Then\n        If a Then b = 1 Else c = 2: If x Then d = 3: Else e = 4\n    End If\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "if_single_line_else_after_colon_else_if_chain_compile",
+      "description": "Compile probe (MS-VBAL 5.4.2.9 single-line-else-clause): Else If written as tails: the first Else takes a new one-line If, which takes the second Else.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim a As Boolean, x As Boolean\n    Dim b As Long, c As Long, d As Long, e As Long, f As Long, i As Long, y As Long\n    Dim o As Object\n    If a Then b = 1: Else If x Then d = 2: Else e = 3\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "if_single_line_else_after_colon_select_case_compile",
+      "description": "Compile probe (MS-VBAL 5.4.2.9 single-line-else-clause): a Select Case...End Select closed in the Then list before Else.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim a As Boolean, x As Boolean\n    Dim b As Long, c As Long, d As Long, e As Long, f As Long, i As Long, y As Long\n    Dim o As Object\n    If a Then Select Case b: Case 1: c = 1: End Select: Else d = 1\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "if_single_line_else_after_colon_duplicate_compile",
+      "description": "Compile probe (MS-VBAL 5.4.2.9 single-line-else-clause): a second Else after a colon with only one If open.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim a As Boolean, x As Boolean\n    Dim b As Long, c As Long, d As Long, e As Long, f As Long, i As Long, y As Long\n    Dim o As Object\n    If a Then b = 1: Else c = 2: Else d = 3\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "if_single_line_else_after_colon_after_header_else_compile",
+      "description": "Compile probe (MS-VBAL 5.4.2.9 single-line-else-clause): an Else after a colon when the header already has its Else.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim a As Boolean, x As Boolean\n    Dim b As Long, c As Long, d As Long, e As Long, f As Long, i As Long, y As Long\n    Dim o As Object\n    If a Then b = 1 Else c = 2: Else d = 3\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "if_single_line_else_after_colon_without_if_compile",
+      "description": "Compile probe (MS-VBAL 5.4.2.9 single-line-else-clause): an Else after a colon with no If on the line.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim a As Boolean, x As Boolean\n    Dim b As Long, c As Long, d As Long, e As Long, f As Long, i As Long, y As Long\n    Dim o As Object\n    b = 1: Else c = 2\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "if_single_line_else_after_colon_elseif_compile",
+      "description": "Compile probe (MS-VBAL 5.4.2.9 single-line-else-clause): an ElseIf after the colon of a one-line If.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim a As Boolean, x As Boolean\n    Dim b As Long, c As Long, d As Long, e As Long, f As Long, i As Long, y As Long\n    Dim o As Object\n    If a Then b = 1: ElseIf x Then d = 2\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "if_single_line_else_after_colon_member_named_if_duplicate_compile",
+      "description": "Compile probe (MS-VBAL 5.4.2.9 single-line-else-clause): a member named If does not open an If: the second Else has none.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim a As Boolean, x As Boolean\n    Dim b As Long, c As Long, d As Long, e As Long, f As Long, i As Long, y As Long\n    Dim o As Object\n    If a Then o.If = 1: Else b = 1: Else c = 1\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "if_single_line_else_after_colon_duplicate_then_new_if_compile",
+      "description": "Compile probe (MS-VBAL 5.4.2.9 single-line-else-clause): a stray second Else, then a new one-line If with its own Else.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim a As Boolean, x As Boolean\n    Dim b As Long, c As Long, d As Long, e As Long, f As Long, i As Long, y As Long\n    Dim o As Object\n    If a Then b = 1: Else c = 1: Else d = 1: If x Then e = 1: Else f = 1\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "if_single_line_else_after_colon_elseif_in_block_if_compile",
+      "description": "Compile probe (MS-VBAL 5.4.2.9 single-line-else-clause): an ElseIf after the colon of a one-line If inside a block If.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim a As Boolean, x As Boolean\n    Dim b As Long, c As Long, d As Long, e As Long, f As Long, i As Long, y As Long\n    Dim o As Object\n    If x Then\n        If a Then b = 1: ElseIf x Then d = 2\n    End If\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "if_single_line_else_after_colon_duplicate_in_block_if_compile",
+      "description": "Compile probe (MS-VBAL 5.4.2.9 single-line-else-clause): a second Else after a colon inside a block If.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim a As Boolean, x As Boolean\n    Dim b As Long, c As Long, d As Long, e As Long, f As Long, i As Long, y As Long\n    Dim o As Object\n    If x Then\n        If a Then b = 1: Else c = 2: Else d = 3\n    Else\n        y = 1\n    End If\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
       "id": "enum_member_same_name_across_enums_declaration_compile",
       "description": "Compile control: two Enum blocks can declare the same member name when that member is not referenced unqualified.",
       "provenance": "vbe-oracle-verified",

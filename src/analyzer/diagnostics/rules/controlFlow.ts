@@ -801,6 +801,9 @@ function checkSingleIfBlockElseBranchOrder(
 		if (word !== 'elseif' && word !== 'else') {
 			continue;
 		}
+		if (child.singleLineIfTail) {
+			continue; // after a one-line If's colon: never a clause of this block
+		}
 		const after = elsesAbove.some(
 			(prior) => !activity?.mutuallyExclusive(prior, child.span),
 		);
@@ -931,16 +934,25 @@ export function checkElseWithoutIf(
 	push: PushFn,
 ): void {
 	const visit = (body: BodyNode[], insideIfBlock: boolean): void => {
+		// One-line Ifs on the current logical line still without an Else. Each
+		// may take one `Else` after a colon (MS-VBAL 5.4.2.9), innermost first.
+		let openIfs = 0;
 		for (const node of body) {
 			if (isInactiveNode(activity, node)) {
 				continue;
 			}
 			if (isLeafStatement(node)) {
-				if (insideIfBlock) {
+				const toks = statementTokensAfterLeadingLabel(source, node.span);
+				const first = toks[0];
+				const word = first ? tokenText(first) : '';
+				const elseTail = node.singleLineIfTail && word === 'else' && openIfs > 0;
+				openIfs = Math.max(0, (node.singleLineIfTail ? openIfs : 0) + ifsMinusElses(toks));
+				if (elseTail) {
+					continue; // `If a Then b = 1: Else c = 2`
+				}
+				if (insideIfBlock && !node.singleLineIfTail) {
 					continue; // a legit Else/ElseIf header inside its If block
 				}
-				const first = statementTokensAfterLeadingLabel(source, node.span)[0];
-				const word = first ? tokenText(first) : '';
 				if (word === 'else' || word === 'elseif') {
 					push(
 						'elseWithoutIf',
@@ -960,6 +972,27 @@ export function checkElseWithoutIf(
 			visit(member.body, false);
 		}
 	}
+}
+
+/**
+ * `If` keyword tokens minus `Else` ones: the one-line Ifs a statement leaves
+ * open. `End If` and member names (`obj.If`, `rs!Else`) are neither.
+ */
+function ifsMinusElses(toks: readonly VbaToken[]): number {
+	let open = 0;
+	for (let i = 0; i < toks.length; i++) {
+		const prev = toks[i - 1];
+		if (prev && (prev.rawText === '.' || prev.rawText === '!')) {
+			continue;
+		}
+		const word = toks[i].kind === 'keyword' ? tokenText(toks[i]) : '';
+		if (word === 'if' && tokenText(prev) !== 'end') {
+			open += 1;
+		} else if (word === 'else') {
+			open -= 1;
+		}
+	}
+	return open;
 }
 
 /**
