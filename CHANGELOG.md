@@ -2,6 +2,28 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.1.0] - 2026-10-06
+
+Require the existing VBA project password before accessing protected Office files.
+
+- **Password-protected VBA projects** (#1298). A masked password prompt now
+  gates viewing and editing source, UserForm designers, analysis, imports,
+  exports, worksheet and shape tools, Office launch commands, VBA tests, and
+  agent tools. Modern hashed passwords and legacy password records are
+  verified using the project's code page; malformed or unreadable protection
+  refuses access.
+- **Unlock once per session**. A successful unlock is shared across repeated
+  editor, sidebar, designer, and agent actions for the same file. Code edits
+  preserve authorization; changed protection records and window reloads
+  require verification again. Passwords are not saved, and writes preserve
+  the Office protection records. VBA project protection remains an access
+  restriction and does not encrypt module source.
+- **Protection regression coverage**. Add a permanent protected workbook
+  fixture, browser and multi-format password checks, and VS Code integration
+  tests for cancelled access, incorrect-password retry, editor saves, the
+  UserForm designer, agent tools, and repeated sidebar actions after one
+  unlock.
+
 ## [11.0.3] - 2026-10-06
 
 Correct Optional argument checks and improve analyzer source compatibility.

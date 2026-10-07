@@ -60,6 +60,7 @@ export async function executeVbaTestRun(
     }
     activeRunDescription = path.basename(filePath);
     try {
+        await bridge.call('ensureProjectAccess', { path: filePath });
         const support = await getVbaTestSupportStatus(bridge, filePath);
         if (!support.canRun) {
             return { kind: 'blocked-support', support };

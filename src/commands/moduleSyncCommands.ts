@@ -64,6 +64,7 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
         direction: 'export' | 'import',
         options: { promptIfMissing?: boolean; openLabel?: string } = {},
     ): Promise<ResolvedModuleSyncSettings | undefined> {
+        await bridge.call('ensureProjectAccess', { path: filePath });
         const existing = await effectiveProjectModuleSyncSettings(filePath);
         const modeFields = direction === 'export'
             ? { exportMode: existing.exportMode, exportModeSource: existing.exportModeSource }
@@ -338,6 +339,7 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
         plan: ModuleSyncPlan,
         selectedIds: readonly string[],
     ): Promise<ModuleSyncApplyResult> {
+        await bridge.call('ensureProjectAccess', { path: plan.projectPath });
         const selected = selectedModuleSyncItems(plan, selectedIds);
         const changed: string[] = [];
         const skipped: string[] = [];
@@ -433,6 +435,7 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
         plan: ModuleSyncPlan,
         selectedIds: readonly string[],
     ): Promise<ModuleSyncApplyResult> {
+        await bridge.call('ensureProjectAccess', { path: plan.projectPath });
         const result = await applyImportPlan(deps, plan, selectedIds, {
             command: 'xlide.importModulesFromFolder',
             log,

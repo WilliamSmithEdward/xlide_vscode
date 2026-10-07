@@ -242,3 +242,13 @@ If the file tree, tests, or Office actions are unavailable:
 - Use **Export XLIDE Support Bundle** when you need a redacted support snapshot.
 - See [support.md](support.md) for Trust Center, macro security, Office COM, and
   recovery notes.
+
+### Password-protected VBA projects
+
+XLIDE requires the existing VBA project password before accessing a password-protected Office file. Enter it in the **Unlock VBA project** prompt; the input is masked. This applies to viewing and editing source, exports, analysis, UserForm designers, worksheet and shape tools, Office launch commands, macro execution, and VBA tests. Agent tools use the same access checks and cannot supply a password on your behalf.
+
+A correct password authorizes that file for the current XLIDE session. XLIDE keeps only a fingerprint of the verified protection records in memory; it does not save your password in settings, logs, or the document. Reloading the window clears authorization. A change to the project's protection records requires verification again. Incorrect passwords and cancelled prompts leave the file untouched.
+
+XLIDE verifies the existing Office password and preserves its protection records when saving. It supports hashed VBA passwords and older password records using the project's code page. If protection is malformed or a host/editor lock has no usable password, access is refused; unlock and save the project in its Office application first.
+
+This is an access restriction enforced by XLIDE. VBA project protection does not encrypt module source and does not prevent other software from reading the underlying file.

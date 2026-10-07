@@ -44,3 +44,5 @@ import './nativeBackspaceRouting.test';
 import './nativeSnippetRouting.test';
 
 import './nativeEnterCaretOwnership.test';
+
+import './projectProtection.test';

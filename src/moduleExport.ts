@@ -266,9 +266,10 @@ async function exportProjectModule(
     params: ExportModuleParams,
 ): Promise<ExportModuleResult> {
     return measurePerformance('moduleExport.single', params.moduleName, async () => {
+    const modules = await bridge.call<ModuleInfo[]>('listModules', { path: params.filePath });
     return withExportTarget(params, async (exportFolder, exportMode) => {
 
-    const modules = await bridge.call<ModuleInfo[]>('listModules', { path: params.filePath });
+
     const mod = modules.find(
         (candidate) => candidate.name.toLowerCase() === params.moduleName.toLowerCase(),
     );
@@ -303,9 +304,10 @@ async function exportProjectModules(
     params: ExportModulesParams,
 ): Promise<ExportModulesResult> {
     return measurePerformance('moduleExport.project', path.basename(params.filePath), async () => {
+    const { modules, sourceFor } = await loadProjectModulesWithSources(bridge, params.filePath);
     return withExportTarget(params, async (exportFolder, exportMode) => {
 
-    const { modules, sourceFor } = await loadProjectModulesWithSources(bridge, params.filePath);
+
     const liveRelativeNames = new Set<string>();
     const writtenFiles: string[] = [];
     const removedFiles: string[] = [];
