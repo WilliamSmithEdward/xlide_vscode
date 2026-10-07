@@ -3445,6 +3445,10 @@
       "sourceOfTruth": "Excel/VBE compile oracle plus MS-VBAL reserved-name/type-identifier distinction",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
+        "audit_enum_declaration_qualified",
+        "audit_enum_declaration_bare",
+        "source_qualified_udt_audit",
+
         "runtime_function_as_type_name_int",
         "issue212_62_compile",
         "issue490_03_compile",

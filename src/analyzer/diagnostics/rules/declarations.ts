@@ -1526,12 +1526,25 @@ export function checkInvalidAsTypeNames(
 	const withEventsNewDeclarationSpans = collectWithEventsNewDeclarationSpans(mod, activity);
 	let variables: Set<string> | undefined;
 	let ownTypes: Set<string> | undefined;
+	let qualifiedEnumTypes: Set<string> | undefined;
 	let libraries: readonly (ReadonlySet<string> | undefined)[] | undefined;
 	for (const ref of collectTypeNameReferences(source)) {
 		if (activity?.isInactive(ref.span)) {
 			continue;
 		}
 		const lookupName = typeReferenceLookupName(ref);
+		if (ref.kind === 'declaration' && ref.qualifier && !qualifiedEnumTypes) {
+			qualifiedEnumTypes = new Set((opts.projectTypes ?? []).filter(type => type.kind === 'enum' && type.moduleName)
+				.map(type => `${type.moduleName}.${type.name}`.toLowerCase()));
+			for (const member of activeModuleMembers(mod,activity)) {
+				if (member.kind === 'Enum') { qualifiedEnumTypes.add(`${opts.moduleName ?? 'Module'}.${member.name}`.toLowerCase()); }
+			}
+		}
+		const qualifiedSourceEnum = ref.kind === 'declaration' && ref.qualifier && qualifiedEnumTypes?.has(lookupName.toLowerCase());
+		if (qualifiedSourceEnum && !resolveTypeName(lookupName, {model:opts.hostModel})) {
+			push('invalidAsTypeName', `'${lookupName}' qualifies a source Enum with its module name. Use '${ref.name}' as the type name. This is a VBE compile error: User-defined type not defined.`, ref.span);
+			continue;
+		}
 		const resolved = resolveTypeName(lookupName, {
 			projectTypes: opts.projectTypes,
 			model: opts.hostModel,

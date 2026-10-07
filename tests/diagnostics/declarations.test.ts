@@ -689,13 +689,13 @@ describe('analyzeModule - As type name validation', () => {
 		expect(byCode(diagnostics, 'invalid-as-type-name')).toHaveLength(0);
 	});
 
-	it('accepts qualified visible project type names in declaration positions', () => {
+	it('accepts qualified UDTs and unqualified enums in declaration positions', () => {
 		const src =
 			'Public Type Payload\n' +
 			'    Location As Geometry.TPoint\n' +
 			'End Type\n' +
 			'\n' +
-			'Public Sub T(ByVal state As Workflow.Status)\n' +
+			'Public Sub T(ByVal state As Status)\n' +
 			'    Dim p As Geometry.TPoint\n' +
 			'End Sub\n';
 		const modules = [
