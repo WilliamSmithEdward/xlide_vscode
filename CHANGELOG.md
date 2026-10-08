@@ -2,7 +2,13 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
-## [Unreleased]
+## [11.1.1] - 2026-10-07
+
+Correct assignment diagnostics and colon-separated one-line If branches.
+
+- Accept a valid `Else` after the colon of a one-line `If`, including inside
+  a block If; retain diagnostics for duplicate Else and invalid ElseIf tails
+  (#1305, contributed by Sam, @swsammy).
 
 - Detect unqualified `Err.LastDllError` read-only assignments, retaining the
   VBA compile error classification (#1303).
