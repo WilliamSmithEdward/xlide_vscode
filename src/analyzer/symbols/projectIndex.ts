@@ -450,8 +450,10 @@ function moduleImplements(source: string): string[] {
 	for (const line of source.split(/\r?\n/)) {
 		// \p{L}: a Cyrillic or Thai interface name was invisible here, so the
 		// class hierarchy came back empty and Interface_Member never resolved.
-		// `Implements As Long` is a Type member named Implements, not a statement.
-		const match = /^\s*Implements\s+(?!As\b)([\p{L}_][\p{L}\p{M}\p{N}_]*(?:\.[\p{L}_][\p{L}\p{M}\p{N}_]*)?)/iu.exec(
+		// `Implements As Long` is a Type member named Implements, not a
+		// statement. Any letter after As continues the name, an accented one too,
+		// so an interface named, say, As with an accented e is still read.
+		const match = /^\s*Implements\s+(?!As(?![\p{L}\p{M}\p{N}_]))([\p{L}_][\p{L}\p{M}\p{N}_]*(?:\.[\p{L}_][\p{L}\p{M}\p{N}_]*)?)/iu.exec(
 			line,
 		);
 		if (!match) {
