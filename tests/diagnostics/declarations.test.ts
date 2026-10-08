@@ -561,7 +561,7 @@ describe('analyzeModule - reserved declaration names', () => {
 		const words = [
 			'Next', 'Loop', 'Wend', 'For', 'Do', 'With', 'Sub', 'Function', 'Select', 'If',
 			'End', 'Else', 'Case', 'Set', 'Dim', 'Private', 'Len', 'True', 'Date', 'String',
-			'Long', 'Variant', 'Local', 'Attribute', 'New',
+			'Long', 'Variant', 'Local', 'Attribute', 'New', 'As', 'Implements',
 		];
 		const src =
 			'Private Type Rec\n' +
@@ -584,6 +584,7 @@ describe('analyzeModule - reserved declaration names', () => {
 
 		expect(byCode(diagnostics, 'invalid-declaration-name')).toHaveLength(0);
 		expect(byCode(diagnostics, 'unexpected-declaration-token')).toHaveLength(0);
+		expect(byCode(diagnostics, 'invalid-as-type-name')).toHaveLength(0);
 		expect(byCode(diagnostics, 'type-member-without-type')).toHaveLength(0);
 	});
 

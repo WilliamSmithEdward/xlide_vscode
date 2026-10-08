@@ -1446,7 +1446,8 @@ function inspectTypeField(
 	field: TypeFieldNode,
 	inspect: (span: Span, allowEquals: boolean) => void,
 ): void {
-	inspect(field.span, false);
+	// Scan after the name: a member may be named As (`As As Long`).
+	inspect({ start: field.nameSpan?.end ?? field.span.start, end: field.span.end }, false);
 }
 
 function inspectParameter(
