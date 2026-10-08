@@ -233,6 +233,87 @@ describe('analyzeVbaStructure', () => {
         expect(analyzeVbaStructure(src)).toEqual([]);
     });
 
+    it('reads a reserved word with an As clause inside a Type as a member, not a block keyword', () => {
+        // Measured in the VBE (oracle cases reserved_member_name_*).
+        const src = [
+            'Private Type Rec',
+            '    Next As Long',
+            '    Loop As Long',
+            '    Wend As Long',
+            '    For As Long',
+            '    Do As Long',
+            '    With As Long',
+            '    Sub As Long',
+            '    Function As Long',
+            '    Select As Long',
+            '    If As Long',
+            '    End As Long',
+            '    Else As Long',
+            '    Case As Long',
+            '    Set As Long',
+            '    Len As Long',
+            '    True As Long',
+            '    While _',
+            '        As Long',
+            "    Loop As Long ' comment",
+            '#If Win64 Then',
+            '    Next As LongLong',
+            '#Else',
+            '    Next As Long',
+            '#End If',
+            '    Next As [Long]',
+            '    With As [Widget]',
+            '    Next As New Collection',
+            '    With As New [Collection]',
+            '    Type As [Long]',
+            '    Type As',
+            '    Type As New Widget',
+            '    Type As []',
+            '    Type As 123',
+            'End Type',
+            'Sub Foo()',
+            'End Sub',
+            '',
+        ].join('\n');
+        expect(analyzeVbaStructure(src)).toEqual([]);
+    });
+
+    it('still reports block keywords that are not Type members', () => {
+        const enumSrc = 'Enum Mode\n    Next\n    Loop = 2\nEnd Enum\n';
+        expect(analyzeVbaStructure(enumSrc).map((p) => [p.code, p.line])).toEqual([
+            ['unmatched-block-closer', 1],
+            ['unmatched-block-closer', 2],
+        ]);
+
+        const typeSrc = 'Private Type Rec\n    Next\n    For(1 To 3) As Long\nEnd Type\n';
+        expect(analyzeVbaStructure(typeSrc).map((p) => [p.code, p.line])).toEqual([
+            ['unmatched-block-closer', 1],
+            ['missing-block-closer', 2],
+        ]);
+
+        // An As clause with no type is not a member: `Loop As` is a stray Loop
+        // and `With As` opens a With, as before.
+        const incompleteSrc = "Private Type Rec\n    Loop As ' comment\n    Next As New\n    Next As []\n    Next As New []\n    With As\nEnd Type\n";
+        expect(analyzeVbaStructure(incompleteSrc).map((p) => [p.code, p.line])).toEqual([
+            ['unmatched-block-closer', 1],
+            ['unmatched-block-closer', 2],
+            ['unmatched-block-closer', 3],
+            ['unmatched-block-closer', 4],
+            ['missing-block-closer', 5],
+        ]);
+
+        const procSrc = 'Sub Foo()\n    Next\n    Loop\nEnd Sub\n';
+        expect(analyzeVbaStructure(procSrc).map((p) => [p.code, p.line])).toEqual([
+            ['unmatched-block-closer', 1],
+            ['unmatched-block-closer', 2],
+        ]);
+
+        const openSrc = 'Private Type Rec\n    Next As Long\nSub Foo()\nEnd Sub\n';
+        expect(analyzeVbaStructure(openSrc).map((p) => [p.code, p.line])).toEqual([
+            ['missing-block-closer', 0],
+        ]);
+    });
+
     it('flags indented module declarations inside procedures', () => {
         const src = [
             'Sub Foo()',

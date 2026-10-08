@@ -360,10 +360,12 @@ function isConditionalAlternativeOpener(
     return !!active && armsDiverge(active.branch, branch);
 }
 
-function isTypeFieldNamedTypeInsideType(stack: readonly OpenBlock[], opener: OpenBlock, text: string): boolean {
-    return opener.kind === 'Type' &&
-        stack[stack.length - 1]?.kind === 'Type' &&
-        /^Type\s+As\b/i.test(text.trim());
+// Inside a Type, a word and an As clause with a type is a member whatever the
+// word: `Next As Long` closes nothing and `With As New Collection` opens
+// nothing (VBE oracle reserved_member_name_*). `Type As` is a member as before.
+function isTypeFieldInsideType(stack: readonly OpenBlock[], text: string): boolean {
+    return stack[stack.length - 1]?.kind === 'Type' &&
+        /^(?:Type\s+As\b|[\p{L}\p{M}\p{N}_]+\s+As\s+(?:New\s+|(?!New(?:\s|$)))(?:[\p{L}_]|\[[^\]]))/iu.test(text.trim());
 }
 
 function isPreprocessorLine(trimmed: string): boolean {
@@ -526,6 +528,10 @@ export function analyzeVbaStructure(
             return frame !== undefined && frame.arm > 0 && stack.length - 1 < frame.endHeight0;
         };
 
+        if (isTypeFieldInsideType(stack, t)) {
+            continue;
+        }
+
         if (/^Next\b/i.test(t)) {
             const rest = t.replace(/^Next\b/i, '').trim();
             const count = rest === '' ? 1 : rest.split(',').length;
@@ -578,9 +584,6 @@ export function analyzeVbaStructure(
         }
 
         if (opener) {
-            if (isTypeFieldNamedTypeInsideType(stack, opener, t)) {
-                continue;
-            }
             if (isConditionalAlternativeHeader) {
                 continue;
             }

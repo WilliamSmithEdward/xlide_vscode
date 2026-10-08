@@ -501,7 +501,7 @@ describe('analyzeModule - reserved declaration names', () => {
 	it('flags reserved keywords used as type, enum, field, member, and parameter names', () => {
 		const src =
 			'Public Type Type\n' +
-			'    For As String\n' +
+			'    For(1 To 2) As String\n' +
 			'End Type\n' +
 			'Public Enum Enum\n' +
 			'    In\n' +
@@ -552,6 +552,66 @@ describe('analyzeModule - reserved declaration names', () => {
 
 		expect(byCode(analyzeModule(src), 'invalid-declaration-name')).toHaveLength(0);
 		expect(byCode(analyzeModule(src), 'unexpected-declaration-token')).toHaveLength(0);
+	});
+
+	it('accepts a reserved word as a user-defined type field with an As clause', () => {
+		// Measured in the VBE (oracle cases reserved_member_name_*): any reserved
+		// word but Me, reserved type names included, names a Type member when
+		// an As clause with a type follows, As New included.
+		const words = [
+			'Next', 'Loop', 'Wend', 'For', 'Do', 'With', 'Sub', 'Function', 'Select', 'If',
+			'End', 'Else', 'Case', 'Set', 'Dim', 'Private', 'Len', 'True', 'Date', 'String',
+			'Long', 'Variant', 'Local', 'Attribute', 'New',
+		];
+		const src =
+			'Private Type Rec\n' +
+			words.map((word) => `    ${word} As Long\n`).join('') +
+			'    While _\n' +
+			'        As Long\n' +
+			"    Loop As Long ' comment\n" +
+			'    Next As [Long]\n' +
+			'    Next As New Collection\n' +
+			'    With As New [Collection]\n' +
+			'#If Win64 Then\n' +
+			'    Next As LongLong\n' +
+			'#Else\n' +
+			'    Next As Long\n' +
+			'#End If\n' +
+			'    Type As [Long]\n' +
+			'    Type(1 To 2) As Long\n' +
+			'End Type\n';
+		const diagnostics = analyzeModule(src);
+
+		expect(byCode(diagnostics, 'invalid-declaration-name')).toHaveLength(0);
+		expect(byCode(diagnostics, 'unexpected-declaration-token')).toHaveLength(0);
+		expect(byCode(diagnostics, 'type-member-without-type')).toHaveLength(0);
+	});
+
+	it('still rejects reserved array, suffixed and incomplete type fields, and enum members', () => {
+		// The VBE rejects each of these (oracle cases reserved_member_name_*).
+		const typeSrc =
+			'Private Type Rec\n' +
+			'    For(1 To 3) As Long\n' +
+			'    With As\n' +
+			"    Loop As ' comment\n" +
+			'    Next&\n' +
+			'    Next& As Long\n' +
+			'    Set As New\n' +
+			'    Set As New []\n' +
+			'    Set As []\n' +
+			'    Set As 123\n' +
+			'    Me As Long\n' +
+			'    Next\n' +
+			'End Type\n';
+		const typeDiagnostics = analyzeModule(typeSrc);
+		const typeHits = byCode(typeDiagnostics, 'invalid-declaration-name');
+		expect(typeHits.map((hit) => spanText(typeSrc, hit))).toEqual([
+			'For', 'With', 'Loop', 'Next', 'Next', 'Set', 'Set', 'Set', 'Set', 'Me', 'Next',
+		]);
+
+		const enumSrc = 'Private Enum Mode\n    Next\n    Loop = 2\nEnd Enum\n';
+		const enumHits = byCode(analyzeModule(enumSrc), 'invalid-declaration-name');
+		expect(enumHits.map((hit) => spanText(enumSrc, hit))).toEqual(['Next', 'Loop']);
 	});
 
 	it('allows runtime and host-global shadowing declarations while rejecting reserved declaration names', () => {

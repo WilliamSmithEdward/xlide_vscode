@@ -722,6 +722,11 @@ export function checkModuleName(source: string, moduleName: string | undefined, 
 	);
 }
 
+/** True when the text after `As` names a type: `Long`, `[Long]`, `New Collection`. */
+function namesAsType(asType: string | undefined): boolean {
+	return /^(?:New\s+|(?!New(?:\s|$)))(?:[\p{L}_]|\[[^\]])/iu.test(asType ?? '');
+}
+
 export function checkReservedDeclarationNames(
 	source: string,
 	mod: ModuleNode,
@@ -756,6 +761,14 @@ export function checkReservedDeclarationNames(
 		if (member.kind === 'Type') {
 			report('user-defined type', typeOrEnumNameHit(source, member.span, 'type'));
 			for (const field of member.fields) {
+				// A reserved word names a Type member when an As clause with a type
+				// follows: `Next As Long`, `Long As Long`, `Loop As New Collection`
+				// (VBE oracle reserved_member_name_*). An array clause, a type
+				// suffix or an As with no type is still a syntax error, and so is
+				// `Me As Long` (Expected: =).
+				if (field.name.toLowerCase() !== 'me' && field.hasAsClause && !field.typeSuffix && !field.isArray && namesAsType(field.asType)) {
+					continue;
+				}
 				report('type field', declarationNameHit(source, field.span, field.name));
 			}
 			continue;
