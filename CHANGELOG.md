@@ -2,6 +2,17 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.1.4] - 2026-10-08
+
+Accept Type members named `As` or `Implements`.
+
+- Accept `As As Long` and `Implements As Long` as Type members, which the VBE
+  compiles. Their type is read after the member's own name, and neither line
+  is taken for an Implements statement (#1312, contributed by Sam, @swsammy).
+- Keep an interface whose name starts with `As` and a letter beyond ASCII,
+  such as an accented one, in the class hierarchy and type references
+  (#1313).
+
 ## [11.1.3] - 2026-10-08
 
 Keep project completions available after a module's editor closes.
