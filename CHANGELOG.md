@@ -2,6 +2,15 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.1.3] - 2026-10-08
+
+Keep project completions available after a module's editor closes.
+
+- Keep the cached project when a module's editor closes, folding back only
+  that module's saved code. A closed editor no longer leaves the next `=`
+  value menu empty, and the next completion no longer reloads the whole
+  project (#1310, contributed by Sam, @swsammy).
+
 ## [11.1.2] - 2026-10-07
 
 Correct diagnostics for reserved-word fields in user-defined VBA types.
