@@ -2,6 +2,15 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.1.2] - 2026-10-07
+
+Correct diagnostics for reserved-word fields in user-defined VBA types.
+
+- Accept reserved-word Type fields with an As clause naming a type, such as
+  `Next As Long` and `With As New Collection`, without treating them as block
+  keywords. Retain diagnostics for invalid array, suffixed, incomplete, and
+  `Me` declarations (#1308, contributed by Sam, @swsammy).
+
 ## [11.1.1] - 2026-10-07
 
 Correct assignment diagnostics and colon-separated one-line If branches.
