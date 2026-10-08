@@ -248,9 +248,9 @@ export class VbaProjectIndexService implements vscode.Disposable {
                 this._onDidChangeProject.fire({ projectPath, moduleName });
             }),
             vscode.workspace.onDidCloseTextDocument((document) => {
-                // A closed editor reverts to the indexed module content, so the
-                // project context must be rebuilt from the symbol index.
-                this._invalidateForDocument(document);
+                if (!this._revertClosedDocument(document)) {
+                    this._invalidateForDocument(document);
+                }
             }),
         ];
     }
@@ -433,6 +433,42 @@ export class VbaProjectIndexService implements vscode.Disposable {
             implicitMembers: mod.implicitMembers,
             predeclaredId: mod.predeclaredId,
         });
+        return true;
+    }
+
+    // A closed editor reverts to the indexed module content. Fold that module
+    // back in, as a save does, rather than rebuilding the project: VS Code
+    // disposes closed documents late, and a rebuild then left the next `=`
+    // menu without project facts. Returns false when the caller must
+    // invalidate instead.
+    private _revertClosedDocument(document: vscode.TextDocument): boolean {
+        const location = moduleLocationOfDocument(document);
+        if (!location) {
+            return false;
+        }
+        const key = projectKey(location.projectPath);
+        const moduleKey = moduleIdentityKey(location.moduleName);
+        const record = this._records.get(key);
+        // Nothing cached, or an editor on a module the project no longer has
+        // (renamed or deleted), which was never folded in: nothing to revert.
+        if (!record || !record.byModule.has(moduleKey)) {
+            return true;
+        }
+        // An editor closed without edits leaves nothing to reparse, unless its
+        // text failed to index and the failure must be cleared.
+        const unchanged = !this._loads.has(key) && !record.invalidModules.has(moduleKey)
+            && this._index.peekModule(location.projectPath, location.moduleName)?.source === record.byModule.get(moduleKey)?.source;
+        if (!unchanged && !this._applyIndexModule(location.projectPath, location.moduleName)) {
+            return false;
+        }
+        // A form's code and its .form markup are one module: a face still open
+        // folds its text back in on the next access.
+        for (const face of [document, ...vscode.workspace.textDocuments]) {
+            const at = moduleLocationOfDocument(face);
+            if (at && projectKey(at.projectPath) === key && moduleIdentityKey(at.moduleName) === moduleKey) {
+                record.appliedDocumentVersions.delete(face.uri.toString());
+            }
+        }
         return true;
     }
 
