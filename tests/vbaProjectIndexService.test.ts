@@ -164,6 +164,106 @@ describe('VbaProjectIndexService', () => {
 		expect(second.project.visibleProcedureNames('Module1').has('edited')).toBe(true);
 	});
 
+	it('keeps the project loaded when an editor closes, reverting only that module', async () => {
+		// VS Code disposes a closed document late. Rebuilding the whole project
+		// then left the next `=` value menu without project facts.
+		const { projectIndexService, callCount } = service([
+			{ name: 'Module1', type: 'standard', source: 'Public Sub Alpha()\nEnd Sub\n' },
+			{ name: 'Module2', type: 'standard', source: 'Public Sub Beta()\nEnd Sub\n' },
+		]);
+		const document = openXlideDocument('Module1', 'Public Sub FromEditor()\nEnd Sub\n');
+		(vscode.workspace.textDocuments as unknown[]).push(document);
+		const first = await projectIndexService.contextForProject(BOOK);
+		expect(first.byModule.get('module1')?.source).toContain('FromEditor');
+
+		(vscode.workspace.textDocuments as unknown[]).length = 0;
+		const onClose = vi.mocked(vscode.workspace.onDidCloseTextDocument).mock.calls.at(-1)![0] as (doc: unknown) => void;
+		onClose(document);
+
+		const cached = projectIndexService.cachedContextForProject(BOOK);
+		expect(cached?.project).toBe(first.project);
+		expect(cached?.byModule.get('module1')?.source).toContain('Alpha');
+		expect(cached?.byModule.get('module2')?.source).toContain('Beta');
+		expect(callCount()).toBe(1);
+
+		// Reopened, the document's version starts again at 1: its text still folds in.
+		(vscode.workspace.textDocuments as unknown[]).push(openXlideDocument('Module1', 'Public Sub Reopened()\nEnd Sub\n'));
+		expect((await projectIndexService.contextForProject(BOOK)).byModule.get('module1')?.source).toContain('Reopened');
+		expect(callCount()).toBe(1);
+	});
+
+	it('reverts nothing when an editor closes without edits', async () => {
+		const { projectIndexService, callCount } = service([
+			{ name: 'Module1', type: 'standard', source: 'Public Sub Alpha()\nEnd Sub\n' },
+		]);
+		const document = openXlideDocument('Module1', 'Public Sub Alpha()\nEnd Sub\n');
+		(vscode.workspace.textDocuments as unknown[]).push(document);
+		const before = (await projectIndexService.contextForProject(BOOK)).byModule.get('module1');
+
+		(vscode.workspace.textDocuments as unknown[]).length = 0;
+		const onClose = vi.mocked(vscode.workspace.onDidCloseTextDocument).mock.calls.at(-1)![0] as (doc: unknown) => void;
+		onClose(document);
+
+		expect(projectIndexService.cachedContextForProject(BOOK)?.byModule.get('module1')).toBe(before);
+		expect(callCount()).toBe(1);
+	});
+
+	it('keeps the project loaded when an editor on a renamed module closes', async () => {
+		// The rename went through the index already; the old editor was never
+		// folded in, so its close has nothing to revert.
+		const { projectIndexService, callCount } = service([
+			{ name: 'Renamed', type: 'standard', source: 'Public Sub Proc()\nEnd Sub\n' },
+		]);
+		const stale = openXlideDocument('OldName', 'Public Sub Proc()\nEnd Sub\n');
+		(vscode.workspace.textDocuments as unknown[]).push(stale);
+		const first = await projectIndexService.contextForProject(BOOK);
+
+		(vscode.workspace.textDocuments as unknown[]).length = 0;
+		const onClose = vi.mocked(vscode.workspace.onDidCloseTextDocument).mock.calls.at(-1)![0] as (doc: unknown) => void;
+		onClose(stale);
+
+		expect(projectIndexService.cachedContextForProject(BOOK)?.project).toBe(first.project);
+		expect(callCount()).toBe(1);
+	});
+
+	it('clears an open editor\'s indexing failure when it closes', async () => {
+		// A non-string source stands in for an internal indexing failure, as
+		// in the strict-mode test below; the record keeps the indexed text.
+		const { projectIndexService, callCount } = service([
+			{ name: 'Module1', type: 'standard', source: 'Public Sub Alpha()\nEnd Sub\n' },
+		]);
+		const document = openXlideDocument('Module1', '');
+		document.getText = () => undefined as unknown as string;
+		(vscode.workspace.textDocuments as unknown[]).push(document);
+		await expect(projectIndexService.contextForProject(BOOK, 'strict')).rejects.toBeTruthy();
+
+		(vscode.workspace.textDocuments as unknown[]).length = 0;
+		const onClose = vi.mocked(vscode.workspace.onDidCloseTextDocument).mock.calls.at(-1)![0] as (doc: unknown) => void;
+		onClose(document);
+
+		expect((await projectIndexService.contextForProject(BOOK, 'strict')).byModule.get('module1')?.source).toContain('Alpha');
+		expect(callCount()).toBe(1);
+	});
+
+	it('folds a form\'s open code back in when its .form markup closes', async () => {
+		const { projectIndexService } = service([
+			{ name: 'UserForm1', type: 'userform', source: 'Private Sub UserForm_Click()\nEnd Sub\n' },
+		]);
+		const code = openXlideDocument('UserForm1', 'Private Sub Edited()\nEnd Sub\n');
+		const markup = openXlideDocument('UserForm1', 'Begin Form\nEnd\n');
+		const markupUri = `xlide-vba:${BOOK_URI_PATH}/UserForm1.form`;
+		markup.uri = { scheme: 'xlide-vba', path: `${BOOK_URI_PATH}/UserForm1.form`, toString: () => markupUri };
+		(vscode.workspace.textDocuments as unknown[]).push(markup, code);
+		await projectIndexService.contextForProject(BOOK);
+
+		(vscode.workspace.textDocuments as unknown[]).length = 0;
+		(vscode.workspace.textDocuments as unknown[]).push(code);
+		const onClose = vi.mocked(vscode.workspace.onDidCloseTextDocument).mock.calls.at(-1)![0] as (doc: unknown) => void;
+		onClose(markup);
+
+		expect(projectIndexService.cachedContextForProject(BOOK)?.byModule.get('userform1')?.source).toContain('Edited');
+	});
+
 	it('leaves out an editor still open on a module the project no longer has', async () => {
 		// Renamed by an agent or the tree, or deleted: the editor on the old
 		// name kept the module in the project, so calls to it still resolved.
