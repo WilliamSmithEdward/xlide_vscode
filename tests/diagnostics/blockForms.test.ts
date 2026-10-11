@@ -53,6 +53,67 @@ describe('a block opener or closer written in both arms of an #If (issue #130)',
 		expect(byCode(analyzeModule(selectInBothArms), 'missing-return-assignment')).toHaveLength(0);
 	});
 
+	// The first arm skipped: the shapes Excel 16.0 (build 20430) ran through the
+	// VBE oracle are the first_arm_skipped_* cases in vbe_oracle_cases.json.
+	const inSub = (opener: string, closer: string): string =>
+		`Option Explicit\n#Const FLAG = 0\nSub T()\n    Dim i As Long, j As Long, c As New Collection\n${opener}\n#If FLAG Then\n${closer}\n#Else\n${closer}\n#End If\nEnd Sub\n`;
+	const ifThen = 'Option Explicit\n#Const FLAG = 2\nSub T()\n    Dim i As Long\n    If i = 0 Then\n';
+	it.each([
+		['End If', inSub('    If i = 0 Then', '    End If')],
+		['Next', inSub('    For i = 1 To 2', '    Next')],
+		['Next i', inSub('    For i = 1 To 2', '    Next i')],
+		['Next j, i', inSub('    For i = 1 To 2\n    For j = 1 To 2', '    Next j, i')],
+		['Loop', inSub('    Do', '    Loop')],
+		['Wend', inSub('    While i < 2', '    Wend')],
+		['End With', inSub('    With c', '    End With')],
+		['End Select', inSub('    Select Case i\n    Case 0', '    End Select')],
+	])('counts %s once when the first arm is the one skipped', (_name, src) => {
+		expect(errors(src)).toEqual([]);
+	});
+
+	it.each([
+		['in an #ElseIf arm', `${ifThen}#If FLAG = 1 Then\n    End If\n#ElseIf FLAG = 2 Then\n    End If\n#Else\n    End If\n#End If\nEnd Sub\n`],
+		['after an empty skipped arm', `${ifThen}#If FLAG = 1 Then\n#Else\n    End If\n#End If\nEnd Sub\n`],
+		['after two skipped arms', `${ifThen}#If FLAG = 0 Then\n    End If\n#ElseIf FLAG = 1 Then\n    End If\n#Else\n    End If\n#End If\nEnd Sub\n`],
+		['after a skipped arm holding only a nested chain', `${ifThen}#If FLAG = 1 Then\n#If FLAG Then\n    End If\n#End If\n#Else\n    End If\n#End If\nEnd Sub\n`],
+		['in a nested chain with its first arm skipped', `${ifThen}#If FLAG = 2 Then\n#If FLAG = 1 Then\n    End If\n#Else\n    End If\n#End If\n#Else\n    End If\n#End If\nEnd Sub\n`],
+		['after a skipped arm, in arms XLIDE cannot decide', `${ifThen}#If FLAG = 1 Then\n    End If\n#ElseIf SomeUnknown Then\n    End If\n#Else\n    End If\n#End If\nEnd Sub\n`],
+	])('counts the closer once %s', (_name, src) => {
+		expect(errors(src)).toEqual([]);
+	});
+
+	it('counts End Sub once when the first arm is the one skipped', () => {
+		const src = 'Option Explicit\n#Const FLAG = 0\nSub T()\n#If FLAG Then\nEnd Sub\n#Else\nEnd Sub\n#End If\n';
+		// The parser still ends the procedure at the first End Sub, a separate
+		// statement-outside-procedure finding; only the block balance is pinned.
+		expect(errors(src).filter((line) => /^(missing|unmatched)-block-closer:/.test(line))).toEqual([]);
+	});
+
+	it('counts issue #130 case a once under Excel 2007 constants, where #If VBA7 is skipped', () => {
+		const src = 'Option Explicit\nFunction Main() As Variant\n    Dim n As Long\n    If n = 0 Then\n        If n = 0 Then\n            Main = "inner"\n#If VBA7 Then\n        End If\n#Else\n        End If\n#End If\n    Else\n        Main = "outer else"\n    End If\nEnd Function\n';
+		const problems = analyzeVbaModuleSource({
+			source: src, moduleName: 'Module1', moduleType: 'standard',
+			conditionalCompilation: { compilerConstants: { VBA7: 0 } },
+		}).diagnostics.filter((d) => d.severity === 'error');
+		expect(problems).toEqual([]);
+	});
+
+	it('still reports a stray closer in the taken arm after a skipped first arm', () => {
+		expect(errors(`${ifThen}#If FLAG = 1 Then\n    End If\n#Else\n    End If\n    End If\n#End If\nEnd Sub\n`)).toEqual([
+			"unmatched-block-closer: 'End If' has no matching 'If'.",
+		]);
+	});
+
+	it('still counts a closer in every arm of an undecided chain once', () => {
+		expect(errors('Option Explicit\nSub T()\n    Dim i As Long\n    If i = 0 Then\n#If SomeUnknown Then\n    End If\n#Else\n    End If\n#End If\nEnd Sub\n')).toEqual([]);
+	});
+
+	it('still leaves the block open when its only closer is in the skipped arm', () => {
+		expect(errors(`${ifThen}#If FLAG = 1 Then\n    End If\n#End If\nEnd Sub\n`)).toEqual([
+			"missing-block-closer: Missing 'End If' for 'If'.",
+		]);
+	});
+
 	it('still reports a genuine second Else and a genuine stray End If', () => {
 		const twoElse = 'Option Explicit\nSub T()\n    If True Then\n    Else\n    Else\n    End If\nEnd Sub\n';
 		expect(byCode(analyzeModule(twoElse), 'else-branch-order')).toHaveLength(1);

@@ -32,7 +32,9 @@ export interface VbaStructuralAnalysisOptions {
     /**
      * Returns true for physical source lines that belong to a proven-inactive
      * conditional-compilation branch. Preprocessor lines are still analyzed so
-     * #If/#Else/#End If balance remains checked.
+     * #If/#Else/#End If balance remains checked. For an #ElseIf or #Else line
+     * it answers for the arm that line ends, as the line-start query of the
+     * conditional activity tracker does.
      */
     isInactiveLine?: (line: number) => boolean;
 }
@@ -400,9 +402,10 @@ export function analyzeVbaStructure(
     const { logical } = toLogicalLines(source);
     const stack: OpenBlock[] = [];
     // One entry per open `#If`, carrying which arm of it we are currently in.
-    // endHeight0: the block-stack height when arm 0 ended; a closer in a later arm
-    // that would go below it restates arm 0's closer (issue #130).
-    const preprocessorStack: Array<{ line: number; chain: number; arm: number; endHeight0: number }> = [];
+    // endHeight: the block-stack height when the first arm that was read ended;
+    // a closer in a later arm that would go below it restates that arm's closer
+    // (issue #130).
+    const preprocessorStack: Array<{ line: number; chain: number; arm: number; endHeight?: number }> = [];
     let conditionalChains = 0;
     const currentBranch = (): ConditionalArm[] =>
         preprocessorStack.map((frame) => ({ chain: frame.chain, arm: frame.arm }));
@@ -481,7 +484,7 @@ export function analyzeVbaStructure(
         }
 
         if (/^#\s*If\b/i.test(t)) {
-            preprocessorStack.push({ line: ll.line, chain: conditionalChains++, arm: 0, endHeight0: stack.length });
+            preprocessorStack.push({ line: ll.line, chain: conditionalChains++, arm: 0 });
             continue;
         }
 
@@ -498,7 +501,10 @@ export function analyzeVbaStructure(
             } else {
                 const frame = preprocessorStack[preprocessorStack.length - 1];
 
-                if (frame.arm === 0) { frame.endHeight0 = stack.length; }
+                // A skipped arm ran none of its closers, so it sets no height.
+                if (frame.endHeight === undefined && !options.isInactiveLine?.(ll.line)) {
+                    frame.endHeight = stack.length;
+                }
 
                 frame.arm += 1;
             }
@@ -521,11 +527,11 @@ export function analyzeVbaStructure(
         }
 
         // Only one arm of a chain is compiled: a closer in a later arm that
-        // would take the stack below where arm 0 left it is the same closer
-        // restated (issue #130: `End If` written in both arms).
+        // would take the stack below where the first read arm left it is the
+        // same closer restated (issue #130: `End If` written in both arms).
         const restated = (): boolean => {
-            const frame = preprocessorStack[preprocessorStack.length - 1];
-            return frame !== undefined && frame.arm > 0 && stack.length - 1 < frame.endHeight0;
+            const endHeight = preprocessorStack[preprocessorStack.length - 1]?.endHeight;
+            return endHeight !== undefined && stack.length - 1 < endHeight;
         };
 
         if (isTypeFieldInsideType(stack, t)) {
