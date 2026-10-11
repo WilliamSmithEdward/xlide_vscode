@@ -6569,6 +6569,71 @@
       "diagnosticMeaning": "compile-error"
     },
     {
+      "id": "first_arm_skipped_end_if_runtime",
+      "description": "An End If in both arms of an #If whose first arm is skipped closes the inner If once; Main raises unless it returns \"inner\". Measured in Excel 16.0 (build 20430) through the VBE oracle: run -> inner.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\n#Const FLAG = 0\nFunction Main() As Variant\n    Dim n As Long\n    If n = 0 Then\n        If n = 0 Then\n            Main = \"inner\"\n#If FLAG Then\n        End If\n#Else\n        End If\n#End If\n    Else\n        Main = \"outer else\"\n    End If\n    If Main <> \"inner\" Then Err.Raise 5\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "first_arm_skipped_next_list_runtime",
+      "description": "Next j, i in both arms of an #If whose first arm is skipped closes both loops once; Main raises unless the body ran six times. Measured in Excel 16.0 (build 20430) through the VBE oracle: run -> 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\n#Const FLAG = 0\nFunction Main() As Variant\n    Dim i As Long, j As Long, n As Long\n    For i = 1 To 2\n        For j = 1 To 3\n            n = n + 1\n#If FLAG Then\n        Next j, i\n#Else\n        Next j, i\n#End If\n    If n <> 6 Then Err.Raise 5\n    Main = n\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "first_arm_skipped_elseif_loop_runtime",
+      "description": "Loop in all three arms of an #If whose taken arm is the #ElseIf closes the Do once; Main raises unless the loop ran three times. Measured in Excel 16.0 (build 20430) through the VBE oracle: run -> 3.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\n#Const FLAG = 2\nFunction Main() As Variant\n    Dim n As Long\n    Do\n        n = n + 1\n        If n >= 3 Then Exit Do\n#If FLAG = 1 Then\n    Loop\n#ElseIf FLAG = 2 Then\n    Loop\n#Else\n    Loop\n#End If\n    If n <> 3 Then Err.Raise 5\n    Main = n\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "first_arm_skipped_empty_with_runtime",
+      "description": "An empty skipped first arm and End With in the #Else arm closes the With once; Main raises unless both items were added. Measured in Excel 16.0 (build 20430) through the VBE oracle: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\n#Const FLAG = 0\nFunction Main() As Variant\n    Dim c As New Collection\n    With c\n        .Add 1\n#If FLAG Then\n#Else\n    End With\n#End If\n    With c\n        .Add 2\n    End With\n    If c.Count <> 2 Then Err.Raise 5\n    Main = c.Count\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "first_arm_skipped_nested_select_runtime",
+      "description": "A nested #If with its first arm skipped, inside the taken first arm of an outer #If, closes the Select Case once; Main raises unless it returns 7. Measured in Excel 16.0 (build 20430) through the VBE oracle: run -> 7.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\n#Const FLAG = 2\nFunction Main() As Variant\n    Dim n As Long\n    Select Case n\n        Case 0\n            Main = 7\n        Case Else\n            Main = 8\n#If FLAG = 2 Then\n#If FLAG = 1 Then\n    End Select\n#Else\n    End Select\n#End If\n#Else\n    End Select\n#End If\n    If Main <> 7 Then Err.Raise 5\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "first_arm_skipped_closer_only_there_compile",
+      "description": "An End If written only in the skipped first arm of an #If leaves the If open. Measured in Excel 16.0 (build 20430) through the VBE oracle: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\n#Const FLAG = 0\nFunction Main() As Variant\n    Dim n As Long\n    If n = 0 Then\n        Main = 1\n#If FLAG Then\n    End If\n#End If\nEnd Function\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
       "id": "issue132_a_compile",
       "description": "Issue #132 case a, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
       "provenance": "vbe-oracle-verified",
