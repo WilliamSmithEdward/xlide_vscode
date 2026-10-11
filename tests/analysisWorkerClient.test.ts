@@ -224,6 +224,21 @@ parentPort.on('message', (message) => {
         expect((await next).diagnostics[0].message).toBe('new');
     });
 
+    it('sends each queued generation the conditional compilation arguments it was given (issue #1319)', async () => {
+        const seeded = SLOW_WORKER.replace("parentPort.on('message', (message) => {", `let constants;
+parentPort.on('message', (message) => {
+    if (message.kind === 'seed') { constants = message.conditionalConstants; }`).replace('diagnostics: [],', 'diagnostics: [{ message: String(constants) }],');
+        client = new AnalysisWorkerClient(workerScript(seeded));
+        const active = client.analyze({ docKey: 'other', source: '', moduleName: 'M' });
+        client.ensureSeeded('book', 1, () => [{ moduleName: 'M', source: '' }], 'Flag = 1');
+        const old = client.analyze({ docKey: 'one', projectKey: 'book', generation: 1, source: '', moduleName: 'M' });
+        client.ensureSeeded('book', 2, () => [{ moduleName: 'M', source: '' }], 'Flag = 0');
+        const next = client.analyze({ docKey: 'two', projectKey: 'book', generation: 2, source: '', moduleName: 'M' });
+        const [, oldResult, nextResult] = await Promise.all([active, old, next]);
+        expect(oldResult.diagnostics[0].message).toBe('Flag = 1');
+        expect(nextResult.diagnostics[0].message).toBe('Flag = 0');
+    });
+
     it('settles a failed reseed and continues dispatching', async () => {
         const needSeed = ECHO_WORKER.replace("if (message.kind === 'analyze') {", `if (message.kind === 'analyze') {
             if (message.projectKey) { parentPort.postMessage({kind:'needSeed',requestId:message.requestId,projectKey:message.projectKey}); return; }`);

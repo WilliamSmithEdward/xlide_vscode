@@ -71,6 +71,12 @@ export interface VbaProjectContext {
     readonly references: readonly VbaProjectReference[];
     /** The workbook's sheets as saved; undefined for other files or before they are read. */
     readonly sheets: readonly WorkbookSheetInfo[] | undefined;
+    /**
+     * The project's conditional compilation arguments, raw as the VBE property
+     * holds them (`Name = Value : Name = Value`): what `project` was built
+     * with, for an analysis worker seeded from this context (issue #1319).
+     */
+    readonly conditionalConstants?: string;
     /** Module views whose source is the text the project index last parsed. */
     readonly modules: VbaModuleSymbols[];
     readonly byModule: Map<string, VbaModuleSymbols>;
@@ -103,6 +109,7 @@ let generationClock = 0;
 class ProjectRecord implements VbaProjectContext {
     references: readonly VbaProjectReference[] = [];
     sheets: readonly WorkbookSheetInfo[] | undefined;
+    conditionalConstants: string | undefined;
     readonly byModule = new Map<string, VbaModuleSymbols>();
     readonly moduleMetadata = new Map<string, VbaProjectModuleMetadata>();
     /** moduleKey -> error from the most recent failed module apply. */
@@ -327,6 +334,7 @@ export class VbaProjectIndexService implements vscode.Disposable {
 
     private async _buildRecord(projectPath: string): Promise<ProjectRecord> {
         const modules = await this._index.getAllModules(projectPath);
+        const conditionalConstants = this._index.projectConditionalConstants(projectPath);
         const invalid = new Map<string, unknown>();
         const project = await buildLiveVbaProjectIndexAsync(
             modules.map((mod) => ({
@@ -346,15 +354,14 @@ export class VbaProjectIndexService implements vscode.Disposable {
                 // The project's own #If arguments, so a custom flag is decided
                 // rather than leaving every arm of its chains live.
                 conditionalCompilation: {
-                    projectConstants: parseProjectConditionalConstants(
-                        this._index.projectConditionalConstants(projectPath),
-                    ),
+                    projectConstants: parseProjectConditionalConstants(conditionalConstants),
                 },
             },
         );
         const record = new ProjectRecord(projectPath, project);
         record.references = this._index.projectReferences(projectPath);
         record.sheets = this._index.projectSheets(projectPath);
+        record.conditionalConstants = conditionalConstants;
         for (const mod of modules) {
             const moduleKey = moduleIdentityKey(mod.moduleName);
             record.moduleMetadata.set(moduleKey, {

@@ -58,6 +58,8 @@ import { VbaProjectIndexService } from '../src/vbaProjectIndexService';
 import { fakeProjectEngine, type FakeBridgeModule } from './helpers/fakeProjectEngine';
 import type { AnalysisWorkerClient, WorkerAnalyzeRequest } from '../src/analysisWorkerClient';
 import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
+import { AnalysisWorkerState } from '../src/analysisWorkerLogic';
+import type { WorkerSeedModule } from '../src/analysisWorkerProtocol';
 
 const BOOK = process.platform === 'win32' ? 'C:/Book.xlsm' : '/work/Book.xlsm';
 const BOOK_URI_PATH = BOOK.startsWith('/') ? BOOK : `/${BOOK}`;
@@ -171,6 +173,45 @@ describe('diagnostics across modules', () => {
             subscriptions.forEach(subscription => subscription.dispose());
         }
     });
+    it('seeds the worker with the conditional compilation arguments the project was read with, and again when only they change (issue #1319)', async () => {
+        // Each arm draws a different finding, so what is published shows which arm the worker analyzed.
+        const source = 'Option Explicit\nSub T()\n#If Flag Then\n    missingInIf = 1\n#Else\n    Dim unusedInElse As Long\n#End If\nEnd Sub\n';
+        const document = moduleDocument('CallerMod', source);
+        const modules: FakeBridgeModule[] = [{ name: 'CallerMod', type: 'standard', source, projectConditionalConstants: 'Flag = 1' }];
+        const index = new VbaSymbolIndex(fakeProjectEngine(modules));
+        // The worker's own request handling, seeded with whatever the extension hands it.
+        const workerState = new AnalysisWorkerState();
+        const analyze = vi.fn(async (request: WorkerAnalyzeRequest) => {
+            const response = workerState.handle({ kind: 'analyze', requestId: 1, ...request });
+            if (response?.kind !== 'result') { throw new Error(`worker answered ${response?.kind}`); }
+            return response;
+        });
+        const worker = {
+            available: true,
+            ensureSeeded: (projectKey: string, generation: number, modules: () => WorkerSeedModule[], conditionalConstants?: string) => {
+                workerState.handle({ kind: 'seed', projectKey, generation, modules: modules(), conditionalConstants });
+            },
+            analyze,
+            forget: () => undefined,
+        } as unknown as AnalysisWorkerClient;
+        documents().push(document);
+        const subscriptions: vscodeTypes.Disposable[] = [];
+        registerVbaDiagnostics({ subscriptions } as unknown as vscodeTypes.ExtensionContext, new VbaProjectIndexService(index), worker, worker);
+        try {
+            await until(() => expect(published(document)).toContain('undeclared-variable'));
+            expect(published(document)).not.toContain('unused-variable');
+            expect(analyze).toHaveBeenCalled();
+
+            // The workbook is saved with the argument switched off, and nothing else changed.
+            modules[0] = { ...modules[0], projectConditionalConstants: 'Flag = 0' };
+            index.invalidate(BOOK);
+            await until(() => expect(published(document)).toContain('unused-variable'));
+            expect(published(document)).not.toContain('undeclared-variable');
+        } finally {
+            subscriptions.forEach(subscription => subscription.dispose());
+        }
+    });
+
     it('analyze a module again when the module it calls is created', async () => {
         const modules: FakeBridgeModule[] = [{ name: 'CallerMod', type: 'standard', source: CALLER }];
         const caller = moduleDocument('CallerMod', CALLER);

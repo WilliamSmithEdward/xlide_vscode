@@ -13,6 +13,8 @@ export interface FakeBridgeModule {
 	 * every entry. Analysis resolves another application's types through it.
 	 */
 	projectReferences?: Array<{ name: string; libid: string; kind?: string }>;
+	/** The project's conditional compilation arguments, which the engine repeats on every entry. */
+	projectConditionalConstants?: string;
 }
 
 /** Single-project module list (any path) or per-project-path module lists. */
@@ -35,7 +37,7 @@ export function fakeProjectEngine(
 				if (!modules) {
 					throw new Error(`Unknown workbook ${payload.path}`);
 				}
-				return modules.map(({ name, type, documentType, source, filePath, projectReferences }) => ({ name, type, documentType, source, filePath, projectReferences }));
+				return modules.map(({ name, type, documentType, source, filePath, projectReferences, projectConditionalConstants }) => ({ name, type, documentType, source, filePath, projectReferences, projectConditionalConstants }));
 			}
 			if (method === 'listModules') {
 				if (!modules) {
