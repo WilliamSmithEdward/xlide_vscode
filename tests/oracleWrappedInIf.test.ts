@@ -72,6 +72,15 @@ function wrapped(source: string, entry: string): string | undefined {
 	if (header < 0 || end < 0) {
 		return undefined;
 	}
+	// A procedure ended inside an `#If`, `End Function` in each arm, has no
+	// one place for the `End If` that every build compiles (issue #1315).
+	let depth = 0;
+	for (const line of lines.slice(header + 1, end)) {
+		depth += /^\s*#\s*If\b/i.test(line) ? 1 : /^\s*#\s*End\s*If\b/i.test(line) ? -1 : 0;
+	}
+	if (depth > 0) {
+		return undefined;
+	}
 	return [...lines.slice(0, header + 1), 'If True Then', ...lines.slice(header + 1, end), 'End If', ...lines.slice(end)].join('\r\n');
 }
 

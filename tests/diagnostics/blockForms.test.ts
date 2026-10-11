@@ -84,9 +84,18 @@ describe('a block opener or closer written in both arms of an #If (issue #130)',
 
 	it('counts End Sub once when the first arm is the one skipped', () => {
 		const src = 'Option Explicit\n#Const FLAG = 0\nSub T()\n#If FLAG Then\nEnd Sub\n#Else\nEnd Sub\n#End If\n';
-		// The parser still ends the procedure at the first End Sub, a separate
-		// statement-outside-procedure finding; only the block balance is pinned.
-		expect(errors(src).filter((line) => /^(missing|unmatched)-block-closer:/.test(line))).toEqual([]);
+		// The parser ends the procedure at the first End Sub; the second, in
+		// the other arm, is no statement outside a procedure.
+		expect(errors(src)).toEqual([]);
+	});
+
+	it('closes a Function with the End Function of the taken arm, either arm (measured in Excel 16.0)', () => {
+		const src = (flag: string): string => `Option Explicit\n#Const FLAG = ${flag}\nFunction Main() As Variant\n    Main = 5\n#If FLAG Then\nEnd Function\n#Else\nEnd Function\n#End If\n`;
+		expect(errors(src('0'))).toEqual([]);
+		expect(errors(src('1'))).toEqual([]);
+		// Written only in the skipped arm, the Function is never closed.
+		const lone = 'Option Explicit\n#Const FLAG = 0\nFunction Main() As Variant\n    Main = 5\n#If FLAG Then\nEnd Function\n#Else\n#End If\n';
+		expect(errors(lone).some((line) => line.startsWith("missing-block-closer: Missing 'End Function'"))).toBe(true);
 	});
 
 	it('counts issue #130 case a once under Excel 2007 constants, where #If VBA7 is skipped', () => {
