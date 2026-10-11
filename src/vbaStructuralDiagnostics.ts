@@ -2,7 +2,8 @@
 // diagnostics provider. Keeping this module free of any `vscode` import means
 // it can be unit-tested directly with vitest.
 
-import { leadingWhitespace, stripVba, toLogicalLines } from './vbaSourceScan';
+import { remBlockDirectiveStarts } from './analyzer/lexer/tokenHelpers';
+import { leadingWhitespace, lineIndexOf, lineStartOffsets, stripVba, toLogicalLines } from './vbaSourceScan';
 
 export interface VbaStructuralDiagnostic {
     /** 0-based physical line of the relevant token. */
@@ -410,6 +411,11 @@ export function analyzeVbaStructure(
     const currentBranch = (): ConditionalArm[] =>
         preprocessorStack.map((frame) => ({ chain: frame.chain, arm: frame.arm }));
     const problems: VbaStructuralDiagnostic[] = [];
+    // An #If, #ElseIf, #Else or #End If line holding a Rem is no directive to
+    // the VBE (issue #1321): it opens, continues and closes nothing.
+    const remDirectiveStarts = remBlockDirectiveStarts(source);
+    const lineStarts = remDirectiveStarts.size > 0 ? lineStartOffsets(source) : [];
+    const remDirectiveLines = new Set([...remDirectiveStarts].map((offset) => lineIndexOf(lineStarts, offset)));
 
     const closeOne = (closerKind: BlockKind, line: number, closerWord: string): void => {
         let idx = -1;
@@ -474,11 +480,14 @@ export function analyzeVbaStructure(
         stack.length = idx;
     };
 
+    let previousLine = -1;
     for (const ll of logical) {
+        const firstOnLine = ll.line !== previousLine;
+        previousLine = ll.line;
         // A line number ahead of the statement (`10  For i = 1 To 3`, as MZ-Tools
         // writes for Erl) is a label, not part of the block keyword (issue #131).
         const t = ll.text.trim().replace(/^\d+(?:\s+|$)/, '');
-        if (!t) { continue; }
+        if (!t || (firstOnLine && t.startsWith('#') && remDirectiveLines.has(ll.line))) { continue; }
         if (options.isInactiveLine?.(ll.line) && !isPreprocessorLine(t)) {
             continue;
         }

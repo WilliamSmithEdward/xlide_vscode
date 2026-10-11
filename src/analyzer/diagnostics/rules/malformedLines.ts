@@ -21,12 +21,25 @@
 //      comments may appear after End Sub, End Function, or End Property". It
 //      compiles above the first procedure.
 //
+//  - malformed-statement, issue #1321 (Excel 16.0, 2026-10-12): `Rem` on a
+//      directive line, which the VBE does not read as a comment there.
+//      `#If Win64 Then Rem note`, `#If True Rem note Then`, `#Else Rem note`
+//      and `#End If Rem note` are no directives at all: a later #Else has no
+//      #If, an #If is left open, and in a compiled arm the line is a "Syntax
+//      error". `#Const A = True Rem note` -> "Expected: end of statement",
+//      `#Const A = Rem note` -> "Expected: expression", `#Const Rem = 1` ->
+//      "Expected: identifier". So is a reserved word as the name, as
+//      `#Const Empty = 1`, `#Const Debug = 1` or `#Const String = 1`, while
+//      `#Const Error = 1` and `#Const Win64 = 1` compile: the words are
+//      isReservedIdentifier's, all 30 measured.
+//
 // None of it is judged in an inactive #If branch, which the VBE does not
 // parse.
 
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import { tokenizeCached } from '../../lexer/tokenize';
-import { firstTokenAtOrAfter } from '../../lexer/tokenHelpers';
+import { isReservedIdentifier } from '../../lexer/keywordTable';
+import { directiveRem, firstTokenAtOrAfter, remBlockDirectiveStarts } from '../../lexer/tokenHelpers';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type { EnumNode, ModuleNode, ProcedureNode, Span, VariableGroupNode } from '../../parser/nodes';
 import type { PushFn } from '../analysisContext';
@@ -88,6 +101,8 @@ export function checkMalformedLines(
 				const error = place(tok.start) === 'top' ? 'Expected: If or Else or ElseIf or End or EndIf or Const' : 'Syntax error';
 				const shown = word ? `#${word.rawText}` : '#';
 				push('malformedStatement', `'${shown}' is no compiler directive: only #If, #ElseIf, #Else, #End If and #Const are. This is a VBE compile error: ${error}.`, word ? { start: tok.start, end: word.end } : span);
+			} else if (!checkConstName(toks, i, push)) {
+				checkDirectiveRem(source, toks, i, push);
 			}
 		} else if (tok.kind === 'bracketedIdentifier' && !tok.rawText.endsWith(']') && active(span)) {
 			const error = inEnum(tok.start) ? 'Missing end bracket' : 'Syntax error';
@@ -525,4 +540,49 @@ function checkEnumLines(source: string, member: EnumNode, activity: ConditionalA
 			{ start: line.span.start + next.start, end: line.span.start + next.end },
 		);
 	}
+}
+
+const REM_DIRECTIVE_EFFECT: Readonly<Record<string, string>> = {
+	if: 'opens no #If block, so the #Else, #ElseIf or #End If after it has no #If',
+	elseif: 'starts no new arm: it belongs to the arm above it',
+	else: 'starts no new arm: it belongs to the arm above it',
+	end: 'closes no #If block',
+	endif: 'closes no #If block',
+};
+
+/** `Rem` on a directive line: the VBE does not read it as a comment there (issue #1321). */
+function checkDirectiveRem(source: string, toks: readonly VbaToken[], hash: number, push: PushFn): void {
+	const rem = directiveRem(toks, hash);
+	if (!rem) {
+		return;
+	}
+	const keyword = tokenText(toks[hash + 1]);
+	const span = { start: toks[hash].start, end: rem.start + 'Rem'.length };
+	const effect = REM_DIRECTIVE_EFFECT[keyword];
+	if (effect) {
+		// The lines the parser reads as no directive; one after a colon is
+		// directive-trailing-statement's.
+		if (remBlockDirectiveStarts(source).has(toks[hash].start)) {
+			push('malformedStatement', `Rem does not start a comment on a compiler-directive line, so the VBE does not read this line as a directive at all: it ${effect}. Start the comment with ' instead. This is a VBE compile error.`, span);
+		}
+		return;
+	}
+	const at = toks.indexOf(rem, hash);
+	const error = at === hash + 2
+		? 'Expected: identifier'
+		: toks[at - 1]?.rawText === '=' ? 'Expected: expression' : 'Expected: end of statement';
+	push('malformedStatement', `Rem does not start a comment on a #Const line: the VBE reads it as a word. Start the comment with ' instead. This is a VBE compile error: ${error}.`, span);
+}
+
+/**
+ * `#Const Empty = 1`: a reserved word cannot name a #Const (issue #1321).
+ * True when reported, which is then the line's one error.
+ */
+function checkConstName(toks: readonly VbaToken[], hash: number, push: PushFn): boolean {
+	const name = toks[hash + 2];
+	if (tokenText(toks[hash + 1]) !== 'const' || name?.kind !== 'keyword' || !isReservedIdentifier(name.rawText)) {
+		return false;
+	}
+	push('malformedStatement', `'${name.rawText}' is a reserved word, so it cannot name a #Const. This is a VBE compile error: Expected: identifier.`, { start: name.start, end: name.end });
+	return true;
 }

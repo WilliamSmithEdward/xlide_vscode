@@ -353,3 +353,63 @@ export function topLevelEqualsIndex(tokens: readonly VbaToken[]): number {
 	}
 	return -1;
 }
+
+/**
+ * The `Rem` on the compiler-directive statement whose `#` is `tokens[hash]`:
+ * the word itself (it stays one after `Then`) or the comment the lexer starts
+ * with it, but not a member name (`x.Rem`). The VBE does not read Rem as a comment on a directive line: an
+ * #If, #ElseIf, #Else or #End If line holding one is no directive at all, and
+ * a #Const line holding one is a syntax error (issue #1321). The scan stops at
+ * the statement's newline or colon, and an apostrophe comment ends it.
+ */
+export function directiveRem(tokens: readonly VbaToken[], hash: number): VbaToken | undefined {
+	for (let i = hash + 1; i < tokens.length; i++) {
+		const tok = tokens[i];
+		if (tok.kind === 'newline' || tok.kind === 'colon') {
+			return undefined;
+		}
+		if (tok.kind === 'comment') {
+			return /^rem\b/i.test(tok.rawText) ? tok : undefined;
+		}
+		// `x.Rem` and `x!Rem` name a member: that line is still a directive.
+		if (tokenWord(tok) === 'rem' && tokens[i - 1].rawText !== '.' && tokens[i - 1].rawText !== '!') {
+			return tok;
+		}
+	}
+	return undefined;
+}
+
+const BLOCK_DIRECTIVE_WORDS: ReadonlySet<string> = new Set(['if', 'elseif', 'else', 'end', 'endif']);
+const NO_STARTS: ReadonlySet<number> = new Set();
+// One scan per token array: the parser, analyzeVbaStructure and
+// malformed-statement each ask, and malformed-statement asks once per line.
+const remDirectiveStartsByTokens = new WeakMap<readonly VbaToken[], ReadonlySet<number>>();
+
+/**
+ * The start offsets of the `#` of every #If, #ElseIf, #Else or #End If line
+ * holding a `Rem`, which the VBE does not read as that directive (issue
+ * #1321). Only a `#` that starts its physical line counts (the token before
+ * it is a newline: a continued line has none), so the parser, which asks by
+ * statement offset, and analyzeVbaStructure, which asks by line, agree.
+ */
+export function remBlockDirectiveStarts(source: string): ReadonlySet<number> {
+	if (!/rem/i.test(source)) {
+		return NO_STARTS;
+	}
+	const tokens = tokenizeCached(source);
+	const cached = remDirectiveStartsByTokens.get(tokens);
+	if (cached) {
+		return cached;
+	}
+	const starts = new Set<number>();
+	remDirectiveStartsByTokens.set(tokens, starts);
+	for (let i = 0; i < tokens.length; i++) {
+		if (tokens[i].kind === 'directive'
+			&& (i === 0 || tokens[i - 1].kind === 'newline')
+			&& BLOCK_DIRECTIVE_WORDS.has(tokenWord(tokens[i + 1]))
+			&& directiveRem(tokens, i) !== undefined) {
+			starts.add(tokens[i].start);
+		}
+	}
+	return starts;
+}
