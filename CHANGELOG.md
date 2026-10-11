@@ -2,6 +2,18 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.1.5] - 2026-10-11
+
+Correct block closers written in each arm of an `#If`.
+
+- Accept a block closer written in every arm of an `#If` chain whose first
+  arm is skipped, such as `End If` under `#If FLAG Then` with `FLAG = 0`.
+  Retain the diagnostic for a closer written only in the skipped arm
+  (#1315, #1316, contributed by Sam, @swsammy).
+- Accept `End Sub`, `End Function` or `End Property` written in both arms of
+  an `#If` without reporting the second as a statement outside a procedure
+  (#1317).
+
 ## [11.1.4] - 2026-10-08
 
 Accept Type members named `As` or `Implements`.
