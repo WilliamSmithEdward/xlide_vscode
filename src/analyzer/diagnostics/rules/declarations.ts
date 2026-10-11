@@ -499,8 +499,20 @@ export function checkModuleLevelStatementsOutsideProcedures(
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
-	for (const member of activeModuleMembers(mod, activity)) {
-		if (member.kind !== 'Statement') {
+	const active = new Set<ModuleMember>(activeModuleMembers(mod, activity));
+	let procedureEnd: Span | undefined;
+	for (const member of mod.members) {
+		if (member.kind === 'Procedure') {
+			procedureEnd = { start: Math.max(member.span.start, member.span.end - 1), end: member.span.end };
+		}
+		if (member.kind !== 'Statement' || !active.has(member)) {
+			continue;
+		}
+		// `End Function` in both arms of an #If: the procedure ended at the
+		// first one, in another arm, and this one closes it in the build that
+		// compiles this arm (issue #1315, measured in Excel 16.0).
+		if (procedureEnd && activity?.mutuallyExclusive(procedureEnd, member.span)
+			&& /^\s*End\s+(?:Sub|Function|Property)\b/i.test(source.slice(member.span.start, member.span.end))) {
 			continue;
 		}
 		const hit = moduleLevelStatementOutsideProcedureHit(source, member.span);
