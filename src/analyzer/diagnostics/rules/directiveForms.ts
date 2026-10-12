@@ -13,6 +13,7 @@
 import type { ConditionalDirectiveNode, ModuleNode, BodyNode } from '../../parser/nodes';
 import {
 	nullConditionDirectives,
+	type ConditionalActivityTracker,
 	type ConditionalCompilationEnvironment,
 } from '../../conditional/conditionalCompilation';
 import type { PushFn } from '../analysisContext';
@@ -20,11 +21,33 @@ import { tokenizeCached } from '../../lexer/tokenize';
 import { firstTokenAtOrAfter } from '../../lexer/tokenHelpers';
 import { lineEndAtOrAfter } from '../../../vbaSourceScan';
 
+/**
+ * Whether the VBE reads a comment after a directive's colon, and so refuses
+ * it (issue #1321, measured in Excel 16.0): always after #If and #End If,
+ * even inside a skipped arm; after #Else or #ElseIf only when the arm before
+ * it is compiled; after #Const only where the #Const is compiled.
+ */
+function commentTailCompiled(directive: ConditionalDirectiveNode, activity: ConditionalActivityTracker | undefined): boolean {
+	switch (directive.directiveKind) {
+		case 'If':
+		case 'EndIf':
+			return true;
+		case 'Else':
+		case 'ElseIf':
+		case 'Const':
+			// At the directive's start the tracker answers for the code before it.
+			return !activity?.isInactive({ start: directive.span.start, end: directive.span.start });
+		default:
+			return false;
+	}
+}
+
 export function checkDirectiveForms(
 	source: string,
 	mod: ModuleNode,
 	conditionalCompilation: ConditionalCompilationEnvironment | undefined,
 	push: PushFn,
+	activity?: ConditionalActivityTracker,
 ): void {
 	const directives: ConditionalDirectiveNode[] = [];
 	const visit = (nodes: readonly BodyNode[]): void => {
@@ -87,6 +110,12 @@ export function checkDirectiveForms(
 			push(
 				'directiveTrailingStatement',
 				`A compiler directive takes the whole line: nothing may follow the ':' after it. This is a VBE compile error (the VBE reports "An # ElseIf, # Else, or # EndIf must be preceded by an # If clause").`,
+				{ start: next.start, end: lineEnd },
+			);
+		} else if (next?.kind === 'comment' && next.start < lineEnd && commentTailCompiled(directive, activity)) {
+			push(
+				'directiveTrailingStatement',
+				`A comment may not follow the ':' after a compiler directive. Drop the ':' to keep the comment. This is a VBE compile error.`,
 				{ start: next.start, end: lineEnd },
 			);
 		}

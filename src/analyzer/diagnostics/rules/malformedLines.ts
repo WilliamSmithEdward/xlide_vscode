@@ -580,7 +580,10 @@ function checkDirectiveRem(source: string, toks: readonly VbaToken[], hash: numb
  */
 function checkConstName(toks: readonly VbaToken[], hash: number, push: PushFn): boolean {
 	const name = toks[hash + 2];
-	if (tokenText(toks[hash + 1]) !== 'const' || name?.kind !== 'keyword' || !isReservedIdentifier(name.rawText)) {
+	// The lexer reads the attribute names and LineInput as identifiers, but
+	// the VBE refuses them too: `#Const vb_name = 1`. A bracketed name is
+	// allowed, `#Const [Rem] = 1` (both measured in Excel 16.0).
+	if (tokenText(toks[hash + 1]) !== 'const' || (name?.kind !== 'keyword' && name?.kind !== 'identifier') || !isReservedIdentifier(name.rawText)) {
 		return false;
 	}
 	push('malformedStatement', `'${name.rawText}' is a reserved word, so it cannot name a #Const. This is a VBE compile error: Expected: identifier.`, { start: name.start, end: name.end });

@@ -179,6 +179,55 @@ describe('a reserved word as a #Const name (issue #1321)', () => {
 		}
 		expect(names('#If False Then\n#Const Empty = 1\n#End If')).toHaveLength(0);
 	});
+
+	it('reports the reserved names the lexer reads as identifiers, and not their bracketed or longer forms', () => {
+		// Each of the 173 reserved identifiers XLIDE knows was refused as a
+		// #Const name in Excel 16.0 on 2026-10-11, the attribute names too.
+		for (const name of ['vb_name', 'VB_Description', 'lineinput', 'attribute', 'local']) {
+			const src = mod(`#Const ${name} = 1`);
+			expectDiagnostic(src, analyze(src), 'malformed-statement', { span: name, message: 'Expected: identifier' });
+		}
+		for (const name of ['[vb_name]', 'vb_foo', 'lineinputx', 'Local2']) {
+			expect(names(`#Const ${name} = 1`)).toHaveLength(0);
+		}
+	});
+});
+
+describe('a comment after the colon of a directive (issue #1321)', () => {
+	// Measured in Excel 16.0 on 2026-10-11: refused after #If and #End If even
+	// inside a skipped arm, after #Else or #ElseIf only when the arm before it
+	// is compiled, and after #Const only where it is compiled.
+	const trailing = (src: string) => byCode(analyze(src), 'directive-trailing-statement');
+	const proc = (...lines: string[]) => ['Function Main() As Variant', '    Main = 1', ...lines, 'End Function', ''].join('\n');
+
+	it('reports it where the VBE reads it', () => {
+		for (const src of [
+			proc("#If True Then: ' note", '#End If'),
+			proc('#If True Then', '#End If: Rem note'),
+			proc('#If False Then', "#End If: ' note"),
+			proc('#If False Then', "#If True Then: ' note", '#End If', '#End If'),
+			proc('#If False Then', '#If True Then', "#End If: ' note", '#End If'),
+			proc('#If True Then', "#Else: ' note", '#End If'),
+			proc('#If False Then', '#ElseIf True Then', "#Else: ' note", '#End If'),
+			["#Const A = 1: ' note", ...proc()].join('\n'),
+		]) {
+			expect(trailing(src), src).toHaveLength(1);
+		}
+	});
+
+	it('leaves it where the VBE skips it', () => {
+		for (const src of [
+			proc('#If False Then', "#Else: ' note", '#End If'),
+			proc('#If False Then', '#Else: Rem note', '#End If'),
+			proc('#If False Then', "#ElseIf True Then: ' note", '#End If'),
+			proc('#If False Then', "#ElseIf False Then: ' note", '#Else', '#End If'),
+			proc('#If False Then', '#If True Then', "#Else: ' note", '#End If', '#End If'),
+			proc('#If False Then', "#Const A = 1: ' note", '#End If'),
+			proc("#If True Then ' note", '#End If'),
+		]) {
+			expect(trailing(src), src).toHaveLength(0);
+		}
+	});
 });
 
 describe('typing a Rem onto a directive line (issue #1321)', () => {
