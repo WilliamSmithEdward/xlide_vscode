@@ -551,13 +551,16 @@ export function hostOpenOutcome(host: OfficeHostApp, readOnly: boolean, stdoutLi
 /**
  * Opens (or re-foregrounds) the file in the application that owns it. Rejects
  * only on a spawn failure.
+ *
+ * No VBA project password is asked: opening the file shows no code, and the
+ * application keeps its own project protection (issue #1327). Showing an
+ * Access design still asks, below.
  */
 export async function openFileInHost(
     filePath: string,
     options: Pick<HostOpenScriptOptions, 'attachToRunning' | 'readOnly' | 'background' | 'place'>,
     log: (message: string) => void,
 ): Promise<HostOpenOutcome> {
-    await (await import('./projectPasswordPrompt.js')).ensureProjectPassword(filePath);
     const host = requireOfficeHost(filePath);
     const appName = OFFICE_HOST_APPS[host].noun;
     const script = buildHostOpenScript({ host, filePath, ...options });
@@ -585,6 +588,9 @@ export function hostMacroReference(host: OfficeHostApp, moduleName: string, proc
  * Reopens the file in its own visible application - read-only where the
  * application has such a thing - and runs the procedure. Rejects with a
  * HostMacroError carrying the same codes for every host.
+ *
+ * No VBA project password is asked: running a macro shows no code, and the
+ * application runs it as it would from its own Macros list (issue #1327).
  */
 export async function runHostMacro(
     filePath: string,
@@ -592,7 +598,6 @@ export async function runHostMacro(
     options: { attachToRunning: boolean },
     log: (message: string) => void,
 ): Promise<void> {
-    await (await import('./projectPasswordPrompt.js')).ensureProjectPassword(filePath);
     const host = requireOfficeHost(filePath);
     const appName = OFFICE_HOST_APPS[host].noun;
     const macroName = hostMacroReference(host, macro.moduleName, macro.procedureName);

@@ -254,7 +254,7 @@ If the file tree, tests, or Office actions are unavailable:
 
 ### Password-protected VBA projects
 
-XLIDE requires the existing VBA project password before accessing a password-protected Office file. Enter it in the **Unlock VBA project** prompt; the input is masked. This applies to viewing and editing source, exports, analysis, UserForm designers, worksheet and shape tools, Office launch commands, macro execution, and VBA tests. Agent tools use the same access checks and cannot supply a password on your behalf.
+XLIDE requires the existing VBA project password before accessing a password-protected Office file. Enter it in the **Unlock VBA project** prompt; the input is masked. This applies to viewing and editing source, exports, analysis, UserForm designers, worksheet and shape tools, Access form and report designs, and VBA tests. Opening the file in its Office application and running a macro there show no code, so they ask for no password; the application keeps its own project protection. Agent tools use the same access checks and cannot supply a password on your behalf.
 
 Protected files show a closed padlock on their file icon, with the tooltip **VBA project locked**. After a correct password, the icon shows an open padlock and **VBA project unlocked for this session**. The protection badge is read without asking for a password, even while the file is collapsed. A signed project's signature badge remains visible alongside its lock state.
 
