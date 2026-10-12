@@ -83,13 +83,14 @@ describe('an #If, #ElseIf, #Else or #End If line holding a Rem (issue #1321)', (
 		// After a colon, or after a continued line, the line is not read as a
 		// Rem directive by either (directive-trailing-statement owns the colon).
 		const rem = (src: string) => malformed(src).filter((d) => d.message.startsWith('Rem does not'));
-		for (const src of [
-			fn('#If True Then: #Else Rem note', '#End If'),
-			fn('x = 1 _', ': #If True Rem note Then', '#End If'),
-		]) {
-			expect(rem(src)).toHaveLength(0);
-			expect(structure(src)).toEqual([]);
-		}
+		// The colon makes `#If True Then:` no directive either, so the #End If
+		// after it has no #If (issue #1323, measured in Excel 16.0).
+		const colon = fn('#If True Then: #Else Rem note', '#End If');
+		expect(rem(colon)).toHaveLength(0);
+		expect(structure(colon)).toEqual(["'#End If' has no matching '#If'."]);
+		const continued = fn('x = 1 _', ': #If True Rem note Then', '#End If');
+		expect(rem(continued)).toHaveLength(0);
+		expect(structure(continued)).toEqual([]);
 	});
 
 	it('leaves Remark, a "Rem" string, a member named Rem, an apostrophe comment and Rem after the line alone', () => {
@@ -194,10 +195,12 @@ describe('a reserved word as a #Const name (issue #1321)', () => {
 });
 
 describe('a comment after the colon of a directive (issue #1321)', () => {
-	// Measured in Excel 16.0 on 2026-10-11: refused after #If and #End If even
-	// inside a skipped arm, after #Else or #ElseIf only when the arm before it
-	// is compiled, and after #Const only where it is compiled.
-	const trailing = (src: string) => byCode(analyze(src), 'directive-trailing-statement');
+	// Measured in Excel 16.0 on 2026-10-11. The colon makes the line no
+	// directive (issue #1323): refused where it is compiled, and inside a
+	// skipped arm an #If or #End If line so made breaks the #If pairing, which
+	// analyzeVbaStructure reports.
+	const trailing = (src: string) => analyzeVbaModuleSource({ source: src, moduleName: 'Module1', knownIdentifiers: new Set<string>() })
+		.diagnostics.filter((d) => d.severity === 'error');
 	const proc = (...lines: string[]) => ['Function Main() As Variant', '    Main = 1', ...lines, 'End Function', ''].join('\n');
 
 	it('reports it where the VBE reads it', () => {
@@ -211,7 +214,7 @@ describe('a comment after the colon of a directive (issue #1321)', () => {
 			proc('#If False Then', '#ElseIf True Then', "#Else: ' note", '#End If'),
 			["#Const A = 1: ' note", ...proc()].join('\n'),
 		]) {
-			expect(trailing(src), src).toHaveLength(1);
+			expect(trailing(src), src).not.toHaveLength(0);
 		}
 	});
 

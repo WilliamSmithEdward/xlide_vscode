@@ -2,7 +2,7 @@
 // diagnostics provider. Keeping this module free of any `vscode` import means
 // it can be unit-tested directly with vitest.
 
-import { remBlockDirectiveStarts } from './analyzer/lexer/tokenHelpers';
+import { colonDirectiveStarts, remBlockDirectiveStarts } from './analyzer/lexer/tokenHelpers';
 import { leadingWhitespace, lineIndexOf, lineStartOffsets, stripVba, toLogicalLines } from './vbaSourceScan';
 
 export interface VbaStructuralDiagnostic {
@@ -414,8 +414,12 @@ export function analyzeVbaStructure(
     // An #If, #ElseIf, #Else or #End If line holding a Rem is no directive to
     // the VBE (issue #1321): it opens, continues and closes nothing.
     const remDirectiveStarts = remBlockDirectiveStarts(source);
-    const lineStarts = remDirectiveStarts.size > 0 ? lineStartOffsets(source) : [];
+    // Nor is one a statement colon follows (issue #1323); on that line no `#`
+    // segment is a directive.
+    const colonStarts = colonDirectiveStarts(source);
+    const lineStarts = remDirectiveStarts.size > 0 || colonStarts.size > 0 ? lineStartOffsets(source) : [];
     const remDirectiveLines = new Set([...remDirectiveStarts].map((offset) => lineIndexOf(lineStarts, offset)));
+    const colonDirectiveLines = new Set([...colonStarts].map((offset) => lineIndexOf(lineStarts, offset)));
 
     const closeOne = (closerKind: BlockKind, line: number, closerWord: string): void => {
         let idx = -1;
@@ -487,7 +491,7 @@ export function analyzeVbaStructure(
         // A line number ahead of the statement (`10  For i = 1 To 3`, as MZ-Tools
         // writes for Erl) is a label, not part of the block keyword (issue #131).
         const t = ll.text.trim().replace(/^\d+(?:\s+|$)/, '');
-        if (!t || (firstOnLine && t.startsWith('#') && remDirectiveLines.has(ll.line))) { continue; }
+        if (!t || (t.startsWith('#') && ((firstOnLine && remDirectiveLines.has(ll.line)) || colonDirectiveLines.has(ll.line)))) { continue; }
         if (options.isInactiveLine?.(ll.line) && !isPreprocessorLine(t)) {
             continue;
         }

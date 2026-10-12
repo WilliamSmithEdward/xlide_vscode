@@ -413,3 +413,50 @@ export function remBlockDirectiveStarts(source: string): ReadonlySet<number> {
 	}
 	return starts;
 }
+
+/** The statement colon after the compiler directive whose `#` is `tokens[hash]`, on its own line. */
+export function directiveColon(tokens: readonly VbaToken[], hash: number): VbaToken | undefined {
+	for (let i = hash + 1; i < tokens.length; i++) {
+		const tok = tokens[i];
+		if (tok.kind === 'colon') {
+			return tok;
+		}
+		if (tok.kind === 'newline' || tok.kind === 'comment') {
+			return undefined;
+		}
+	}
+	return undefined;
+}
+
+const COLON_DIRECTIVE_WORDS: ReadonlySet<string> = new Set([...BLOCK_DIRECTIVE_WORDS, 'const']);
+const colonDirectiveStartsByTokens = new WeakMap<readonly VbaToken[], ReadonlySet<number>>();
+
+/**
+ * The start offsets of the `#` of every #If, #ElseIf, #Else, #End If or
+ * #Const line a statement colon follows, with nothing, a comment or code
+ * after it. The VBE does not read such a line as a directive at all: it
+ * opens, divides, closes and defines nothing, is skipped with a skipped arm,
+ * and is an error where it is compiled (issue #1323, measured in Excel 16.0).
+ * As for a Rem, only a `#` that starts its physical line counts.
+ */
+export function colonDirectiveStarts(source: string): ReadonlySet<number> {
+	if (!source.includes(':')) {
+		return NO_STARTS;
+	}
+	const tokens = tokenizeCached(source);
+	const cached = colonDirectiveStartsByTokens.get(tokens);
+	if (cached) {
+		return cached;
+	}
+	const starts = new Set<number>();
+	colonDirectiveStartsByTokens.set(tokens, starts);
+	for (let i = 0; i < tokens.length; i++) {
+		if (tokens[i].kind === 'directive'
+			&& (i === 0 || tokens[i - 1].kind === 'newline')
+			&& COLON_DIRECTIVE_WORDS.has(tokenWord(tokens[i + 1]))
+			&& directiveColon(tokens, i) !== undefined) {
+			starts.add(tokens[i].start);
+		}
+	}
+	return starts;
+}
