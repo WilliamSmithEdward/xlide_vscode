@@ -149,6 +149,7 @@ describe('globalSettings', () => {
             'xlide.editor.continueCommentOnNewline',
             'xlide.editor.mirrorCommentSpacing',
             'xlide.explorer.autoExpandCollapse',
+            'xlide.explorer.memberSort',
             'xlide.explorer.view',
             'xlide.formRun.injectShowMacro',
             'xlide.officeIntegration.attachToRunning',

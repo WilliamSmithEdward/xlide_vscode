@@ -57,6 +57,7 @@ interface XlideGlobalSettingValues {
     'editor.mirrorCommentSpacing': boolean;
     'explorer.autoExpandCollapse': boolean;
     'explorer.view': XlideExplorerView;
+    'explorer.memberSort': XlideExplorerMemberSort;
     'vb6.codePage': string;
     'docs.enabled': boolean;
     'docs.metadataGlob': string;
@@ -141,6 +142,9 @@ const BLOCK_LAYOUT_VALUES = ['comfy', 'compact'] as const;
 const EXPLORER_VIEW_VALUES = ['tree', 'folders'] as const;
 /** Which layout the XLIDE explorer draws a project's modules in. */
 export type XlideExplorerView = (typeof EXPLORER_VIEW_VALUES)[number];
+const EXPLORER_MEMBER_SORT_VALUES = ['code', 'name', 'kind'] as const;
+/** The order the XLIDE explorer lists a module's members in. */
+export type XlideExplorerMemberSort = (typeof EXPLORER_MEMBER_SORT_VALUES)[number];
 const RULE_SEVERITY_OVERRIDE_VALUES = ['off', 'warning'] as const;
 const DEFAULT_DOC_METADATA_GLOB = '**/*.vbref.xml';
 
@@ -335,6 +339,18 @@ const XLIDE_GLOBAL_SETTINGS: {
             label: 'Explorer Layout',
             description: "How the XLIDE explorer arranges a project's modules. Tree lists them flat. Folders groups them by the '@Folder(\"Name.Sub\")' comment in each module's declarations, the Rubberduck convention. The Tree and Folders buttons above the explorer switch it too.",
             control: { kind: 'enum', values: EXPLORER_VIEW_VALUES },
+        },
+    },
+    'explorer.memberSort': {
+        defaultValue: () => 'code' as XlideExplorerMemberSort,
+        normalize: (value) => (value === 'name' || value === 'kind' ? value : 'code'),
+        validate: (values, problems, key) => expectEnum(values, problems, key, EXPLORER_MEMBER_SORT_VALUES),
+        manifest: { type: 'string', enum: EXPLORER_MEMBER_SORT_VALUES },
+        webviewCard: {
+            section: 'editor',
+            label: 'Explorer Member Order',
+            description: "The order the XLIDE explorer lists a module's members in. Code keeps the order they are written in. Name sorts them by name. Kind lists Enums, Types, Subs, Functions, then Properties, each by name. A property's Get, Let and Set stay together in every order. The Sort Members button above the explorer switches it too.",
+            control: { kind: 'enum', values: EXPLORER_MEMBER_SORT_VALUES },
         },
     },
     'vb6.codePage': {
@@ -566,6 +582,10 @@ function xlideExplorerAutoExpandCollapseFromConfig(config: vscode.WorkspaceConfi
 
 function xlideExplorerViewFromConfig(config: vscode.WorkspaceConfiguration) {
     return xlideGlobalSettingFromConfig(config, 'explorer.view');
+}
+
+function xlideExplorerMemberSortFromConfig(config: vscode.WorkspaceConfiguration) {
+    return xlideGlobalSettingFromConfig(config, 'explorer.memberSort');
 }
 
 function xlideVb6CodePageFromConfig(config: vscode.WorkspaceConfiguration) {
@@ -893,6 +913,7 @@ export {
     xlideEditorMirrorCommentSpacingFromConfig,
     xlideExplorerAutoExpandCollapseFromConfig,
     xlideExplorerViewFromConfig,
+    xlideExplorerMemberSortFromConfig,
     xlideGlobalSettingCards,
     xlideGlobalSettingManifest,
     xlidePerformanceTraceFromConfig,

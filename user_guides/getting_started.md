@@ -61,6 +61,15 @@ fold when you move to another folder, and a folder you open or shut yourself
 stays that way until you move to a module somewhere else. Turn the setting off
 to arrange the tree yourself.
 
+## Sort A Module's Members
+
+A module's row lists its Subs, Functions and Properties, and its Enums and
+Types, each with its own icon. The **Sort Members** button above the tree
+picks their order: as in code, by name, or by kind (Enums, Types, Subs,
+Functions, then Properties, each by name). A property's `Get`, `Let` and
+`Set` stay together, in that order, where the first of them would sit. The
+button and the `xlide.explorer.memberSort` setting are the same choice.
+
 The status bar shows where the cursor is: the file, the module, and the
 procedure - `Book.xlsm | Module1 | Sub Recalculate`, or `(Declarations)` above
 the first procedure. The tree highlights that procedure's row at the same time,

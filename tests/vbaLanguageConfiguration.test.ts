@@ -286,6 +286,7 @@ describe('VBA language configuration', () => {
 			'xlide.excelIntegration.reopenReadOnlyAfterSave',
 			'xlide.excelIntegration.trackOpenedWorkbooks',
 			'xlide.explorer.autoExpandCollapse',
+			'xlide.explorer.memberSort',
 			'xlide.explorer.view',
 			'xlide.formRun.injectShowMacro',
 			'xlide.officeIntegration.attachToRunning',

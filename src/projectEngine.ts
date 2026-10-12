@@ -332,7 +332,7 @@ export class ProjectEngine implements vscode.Disposable {
 			case 'readModule':
 				return svc.readModule(str(p, 'path'), str(p, 'module'), optionalBool(p, 'full'));
 			case 'listSubs':
-				return svc.listSubs(str(p, 'path'), str(p, 'module'));
+				return svc.listSubs(str(p, 'path'), str(p, 'module'), optionalBool(p, 'members'));
 			case 'writeModule':
 				return svc.writeModule(
 					str(p, 'path'),

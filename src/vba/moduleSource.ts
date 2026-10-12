@@ -166,3 +166,30 @@ export function listProcedures(body: string): ProcedureEntry[] {
 	}
 	return out;
 }
+
+// An Enum or Type block's opening line. The name ends the statement: a
+// comment may follow, nothing else, so `Type = 1` and `End Type` are not one.
+const TYPE_DECL_RE =
+	/^[ \t]*(?:(?:Public|Private)[ \t]+)?(Enum|Type)[ \t]+([\p{L}_][\p{L}\p{M}\p{N}_]*)[ \t]*(?='|\r|\n|$)/gimu;
+
+/**
+ * The procedures a module body declares, with its Enums and Types (kind
+ * `Enum` or `Type`), in the order they appear: the members the explorer
+ * lists under a module (issue #1341).
+ */
+export function listModuleMembers(body: string): ProcedureEntry[] {
+	const out = listProcedures(body);
+	TYPE_DECL_RE.lastIndex = 0;
+	let m: RegExpExecArray | null;
+	let scanned = 0;
+	let line = 1;
+	while ((m = TYPE_DECL_RE.exec(body)) !== null) {
+		for (; scanned < m.index; scanned += 1) {
+			if (body.charCodeAt(scanned) === 10) {
+				line += 1;
+			}
+		}
+		out.push({ name: m[2], kind: m[1].toLowerCase() === 'enum' ? 'Enum' : 'Type', line });
+	}
+	return out.sort((left, right) => left.line - right.line);
+}

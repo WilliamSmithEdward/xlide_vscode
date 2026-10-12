@@ -95,7 +95,7 @@ import {
 	removeReferenceRecords,
 	type VbaProjectReference,
 } from './vbaProjectReferences';
-import { attributeValue, joinVbaSource, listProcedures, splitVbaSource, type ProcedureEntry } from './moduleSource';
+import { attributeValue, joinVbaSource, listModuleMembers, listProcedures, splitVbaSource, type ProcedureEntry } from './moduleSource';
 import { readFolderAnnotation } from './folderAnnotation';
 import { validateVbaModuleName } from '../vbaSourceScan';
 import { readAttributeAnnotations } from '../analyzer/annotations/attributeAnnotations';
@@ -2038,13 +2038,18 @@ function readDesignerStorage(
 	}
 }
 
-export function listSubs(filePath: string, moduleName: string): ProcedureEntry[] {
+/**
+ * A module's procedures, and with `members` its Enums and Types as well, in
+ * the order they appear (issue #1341: the explorer lists all of them).
+ */
+export function listSubs(filePath: string, moduleName: string, members = false): ProcedureEntry[] {
 	assertProjectAccess(filePath);
 	if (isVb6ProjectPath(filePath)) {
-		return listVb6Procedures(filePath, moduleName);
+		return listVb6Procedures(filePath, moduleName, members);
 	}
 	const { source } = readModule(filePath, moduleName, true);
-	return listProcedures(splitVbaSource(source).body);
+	const { body } = splitVbaSource(source);
+	return members ? listModuleMembers(body) : listProcedures(body);
 }
 
 export function getProtectionInfo(filePath: string): ProtectionInfo {
