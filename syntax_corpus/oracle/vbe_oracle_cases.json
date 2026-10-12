@@ -113937,6 +113937,117 @@
       "source": "Function Main() As Variant\r\n    Main = 1\r\n#If False Then\r\n    x = 1: #Else\r\n    Main = 1 / 0\r\n#End If\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "colon_first_line_colon_first_control_compile",
+      "description": "control: a statement after a colon that starts the line compiles (issue #1331).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n: Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "colon_first_line_colon_first_if_compile",
+      "description": ": #If True Then, after a colon that starts the line, is no #If (issue #1331).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n: #If True Then\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "colon_first_line_skipped_colon_first_if_compile",
+      "description": ": #If True Then inside a skipped arm still opens no #If (issue #1331).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n: #If True Then\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "colon_first_line_skipped_colon_first_const_defines_runtime",
+      "description": ": #Const A = 1 inside a skipped arm sets nothing (issue #1331).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "#If False Then\r\n: #Const A = 1\r\n#End If\r\nFunction Main() As Variant\r\n#If A = 1 Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "colon_first_line_colon_continued_if_compile",
+      "description": ": _ continued onto #If True Then is no #If (issue #1331).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n: _\r\n#If True Then\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "colon_first_line_blank_continued_colon_if_compile",
+      "description": "a bare _ line before : #If True Then leaves it no #If (issue #1331).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n _\r\n: #If True Then\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "continued_directive_line_blank_continued_rem_if_compile",
+      "description": "#If True Rem note Then after a bare _ line is no #If (issues #1321, #1323).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n _\r\n#If True Rem note Then\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "continued_directive_line_blank_continued_colon_if_compile",
+      "description": "#If True Then: Main = 1 after a bare _ line is no #If (issues #1321, #1323).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n _\r\n#If True Then: Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "continued_directive_line_blank_continued_rem_endif_compile",
+      "description": "#End If Rem note after a bare _ line closes nothing (issues #1321, #1323).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If True Then\r\n    Main = 1\r\n _\r\n#End If Rem note\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "continued_directive_line_skipped_blank_continued_rem_if_compile",
+      "description": "#If True Rem note Then after a bare _ line inside a skipped arm opens no #If (issues #1321, #1323).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n _\r\n#If True Rem note Then\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "continued_directive_line_skipped_blank_continued_colon_if_compile",
+      "description": "#If True Then: x = 1 after a bare _ line inside a skipped arm opens no #If (issues #1321, #1323).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n _\r\n#If True Then: x = 1\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }
