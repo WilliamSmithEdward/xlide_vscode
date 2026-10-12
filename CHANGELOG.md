@@ -2,6 +2,15 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.1.11] - 2026-10-12
+
+Keep a module folded in the tree when the cursor is in it.
+
+- Leave a module, or a folder on the way to it, folded when you fold it by
+  hand while the cursor is in one of its procedures. It sprang back open,
+  every time after a change of member order. The tree follows the cursor
+  again when it moves (#1344).
+
 ## [11.1.10] - 2026-10-12
 
 Read string `#If` conditions as the VBE does, and list Enums and Types in the
