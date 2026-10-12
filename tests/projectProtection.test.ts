@@ -79,16 +79,25 @@ describe('protected file access', () => {
         expect(svc.unlockProject(target, 'Correct!')).toBe(true);
         expect(svc.listModules(target).length).toBeGreaterThan(0);
     });
-    it('refuses Office launches and macro/form execution after cancellation', async () => {
+    it('refuses showing an Access design after cancellation', async () => {
         protect('Correct!');
         vi.mocked(vscode.window.showInputBox).mockResolvedValue(undefined);
-        const calls = [
-            () => openFileInHost(file, { attachToRunning: true, readOnly: false }, vi.fn()),
-            () => runHostMacro(file, { moduleName, procedureName: 'Run' }, { attachToRunning: true }, vi.fn()),
-            () => showAccessDesign(file, { kind: 'form', name: 'Form1' }, { attachToRunning: true }, vi.fn()),
-        ];
-        for (const call of calls) { await expect(call()).rejects.toBeInstanceOf(vscode.CancellationError); }
+        await expect(showAccessDesign(file, { kind: 'form', name: 'Form1' }, { attachToRunning: true }, vi.fn()))
+            .rejects.toBeInstanceOf(vscode.CancellationError);
         expect(runPowerShell).not.toHaveBeenCalled();
+    });
+
+    it.each([
+        ['opens', () => openFileInHost(file, { attachToRunning: true, readOnly: false }, vi.fn())],
+        ['runs a macro in', () => runHostMacro(file, { moduleName, procedureName: 'Run' }, { attachToRunning: true }, vi.fn())],
+    ])('%s a locked file in its application without asking for the password (issue #1327)', async (_what, call) => {
+        // Neither shows code; the application keeps its own protection.
+        protect('Correct!');
+        vi.mocked(vscode.window.showInputBox).mockResolvedValue(undefined);
+        await call().catch(() => undefined);
+        expect(vscode.window.showInputBox).not.toHaveBeenCalled();
+        expect(runPowerShell).toHaveBeenCalled();
+        expect(svc.getProtectionInfo(file).isAccessLocked).toBe(true);
     });
 
     it('refuses service reads, writes, exports, analysis and workbook interactions without altering bytes', () => {

@@ -5,7 +5,6 @@
 // browser. platformFeaturesNode registers these and platformFeaturesWeb
 // does not, which is also what keeps child_process out of the web bundle.
 
-import { ensureProjectPassword } from '../projectPasswordPrompt';
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as cp from 'child_process';
@@ -108,7 +107,8 @@ export function registerOfficeAppCommands(deps: CommandDeps): vscode.Disposable[
     async function openInHostApp(filePath: string, readOnly: boolean, tag: string): Promise<void> {
         log(`[${tag}] Requested for: ${filePath}`);
         try {
-            await ensureProjectPassword(filePath);
+            // Opening the file shows no code, and the application keeps its own
+            // VBA project protection, so no password is asked here (issue #1327).
             if (process.platform === 'win32' && officeHostForPath(filePath)) {
                 // Remember XLIDE opened this file so closeTracked coordination can
                 // later close it without touching files the user opened manually.
