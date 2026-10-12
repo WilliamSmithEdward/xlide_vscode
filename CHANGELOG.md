@@ -11,6 +11,8 @@ Open password-protected files in Office without the password.
   Neither shows code, and the Office application keeps its own project
   protection. Viewing and editing source, exports, analysis, designers, VBA
   tests and Access designs still require it (#1327, reported by @batGnat).
+- Treat a `#Const` line holding `Rem` as defining nothing, even in a skipped
+  arm, as the VBE does (#1330, contributed by Sam, @swsammy).
 
 ## [11.1.6] - 2026-10-11
 
