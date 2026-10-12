@@ -9,10 +9,15 @@
 //    follows is no longer part of it).
 //  - null-directive-condition: `#If Null Then`, `#If Null = 1 Then`, or `#If N`
 //    after `#Const N = Null` -> "Invalid use of Null" (issue #208).
+//  - directive-type-mismatch: a condition that is a string VBA cannot read as
+//    True or False (`#If "abc"`, `#If ""`, `#If " True "`), or that hands such
+//    a string to an operator (`#If Not "abc"`, `#If "abc" = 1`) -> "Type
+//    mismatch", even in an arm the VBE skips (Excel 16.0, 2026-10-12); and a
+//    `#Const` value that does the same (`#Const A = "abc" + 1`), even unread.
 
 import type { ConditionalDirectiveNode, ModuleNode, BodyNode } from '../../parser/nodes';
 import {
-	nullConditionDirectives,
+	invalidConditionDirectives,
 	type ConditionalActivityTracker,
 	type ConditionalCompilationEnvironment,
 } from '../../conditional/conditionalCompilation';
@@ -104,11 +109,28 @@ export function checkDirectiveForms(
 			);
 		}
 	}
-	for (const directive of nullConditionDirectives(mod, conditionalCompilation)) {
-		push(
-			'nullDirectiveCondition',
-			`This #${directive.directiveKind} condition is Null, which is neither True nor False. This is a VBE compile error: Invalid use of Null.`,
-			directive.span,
-		);
+	for (const item of invalidConditionDirectives(mod, conditionalCompilation)) {
+		const { directive } = item;
+		if (item.reason === 'null') {
+			push(
+				'nullDirectiveCondition',
+				`This #${directive.directiveKind} condition is Null, which is neither True nor False. This is a VBE compile error: Invalid use of Null.`,
+				directive.span,
+			);
+		} else {
+			const what = directive.directiveKind === 'Const' ? '#Const value' : `#${directive.directiveKind} condition`;
+			const as = item.as === 'boolean' ? 'True or False' : `a ${item.as}`;
+			push(
+				'directiveTypeMismatch',
+				`This ${what} needs the string ${vbaStringLiteral(item.value)} as ${as}, and VBA cannot convert it. This is a VBE compile error: Type mismatch.`,
+				directive.span,
+			);
+		}
 	}
+}
+
+/** A string as VBA writes it, shortened past 40 characters. */
+function vbaStringLiteral(value: string): string {
+	const shown = value.length > 40 ? `${value.slice(0, 40)}...` : value;
+	return `"${shown.replace(/"/g, '""')}"`;
 }
