@@ -113365,6 +113365,204 @@
       "source": "#Const Text = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1321f_01_runtime",
+      "description": "Issue #685 a leftover collected there, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "#Const lineinputx = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1321f_02_runtime",
+      "description": "Issue #685 a leftover collected there, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "#Const vb_foo = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1321f_03_runtime",
+      "description": "Issue #685 a leftover collected there, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "#Const Abs2 = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1321f_04_runtime",
+      "description": "Issue #685 a leftover collected there, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "#Const Local2 = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1321f_05_runtime",
+      "description": "Issue #685 a leftover collected there, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "#Const Remark = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1321f_06_runtime",
+      "description": "Issue #685 a leftover collected there, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "#Const Nulls = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1321f_07_runtime",
+      "description": "Issue #685 a leftover collected there, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "#Const TrueFlag = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1321f_08_runtime",
+      "description": "Issue #685 a leftover collected there, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "#Const MyDate = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1321f_09_runtime",
+      "description": "Issue #685 a leftover collected there, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Function Main() As Variant\r\n    Main = 1\r\n#If False Then\r\n    Main = 2\r\n#Else: ' note\r\n#End If\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1321f_10_runtime",
+      "description": "Issue #685 a leftover collected there, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Function Main() As Variant\r\n    Main = 1\r\n#If False Then\r\n    Main = 2\r\n#ElseIf True Then: ' note\r\n#End If\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1321f_11_runtime",
+      "description": "Issue #685 a leftover collected there, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Function Main() As Variant\r\n    Main = 1\r\n#If False Then\r\n    Main = 2\r\n#ElseIf False Then: ' note\r\n    Main = 3\r\n#Else\r\n#End If\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1321f_12_runtime",
+      "description": "Issue #685 a leftover collected there, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Function Main() As Variant\r\n    Main = 1\r\n#If False Then\r\n#If True Then\r\n#Else: ' note\r\n#End If\r\n#End If\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1321f_13_runtime",
+      "description": "Issue #685 a leftover collected there, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Function Main() As Variant\r\n    Main = 1\r\n#If False Then\r\n#Const A = 1: ' note\r\n#End If\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1321f_14_runtime",
+      "description": "Issue #685 a leftover collected there, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Function Main() As Variant\r\n    Main = 1\r\n#If False Then\r\n    Main = 2\r\n#ElseIf True Then: Rem note\r\n#End If\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1321f_15_runtime",
+      "description": "Issue #685 a leftover collected there, case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Function Main() As Variant\r\n    Main = 1\r\n#If False Then\r\n    Main = 2\r\n#Else: Rem note\r\n#End If\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1321f_16_runtime",
+      "description": "Issue #685 a leftover collected there, case 16, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "#Const [Rem] = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1321f_17_runtime",
+      "description": "Issue #685 a leftover collected there, case 17, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "#Const [vb_name] = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1321f_18_runtime",
+      "description": "Issue #685 a leftover collected there, case 18, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Function Main() As Variant\r\n#If True Then ' note\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

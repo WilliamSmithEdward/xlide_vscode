@@ -579,7 +579,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'directiveForms',
-		run: (ctx, push) => checkDirectiveForms(ctx.source, ctx.mod, ctx.opts.conditionalCompilation, push),
+		run: (ctx, push) => checkDirectiveForms(ctx.source, ctx.mod, ctx.opts.conditionalCompilation, push, ctx.activity),
 	},
 	{
 		name: 'optionPlacement',

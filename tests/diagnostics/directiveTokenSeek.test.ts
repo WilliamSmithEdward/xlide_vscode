@@ -27,11 +27,13 @@ describe('directive token seeking', () => {
 		expect(reads).toBeLessThan(count * 30);
 	});
 
-	it.each(['\n', '\r\n', '\r'])('preserves line bounds and ignores comment-only colons for %j', eol => {
+	// A comment after the colon is refused too where the #Const is compiled
+	// (issue #1321, measured in Excel 16.0); each finding stays on its line.
+	it.each(['\n', '\r\n', '\r'])('preserves line bounds for code and comments after the colon for %j', eol => {
 		const source = ['#Const A = 1: Debug.Print 1', "#Const B = 2: 'comment", '#Const C = 3', '#Const D = 4:Debug.Print 4'].join(eol);
 		const found: Array<{ kind: string; span: Span }> = [];
 		checkDirectiveForms(source, parseModule(source), undefined, (kind, _message, span) => { found.push({ kind, span }); });
-		expect(found.map(item => item.kind)).toEqual(['directiveTrailingStatement', 'directiveTrailingStatement']);
-		expect(found.map(item => source.slice(item.span.start, item.span.end))).toEqual(['Debug.Print 1', 'Debug.Print 4']);
+		expect(found.map(item => item.kind)).toEqual(['directiveTrailingStatement', 'directiveTrailingStatement', 'directiveTrailingStatement']);
+		expect(found.map(item => source.slice(item.span.start, item.span.end))).toEqual(['Debug.Print 1', "'comment", 'Debug.Print 4']);
 	});
 });
