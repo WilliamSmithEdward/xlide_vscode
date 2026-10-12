@@ -5,6 +5,13 @@ import type { VbaToken } from '../lexer/tokenKinds';
 import { relationalOperatorAt, tokenWord } from '../lexer/tokenHelpers';
 import { bankersRound, parseVbaIntegerLiteral } from '../constants/integerConstantExpression';
 import { dateLiteralSerial } from '../constants/dateLiteral';
+import {
+	isInvalidBooleanString,
+	isInvalidDateString,
+	isInvalidNumericString,
+	numericStringReadings,
+	numericStringVerdict,
+} from '../diagnostics/stringConversion';
 import type {
 	BodyNode,
 	ConditionalDirectiveNode,
@@ -388,41 +395,106 @@ export function conditionalActivityAtOffset(
 	return current;
 }
 
+/** An `#If`, `#ElseIf` or `#Const` expression the VBE refuses to compile, and why. */
+export type InvalidConditionDirective =
+	| { reason: 'null'; directive: ConditionalDirectiveNode }
+	| { reason: 'type-mismatch'; directive: ConditionalDirectiveNode; value: string; as: StringConversion };
+
 /**
- * The `#If` and `#ElseIf` lines whose condition is Null, which the VBE refuses
- * to compile: "Invalid use of Null" (issue #208, Excel 16.0). `#If Null`,
- * `#If Null = 1`, `#If Not Null` and a `#Const N = Null` read by `#If N` all
- * are. Only a line the VBE is sure to evaluate is listed: one in code that
- * is compiled, and for `#ElseIf`, after arms that were all False.
+ * The `#If` and `#ElseIf` lines whose condition the VBE refuses, in one replay:
+ *
+ * - Null: "Invalid use of Null" (issue #208, Excel 16.0). `#If Null`,
+ *   `#If Null = 1`, `#If Not Null` and a `#Const N = Null` read by `#If N`
+ *   all are. Only a line the VBE is sure to evaluate is listed: one in code
+ *   that is compiled, and for `#ElseIf`, after arms that were all False.
+ * - A string VBA cannot convert: "Type mismatch" (Excel 16.0). A condition
+ *   that is a string no locale reads as True or False (`#If "abc"`, `#If ""`,
+ *   `#If " True "`, `#If S` after `#Const S = "x"`), or that hands one to an
+ *   operator needing a number or a Boolean (`#If Not "abc"`,
+ *   `#If UNDEFINED_X - "abc"`, `#If "abc" = 1`). A `#Const` value that hands
+ *   one to an operator is refused too (`#Const A = "abc" + 1`), even when
+ *   nothing reads it; one that is a string is not (`#Const S = "x"`). Unlike
+ *   Null, the VBE refuses these in an arm it skips as well, and an `#ElseIf`
+ *   after a taken arm, so a line the VBE does not evaluate is read too, when it
+ *   can hold a string at all: a quote, an `&`, or a constant that is one.
  */
-export function nullConditionDirectives(
+export function invalidConditionDirectives(
 	module: ModuleNode,
 	env: ConditionalCompilationEnvironment = {},
-): ConditionalDirectiveNode[] {
+): InvalidConditionDirective[] {
 	if (!moduleHasConditionalDirectives(module)) {
 		return [];
 	}
 	const effectiveEnv = effectiveConditionalCompilationEnvironment(env);
 	const projectConstants = projectConstantsOf(effectiveEnv);
-	const evaluate = createConditionalExpressionEvaluator(effectiveEnv, projectConstants);
-	const stack: ConditionalFrame[] = [];
-	let current: ConditionalActivity = 'active';
-	const out: ConditionalDirectiveNode[] = [];
-	for (const { directive } of collectConditionalDirectives(module)) {
-		const frame = stack[stack.length - 1];
-		const evaluated = directive.directiveKind === 'If'
-			? current === 'active'
-			: directive.directiveKind === 'ElseIf'
-				&& frame?.parent === 'active' && !frame.seenTrue && !frame.seenUnknown;
-		if (evaluated) {
-			const value = evaluate(directive.conditionRaw);
-			if (value !== undefined && isNull(value)) {
-				out.push(directive);
+	// Strings the host supplied, until a module #Const gives the name a value.
+	const hostStrings = new Set<string>();
+	for (const table of [effectiveEnv.compilerConstants, effectiveEnv.projectConstants]) {
+		for (const [name, value] of Object.entries(table ?? {})) {
+			if (typeof value === 'string') {
+				hostStrings.add(name.toLowerCase());
 			}
 		}
+	}
+	const read = createConditionalExpressionReader(effectiveEnv, projectConstants, undefined, hostStrings);
+	const evaluate: ConditionalExpressionEvaluator = (expression) => read(expression).value;
+	const stack: ConditionalFrame[] = [];
+	let current: ConditionalActivity = 'active';
+	const out: InvalidConditionDirective[] = [];
+	// Whether any constant holds a string, so a condition with no quote and
+	// no `&` can still be one.
+	let stringConstant = [effectiveEnv.compilerConstants, effectiveEnv.projectConstants]
+		.some((table) => Object.values(table ?? {}).some((value) => typeof value === 'string'));
+	const mayHoldString = (raw: string): boolean => stringConstant || raw.includes('"') || raw.includes('&');
+	for (const { directive } of collectConditionalDirectives(module)) {
+		if (directive.directiveKind === 'Const' && directive.name && mayHoldString(directive.valueRaw ?? '')) {
+			const mismatch = read(directive.valueRaw).operatorMismatch;
+			if (mismatch !== undefined) {
+				out.push({ reason: 'type-mismatch', directive, ...mismatch });
+			}
+		}
+		if (directive.directiveKind === 'If' || directive.directiveKind === 'ElseIf') {
+			const frame = stack[stack.length - 1];
+			const evaluated = directive.directiveKind === 'If'
+				? current === 'active'
+				: frame?.parent === 'active' && !frame.seenTrue && !frame.seenUnknown;
+			const raw = directive.conditionRaw ?? '';
+			if (!evaluated && !mayHoldString(raw)) {
+				current = applyConditionalDirective(directive, evaluate, projectConstants, stack, current);
+				continue;
+			}
+			const reading = read(directive.conditionRaw);
+			if (reading.mismatch !== undefined) {
+				out.push({ reason: 'type-mismatch', directive, ...reading.mismatch });
+			} else if (evaluated && reading.value !== undefined && isNull(reading.value)) {
+				out.push({ reason: 'null', directive });
+			}
+		}
+		// A #Const that gives its name a value replaces a host string; one that
+		// fails (`#Const FLAG = 1 / 0`) leaves it.
+		const replacesHost = directive.directiveKind === 'Const' && directive.name !== undefined
+			&& hostStrings.has(directive.name.toLowerCase()) && evaluate(directive.valueRaw) !== undefined;
 		current = applyConditionalDirective(directive, evaluate, projectConstants, stack, current);
+		if (directive.directiveKind === 'Const' && directive.name) {
+			const lower = directive.name.toLowerCase();
+			if (replacesHost) {
+				hostStrings.delete(lower);
+			}
+			if (typeof projectConstants.get(lower) === 'string') {
+				stringConstant = true;
+			}
+		}
 	}
 	return out;
+}
+
+/** The lines `invalidConditionDirectives` refuses for Null. */
+export function nullConditionDirectives(
+	module: ModuleNode,
+	env: ConditionalCompilationEnvironment = {},
+): ConditionalDirectiveNode[] {
+	return invalidConditionDirectives(module, env)
+		.flatMap((item) => item.reason === 'null' ? [item.directive] : []);
 }
 
 function applyConditionalDirective(
@@ -582,11 +654,41 @@ function conditionActivity(
 
 type ConditionalExpressionEvaluator = (expression: string | undefined) => ConditionalValue | undefined;
 
+/**
+ * An expression's value, and the string it could not convert, if any: one an
+ * operator needed (`operatorMismatch`), or, read as a condition, the value
+ * itself (`mismatch`, which includes the first).
+ */
+interface ConditionalReading {
+	value: ConditionalValue | undefined;
+	mismatch?: StringMismatch;
+	operatorMismatch?: StringMismatch;
+}
+
+/** What a string was needed as: True or False, a number, or a date. */
+export type StringConversion = 'boolean' | 'number' | 'date';
+
+/** A string an expression could not convert, and what it was needed as. */
+export interface StringMismatch {
+	value: string;
+	as: StringConversion;
+}
+
 function createConditionalExpressionEvaluator(
 	env: ConditionalCompilationEnvironment,
 	projectConstants: ReadonlyMap<string, ConditionalValue>,
 	undefinedIsZero = env.projectConstants !== undefined,
 ): ConditionalExpressionEvaluator {
+	const read = createConditionalExpressionReader(env, projectConstants, undefinedIsZero);
+	return (expression) => read(expression).value;
+}
+
+function createConditionalExpressionReader(
+	env: ConditionalCompilationEnvironment,
+	projectConstants: ReadonlyMap<string, ConditionalValue>,
+	undefinedIsZero = env.projectConstants !== undefined,
+	hostStrings?: ReadonlySet<string>,
+): (expression: string | undefined) => ConditionalReading {
 	// Compiler values stay fixed during a replay; module #Const values evolve.
 	// Keep the lookup query-local and lazy for replays with no expressions.
 	let compilerConstants: ReadonlyMap<string, ConditionalValue> | undefined;
@@ -596,14 +698,15 @@ function createConditionalExpressionEvaluator(
 	};
 	return (expression) => {
 		if (!expression?.trim()) {
-			return undefined;
+			return { value: undefined };
 		}
 		compilerConstants ??= conditionalCompilerConstants({ compilerConstants: env.compilerConstants });
 		return new ConditionalExpressionParser(
 			directiveExpressionTokens(expression),
 			constants,
 			undefinedIsZero,
-		).parse();
+			hostStrings,
+		).read();
 	};
 }
 
@@ -634,7 +737,8 @@ function isNull(value: ConditionalValue): boolean {
 
 /**
  * Whether a condition holds. Undefined for Null, which the VBE refuses as a
- * condition ("Invalid use of Null"), and for Nothing ("Invalid use of object").
+ * condition ("Invalid use of Null"), for Nothing ("Invalid use of object"),
+ * and for a string VBA cannot read as a Boolean ("Type mismatch").
  */
 function truthy(value: ConditionalValue): boolean | undefined {
 	if (typeof value === 'boolean') {
@@ -644,13 +748,49 @@ function truthy(value: ConditionalValue): boolean | undefined {
 		return value !== 0;
 	}
 	if (typeof value === 'string') {
-		return value.length > 0;
+		return stringTruthy(value);
 	}
 	switch (value.kind) {
 		case 'empty': return false;
 		case 'date': return value.serial !== 0;
 		default: return undefined;
 	}
+}
+
+/**
+ * A string as the VBE reads it for a condition: as VBA converts a string to a
+ * Boolean (issue #188), measured in a directive in Excel 16.0 (#If "0",
+ * "0.0", "False" and #Const S = "0" then #If S are False; "1", "2.5",
+ * "True", "true", "&H10" and "1e3" are True; "", "abc" and " True " are a
+ * Type mismatch). "True" and "False" in any case, with nothing around them,
+ * are those values; a number is True unless it is zero. A plain number whose
+ * value depends on the locale ("2.5", "1,000") is zero in one reading
+ * exactly when it is in the other, so it is decided too. Undefined for a
+ * string no locale converts, and for any other number without a value here
+ * (a hex string past a Long, a currency symbol, an exponent beside a
+ * separator), which may not convert at all.
+ */
+function stringTruthy(value: string): boolean | undefined {
+	if (/^true$/i.test(value)) {
+		return true;
+	}
+	if (/^false$/i.test(value)) {
+		return false;
+	}
+	const trimmed = value.replace(/^[ \t]+|[ \t]+$/g, '');
+	if (RADIX_STRING.test(trimmed)) {
+		const radix = radixStringValue(trimmed);
+		return radix === undefined ? undefined : radix !== 0;
+	}
+	const verdict = numericStringVerdict(value);
+	if (verdict.kind === 'invalid') {
+		return undefined;
+	}
+	if (verdict.value !== undefined) {
+		return verdict.value !== 0;
+	}
+	const readings = numericStringReadings(value);
+	return readings === undefined ? undefined : readings[0] !== 0;
 }
 
 /**
@@ -671,6 +811,19 @@ function truthy(value: ConditionalValue): boolean | undefined {
 class ConditionalExpressionParser {
 	private index = 0;
 	private parenthesisDepth = 0;
+	/**
+	 * The first string an operator needed as a number or a Boolean and could
+	 * not convert, a compile error ("Type mismatch", measured in Excel 16.0).
+	 */
+	mismatch: { value: string; as: StringConversion } | undefined;
+	/** A string came from the host's constants, whose reading was not measured. */
+	private hostString = false;
+	/**
+	 * A value was missing where the expression needs one, a `(` or a string
+	 * was not closed, or a keyword stood for a value. Only the mismatch
+	 * depends on it.
+	 */
+	private broken = false;
 
 	constructor(
 		private readonly tokens: readonly VbaToken[],
@@ -685,11 +838,38 @@ class ConditionalExpressionParser {
 		 * reads them.
 		 */
 		private readonly undefinedIsZero: boolean,
+		/**
+		 * Names whose value is a string the host supplied, not a module
+		 * `#Const`: how the VBE reads such an argument was not measured.
+		 */
+		private readonly hostStrings?: ReadonlySet<string>,
 	) {}
 
 	parse(): ConditionalValue | undefined {
 		const value = this.parseLogical(0);
 		return this.index >= this.tokens.length ? value : undefined;
+	}
+
+	/**
+	 * The value, and the string the expression could not convert, if any. An
+	 * expression the parser cannot read, missing a value or a `)` or with
+	 * tokens left over, reports no mismatch.
+	 */
+	read(): ConditionalReading {
+		const value = this.parseLogical(0);
+		if (this.index < this.tokens.length) {
+			return { value: undefined };
+		}
+		if (this.broken || this.hostString) {
+			// The value is as `parse` gives it; only the mismatch is withheld.
+			return { value };
+		}
+		const operatorMismatch = this.mismatch;
+		const mismatch = operatorMismatch
+			?? (typeof value === 'string' && isInvalidBooleanString(value)
+				? { value, as: 'boolean' as const } : undefined);
+		return { value, ...(mismatch === undefined ? {} : { mismatch }),
+			...(operatorMismatch === undefined ? {} : { operatorMismatch }) };
 	}
 
 	/** Imp, Eqv, Xor, Or, And, loosest first; each level is left-associative. */
@@ -700,6 +880,8 @@ class ConditionalExpressionParser {
 		let left = this.parseLogical(level + 1);
 		while (this.matchWord(LOGICAL_LEVELS[level])) {
 			const right = this.parseLogical(level + 1);
+			this.requireConvertible(left, 'boolean');
+			this.requireConvertible(right, 'boolean');
 			left = left === undefined || right === undefined ? undefined : logical(LOGICAL_LEVELS[level], left, right);
 		}
 		return left;
@@ -712,6 +894,9 @@ class ConditionalExpressionParser {
 			count++;
 		}
 		let value = this.parseComparison();
+		if (count > 0) {
+			this.requireConvertible(value, 'boolean');
+		}
 		while (count-- > 0) {
 			if (typeof value === 'boolean') {
 				value = !value;
@@ -726,7 +911,9 @@ class ConditionalExpressionParser {
 	}
 
 	private parseComparison(): ConditionalValue | undefined {
+		let leftStart = this.index;
 		let left = this.parseConcat();
+		let leftEnd = this.index;
 		for (;;) {
 			const relational = relationalOperatorAt(this.tokens, this.index);
 			const word = relational ? undefined : tokenWord(this.peek());
@@ -734,7 +921,20 @@ class ConditionalExpressionParser {
 				return left;
 			}
 			this.index += relational ? relational.length : 1;
+			const rightStart = this.index;
 			const right = this.parseConcat();
+			if (relational) {
+				const forLeft = this.literalConversion(rightStart, this.index);
+				const forRight = this.literalConversion(leftStart, leftEnd);
+				if (forLeft) {
+					this.requireConvertible(left, forLeft);
+				}
+				if (forRight) {
+					this.requireConvertible(right, forRight);
+				}
+			}
+			leftStart = this.index;
+			leftEnd = this.index;
 			if (left === undefined || right === undefined) {
 				left = undefined;
 			} else if (relational) {
@@ -756,10 +956,27 @@ class ConditionalExpressionParser {
 	}
 
 	private parseAdditive(): ConditionalValue | undefined {
+		let leftStart = this.index;
 		let left = this.parseMod();
+		let leftEnd = this.index;
 		while (this.peek()?.rawText === '+' || this.peek()?.rawText === '-') {
 			const op = this.tokens[this.index++].rawText;
+			const rightStart = this.index;
 			const right = this.parseMod();
+			// `-` reads a number (`UNDEFINED_X - "abc"` is a Type mismatch),
+			// or a date beside a date literal; `+` joins two strings, and
+			// beside a literal converts as `literalConversion` says
+			// (`#1/1/2020# + "abc"` is a Type mismatch).
+			const besideRight = this.literalConversion(rightStart, this.index);
+			const besideLeft = this.literalConversion(leftStart, leftEnd);
+			const forLeft = besideRight === 'date' || op !== '-' ? besideRight : 'number';
+			const forRight = besideLeft === 'date' || op !== '-' ? besideLeft : 'number';
+			if (forLeft) {
+				this.requireConvertible(left, forLeft);
+			}
+			if (forRight) {
+				this.requireConvertible(right, forRight);
+			}
 			if (left === undefined || right === undefined) {
 				left = undefined;
 			} else if (op === '+' && typeof left === 'string' && typeof right === 'string') {
@@ -767,6 +984,9 @@ class ConditionalExpressionParser {
 			} else {
 				left = arithmetic(op, left, right);
 			}
+			// What follows reads the whole sum so far, which is no literal.
+			leftStart = this.index;
+			leftEnd = this.index;
 		}
 		return left;
 	}
@@ -775,6 +995,8 @@ class ConditionalExpressionParser {
 		let left = this.parseIntegerDivision();
 		while (this.matchWord('mod')) {
 			const right = this.parseIntegerDivision();
+			this.requireConvertible(left, 'number');
+			this.requireConvertible(right, 'number');
 			left = left === undefined || right === undefined ? undefined : arithmetic('mod', left, right);
 		}
 		return left;
@@ -785,6 +1007,8 @@ class ConditionalExpressionParser {
 		while (this.peek()?.rawText === '\\') {
 			this.index++;
 			const right = this.parseProduct();
+			this.requireConvertible(left, 'number');
+			this.requireConvertible(right, 'number');
 			left = left === undefined || right === undefined ? undefined : arithmetic('\\', left, right);
 		}
 		return left;
@@ -795,6 +1019,8 @@ class ConditionalExpressionParser {
 		while (this.peek()?.rawText === '*' || this.peek()?.rawText === '/') {
 			const op = this.tokens[this.index++].rawText;
 			const right = this.parseNegation();
+			this.requireConvertible(left, 'number');
+			this.requireConvertible(right, 'number');
 			left = left === undefined || right === undefined ? undefined : arithmetic(op, left, right);
 		}
 		return left;
@@ -808,6 +1034,9 @@ class ConditionalExpressionParser {
 		}
 		const end = this.index;
 		let value = this.parsePower();
+		if (end > start) {
+			this.requireConvertible(value, 'number');
+		}
 		for (let i = end - 1; i >= start; i--) {
 			value = signed(this.tokens[i].rawText, value);
 		}
@@ -819,6 +1048,8 @@ class ConditionalExpressionParser {
 		while (this.peek()?.rawText === '^') {
 			this.index++;
 			const right = this.parseNegationOperand();
+			this.requireConvertible(left, 'number');
+			this.requireConvertible(right, 'number');
 			left = left === undefined || right === undefined ? undefined : arithmetic('^', left, right);
 		}
 		return left;
@@ -829,14 +1060,17 @@ class ConditionalExpressionParser {
 		const op = this.peek()?.rawText;
 		if (op === '-' || op === '+') {
 			this.index++;
-			return signed(op, this.parsePrimary());
+			const value = this.parsePrimary();
+			this.requireConvertible(value, 'number');
+			return signed(op, value);
 		}
 		return this.parsePrimary();
 	}
 
 	private parsePrimary(): ConditionalValue | undefined {
 		const token = this.peek();
-		if (!token) {
+		if (!token || token.rawText === ')' || token.kind === 'operator') {
+			this.broken = true;
 			return undefined;
 		}
 		if (token.rawText === '(') {
@@ -850,6 +1084,7 @@ class ConditionalExpressionParser {
 			const value = this.parseLogical(0);
 			this.parenthesisDepth--;
 			if (this.peek()?.rawText !== ')') {
+				this.broken = true;
 				return undefined;
 			}
 			this.index++;
@@ -864,6 +1099,10 @@ class ConditionalExpressionParser {
 			return Number.isFinite(number) ? number : undefined;
 		}
 		if (token.kind === 'stringLiteral') {
+			if (!/^"(?:[^"]|"")*"$/.test(token.rawText)) {
+				// A string left open: the line cannot be read as written.
+				this.broken = true;
+			}
 			return token.rawText.slice(1, -1).replace(/""/g, '"');
 		}
 		if (token.kind === 'dateLiteral') {
@@ -879,11 +1118,78 @@ class ConditionalExpressionParser {
 			case 'nothing': return NOTHING;
 			default: break;
 		}
+		if (token.kind !== 'identifier') {
+			// A keyword where a value belongs (`"abc" - Not`).
+			this.broken = true;
+		}
 		const value = this.constants.get(word);
+		if (typeof value === 'string' && this.hostStrings?.has(word)) {
+			this.hostString = true;
+		}
 		if (value === undefined && this.undefinedIsZero && token.kind === 'identifier') {
 			return 0;
 		}
 		return value;
+	}
+
+	/**
+	 * Notes a string an operator converts that no locale reads as a number,
+	 * or, for the logical operators, as a Boolean ("True" Or 0 runs, #191),
+	 * or, beside a Date, as a date (`"1/1/2020" = #1/1/2020#` is True).
+	 */
+	private requireConvertible(value: ConditionalValue | undefined, as: StringConversion): void {
+		if (this.mismatch === undefined && typeof value === 'string' && (as === 'number'
+			? isInvalidNumericString(value)
+			: as === 'boolean' ? isInvalidBooleanString(value) : isInvalidDateString(value))) {
+			this.mismatch = { value, as };
+		}
+	}
+
+	/**
+	 * What a string beside the operand written at `start`..`end` is converted
+	 * to by `+` or a comparison: one written as a literal (a sign allowed)
+	 * decides it, a number as a number, True or False as a Boolean, a date
+	 * as a date (Excel 16.0: `1 = "True"` and `"abc" = True` are a Type
+	 * mismatch, `"True" = True` is True). Beside a name the string compares
+	 * as with a Variant and is not converted (`UNDEFINED_X = "abc"` and
+	 * `UNDEFINED_X = ""` compile), nor beside anything else.
+	 */
+	private literalConversion(start: number, end: number): StringConversion | undefined {
+		// A literal in brackets keeps its type: `(1) = "abc"`.
+		while (end - start >= 3 && this.tokens[start].rawText === '(' && this.tokens[end - 1].rawText === ')'
+			&& this.closingBracket(start) === end - 1) {
+			start++;
+			end--;
+		}
+		let at = start;
+		while (at < end - 1 && (this.tokens[at].rawText === '-' || this.tokens[at].rawText === '+')) {
+			at++;
+		}
+		if (at !== end - 1) {
+			return undefined;
+		}
+		const token = this.tokens[at];
+		if (token.kind === 'integerLiteral' || token.kind === 'floatLiteral') {
+			return 'number';
+		}
+		if (token.kind === 'dateLiteral') {
+			return 'date';
+		}
+		const word = tokenWord(token);
+		return word === 'true' || word === 'false' ? 'boolean' : undefined;
+	}
+
+	/** The index of the `)` that closes the `(` at `open`. */
+	private closingBracket(open: number): number {
+		let depth = 0;
+		for (let i = open; i < this.tokens.length; i++) {
+			const text = this.tokens[i].rawText;
+			depth += text === '(' ? 1 : text === ')' ? -1 : 0;
+			if (depth === 0) {
+				return i;
+			}
+		}
+		return -1;
 	}
 
 	private matchWord(word: string): boolean {
@@ -912,9 +1218,32 @@ function numberOf(value: ConditionalValue): number | undefined {
 	if (typeof value === 'object') {
 		return value.kind === 'empty' ? 0 : value.kind === 'date' ? value.serial : undefined;
 	}
+	// A hex or octal string as VBA reads it (#188): "&H10" is 16, so
+	// "&H10" And 1 is 0 (measured in a directive in Excel 16.0). Any other
+	// string is read as before, with "." as the decimal point.
 	const trimmed = value.trim();
+	if (RADIX_STRING.test(trimmed)) {
+		return radixStringValue(trimmed);
+	}
 	const parsed = trimmed.length === 0 ? Number.NaN : Number(trimmed);
 	return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+/** A hex or octal string: "&H10", "&O17" or "&17". */
+const RADIX_STRING = /^&[Hh][0-9A-Fa-f]+$|^&[Oo]?[0-7]+$/;
+
+/**
+ * A hex or octal string's value as #188 reads it, or undefined for one past
+ * a Long, whose conversion was not measured in a directive.
+ */
+function radixStringValue(trimmed: string): number | undefined {
+	const hex = /^&[Hh]([0-9A-Fa-f]+)$/.exec(trimmed);
+	const digits = hex ? hex[1] : trimmed.replace(/^&[Oo]?/, '');
+	if (Number.parseInt(digits, hex ? 16 : 8) > 0xFFFFFFFF) {
+		return undefined;
+	}
+	const verdict = numericStringVerdict(trimmed);
+	return verdict.kind === 'number' ? verdict.value : undefined;
 }
 
 /** A value as the whole number a bitwise operator reads. */

@@ -114048,6 +114048,800 @@
       "source": "Function Main() As Variant\r\n#If False Then\r\n _\r\n#If True Then: x = 1\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "string_condition_abc_compile",
+      "description": "#If \"abc\": a string VBA cannot read as True or False is a Type mismatch (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If \"abc\" Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "string_condition_empty_compile",
+      "description": "#If \"\": the empty string is a Type mismatch (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If \"\" Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "string_condition_blank_true_compile",
+      "description": "#If \" True \": True with blanks around it is a Type mismatch (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If \" True \" Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "string_condition_const_x_compile",
+      "description": "#If S after #Const S = \"x\" is a Type mismatch (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const S = \"x\"\r\nFunction Main() As Variant\r\n#If S Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "string_condition_not_abc_compile",
+      "description": "#If Not \"abc\": Not cannot convert \"abc\", a Type mismatch (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If Not \"abc\" Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "string_condition_abc_equals_one_compile",
+      "description": "#If \"abc\" = 1: comparing \"abc\" with a number is a Type mismatch (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If \"abc\" = 1 Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "string_condition_concat_ab_compile",
+      "description": "#If \"a\" & \"b\": the string \"ab\" as the condition is a Type mismatch (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If \"a\" & \"b\" Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "string_condition_skipped_abc_compile",
+      "description": "#If \"abc\" inside a skipped #If False arm is still a Type mismatch (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n#If \"abc\" Then\r\n    Err.Raise 1001\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "string_condition_skipped_not_abc_compile",
+      "description": "#If Not \"abc\" inside a skipped #If False arm is still a Type mismatch (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n#If Not \"abc\" Then\r\n    Err.Raise 1001\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "string_condition_skipped_const_x_compile",
+      "description": "#If S after #Const S = \"x\", inside a skipped #If False arm, is still a Type mismatch (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const S = \"x\"\r\nFunction Main() As Variant\r\n#If False Then\r\n#If S Then\r\n    Err.Raise 1001\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "string_condition_skipped_concat_ab_compile",
+      "description": "#If \"a\" & \"b\" inside a skipped #If False arm is still a Type mismatch (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n#If \"a\" & \"b\" Then\r\n    Err.Raise 1001\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "string_condition_skipped_undefined_minus_abc_compile",
+      "description": "#If UNDEFINED_X - \"abc\" inside a skipped #If False arm is a Type mismatch (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n#If UNDEFINED_X - \"abc\" Then\r\n    Err.Raise 1001\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "string_condition_elseif_abc_after_taken_arm_compile",
+      "description": "#ElseIf \"abc\" after a taken #If True arm is still a Type mismatch (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If True Then\r\n    Main = 1\r\n#ElseIf \"abc\" Then\r\n    Err.Raise 1001\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "string_condition_const_abc_plus_one_compile",
+      "description": "#Const A = \"abc\" + 1, never read, is a Type mismatch (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const A = \"abc\" + 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "string_condition_skipped_const_abc_plus_one_compile",
+      "description": "#Const A = \"abc\" + 1 inside a skipped #If False arm, never read, is a Type mismatch (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#If False Then\r\n#Const A = \"abc\" + 1\r\n#End If\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "string_condition_const_x_unread_compile",
+      "description": "#Const S = \"x\" alone, never read, compiles (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "#Const S = \"x\"\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "string_condition_cross_module_helper_compile",
+      "description": "Helper(ByVal x As Long) under #If \"0\" and Helper() under #Else; another module calls Helper with no argument, which compiles (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "#If \"0\" Then\r\nPublic Sub Helper(ByVal x As Long)\r\n    Err.Raise 1002\r\nEnd Sub\r\n#Else\r\nPublic Sub Helper()\r\nEnd Sub\r\n#End If\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "entry": true,
+          "source": "Function Main() As Variant\r\n    Helper\r\n    Main = 1\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "string_condition_zero_compile",
+      "description": "#If \"0\" compiles (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If \"0\" Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "string_condition_double_zero_compile",
+      "description": "#If \"00\" compiles (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If \"00\" Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "string_condition_concat_zero_zero_compile",
+      "description": "#If 0 & 0 compiles (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If 0 & 0 Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "string_condition_zero_point_zero_compile",
+      "description": "#If \"0.0\" compiles (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If \"0.0\" Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "string_condition_one_compile",
+      "description": "#If \"1\" compiles (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If \"1\" Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "string_condition_true_word_compile",
+      "description": "#If \"True\" compiles (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If \"True\" Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "string_condition_true_lower_compile",
+      "description": "#If \"true\" compiles (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If \"true\" Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "string_condition_hex_compile",
+      "description": "#If \"&H10\" compiles (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If \"&H10\" Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "string_condition_exponent_compile",
+      "description": "#If \"1e3\" compiles (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If \"1e3\" Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "string_condition_decimal_compile",
+      "description": "#If \"2.5\" compiles (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If \"2.5\" Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "string_condition_thousands_compile",
+      "description": "#If \"1,000\" compiles (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If \"1,000\" Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "string_condition_two_compile",
+      "description": "#If \"2\" compiles (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If \"2\" Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "string_condition_minus_one_compile",
+      "description": "#If \"-1\" compiles (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If \"-1\" Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "string_condition_not_zero_compile",
+      "description": "#If Not \"0\" compiles (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If Not \"0\" Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "string_condition_one_and_one_compile",
+      "description": "#If \"1\" And 1 compiles (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If \"1\" And 1 Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "string_condition_two_minus_two_compile",
+      "description": "#If \"2\" - 2 compiles (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If \"2\" - 2 Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "string_condition_hex_and_one_compile",
+      "description": "#If \"&H10\" And 1 compiles (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If \"&H10\" And 1 Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "string_condition_blank_one_minus_one_compile",
+      "description": "#If \" 1 \" - 1 compiles (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If \" 1 \" - 1 Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "string_condition_elseif_zero_compile",
+      "description": "#ElseIf \"0\" after a False arm compiles (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n    Main = 1\r\n#ElseIf \"0\" Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "string_condition_nested_zero_compile",
+      "description": "A nested #If \"0\" compiles (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If True Then\r\n#If \"0\" Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "string_condition_null_minus_abc_compile",
+      "description": "#If Null - \"abc\" is a Type mismatch, not Invalid use of Null (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If Null - \"abc\" Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "string_condition_skipped_null_minus_abc_compile",
+      "description": "#If Null - \"abc\" inside a skipped #If False arm is a Type mismatch (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n#If Null - \"abc\" Then\r\n    Err.Raise 1001\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "string_condition_abc_times_null_compile",
+      "description": "#If \"abc\" * Null is a Type mismatch, not Invalid use of Null (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If \"abc\" * Null Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "string_condition_skipped_abc_times_null_compile",
+      "description": "#If \"abc\" * Null inside a skipped #If False arm is a Type mismatch (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n#If \"abc\" * Null Then\r\n    Err.Raise 1001\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "string_condition_abc_equals_date_compile",
+      "description": "#If \"abc\" = #1/1/2020#: comparing \"abc\" with a date is a Type mismatch (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If \"abc\" = #1/1/2020# Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "string_condition_skipped_abc_equals_date_compile",
+      "description": "#If \"abc\" = #1/1/2020# inside a skipped #If False arm is a Type mismatch (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n#If \"abc\" = #1/1/2020# Then\r\n    Err.Raise 1001\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "string_condition_date_plus_abc_compile",
+      "description": "#If #1/1/2020# + \"abc\" is a Type mismatch (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If #1/1/2020# + \"abc\" Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "string_condition_skipped_date_plus_abc_compile",
+      "description": "#If #1/1/2020# + \"abc\" inside a skipped #If False arm is a Type mismatch (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n#If #1/1/2020# + \"abc\" Then\r\n    Err.Raise 1001\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "string_condition_date_string_equals_date_compile",
+      "description": "#If \"1/1/2020\" = #1/1/2020#: a string beside a date is read as a date, which compiles (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If \"1/1/2020\" = #1/1/2020# Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "string_condition_skipped_date_string_equals_date_compile",
+      "description": "#If \"1/1/2020\" = #1/1/2020# inside a skipped #If False arm compiles (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n#If \"1/1/2020\" = #1/1/2020# Then\r\n    Err.Raise 1001\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "string_condition_zero_runtime",
+      "description": "#If \"0\" takes the #Else arm: DeadName in the #If arm under Option Explicit (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n#If \"0\" Then\r\n    Main = DeadName\r\n#Else\r\n    Main = \"else\"\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "string_condition_double_zero_runtime",
+      "description": "#If \"00\" takes the #Else arm: DeadName in the #If arm under Option Explicit (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n#If \"00\" Then\r\n    Main = DeadName\r\n#Else\r\n    Main = \"else\"\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "string_condition_concat_zero_zero_runtime",
+      "description": "#If 0 & 0 takes the #Else arm: DeadName in the #If arm under Option Explicit (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n#If 0 & 0 Then\r\n    Main = DeadName\r\n#Else\r\n    Main = \"else\"\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "string_condition_false_word_runtime",
+      "description": "#If \"False\" takes the #Else arm: DeadName in the #If arm under Option Explicit (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n#If \"False\" Then\r\n    Main = DeadName\r\n#Else\r\n    Main = \"else\"\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "string_condition_zero_point_zero_runtime",
+      "description": "#If \"0.0\" takes the #Else arm: DeadName in the #If arm under Option Explicit (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n#If \"0.0\" Then\r\n    Main = DeadName\r\n#Else\r\n    Main = \"else\"\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "string_condition_const_zero_runtime",
+      "description": "#If S after #Const S = \"0\" takes the #Else arm: DeadName in the #If arm under Option Explicit (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\n#Const S = \"0\"\r\nFunction Main() As Variant\r\n#If S Then\r\n    Main = DeadName\r\n#Else\r\n    Main = \"else\"\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "string_condition_blank_one_minus_one_runtime",
+      "description": "#If \" 1 \" - 1 takes the #Else arm: DeadName in the #If arm under Option Explicit (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n#If \" 1 \" - 1 Then\r\n    Main = DeadName\r\n#Else\r\n    Main = \"else\"\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "string_condition_two_minus_two_runtime",
+      "description": "#If \"2\" - 2 takes the #Else arm: DeadName in the #If arm under Option Explicit (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n#If \"2\" - 2 Then\r\n    Main = DeadName\r\n#Else\r\n    Main = \"else\"\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "string_condition_hex_and_one_runtime",
+      "description": "#If \"&H10\" And 1 takes the #Else arm: DeadName in the #If arm under Option Explicit (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n#If \"&H10\" And 1 Then\r\n    Main = DeadName\r\n#Else\r\n    Main = \"else\"\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "string_condition_one_runtime",
+      "description": "#If \"1\" takes the #If arm: DeadName in the #Else arm under Option Explicit (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n#If \"1\" Then\r\n    Main = \"if\"\r\n#Else\r\n    Main = DeadName\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "string_condition_two_runtime",
+      "description": "#If \"2\" takes the #If arm: DeadName in the #Else arm under Option Explicit (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n#If \"2\" Then\r\n    Main = \"if\"\r\n#Else\r\n    Main = DeadName\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "string_condition_minus_one_runtime",
+      "description": "#If \"-1\" takes the #If arm: DeadName in the #Else arm under Option Explicit (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n#If \"-1\" Then\r\n    Main = \"if\"\r\n#Else\r\n    Main = DeadName\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "string_condition_true_word_runtime",
+      "description": "#If \"True\" takes the #If arm: DeadName in the #Else arm under Option Explicit (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n#If \"True\" Then\r\n    Main = \"if\"\r\n#Else\r\n    Main = DeadName\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "string_condition_true_lower_runtime",
+      "description": "#If \"true\" takes the #If arm: DeadName in the #Else arm under Option Explicit (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n#If \"true\" Then\r\n    Main = \"if\"\r\n#Else\r\n    Main = DeadName\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "string_condition_hex_runtime",
+      "description": "#If \"&H10\" takes the #If arm: DeadName in the #Else arm under Option Explicit (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n#If \"&H10\" Then\r\n    Main = \"if\"\r\n#Else\r\n    Main = DeadName\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "string_condition_exponent_runtime",
+      "description": "#If \"1e3\" takes the #If arm: DeadName in the #Else arm under Option Explicit (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n#If \"1e3\" Then\r\n    Main = \"if\"\r\n#Else\r\n    Main = DeadName\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "string_condition_decimal_runtime",
+      "description": "#If \"2.5\" takes the #If arm: DeadName in the #Else arm under Option Explicit (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n#If \"2.5\" Then\r\n    Main = \"if\"\r\n#Else\r\n    Main = DeadName\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "string_condition_thousands_runtime",
+      "description": "#If \"1,000\" takes the #If arm: DeadName in the #Else arm under Option Explicit (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n#If \"1,000\" Then\r\n    Main = \"if\"\r\n#Else\r\n    Main = DeadName\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "string_condition_not_zero_runtime",
+      "description": "#If Not \"0\" takes the #If arm: DeadName in the #Else arm under Option Explicit (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n#If Not \"0\" Then\r\n    Main = \"if\"\r\n#Else\r\n    Main = DeadName\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "string_condition_one_and_one_runtime",
+      "description": "#If \"1\" And 1 takes the #If arm: DeadName in the #Else arm under Option Explicit (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n#If \"1\" And 1 Then\r\n    Main = \"if\"\r\n#Else\r\n    Main = DeadName\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "string_condition_elseif_zero_runtime",
+      "description": "#ElseIf \"0\" after a False arm takes the #Else arm: DeadName in the first two arms under Option Explicit (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n#If False Then\r\n    Main = DeadName\r\n#ElseIf \"0\" Then\r\n    Main = DeadName\r\n#Else\r\n    Main = \"else\"\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "string_condition_nested_zero_runtime",
+      "description": "A nested #If \"0\" takes the #Else arm: DeadName in its #If arm under Option Explicit (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n#If True Then\r\n#If \"0\" Then\r\n    Main = DeadName\r\n#Else\r\n    Main = \"else\"\r\n#End If\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "string_condition_one_equals_true_string_compile",
+      "description": "#If 1 = \"True\": comparing \"True\" with a number is a Type mismatch (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If 1 = \"True\" Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "string_condition_abc_equals_true_compile",
+      "description": "#If \"abc\" = True: comparing \"abc\" with True is a Type mismatch (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If \"abc\" = True Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "string_condition_true_string_equals_true_compile",
+      "description": "#If \"True\" = True compiles (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If \"True\" = True Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "string_condition_undefined_equals_abc_compile",
+      "description": "#If UNDEFINED_X = \"abc\": a name nothing defines compares with a string, which compiles (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If UNDEFINED_X = \"abc\" Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "string_condition_skipped_undefined_equals_abc_compile",
+      "description": "#If UNDEFINED_X = \"abc\" inside a skipped #If False arm compiles (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n#If UNDEFINED_X = \"abc\" Then\r\n    Err.Raise 1001\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "string_condition_undefined_equals_empty_string_compile",
+      "description": "#If UNDEFINED_X = \"\" compiles (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If UNDEFINED_X = \"\" Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "string_condition_undefined_equals_zero_string_compile",
+      "description": "#If UNDEFINED_X = \"0\" compiles (issue #1339).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If UNDEFINED_X = \"0\" Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
     }
   ]
 }
