@@ -379,20 +379,22 @@ export function directiveRem(tokens: readonly VbaToken[], hash: number): VbaToke
 	return undefined;
 }
 
-const BLOCK_DIRECTIVE_WORDS: ReadonlySet<string> = new Set(['if', 'elseif', 'else', 'end', 'endif']);
+const DIRECTIVE_WORDS: ReadonlySet<string> = new Set(['if', 'elseif', 'else', 'end', 'endif', 'const']);
 const NO_STARTS: ReadonlySet<number> = new Set();
 // One scan per token array: the parser, analyzeVbaStructure and
 // malformed-statement each ask, and malformed-statement asks once per line.
 const remDirectiveStartsByTokens = new WeakMap<readonly VbaToken[], ReadonlySet<number>>();
 
 /**
- * The start offsets of the `#` of every #If, #ElseIf, #Else or #End If line
- * holding a `Rem`, which the VBE does not read as that directive (issue
- * #1321). Only a `#` that starts its physical line counts (the token before
+ * The start offsets of the `#` of every #If, #ElseIf, #Else, #End If or
+ * #Const line holding a `Rem`, which the VBE does not act on as that
+ * directive (issue #1321): a #Const one defines nothing, even in a skipped
+ * arm, where a plain #Const still does. Only a `#` that starts its physical
+ * line counts (the token before
  * it is a newline: a continued line has none), so the parser, which asks by
  * statement offset, and analyzeVbaStructure, which asks by line, agree.
  */
-export function remBlockDirectiveStarts(source: string): ReadonlySet<number> {
+export function remDirectiveStarts(source: string): ReadonlySet<number> {
 	if (!/rem/i.test(source)) {
 		return NO_STARTS;
 	}
@@ -406,7 +408,7 @@ export function remBlockDirectiveStarts(source: string): ReadonlySet<number> {
 	for (let i = 0; i < tokens.length; i++) {
 		if (tokens[i].kind === 'directive'
 			&& (i === 0 || tokens[i - 1].kind === 'newline')
-			&& BLOCK_DIRECTIVE_WORDS.has(tokenWord(tokens[i + 1]))
+			&& DIRECTIVE_WORDS.has(tokenWord(tokens[i + 1]))
 			&& directiveRem(tokens, i) !== undefined) {
 			starts.add(tokens[i].start);
 		}
@@ -428,7 +430,6 @@ export function directiveColon(tokens: readonly VbaToken[], hash: number): VbaTo
 	return undefined;
 }
 
-const COLON_DIRECTIVE_WORDS: ReadonlySet<string> = new Set([...BLOCK_DIRECTIVE_WORDS, 'const']);
 const colonDirectiveStartsByTokens = new WeakMap<readonly VbaToken[], ReadonlySet<number>>();
 
 /**
@@ -453,7 +454,7 @@ export function colonDirectiveStarts(source: string): ReadonlySet<number> {
 	for (let i = 0; i < tokens.length; i++) {
 		if (tokens[i].kind === 'directive'
 			&& (i === 0 || tokens[i - 1].kind === 'newline')
-			&& COLON_DIRECTIVE_WORDS.has(tokenWord(tokens[i + 1]))
+			&& DIRECTIVE_WORDS.has(tokenWord(tokens[i + 1]))
 			&& directiveColon(tokens, i) !== undefined) {
 			starts.add(tokens[i].start);
 		}

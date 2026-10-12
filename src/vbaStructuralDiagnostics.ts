@@ -2,7 +2,7 @@
 // diagnostics provider. Keeping this module free of any `vscode` import means
 // it can be unit-tested directly with vitest.
 
-import { colonDirectiveStarts, remBlockDirectiveStarts } from './analyzer/lexer/tokenHelpers';
+import { colonDirectiveStarts, remDirectiveStarts } from './analyzer/lexer/tokenHelpers';
 import { leadingWhitespace, lineIndexOf, lineStartOffsets, stripVba, toLogicalLines } from './vbaSourceScan';
 
 export interface VbaStructuralDiagnostic {
@@ -411,14 +411,15 @@ export function analyzeVbaStructure(
     const currentBranch = (): ConditionalArm[] =>
         preprocessorStack.map((frame) => ({ chain: frame.chain, arm: frame.arm }));
     const problems: VbaStructuralDiagnostic[] = [];
-    // An #If, #ElseIf, #Else or #End If line holding a Rem is no directive to
-    // the VBE (issue #1321): it opens, continues and closes nothing.
-    const remDirectiveStarts = remBlockDirectiveStarts(source);
+    // A directive line holding a Rem is no directive to the VBE (issue
+    // #1321): an #If, #ElseIf, #Else or #End If one opens, continues and
+    // closes nothing, and a #Const one is skipped like the rest.
+    const remStarts = remDirectiveStarts(source);
     // Nor is one a statement colon follows (issue #1323); on that line no `#`
     // segment is a directive.
     const colonStarts = colonDirectiveStarts(source);
-    const lineStarts = remDirectiveStarts.size > 0 || colonStarts.size > 0 ? lineStartOffsets(source) : [];
-    const remDirectiveLines = new Set([...remDirectiveStarts].map((offset) => lineIndexOf(lineStarts, offset)));
+    const lineStarts = remStarts.size > 0 || colonStarts.size > 0 ? lineStartOffsets(source) : [];
+    const remDirectiveLines = new Set([...remStarts].map((offset) => lineIndexOf(lineStarts, offset)));
     const colonDirectiveLines = new Set([...colonStarts].map((offset) => lineIndexOf(lineStarts, offset)));
 
     const closeOne = (closerKind: BlockKind, line: number, closerWord: string): void => {

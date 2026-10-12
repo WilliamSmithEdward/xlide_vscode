@@ -36,7 +36,7 @@ import { tokenizeCached } from '../lexer/tokenize';
 import {
 	matchParenFrom,
 	colonDirectiveStarts,
-	remBlockDirectiveStarts,
+	remDirectiveStarts,
 	splitTopLevelTokenGroups,
 	tokensWithoutLeadingLineNumber,
 } from '../lexer/tokenHelpers';
@@ -538,11 +538,11 @@ class Parser {
 		stmt: LogicalStatement,
 		tokens: VbaToken[],
 	): ConditionalDirectiveNode {
-		// An #If, #ElseIf, #Else or #End If line holding a Rem is no directive
-		// to the VBE (issue #1321): it opens, continues and closes nothing.
-		// So is any directive line a statement colon follows, a #Const too,
-		// which then defines nothing even in a skipped arm (issue #1323).
-		this.remDirectiveStarts ??= remBlockDirectiveStarts(this.source);
+		// A directive line holding a Rem is no directive to the VBE (issue
+		// #1321): an #If, #ElseIf, #Else or #End If one opens, continues and
+		// closes nothing, and a #Const one defines nothing, even in a skipped
+		// arm. So is any directive line a statement colon follows (issue #1323).
+		this.remDirectiveStarts ??= remDirectiveStarts(this.source);
 		this.colonDirectiveStarts ??= colonDirectiveStarts(this.source);
 		const directiveWord = this.remDirectiveStarts.has(stmt.start) || this.colonDirectiveStarts.has(stmt.start) ? '' : tokenWord(tokens[1]);
 		const base = {
