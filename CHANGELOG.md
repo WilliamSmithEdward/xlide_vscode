@@ -2,6 +2,15 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.1.9] - 2026-10-12
+
+Pair compiler directives by the logical line they start.
+
+- Read no directive from a line that starts with a colon, `: #If True Then`,
+  and find a `Rem` or colon directive line after a bare ` _` line, when
+  pairing `#If` blocks, as the VBE does (#1331, #1336, contributed by Sam,
+  @swsammy).
+
 ## [11.1.8] - 2026-10-12
 
 Read a compiler directive only where it starts its line.
