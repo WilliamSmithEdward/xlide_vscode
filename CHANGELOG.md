@@ -2,6 +2,22 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.1.10] - 2026-10-12
+
+Read string `#If` conditions as the VBE does, and list Enums and Types in the
+module tree.
+
+- Read a string `#If` or `#ElseIf` condition as VBA converts a string to
+  True or False, so `#If "0"`, `#If "False"` and `#If 0 & 0` take the arm
+  the VBE compiles, and report a string it cannot convert (`#If "abc"`,
+  `#If Not "abc"`, `#Const A = "abc" + 1`) as the compile error Type
+  mismatch, even in a skipped arm (#1339, #1340, contributed by Sam,
+  @swsammy).
+- List a module's Enums and Types in the module tree, each with its own
+  icon, and sort a module's members as in code, by name, or by kind from
+  the new Sort Members button above the tree. A property's Get, Let and Set
+  stay together in every order (#1341).
+
 ## [11.1.9] - 2026-10-12
 
 Pair compiler directives by the logical line they start.
