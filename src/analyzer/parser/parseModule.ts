@@ -35,6 +35,7 @@ import { VbaToken } from '../lexer/tokenKinds';
 import { tokenizeCached } from '../lexer/tokenize';
 import {
 	matchParenFrom,
+	remBlockDirectiveStarts,
 	splitTopLevelTokenGroups,
 	tokensWithoutLeadingLineNumber,
 } from '../lexer/tokenHelpers';
@@ -250,6 +251,8 @@ class Parser {
 	 * `If ... Then` written in both arms opens one.
 	 */
 	private directiveChains: { depthAtIf: number; arm: number; endHeight0: number }[] = [];
+	/** The #If, #ElseIf, #Else and #End If lines holding a Rem (issue #1321), found once. */
+	private remDirectiveStarts?: ReadonlySet<number>;
 
 	constructor(
 		private readonly source: string,
@@ -532,7 +535,10 @@ class Parser {
 		stmt: LogicalStatement,
 		tokens: VbaToken[],
 	): ConditionalDirectiveNode {
-		const directiveWord = tokenWord(tokens[1]);
+		// An #If, #ElseIf, #Else or #End If line holding a Rem is no directive
+		// to the VBE (issue #1321): it opens, continues and closes nothing.
+		this.remDirectiveStarts ??= remBlockDirectiveStarts(this.source);
+		const directiveWord = this.remDirectiveStarts.has(stmt.start) ? '' : tokenWord(tokens[1]);
 		const base = {
 			kind: 'ConditionalDirective' as const,
 			span: { start: stmt.start, end: stmt.end },

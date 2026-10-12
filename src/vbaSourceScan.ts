@@ -88,7 +88,7 @@ export function stripVbaLines(lines: readonly string[]): string[] {
 function stripVbaLine(line: string): { text: string; commentStart: number } {
     // Most code lines contain nothing to blank. Avoid allocating a character
     // array and joining it again for each line in every structural scan.
-    if (!/["']|\brem\b/i.test(line)) { return { text: line, commentStart: -1 }; }
+    if (!/["']|rem\b/i.test(line)) { return { text: line, commentStart: -1 }; }
     const chars = line.split('');
     let inString = false;
     let commentStart = -1;
@@ -134,8 +134,16 @@ function stripVbaLine(line: string): { text: string; commentStart: number } {
 
 /** Where the first `Rem` that starts a comment stands in a string-blanked line, or -1. */
 function remCommentStart(line: string): number {
-    const word = /\bRem\b/gi;
+    // A digit or `_` cannot start a name, so the lexer starts `Rem` straight
+    // after one as a word of its own (`1Rem`, `_Rem`); after a letter it is
+    // the tail of a longer name (`x1Rem`), and inside `[...]` part of one.
+    const word = /Rem(?![\p{L}\p{M}0-9_])/giu;
     for (let m = word.exec(line); m; m = word.exec(line)) {
+        const head = line.slice(0, m.index);
+        const run = /[\p{L}\p{M}0-9_]*$/u.exec(head)?.[0] ?? '';
+        if (/\p{L}/u.test(run) || head.lastIndexOf('[') > head.lastIndexOf(']')) {
+            continue;
+        }
         const before = line.slice(0, m.index).replace(/[ \t]+$/, '');
         if (!/[.![]$/.test(before) && !/(^|\W)Then$/i.test(before)) {
             return m.index;
@@ -422,8 +430,9 @@ export function findIdentifierOccurrencesForNames(
 
 /** Splits source, strips each line, and joins `_` line continuations. */
 export function toLogicalLines(source: string): { stripped: string[]; logical: LogicalLine[] } {
-    const stripped = stripVbaLines(source.split(/\r\n|\r|\n/));
-    return { stripped, logical: logicalLinesFromStripped(stripped) };
+    const raw = source.split(/\r\n|\r|\n/);
+    const stripped = stripVbaLines(raw);
+    return { stripped, logical: logicalLinesFromStripped(stripped, raw) };
 }
 
 /**
@@ -432,13 +441,15 @@ export function toLogicalLines(source: string): { stripped: string[]; logical: L
  * substrate ({@link toLogicalLines}) and the analyzer-lexer substrate Smart
  * Enter sits on (src/analyzer/lexer/strippedLines.ts, audit #74).
  */
-export function logicalLinesFromStripped(stripped: string[]): LogicalLine[] {
+export function logicalLinesFromStripped(stripped: string[], raw?: readonly string[]): LogicalLine[] {
     const logical: LogicalLine[] = [];
     let i = 0;
     while (i < stripped.length) {
         let text = stripped[i];
         const startLine = i;
-        while (/\s_[ \t]*$/.test(text) && i + 1 < stripped.length) {
+        // With the raw lines, a ` _` that blanking a comment left at the end
+        // (`x = y _Rem note`) is not a continuation: the line itself must end so.
+        while (/\s_[ \t]*$/.test(text) && (!raw || /\s_[ \t]*$/.test(raw[i] ?? '')) && i + 1 < stripped.length) {
             text = text.replace(/\s_[ \t]*$/, ' ') + stripped[i + 1];
             i++;
         }

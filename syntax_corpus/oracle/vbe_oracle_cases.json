@@ -112545,6 +112545,826 @@
       "source": "Option Explicit\r\n#Const FLAG = 1\r\nFunction Main() As Variant\r\n    Main = 5\r\n#If FLAG Then\r\nEnd Function\r\n#Else\r\nEnd Function\r\n#End If\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "rem_directive_if_after_then_compile",
+      "description": "#If Win64 Then Rem note is no #If: the later #Else has no #If (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If Win64 Then Rem note\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rem_directive_if_before_then_compile",
+      "description": "#If True Rem note Then is no #If (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If True Rem note Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rem_directive_if_after_number_compile",
+      "description": "#If 1Rem note Then is no #If (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If 1Rem note Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rem_directive_if_after_underscore_compile",
+      "description": "#If True _Rem note Then is no #If (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If True _Rem note Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rem_directive_if_continued_compile",
+      "description": "#If True _ continued onto a Rem line is no #If (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If True _\r\n    Rem note Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rem_directive_endif_compile",
+      "description": "#End If Rem note closes nothing, so the #If is left open (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n    Err.Raise 1001\r\n#End If Rem note\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rem_directive_endif_joined_compile",
+      "description": "#EndIf Rem note closes nothing, so the #If is left open (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n    Err.Raise 1001\r\n#EndIf Rem note\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rem_directive_else_taken_arm_compile",
+      "description": "#Else Rem note after a taken #If True arm is compiled as a statement: Syntax error (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If True Then\r\n    Main = 1\r\n#Else Rem note\r\n    Main = 2\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rem_directive_else_lowercase_compile",
+      "description": "#Else rem note after a taken arm: Syntax error, whatever the case of Rem (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If True Then\r\n    Main = 1\r\n#Else rem note\r\n    Main = 2\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rem_directive_else_module_level_compile",
+      "description": "#Else Rem note after a taken arm at module level is refused (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#If True Then\r\nPrivate x As Long\r\n#Else Rem note\r\nPrivate y As Long\r\n#End If\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rem_directive_if_module_level_compile",
+      "description": "#If Win64 Then Rem note at module level is no #If (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#If Win64 Then Rem note\r\nPrivate x As Long\r\n#End If\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rem_directive_if_in_skipped_arm_compile",
+      "description": "#If True Rem note Then inside a skipped #If False arm still opens no #If, so the outer #End If is unmatched (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n#If True Rem note Then\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rem_directive_endif_in_skipped_arm_compile",
+      "description": "#End If Rem note inside a skipped arm still closes nothing (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n#If True Then\r\n#End If Rem note\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rem_directive_else_skipped_arm_compile",
+      "description": "#Else Rem note inside an #If False chain is skipped with the arm, so the module compiles (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n    Main = 1\r\n#Else Rem note\r\n    Err.Raise 1001\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "rem_directive_elseif_skipped_arm_compile",
+      "description": "#ElseIf True Rem note Then inside an #If False chain is skipped with the arm (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n    Main = 1\r\n#ElseIf True Rem note Then\r\n    Err.Raise 1001\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "rem_directive_apostrophe_control_compile",
+      "description": "control: #If Win64 Then ' note compiles (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If Win64 Then ' note\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "rem_directive_remark_control_compile",
+      "description": "control: #If Remark Then, a name that starts with Rem, compiles (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "#Const Remark = 1\r\nFunction Main() As Variant\r\n#If Remark Then\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "rem_directive_const_after_value_compile",
+      "description": "#Const A = True Rem note: Expected: end of statement (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const A = True Rem note\r\nFunction Main() As Variant\r\n#If A Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rem_directive_const_continued_compile",
+      "description": "#Const A = True _ continued onto a Rem line: Expected: end of statement (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const A = True _\r\n    Rem note\r\nFunction Main() As Variant\r\n#If A Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rem_directive_const_value_compile",
+      "description": "#Const A = Rem note: Expected: expression (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const A = Rem note\r\nFunction Main() As Variant\r\n#If A Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rem_directive_const_name_compile",
+      "description": "#Const Rem = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const Rem = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rem_directive_const_skipped_arm_compile",
+      "description": "#Const A = True Rem note inside a skipped arm compiles (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n#Const A = True Rem note\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "rem_directive_const_string_control_compile",
+      "description": "control: #Const A = \"Rem\" compiles (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "#Const A = \"Rem\"\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "rem_directive_const_bracketed_name_compile",
+      "description": "control: #Const [Rem] = 1 compiles (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "#Const [Rem] = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "rem_directive_const_bracketed_value_compile",
+      "description": "control: #Const A = [Rem] compiles (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "#Const A = [Rem]\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "const_reserved_name_empty_compile",
+      "description": "#Const Empty = 1, never used: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const Empty = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_null_compile",
+      "description": "#Const Null = 1, never used: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const Null = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_nothing_compile",
+      "description": "#Const Nothing = 1, never used: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const Nothing = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_true_compile",
+      "description": "#Const True = 1, never used: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const True = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_false_compile",
+      "description": "#Const False = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const False = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_if_compile",
+      "description": "#Const If = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const If = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_then_compile",
+      "description": "#Const Then = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const Then = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_else_compile",
+      "description": "#Const Else = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const Else = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_end_compile",
+      "description": "#Const End = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const End = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_dim_compile",
+      "description": "#Const Dim = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const Dim = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_not_compile",
+      "description": "#Const Not = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const Not = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_and_compile",
+      "description": "#Const And = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const And = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_mod_compile",
+      "description": "#Const Mod = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const Mod = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_is_compile",
+      "description": "#Const Is = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const Is = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_like_compile",
+      "description": "#Const Like = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const Like = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_new_compile",
+      "description": "#Const New = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const New = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_me_compile",
+      "description": "#Const Me = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const Me = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_string_compile",
+      "description": "#Const String = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const String = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_integer_compile",
+      "description": "#Const Integer = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const Integer = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_debug_compile",
+      "description": "#Const Debug = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const Debug = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_print_compile",
+      "description": "#Const Print = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const Print = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_option_compile",
+      "description": "#Const Option = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const Option = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_sub_compile",
+      "description": "#Const Sub = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const Sub = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_date_compile",
+      "description": "#Const Date = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const Date = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_unreserved_name_win64_compile",
+      "description": "control: #Const Win64 = 1 compiles (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "#Const Win64 = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "const_unreserved_name_vba7_compile",
+      "description": "control: #Const VBA7 = 1 compiles (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "#Const VBA7 = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "const_unreserved_name_error_compile",
+      "description": "control: #Const Error = 1 compiles (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "#Const Error = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "const_unreserved_name_remark_compile",
+      "description": "control: #Const Remark = 1 compiles (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "#Const Remark = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "const_unreserved_name_rem2_compile",
+      "description": "control: #Const Rem2 = 1 compiles (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "#Const Rem2 = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "const_reserved_name_skipped_arm_empty_compile",
+      "description": "#Const Empty = 1 inside a skipped arm compiles (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "#If False Then\r\n#Const Empty = 1\r\n#End If\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "const_reserved_name_skipped_arm_if_compile",
+      "description": "#Const If = 1 inside a skipped arm compiles (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "#If False Then\r\n#Const If = 1\r\n#End If\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "const_reserved_name_long_compile",
+      "description": "#Const Long = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const Long = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_longlong_compile",
+      "description": "#Const LongLong = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const LongLong = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_longptr_compile",
+      "description": "#Const LongPtr = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const LongPtr = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_decimal_compile",
+      "description": "#Const Decimal = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const Decimal = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_currency_compile",
+      "description": "#Const Currency = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const Currency = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_variant_compile",
+      "description": "#Const Variant = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const Variant = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_boolean_compile",
+      "description": "#Const Boolean = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const Boolean = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_byte_compile",
+      "description": "#Const Byte = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const Byte = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_input_compile",
+      "description": "#Const Input = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const Input = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_open_compile",
+      "description": "#Const Open = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const Open = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_get_compile",
+      "description": "#Const Get = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const Get = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_set_compile",
+      "description": "#Const Set = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const Set = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_let_compile",
+      "description": "#Const Let = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const Let = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_len_compile",
+      "description": "#Const Len = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const Len = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_to_compile",
+      "description": "#Const To = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const To = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_any_compile",
+      "description": "#Const Any = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const Any = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_shared_compile",
+      "description": "#Const Shared = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const Shared = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_reserved_name_static_compile",
+      "description": "#Const Static = 1: Expected: identifier (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const Static = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_unreserved_name_object_compile",
+      "description": "control: #Const Object = 1 compiles (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "#Const Object = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "const_unreserved_name_mid_compile",
+      "description": "control: #Const Mid = 1 compiles (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "#Const Mid = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "const_unreserved_name_property_compile",
+      "description": "control: #Const Property = 1 compiles (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "#Const Property = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "const_unreserved_name_step_compile",
+      "description": "control: #Const Step = 1 compiles (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "#Const Step = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "const_unreserved_name_lib_compile",
+      "description": "control: #Const Lib = 1 compiles (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "#Const Lib = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "const_unreserved_name_alias_compile",
+      "description": "control: #Const Alias = 1 compiles (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "#Const Alias = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "const_unreserved_name_binary_compile",
+      "description": "control: #Const Binary = 1 compiles (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "#Const Binary = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "const_unreserved_name_text_compile",
+      "description": "control: #Const Text = 1 compiles (issue #1321).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "#Const Text = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
     }
   ]
 }
