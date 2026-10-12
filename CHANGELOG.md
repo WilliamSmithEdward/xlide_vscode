@@ -2,6 +2,17 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.1.12] - 2026-10-12
+
+Let a module `#Const` replace a built-in when its value reads an unknown
+name.
+
+- Read `#If Win64` after `#Const Win64 = UNDEFINED_X` as depending on the
+  project's arguments, not as the built-in Win64, so the Outline and the
+  analysis keep its `#Else` arm, which Excel compiles. The same holds for
+  `VBA7` and any other built-in (#1347, #1348, contributed by Sam,
+  @swsammy).
+
 ## [11.1.11] - 2026-10-12
 
 Keep a module folded in the tree when the cursor is in it.
