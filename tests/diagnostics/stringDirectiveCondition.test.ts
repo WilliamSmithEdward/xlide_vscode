@@ -118,7 +118,7 @@ describe('directive-type-mismatch', () => {
 		expect(mismatches(`#If False Then\n#Const A = "abc" + 1\n#End If\n${fn()}`)).toHaveLength(1);
 	});
 
-	it('flags a skipped arm and an #ElseIf after a taken arm, unlike Null', () => {
+	it('flags a skipped arm and an #ElseIf after a taken arm', () => {
 		for (const condition of ['"abc"', 'Not "abc"', '"a" & "b"', 'UNDEFINED_X - "abc"']) {
 			const src = fn('#If False Then', `#If ${condition} Then`, '#End If', '#End If');
 			expectDiagnostic(src, analyzeModule(src, OPTIONS), 'directive-type-mismatch', {
@@ -127,9 +127,9 @@ describe('directive-type-mismatch', () => {
 		}
 		expect(mismatches(`#Const S = "x"\n${fn('#If False Then', '#If S Then', '#End If', '#End If')}`)).toHaveLength(1);
 		expect(mismatches(fn('#If True Then', '#ElseIf "abc" Then', '#End If'))).toHaveLength(1);
-		// Null stays limited to lines the VBE evaluates (issue #208).
+		// So is a Null condition (issue #1351).
 		const nulls = byCode(analyzeModule(fn('#If False Then', '#If Null Then', '#End If', '#End If'), OPTIONS), 'null-directive-condition');
-		expect(nulls).toHaveLength(0);
+		expect(nulls).toHaveLength(1);
 	});
 
 	it('stays quiet for strings and operators the VBE converts', () => {

@@ -8,12 +8,15 @@
 //    be preceded by an # If clause" (the colon ends the directive, and what
 //    follows is no longer part of it).
 //  - null-directive-condition: `#If Null Then`, `#If Null = 1 Then`, or `#If N`
-//    after `#Const N = Null` -> "Invalid use of Null" (issue #208).
+//    after `#Const N = Null` -> "Invalid use of Null" (issue #208), also in an
+//    arm the VBE skips and after a taken arm (issue #1351).
 //  - directive-type-mismatch: a condition that is a string VBA cannot read as
 //    True or False (`#If "abc"`, `#If ""`, `#If " True "`), or that hands such
 //    a string to an operator (`#If Not "abc"`, `#If "abc" = 1`) -> "Type
 //    mismatch", even in an arm the VBE skips (Excel 16.0, 2026-10-12); and a
 //    `#Const` value that does the same (`#Const A = "abc" + 1`), even unread.
+//  - nothing-directive-condition: `#If Nothing Then`, `#If Not Nothing Then`
+//    -> "Invalid use of object" (issue #1351), wherever the line is.
 
 import type { ConditionalDirectiveNode, ModuleNode, BodyNode } from '../../parser/nodes';
 import {
@@ -115,6 +118,12 @@ export function checkDirectiveForms(
 			push(
 				'nullDirectiveCondition',
 				`This #${directive.directiveKind} condition is Null, which is neither True nor False. This is a VBE compile error: Invalid use of Null.`,
+				directive.span,
+			);
+		} else if (item.reason === 'nothing') {
+			push(
+				'nothingDirectiveCondition',
+				`This #${directive.directiveKind} condition uses the literal Nothing where VBA requires True or False. This is a VBE compile error: Invalid use of object.`,
 				directive.span,
 			);
 		} else {

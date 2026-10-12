@@ -843,6 +843,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 3.4 conditional compilation; VBE "Type mismatch" (issue #1339, Excel 16.0)',
 		confidence: 'high',
 	},
+	nothingDirectiveCondition: {
+		code: 'nothing-directive-condition',
+		title: '#If condition is Nothing',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 3.4 conditional compilation; VBE "Invalid use of object" (issue #1351, Excel 16.0)',
+		confidence: 'high',
+	},
 	directiveTrailingStatement: {
 		code: 'directive-trailing-statement',
 		title: 'Code after a compiler directive on its line',
