@@ -2,9 +2,9 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { ProjectEngine } from './projectEngine';
 import { moduleIdentityKey, projectIdentityKey } from './xlideFileSystem';
-import { compareVbaModulesForTreeOrder, moduleThemeIconName } from './moduleDisplay';
+import { compareVbaModulesForTreeOrder, memberThemeIconName, moduleThemeIconName, orderModuleMembers } from './moduleDisplay';
 import { buildFolderTree, folderPathChain, type FolderTree, type FolderTreeFolder } from './folderTree';
-import type { XlideExplorerView } from './globalSettings';
+import type { XlideExplorerMemberSort, XlideExplorerView } from './globalSettings';
 import { canAddVbaProjectTo, containerAppNameForPath, containerContextValue, isVb6ProjectPath } from './macroContainerUi';
 import { findMacroContainerFiles } from './macroContainerDiscovery';
 import { hasPendingAgentReview, pendingAgentReviewModules } from './xlideAgentDiff';
@@ -43,7 +43,7 @@ export interface XlideNode {
      * project): opening the node opens this file, not a virtual document.
      */
     moduleFilePath?: string;
-    /** 1-based line number of the procedure (for 'sub' nodes). */
+    /** 1-based line number of the procedure, Enum or Type (for 'sub' nodes). */
     line?: number;
     /**
      * sub only: which of the module's rows with this label it is, from 0.
@@ -146,6 +146,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     // Folder layout. The tree is derived from the module list, so it is cached
     // beside it and thrown away by the same refresh().
     private _view: XlideExplorerView = 'tree';
+    private _memberSort: XlideExplorerMemberSort = 'code';
     private _folderNodes = new Map<string, XlideNode>(); // key: folderNodeKey
     private _folderRenderVersions = new Map<string, number>();
     private _folderTrees = new Map<string, {
@@ -220,6 +221,18 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     setView(view: XlideExplorerView): void {
         if (this._view === view) { return; }
         this._view = view;
+        this.refresh();
+    }
+
+    /** The order a module's members are listed in (issue #1341). */
+    get memberSort(): XlideExplorerMemberSort {
+        return this._memberSort;
+    }
+
+    /** Switch the member order, rebuilding the tree as a layout switch does. */
+    setMemberSort(sort: XlideExplorerMemberSort): void {
+        if (this._memberSort === sort) { return; }
+        this._memberSort = sort;
         this.refresh();
     }
 
@@ -923,7 +936,8 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                 break;
 
             case 'sub':
-                item.iconPath = new vscode.ThemeIcon('symbol-method');
+                // The row of an Enum or Type, too (issue #1341), named for it.
+                item.iconPath = new vscode.ThemeIcon(memberThemeIconName(node.label));
                 item.contextValue = 'sub';
                 item.command = {
                     command: 'xlide.openModule',
@@ -1458,7 +1472,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                 if (!load) {
                     load = this._bridge.call<Array<{ name: string; kind: string; line: number }>>(
                         'listSubs',
-                        { path: filePath, module: moduleName },
+                        { path: filePath, module: moduleName, members: true },
                     );
                     this._subsListLoads.set(cacheKey, load);
                     load.then(
@@ -1526,7 +1540,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         moduleType: string | undefined,
     ): XlideNode[] {
         const seen = new Map<string, number>();
-        const nodes: XlideNode[] = subs.map((s) => {
+        const nodes: XlideNode[] = orderModuleMembers(subs, this._memberSort).map((s) => {
             const label = `${s.kind} ${s.name}`;
             const occurrence = seen.get(label) ?? 0;
             seen.set(label, occurrence + 1);

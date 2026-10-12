@@ -14,6 +14,7 @@ import {
 	attributeValue,
 	blankDesignerHeader,
 	joinVbaSource,
+	listModuleMembers,
 	listProcedures,
 	splitVbaSource,
 	type ProcedureEntry,
@@ -319,12 +320,16 @@ export function readVb6Modules(vbpPath: string, full = false): Vb6ModuleEntry[] 
 	return out;
 }
 
-/** The procedures of one module, at the lines they hold in the file. */
-export function listVb6Procedures(vbpPath: string, moduleName: string): ProcedureEntry[] {
+/**
+ * The procedures of one module, and with `members` its Enums and Types, at
+ * the lines they hold in the file.
+ */
+export function listVb6Procedures(vbpPath: string, moduleName: string, members = false): ProcedureEntry[] {
 	const project = openVb6Project(vbpPath);
 	const entry = findModule(project, moduleName);
 	const { file } = readModuleFile(project, entry);
-	return listProcedures(blankDesignerHeader(file.text));
+	const text = blankDesignerHeader(file.text);
+	return members ? listModuleMembers(text) : listProcedures(text);
 }
 
 /**

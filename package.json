@@ -255,6 +255,17 @@
           "default": "tree",
           "description": "How the XLIDE explorer arranges a project's modules. Tree lists them flat. Folders groups them by the '@Folder(\"Name.Sub\")' comment in each module's declarations, the Rubberduck convention. The Tree and Folders buttons above the explorer switch it too."
         },
+        "xlide.explorer.memberSort": {
+          "type": "string",
+          "enum": [
+            "code",
+            "name",
+            "kind"
+          ],
+          "scope": "machine",
+          "default": "code",
+          "description": "The order the XLIDE explorer lists a module's members in. Code keeps the order they are written in. Name sorts them by name. Kind lists Enums, Types, Subs, Functions, then Properties, each by name. A property's Get, Let and Set stay together in every order. The Sort Members button above the explorer switches it too."
+        },
         "xlide.vb6.codePage": {
           "type": "string",
           "pattern": "^\\d*$",
@@ -605,6 +616,12 @@
         "icon": "$(list-flat)"
       },
       {
+        "command": "xlide.explorer.sortMembers",
+        "title": "Sort Members...",
+        "category": "XLIDE",
+        "icon": "$(list-ordered)"
+      },
+      {
         "command": "xlide.refactor.extractMethod",
         "title": "Extract Method",
         "category": "XLIDE"
@@ -738,6 +755,11 @@
         {
           "command": "xlide.explorer.showFolders",
           "when": "view == xlide.explorer && xlide.explorerView != 'folders'",
+          "group": "navigation@0"
+        },
+        {
+          "command": "xlide.explorer.sortMembers",
+          "when": "view == xlide.explorer",
           "group": "navigation@0"
         },
         {

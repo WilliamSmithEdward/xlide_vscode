@@ -37,9 +37,11 @@ import { registerXlideGlobalSettingsWebview } from './globalSettingsWebview';
 import {
     setXlideGlobalSettingValue,
     xlideExplorerAutoExpandCollapseFromConfig,
+    xlideExplorerMemberSortFromConfig,
     xlideExplorerViewFromConfig,
     xlideVb6CodePageFromConfig,
     xlidePerformanceTraceFromConfig,
+    type XlideExplorerMemberSort,
     type XlideExplorerView,
 } from './globalSettings';
 import { createExplorerViewSetter } from './explorerViewToggle';
@@ -175,6 +177,10 @@ export function activate(context: vscode.ExtensionContext): void {
         void vscode.commands.executeCommand('setContext', 'xlide.explorerView', next);
     };
     applyExplorerView();
+    const applyExplorerMemberSort = (): void => {
+        explorer.setMemberSort(xlideExplorerMemberSortFromConfig(vscode.workspace.getConfiguration('xlide')).value);
+    };
+    applyExplorerMemberSort();
 
     // The code page VB6 files are read and written in (issue #205): the
     // setting when it names one, else the machine's own.
@@ -308,9 +314,32 @@ export function activate(context: vscode.ExtensionContext): void {
         // second piece of state that could disagree with it.
         registerXlideCommand('xlide.explorer.showTree', () => setExplorerView('tree')),
         registerXlideCommand('xlide.explorer.showFolders', () => setExplorerView('folders')),
+        // The member order, picked from a list and kept in the setting.
+        registerXlideCommand('xlide.explorer.sortMembers', async () => {
+            const current = explorer.memberSort;
+            const choices: Array<vscode.QuickPickItem & { sort: XlideExplorerMemberSort }> = [
+                { sort: 'code', label: 'As in Code', description: 'the order they are written in' },
+                { sort: 'name', label: 'By Name' },
+                { sort: 'kind', label: 'By Kind', description: 'Enums, Types, Subs, Functions, then Properties' },
+            ];
+            for (const choice of choices) {
+                if (choice.sort === current) { choice.label = `$(check) ${choice.label}`; }
+            }
+            const picked = await vscode.window.showQuickPick(choices, { placeHolder: 'Sort module members' });
+            if (!picked || picked.sort === current) { return; }
+            explorer.setMemberSort(picked.sort);
+            try {
+                await setXlideGlobalSettingValue(vscode.workspace.getConfiguration('xlide'), 'explorer.memberSort', picked.sort);
+            } catch (err) {
+                out.appendLine(`Explorer member order set to ${picked.sort} for this window only: ${errorMessage(err)}`);
+            }
+        }),
         vscode.workspace.onDidChangeConfiguration((e) => {
             if (e.affectsConfiguration('xlide.explorer.view')) {
                 applyExplorerView();
+            }
+            if (e.affectsConfiguration('xlide.explorer.memberSort')) {
+                applyExplorerMemberSort();
             }
         }),
 

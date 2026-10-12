@@ -512,6 +512,33 @@ describe('ProjectExplorer', () => {
         expect(vscodeMock.treeEvents).toContainEqual({ filePath: project.filePath, moduleName: 'Module1' });
     });
 
+    it('lists a module\'s Enums and Types with their own icons, in the member order picked (#1341)', async () => {
+        const bridge = fakeBridge(
+            [{ name: 'Module1', type: 'standard' }],
+            [
+                { name: 'Run', kind: 'Sub', line: 1 },
+                { name: 'Colors', kind: 'Enum', line: 4 },
+                { name: 'Point', kind: 'Type', line: 8 },
+            ],
+        );
+        const explorer = new ProjectExplorer(bridge);
+        const rows = async () => {
+            const [project] = await explorer.getChildren();
+            const [module] = await explorer.getChildren(project);
+            return (await explorer.getChildren(module)).map((row) => explorer.getTreeItem(row));
+        };
+
+        const asWritten = await rows();
+        expect(asWritten.map((item) => item.label)).toEqual(['Sub Run', 'Enum Colors', 'Type Point']);
+        expect(asWritten.map((item) => (item.iconPath as { id: string }).id))
+            .toEqual(['symbol-method', 'symbol-enum', 'symbol-struct']);
+        expect(vi.mocked(bridge.call).mock.calls.find(([method]) => method === 'listSubs')?.[1])
+            .toMatchObject({ members: true });
+
+        explorer.setMemberSort('kind');
+        expect((await rows()).map((item) => item.label)).toEqual(['Enum Colors', 'Type Point', 'Sub Run']);
+    });
+
     it('keeps two procedures of one label apart while a duplicate is being edited', async () => {
         const explorer = new ProjectExplorer(fakeBridge(
             [{ name: 'Module1', type: 'standard' }],
