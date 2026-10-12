@@ -39,7 +39,7 @@
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import { tokenizeCached } from '../../lexer/tokenize';
 import { isReservedIdentifier } from '../../lexer/keywordTable';
-import { directiveRem, firstTokenAtOrAfter, remDirectiveStarts } from '../../lexer/tokenHelpers';
+import { colonDirectiveStarts, directiveRem, firstTokenAtOrAfter, misplacedDirectiveStarts, remDirectiveStarts } from '../../lexer/tokenHelpers';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type { EnumNode, ModuleNode, ProcedureNode, Span, VariableGroupNode } from '../../parser/nodes';
 import type { PushFn } from '../analysisContext';
@@ -91,10 +91,21 @@ export function checkMalformedLines(
 	const inEnum = (offset: number): boolean => insideMember(enums, offset);
 	const active = (span: Span): boolean => !activity?.isInactive(span);
 	const toks = tokenizeCached(source);
+	const misplaced = misplacedDirectiveStarts(source);
+	const colonLines = misplaced.size > 0 ? colonDirectiveStarts(source) : misplaced;
 
 	for (let i = 0; i < toks.length; i++) {
 		const tok = toks[i];
 		const span = { start: tok.start, end: tok.end };
+		if (misplaced.has(tok.start)) {
+			// After a directive's colon the line is directive-trailing-statement's.
+			if (active(span) && !colonLines.has(logicalLineStart(toks, i))) {
+				const where = tok.kind === 'operator' ? 'a line number' : "a ':'";
+				const error = place(tok.start) === 'top' ? 'Expected: line number or label or statement or end of statement' : 'Syntax error';
+				push('malformedStatement', `A compiler directive must start its line: after ${where} the VBE reads no #${toks[i + 1].rawText} here, so it opens, divides, closes and defines nothing. This is a VBE compile error: ${error}.`, { start: tok.start, end: toks[i + 1].end });
+			}
+			continue;
+		}
 		if (tok.kind === 'directive' && active(span)) {
 			const word = toks[i + 1] && toks[i + 1].kind !== 'newline' ? toks[i + 1] : undefined;
 			if (!word || !DIRECTIVE_WORDS.has(tokenText(word))) {
@@ -586,4 +597,13 @@ function checkConstName(toks: readonly VbaToken[], hash: number, push: PushFn): 
 	}
 	push('malformedStatement', `'${name.rawText}' is a reserved word, so it cannot name a #Const. This is a VBE compile error: Expected: identifier.`, { start: name.start, end: name.end });
 	return true;
+}
+
+/** The start of the first token of the logical line holding `tokens[i]`: a continuation leaves no newline. */
+function logicalLineStart(tokens: readonly VbaToken[], i: number): number {
+	let first = i;
+	while (first > 0 && tokens[first - 1].kind !== 'newline') {
+		first--;
+	}
+	return tokens[first].start;
 }

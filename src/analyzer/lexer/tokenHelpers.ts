@@ -461,3 +461,41 @@ export function colonDirectiveStarts(source: string): ReadonlySet<number> {
 	}
 	return starts;
 }
+
+const misplacedDirectiveStartsByTokens = new WeakMap<readonly VbaToken[], ReadonlySet<number>>();
+
+/**
+ * The start offsets of the `#` of every #If, #ElseIf, #Else, #End If or
+ * #Const that does not start its logical line: after a statement's or a
+ * label's colon, another directive's colon, or a line number. The VBE reads
+ * a directive only where it starts its logical line, after nothing but blanks
+ * and line continuations; elsewhere it opens, divides, closes and defines
+ * nothing, and is an error where it is compiled (issue #1331, measured in
+ * Excel 16.0). The lexer makes a directive token after a colon, and an
+ * operator after a line number; both are listed.
+ */
+export function misplacedDirectiveStarts(source: string): ReadonlySet<number> {
+	if (!source.includes('#')) {
+		return NO_STARTS;
+	}
+	const tokens = tokenizeCached(source);
+	const cached = misplacedDirectiveStartsByTokens.get(tokens);
+	if (cached) {
+		return cached;
+	}
+	const starts = new Set<number>();
+	misplacedDirectiveStartsByTokens.set(tokens, starts);
+	for (let i = 1; i < tokens.length; i++) {
+		const tok = tokens[i];
+		if (tok.rawText !== '#' || !DIRECTIVE_WORDS.has(tokenWord(tokens[i + 1]))) {
+			continue;
+		}
+		const afterColon = tok.kind === 'directive' && tokens[i - 1].kind !== 'newline';
+		const afterLineNumber = tok.kind === 'operator' && isDecimalLineNumber(tokens[i - 1])
+			&& (i === 1 || tokens[i - 2].kind === 'newline');
+		if (afterColon || afterLineNumber) {
+			starts.add(tok.start);
+		}
+	}
+	return starts;
+}
