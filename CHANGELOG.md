@@ -2,6 +2,15 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.1.8] - 2026-10-12
+
+Read a compiler directive only where it starts its line.
+
+- Treat a `#If`, `#ElseIf`, `#Else`, `#End If` or `#Const` after a
+  statement's or a label's colon, another directive's colon, or a line
+  number as no directive, as the VBE does: it chooses no arm, defines no
+  constant, and is reported where it is compiled (#1331, #1332).
+
 ## [11.1.7] - 2026-10-12
 
 Open password-protected files in Office without the password.
