@@ -2,6 +2,21 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.1.6] - 2026-10-11
+
+Read conditional compilation as the VBE does.
+
+- Seed live diagnostics and Analyze Project with the project's conditional
+  compilation arguments, so `#If MY_FLAG Then` takes the arm the workbook
+  compiles (#1319, #1320, contributed by Sam, @swsammy).
+- Treat an `#If`, `#ElseIf`, `#Else` or `#End If` line holding `Rem` as no
+  directive, as the VBE does, and report it where it is compiled. Report a
+  reserved word as a `#Const` name, including the attribute names (#1321,
+  #1322 contributed by Sam, @swsammy, and #1324).
+- Treat a directive line a colon follows, such as `#If True Then:` or
+  `#Else: ' note`, as no directive: it chooses no arm and defines no
+  constant, and is reported where it is compiled (#1323, #1325).
+
 ## [11.1.5] - 2026-10-11
 
 Correct block closers written in each arm of an `#If`.
