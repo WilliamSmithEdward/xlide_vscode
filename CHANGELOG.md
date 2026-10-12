@@ -2,6 +2,18 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.1.13] - 2026-10-12
+
+Report Null and Nothing `#If` conditions wherever Excel refuses them.
+
+- Report a Null `#If` or `#ElseIf` condition in an arm the VBE skips and
+  after a taken arm, as Excel does, not only where the line is compiled; a
+  Null that `Or True` or `And False` decides is still allowed.
+- Report a condition that is the literal `Nothing`, or `Not Nothing`, as
+  the compile error Invalid use of object, with the new rule
+  `nothing-directive-condition`. A constant set to Nothing is not reported
+  (#1351, #1352, contributed by Sam, @swsammy).
+
 ## [11.1.12] - 2026-10-12
 
 Let a module `#Const` replace a built-in when its value reads an unknown
