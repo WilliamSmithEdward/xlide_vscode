@@ -16,6 +16,14 @@ describe('duplicate-const-directive and directive-trailing-statement (issue #130
 		expectDiagnostic(src, analyzeModule(src), 'directive-trailing-statement', { span: 'Debug.Print 1', message: 'whole line' });
 	});
 
+	it('flags a second #Const of one name in the other arm of #If True and of #If False', () => {
+		// Excel 16.0: "Duplicate definition" for both (issue #1347).
+		for (const condition of ['True', 'False']) {
+			const src = `#If ${condition} Then\n#Const A = 1\n#Else\n#Const A = 2\n#End If\nFunction Main() As Variant\n    Main = 1\nEnd Function\n`;
+			expect(byCode(analyzeModule(src), 'duplicate-const-directive'), condition).toHaveLength(1);
+		}
+	});
+
 	it('stays quiet for one #Const, a directive with a trailing comment and ordinary #If arms', () => {
 		const src = "Option Explicit\n#Const FEATURE = 1\nFunction Main() As Variant\n#If FEATURE Then ' the feature\n    Main = 1\n#Else\n    Main = 2\n#End If\nEnd Function\n";
 		expect(byCode(analyzeModule(src), 'duplicate-const-directive')).toHaveLength(0);

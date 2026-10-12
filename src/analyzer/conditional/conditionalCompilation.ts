@@ -199,8 +199,9 @@ interface ConditionalActivityEvent {
 }
 
 /** The environment's `#Const` values keyed by lower-cased name, the way lookups spell them. */
-function projectConstantsOf(env: ConditionalCompilationEnvironment): Map<string, ConditionalValue> {
-	const out = new Map<string, ConditionalValue>();
+function projectConstantsOf(env: ConditionalCompilationEnvironment): Map<string, ConditionalValue | undefined> {
+	// An entry with no value is a #Const left unknown (applyConditionalDirective).
+	const out = new Map<string, ConditionalValue | undefined>();
 	for (const [name, value] of Object.entries(env.projectConstants ?? {})) {
 		out.set(name.toLowerCase(), value);
 	}
@@ -437,7 +438,7 @@ export function invalidConditionDirectives(
 		}
 	}
 	const read = createConditionalExpressionReader(effectiveEnv, projectConstants, undefined, hostStrings);
-	const evaluate: ConditionalExpressionEvaluator = (expression) => read(expression).value;
+	const evaluate = evaluatorOf(read);
 	const stack: ConditionalFrame[] = [];
 	let current: ConditionalActivity = 'active';
 	const out: InvalidConditionDirective[] = [];
@@ -500,7 +501,7 @@ export function nullConditionDirectives(
 function applyConditionalDirective(
 	directive: ConditionalDirectiveNode,
 	evaluate: ConditionalExpressionEvaluator,
-	projectConstants: Map<string, ConditionalValue>,
+	projectConstants: Map<string, ConditionalValue | undefined>,
 	stack: ConditionalFrame[],
 	current: ConditionalActivity,
 ): ConditionalActivity {
@@ -512,6 +513,12 @@ function applyConditionalDirective(
 				const value = evaluate(directive.valueRaw);
 				if (value !== undefined) {
 					projectConstants.set(directive.name.toLowerCase(), value);
+				} else if (evaluate.readsUnknownName(directive.valueRaw)) {
+					// The value reads a name with no value, so it is unknown,
+					// not the name's earlier value: a built-in's default is
+					// shadowed too (`#Const Win64 = UNDEFINED_X` is 0 in Excel
+					// 16.0 when the project leaves UNDEFINED_X undefined).
+					projectConstants.set(directive.name.toLowerCase(), undefined);
 				}
 			}
 			return current;
@@ -652,7 +659,18 @@ function conditionActivity(
 	return holds ? 'active' : 'inactive';
 }
 
-type ConditionalExpressionEvaluator = (expression: string | undefined) => ConditionalValue | undefined;
+interface ConditionalExpressionEvaluator {
+	(expression: string | undefined): ConditionalValue | undefined;
+	/**
+	 * Whether the expression is well formed and reads an ordinary identifier
+	 * with no value: one nothing defines, when the project's arguments are not
+	 * known, or one a failed `#Const` left unknown. Keywords and bracketed
+	 * identifiers do not count.
+	 */
+	readsUnknownName(expression: string | undefined): boolean;
+}
+
+type ConditionalExpressionReader = (expression: string | undefined) => ConditionalReading;
 
 /**
  * An expression's value, and the string it could not convert, if any: one an
@@ -663,6 +681,8 @@ interface ConditionalReading {
 	value: ConditionalValue | undefined;
 	mismatch?: StringMismatch;
 	operatorMismatch?: StringMismatch;
+	/** The expression is well formed and read a name with no value. */
+	unknownName?: true;
 }
 
 /** What a string was needed as: True or False, a number, or a date. */
@@ -676,19 +696,24 @@ export interface StringMismatch {
 
 function createConditionalExpressionEvaluator(
 	env: ConditionalCompilationEnvironment,
-	projectConstants: ReadonlyMap<string, ConditionalValue>,
+	projectConstants: ReadonlyMap<string, ConditionalValue | undefined>,
 	undefinedIsZero = env.projectConstants !== undefined,
 ): ConditionalExpressionEvaluator {
-	const read = createConditionalExpressionReader(env, projectConstants, undefinedIsZero);
-	return (expression) => read(expression).value;
+	return evaluatorOf(createConditionalExpressionReader(env, projectConstants, undefinedIsZero));
+}
+
+function evaluatorOf(read: ConditionalExpressionReader): ConditionalExpressionEvaluator {
+	return Object.assign((expression: string | undefined) => read(expression).value, {
+		readsUnknownName: (expression: string | undefined) => read(expression).unknownName === true,
+	});
 }
 
 function createConditionalExpressionReader(
 	env: ConditionalCompilationEnvironment,
-	projectConstants: ReadonlyMap<string, ConditionalValue>,
+	projectConstants: ReadonlyMap<string, ConditionalValue | undefined>,
 	undefinedIsZero = env.projectConstants !== undefined,
 	hostStrings?: ReadonlySet<string>,
-): (expression: string | undefined) => ConditionalReading {
+): ConditionalExpressionReader {
 	// Compiler values stay fixed during a replay; module #Const values evolve.
 	// Keep the lookup query-local and lazy for replays with no expressions.
 	let compilerConstants: ReadonlyMap<string, ConditionalValue> | undefined;
@@ -824,6 +849,8 @@ class ConditionalExpressionParser {
 	 * depends on it.
 	 */
 	private broken = false;
+	/** An identifier with no value was read. */
+	private readUnknownName = false;
 
 	constructor(
 		private readonly tokens: readonly VbaToken[],
@@ -853,23 +880,28 @@ class ConditionalExpressionParser {
 	/**
 	 * The value, and the string the expression could not convert, if any. An
 	 * expression the parser cannot read, missing a value or a `)` or with
-	 * tokens left over, reports no mismatch.
+	 * tokens left over, reports no mismatch, and no name with no value.
 	 */
 	read(): ConditionalReading {
 		const value = this.parseLogical(0);
 		if (this.index < this.tokens.length) {
 			return { value: undefined };
 		}
-		if (this.broken || this.hostString) {
+		if (this.broken) {
 			// The value is as `parse` gives it; only the mismatch is withheld.
 			return { value };
+		}
+		const unknownName = this.readUnknownName ? { unknownName: true as const } : {};
+		if (this.hostString) {
+			// A host string's reading was not measured: the mismatch is withheld.
+			return { value, ...unknownName };
 		}
 		const operatorMismatch = this.mismatch;
 		const mismatch = operatorMismatch
 			?? (typeof value === 'string' && isInvalidBooleanString(value)
 				? { value, as: 'boolean' as const } : undefined);
 		return { value, ...(mismatch === undefined ? {} : { mismatch }),
-			...(operatorMismatch === undefined ? {} : { operatorMismatch }) };
+			...(operatorMismatch === undefined ? {} : { operatorMismatch }), ...unknownName };
 	}
 
 	/** Imp, Eqv, Xor, Or, And, loosest first; each level is left-associative. */
@@ -1128,6 +1160,9 @@ class ConditionalExpressionParser {
 		}
 		if (value === undefined && this.undefinedIsZero && token.kind === 'identifier') {
 			return 0;
+		}
+		if (value === undefined && token.kind === 'identifier') {
+			this.readUnknownName = true;
 		}
 		return value;
 	}
