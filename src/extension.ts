@@ -139,6 +139,7 @@ export function activate(context: vscode.ExtensionContext): void {
     if (context.extensionMode !== vscode.ExtensionMode.Production) {
         context.subscriptions.push(
             vscode.commands.registerCommand('xlide.dev.explorerViewState', () => explorer.probeViewState()),
+            vscode.commands.registerCommand('xlide.dev.focusExplorerRow', (row: string) => explorer.focusRowForTest(row)),
         );
     }
 

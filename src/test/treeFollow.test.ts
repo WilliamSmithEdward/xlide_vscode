@@ -103,6 +103,33 @@ suite('The explorer following the editor', () => {
 		assert.deepEqual(resumed.selected, ['sub:Sub FollowASecond'], JSON.stringify(resumed));
 	});
 
+	test('keeps the caret\'s module folded by hand, after the member order changes too', async () => {
+		await showInSecond(moduleUri('FollowA'));
+		await settle();
+		try {
+			// A new order draws every row again, and the tree follows the
+			// caret back to its row.
+			await vscode.workspace.getConfiguration('xlide').update('explorer.memberSort', 'kind', vscode.ConfigurationTarget.Global);
+			await settle();
+			assert.ok(await vscode.commands.executeCommand('xlide.dev.focusExplorerRow', 'module:FollowA'));
+			await vscode.commands.executeCommand('list.collapse');
+			await settle();
+			const folded = await viewState();
+			assert.deepEqual(folded.expanded, ['project:FormFixture.xlsm'], JSON.stringify(folded));
+
+			// Moving the caret follows again.
+			const editor = vscode.window.activeTextEditor!;
+			editor.selection = new vscode.Selection(3, 1, 3, 1);
+			await settle();
+			const resumed = await viewState();
+			assert.deepEqual(modules(resumed), ['module:FollowA'], JSON.stringify(resumed));
+			assert.deepEqual(resumed.selected, ['sub:Sub FollowAFirst'], JSON.stringify(resumed));
+		} finally {
+			await vscode.workspace.getConfiguration('xlide').update('explorer.memberSort', undefined, vscode.ConfigurationTarget.Global);
+			await settle();
+		}
+	});
+
 	test('lands on the last module when tabs switch faster than the tree reveals', async () => {
 		// Each module visited once, so its procedure rows exist: the caret's
 		// row can then be revealed, which expands the module it sits in.
@@ -435,6 +462,16 @@ suite('The explorer following the editor', () => {
 				assert.deepEqual(modules(state), ['module:FolderTwo'], `switching every ${gap} ms: ${JSON.stringify(state)}`);
 				assert.deepEqual(state.selected, ['sub:Sub FolderTwoSecond'], `switching every ${gap} ms: ${JSON.stringify(state)}`);
 			}
+		});
+
+		test('keeps a folder on the way to the caret folded by hand', async () => {
+			await showInSecond(moduleUri('FolderTwo'));
+			await settle();
+			assert.ok(await vscode.commands.executeCommand('xlide.dev.focusExplorerRow', 'folder:Beta'));
+			await vscode.commands.executeCommand('list.collapse');
+			await settle();
+			const folded = await viewState();
+			assert.deepEqual(folded.expanded, ['project:FormFixture.xlsm'], JSON.stringify(folded));
 		});
 
 		test('follows the module being edited into the folder its annotation now names', async () => {

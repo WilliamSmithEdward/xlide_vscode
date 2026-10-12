@@ -560,6 +560,19 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     }
 
     /**
+     * For tests and development only: puts the keyboard focus on a drawn row,
+     * named as probeViewState names it, without selecting it, so `list.collapse`
+     * folds that row as a click on its twistie does.
+     */
+    async focusRowForTest(description: string): Promise<boolean> {
+        const node = [...this._projectNodes.values(), ...this._folderNodes.values(), ...this._moduleNodes.values()]
+            .find((candidate) => describeNode(candidate) === description);
+        if (!node || !this._treeView) { return false; }
+        await this._treeView.reveal(node, { select: false, focus: true, expand: false });
+        return true;
+    }
+
+    /**
      * For tests and development only: what the view shows. VS Code has no
      * call that says which rows are expanded, but a full redraw re-reads the
      * children of the expanded rows and no others, so this redraws and notes

@@ -152,12 +152,14 @@ export class ExplorerFollow implements vscode.Disposable {
                 // spring it open again because it holds the active module.
                 if (event.element.kind === 'project') {
                     explorer.notifyProjectCollapsed(event.element.filePath);
-                    const position = caret.current;
-                    if (_deps.enabled() && position && sameProjectPath(event.element.filePath, position.projectPath)) {
-                        // A fold of the editor's own project takes control even
-                        // during reveal's grace period; pending follow must not undo it.
-                        this._takeTreeControl();
-                    }
+                }
+                // A fold of a row above the caret's - its project, its module,
+                // a folder on the way - takes control even during reveal's
+                // grace period. Folding hides the caret's row, VS Code drops
+                // its selection, and a pass started by that would open the
+                // row again.
+                if (_deps.enabled() && this._holdsCaretRow(event.element)) {
+                    this._takeTreeControl();
                 }
                 if (_deps.enabled()) {
                     explorer.notifyFolderExpansion(event.element, false);
@@ -219,6 +221,28 @@ export class ExplorerFollow implements vscode.Disposable {
         } else if (!this._isOurs(selection[0])) {
             this._takeTreeControl();
         }
+    }
+
+    /** Whether a row is the caret's project or module, or above the selected row. */
+    private _holdsCaretRow(node: XlideNode): boolean {
+        const position = this._deps.caret.current;
+        if (!position || !sameProjectPath(node.filePath, position.projectPath)) {
+            return false;
+        }
+        if (node.kind === 'project') {
+            return true;
+        }
+        if (node.kind === 'module') {
+            return moduleIdentityKey(node.moduleName ?? '') === moduleIdentityKey(position.moduleName);
+        }
+        const { explorer, treeView } = this._deps;
+        const folded = explorer.rowIdentity(node);
+        for (let row: XlideNode | undefined = treeView.selection[0]; row; row = explorer.getParent(row)) {
+            if (explorer.rowIdentity(row) === folded) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** A user's tree choice overtakes work already queued or loading rows. */
