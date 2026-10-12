@@ -7759,14 +7759,17 @@
     {
       "code": "duplicate-const-directive",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #130): 1 asserted case from the issue's measured corpus",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #130): 1 asserted case from the issue's measured corpus; Excel 16.0 through the VBE oracle, 2026-10-13 (issue #1347): 3 asserted cases of a #Const defined in both arms of an #If",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
-        "issue130_g_compile"
+        "issue130_g_compile",
+        "const_duplicate_across_true_arms_compile",
+        "const_duplicate_across_true_arms_first_compile",
+        "const_duplicate_across_false_arms_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Duplicate #Const. MS-VBAL 3.4.1 #Const; VBE \"Duplicate definition\" (issue #130, Excel 16.0).",
+      "notes": "Duplicate #Const, also when the two lines are in different arms of #If True or #If False. MS-VBAL 3.4.1 #Const; VBE \"Duplicate definition\" (issues #130 and #1347, Excel 16.0).",
       "diagnosticKind": "compile-error"
     },
     {

@@ -114842,6 +114842,110 @@
       "source": "Function Main() As Variant\r\n#If UNDEFINED_X = \"0\" Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "const_duplicate_across_true_arms_compile",
+      "description": "#Const A in both arms of #If True is a Duplicate definition, though only one arm is compiled (issue #1347).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#If True Then\r\n#Const A = 1\r\n#Else\r\n#Const A = 2\r\n#End If\r\nFunction Main() As Variant\r\n#If A = 2 Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_duplicate_across_true_arms_first_compile",
+      "description": "#Const A in both arms of #If True, read as A = 1, is a Duplicate definition (issue #1347).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#If True Then\r\n#Const A = 1\r\n#Else\r\n#Const A = 2\r\n#End If\r\nFunction Main() As Variant\r\n#If A = 1 Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_duplicate_across_false_arms_compile",
+      "description": "#Const A in both arms of #If False is a Duplicate definition (issue #1347).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#If False Then\r\n#Const A = 1\r\n#Else\r\n#Const A = 2\r\n#End If\r\nFunction Main() As Variant\r\n#If A = 2 Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_builtin_win64_zero_compile",
+      "description": "A module #Const of the built-in Win64 compiles (issue #1347).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "#Const Win64 = 0\r\nFunction Main() As Variant\r\n#If Win64 Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "const_builtin_vba7_zero_compile",
+      "description": "A module #Const of the built-in VBA7 compiles (issue #1347).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "#Const VBA7 = 0\r\nFunction Main() As Variant\r\n#If VBA7 Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "const_builtin_win64_undefined_compile",
+      "description": "#Const Win64 = UNDEFINED_X compiles (issue #1347).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "#Const Win64 = UNDEFINED_X\r\nFunction Main() As Variant\r\n#If Win64 Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "const_builtin_win64_undefined_runtime",
+      "description": "#Const Win64 = UNDEFINED_X makes #If Win64 False: DeadName in the #If arm under Option Explicit (issue #1347).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\n#Const Win64 = UNDEFINED_X\r\nFunction Main() As Variant\r\n#If Win64 Then\r\n    Main = DeadName\r\n#Else\r\n    Main = \"else\"\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "const_builtin_win64_zero_runtime",
+      "description": "#Const Win64 = 0 makes #If Win64 False: DeadName in the #If arm under Option Explicit (issue #1347).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\n#Const Win64 = 0\r\nFunction Main() As Variant\r\n#If Win64 Then\r\n    Main = DeadName\r\n#Else\r\n    Main = \"else\"\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "const_builtin_vba7_zero_runtime",
+      "description": "#Const VBA7 = 0 makes #If VBA7 False: DeadName in the #If arm under Option Explicit (issue #1347).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\n#Const VBA7 = 0\r\nFunction Main() As Variant\r\n#If VBA7 Then\r\n    Main = DeadName\r\n#Else\r\n    Main = \"else\"\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "const_builtin_win64_undefined_plus_one_runtime",
+      "description": "#Const Win64 = UNDEFINED_X + 1 makes #If Win64 True: DeadName in the #Else arm under Option Explicit (issue #1347).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\n#Const Win64 = UNDEFINED_X + 1\r\nFunction Main() As Variant\r\n#If Win64 Then\r\n    Main = \"if\"\r\n#Else\r\n    Main = DeadName\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
