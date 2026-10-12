@@ -18,29 +18,18 @@ import {
 } from '../../conditional/conditionalCompilation';
 import type { PushFn } from '../analysisContext';
 import { tokenizeCached } from '../../lexer/tokenize';
-import { firstTokenAtOrAfter } from '../../lexer/tokenHelpers';
+import { colonDirectiveStarts, directiveColon, firstTokenAtOrAfter, tokenWord as tokenText } from '../../lexer/tokenHelpers';
 import { lineEndAtOrAfter } from '../../../vbaSourceScan';
 
-/**
- * Whether the VBE reads a comment after a directive's colon, and so refuses
- * it (issue #1321, measured in Excel 16.0): always after #If and #End If,
- * even inside a skipped arm; after #Else or #ElseIf only when the arm before
- * it is compiled; after #Const only where the #Const is compiled.
- */
-function commentTailCompiled(directive: ConditionalDirectiveNode, activity: ConditionalActivityTracker | undefined): boolean {
-	switch (directive.directiveKind) {
-		case 'If':
-		case 'EndIf':
-			return true;
-		case 'Else':
-		case 'ElseIf':
-		case 'Const':
-			// At the directive's start the tracker answers for the code before it.
-			return !activity?.isInactive({ start: directive.span.start, end: directive.span.start });
-		default:
-			return false;
-	}
-}
+/** What a directive line a colon follows fails to do, by its keyword (issue #1323). */
+const COLON_DIRECTIVE_EFFECT: Readonly<Record<string, string>> = {
+	if: 'opens no #If block, so the #Else, #ElseIf or #End If after it has no #If',
+	elseif: 'starts no new arm: it belongs to the arm above it',
+	else: 'starts no new arm: it belongs to the arm above it',
+	end: 'closes no #If block',
+	endif: 'closes no #If block',
+	const: 'defines no constant',
+};
 
 export function checkDirectiveForms(
 	source: string,
@@ -86,37 +75,32 @@ export function checkDirectiveForms(
 			}
 		}
 	}
-	// A directive line that a colon continues: the tokens after the colon on
-	// the directive's own physical line.
-	const tokens = tokenizeCached(source);
-	for (const directive of directives) {
-		const lineEnd = lineEndAtOrAfter(source, directive.span.end);
-		let colon = -1;
-		for (let i = firstTokenAtOrAfter(tokens, directive.span.end); i < tokens.length; i++) {
-			const tok = tokens[i];
-			if (tok.start >= lineEnd) {
-				break;
+	// A directive line a statement colon follows is no directive: the VBE
+	// reads the whole line as code, refused where it is compiled and skipped
+	// with a skipped arm (issue #1323). The parser and analyzeVbaStructure
+	// read the same lines, so the #If pairing a refused line breaks is theirs.
+	const starts = colonDirectiveStarts(source);
+	if (starts.size > 0) {
+		const tokens = tokenizeCached(source);
+		for (const start of starts) {
+			if (activity?.isInactive({ start, end: start })) {
+				continue;
 			}
-			if (tok.kind === 'colon') {
-				colon = i;
-				break;
+			const hash = firstTokenAtOrAfter(tokens, start);
+			const colon = directiveColon(tokens, hash);
+			if (!colon) {
+				continue;
 			}
-		}
-		if (colon < 0) {
-			continue;
-		}
-		const next = tokens[colon + 1];
-		if (next && next.kind !== 'newline' && next.kind !== 'comment' && next.start < lineEnd) {
+			const keyword = tokenText(tokens[hash + 1]);
+			const effect = COLON_DIRECTIVE_EFFECT[keyword] ?? COLON_DIRECTIVE_EFFECT.if;
+			// What follows the colon, or the colon itself when nothing does.
+			const lineEnd = lineEndAtOrAfter(source, colon.start);
+			const after = tokens[tokens.indexOf(colon, hash) + 1];
+			const from = after && after.kind !== 'newline' && after.start < lineEnd ? after.start : colon.start;
 			push(
 				'directiveTrailingStatement',
-				`A compiler directive takes the whole line: nothing may follow the ':' after it. This is a VBE compile error (the VBE reports "An # ElseIf, # Else, or # EndIf must be preceded by an # If clause").`,
-				{ start: next.start, end: lineEnd },
-			);
-		} else if (next?.kind === 'comment' && next.start < lineEnd && commentTailCompiled(directive, activity)) {
-			push(
-				'directiveTrailingStatement',
-				`A comment may not follow the ':' after a compiler directive. Drop the ':' to keep the comment. This is a VBE compile error.`,
-				{ start: next.start, end: lineEnd },
+				`A ':' after a compiler directive makes the whole line no directive, so it ${effect}. A directive takes its line alone: drop the ':', and start any comment with '. This is a VBE compile error.`,
+				{ start: from, end: from === colon.start ? colon.end : lineEnd },
 			);
 		}
 	}

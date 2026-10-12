@@ -35,6 +35,7 @@ import { VbaToken } from '../lexer/tokenKinds';
 import { tokenizeCached } from '../lexer/tokenize';
 import {
 	matchParenFrom,
+	colonDirectiveStarts,
 	remBlockDirectiveStarts,
 	splitTopLevelTokenGroups,
 	tokensWithoutLeadingLineNumber,
@@ -253,6 +254,8 @@ class Parser {
 	private directiveChains: { depthAtIf: number; arm: number; endHeight0: number }[] = [];
 	/** The #If, #ElseIf, #Else and #End If lines holding a Rem (issue #1321), found once. */
 	private remDirectiveStarts?: ReadonlySet<number>;
+	/** The directive lines a statement colon follows (issue #1323), found once. */
+	private colonDirectiveStarts?: ReadonlySet<number>;
 
 	constructor(
 		private readonly source: string,
@@ -537,8 +540,11 @@ class Parser {
 	): ConditionalDirectiveNode {
 		// An #If, #ElseIf, #Else or #End If line holding a Rem is no directive
 		// to the VBE (issue #1321): it opens, continues and closes nothing.
+		// So is any directive line a statement colon follows, a #Const too,
+		// which then defines nothing even in a skipped arm (issue #1323).
 		this.remDirectiveStarts ??= remBlockDirectiveStarts(this.source);
-		const directiveWord = this.remDirectiveStarts.has(stmt.start) ? '' : tokenWord(tokens[1]);
+		this.colonDirectiveStarts ??= colonDirectiveStarts(this.source);
+		const directiveWord = this.remDirectiveStarts.has(stmt.start) || this.colonDirectiveStarts.has(stmt.start) ? '' : tokenWord(tokens[1]);
 		const base = {
 			kind: 'ConditionalDirective' as const,
 			span: { start: stmt.start, end: stmt.end },
