@@ -36,6 +36,7 @@ import { tokenizeCached } from '../lexer/tokenize';
 import {
 	matchParenFrom,
 	colonDirectiveStarts,
+	misplacedDirectiveStarts,
 	remDirectiveStarts,
 	splitTopLevelTokenGroups,
 	tokensWithoutLeadingLineNumber,
@@ -256,6 +257,8 @@ class Parser {
 	private remDirectiveStarts?: ReadonlySet<number>;
 	/** The directive lines a statement colon follows (issue #1323), found once. */
 	private colonDirectiveStarts?: ReadonlySet<number>;
+	/** The directives that do not start their logical line (issue #1331), found once. */
+	private misplacedDirectiveStarts?: ReadonlySet<number>;
 
 	constructor(
 		private readonly source: string,
@@ -541,10 +544,13 @@ class Parser {
 		// A directive line holding a Rem is no directive to the VBE (issue
 		// #1321): an #If, #ElseIf, #Else or #End If one opens, continues and
 		// closes nothing, and a #Const one defines nothing, even in a skipped
-		// arm. So is any directive line a statement colon follows (issue #1323).
+		// arm. So is any directive line a statement colon follows (issue #1323),
+		// and a directive that does not start its logical line (issue #1331).
 		this.remDirectiveStarts ??= remDirectiveStarts(this.source);
 		this.colonDirectiveStarts ??= colonDirectiveStarts(this.source);
-		const directiveWord = this.remDirectiveStarts.has(stmt.start) || this.colonDirectiveStarts.has(stmt.start) ? '' : tokenWord(tokens[1]);
+		this.misplacedDirectiveStarts ??= misplacedDirectiveStarts(this.source);
+		const directiveWord = this.remDirectiveStarts.has(stmt.start) || this.colonDirectiveStarts.has(stmt.start)
+			|| this.misplacedDirectiveStarts.has(stmt.start) ? '' : tokenWord(tokens[1]);
 		const base = {
 			kind: 'ConditionalDirective' as const,
 			span: { start: stmt.start, end: stmt.end },

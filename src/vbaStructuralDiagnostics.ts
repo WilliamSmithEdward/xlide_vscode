@@ -491,8 +491,13 @@ export function analyzeVbaStructure(
         previousLine = ll.line;
         // A line number ahead of the statement (`10  For i = 1 To 3`, as MZ-Tools
         // writes for Erl) is a label, not part of the block keyword (issue #131).
-        const t = ll.text.trim().replace(/^\d+(?:\s+|$)/, '');
-        if (!t || (t.startsWith('#') && ((firstOnLine && remDirectiveLines.has(ll.line)) || colonDirectiveLines.has(ll.line)))) { continue; }
+        const raw = ll.text.trim();
+        const t = raw.replace(/^\d+(?:\s+|$)/, '');
+        // A directive starts its logical line: after a colon, a label or a
+        // line number a `#` is none, and opens and closes nothing (issue
+        // #1331, measured in Excel 16.0).
+        const misplaced = !firstOnLine || t !== raw;
+        if (!t || (t.startsWith('#') && (misplaced || remDirectiveLines.has(ll.line) || colonDirectiveLines.has(ll.line)))) { continue; }
         if (options.isInactiveLine?.(ll.line) && !isPreprocessorLine(t)) {
             continue;
         }

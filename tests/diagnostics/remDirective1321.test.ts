@@ -88,9 +88,11 @@ describe('an #If, #ElseIf, #Else or #End If line holding a Rem (issue #1321)', (
 		const colon = fn('#If True Then: #Else Rem note', '#End If');
 		expect(rem(colon)).toHaveLength(0);
 		expect(structure(colon)).toEqual(["'#End If' has no matching '#If'."]);
+		// After a colon, across a continuation too, a `#` is no directive at
+		// all (issue #1331, measured in Excel 16.0).
 		const continued = fn('x = 1 _', ': #If True Rem note Then', '#End If');
 		expect(rem(continued)).toHaveLength(0);
-		expect(structure(continued)).toEqual([]);
+		expect(structure(continued)).toEqual(["'#End If' has no matching '#If'."]);
 	});
 
 	it('leaves Remark, a "Rem" string, a member named Rem, an apostrophe comment and Rem after the line alone', () => {
