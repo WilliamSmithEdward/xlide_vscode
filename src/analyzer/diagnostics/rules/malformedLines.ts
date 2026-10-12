@@ -39,7 +39,7 @@
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import { tokenizeCached } from '../../lexer/tokenize';
 import { isReservedIdentifier } from '../../lexer/keywordTable';
-import { directiveRem, firstTokenAtOrAfter, remBlockDirectiveStarts } from '../../lexer/tokenHelpers';
+import { directiveRem, firstTokenAtOrAfter, remDirectiveStarts } from '../../lexer/tokenHelpers';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type { EnumNode, ModuleNode, ProcedureNode, Span, VariableGroupNode } from '../../parser/nodes';
 import type { PushFn } from '../analysisContext';
@@ -552,19 +552,17 @@ const REM_DIRECTIVE_EFFECT: Readonly<Record<string, string>> = {
 
 /** `Rem` on a directive line: the VBE does not read it as a comment there (issue #1321). */
 function checkDirectiveRem(source: string, toks: readonly VbaToken[], hash: number, push: PushFn): void {
+	// The lines the parser reads as no directive; one after a colon is
+	// directive-trailing-statement's.
 	const rem = directiveRem(toks, hash);
-	if (!rem) {
+	if (!rem || !remDirectiveStarts(source).has(toks[hash].start)) {
 		return;
 	}
 	const keyword = tokenText(toks[hash + 1]);
 	const span = { start: toks[hash].start, end: rem.start + 'Rem'.length };
 	const effect = REM_DIRECTIVE_EFFECT[keyword];
 	if (effect) {
-		// The lines the parser reads as no directive; one after a colon is
-		// directive-trailing-statement's.
-		if (remBlockDirectiveStarts(source).has(toks[hash].start)) {
-			push('malformedStatement', `Rem does not start a comment on a compiler-directive line, so the VBE does not read this line as a directive at all: it ${effect}. Start the comment with ' instead. This is a VBE compile error.`, span);
-		}
+		push('malformedStatement', `Rem does not start a comment on a compiler-directive line, so the VBE does not read this line as a directive at all: it ${effect}. Start the comment with ' instead. This is a VBE compile error.`, span);
 		return;
 	}
 	const at = toks.indexOf(rem, hash);

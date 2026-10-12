@@ -150,6 +150,26 @@ describe('a #Const line holding a Rem (issue #1321)', () => {
 		expectDiagnostic(src, analyze(src), 'malformed-statement', { message: ['#Const line', error] });
 	});
 
+	it('defines nothing, even in a skipped arm, where a plain #Const still does', () => {
+		// Measured with `#If A = 1 Then` / `Err.Raise 1001` / `#Else` / `Main = 1`:
+		// it raises after a plain #Const or one with an apostrophe comment in
+		// an #If False arm, and not after one holding a Rem.
+		const arm = (line: string) => undeclared(`Option Explicit\n#If False Then\n${line}\n#End If\nSub S()\n#If A = 1 Then\n    a = 1\n#Else\n    b = 2\n#End If\nEnd Sub\n`);
+		expect(arm('#Const A = 1')).toEqual(['a']);
+		expect(arm("#Const A = 1 ' note")).toEqual(['a']);
+		expect(arm('#Const A = 1 Rem note')).toEqual(['b']);
+		expect(arm('#Const A = 1 _\n    Rem note')).toEqual(['b']);
+	});
+
+	it('leaves one after a colon to directive-trailing-statement', () => {
+		const src = mod('#Const A = 1: #Const B = 1 Rem n');
+		expect(byCode(analyze(src), 'directive-trailing-statement')).toHaveLength(1);
+		expect(malformed(src)).toHaveLength(0);
+		const skipped = mod('#If False Then\n#Const A = 1: #Const B = 1 Rem n\n#End If');
+		expect(byCode(analyze(skipped), 'directive-trailing-statement')).toHaveLength(0);
+		expect(malformed(skipped)).toHaveLength(0);
+	});
+
 	it('stays quiet in a skipped arm, and for an apostrophe comment or a "Rem" value', () => {
 		expect(malformed(mod('#If False Then\n#Const A = True Rem note\n#End If'))).toHaveLength(0);
 		expect(malformed(mod("#Const A = True ' Rem note"))).toHaveLength(0);
