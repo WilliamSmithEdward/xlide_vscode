@@ -720,7 +720,7 @@ export function registerVbaDiagnostics(
                         implicitMembers: m.implicitMembers,
                         predeclaredId: m.predeclaredId,
                         designerClass: m.designerClass,
-                    })));
+                    })), record.conditionalConstants);
                 }
                 const workerResult = await selectedWorker.analyze({
                     errorsOnly: false,

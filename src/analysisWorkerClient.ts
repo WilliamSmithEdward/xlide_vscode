@@ -56,7 +56,7 @@ interface PendingRequest {
 	reject: (err: Error) => void;
 	request: WorkerAnalyzeRequest;
 	retried: boolean;
-	seedProvider?: () => WorkerSeedModule[];
+	seedProvider?: () => WorkerSeed;
 	watchdog: ReturnType<typeof setTimeout>;
 }
 
@@ -68,6 +68,9 @@ interface PendingRequest {
 // Only the dispatched request is timed; queue waiting is not analysis time.
 const WORKER_REQUEST_TIMEOUT_MS = 30_000;
 
+/** What a seed carries besides its project key and generation. */
+type WorkerSeed = Pick<Extract<AnalysisWorkerRequest, { kind: 'seed' }>, 'modules' | 'conditionalConstants'>;
+
 export class AnalysisWorkerClient {
 	private _worker: Worker | undefined;
 	private _failed = false;
@@ -76,7 +79,7 @@ export class AnalysisWorkerClient {
 	private readonly _pending = new Map<number, PendingRequest>();
 	private readonly _seededGenerations = new Map<string, number>();
 
-	private readonly _seedProviders = new Map<string, () => WorkerSeedModule[]>();
+	private readonly _seedProviders = new Map<string, () => WorkerSeed>();
 
 	constructor(
 		private readonly _workerPath: string,
@@ -87,9 +90,16 @@ export class AnalysisWorkerClient {
 	/**
 	 * Retains the seed provider for dispatch and a needSeed retry. Each queued
 	 * request captures its provider, so a newer project cannot change its seed.
+	 * `conditionalConstants` is the project's raw `#If` arguments, sent with
+	 * every seed from this provider (issue #1319).
 	 */
-	ensureSeeded(projectKey: string, _generation: number, modules: () => WorkerSeedModule[]): void {
-		this._seedProviders.set(projectKey, modules);
+	ensureSeeded(
+		projectKey: string,
+		_generation: number,
+		modules: () => WorkerSeedModule[],
+		conditionalConstants?: string,
+	): void {
+		this._seedProviders.set(projectKey, () => ({ modules: modules(), conditionalConstants }));
 		// Seed immediately before dispatch so queued generations cannot interfere.
 		this._ensureWorker();
 	}
@@ -212,11 +222,11 @@ export class AnalysisWorkerClient {
 		if (this._seededGenerations.get(projectKey) === generation) {
 			return;
 		}
-		const modules = provider?.();
-		if (!modules) {
+		const seed = provider?.();
+		if (!seed) {
 			return;
 		}
-		worker.postMessage({ kind: 'seed', projectKey, generation, modules } satisfies AnalysisWorkerRequest);
+		worker.postMessage({ kind: 'seed', projectKey, generation, ...seed } satisfies AnalysisWorkerRequest);
 		this._seededGenerations.set(projectKey, generation);
 	}
 

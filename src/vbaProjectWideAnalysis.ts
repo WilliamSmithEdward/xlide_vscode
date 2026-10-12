@@ -18,6 +18,7 @@ import {
     DiagnosticEvidenceKind,
     DiagnosticSeverity as RuleSeverity,
     EventHandlerDocumentType,
+    parseProjectConditionalConstants,
     resolveDiagnosticCodeActions,
     type VbaDiagnosticData,
 } from './analyzer';
@@ -152,6 +153,7 @@ export interface ProjectAnalysisWorker {
             documentType?: string;
             predeclaredId?: boolean;
         }>,
+        conditionalConstants?: string,
     ): void;
     analyze(request: {
         docKey: string;
@@ -222,10 +224,12 @@ export function resetProjectAnalysisResultCacheForTests(): void {
  * under its own key namespace (never fighting live diagnostics over a
  * project's seed), so the only requirement is that unchanged sources map to
  * the same number - a re-run then skips the seed transfer entirely - and any
- * change maps elsewhere. FNV-1a over every module's name and full source.
+ * change maps elsewhere. FNV-1a over every module's name and full source,
+ * and the project's conditional compilation arguments, which the seed carries.
  */
 function projectSeedFingerprint(
     modules: ReadonlyArray<{ name: string; source: string }>,
+    conditionalConstants: string | undefined,
 ): number {
     let hash = 0x811c9dc5;
     const mix = (text: string): void => {
@@ -240,6 +244,7 @@ function projectSeedFingerprint(
         mix(mod.source);
         mix('\u0000');
     }
+    mix(conditionalConstants ?? '');
     return hash >>> 0;
 }
 
@@ -394,12 +399,21 @@ async function loadProjectModules(
     filePath: string,
     progress: ProjectAnalysisProgress,
     options: AnalyzeProjectOptions = {},
-): Promise<{ modules: RawModule[]; references: readonly VbaProjectReference[]; sheets: readonly WorkbookSheetInfo[] | undefined }> {
+): Promise<{
+    modules: RawModule[];
+    references: readonly VbaProjectReference[];
+    sheets: readonly WorkbookSheetInfo[] | undefined;
+    conditionalConstants: string | undefined;
+}> {
     progress.report('Reading VBA modules...', { force: true });
     const modules = await measurePerformance(
         'analyzeProject.readModules',
         undefined,
-        () => bridge.call<Array<RawModule & { projectReferences?: VbaProjectReference[]; projectSheets?: WorkbookSheetInfo[] }>>(
+        () => bridge.call<Array<RawModule & {
+            projectReferences?: VbaProjectReference[];
+            projectSheets?: WorkbookSheetInfo[];
+            projectConditionalConstants?: string;
+        }>>(
             'readModules',
             { path: filePath },
             options.token,
@@ -413,6 +427,8 @@ async function loadProjectModules(
         references: modules[0]?.projectReferences ?? [],
         // The workbook's sheets ride on the first entry only.
         sheets: modules[0]?.projectSheets,
+        // The project's #If arguments, which the engine repeats on every entry.
+        conditionalConstants: modules[0]?.projectConditionalConstants,
         modules: modules
             .filter((mod) => typeof mod.source === 'string')
             .map((mod) => ({
@@ -490,7 +506,7 @@ async function runProjectAnalysis(
     const totalTrace = startPerformanceTrace('analyzeProject.total');
     const progress = projectAnalysisProgress(options.progress);
     try {
-        const { modules, references, sheets: workbookSheets } = await loadProjectModules(bridge, filePath, progress, options);
+        const { modules, references, sheets: workbookSheets, conditionalConstants } = await loadProjectModules(bridge, filePath, progress, options);
         // A project that references another application is analyzed against
         // both object models, exactly as the editor's own diagnostics are.
         const referencedHosts = referencedHostTokens(hostTokenForFileName(filePath), references);
@@ -524,6 +540,7 @@ async function runProjectAnalysis(
                     designerClass: mod.designerClass,
                 })), undefined, {
                     cancelIfRequested: () => throwIfAnalysisCancelled(options.token),
+                    conditionalCompilation: { projectConstants: parseProjectConditionalConstants(conditionalConstants) },
                 }),
             );
             return { project, procedures: projectProcedureSignatures(project) };
@@ -540,7 +557,7 @@ async function runProjectAnalysis(
         // overlays included). It keys both the worker seed and the result
         // cache; the settings that shape diagnostics join the cache key so a
         // severity-override change re-analyzes.
-        const contentFingerprint = projectSeedFingerprint(modules);
+        const contentFingerprint = projectSeedFingerprint(modules, conditionalConstants);
         // A sheet added or renamed in Excel changes the findings with no module changed.
         const settingsKey = JSON.stringify([analysisSettings.ruleSeverityOverrides ?? {}, workbookSheets ?? null]);
         const resultCacheKey = projectIdentityKey(filePath);
@@ -566,7 +583,7 @@ async function runProjectAnalysis(
                 documentType: mod.documentType,
                 implicitMembers: mod.implicitMembers,
                 designerClass: mod.designerClass,
-            })));
+            })), conditionalConstants);
         }
 
         // Progress must advance on COMPLETION, forced past the throttle. The

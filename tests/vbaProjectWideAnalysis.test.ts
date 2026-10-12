@@ -237,11 +237,11 @@ describe('analyzeProject worker routing', () => {
 
 	function cannedWorker() {
 		const analyzed: string[] = [];
-		const seeded: Array<{ key: string; generation: number; count: number }> = [];
+		const seeded: Array<{ key: string; generation: number; count: number; conditionalConstants?: string }> = [];
 		const worker: ProjectAnalysisWorker = {
 			available: true,
-			ensureSeeded(key, generation, modules) {
-				seeded.push({ key, generation, count: modules().length });
+			ensureSeeded(key, generation, modules, conditionalConstants) {
+				seeded.push({ key, generation, count: modules().length, conditionalConstants });
 			},
 			analyze(request) {
 				analyzed.push(request.moduleName);
@@ -356,6 +356,38 @@ describe('analyzeProject worker routing', () => {
 		expect(seeded).toHaveLength(2);
 		expect(seeded[0].generation).not.toBe(seeded[1].generation);
 		expect(analyzed).toHaveLength(MODULES.length * 2);
+	});
+
+	it('seeds the conditional compilation arguments and re-analyzes when only they change (issue #1319)', async () => {
+		const { worker, analyzed, seeded } = cannedWorker();
+		setProjectAnalysisWorker(worker);
+		const withArguments = (raw: string) => MODULES.map((m) => ({ ...m, projectConditionalConstants: raw }));
+
+		await analyzeProject(fakeProjectEngine(withArguments('Flag = 1')), 'Arguments.xlsm');
+		await analyzeProject(fakeProjectEngine(withArguments('Flag = 0')), 'Arguments.xlsm');
+
+		expect(seeded.map((s) => s.conditionalConstants)).toEqual(['Flag = 1', 'Flag = 0']);
+		expect(seeded[0].generation).not.toBe(seeded[1].generation);
+		expect(analyzed).toHaveLength(MODULES.length * 2);
+	});
+});
+
+describe('analyzeProject in-host with conditional compilation arguments (issue #1319)', () => {
+	afterEach(() => {
+		resetProjectAnalysisResultCacheForTests();
+	});
+
+	const SOURCE = 'Option Explicit\nSub T()\n#If Flag Then\n\tmissingInIf = 1\n#Else\n\tmissingInElse = 1\n#End If\nEnd Sub\n';
+
+	it.each([
+		['Flag = 1', 'missingInIf'],
+		['Flag = 0', 'missingInElse'],
+	])('analyzes only the arm %s selects', async (raw, expected) => {
+		const result = await analyzeProject(fakeProjectEngine([
+			{ name: 'Module1', type: 'standard', source: SOURCE, projectConditionalConstants: raw },
+		]), 'InHost.xlsm');
+
+		expect(result.problems.map((p) => p.message.match(/'(\w+)'/)?.[1])).toEqual([expected]);
 	});
 });
 
