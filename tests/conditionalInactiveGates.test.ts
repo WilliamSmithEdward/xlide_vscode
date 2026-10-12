@@ -16,10 +16,12 @@ describe('conditional inactive-arm evaluation gates', () => {
   const module=parseModule(source),spy=vi.spyOn(lexer,'tokenize');
   try {const tracker=createConditionalActivityTracker(module)!;expect(tracker.activityForSpan(spanAt(source,'Skipped'))).toBe('inactive');expect(tracker.activityForSpan(spanAt(source,'Taken'))).toBe('active');expect(spy).toHaveBeenCalledTimes(1);} finally {spy.mockRestore();}
  });
- it('gates offset replay and null-condition scanning through the shared replay path',()=>{
+ it('gates offset replay, and reads each Null condition once',()=>{
   const source='#If True Then\nPublic Taken As Long\n'+'#ElseIf Null Then\n'.repeat(100)+'Public Skipped As Long\n#End If\n';
   const module=parseModule(source),spy=vi.spyOn(lexer,'tokenize');
-  try {expect(conditionalActivityAtOffset(module,spanAt(source,'Skipped').start)).toBe('inactive');expect(spy).toHaveBeenCalledTimes(1);spy.mockClear();expect(nullConditionDirectives(module)).toEqual([]);expect(spy).toHaveBeenCalledTimes(2);} finally {spy.mockRestore();}
+  try {expect(conditionalActivityAtOffset(module,spanAt(source,'Skipped').start)).toBe('inactive');expect(spy).toHaveBeenCalledTimes(1);spy.mockClear();
+   // Excel refuses each #ElseIf Null even after the taken arm (issue #1351), so each is read, once.
+   expect(nullConditionDirectives(module)).toHaveLength(100);expect(spy).toHaveBeenCalledTimes(100);} finally {spy.mockRestore();}
  });
  it('continues replaying constants in skipped arms and inactive nested chains',()=>{
   const source='#If True Then\n#ElseIf Null Then\n#Const FLAG = 1\n#If False Then\n#Const FLAG = FLAG + 1\n#ElseIf Null Then\n#Const FLAG = FLAG + 1\n#End If\n#End If\n#If FLAG = 3 Then\nPublic Taken As Long\n#Else\nPublic Skipped As Long\n#End If\n';

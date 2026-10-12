@@ -49,16 +49,18 @@ describe('null-directive-condition (issue #208)', () => {
 		expectDiagnostic(src, analyzeModule(src), 'null-directive-condition', { span: directive, message: 'Invalid use of Null' });
 	});
 
-	it('flags an #ElseIf the VBE reaches, and not one after a True arm', () => {
+	it('flags an #ElseIf Null after a False arm, and after a True arm', () => {
+		// Excel 16.0 refuses both (issue #1351).
 		const reached = 'Function Main() As Variant\n#If False Then\n    Main = 1\n#ElseIf Null Then\n    Main = 2\n#End If\nEnd Function\n';
 		expect(nulls(reached)).toHaveLength(1);
-		expect(nulls(reached.replace('#If False', '#If True'))).toHaveLength(0);
+		expect(nulls(reached.replace('#If False', '#If True'))).toHaveLength(1);
 	});
 
-	it('stays quiet where Null is decided, and inside a branch that is not compiled', () => {
+	it('stays quiet where Null is decided, and flags a Null condition inside a skipped arm', () => {
 		expect(nulls(wrap('', '#If Null Or True Then'))).toHaveLength(0);
 		expect(nulls(wrap('', '#If Null And False Then'))).toHaveLength(0);
 		expect(nulls(wrap('', '#If Null & "a" = "a" Then'))).toHaveLength(0);
-		expect(nulls('#If False Then\n#If Null Then\n#End If\n#End If\n')).toHaveLength(0);
+		// Excel 16.0 refuses it in an arm it skips too (issue #1351; measured inside a procedure).
+		expect(nulls('#If False Then\n#If Null Then\n#End If\n#End If\n')).toHaveLength(1);
 	});
 });

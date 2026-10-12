@@ -7788,7 +7788,7 @@
     {
       "code": "null-directive-condition",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-30 (issue #208): 6 asserted cases from the issue's measured corpus",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-30 (issue #208): 6 asserted cases from the issue's measured corpus; Excel 16.0 (Office Home 2024, 64-bit) through the VBE oracle, 2026-10-13 (issue #1351): 18 asserted Null-condition cases, including skipped arms, an #ElseIf after a taken arm, and reached-condition controls",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "issue208_13_compile",
@@ -7796,11 +7796,47 @@
         "issue208_32_compile",
         "issue208_33_compile",
         "issue208_46_compile",
-        "issue208_47_compile"
+        "issue208_47_compile",
+        "null_condition_skipped_one_equals_null_compile",
+        "null_condition_skipped_null_equals_one_compile",
+        "null_condition_skipped_null_plus_one_compile",
+        "null_condition_skipped_null_minus_one_compile",
+        "null_condition_skipped_not_null_compile",
+        "null_condition_skipped_null_equals_null_compile",
+        "null_condition_skipped_null_like_a_compile",
+        "null_condition_skipped_abc_equals_null_compile",
+        "null_condition_skipped_null_plus_abc_compile",
+        "null_condition_skipped_const_null_equals_abc_compile",
+        "null_condition_skipped_const_null_compile",
+        "null_condition_skipped_if_null_compile",
+        "null_condition_elseif_null_after_taken_compile",
+        "null_condition_elseif_null_after_false_compile",
+        "null_condition_skipped_elseif_null_compile",
+        "null_condition_skipped_null_or_false_compile",
+        "null_condition_skipped_null_and_true_compile",
+        "null_condition_compiled_null_or_false_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "#If or #ElseIf condition that evaluates to Null: #If Null, Null = 1, Not Null, Like against Null, or a #Const set to Null. MS-VBAL 3.4 conditional compilation; VBE \"Invalid use of Null\" (issue #208, Excel 16.0).",
+      "notes": "#If or #ElseIf condition that evaluates to Null: #If Null, Null = 1, Not Null, Like against Null, or a #Const set to Null. Reported wherever the line is: inside an arm the VBE skips and as an #ElseIf after a taken arm (issue #1351). MS-VBAL 3.4 conditional compilation; VBE \"Invalid use of Null\" (issues #208 and #1351, Excel 16.0).",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "nothing-directive-condition",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (Office Home 2024, 64-bit) through the VBE oracle, 2026-10-13 (issue #1351): 6 asserted cases",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "nothing_condition_skipped_nothing_compile",
+        "nothing_condition_compiled_nothing_compile",
+        "nothing_condition_compiled_not_nothing_compile",
+        "nothing_condition_compiled_paren_nothing_compile",
+        "nothing_condition_elseif_nothing_after_false_compile",
+        "nothing_condition_skipped_not_nothing_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "#If or #ElseIf condition that is the literal Nothing, alone, in brackets or under Not, wherever the line is. Excludes Nothing Is Nothing and a condition consisting of a constant set to Nothing. MS-VBAL 3.4 conditional compilation; VBE \"Invalid use of object\" (issue #1351, Excel 16.0).",
       "diagnosticKind": "compile-error"
     },
     {
@@ -7837,7 +7873,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "#If, #ElseIf or #Const expression holding a string VBA cannot convert: a condition that is a string no locale reads as True or False (\"abc\", \"\", \" True \", a #Const set to \"x\"), or a string an operator needs as a number, a Boolean or, beside a date, a date; in a comparison or a +, only beside a literal, since beside a name the string compares as with a Variant (Not \"abc\", \"abc\" = 1, UNDEFINED_X - \"abc\", Null - \"abc\", \"abc\" = #1/1/2020#, #Const A = \"abc\" + 1). Reported in an arm the VBE skips as well, unlike null-directive-condition. MS-VBAL 3.4 conditional compilation; VBE \"Type mismatch\" (issue #1339, Excel 16.0).",
+      "notes": "#If, #ElseIf or #Const expression holding a string VBA cannot convert: a condition that is a string no locale reads as True or False (\"abc\", \"\", \" True \", a #Const set to \"x\"), or a string an operator needs as a number, a Boolean or, beside a date, a date; in a comparison or a +, only beside a literal, since beside a name the string compares as with a Variant (Not \"abc\", \"abc\" = 1, UNDEFINED_X - \"abc\", Null - \"abc\", \"abc\" = #1/1/2020#, #Const A = \"abc\" + 1). Reported in an arm the VBE skips as well, and as an #ElseIf after a taken arm. MS-VBAL 3.4 conditional compilation; VBE \"Type mismatch\" (issue #1339, Excel 16.0).",
       "diagnosticKind": "compile-error"
     },
     {

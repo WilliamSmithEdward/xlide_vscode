@@ -114946,6 +114946,316 @@
       "source": "Option Explicit\r\n#Const Win64 = UNDEFINED_X + 1\r\nFunction Main() As Variant\r\n#If Win64 Then\r\n    Main = \"if\"\r\n#Else\r\n    Main = DeadName\r\n#End If\r\nEnd Function\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "null_condition_skipped_one_equals_null_compile",
+      "description": "In a skipped #If False arm: #If 1 = Null: Invalid use of Null (issue #1351).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n#If 1 = Null Then\r\n    Err.Raise 1001\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "null_condition_skipped_null_equals_one_compile",
+      "description": "In a skipped #If False arm: #If Null = 1: Invalid use of Null (issue #1351).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n#If Null = 1 Then\r\n    Err.Raise 1001\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "null_condition_skipped_null_plus_one_compile",
+      "description": "In a skipped #If False arm: #If Null + 1: Invalid use of Null (issue #1351).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n#If Null + 1 Then\r\n    Err.Raise 1001\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "null_condition_skipped_null_minus_one_compile",
+      "description": "In a skipped #If False arm: #If Null - 1: Invalid use of Null (issue #1351).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n#If Null - 1 Then\r\n    Err.Raise 1001\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "null_condition_skipped_not_null_compile",
+      "description": "In a skipped #If False arm: #If Not Null: Invalid use of Null (issue #1351).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n#If Not Null Then\r\n    Err.Raise 1001\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "null_condition_skipped_null_or_true_compile",
+      "description": "In a skipped #If False arm: #If Null Or True: compiles (issue #1351).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n#If Null Or True Then\r\n    Err.Raise 1001\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "null_condition_skipped_null_and_false_compile",
+      "description": "In a skipped #If False arm: #If Null And False: compiles (issue #1351).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n#If Null And False Then\r\n    Err.Raise 1001\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "null_condition_skipped_null_equals_null_compile",
+      "description": "In a skipped #If False arm: #If Null = Null: Invalid use of Null (issue #1351).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n#If Null = Null Then\r\n    Err.Raise 1001\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "null_condition_skipped_null_like_a_compile",
+      "description": "In a skipped #If False arm: #If Null Like \"a\": Invalid use of Null (issue #1351).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n#If Null Like \"a\" Then\r\n    Err.Raise 1001\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "null_condition_skipped_abc_equals_null_compile",
+      "description": "In a skipped #If False arm: #If \"abc\" = Null: Invalid use of Null (issue #1351).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n#If \"abc\" = Null Then\r\n    Err.Raise 1001\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "null_condition_skipped_null_plus_abc_compile",
+      "description": "In a skipped #If False arm: #If Null + \"abc\": Invalid use of Null (issue #1351).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n#If Null + \"abc\" Then\r\n    Err.Raise 1001\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "null_condition_skipped_const_null_equals_abc_compile",
+      "description": "In a skipped #If False arm: #If N = \"abc\" after #Const N = Null: Invalid use of Null (issue #1351).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const N = Null\r\nFunction Main() As Variant\r\n#If False Then\r\n#If N = \"abc\" Then\r\n    Err.Raise 1001\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "null_condition_skipped_const_null_compile",
+      "description": "In a skipped #If False arm: #If N after #Const N = Null: Invalid use of Null (issue #1351).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "#Const N = Null\r\nFunction Main() As Variant\r\n#If False Then\r\n#If N Then\r\n    Err.Raise 1001\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "null_condition_skipped_if_null_compile",
+      "description": "In a skipped #If False arm: #If Null: Invalid use of Null (issue #1351).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n#If Null Then\r\n    Err.Raise 1001\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "null_condition_elseif_null_after_taken_compile",
+      "description": "#ElseIf Null after a taken #If True arm: Invalid use of Null (issue #1351).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If True Then\r\n    Main = 1\r\n#ElseIf Null Then\r\n    Err.Raise 1001\r\n#End If\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "null_condition_elseif_null_after_false_compile",
+      "description": "#ElseIf Null after a False #If arm: Invalid use of Null (issue #1351).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n    Main = 1\r\n#ElseIf Null Then\r\n    Err.Raise 1001\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "null_condition_skipped_elseif_null_compile",
+      "description": "In a skipped #If False arm: #ElseIf Null: Invalid use of Null (issue #1351).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n#If False Then\r\n#ElseIf Null Then\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "nothing_condition_skipped_nothing_compile",
+      "description": "In a skipped #If False arm: #If Nothing: Invalid use of object (issue #1351).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n#If Nothing Then\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "nothing_condition_compiled_nothing_compile",
+      "description": "#If Nothing Then: Invalid use of object (issue #1351).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If Nothing Then\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "nothing_condition_skipped_nothing_is_nothing_compile",
+      "description": "In a skipped #If False arm: #If Nothing Is Nothing Then: compiles (issue #1351).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n#If Nothing Is Nothing Then\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "nothing_condition_skipped_const_nothing_compile",
+      "description": "In a skipped #If False arm: #Const O = Nothing / #If O Then: compiles (issue #1351).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "#Const O = Nothing\r\nFunction Main() As Variant\r\n#If False Then\r\n#If O Then\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "null_condition_const_null_unread_compile",
+      "description": "#Const N = Null: compiles (issue #1351).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "#Const N = Null\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "null_condition_skipped_null_or_false_compile",
+      "description": "In a skipped #If False arm: #If Null Or False Then: Invalid use of Null (issue #1351).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n#If Null Or False Then\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "null_condition_skipped_null_and_true_compile",
+      "description": "In a skipped #If False arm: #If Null And True Then: Invalid use of Null (issue #1351).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n#If Null And True Then\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "null_condition_compiled_null_or_false_compile",
+      "description": "#If Null Or False Then: Invalid use of Null (issue #1351).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If Null Or False Then\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "nothing_condition_compiled_const_nothing_compile",
+      "description": "#Const O = Nothing / #If O Then: compiles (issue #1351).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "#Const O = Nothing\r\nFunction Main() As Variant\r\n#If O Then\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "nothing_condition_compiled_not_nothing_compile",
+      "description": "#If Not Nothing Then: Invalid use of object (issue #1351).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If Not Nothing Then\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "nothing_condition_compiled_paren_nothing_compile",
+      "description": "#If (Nothing) Then: Invalid use of object (issue #1351).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If (Nothing) Then\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "nothing_condition_elseif_nothing_after_false_compile",
+      "description": "#ElseIf Nothing Then: Invalid use of object (issue #1351).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n#ElseIf Nothing Then\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "nothing_condition_skipped_not_nothing_compile",
+      "description": "In a skipped #If False arm: #If Not Nothing Then: Invalid use of object (issue #1351).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Function Main() As Variant\r\n#If False Then\r\n#If Not Nothing Then\r\n#End If\r\n#End If\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "nothing_condition_const_nothing_unread_compile",
+      "description": "#Const O = Nothing: compiles (issue #1351).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "#Const O = Nothing\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
     }
   ]
 }

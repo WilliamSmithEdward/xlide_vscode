@@ -399,25 +399,39 @@ export function conditionalActivityAtOffset(
 /** An `#If`, `#ElseIf` or `#Const` expression the VBE refuses to compile, and why. */
 export type InvalidConditionDirective =
 	| { reason: 'null'; directive: ConditionalDirectiveNode }
+	| { reason: 'nothing'; directive: ConditionalDirectiveNode }
 	| { reason: 'type-mismatch'; directive: ConditionalDirectiveNode; value: string; as: StringConversion };
 
 /**
- * The `#If` and `#ElseIf` lines whose condition the VBE refuses, in one replay:
+ * The `#If` and `#ElseIf` lines whose condition the VBE refuses, wherever the
+ * line is: the VBE refuses each of these in an arm it skips too, and as an
+ * `#ElseIf` after a taken arm, so no arm is replayed; only the `#Const` lines
+ * are read, in order, since every one defines its constant (issue #192).
  *
- * - Null: "Invalid use of Null" (issue #208, Excel 16.0). `#If Null`,
- *   `#If Null = 1`, `#If Not Null` and a `#Const N = Null` read by `#If N`
- *   all are. Only a line the VBE is sure to evaluate is listed: one in code
- *   that is compiled, and for `#ElseIf`, after arms that were all False.
+ * - Null: "Invalid use of Null" (issues #208 and #1351, Excel 16.0).
+ *   `#If Null`, `#If Null = 1`, `#If Not Null` and a `#Const N = Null` read
+ *   by `#If N` all are. Null that three-valued logic decides (`Null Or True`,
+ *   `Null And False`) is no Null condition. A line is read for it only when it
+ *   names Null or a constant has held Null.
+ * - The literal Nothing: "Invalid use of object" (issue #1351, Excel 16.0).
+ *   `#If Nothing`, `#If (Nothing)` and `#If Not Nothing` are; `#If Nothing Is
+ *   Nothing` is not, and nor is a constant set to Nothing (`#If O` after
+ *   `#Const O = Nothing` compiles), so a condition whose value is such a
+ *   constant is not listed, a choice the measurements support only for the
+ *   constant alone; a literal Nothing beside one still is. A line is read for
+ *   it only when it names Nothing.
  * - A string VBA cannot convert: "Type mismatch" (Excel 16.0). A condition
  *   that is a string no locale reads as True or False (`#If "abc"`, `#If ""`,
  *   `#If " True "`, `#If S` after `#Const S = "x"`), or that hands one to an
  *   operator needing a number or a Boolean (`#If Not "abc"`,
  *   `#If UNDEFINED_X - "abc"`, `#If "abc" = 1`). A `#Const` value that hands
  *   one to an operator is refused too (`#Const A = "abc" + 1`), even when
- *   nothing reads it; one that is a string is not (`#Const S = "x"`). Unlike
- *   Null, the VBE refuses these in an arm it skips as well, and an `#ElseIf`
- *   after a taken arm, so a line the VBE does not evaluate is read too, when it
- *   can hold a string at all: a quote, an `&`, or a constant that is one.
+ *   nothing reads it; one that is a string is not (`#Const S = "x"`). A line
+ *   is read for it only when it can hold a string at all: a quote, an `&`, or
+ *   a constant that is one.
+ *
+ * A line the parser cannot read (a value missing, a `(` or a string left open)
+ * reports no Type mismatch and no Nothing; those are left to the syntax.
  */
 export function invalidConditionDirectives(
 	module: ModuleNode,
@@ -439,14 +453,18 @@ export function invalidConditionDirectives(
 	}
 	const read = createConditionalExpressionReader(effectiveEnv, projectConstants, undefined, hostStrings);
 	const evaluate = evaluatorOf(read);
-	const stack: ConditionalFrame[] = [];
-	let current: ConditionalActivity = 'active';
 	const out: InvalidConditionDirective[] = [];
 	// Whether any constant holds a string, so a condition with no quote and
 	// no `&` can still be one.
 	let stringConstant = [effectiveEnv.compilerConstants, effectiveEnv.projectConstants]
 		.some((table) => Object.values(table ?? {}).some((value) => typeof value === 'string'));
 	const mayHoldString = (raw: string): boolean => stringConstant || raw.includes('"') || raw.includes('&');
+	// Whether any constant holds Null, so a condition that does not name it
+	// can still be Null.
+	let nullConstant = [effectiveEnv.compilerConstants, effectiveEnv.projectConstants]
+		.some((table) => Object.values(table ?? {}).some((value) => isNull(value)));
+	const mayBeInvalid = (raw: string): boolean => mayHoldString(raw) || nullConstant
+		|| /\b(?:null|nothing)\b/i.test(raw);
 	for (const { directive } of collectConditionalDirectives(module)) {
 		if (directive.directiveKind === 'Const' && directive.name && mayHoldString(directive.valueRaw ?? '')) {
 			const mismatch = read(directive.valueRaw).operatorMismatch;
@@ -454,35 +472,33 @@ export function invalidConditionDirectives(
 				out.push({ reason: 'type-mismatch', directive, ...mismatch });
 			}
 		}
-		if (directive.directiveKind === 'If' || directive.directiveKind === 'ElseIf') {
-			const frame = stack[stack.length - 1];
-			const evaluated = directive.directiveKind === 'If'
-				? current === 'active'
-				: frame?.parent === 'active' && !frame.seenTrue && !frame.seenUnknown;
-			const raw = directive.conditionRaw ?? '';
-			if (!evaluated && !mayHoldString(raw)) {
-				current = applyConditionalDirective(directive, evaluate, projectConstants, stack, current);
-				continue;
-			}
+		if ((directive.directiveKind === 'If' || directive.directiveKind === 'ElseIf')
+			&& mayBeInvalid(directive.conditionRaw ?? '')) {
 			const reading = read(directive.conditionRaw);
 			if (reading.mismatch !== undefined) {
 				out.push({ reason: 'type-mismatch', directive, ...reading.mismatch });
-			} else if (evaluated && reading.value !== undefined && isNull(reading.value)) {
+			} else if (reading.value !== undefined && isNull(reading.value)) {
 				out.push({ reason: 'null', directive });
+			} else if (reading.nothing) {
+				out.push({ reason: 'nothing', directive });
 			}
 		}
 		// A #Const that gives its name a value replaces a host string; one that
 		// fails (`#Const FLAG = 1 / 0`) leaves it.
 		const replacesHost = directive.directiveKind === 'Const' && directive.name !== undefined
 			&& hostStrings.has(directive.name.toLowerCase()) && evaluate(directive.valueRaw) !== undefined;
-		current = applyConditionalDirective(directive, evaluate, projectConstants, stack, current);
 		if (directive.directiveKind === 'Const' && directive.name) {
+			applyConditionalDirective(directive, evaluate, projectConstants, [], 'active');
 			const lower = directive.name.toLowerCase();
 			if (replacesHost) {
 				hostStrings.delete(lower);
 			}
-			if (typeof projectConstants.get(lower) === 'string') {
+			const value = projectConstants.get(lower);
+			if (typeof value === 'string') {
 				stringConstant = true;
+			}
+			if (value !== undefined && isNull(value)) {
+				nullConstant = true;
 			}
 		}
 	}
@@ -683,6 +699,11 @@ interface ConditionalReading {
 	operatorMismatch?: StringMismatch;
 	/** The expression is well formed and read a name with no value. */
 	unknownName?: true;
+	/**
+	 * The value is the literal Nothing, or `Not` was applied to one: not a
+	 * constant set to Nothing, which the VBE reads as a condition.
+	 */
+	nothing?: true;
 }
 
 /** What a string was needed as: True or False, a number, or a date. */
@@ -845,12 +866,18 @@ class ConditionalExpressionParser {
 	private hostString = false;
 	/**
 	 * A value was missing where the expression needs one, a `(` or a string
-	 * was not closed, or a keyword stood for a value. Only the mismatch
-	 * depends on it.
+	 * was not closed, or a keyword stood for a value. Only the mismatch and
+	 * the literal Nothing depend on it.
 	 */
 	private broken = false;
 	/** An identifier with no value was read. */
 	private readUnknownName = false;
+	/** `Not` was applied to a literal Nothing. */
+	private notOfNothing = false;
+	/** A constant holding Nothing was read. */
+	private readNothingConstant = false;
+	/** How many literal `Nothing` tokens were read. */
+	private literalNothingReads = 0;
 
 	constructor(
 		private readonly tokens: readonly VbaToken[],
@@ -880,7 +907,8 @@ class ConditionalExpressionParser {
 	/**
 	 * The value, and the string the expression could not convert, if any. An
 	 * expression the parser cannot read, missing a value or a `)` or with
-	 * tokens left over, reports no mismatch, and no name with no value.
+	 * tokens left over, reports no mismatch, no literal Nothing, and no name
+	 * with no value.
 	 */
 	read(): ConditionalReading {
 		const value = this.parseLogical(0);
@@ -888,20 +916,23 @@ class ConditionalExpressionParser {
 			return { value: undefined };
 		}
 		if (this.broken) {
-			// The value is as `parse` gives it; only the mismatch is withheld.
+			// The value is as `parse` gives it; only what it was refused for is withheld.
 			return { value };
 		}
 		const unknownName = this.readUnknownName ? { unknownName: true as const } : {};
+		const nothing = this.notOfNothing
+			|| (value !== undefined && isSpecial(value, 'nothing') && !this.readNothingConstant)
+			? { nothing: true as const } : {};
 		if (this.hostString) {
 			// A host string's reading was not measured: the mismatch is withheld.
-			return { value, ...unknownName };
+			return { value, ...unknownName, ...nothing };
 		}
 		const operatorMismatch = this.mismatch;
 		const mismatch = operatorMismatch
 			?? (typeof value === 'string' && isInvalidBooleanString(value)
 				? { value, as: 'boolean' as const } : undefined);
 		return { value, ...(mismatch === undefined ? {} : { mismatch }),
-			...(operatorMismatch === undefined ? {} : { operatorMismatch }), ...unknownName };
+			...(operatorMismatch === undefined ? {} : { operatorMismatch }), ...unknownName, ...nothing };
 	}
 
 	/** Imp, Eqv, Xor, Or, And, loosest first; each level is left-associative. */
@@ -925,9 +956,14 @@ class ConditionalExpressionParser {
 		while (this.matchWord('not')) {
 			count++;
 		}
+		const literalNothingReads = this.literalNothingReads;
 		let value = this.parseComparison();
 		if (count > 0) {
 			this.requireConvertible(value, 'boolean');
+			// `Not O` after `#Const O = Nothing` is not known to be refused.
+			if (value !== undefined && isSpecial(value, 'nothing') && this.literalNothingReads > literalNothingReads) {
+				this.notOfNothing = true;
+			}
 		}
 		while (count-- > 0) {
 			if (typeof value === 'boolean') {
@@ -1147,7 +1183,7 @@ class ConditionalExpressionParser {
 			case 'false': return false;
 			case 'empty': return EMPTY;
 			case 'null': return NULL;
-			case 'nothing': return NOTHING;
+			case 'nothing': this.literalNothingReads++; return NOTHING;
 			default: break;
 		}
 		if (token.kind !== 'identifier') {
@@ -1155,6 +1191,9 @@ class ConditionalExpressionParser {
 			this.broken = true;
 		}
 		const value = this.constants.get(word);
+		if (value !== undefined && isSpecial(value, 'nothing')) {
+			this.readNothingConstant = true;
+		}
 		if (typeof value === 'string' && this.hostStrings?.has(word)) {
 			this.hostString = true;
 		}
