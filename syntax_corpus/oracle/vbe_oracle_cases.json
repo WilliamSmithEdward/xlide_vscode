@@ -114842,6 +114842,76 @@
       "source": "Function Main() As Variant\r\n#If UNDEFINED_X = \"0\" Then\r\n    Err.Raise 1001\r\n#Else\r\n    Main = 1\r\n#End If\r\nEnd Function\r\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1347_win64_zero_compile",
+      "description": "Issue #1347: #Const Win64 = 0, then #If Win64; measured in Excel 16.0 through the VBE oracle: the #Else arm compiles.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\n#Const Win64 = 0\r\nFunction Main() As Variant\r\n#If Win64 Then\r\n    Main = DeadName\r\n#Else\r\n    Main = \"else\"\r\n#End If\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1347_vba7_zero_compile",
+      "description": "Issue #1347: #Const VBA7 = 0, then #If VBA7; measured in Excel 16.0 through the VBE oracle: the #Else arm compiles.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\n#Const VBA7 = 0\r\nFunction Main() As Variant\r\n#If VBA7 Then\r\n    Main = DeadName\r\n#Else\r\n    Main = \"else\"\r\n#End If\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1347_win64_undefined_compile",
+      "description": "Issue #1347: #Const Win64 = UNDEFINED_X, then #If Win64; measured in Excel 16.0 through the VBE oracle: the #Else arm compiles.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\n#Const Win64 = UNDEFINED_X\r\nFunction Main() As Variant\r\n#If Win64 Then\r\n    Main = DeadName\r\n#Else\r\n    Main = \"else\"\r\n#End If\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1347_vba7_undefined_compile",
+      "description": "Issue #1347: #Const VBA7 = UNDEFINED_X, then #If VBA7; measured in Excel 16.0 through the VBE oracle: the #Else arm compiles.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\n#Const VBA7 = UNDEFINED_X\r\nFunction Main() As Variant\r\n#If VBA7 Then\r\n    Main = DeadName\r\n#Else\r\n    Main = \"else\"\r\n#End If\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1347_win64_undefined_plus_one_compile",
+      "description": "Issue #1347: #Const Win64 = UNDEFINED_X + 1, then #If Win64; measured in Excel 16.0 through the VBE oracle: the #If arm compiles (DeadName undeclared).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\n#Const Win64 = UNDEFINED_X + 1\r\nFunction Main() As Variant\r\n#If Win64 Then\r\n    Main = DeadName\r\n#Else\r\n    Main = \"else\"\r\n#End If\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1347_control_win64_default_compile",
+      "description": "Issue #1347: no #Const, then #If Win64; measured in Excel 16.0 through the VBE oracle: the #If arm compiles (DeadName undeclared).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n#If Win64 Then\r\n    Main = DeadName\r\n#Else\r\n    Main = \"else\"\r\n#End If\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1347_control_win64_one_compile",
+      "description": "Issue #1347: #Const Win64 = 1, then #If Win64; measured in Excel 16.0 through the VBE oracle: the #If arm compiles (DeadName undeclared).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\n#Const Win64 = 1\r\nFunction Main() As Variant\r\n#If Win64 Then\r\n    Main = DeadName\r\n#Else\r\n    Main = \"else\"\r\n#End If\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }

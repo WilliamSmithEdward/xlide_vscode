@@ -198,9 +198,17 @@ interface ConditionalActivityEvent {
 	branch: ConditionalArm | undefined;
 }
 
+/**
+ * A replay's constants by lower-cased name, the way lookups spell them:
+ * the environment's project values, then each module `#Const` as it is
+ * read. A `#Const` whose value is not known here is kept as undefined, so
+ * it still hides a compiler constant of its name (issue #1347).
+ */
+type ReplayConstants = Map<string, ConditionalValue | undefined>;
+
 /** The environment's `#Const` values keyed by lower-cased name, the way lookups spell them. */
-function projectConstantsOf(env: ConditionalCompilationEnvironment): Map<string, ConditionalValue> {
-	const out = new Map<string, ConditionalValue>();
+function projectConstantsOf(env: ConditionalCompilationEnvironment): ReplayConstants {
+	const out: ReplayConstants = new Map();
 	for (const [name, value] of Object.entries(env.projectConstants ?? {})) {
 		out.set(name.toLowerCase(), value);
 	}
@@ -500,7 +508,7 @@ export function nullConditionDirectives(
 function applyConditionalDirective(
 	directive: ConditionalDirectiveNode,
 	evaluate: ConditionalExpressionEvaluator,
-	projectConstants: Map<string, ConditionalValue>,
+	projectConstants: ReplayConstants,
 	stack: ConditionalFrame[],
 	current: ConditionalActivity,
 ): ConditionalActivity {
@@ -508,11 +516,11 @@ function applyConditionalDirective(
 		case 'Const': {
 			// A #Const defines its constant even inside a #If False: the VBE
 			// reads every #Const line (issue #192, measured in Excel 16.0).
+			// One whose value is unknown here still replaces a built-in of
+			// its name: `#Const Win64 = UNDEFINED_X` then `#If Win64` takes
+			// the #Else arm in Excel, not Win64's own 1 (issue #1347).
 			if (directive.name) {
-				const value = evaluate(directive.valueRaw);
-				if (value !== undefined) {
-					projectConstants.set(directive.name.toLowerCase(), value);
-				}
+				projectConstants.set(directive.name.toLowerCase(), evaluate(directive.valueRaw));
 			}
 			return current;
 		}
@@ -619,9 +627,7 @@ function collectConditionalConstants(
 		// The index historically supplies a project table even when the caller
 		// did not, so an absent name is zero on this path.
 		const value = evaluate(directive.valueRaw);
-		if (value !== undefined) {
-			projectConstants.set(directive.name.toLowerCase(), value);
-		}
+		projectConstants.set(directive.name.toLowerCase(), value);
 		constants.push({
 			name: directive.name,
 			nameSpan: directive.nameSpan,
@@ -676,7 +682,7 @@ export interface StringMismatch {
 
 function createConditionalExpressionEvaluator(
 	env: ConditionalCompilationEnvironment,
-	projectConstants: ReadonlyMap<string, ConditionalValue>,
+	projectConstants: ReadonlyMap<string, ConditionalValue | undefined>,
 	undefinedIsZero = env.projectConstants !== undefined,
 ): ConditionalExpressionEvaluator {
 	const read = createConditionalExpressionReader(env, projectConstants, undefinedIsZero);
@@ -685,7 +691,7 @@ function createConditionalExpressionEvaluator(
 
 function createConditionalExpressionReader(
 	env: ConditionalCompilationEnvironment,
-	projectConstants: ReadonlyMap<string, ConditionalValue>,
+	projectConstants: ReadonlyMap<string, ConditionalValue | undefined>,
 	undefinedIsZero = env.projectConstants !== undefined,
 	hostStrings?: ReadonlySet<string>,
 ): (expression: string | undefined) => ConditionalReading {
@@ -695,6 +701,7 @@ function createConditionalExpressionReader(
 	const constants = {
 		get: (name: string): ConditionalValue | undefined => projectConstants.has(name)
 			? projectConstants.get(name) : compilerConstants?.get(name),
+		has: (name: string): boolean => projectConstants.has(name) || compilerConstants?.has(name) === true,
 	};
 	return (expression) => {
 		if (!expression?.trim()) {
@@ -827,7 +834,11 @@ class ConditionalExpressionParser {
 
 	constructor(
 		private readonly tokens: readonly VbaToken[],
-		private readonly constants: Pick<ReadonlyMap<string, ConditionalValue>, 'get'>,
+		/**
+		 * The constants by lower-cased name. A name that `has` but whose
+		 * value is undefined is defined with a value not known here.
+		 */
+		private readonly constants: Pick<ReadonlyMap<string, ConditionalValue | undefined>, 'get' | 'has'>,
 		/**
 		 * Whether a name no constant defines evaluates as the VBE evaluates
 		 * it, to 0. Not to Empty: `UNDEFINED & "x" = "x"` is False where
@@ -1126,7 +1137,9 @@ class ConditionalExpressionParser {
 		if (typeof value === 'string' && this.hostStrings?.has(word)) {
 			this.hostString = true;
 		}
-		if (value === undefined && this.undefinedIsZero && token.kind === 'identifier') {
+		// Only a name nothing defines is 0; one a #Const defined with a value
+		// not known here stays unknown (issue #1347).
+		if (value === undefined && this.undefinedIsZero && token.kind === 'identifier' && !this.constants.has(word)) {
 			return 0;
 		}
 		return value;
