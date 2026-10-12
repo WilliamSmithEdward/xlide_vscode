@@ -400,7 +400,7 @@ export function analyzeVbaStructure(
     options: VbaStructuralAnalysisOptions = {},
 ): VbaStructuralDiagnostic[] {
     const physical = source.split(/\r\n|\r|\n/);
-    const { logical } = toLogicalLines(source);
+    const { stripped, logical } = toLogicalLines(source);
     const stack: OpenBlock[] = [];
     // One entry per open `#If`, carrying which arm of it we are currently in.
     // endHeight: the block-stack height when the first arm that was read ended;
@@ -419,8 +419,33 @@ export function analyzeVbaStructure(
     // segment is a directive.
     const colonStarts = colonDirectiveStarts(source);
     const lineStarts = remStarts.size > 0 || colonStarts.size > 0 ? lineStartOffsets(source) : [];
-    const remDirectiveLines = new Set([...remStarts].map((offset) => lineIndexOf(lineStarts, offset)));
-    const colonDirectiveLines = new Set([...colonStarts].map((offset) => lineIndexOf(lineStarts, offset)));
+    // True when physical line `i` runs on into the next through ` _`.
+    const continues = (i: number): boolean => /\s_[ \t]*$/.test(stripped[i] ?? '') && /\s_[ \t]*$/.test(physical[i] ?? '');
+    // Keyed by the logical line's first physical line, which a bare ` _` line
+    // before the `#` moves up.
+    const logicalLineOf = (offset: number): number => {
+        let line = lineIndexOf(lineStarts, offset);
+        while (line > 0 && continues(line - 1)) {
+            line--;
+        }
+        return line;
+    };
+    const remDirectiveLines = new Set([...remStarts].map(logicalLineOf));
+    const colonDirectiveLines = new Set([...colonStarts].map(logicalLineOf));
+    // The first character of the logical line starting at `line`, past blanks
+    // and bare ` _` lines. The colon segments drop an empty one, so `: #If`
+    // reaches the loop as a first segment (issue #1331).
+    const logicalLineHead = (line: number): string => {
+        for (let i = line; i < stripped.length; i++) {
+            const text = stripped[i] ?? '';
+            const continued = continues(i);
+            const body = (continued ? text.replace(/\s_[ \t]*$/, '') : text).trim();
+            if (body || !continued) {
+                return body.charAt(0);
+            }
+        }
+        return '';
+    };
 
     const closeOne = (closerKind: BlockKind, line: number, closerWord: string): void => {
         let idx = -1;
@@ -496,8 +521,8 @@ export function analyzeVbaStructure(
         // A directive starts its logical line: after a colon, a label or a
         // line number a `#` is none, and opens and closes nothing (issue
         // #1331, measured in Excel 16.0).
-        const misplaced = !firstOnLine || t !== raw;
-        if (!t || (t.startsWith('#') && (misplaced || remDirectiveLines.has(ll.line) || colonDirectiveLines.has(ll.line)))) { continue; }
+        const misplaced = (): boolean => !firstOnLine || logicalLineHead(ll.line) !== '#';
+        if (!t || (t.startsWith('#') && (misplaced() || remDirectiveLines.has(ll.line) || colonDirectiveLines.has(ll.line)))) { continue; }
         if (options.isInactiveLine?.(ll.line) && !isPreprocessorLine(t)) {
             continue;
         }
