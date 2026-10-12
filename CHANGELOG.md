@@ -2,6 +2,18 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.1.7] - 2026-10-12
+
+Open password-protected files in Office without the password.
+
+- Open a password-protected file with Open in Office Application, or its
+  read-only form, and run its macros, without the VBA project password.
+  Neither shows code, and the Office application keeps its own project
+  protection. Viewing and editing source, exports, analysis, designers, VBA
+  tests and Access designs still require it (#1327, reported by @batGnat).
+- Treat a `#Const` line holding `Rem` as defining nothing, even in a skipped
+  arm, as the VBE does (#1330, contributed by Sam, @swsammy).
+
 ## [11.1.6] - 2026-10-11
 
 Read conditional compilation as the VBE does.
