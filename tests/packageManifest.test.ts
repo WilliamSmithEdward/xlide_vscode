@@ -64,9 +64,11 @@ const INTERNAL_COMMANDS = new Set([
     'xlide.vba.finishBackspaceCleanup',
     'xlide.vba.smartTab',
     'xlide.vba.leaveSnippetAndCursorMove',
-    // What the explorer view shows, for the integration tests; registered
-    // only outside a production install.
+    // What the explorer view shows, and a row focused for the keyboard to
+    // fold, for the integration tests; registered only outside a production
+    // install.
     'xlide.dev.explorerViewState',
+    'xlide.dev.focusExplorerRow',
 ]);
 
 describe('package manifest consistency', () => {
