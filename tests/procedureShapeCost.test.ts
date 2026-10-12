@@ -12,9 +12,9 @@
 import { describe, expect, it } from 'vitest';
 import { analyzeModule } from '../src/analyzer';
 
-// Measured on this ladder: 4.5 (chain) and 4.9 (locals) with the fix, 12.7
-// and 14.8 without. Linear is 4x. The ceiling sits between them with room
-// for a loaded machine.
+// Measured on this ladder, as bestRatio reads it: 3.8 to 4.6 (chain) and 4.5
+// to 5.7 (locals) with the fix, idle or under load; 11 and 15 without. Linear
+// is 4x. The ceiling sits between them with room for a loaded machine.
 const RATIO_CEILING = 9;
 
 function elseIfChain(arms: number): string {
@@ -38,26 +38,39 @@ function manyLocals(count: number): string {
 	return lines.join('\r\n');
 }
 
-function medianMs(source: string, runs: number): number {
+function timeMs(source: string): number {
+	const started = performance.now();
 	analyzeModule(source);
-	const samples: number[] = [];
+	return performance.now() - started;
+}
+
+/**
+ * The large source's time over the small one's, each its fastest of `runs`.
+ * Both are warmed before either is timed, and the samples alternate, so the
+ * JIT warming as the runs go on (about 2x on the small source) speeds both
+ * alike. Timing the large source first and the small one after it read the
+ * small one warmer, and once lifted the ratio past the ceiling on a shared
+ * CI runner (9.9, against 4 to 5 here). The fastest run is the one other
+ * load interrupted least; quadratic growth still shows in it.
+ */
+function bestRatio(small: string, large: string, runs: number): number {
+	timeMs(small);
+	timeMs(large);
+	let smallMs = Number.POSITIVE_INFINITY;
+	let largeMs = Number.POSITIVE_INFINITY;
 	for (let i = 0; i < runs; i++) {
-		const started = performance.now();
-		analyzeModule(source);
-		samples.push(performance.now() - started);
+		smallMs = Math.min(smallMs, timeMs(small));
+		largeMs = Math.min(largeMs, timeMs(large));
 	}
-	samples.sort((a, b) => a - b);
-	return samples[Math.floor(samples.length / 2)];
+	return largeMs / Math.max(smallMs, 1);
 }
 
 describe('analysis cost stays near linear in a procedure\'s size (issue #322)', () => {
 	it('for a long If/ElseIf chain across a 4x step', () => {
-		const ratio = medianMs(elseIfChain(2000), 3) / Math.max(medianMs(elseIfChain(500), 3), 1);
-		expect(ratio).toBeLessThan(RATIO_CEILING);
+		expect(bestRatio(elseIfChain(500), elseIfChain(2000), 5)).toBeLessThan(RATIO_CEILING);
 	}, 300000);
 
 	it('for many locals across a 4x step', () => {
-		const ratio = medianMs(manyLocals(2000), 3) / Math.max(medianMs(manyLocals(500), 3), 1);
-		expect(ratio).toBeLessThan(RATIO_CEILING);
+		expect(bestRatio(manyLocals(500), manyLocals(2000), 5)).toBeLessThan(RATIO_CEILING);
 	}, 300000);
 });
