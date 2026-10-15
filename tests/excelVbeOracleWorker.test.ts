@@ -41,10 +41,8 @@ describe('Excel VBE oracle worker', () => {
             expect(lines[index - 1]).toBe('Assert-ExcelAlive $excel $excelPid');
         }
 
-        const assertBody = worker.slice(
-            worker.indexOf('function Assert-ExcelAlive'),
-            worker.indexOf('function ConvertTo-NormalizedCommandCaption'),
-        );
+        const assertStart = worker.indexOf('function Assert-ExcelAlive');
+        const assertBody = worker.slice(assertStart, worker.indexOf('\nfunction ', assertStart));
         expect(assertBody).toContain('Get-Process -Id $ExcelPid');
         expect(assertBody).toContain('$null = $Excel.Hwnd');
         expect(assertBody.match(/throw "/g)).toHaveLength(2);
