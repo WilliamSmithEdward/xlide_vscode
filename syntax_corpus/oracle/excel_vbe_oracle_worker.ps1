@@ -939,6 +939,18 @@ function Invoke-OracleCase {
                         break
                     }
                     catch {
+                        # The macro ran, but its returned Date lies beyond what
+                        # .NET can hold, so only reading the return value failed.
+                        # This one exact error counts as a return; any other
+                        # stays an error.
+                        $returnError = $_.Exception.InnerException
+                        if ($_.Exception -is [System.Management.Automation.MethodInvocationException] -and
+                            $null -ne $returnError -and
+                            $returnError.GetType() -eq [System.ArgumentException] -and
+                            $returnError.Message -ceq "Not a legal OleAut date.") {
+                            $lastError = $null
+                            break
+                        }
                         $lastError = $_
                         if ($_.Exception.Message -notmatch "Cannot run the macro") {
                             throw

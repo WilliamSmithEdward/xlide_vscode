@@ -239,6 +239,12 @@ because VBE runtime dialogs vary in their button command IDs. Use runtime
 fixtures sparingly, only when a deterministic runtime error changes diagnostic
 severity or corpus truth.
 
+An entry point may be a `Function`. If it returns a Date beyond what .NET can
+hold, the macro has run but reading its return value fails with
+`Not a legal OleAut date.`; the worker treats exactly that error as a normal
+return, so a captured dialog still rejects the case and an accept still
+requires Excel to be alive. Any other error from `Run` is handled as before.
+
 During compile fixtures, the worker starts a Win32 dialog watcher before invoking
 VBE Compile. A dialog owned by the disposable Excel process with title
 `Microsoft Visual Basic for Applications`, class `#32770`, and child text
