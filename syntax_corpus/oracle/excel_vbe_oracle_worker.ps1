@@ -558,6 +558,21 @@ function Wait-ForDialogResult {
     return $null
 }
 
+# No dialog only means accepted if Excel is still there to show one. When
+# Excel crashes, as compiling some snippets makes it do, the watcher sees no
+# dialog either.
+function Assert-ExcelAlive($Excel, $ExcelPid) {
+    if ($null -eq (Get-Process -Id $ExcelPid -ErrorAction SilentlyContinue)) {
+        throw "Excel (pid $ExcelPid) exited during the $stage stage. A crash is not VBA evidence."
+    }
+    try {
+        $null = $Excel.Hwnd
+    }
+    catch {
+        throw "Excel (pid $ExcelPid) did not answer a COM call after the $stage stage: $($_.Exception.Message)"
+    }
+}
+
 function ConvertTo-NormalizedCommandCaption($Caption) {
     return ([string]$Caption).Replace('&', '').Trim()
 }
@@ -728,6 +743,7 @@ try {
             Set-DialogOutcome $dialog $true
         }
         else {
+            Assert-ExcelAlive $excel $excelPid
             $result.outcome = "accepted"
             $result.stage = $stage
         }
@@ -777,6 +793,7 @@ try {
     }
 
     if ($result.outcome -eq "setup_error") {
+        Assert-ExcelAlive $excel $excelPid
         $result.outcome = "accepted"
         $result.stage = $stage
     }
