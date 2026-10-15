@@ -1,9 +1,9 @@
 param(
-    [Parameter(Mandatory = $true)]
-    [string]$CasePath,
+    [Parameter(Mandatory = $false)]
+    [string]$CasePath = "",
 
-    [Parameter(Mandatory = $true)]
-    [string]$PidPath,
+    [Parameter(Mandatory = $false)]
+    [string]$PidPath = "",
 
     [Parameter(Mandatory = $false)]
     [string]$StagePath = "",
@@ -15,7 +15,15 @@ param(
     [int]$DialogWatchSeconds = 60,
 
     [Parameter(Mandatory = $false)]
-    [int]$DialogHoldSeconds = 0
+    [int]$DialogHoldSeconds = 0,
+
+    # Serve cases read from stdin, one JSON request per line, instead of
+    # running the single case named by -CasePath.
+    [Parameter(Mandatory = $false)]
+    [switch]$Serve,
+
+    [Parameter(Mandatory = $false)]
+    [int]$CasesPerExcel = 40
 )
 
 $ErrorActionPreference = "Stop"
@@ -734,41 +742,65 @@ function Invoke-VbeCompileCommand($Excel) {
     }
     catch {
     }
-    if ($null -ne $control) {
-        $control.Execute()
-        return $control
-    }
-    foreach ($bar in @($vbe.CommandBars)) {
-        $control = Find-VbeCommandControl $bar.Controls $caption
-        if ($null -ne $control) {
-            $control.Execute()
-            return $control
+    if ($null -eq $control) {
+        foreach ($bar in @($vbe.CommandBars)) {
+            $control = Find-VbeCommandControl $bar.Controls $caption
+            if ($null -ne $control) {
+                break
+            }
         }
     }
-    throw "Could not find exact VBE command '$caption'. Oracle compile command was not invoked."
+    if ($null -eq $control) {
+        throw "Could not find exact VBE command '$caption'. Oracle compile command was not invoked."
+    }
+    # A disabled command is the accept signal, so it has to start enabled. In
+    # a kept Excel it can still show the previous project's compiled state.
+    $deadline = [DateTime]::UtcNow.AddSeconds(1)
+    while ($control.Enabled -ne $true) {
+        if ([DateTime]::UtcNow -ge $deadline) {
+            throw "The VBE Compile command was disabled before compiling. Oracle compile command was not invoked."
+        }
+        Start-Sleep -Milliseconds 50
+    }
+    $control.Execute()
+    return $control
 }
 
-$case = Get-Content -LiteralPath $CasePath -Raw | ConvertFrom-Json
-$excel = $null
-$workbook = $null
-$vbProject = $null
-$component = $null
-$codeModule = $null
-$workbookPath = $null
-$mode = "compile"
-Set-Stage "setup"
+# One Excel serves several compile cases, each in a fresh workbook. Compiling
+# runs no code, so it leaves Excel as it found it. Excel is replaced after
+# every run case, whose macro can change Excel itself; after -CasesPerExcel
+# cases; after any case that did not end in evidence or left a workbook open;
+# and when a kept Excel no longer takes the settings.
+$script:excel = $null
+$script:excelPid = 0
+$script:excelCases = 0
 
-$result = [ordered]@{
-    caseId = $case.id
-    outcome = "setup_error"
-    stage = $stage
-    message = ""
-    hresult = $null
+function Start-OracleExcel {
+    $script:excel = New-Object -ComObject Excel.Application
+    $processId = 0
+    [void][XlideUser32]::GetWindowThreadProcessId([IntPtr]$script:excel.Hwnd, [ref]$processId)
+    $script:excelPid = $processId
+    $script:excelCases = 0
 }
 
-try {
-    Set-Stage "start_excel"
-    $excel = New-Object -ComObject Excel.Application
+function Stop-OracleExcel {
+    if ($null -ne $script:excel) {
+        try { $script:excel.Quit() } catch { }
+        Remove-ComObjectReference $script:excel
+        $script:excel = $null
+        [GC]::Collect()
+        [GC]::WaitForPendingFinalizers()
+    }
+    if ($script:excelPid) {
+        Get-Process -Id $script:excelPid -ErrorAction SilentlyContinue |
+            Where-Object { $_.ProcessName -eq "EXCEL" } |
+            Stop-Process -Force -ErrorAction SilentlyContinue
+        $script:excelPid = 0
+    }
+}
+
+# Applied before every case, since a case's macro can change them.
+function Set-OracleExcelSettings($excel) {
     # Excel must stay visible: when the host application is hidden, the VBE
     # Compile-error / Run-time-error modal is not surfaced as a detectable
     # visible top-level window, so the Win32 dialog watcher never sees it and a
@@ -782,157 +814,229 @@ try {
     # msoAutomationSecurityLow. This applies only to the disposable Excel
     # instance created by this worker.
     try { $excel.AutomationSecurity = 1 } catch { }
+}
 
+function Invoke-OracleCase {
+    $case = Get-Content -LiteralPath $CasePath -Raw | ConvertFrom-Json
+    $excel = $null
     $excelPid = 0
-    [void][XlideUser32]::GetWindowThreadProcessId([IntPtr]$excel.Hwnd, [ref]$excelPid)
-    Set-Content -LiteralPath $PidPath -Value $excelPid -Encoding ascii
-
-    Set-Stage "create_workbook"
-    $workbook = $excel.Workbooks.Add()
-    [void]$workbook.Activate()
-
-    Set-Stage "add_module"
-    $vbProject = $workbook.VBProject
+    $workbook = $null
+    $vbProject = $null
     $component = $null
-    if ($case.PSObject.Properties.Name -contains "modules" -and $case.modules) {
-        Set-Stage "add_modules"
-        foreach ($moduleSpec in @($case.modules)) {
-            $added = Add-OracleComponent $vbProject $moduleSpec
-            if ($null -eq $component -and (ConvertTo-VbComponentType $moduleSpec.type) -eq 1) {
-                $component = $added
+    $codeModule = $null
+    $workbookPath = $null
+    $mode = "compile"
+    Set-Stage "setup"
+
+    $result = [ordered]@{
+        caseId = $case.id
+        outcome = "setup_error"
+        stage = $stage
+        message = ""
+        hresult = $null
+    }
+
+    try {
+        Set-Stage "start_excel"
+        # A kept Excel that no longer takes the settings is replaced before
+        # the case starts, rather than failing the case.
+        if ($null -ne $script:excel) {
+            Set-Content -LiteralPath $PidPath -Value $script:excelPid -Encoding ascii
+            try { Set-OracleExcelSettings $script:excel } catch { Stop-OracleExcel }
+        }
+        if ($null -eq $script:excel) {
+            Start-OracleExcel
+            Set-Content -LiteralPath $PidPath -Value $script:excelPid -Encoding ascii
+            Set-OracleExcelSettings $script:excel
+        }
+        $excel = $script:excel
+        $excelPid = $script:excelPid
+        $script:excelCases += 1
+
+        Set-Stage "create_workbook"
+        $workbook = $excel.Workbooks.Add()
+        [void]$workbook.Activate()
+
+        Set-Stage "add_module"
+        $vbProject = $workbook.VBProject
+        $component = $null
+        if ($case.PSObject.Properties.Name -contains "modules" -and $case.modules) {
+            Set-Stage "add_modules"
+            foreach ($moduleSpec in @($case.modules)) {
+                $added = Add-OracleComponent $vbProject $moduleSpec
+                if ($null -eq $component -and (ConvertTo-VbComponentType $moduleSpec.type) -eq 1) {
+                    $component = $added
+                }
+                if ($moduleSpec.PSObject.Properties.Name -contains "entry" -and $moduleSpec.entry) {
+                    $component = $added
+                }
             }
-            if ($moduleSpec.PSObject.Properties.Name -contains "entry" -and $moduleSpec.entry) {
-                $component = $added
+            if ($null -eq $component) {
+                throw "Oracle case with modules must include a standard entry module."
             }
-        }
-        if ($null -eq $component) {
-            throw "Oracle case with modules must include a standard entry module."
-        }
-    }
-    else {
-        $component = $vbProject.VBComponents.Add(1)
-        $component.Name = "XlideOracleModule"
-        $component.CodeModule.AddFromString([string]$case.source)
-    }
-    $codeModule = $component.CodeModule
-
-    if ($case.PSObject.Properties.Name -contains "mode" -and $case.mode) {
-        $mode = [string]$case.mode
-    }
-
-    if ($mode -eq "compile") {
-        Set-Stage "compile"
-        # Compile probes drive the VBE command bars; the VBE main window is shown
-        # so the Compile command is available and its error dialog is surfaced.
-        $excel.VBE.MainWindow.Visible = $true
-
-        [void]$component.Activate()
-        $codeModule.CodePane.Show()
-        $codeModule.CodePane.SetSelection(1, 1, 1, 1)
-        Start-Sleep -Milliseconds 250
-
-        [XlideVbeDialogWatcher]::Start($excelPid, $DialogPath, $StagePath, $DialogWatchSeconds, $DialogHoldSeconds)
-        try {
-            $compileControl = Invoke-VbeCompileCommand $excel
-            $dialog = Wait-ForCompileResult $compileControl $excelPid
-        }
-        finally {
-            [XlideVbeDialogWatcher]::Stop()
-        }
-        $dialog = Resolve-DialogAfterStop $dialog
-        if ($null -ne $dialog) {
-            Set-DialogOutcome $dialog $true
         }
         else {
+            $component = $vbProject.VBComponents.Add(1)
+            $component.Name = "XlideOracleModule"
+            $component.CodeModule.AddFromString([string]$case.source)
+        }
+        $codeModule = $component.CodeModule
+
+        if ($case.PSObject.Properties.Name -contains "mode" -and $case.mode) {
+            $mode = [string]$case.mode
+        }
+
+        if ($mode -eq "compile") {
+            Set-Stage "compile"
+            # Compile probes drive the VBE command bars; the VBE main window is shown
+            # so the Compile command is available and its error dialog is surfaced.
+            $excel.VBE.MainWindow.Visible = $true
+            # The Compile command compiles the active project, and every case's
+            # project has the same name, so make sure it is this case's.
+            $excel.VBE.ActiveVBProject = $vbProject
+
+            [void]$component.Activate()
+            $codeModule.CodePane.Show()
+            $codeModule.CodePane.SetSelection(1, 1, 1, 1)
+            Start-Sleep -Milliseconds 250
+
+            [XlideVbeDialogWatcher]::Start($excelPid, $DialogPath, $StagePath, $DialogWatchSeconds, $DialogHoldSeconds)
+            try {
+                $compileControl = Invoke-VbeCompileCommand $excel
+                $dialog = Wait-ForCompileResult $compileControl $excelPid
+            }
+            finally {
+                [XlideVbeDialogWatcher]::Stop()
+            }
+            $dialog = Resolve-DialogAfterStop $dialog
+            if ($null -ne $dialog) {
+                Set-DialogOutcome $dialog $true
+            }
+            else {
+                Assert-ExcelAlive $excel $excelPid
+                $result.outcome = "accepted"
+                $result.stage = $stage
+            }
+        }
+        elseif ($mode -eq "run" -and $case.entryPoint) {
+            Set-Stage "run"
+            $entryPoint = [string]$case.entryPoint
+            $moduleName = [string]$component.Name
+            $workbookName = [string]$workbook.Name
+            $macroNames = @(
+                "'$workbookName'!$moduleName.$entryPoint",
+                "'$workbookName'!$entryPoint",
+                "$moduleName.$entryPoint",
+                $entryPoint
+            )
+            $lastError = $null
+            [XlideVbeDialogWatcher]::Start($excelPid, $DialogPath, $StagePath, $DialogWatchSeconds, $DialogHoldSeconds)
+            try {
+                foreach ($macro in $macroNames) {
+                    try {
+                        [void]$excel.Run($macro)
+                        $lastError = $null
+                        break
+                    }
+                    catch {
+                        $lastError = $_
+                        if ($_.Exception.Message -notmatch "Cannot run the macro") {
+                            throw
+                        }
+                    }
+                }
+                if ($null -ne $lastError) {
+                    throw $lastError
+                }
+            }
+            finally {
+                $dialog = Wait-ForRunDialogResult
+                [XlideVbeDialogWatcher]::Stop()
+            }
+            $dialog = Resolve-DialogAfterStop $dialog
+            if ($null -ne $dialog) {
+                Set-DialogOutcome $dialog $false
+            }
+        }
+
+        elseif ($mode -ne "run") {
+            throw "Unsupported oracle mode: $mode"
+        }
+
+        if ($result.outcome -eq "setup_error") {
             Assert-ExcelAlive $excel $excelPid
             $result.outcome = "accepted"
             $result.stage = $stage
         }
     }
-    elseif ($mode -eq "run" -and $case.entryPoint) {
-        Set-Stage "run"
-        $entryPoint = [string]$case.entryPoint
-        $moduleName = [string]$component.Name
-        $workbookName = [string]$workbook.Name
-        $macroNames = @(
-            "'$workbookName'!$moduleName.$entryPoint",
-            "'$workbookName'!$entryPoint",
-            "$moduleName.$entryPoint",
-            $entryPoint
-        )
-        $lastError = $null
-        [XlideVbeDialogWatcher]::Start($excelPid, $DialogPath, $StagePath, $DialogWatchSeconds, $DialogHoldSeconds)
-        try {
-            foreach ($macro in $macroNames) {
-                try {
-                    [void]$excel.Run($macro)
-                    $lastError = $null
-                    break
-                }
-                catch {
-                    $lastError = $_
-                    if ($_.Exception.Message -notmatch "Cannot run the macro") {
-                        throw
-                    }
-                }
-            }
-            if ($null -ne $lastError) {
-                throw $lastError
-            }
-        }
-        finally {
-            $dialog = Wait-ForRunDialogResult
-            [XlideVbeDialogWatcher]::Stop()
-        }
-        $dialog = Resolve-DialogAfterStop $dialog
+    catch {
+        $dialog = Read-DialogResult
         if ($null -ne $dialog) {
-            Set-DialogOutcome $dialog $false
+            Set-DialogOutcome $dialog ($mode -eq "compile")
+        }
+        else {
+            $result.outcome = "worker_error"
+            $result.stage = $stage
+            $result.message = $_.Exception.Message
+            $result.hresult = $_.Exception.HResult
+        }
+    }
+    finally {
+        try { [XlideVbeDialogWatcher]::Stop() } catch { }
+        $closed = $true
+        if ($null -ne $workbook) {
+            try { $workbook.Close($false) } catch { $closed = $false }
+        }
+
+        Remove-ComObjectReference $codeModule
+        Remove-ComObjectReference $component
+        Remove-ComObjectReference $vbProject
+        Remove-ComObjectReference $workbook
+
+        if ($workbookPath -and (Test-Path -LiteralPath $workbookPath)) {
+            try { Remove-Item -LiteralPath $workbookPath -Force } catch { }
+        }
+
+        # A macro can open workbooks of its own; they must not outlive the case.
+        if ($closed -and $null -ne $script:excel) {
+            try { $closed = $script:excel.Workbooks.Count -eq 0 } catch { $closed = $false }
+        }
+        $evidence = $result.outcome -eq "accepted" -or $result.outcome -eq "rejected"
+        if (-not $closed -or -not $evidence -or $mode -ne "compile" -or $script:excelCases -ge $CasesPerExcel) {
+            Stop-OracleExcel
         }
     }
 
-    elseif ($mode -ne "run") {
-        throw "Unsupported oracle mode: $mode"
-    }
-
-    if ($result.outcome -eq "setup_error") {
-        Assert-ExcelAlive $excel $excelPid
-        $result.outcome = "accepted"
-        $result.stage = $stage
-    }
-}
-catch {
-    $dialog = Read-DialogResult
-    if ($null -ne $dialog) {
-        Set-DialogOutcome $dialog ($mode -eq "compile")
-    }
-    else {
-        $result.outcome = "worker_error"
-        $result.stage = $stage
-        $result.message = $_.Exception.Message
-        $result.hresult = $_.Exception.HResult
-    }
-}
-finally {
-    try { [XlideVbeDialogWatcher]::Stop() } catch { }
-    if ($null -ne $workbook) {
-        try { $workbook.Close($false) } catch { }
-    }
-    if ($null -ne $excel) {
-        try { $excel.Quit() } catch { }
-    }
-
-    Remove-ComObjectReference $codeModule
-    Remove-ComObjectReference $component
-    Remove-ComObjectReference $vbProject
-    Remove-ComObjectReference $workbook
-    Remove-ComObjectReference $excel
-
-    if ($workbookPath -and (Test-Path -LiteralPath $workbookPath)) {
-        try { Remove-Item -LiteralPath $workbookPath -Force } catch { }
-    }
-
-    [GC]::Collect()
-    [GC]::WaitForPendingFinalizers()
+    return $result
 }
 
-Write-ResultJson $result
+if ($Serve) {
+    try {
+        while ($null -ne ($line = [Console]::In.ReadLine())) {
+            if (-not $line.Trim()) {
+                continue
+            }
+            $request = $line | ConvertFrom-Json
+            $script:CasePath = [string]$request.casePath
+            $script:PidPath = [string]$request.pidPath
+            $script:StagePath = [string]$request.stagePath
+            $script:DialogPath = [string]$request.dialogPath
+            $script:DialogWatchSeconds = [int]$request.dialogWatchSeconds
+            $script:DialogHoldSeconds = [int]$request.dialogHoldSeconds
+            $output = @(Invoke-OracleCase)
+            [Console]::Out.WriteLine("XLIDE-ORACLE-RESULT " + (Write-ResultJson $output[-1]))
+            [Console]::Out.Flush()
+        }
+    }
+    finally {
+        Stop-OracleExcel
+    }
+}
+else {
+    if (-not $CasePath -or -not $PidPath) {
+        throw "-CasePath and -PidPath are required without -Serve."
+    }
+    $output = @(Invoke-OracleCase)
+    Stop-OracleExcel
+    Write-ResultJson $output[-1]
+}

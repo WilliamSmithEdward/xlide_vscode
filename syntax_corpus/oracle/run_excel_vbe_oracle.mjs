@@ -1,15 +1,16 @@
 #!/usr/bin/env node
 // Run optional Excel/VBE oracle fixtures.
 //
-// This coordinator keeps COM automation out of the toolchain by launching a
-// small PowerShell worker for each fixture. It is intentionally not part of
+// This coordinator keeps COM automation out of the toolchain by handing
+// fixtures to a small PowerShell worker. It is intentionally not part of
 // normal CI: Excel/VBE is a developer oracle for empirical compatibility
 // checks only.
 
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
@@ -17,6 +18,8 @@ const DEFAULT_CASES = path.join(ROOT, 'vbe_oracle_cases.json');
 const WORKER = path.join(ROOT, 'excel_vbe_oracle_worker.ps1');
 const EVIDENCE_OUTCOMES = new Set(['accepted', 'rejected']);
 const DEFAULT_TIMEOUT_RETRIES = 2;
+const DEFAULT_CASES_PER_EXCEL = 40;
+const RESULT_PREFIX = 'XLIDE-ORACLE-RESULT ';
 
 function excelComRegistered() {
     const completed = spawnSync('powershell.exe', [
@@ -113,17 +116,25 @@ function promoteObservedCases(document, results) {
     return { promoted, errors: [] };
 }
 
-function killRecordedExcel(pidPath) {
-    let pid;
+function readRecordedPid(pidPath) {
     try {
-        const raw = fs.readFileSync(pidPath, 'ascii').trim();
-        if (!raw) { return; }
-        pid = Number.parseInt(raw, 10);
-        if (!Number.isInteger(pid)) { return; }
+        const pid = Number.parseInt(fs.readFileSync(pidPath, 'ascii').trim(), 10);
+        return Number.isInteger(pid) ? pid : undefined;
     } catch {
-        return;
+        return undefined;
     }
-    spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], { encoding: 'utf8', timeout: 10_000 });
+}
+
+// Only an Excel: a recorded pid may since have been reused by another process.
+function killProcess(pid) {
+    if (pid === undefined) { return; }
+    spawnSync('taskkill', [
+        '/PID', String(pid), '/FI', 'IMAGENAME eq EXCEL.EXE', '/T', '/F',
+    ], { encoding: 'utf8', timeout: 10_000 });
+}
+
+function killRecordedExcel(pidPath) {
+    killProcess(readRecordedPid(pidPath));
 }
 
 function readDialogResult(kase, dialogPath) {
@@ -148,7 +159,106 @@ function readDialogResult(kase, dialogPath) {
     };
 }
 
-function runCaseOnce(kase, timeoutSeconds, dialogHoldSeconds) {
+// One PowerShell worker serves the cases in turn and keeps its Excel between
+// compile cases, each in a fresh workbook; the worker replaces Excel after
+// every run case, every --cases-per-excel cases, and any case that is not
+// evidence. The
+// coordinator still owns each case's deadline: on a timeout it kills the
+// worker and its Excel, and the next case starts a new worker.
+class OracleWorker {
+    constructor(casesPerExcel) {
+        this.casesPerExcel = casesPerExcel;
+        this.child = null;
+        this.pending = null;
+        this.stderr = '';
+        // The Excel the worker last reported, kept past the case's temp files
+        // so that close() can still end it.
+        this.excelPid = undefined;
+    }
+
+    start() {
+        const child = spawn('powershell.exe', [
+            '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', WORKER,
+            '-Serve', '-CasesPerExcel', String(this.casesPerExcel),
+        ], { stdio: ['pipe', 'pipe', 'pipe'] });
+        child.stdout.setEncoding('utf8');
+        child.stderr.setEncoding('utf8');
+        child.stdin.on('error', () => { /* reported through exit */ });
+        child.stderr.on('data', (chunk) => {
+            if (this.child === child) { this.stderr += chunk; }
+        });
+        readline.createInterface({ input: child.stdout }).on('line', (line) => {
+            if (this.child === child && line.startsWith(RESULT_PREFIX)) {
+                this.settle({ line: line.slice(RESULT_PREFIX.length) });
+            }
+        });
+        const ended = (error, code) => {
+            if (this.child !== child) { return; }
+            this.child = null;
+            // A worker that did not exit cleanly did not quit its Excel.
+            if (error || code !== 0) { killProcess(this.excelPid); }
+            this.settle({ exited: true, error, code });
+        };
+        child.on('error', (error) => ended(error, null));
+        // 'close' comes after the last stdout line has been read.
+        child.on('close', (code) => ended(null, code));
+        this.child = child;
+    }
+
+    settle(reply) {
+        const pending = this.pending;
+        if (!pending) { return; }
+        this.pending = null;
+        // Includes anything written since the last result, so a crash between
+        // cases is reported with the next one.
+        const stderr = this.stderr.trim();
+        this.stderr = '';
+        pending({ ...reply, stderr });
+    }
+
+    request(message, timeoutMs) {
+        if (!this.child) { this.start(); }
+        return new Promise((resolve) => {
+            const timer = setTimeout(() => this.settle({ timedOut: true }), timeoutMs);
+            this.pending = (reply) => {
+                clearTimeout(timer);
+                resolve(reply);
+            };
+            // Escaped to ASCII so a path survives the console code page.
+            const json = JSON.stringify(message).replace(
+                /[\u0080-\uffff]/g,
+                (ch) => `\\u${ch.charCodeAt(0).toString(16).padStart(4, '0')}`,
+            );
+            this.child.stdin.write(`${json}\n`);
+        });
+    }
+
+    kill() {
+        const child = this.child;
+        this.child = null;
+        if (child) {
+            const killed = spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { encoding: 'utf8', timeout: 10_000 });
+            if (killed.status !== 0) { child.kill(); }
+        }
+    }
+
+    // Ends the worker, which quits its Excel; kills it if it does not exit.
+    close() {
+        const child = this.child;
+        if (!child) { return Promise.resolve(); }
+        return new Promise((resolve) => {
+            const timer = setTimeout(() => {
+                this.kill();
+                killProcess(this.excelPid);
+                resolve();
+            }, 30_000);
+            child.once('close', () => { clearTimeout(timer); resolve(); });
+            child.stdin.end();
+        });
+    }
+}
+
+async function runCaseOnce(worker, kase, timeoutSeconds, dialogHoldSeconds) {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-vbe-oracle-'));
     const casePath = path.join(tmpDir, 'case.json');
     const pidPath = path.join(tmpDir, 'excel.pid');
@@ -168,19 +278,15 @@ function runCaseOnce(kase, timeoutSeconds, dialogHoldSeconds) {
         : Math.max(12, Math.min(22, timeoutSeconds - 22));
 
     try {
-        const completed = spawnSync('powershell.exe', [
-            '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', WORKER,
-            '-CasePath', casePath,
-            '-PidPath', pidPath,
-            '-StagePath', stagePath,
-            '-DialogPath', dialogPath,
-            '-DialogWatchSeconds', String(dialogWatchSeconds),
-            '-DialogHoldSeconds', String(dialogHoldSeconds),
-        ], { encoding: 'utf8', timeout: timeoutSeconds * 1000, killSignal: 'SIGKILL' });
+        const reply = await worker.request({
+            casePath, pidPath, stagePath, dialogPath, dialogWatchSeconds, dialogHoldSeconds,
+        }, timeoutSeconds * 1000);
+        worker.excelPid = readRecordedPid(pidPath) ?? worker.excelPid;
 
-        if (completed.error && completed.error.code === 'ETIMEDOUT') {
+        if (reply.timedOut) {
             let stage = 'timeout';
             try { stage = fs.readFileSync(stagePath, 'ascii').trim() || 'timeout'; } catch { /* keep */ }
+            worker.kill();
             killRecordedExcel(pidPath);
             return {
                 caseId: kase.id,
@@ -191,42 +297,42 @@ function runCaseOnce(kase, timeoutSeconds, dialogHoldSeconds) {
             };
         }
 
-        const stdout = (completed.stdout ?? '').trim();
-        const stderr = (completed.stderr ?? '').trim();
-        if (!stdout) {
+        if (reply.exited) {
+            // This case's Excel, which the worker's exit handler may not have known.
+            killProcess(worker.excelPid);
             return readDialogResult(kase, dialogPath) ?? {
                 caseId: kase.id,
                 outcome: 'worker_error',
                 stage: 'worker',
-                message: stderr || `PowerShell exited ${completed.status}`,
+                message: reply.stderr || reply.error?.message || `PowerShell exited ${reply.code}`,
                 hresult: null,
             };
         }
+
         let result;
         try {
-            result = JSON.parse(stdout.split(/\r?\n/).at(-1));
+            result = JSON.parse(reply.line);
         } catch {
             return readDialogResult(kase, dialogPath) ?? {
                 caseId: kase.id,
                 outcome: 'worker_error',
                 stage: 'worker',
-                message: stdout,
-                stderr,
+                message: reply.line,
+                stderr: reply.stderr,
                 hresult: null,
             };
         }
-        if (stderr) { result.stderr = stderr; }
+        if (reply.stderr) { result.stderr = reply.stderr; }
         return result;
     } finally {
-        killRecordedExcel(pidPath);
         fs.rmSync(tmpDir, { recursive: true, force: true });
     }
 }
 
-function runCaseAttempt(kase, timeoutSeconds, dialogHoldSeconds) {
+async function runCaseAttempt(worker, kase, timeoutSeconds, dialogHoldSeconds) {
     const mode = String(kase.mode ?? 'compile');
     if (mode !== 'compile_then_run') {
-        return runCaseOnce(kase, timeoutSeconds, dialogHoldSeconds);
+        return runCaseOnce(worker, kase, timeoutSeconds, dialogHoldSeconds);
     }
     if (!kase.entryPoint) {
         return {
@@ -238,14 +344,14 @@ function runCaseAttempt(kase, timeoutSeconds, dialogHoldSeconds) {
         };
     }
 
-    const compileResult = runCaseOnce({ ...kase, mode: 'compile' }, timeoutSeconds, dialogHoldSeconds);
+    const compileResult = await runCaseOnce(worker, { ...kase, mode: 'compile' }, timeoutSeconds, dialogHoldSeconds);
     if (compileResult.outcome !== 'accepted') {
         compileResult.probeMode = 'compile_then_run';
         compileResult.evidencePhase = 'compile';
         return compileResult;
     }
 
-    const runResult = runCaseOnce({ ...kase, mode: 'run' }, timeoutSeconds, dialogHoldSeconds);
+    const runResult = await runCaseOnce(worker, { ...kase, mode: 'run' }, timeoutSeconds, dialogHoldSeconds);
     runResult.probeMode = 'compile_then_run';
     runResult.compileResult = { outcome: compileResult.outcome, stage: compileResult.stage };
     if (EVIDENCE_OUTCOMES.has(String(runResult.outcome))) {
@@ -254,12 +360,12 @@ function runCaseAttempt(kase, timeoutSeconds, dialogHoldSeconds) {
     return runResult;
 }
 
-function runCaseWithRetries(kase, timeoutSeconds, timeoutRetries, dialogHoldSeconds) {
+async function runCaseWithRetries(worker, kase, timeoutSeconds, timeoutRetries, dialogHoldSeconds) {
     const attempts = Math.max(1, timeoutRetries + 1);
     const timeoutResults = [];
     for (let attempt = 1; attempt <= attempts; attempt++) {
         const holdSeconds = attempt === 1 ? dialogHoldSeconds : 0;
-        const result = runCaseAttempt(kase, timeoutSeconds, holdSeconds);
+        const result = await runCaseAttempt(worker, kase, timeoutSeconds, holdSeconds);
         result.attempt = attempt;
         if (result.outcome !== 'timeout') {
             if (timeoutResults.length) {
@@ -295,6 +401,9 @@ const USAGE = `Usage: node run_excel_vbe_oracle.mjs [options]
                               (~min(22, timeout-22)s) plus COM cleanup.
   --timeout-retries <n>       Retry a timed-out case n times (default 2).
                               Exhausted timeouts abort as an infrastructure failure.
+  --cases-per-excel <n>       Start a new Excel after this many cases (default 40).
+                              Every run case also gets a new one afterwards.
+                              1 gives every case its own Excel.
   --dialog-hold-seconds <n>   Debugging aid: hold a detected VBE dialog visible
                               this long before dismissing (first attempt only).
   --json                      Emit machine-readable JSON
@@ -309,6 +418,7 @@ function parseArgs(argv) {
         caseIds: [],
         timeout: 45,
         timeoutRetries: DEFAULT_TIMEOUT_RETRIES,
+        casesPerExcel: DEFAULT_CASES_PER_EXCEL,
         dialogHoldSeconds: 0,
         json: false,
         strict: false,
@@ -326,6 +436,7 @@ function parseArgs(argv) {
             case '--case': args.caseIds.push(argv[++i]); break;
             case '--timeout': args.timeout = number(argv[++i], flag); break;
             case '--timeout-retries': args.timeoutRetries = number(argv[++i], flag); break;
+            case '--cases-per-excel': args.casesPerExcel = number(argv[++i], flag); break;
             case '--dialog-hold-seconds': args.dialogHoldSeconds = number(argv[++i], flag); break;
             case '--json': args.json = true; break;
             case '--strict': args.strict = true; break;
@@ -337,7 +448,7 @@ function parseArgs(argv) {
     return args;
 }
 
-function main(argv) {
+async function main(argv) {
     let args;
     try {
         args = parseArgs(argv);
@@ -351,6 +462,7 @@ function main(argv) {
     if (args.timeout <= 0) { console.error('--timeout must be greater than zero'); return 2; }
     if (args.timeoutRetries < 0) { console.error('--timeout-retries cannot be negative'); return 2; }
     if (args.dialogHoldSeconds < 0) { console.error('--dialog-hold-seconds cannot be negative'); return 2; }
+    if (args.casesPerExcel < 1) { console.error('--cases-per-excel must be at least 1'); return 2; }
     if (args.promoteObserved && !args.caseIds.length) {
         console.error('--promote-observed requires at least one --case');
         return 2;
@@ -380,22 +492,27 @@ function main(argv) {
     const results = [];
     let failures = 0;
     let oracleFailures = 0;
-    for (const kase of cases) {
-        const result = runCaseWithRetries(
-            kase, args.timeout, args.timeoutRetries, args.dialogHoldSeconds,
-        );
-        const expected = String(kase.expected ?? 'observe');
-        result.expected = expected;
-        result.matched = expectedMatches(expected, String(result.outcome ?? ''));
-        result.description = kase.description ?? '';
-        const outcome = String(result.outcome ?? '');
-        if (isOracleInfrastructureFailure(outcome)) {
-            oracleFailures += 1;
-        } else if (!result.matched) {
-            failures += 1;
+    const worker = new OracleWorker(args.casesPerExcel);
+    try {
+        for (const kase of cases) {
+            const result = await runCaseWithRetries(
+                worker, kase, args.timeout, args.timeoutRetries, args.dialogHoldSeconds,
+            );
+            const expected = String(kase.expected ?? 'observe');
+            result.expected = expected;
+            result.matched = expectedMatches(expected, String(result.outcome ?? ''));
+            result.description = kase.description ?? '';
+            const outcome = String(result.outcome ?? '');
+            if (isOracleInfrastructureFailure(outcome)) {
+                oracleFailures += 1;
+            } else if (!result.matched) {
+                failures += 1;
+            }
+            results.push(result);
+            if (isOracleInfrastructureFailure(outcome)) { break; }
         }
-        results.push(result);
-        if (isOracleInfrastructureFailure(outcome)) { break; }
+    } finally {
+        await worker.close();
     }
 
     if (args.promoteObserved) {
@@ -444,4 +561,4 @@ function main(argv) {
     return oracleFailures || (args.strict && failures) ? 1 : 0;
 }
 
-process.exit(main(process.argv.slice(2)));
+process.exit(await main(process.argv.slice(2)));

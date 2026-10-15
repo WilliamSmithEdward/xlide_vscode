@@ -47,4 +47,16 @@ describe('Excel VBE oracle worker', () => {
         expect(assertBody).toContain('$null = $Excel.Hwnd');
         expect(assertBody.match(/throw "/g)).toHaveLength(2);
     });
+
+    it('marks served results the way the coordinator reads them', () => {
+        // In -Serve mode the coordinator takes only stdout lines that start
+        // with this prefix as results, so the two files must agree on it.
+        const oracle = path.join(__dirname, '..', 'syntax_corpus', 'oracle');
+        const worker = fs.readFileSync(path.join(oracle, 'excel_vbe_oracle_worker.ps1'), 'utf8');
+        const coordinator = fs.readFileSync(path.join(oracle, 'run_excel_vbe_oracle.mjs'), 'utf8');
+
+        expect(coordinator).toContain("const RESULT_PREFIX = 'XLIDE-ORACLE-RESULT ';");
+        expect(coordinator).toContain("'-Serve'");
+        expect(worker).toContain('[Console]::Out.WriteLine("XLIDE-ORACLE-RESULT " + (Write-ResultJson $output[-1]))');
+    });
 });
