@@ -314,6 +314,8 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	// name is what the identifier rules need, and the read form is the one
 	// with a signature to show (issue #41).
 	fn('Time', 'Time() As Date', 'Date'),
+	// `Time$(1)` is Wrong number of arguments (measured in Excel 16.0).
+	fn('Time$', 'Time$() As String', 'String'),
 	fn('Timer', 'Timer() As Single', 'Single'),
 	fn('Year', 'Year(Date) As Integer', 'Integer'),
 	fn('Month', 'Month(Date) As Integer', 'Integer'),
@@ -386,6 +388,8 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 
 	// -- Interaction / registry --------------------------------------------
 	fn('Command', 'Command() As String', 'String'),
+	// `Command$(1)` is Wrong number of arguments (measured in Excel 16.0).
+	fn('Command$', 'Command$() As String', 'String'),
 	fn('Partition', 'Partition(Number, Start, Stop, Interval) As String', 'String'),
 	fn('GetSetting', 'GetSetting(AppName, Section, Key, [Default]) As String', 'String'),
 	fn('GetAllSettings', 'GetAllSettings(AppName, Section) As Variant', 'Variant'),

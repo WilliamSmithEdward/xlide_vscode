@@ -68,6 +68,7 @@ import {
 	memberTakesOwnArguments,
 } from '../completion/memberAccess';
 import { procedureSymbolFor, type PushFn } from './analysisContext';
+import { eventHandlerDocumentTypeForContext } from '../completion/eventHandlers';
 import { EMPTY_COLLECTION, identityAssignment, OBJECT_NOTHING, setCallEffects, VARIANT_EMPTY, setDeclaredFacts, straightLineAssignments, straightLineDeadBranches, straightLineExit, straightLineUnreachable, type CallEffects, type DeclaredFacts, type ReachingAssignments } from './straightLineValues';
 import { isInvalidBooleanString, isInvalidDateString, isInvalidNumericString, numericStringVerdict } from './stringConversion';
 import {
@@ -2002,9 +2003,10 @@ export function runtimeTypeSignature(runtime: VbaRuntimeFunction): CallableTypeS
 				...(p.nullRaises ? { nullRaises: true } : {}),
 			})),
 			returnType: runtime.returns,
+			runtime: true,
 		};
 	}
-	return parseRuntimeDisplaySignature(runtime.name, runtime.signature, runtime.returns);
+	return { ...parseRuntimeDisplaySignature(runtime.name, runtime.signature, runtime.returns), runtime: true };
 }
 
 export function runtimeAritySignature(runtime: VbaRuntimeFunction): CallableTypeSignature | undefined {
@@ -3225,6 +3227,33 @@ export function projectValueTypeNames(memberCtx: MemberCompletionContext): Reado
 
 /** One analysis pass's context holds one project, so its names are read once. */
 const PROJECT_VALUE_TYPE_NAMES = new WeakMap<MemberCompletionContext, ReadonlySet<string>>();
+
+/**
+ * Each document module's host class, lowercased and qualified
+ * (`excel.workbook` for ThisWorkbook): its designer's class where the
+ * workbook gave one, otherwise the class its code name implies.
+ */
+function projectDocumentHostTypes(memberCtx: MemberCompletionContext): ReadonlyMap<string, string> {
+	const cached = PROJECT_DOCUMENT_HOST_TYPES.get(memberCtx);
+	if (cached) {
+		return cached;
+	}
+	const types = new Map<string, string>();
+	for (const candidate of memberCtx.projectClassMembers ?? []) {
+		if (candidate.kind !== 'document') {
+			continue;
+		}
+		const documentType = eventHandlerDocumentTypeForContext({ moduleName: candidate.name, moduleKind: 'document' });
+		const hostType = candidate.designerClass
+			?? (documentType === 'workbook' ? 'Excel.Workbook' : documentType === 'chart' ? 'Excel.Chart'
+				: documentType === 'document' ? 'Word.Document' : 'Excel.Worksheet');
+		types.set(candidate.name.toLowerCase(), hostType.toLowerCase());
+	}
+	PROJECT_DOCUMENT_HOST_TYPES.set(memberCtx, types);
+	return types;
+}
+
+const PROJECT_DOCUMENT_HOST_TYPES = new WeakMap<MemberCompletionContext, ReadonlyMap<string, string>>();
 
 export function resolveKnownObjectAssignmentType(
 	type: string | undefined,
@@ -5063,9 +5092,10 @@ export function objectAssignmentIncompatibilityReason(
 	// A document module is the host's own object: the workbook ThisWorkbook
 	// names is a Workbook, so `Set a = ActiveWorkbook` into `a As ThisWorkbook`
 	// runs while that workbook is the active one (measured in Excel 16.0).
-	// Which object the host value holds is not known here.
+	// Which workbook the host value holds is not known here, but a value of
+	// another host class is never the document.
 	if (expected.kind === 'project' && actualObject.kind === 'host'
-		&& (memberCtx.projectClassMembers ?? []).some((candidate) => candidate.kind === 'document' && candidate.name.toLowerCase() === expected.key)) {
+		&& projectDocumentHostTypes(memberCtx).get(expected.key) === actualObject.key) {
 		return undefined;
 	}
 	if (actualObject.kind === 'project' && (implementsType ?? implementsObjectType)(actualObject, expected)) {

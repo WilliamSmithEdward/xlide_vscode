@@ -59,6 +59,7 @@ import {
 	isInactiveNode,
 	matchParenFrom,
 	rawExpressionTokens,
+	statementAndBranchSpans,
 	statementTokens,
 	statementTokensAfterLeadingLabel,
 	tokenName,
@@ -85,6 +86,8 @@ interface Context {
 	untypedIsVariant: boolean;
 	/** The Types this module declares, with their fields. */
 	types: ModuleTypes;
+	/** The project's class, document and UserForm names. */
+	classes: ReadonlySet<string>;
 }
 
 export function checkStatementTypes(
@@ -106,11 +109,14 @@ export function checkStatementTypes(
 			enums.add(member.name.toLowerCase());
 		}
 	}
+	const classes = new Set<string>();
 	for (const type of projectTypes ?? []) {
 		if (type.kind === 'userType') {
 			udts.add(type.name.toLowerCase());
 		} else if (type.kind === 'enum') {
 			enums.add(type.name.toLowerCase());
+		} else {
+			classes.add(type.name.toLowerCase());
 		}
 	}
 	const ctx: Context = {
@@ -123,6 +129,7 @@ export function checkStatementTypes(
 		enums,
 		untypedIsVariant: !/^[ \t]*Def(?:Bool|Byte|Int|Lng|LngLng|LngPtr|Cur|Sng|Dbl|Dec|Date|Str|Obj|Var)\b/im.test(source),
 		types: moduleTypes(source, mod, activity),
+		classes,
 	};
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind === 'Procedure' && procedureFilter && !procedureFilter(member)) { continue; }
@@ -238,7 +245,10 @@ function walkBody(
 			case 'Statement':
 			case 'Assignment':
 			case 'Call':
-				checkStatement(ctx, procSym, node.span);
+				// A single-line If's branches are statements of their own.
+				for (const span of statementAndBranchSpans(node)) {
+					checkStatement(ctx, procSym, span);
+				}
 				break;
 			default:
 				break;
@@ -417,8 +427,9 @@ function checkStatement(ctx: Context, procSym: VbaSymbol | undefined, span: Span
 
 	if (first === 'set') {
 		// Me always names this object: it can be a value, and a Let reaches its
-		// default member, but nothing can Set it (measured in Excel 16.0).
-		if (tokenText(toks[1]) === 'me' && toks[2]?.rawText === '=') {
+		// default member, but nothing can Set it (measured in Excel 16.0). A
+		// standard module has no Me, which me-outside-object-module reports.
+		if (tokenText(toks[1]) === 'me' && toks[2]?.rawText === '=' && ctx.symbols.moduleKind !== 'standard') {
 			ctx.push(
 				'invalidAssignmentTarget',
 				`'Me' always refers to this object and cannot be Set to another. This is a VBE compile error: Invalid use of Me keyword.`,
@@ -441,15 +452,27 @@ function checkStatement(ctx: Context, procSym: VbaSymbol | undefined, span: Span
 		// arguments of a call. A Type is a value to Print, and so inside
 		// grouping parentheses and as an array index, but an argument passes
 		// by reference: `Debug.Print Len(t)`, `LenB(t)` and a user Function
-		// taking the Type compile (measured in Excel 16.0).
-		const opens: boolean[] = [];
+		// taking the Type compile (measured in Excel 16.0). The innermost call
+		// or index decides, with grouping between them transparent: in
+		// `Len(a(t))` the Type is an index, `Len((t))` compiles. Through a
+		// variable, `rec.a(t)` indexes a field and `c.Item(t)` coerces the Type
+		// to a Variant, each refused; a module name or a project class's
+		// variable before the dot may name a procedure that takes the Type.
+		const throughValue = (dot: number): boolean => {
+			const qualifier = toks[dot - 1] ? tokenName(toks[dot - 1]) : undefined;
+			const variable = qualifier !== undefined && toks[dot - 2]?.rawText !== '.' ? variableNamed(ctx, procSym, qualifier) : undefined;
+			return variable !== undefined && !ctx.classes.has((normalizeType(variable.asType) ?? '').replace(/^.*\./, ''));
+		};
+		const opens: Array<'call' | 'index' | 'group'> = [];
 		for (let i = 3; i < toks.length; i++) {
 			const raw = toks[i].rawText;
 			if (raw === '(') {
 				const before = toks[i - 1];
 				const callee = i - 1 > 2 && before !== undefined ? tokenName(before) : undefined;
-				opens.push(before?.rawText === ')'
-					|| (callee !== undefined && !(toks[i - 2]?.rawText !== '.' && variableNamed(ctx, procSym, callee)?.isArray)));
+				const qualified = toks[i - 2]?.rawText === '.';
+				opens.push(before?.rawText === ')' ? 'call'
+					: callee === undefined ? 'group'
+						: (qualified ? throughValue(i - 2) : variableNamed(ctx, procSym, callee)?.isArray) ? 'index' : 'call');
 				continue;
 			}
 			if (raw === ')') {
@@ -457,7 +480,7 @@ function checkStatement(ctx: Context, procSym: VbaSymbol | undefined, span: Span
 				continue;
 			}
 			const name = udtAt(i);
-			if (name && !opens.includes(true) && isArgumentBoundary(toks[i - 1]) && isArgumentBoundary(toks[i + 1])) {
+			if (name && [...opens].reverse().find((open) => open !== 'group') !== 'call' && isArgumentBoundary(toks[i - 1]) && isArgumentBoundary(toks[i + 1])) {
 				udtMismatch(ctx, name, at(i));
 			}
 		}
@@ -532,7 +555,7 @@ function checkStatement(ctx: Context, procSym: VbaSymbol | undefined, span: Span
 		const after = toks[i + 1];
 		const operatorBefore = !!before && i - 1 !== assignmentEq && isOperator(before);
 		const operatorAfter = !!after && i + 1 !== assignmentEq && isOperator(after);
-		if ((operatorBefore || operatorAfter) && !uncheckedAggregateOperators(toks, i - 1, operatorBefore, i + 1, operatorAfter)) {
+		if ((operatorBefore || operatorAfter) && !uncheckedAggregateOperators(toks, i - 1, operatorBefore, i + 1, operatorAfter, true)) {
 			udtMismatch(ctx, name, at(i));
 		}
 	}

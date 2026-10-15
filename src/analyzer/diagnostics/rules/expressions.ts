@@ -19,7 +19,7 @@ import {
 	resolveRawIntegerConstants,
 } from '../../constants/integerConstantExpression';
 import { tokenizeCached } from '../../lexer/tokenize';
-import { relationalOperatorAt } from '../../lexer/tokenHelpers';
+import { isDecimalLineNumber, relationalOperatorAt } from '../../lexer/tokenHelpers';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type {
 	BodyNode,
@@ -295,9 +295,11 @@ export function checkInvalidExpressionSyntax(
 		const env = typeEnvironmentFor(symbols, member);
 		const procSym = procedureSymbolFor(symbols, member);
 		return (stmt) => {
-			// `L1^:` is the label L1 with a type character, not a `^` (measured
-			// in Excel 16.0).
-			if (isLineLabelOnlyStatement(source, stmt.span, statementTokens(source, stmt.span))) {
+			// `L1^:` is the label L1 with a type character, not a `^`, after a
+			// line number too: `10 L1^:` (measured in Excel 16.0).
+			const labelToks = statementTokens(source, stmt.span);
+			if (isLineLabelOnlyStatement(source, stmt.span, labelToks)
+				|| (isDecimalLineNumber(labelToks[0]) && isLineLabelOnlyStatement(source, stmt.span, labelToks.slice(1)))) {
 				return;
 			}
 			const incompleteMember = incompleteMemberAccess(source, stmt.span, {
