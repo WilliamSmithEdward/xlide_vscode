@@ -29,6 +29,18 @@ describe('Set object type resolution', () => {
   // unqualified host name costs one pass over the surfaces per analysis.
   expect(names).toBeLessThan(rhs === 'ActiveSheet' ? 750 : 500); expect(kinds).toBeLessThan(rhs === 'ActiveSheet' ? 750 : 500);
  });
+ it.each([false, true])('reads the surfaces once for host values into project types, a document among them=%s', (document) => {
+  // `Set c = ActiveWorkbook` into a class or document type: which document
+  // takes which host class is read once per analysis, not per assignment.
+  const reads = (count: number): number => {
+   let kinds = 0;
+   const surfaces = Array.from({ length: 1000 }, (_, i) => surface('K' + i)); surfaces.push(surface('Box', document ? 'document' : 'class'));
+   for (const item of surfaces) { const kind = item.kind; Object.defineProperty(item, 'kind', { enumerable: true, get() { kinds++; return kind; } }); }
+   expect(prepare('Sub P()\nDim c As Box\n' + 'Set c = ActiveWorkbook\n'.repeat(count) + 'End Sub')(surfaces)).toHaveLength(count);
+   return kinds;
+  };
+  expect(reads(100)).toBe(reads(1));
+ });
  it('bounds metadata reads for distinct targets and missing queries', () => {
   let reads = 0;
   const surfaces = Array.from({ length: 100 }, (_, i) => surface('K' + i));
