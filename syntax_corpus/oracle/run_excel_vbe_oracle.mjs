@@ -140,7 +140,8 @@ function killRecordedExcel(pidPath) {
 function readDialogResult(kase, dialogPath) {
     let dialog;
     try {
-        dialog = JSON.parse(fs.readFileSync(dialogPath, 'utf8'));
+        // The watcher writes the file with a UTF-8 byte order mark.
+        dialog = JSON.parse(fs.readFileSync(dialogPath, 'utf8').replace(/^\uFEFF/, ''));
     } catch {
         return undefined;
     }
