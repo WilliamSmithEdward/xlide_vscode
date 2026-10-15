@@ -18,6 +18,25 @@ function fixture(body: string) {
 }
 
 describe('expression traversal work', () => {
+	// `Debug.Print 1` names no value, so the class-Sub lookup that a value
+	// reference needs reads no project class's members.
+	it('reads no class members for a statement callee that is no value', () => {
+		const source = 'Sub Main()\nDebug.Print 1\nEnd Sub\n';
+		const mod = parseModule(source);
+		const symbols = buildModuleSymbols('Module1', 'standard', source, { parsedModule: mod });
+		let reads = 0;
+		const classes = Array.from({ length: 1000 }, (_, i) => ({
+			name: 'C' + i, moduleName: 'C' + i, kind: 'class' as const,
+			members: Array.from({ length: 5 }, (_, k) => {
+				const member: Record<string, unknown> = { name: 'M' + k, kind: 'method', moduleName: 'C' + i };
+				Object.defineProperty(member, 'sub', { enumerable: true, get() { reads++; return true; } });
+				return member;
+			}),
+		}));
+		checkStatementForms(source, mod, symbols, undefined, undefined, () => undefined, { projectClassMembers: classes as never });
+		expect(reads).toBe(0);
+	});
+
 	it.each([10, 1000])('indexes value membership once for %i values in a single statement', (count) => {
 		const source = `Private Enum Choice\none = 1\nEnd Enum\nSub Main()\nDebug.Print ${Array(count).fill('Choice').join(', ')}\nEnd Sub\n`;
 		const mod = parseModule(source);

@@ -256,7 +256,9 @@ export function checkStatementForms(
 					// `x = c.DoIt()` with DoIt a Sub of c's class (issue #369).
 					// After AddressOf it is addressof-misuse's (issue #299).
 					if (name && toks[i - 1]?.rawText === '.' && toks[i + 1]?.rawText !== '.' && tokenText(toks[i - 3]) !== 'addressof'
-						&& mightBeClassSub(name) && isValue(i)
+						// The value test first: it is cheap, and `Debug.Print 1` names no
+						// value, so it reads no class's members.
+						&& isValue(i) && mightBeClassSub(name)
 						&& projectClassMemberAt(source, span.start + toks[i - 1].end, name, memberCtx)?.sub) {
 						push('subUsedAsValue', `'${name}' is a Sub of the class, which returns nothing, so it cannot be used as a value. This is a VBE compile error: Expected Function or variable.`, at(i));
 						continue;
