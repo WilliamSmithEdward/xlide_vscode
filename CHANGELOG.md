@@ -2,6 +2,18 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.1.15] - 2026-10-15
+
+Run the Excel oracle that the analyzer is checked against faster and more
+reliably. The extension itself is unchanged.
+
+- Serve many oracle cases from one PowerShell worker and one Excel, and end
+  a run case at its compile error instead of waiting out the timeout
+  (#1361, #1362, contributed by Sam, @swsammy).
+- Read fixtures with non-ASCII source as UTF-8, and accept a run whose
+  returned Date .NET cannot hold, so these fixtures give their measured
+  verdicts (#1364, #1365, contributed by Sam, @swsammy).
+
 ## [11.1.14] - 2026-10-15
 
 Stop reporting code that Excel compiles or runs.
