@@ -8,6 +8,7 @@
 // reorder entries without updating the snapshot expectations in
 // tests/vbaDiagnostics.test.ts and tests/diagnostics/.
 
+import type { ExprNode } from '../parser/nodes';
 import { ownObjectMemberNames, type PushFn, type RulePassContext } from './analysisContext';
 import type { ProcedureStatementVisitor } from './walker';
 import type { ProcedureExpressionVisitor } from './exprWalk';
@@ -74,10 +75,10 @@ import {
 	checkScalarMemberAccess,
 } from './rules/objectState';
 import {
-	checkIsOperandsInConditions,
 	checkIsOperatorOperands,
 	checkTypeOfIsCompatibility,
 	checkTypeOfMissingOperand,
+	checkTypeOfExpression,
 } from './rules/typeOfIs';
 import { checkBinaryOperandScalar } from './rules/binaryOperandScalar';
 import { checkSuffixedLiteralOverflow } from './rules/numericLiterals';
@@ -220,6 +221,8 @@ export interface DiagnosticRuleEntry {
 	 * expression wherever it stands, and read no statement form.
 	 */
 	blockHeaders?: boolean;
+	/** Only dispatch the node kinds the expression rule can inspect. */
+	expressionKinds?: readonly ExprNode['exprKind'][];
 	procedureExpressions?(ctx: RulePassContext, push: PushFn): ProcedureExpressionVisitor;
 }
 
@@ -762,7 +765,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'typeMembers',
 		incrementalProcedureBodies: true,
-		run: (ctx, push) => checkTypeMembers(ctx.source, ctx.mod, ctx.symbols, ctx.memberCtx, ctx.activity, push, ctx.opts.walkProcedureFilter),
+		run: (ctx, push) => checkTypeMembers(ctx.source, ctx.mod, ctx.symbols, ctx.memberCtx, ctx.activity, push, ctx.opts.walkProcedureFilter, ctx.opts.projectVisibleSymbols),
 	},
 	{
 		name: 'midStatementLiteralTarget',
@@ -801,6 +804,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'meOutsideObjectModule',
+		blockHeaders: true,
 		procedureStatements: (ctx, push) => checkMeOutsideObjectModule(ctx.moduleKind, ctx.source, push),
 	},
 	{
@@ -977,6 +981,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'arrayBoundIntrinsicArguments',
+		blockHeaders: true,
 		procedureStatements: (ctx, push) => checkArrayBoundIntrinsicArguments(
 			ctx.source,
 			ctx.symbols,
@@ -986,6 +991,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'scalarMemberAccess',
+		blockHeaders: true,
 		procedureStatements: (ctx, push) => checkScalarMemberAccess(
 			ctx.source,
 			ctx.symbols,
@@ -1028,10 +1034,12 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'memberNotFound',
+		blockHeaders: true,
 		procedureStatements: (ctx, push) => checkMemberNotFound(ctx.source, ctx.memberCtx, push),
 	},
 	{
 		name: 'moduleMemberForms',
+		blockHeaders: true,
 		procedureStatements: (ctx, push) => checkModuleMemberForms(
 			ctx.source,
 			ctx.symbols,
@@ -1133,6 +1141,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'typeOfIsAlwaysFalse',
+		expressionKinds: ['TypeOfIsExpr'],
 		procedureExpressions: (ctx, push) => checkTypeOfIsCompatibility(
 			ctx.symbols,
 			ctx.memberCtx,
@@ -1140,20 +1149,23 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 		),
 	},
 	{
+		name: 'typeOfInvalidExpression',
+		expressionKinds: ['TypeOfIsExpr'],
+		procedureExpressions: (ctx, push) => checkTypeOfExpression(ctx.symbols, push, ctx.opts.projectVisibleSymbols),
+	},
+	{
 		name: 'typeofMissingOperand',
 		run: (ctx, push) => checkTypeOfMissingOperand(ctx.source, ctx.activity, push),
 	},
 	{
 		name: 'isOperatorNonObject',
-		procedureExpressions: (ctx, push) => checkIsOperatorOperands(ctx.symbols, push),
-	},
-	{
-		name: 'isOperandsInConditions',
-		run: (ctx, push) => checkIsOperandsInConditions(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push),
+		expressionKinds: ['BinaryExpr'],
+		procedureExpressions: (ctx, push) => checkIsOperatorOperands(ctx.symbols, push, ctx.opts.projectVisibleSymbols),
 	},
 	{
 		name: 'nonScalarBinaryOperand',
-		procedureExpressions: (ctx, push) => checkBinaryOperandScalar(ctx.symbols, push),
+		expressionKinds: ['BinaryExpr', 'UnaryExpr'],
+		procedureExpressions: (ctx, push) => checkBinaryOperandScalar(ctx.symbols, push, ctx.opts.projectVisibleSymbols),
 	},
 	{
 		name: 'argumentShapeMismatch',

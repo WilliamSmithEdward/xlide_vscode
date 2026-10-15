@@ -158,7 +158,7 @@ const STILL_REPORTED: ReadonlyArray<[string, readonly string[]]> = [
 	['byref_qualified_no_parentheses_compile', ['byref-argument-type-mismatch']],
 	['byref_qualified_call_compile', ['byref-argument-type-mismatch']],
 	['byref_qualified_function_compile', ['byref-argument-type-mismatch']],
-	['udt_plus_compile', ['non-scalar-binary-operand', 'udt-value-mismatch']],
+	['udt_plus_compile', ['non-scalar-binary-operand']],
 	['collection_power_compile', ['collection-operand']],
 	['longlong_parenthesized_byref_long_compile', ['longlong-narrowing']],
 	['longlong_qualified_parenthesized_byref_long_compile', ['longlong-narrowing']],

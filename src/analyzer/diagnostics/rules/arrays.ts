@@ -95,9 +95,20 @@ export function checkArrayBoundIntrinsicArguments(
 	return (member) => {
 		const shapes = declarationShapeEnvironmentFor(symbols, member);
 		const procSym = procedureSymbolFor(symbols, member);
+		const constants = new Map<string, boolean>();
+		const isConstant = (name: string): boolean => {
+			const lower = name.toLowerCase();
+			let result = constants.get(lower);
+			if (result === undefined) {
+				const binding = sourceIdentifierBinding(symbols, procSym, projectVisibleSymbols, name, 'expression');
+				result = binding.scope !== 'ambiguous' && binding.definitions.length > 0 && binding.definitions.every((definition) => definition.kind === 'constant');
+				constants.set(lower, result);
+			}
+			return result;
+		};
 		return (stmt) => {
-			for (const hit of scalarLocalsIndexed(source, stmt.span, member, shapes)) {
-				push('scalarIndexed', `'${hit.name}' is declared As ${hit.asType}, which is no array to index. This is a VBE compile error: Expected array.`, hit.span);
+			for (const hit of scalarLocalsIndexed(source, stmt.span, member, shapes, isConstant)) {
+				push('scalarIndexed', `'${hit.name}' ${hit.asType === 'a constant' ? 'is a constant' : `is declared As ${hit.asType}`}, which is no array to index. This is a VBE compile error: Expected array.`, hit.span);
 			}
 			for (const hit of arrayBoundSyntaxProblems(source, stmt.span)) {
 				push('malformedStatement', hit.message, hit.span);
@@ -135,6 +146,7 @@ function scalarLocalsIndexed(
 	span: Span,
 	proc: ProcedureNode,
 	shapes: ReadonlyMap<string, DeclaredValueShape>,
+	isConstant: (name: string) => boolean,
 ): Array<{ name: string; asType: string; span: Span }> {
 	const toks = statementTokensAfterLeadingLabel(source, span);
 	const lead = tokenText(toks[0]);
@@ -150,10 +162,10 @@ function scalarLocalsIndexed(
 		}
 		const shape = shapes.get(name.toLowerCase());
 		const normalized = shape && !shape.isArray && shape.asType ? normalizeType(shape.asType) : undefined;
-		if (!normalized || !isKnownScalarType(normalized)) {
+		if ((!normalized || !isKnownScalarType(normalized)) && !isConstant(name)) {
 			continue;
 		}
-		out.push({ name, asType: shape!.asType!, span: { start: span.start + toks[i].start, end: span.start + toks[i].end } });
+		out.push({ name, asType: shape?.asType ?? 'a constant', span: { start: span.start + toks[i].start, end: span.start + toks[i].end } });
 	}
 	return out;
 }

@@ -36,6 +36,7 @@ import {
 	type ProcedureExpressionVisitor,
 } from './exprWalk';
 import type {
+	ExprNode,
 	ModuleNode,
 	ProcedureNode,
 	Span,
@@ -346,6 +347,7 @@ function runRules(
 	const statementVisitors: ProcedureStatementVisitor[] = [];
 	const takesHeaders: boolean[] = [];
 	const expressionVisitors: ProcedureExpressionVisitor[] = [];
+	const expressionKinds: (readonly ExprNode['exprKind'][] | undefined)[] = [];
 	for (const rule of DIAGNOSTIC_RULE_REGISTRY) {
 		checkAnalysisCancellation(opts);
 		if (opts.errorsOnly && NON_ERROR_RULES.has(rule.name)) { continue; }
@@ -364,6 +366,7 @@ function runRules(
 			}
 			if (rule.procedureExpressions) {
 				expressionVisitors.push(guardExpressionVisitor(rule.procedureExpressions(ctx, push), rule.name, report));
+				expressionKinds.push(rule.expressionKinds);
 			}
 		} catch (err) {
 			// Degrade only this rule; keep the rest of the pass intact.
@@ -390,7 +393,7 @@ function runRules(
 		report(err, { stage: 'statement-walk' });
 	}
 	try {
-		walkProcedureExpressions(ctx.mod, ctx.activity, expressionVisitors, walkHooks);
+		walkProcedureExpressions(ctx.mod, ctx.activity, expressionVisitors, ctx.source, walkHooks, expressionKinds);
 	} catch (err) {
 		report(err, { stage: 'expression-walk' });
 	}

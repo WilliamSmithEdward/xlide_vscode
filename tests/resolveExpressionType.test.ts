@@ -86,6 +86,12 @@ describe('whether the assignment needs Set', () => {
 });
 
 describe('whether the span holds a whole expression', () => {
+	it.each(['CStr(num)', 'Left(txt, 1)', 'String(2, "x")', 'DateSerial(2000, 1, 1)', 'Date', 'Time'])(
+		'accepts runtime functions tokenized as keywords: %s', (expression) => {
+			expect(typeOf(`var = ${expression}`, expression)?.complete).toBe(true);
+		},
+	);
+
 	it('accepts a complete one', () => {
 		expect(typeOf('num = (1 + 2)', '(1 + 2)')?.complete).toBe(true);
 		expect(typeOf('num = 1 + 2', '1 + 2')?.complete).toBe(true);

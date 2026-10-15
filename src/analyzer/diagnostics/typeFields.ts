@@ -9,7 +9,7 @@ import { isLeafStatement } from '../parser/nodes';
 import type { buildModuleSymbols } from '../symbols/buildModuleSymbols';
 import type { VbaSymbol } from '../symbols/symbolModel';
 import { procedureSymbolFor } from './analysisContext';
-import { blockHeaderStatements } from './blockHeaders';
+import { blockHeaderStatements, ifBranchStatement } from './blockHeaders';
 import { parseFixedArrayBoundsForDecl, type ArrayDimensionBound } from './rules/arrays';
 import { collectModuleLiteralIntegerConstants } from './constExpr';
 import { splitTopLevelTokenGroups, statementTokensCached } from '../lexer/tokenHelpers';
@@ -280,6 +280,8 @@ export function walkWithSubjects(
 			continue;
 		}
 		const { before, after } = blockHeaderStatements(source, node);
+		const opening = node.kind === 'IfBlock' ? node.branches[0] : undefined;
+		if (opening) { visit(ifBranchStatement(source, opening), subject); }
 		if (before) {
 			visit(before, subject);
 		}

@@ -112,17 +112,33 @@ describe('with-scalar-target and paramarray-passing-mode (issue #213)', () => {
 
 describe('udt-value-mismatch and udt-variant-coercion (issue #213)', () => {
 	const udt = (body: string) => inSub(body, TYPES).filter((code) => code.startsWith('udt-'));
+	it.each(['t1 ^ 2', '2 ^ t1', 'Not t1'])('accepts the measured UDT expression %s', (expression) => {
+		const codes = inSub(`Dim t1 As T, v As Variant\nv = ${expression}\n`, TYPES);
+		expect(codes.filter((code) => ['udt-value-mismatch', 'non-scalar-binary-operand'].includes(code))).toHaveLength(0);
+	});
+	it('still reports unary minus on a UDT exactly once', () => {
+		const codes = inSub('Dim t1 As T, v As Variant\nv = -t1\n', TYPES);
+		expect(codes.filter((code) => ['udt-value-mismatch', 'non-scalar-binary-operand'].includes(code))).toEqual(['udt-value-mismatch']);
+	});
 
 	it.each([
 		['a number into a user-defined type', '    Dim t As T\n    t = 1\n'],
-		['a comparison of two', '    Dim t As T, u As T\n    Debug.Print t = u\n'],
 		['one printed', '    Dim t As T\n    Debug.Print t\n'],
 		['one of another Type', '    Dim a As T, b As U\n    a = b\n'],
 		['one into a Long', '    Dim n As Long, t As T\n    n = t\n'],
-		['one in arithmetic', '    Dim t As T\n    Debug.Print t + 1\n'],
 		['one as an If condition', '    Dim t As T\n    If t Then\n    End If\n'],
 	])('refuses %s as a Type mismatch', (_name, body) => {
 		expect(udt(body)).toContain('udt-value-mismatch');
+	});
+
+	// A Type of this module beside a binary operator is reported once, by
+	// non-scalar-binary-operand, which sees every context.
+	it.each([
+		['a comparison of two', '    Dim t As T, u As T\n    Debug.Print t = u\n'],
+		['one in arithmetic', '    Dim t As T\n    Debug.Print t + 1\n'],
+	])('refuses %s as a Type mismatch, once', (_name, body) => {
+		const codes = inSub(body, TYPES).filter((code) => ['udt-value-mismatch', 'non-scalar-binary-operand'].includes(code));
+		expect(codes).toEqual(['non-scalar-binary-operand']);
 	});
 
 	it('refuses handing one to a Variant', () => {

@@ -2003,6 +2003,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.4.5.1 (Open statement) / VBE oracle',
 		confidence: 'high',
 	},
+	typeOfInvalidExpression: {
+		code: 'typeof-invalid-expression',
+		title: 'Invalid TypeOf expression',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'VBE TypeOf compile constraints (Excel 16.0, 2026-10-15)',
+		confidence: 'high',
+	},
 	typeofMissingOperand: {
 		code: 'typeof-missing-operand',
 		title: "'TypeOf' requires an object expression",

@@ -19,6 +19,9 @@ import type { MemberCompletionContext } from '../../completion/memberAccess';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type { BodyNode, LeafStatementNode, ModuleNode, ProcedureNode, Span } from '../../parser/nodes';
+import type { VbaSymbol } from '../../symbols/symbolModel';
+import { expressionShapeResolver } from '../expressionShape';
+import { forEachSubExpression, statementValueExpressions } from '../exprWalk';
 import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { PushFn } from '../analysisContext';
 import type { DiagnosticRuleName } from '../ruleMetadata';
@@ -38,23 +41,50 @@ export function checkTypeMembers(
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 	procedureFilter?: (member: ProcedureNode) => boolean,
+	projectVisibleSymbols?: readonly VbaSymbol[],
 ): void {
 	const types = moduleTypes(source, mod, activity);
 	if (types.size === 0) {
 		return;
 	}
 	const optionBase = moduleOptionBase(mod, activity);
+	const shapesFor = expressionShapeResolver(symbols, projectVisibleSymbols);
 	const isObjectType = (type: string): boolean => !types.has(type) && type !== 'variant' && isKnownObjectAssignmentType(type, memberCtx);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind === 'Procedure' && procedureFilter && !procedureFilter(member)) { continue; }
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
+		const shapeOf = shapesFor(member);
 		const statesAt = typeMemberStatesAt(source, symbols, member, types, activity, optionBase, isObjectType);
 		checkForEachFields(source, member.body, symbols, member, types, isObjectType, statesAt, activity, push);
 		walkWithSubjects(source, member.body, activity, symbols, member, types, undefined, (stmt, subject) => {
 			const toks = statementTokensAfterLeadingLabel(source, stmt.span);
 			const head = tokenText(toks[0]);
+			let coveredOperands: Set<string> | undefined;
+			const covered = (span: Span, operator: string): boolean => {
+				if (!coveredOperands) {
+					coveredOperands = new Set();
+					for (const root of statementValueExpressions(source, stmt)) {
+						forEachSubExpression(root, (expr) => {
+							if (expr.exprKind === 'TypeOfIsExpr') {
+								const shape = shapeOf(expr.operand);
+								if (shape?.isArray || shape?.asType && isKnownScalarType(shape.asType.toLowerCase())) {
+									coveredOperands!.add(`typeof:${expr.operand.span.start}:${expr.operand.span.end}`);
+								}
+								return;
+							}
+							if (expr.exprKind !== 'BinaryExpr') { return; }
+							for (const operand of [expr.left, expr.right]) {
+								// The shared shape resolver cannot bind implicit With
+								// fields or unknown chains; keep the token fallback.
+								if (shapeOf(operand)) { coveredOperands!.add(`${expr.operator.toLowerCase()}:${operand.span.start}:${operand.span.end}`); }
+							}
+						});
+					}
+				}
+				return coveredOperands.has(`${operator}:${span.start}:${span.end}`);
+			};
 			if (head === 'redim' || head === 'erase') {
 				checkResizes(stmt.span, toks, head, symbols, member, types, subject, isObjectType, push);
 				if (head === 'erase') {
@@ -70,7 +100,7 @@ export function checkTypeMembers(
 				}
 				const steps = fieldChain(toks, root, types);
 				const hit = scalarQualifier(stmt.span, toks, i, steps) ?? nothingAccess(stmt, toks, i, steps, statesAt, isObjectType)
-					?? fieldUseMisuse(stmt.span, toks, i, steps, types, isObjectType, symbols, member)
+					?? fieldUseMisuse(stmt.span, toks, i, steps, types, isObjectType, symbols, member, covered)
 					?? heldValueMisuse(stmt, toks, i, steps, statesAt);
 				if (hit) {
 					push(hit.rule, hit.message, hit.span);
@@ -130,6 +160,7 @@ function fieldUseMisuse(
 	isObjectType: (type: string) => boolean,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	proc: ProcedureNode,
+	covered: (span: Span, operator: string) => boolean,
 ): { rule: DiagnosticRuleName; message: string; span: Span } | undefined {
 	const step = steps.at(-1);
 	if (!step) {
@@ -158,7 +189,9 @@ function fieldUseMisuse(
 	if (before?.rawText === '(' && ['ubound', 'lbound'].includes(word(toks[start - 2])) && wholeArgument && kind !== 'array' && kind !== 'variant') {
 		return { rule: 'arrayBoundRequiresArray', message: `${toks[start - 2].rawText} takes an array, and '${shown}' is declared As ${declared}. This is a VBE compile error: Expected array.`, span: at };
 	}
-	if ((word(after) === 'is' || (word(before) === 'is' && word(toks[start - 2]) !== 'typeof')) && (kind === 'scalar' || kind === 'udt' || kind === 'array')) {
+	// Suppress only operands the shared visitor can resolve; preserve the
+	// fallback for other statement grammars, implicit With fields and UDT identity.
+	if ((word(after) === 'is' || (word(before) === 'is' && word(toks[start - 2]) !== 'typeof')) && !covered(at, 'typeof') && (kind === 'udt' || ((kind === 'scalar' || kind === 'array') && !covered(at, 'is')))) {
 		return { rule: 'isOperatorNonObject', message: `The 'Is' operator requires object operands, but '${shown}' is ${kind === 'array' ? 'an array' : `declared As ${declared}`}. This is a VBE compile error: Type mismatch.`, span: at };
 	}
 	const head = word(toks[0]);
@@ -192,7 +225,7 @@ function fieldUseMisuse(
 	const operatorBefore = before !== undefined && VALUE_OPERATORS.has(word(before)) && start - 1 !== assignAt;
 	const operatorAfter = after !== undefined && VALUE_OPERATORS.has(word(after)) && !target && end + 1 !== assignAt;
 	if (operatorBefore || operatorAfter) {
-		if ((kind === 'array' || kind === 'udt') && !uncheckedAggregateOperators(toks, start - 1, operatorBefore, end + 1, operatorAfter)) {
+		if ((kind === 'array' || kind === 'udt') && !uncheckedAggregateOperators(toks, start - 1, operatorBefore, end + 1, operatorAfter) && !covered(at, word(operatorAfter ? after : before))) {
 			return { rule: 'nonScalarBinaryOperand', message: `The '${(operatorAfter ? after : before)!.rawText}' operator requires a scalar operand, but '${shown}' is ${kind === 'array' ? 'an array' : `a ${declared}`}. This is a VBE compile error: Type mismatch.`, span: at };
 		}
 		if (kind === 'object' && normalizeType(step.field.type) === 'collection') {

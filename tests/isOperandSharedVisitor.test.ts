@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { checkIsOperandsInConditions } from '../src/analyzer/diagnostics/rules/typeOfIs';
+import { checkIsOperatorOperands } from '../src/analyzer/diagnostics/rules/typeOfIs';
 import { parseModule } from '../src/analyzer/parser/parseModule';
 import { buildModuleSymbols } from '../src/analyzer/symbols/buildModuleSymbols';
 import * as walk from '../src/analyzer/diagnostics/exprWalk';
@@ -9,18 +9,21 @@ function fixture(body: string, type = 'Long') {
  const mod = parseModule(source), symbols = buildModuleSymbols('M','standard',source,{parsedModule:mod});
  return {source,mod,symbols};
 }
-function run(f: ReturnType<typeof fixture>) { const out: unknown[][]=[]; checkIsOperandsInConditions(f.source,f.mod,f.symbols,undefined,(...v)=>out.push(v));return out; }
+function run(f: ReturnType<typeof fixture>) { const out: unknown[][]=[]; walk.walkProcedureExpressions(f.mod,undefined,[checkIsOperatorOperands(f.symbols,(...v)=>out.push(v))],f.source);return out; }
 function expected(f: ReturnType<typeof fixture>, count: number) {
- let from = 0; return Array.from({length:count},()=> { const start = f.source.indexOf('n Is Nothing',from);from=start+1;return ['isOperatorNonObject',"The 'Is' operator requires object operands, but 'n' is declared As Long, which is not an object.",{start,end:start+1}];});
+ let from = 0; return Array.from({length:count},()=> { const start = f.source.indexOf('n Is Nothing',from);from=start+1;return ['isOperatorNonObject',"The 'Is' operator requires object operands, but 'n' has type Long, which is not an object.",{start,end:start+1}];});
 }
-for (const n of [10,100,1000]) it(`reuses one visitor and removes dead comment filtering for ${n} conditions`, () => {
+for (const n of [10,100,1000]) it(`shares one visitor across ${n} conditions and print items`, () => {
  const f=fixture(Array(n).fill("If n Is Nothing Then Debug.Print n ' tail").join('\n'));
- const spy=vi.spyOn(walk,'forEachSubExpression'), original=Array.prototype.filter;let elements=0;
- try {
-  Array.prototype.filter=function(callback:any,thisArg?:any):any {const stack=new Error().stack??'';if(/\.kind\s*!==\s*['"]comment/.test(String(callback))&&stack.includes('checkIsOperandsInConditions')&&!/\bstatementTokens(?:Cached)?\b/.test(stack))elements+=this.length;return original.call(this,callback,thisArg);};
-  expect(run(f)).toEqual(expected(f,n));
- } finally {Array.prototype.filter=original;}
- expect(spy).toHaveBeenCalledTimes(n);expect.soft(new Set(spy.mock.calls.map(call=>call[1])).size).toBe(1);expect.soft(elements).toBe(0);
+ const out: unknown[][]=[];
+ const rule=checkIsOperatorOperands(f.symbols,(...v)=>out.push(v));
+ const visits=vi.fn();
+ const factory=vi.fn((member: Parameters<typeof rule>[0])=>{const check=rule(member);return (expr: Parameters<typeof check>[0])=>{visits(expr);check(expr);};});
+ walk.walkProcedureExpressions(f.mod,undefined,[factory],f.source);
+ expect(out).toEqual(expected(f,n));
+ expect(factory).toHaveBeenCalledTimes(1);
+ expect(visits).toHaveBeenCalledTimes(n*4);
+ expect(visits.mock.calls.filter(([expr])=>expr.exprKind==='BinaryExpr')).toHaveLength(n);
 });
 for(const body of ['If n Is Nothing Then Debug.Print n','Do While n Is Nothing\nExit Do\nLoop','Do Until n Is Nothing\nExit Do\nLoop','Do\nDebug.Print n\nLoop While n Is Nothing','Do\nDebug.Print n\nLoop Until n Is Nothing','While n Is Nothing\nDebug.Print n\nWend'])
  it(`preserves exact scalar diagnostic for ${body.split('\n')[0]}`,()=>{const f=fixture(body);expect(run(f)).toEqual(expected(f,1));});

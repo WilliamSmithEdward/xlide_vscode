@@ -22,15 +22,14 @@
 //     the other), proven via the existing object tables in both directions.
 
 import type {
-	BodyNode,
 	ExprNode,
 	IdentifierExpr,
-	ModuleNode,
 	Span,
 	TypeOfIsExpr,
 } from '../../parser/nodes';
 import type { MemberCompletionContext } from '../../completion/memberAccess';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
+import type { VbaSymbol } from '../../symbols/symbolModel';
 import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { PushFn } from '../analysisContext';
 import {
@@ -42,10 +41,7 @@ import {
 	typeEnvironmentFor,
 } from '../typeInference';
 import { tokenizeCached } from '../../lexer/tokenize';
-import type { VbaToken } from '../../lexer/tokenKinds';
-import { parseExpression } from '../../parser/parseExpression';
-import { forEachSubExpression } from '../exprWalk';
-import { activeModuleMembers, blockFooterLineSpan, blockHeaderLineSpan, isInactiveNode, statementTokens, tokenText } from '../walker';
+import { expressionShapeResolver } from '../expressionShape';
 import type { ProcedureExpressionVisitor } from '../exprWalk';
 
 /**
@@ -193,21 +189,23 @@ function checkTypeOfIs(
  *
  * No-false-positive discipline: fires only when an operand is PROVABLY scalar.
  * Variant (can hold an object reference), Object/class-typed operands,
- * `Nothing`/`Null`/`Empty` literals, member access, call results, arrays, and any
- * unresolved / undeclared identifier all stay quiet. `TypeOf x Is Y` is a
+ * `Nothing`/`Null`/`Empty` literals and unknown values stay quiet. Parentheses,
+ * declared array elements, UDT fields and known scalar call results are resolved. `TypeOf x Is Y` is a
  * distinct `TypeOfIsExpr`, not a binary `Is`, so it is unaffected.
  */
 export function checkIsOperatorOperands(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	push: PushFn,
+	projectVisibleSymbols?: readonly VbaSymbol[],
 ): ProcedureExpressionVisitor {
+	const forProcedure = expressionShapeResolver(symbols, projectVisibleSymbols);
 	return (member) => {
-		const env = typeEnvironmentFor(symbols, member);
+		const shapeOf = forProcedure(member);
 		return (expr) => {
 			if (expr.exprKind !== 'BinaryExpr' || expr.operator !== 'Is') {
 				return;
 			}
-			const offender = nonObjectOperand(expr.left, env) ?? nonObjectOperand(expr.right, env);
+			const offender = nonObjectOperand(expr.left, shapeOf) ?? nonObjectOperand(expr.right, shapeOf);
 			if (offender) {
 				push(
 					'isOperatorNonObject',
@@ -219,73 +217,10 @@ export function checkIsOperatorOperands(
 	};
 }
 
-/**
- * The same check on the conditions the expression walk does not parse: a
- * single-line If's, and a Do or While loop's (issue #325, measured in Excel
- * 16.0: each is a compile error, Type mismatch).
- */
-export function checkIsOperandsInConditions(
-	source: string,
-	mod: ModuleNode,
-	symbols: ReturnType<typeof buildModuleSymbols>,
-	activity: ConditionalActivityTracker | undefined,
-	push: PushFn,
-): void {
-	const checkOperands = checkIsOperatorOperands(symbols, push);
-	for (const member of activeModuleMembers(mod, activity)) {
-		if (member.kind !== 'Procedure') {
-			continue;
-		}
-		const checkExpression = checkOperands(member);
-		const check = (span: Span, from: number, to: (toks: readonly VbaToken[]) => number): void => {
-			// Absolute offsets, so the parsed nodes carry the source's spans.
-			const toks = statementTokens(source, span)
-				.map((tok) => ({ ...tok, start: span.start + tok.start, end: span.start + tok.end }));
-			const end = to(toks);
-			if (end <= from) {
-				return;
-			}
-			const parsed = parseExpression(toks, from, end).expr;
-			if (!parsed) {
-				return;
-			}
-			forEachSubExpression(parsed, checkExpression);
-		};
-		const visit = (body: readonly BodyNode[]): void => {
-			for (const node of body) {
-				if (isInactiveNode(activity, node)) {
-					continue;
-				}
-				if (node.kind === 'Statement' && node.singleLineIfBranches) {
-					check(node.span, 1, (toks) => (tokenText(toks[0]) === 'if' ? toks.findIndex((tok) => tokenText(tok) === 'then') : -1));
-				} else if (node.kind === 'DoBlock' || node.kind === 'WhileBlock') {
-					const header = blockHeaderLineSpan(source, node.span);
-					const headToks = statementTokens(source, header);
-					const from = tokenText(headToks[0]) === 'do' && ['while', 'until'].includes(tokenText(headToks[1])) ? 2 : tokenText(headToks[0]) === 'while' ? 1 : -1;
-					if (from > 0) {
-						check(header, from, (toks) => toks.length);
-					}
-					if (node.kind === 'DoBlock') {
-						const footer = blockFooterLineSpan(source, node.span);
-						const footToks = statementTokens(source, footer);
-						if (tokenText(footToks[0]) === 'loop' && ['while', 'until'].includes(tokenText(footToks[1]))) {
-							check(footer, 2, (toks) => toks.length);
-						}
-					}
-				}
-				if ('body' in node && Array.isArray(node.body)) {
-					visit(node.body as BodyNode[]);
-				}
-			}
-		};
-		visit(member.body);
-	}
-}
-
 /** Describes a provably non-object (scalar) operand of `Is`, or undefined. */
 function nonObjectOperand(
 	expr: ExprNode,
-	env: ReadonlyMap<string, string>,
+	shapeOf: ReturnType<ReturnType<typeof expressionShapeResolver>>,
 ): { span: Span; detail: string } | undefined {
 	if (expr.exprKind === 'LiteralExpr') {
 		const k = expr.literalKind;
@@ -294,18 +229,29 @@ function nonObjectOperand(
 		}
 		return undefined; // Nothing / Null / Empty -> not provably scalar
 	}
-	if (expr.exprKind === 'IdentifierExpr') {
-		const declared = env.get(expr.name.toLowerCase());
-		if (!declared) {
-			return undefined; // undeclared / unknown -> quiet
-		}
-		// Match declared names literally: vbLong/vbString can name source classes.
-		// Strip only a trailing array marker when recognizing built-in scalars.
-		const raw = declared.replace(/\s*\(\s*\)\s*$/, '').trim().toLowerCase();
-		if (isKnownScalarType(raw)) {
-			return { span: expr.span, detail: `'${expr.name}' is declared As ${declared}` };
-		}
-		return undefined; // Variant / Object / class -> quiet
+	if (expr.exprKind === 'ParenExpr') { return nonObjectOperand(expr.inner, shapeOf); }
+	const shape = shapeOf(expr);
+	const declared = shape?.asType;
+	if (shape?.isArray || declared && isKnownScalarType(declared.trim().toLowerCase())) {
+		const name = expr.exprKind === 'IdentifierExpr' ? `'${expr.name}'` : 'the expression';
+		return { span: expr.span, detail: `${name} has ${shape?.isArray ? 'array type' : `type ${declared}`}` };
 	}
-	return undefined; // member / call / paren / array / New / unary -> quiet (v1)
+	return undefined;
+}
+
+/** Compile constraints of TypeOf, separate from the compatibility warning. */
+export function checkTypeOfExpression(symbols: ReturnType<typeof buildModuleSymbols>, push: PushFn, projectVisibleSymbols?: readonly VbaSymbol[]): ProcedureExpressionVisitor {
+	const forProcedure = expressionShapeResolver(symbols, projectVisibleSymbols);
+	return (member) => {
+		const shapeOf = forProcedure(member);
+		return (expr) => {
+			if (expr.exprKind !== 'TypeOfIsExpr') { return; }
+			const shape = shapeOf(expr.operand);
+			if (expr.operand.exprKind === 'ParenExpr' || isKnownScalarType(expr.typeName.toLowerCase()) || expr.typeName.toLowerCase() === 'variant') {
+				push('typeOfInvalidExpression', "TypeOf requires an unparenthesised object expression and an object type after Is. This is a VBE compile error: Syntax error.", expr.span);
+			} else if (shape?.isArray || shape?.asType && isKnownScalarType(shape.asType.toLowerCase())) {
+				push('typeOfInvalidExpression', "TypeOf requires an object expression. This is a VBE compile error: Type mismatch.", expr.operand.span);
+			}
+		};
+	};
 }

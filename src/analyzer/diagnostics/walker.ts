@@ -29,7 +29,7 @@ import { isLeafStatement } from '../parser/nodes';
 export { absoluteSpan, matchParenFrom, tokenWord as tokenText, tokenName } from '../lexer/tokenHelpers';
 export { statementTokens } from './analysisContext';
 export { blockHeaderStatements } from './blockHeaders';
-import { blockHeaderStatements } from './blockHeaders';
+import { blockHeaderStatements, ifBranchStatement } from './blockHeaders';
 import { tokenWord as tokenText, tokenName, absoluteSpan, statementTokens as lexStatementTokens } from '../lexer/tokenHelpers';
 import { statementTokens } from './analysisContext';
 import { trackedLocalsNamedWhole } from './dataflow';
@@ -74,6 +74,8 @@ export function forEachStatementWithHeaders(
 			visit(node);
 		} else if ('body' in node && Array.isArray(node.body)) {
 			const { before, after } = blockHeaderStatements(source, node);
+			const opening = node.kind === 'IfBlock' ? node.branches[0] : undefined;
+			if (opening) { visit(ifBranchStatement(source, opening)); }
 			if (before) {
 				visit(before);
 			}
@@ -174,8 +176,8 @@ export function walkProcedureStatements(
 					// A block If's own line: `If 10 / d > 1 Then` evaluates its
 					// condition as a statement does (issue #492). Its ElseIf lines
 					// are statements of the body already.
-					const opening = node.kind === 'IfBlock' && headers && headerCallbacks.length > 0 ? node.branches[0]?.headerSpan : undefined;
-					header(opening ? { kind: 'Statement', span: opening, raw: headers!.source.slice(opening.start, opening.end) } : undefined);
+					const opening = node.kind === 'IfBlock' && headers && headerCallbacks.length > 0 ? node.branches[0] : undefined;
+					header(opening ? ifBranchStatement(headers!.source, opening) : undefined);
 					visit(node.body);
 					header(after);
 				}

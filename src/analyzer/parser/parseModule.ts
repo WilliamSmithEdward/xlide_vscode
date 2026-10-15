@@ -2022,25 +2022,39 @@ class Parser {
 	 * whether they read a statement structurally or scan its text, and a global
 	 * visit double-reported the text-scanning ones (issue #46).
 	 */
+	/** The end of the text from `start` to `end` with trailing blanks dropped. */
+	private trimmedEnd(start: number, end: number): number {
+		let at = end;
+		while (at > start && (this.source[at - 1] === ' ' || this.source[at - 1] === '\t')) {
+			at -= 1;
+		}
+		return at;
+	}
+
 	private singleLineIfBranchSpans(stmt: LogicalStatement): Span[] {
 		const tokens = codeTokensAfterLineNumber(stmt);
 		if (tokenWord(tokens[0]) !== 'if') {
 			return [];
 		}
-		const starts: number[] = [];
+		// Each arm runs from the token after its Then or Else to the next
+		// Else keyword, which is no part of the arm.
+		const arms: Array<{ start: number; keywordAfter?: number }> = [];
 		for (let i = 1; i < tokens.length; i += 1) {
 			const word = tokenWord(tokens[i]);
 			if (word !== 'then' && word !== 'else') {
 				continue;
 			}
+			if (arms.length > 0 && arms[arms.length - 1].keywordAfter === undefined) {
+				arms[arms.length - 1].keywordAfter = tokens[i].start;
+			}
 			const next = tokens[i + 1];
 			if (next) {
-				starts.push(next.start);
+				arms.push({ start: next.start });
 			}
 		}
-		return starts.map((start, index) => ({
-			start,
-			end: index + 1 < starts.length ? starts[index + 1] : stmt.end,
+		return arms.map((arm) => ({
+			start: arm.start,
+			end: arm.keywordAfter !== undefined ? this.trimmedEnd(arm.start, arm.keywordAfter) : stmt.end,
 		}));
 	}
 

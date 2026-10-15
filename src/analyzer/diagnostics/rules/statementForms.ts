@@ -19,6 +19,7 @@ import type { VbaToken } from '../../lexer/tokenKinds';
 import { tokenizeCached } from '../../lexer/tokenize';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { VbaProcedureSignature } from '../../symbols/symbolModel';
+import { forEachSubExpression, statementValueExpressions } from '../exprWalk';
 import { statementLabelDeclarations, statementLabelReferences } from '../../flow/procedureLabels';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
 import { createObjectDefaultQueries, argumentlessHostDefault, buildModuleTypeSignatures, isKnownScalarType, normalizeType, objectHoldingDefault, typeEnvironmentFor } from '../typeInference';
@@ -28,7 +29,7 @@ import {
 	activeModuleMembers,
 	bareAssignmentTarget,
 	firstExecutableTokenIndex,
-	forEachStatement,
+	forEachStatementWithHeaders,
 	statementAndBranchSpans,
 	statementTokens,
 	tokenName,
@@ -170,15 +171,60 @@ export function checkStatementForms(
 				arrays.add(child.name.toLowerCase());
 			}
 		}
-		forEachStatement(member.body, (stmt) => {
+		forEachStatementWithHeaders(source, member.body, (stmt) => {
 			for (const span of statementAndBranchSpans(stmt)) {
 				const toks = statementTokens(source, span);
 				const at = (i: number) => ({ start: span.start + toks[i].start, end: span.start + toks[i].end });
 				const target = bareAssignmentTarget(source, span);
+				let valueNames: Set<number> | undefined;
+				let parsedTokens: Set<number>;
+				const isValue = (i: number): boolean => {
+					if (!valueNames) {
+						valueNames = new Set();
+						parsedTokens = new Set();
+						const values = statementValueExpressions(source, span === stmt.span ? stmt : { kind: 'Statement', span, raw: source.slice(span.start, span.end) });
+						// New/TypeOf type names are not value references, including
+						// when the assignment fallback below owns the surrounding tokens.
+						const typeNames: Span[] = [];
+						for (const root of values) {
+							forEachSubExpression(root, (expr) => {
+								if (expr.exprKind === 'TypeOfIsExpr' || expr.exprKind === 'NewExpr') { typeNames.push(expr.typeNameSpan); }
+								else if (expr.exprKind === 'IdentifierExpr') { valueNames!.add(expr.span.start); }
+								else if (expr.exprKind === 'MemberAccessExpr' && expr.accessKind !== 'bang') { valueNames!.add(expr.memberSpan.start); }
+							});
+						}
+						const intervals = values.map((expr) => expr.span).sort((a, b) => a.start - b.start);
+						typeNames.sort((a, b) => a.start - b.start);
+						// Index the intervals once, rather than searching every root
+						// for every candidate in a long Print/Case/argument list.
+						let interval = 0, typeName = 0;
+						for (let j = 0; j < toks.length; j++) {
+							const offset = span.start + toks[j].start;
+							while (interval < intervals.length && intervals[interval].end <= offset) { interval++; }
+							if (interval < intervals.length && intervals[interval].start <= offset) { parsedTokens.add(j); }
+							while (typeName < typeNames.length && typeNames[typeName].end <= offset) { typeName++; }
+							if (typeName < typeNames.length && typeNames[typeName].start <= offset) {
+								valueNames.delete(offset);
+								parsedTokens.add(j);
+							}
+						}
+					}
+					if (valueNames.has(span.start + toks[i].start)) { return true; }
+					if (parsedTokens.has(i)) { return false; }
+					// Contextual names (e.g. Property) and unsupported syntax can
+					// prevent expression parsing. Preserve the original conservative
+					// assignment/TypeName checks outside successfully parsed roots.
+					return (target !== undefined && i > eq)
+						|| tokenText(toks[i - 2]) === 'typename' && toks[i - 1]?.rawText === '(' && toks[i + 1]?.rawText === ')';
+				};
 				// A Set's `=` is the assignment too: `Set c = New Collection` is no
 				// operand, and neither is `Set cols(1) = c`, whose target is
 				// indexed (issue #140).
 				const first = firstExecutableTokenIndex(toks);
+				if (tokenText(toks[first]) === 'let' && tokenText(toks[first + 1]) === 'set') {
+					push('malformedStatement', "An assignment cannot start with 'Let Set'; use Set for an object reference. This is a VBE compile error: Syntax error.", { start: at(first).start, end: at(first + 1).end });
+					continue;
+				}
 				// `Foo` or `Call Foo` from another module, where a module is
 				// named Foo: the name means the module before its Sub (issue
 				// #369, measured in Excel 16.0). `Foo.Foo` compiles.
@@ -209,8 +255,8 @@ export function checkStatementForms(
 					const name = tokenName(toks[i]);
 					// `x = c.DoIt()` with DoIt a Sub of c's class (issue #369).
 					// After AddressOf it is addressof-misuse's (issue #299).
-					if (name && target && i > eq && toks[i - 1]?.rawText === '.' && toks[i + 1]?.rawText !== '.' && tokenText(toks[i - 3]) !== 'addressof'
-						&& mightBeClassSub(name)
+					if (name && toks[i - 1]?.rawText === '.' && toks[i + 1]?.rawText !== '.' && tokenText(toks[i - 3]) !== 'addressof'
+						&& mightBeClassSub(name) && isValue(i)
 						&& projectClassMemberAt(source, span.start + toks[i - 1].end, name, memberCtx)?.sub) {
 						push('subUsedAsValue', `'${name}' is a Sub of the class, which returns nothing, so it cannot be used as a value. This is a VBE compile error: Expected Function or variable.`, at(i));
 						continue;
@@ -221,25 +267,24 @@ export function checkStatementForms(
 					const home = bareLower === undefined ? undefined : needsArgument.get(bareLower);
 					const qualifier = toks[i - 1]?.rawText === '.' ? tokenName(toks[i - 2])?.toLowerCase() : undefined;
 					if (name && home && target && i > eq && !['(', '.', '!', ':='].includes(toks[i + 1]?.rawText ?? '')
-						&& (toks[i - 1]?.rawText !== '.' || (qualifier === home && toks[i - 3]?.rawText !== '.'))
+						&& toks[i - 1]?.rawText !== '!' && isValue(i) && (toks[i - 1]?.rawText !== '.' || (qualifier === home && toks[i - 3]?.rawText !== '.'))
 						&& tokenText(toks[i - 1]) !== 'addressof' && !(qualifier && tokenText(toks[i - 3]) === 'addressof') && !locals.has(bareLower!) && !env.has(bareLower!) && bareLower !== member.name.toLowerCase()) {
 						push('argumentCount', `'${name}' needs an argument, and is read here with none. This is a VBE compile error: Argument not optional.`, at(i));
 						continue;
 					}
-					if (!name || toks[i - 1]?.rawText === '.' || toks[i + 1]?.rawText === ':=' || i === eq - 1) {
+					if (!name || toks[i - 1]?.rawText === '.' || toks[i - 1]?.rawText === '!' || toks[i + 1]?.rawText === ':=' || i === eq - 1) {
 						continue;
 					}
 					// `Main = Foo()` reads the module Foo too (issue #369).
 					const nameLower = name.toLowerCase();
-					if (i !== callee && toks[i + 1]?.rawText !== '.' && otherModules.has(nameLower) && !locals.has(nameLower) && !ownNames.has(nameLower) && !isLabel(i)) {
+					if (i !== callee && toks[i + 1]?.rawText !== '.' && otherModules.has(nameLower) && !locals.has(nameLower) && !ownNames.has(nameLower) && !isLabel(i) && isValue(i)) {
 						push('malformedStatement', `'${name}' names a module of this project before any procedure in it, so it cannot be used bare from another module; write ${name}.${name}. This is a VBE compile error: Expected variable or procedure, not module.`, at(i));
 						continue;
 					}
 					// `Main = E` reads an Enum type as a value (issue #436, measured
 					// in Excel 16.0).
 					// So does TypeName(E) (issue #639).
-					const typeNameArgument = tokenText(toks[i - 2]) === 'typename' && toks[i - 1]?.rawText === '(' && toks[i + 1]?.rawText === ')';
-					if (((target && i === eq + 1 && toks.length === eq + 2) || typeNameArgument) && ownEnums.has(nameLower) && !locals.has(nameLower)) {
+					if (toks[i + 1]?.rawText !== '.' && ownEnums.has(nameLower) && !locals.has(nameLower) && isValue(i)) {
 						push('malformedStatement', `'${name}' names an Enum type, which has no value; name one of its members, as in ${name}.Member. This is a VBE compile error: Expected variable or procedure, not enum type.`, at(i));
 						continue;
 					}
@@ -262,7 +307,7 @@ export function checkStatementForms(
 							continue;
 						}
 					}
-					if (toks[i + 1]?.rawText !== '(' && toks[i + 1]?.rawText !== '.' && indexed(lower)) {
+					if (toks[i + 1]?.rawText !== '(' && toks[i + 1]?.rawText !== '.' && indexed(lower) && isValue(i)) {
 						const typeName = env.get(lower)!;
 						// A Collection's is builtin-arguments' (issue #242).
 						if (valueCall && normalizeType(typeName) !== 'collection') {
@@ -284,7 +329,7 @@ export function checkStatementForms(
 					}
 					// `x + 1` and `s = x` on a Word Paragraph, whose default member
 					// Range holds an object (issue #462, measured in Word 16.0).
-					const holding = toks[i + 1]?.rawText !== '(' && toks[i + 1]?.rawText !== '.' && env.has(lower) ? objectHoldingDefault(env.get(lower), memberCtx) : undefined;
+					const holding = toks[i + 1]?.rawText !== '(' && toks[i + 1]?.rawText !== '.' && env.has(lower) && isValue(i) ? objectHoldingDefault(env.get(lower), memberCtx) : undefined;
 					if (holding) {
 						const typeName = env.get(lower)!;
 						const previous = i - 1 === eq ? undefined : toks[i - 1];
@@ -299,7 +344,7 @@ export function checkStatementForms(
 							continue;
 						}
 					}
-					if (target && i > eq && subs.has(lower) && !notSubs.has(lower) && !locals.has(lower) && !env.has(lower)) {
+					if (toks[i + 1]?.rawText !== '.' && subs.has(lower) && !notSubs.has(lower) && !locals.has(lower) && !env.has(lower) && isValue(i)) {
 						push('subUsedAsValue', `'${name}' is a Sub, which returns nothing, so it cannot be used as a value. This is a VBE compile error: Expected Function or variable.`, at(i));
 					}
 				}

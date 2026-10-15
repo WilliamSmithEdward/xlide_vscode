@@ -6,12 +6,31 @@
 import { tokenizeCached } from '../lexer/tokenize';
 import { statementTokensCached, tokenWord as tokenText } from '../lexer/tokenHelpers';
 import type { VbaToken } from '../lexer/tokenKinds';
-import type { BodyNode, DoBlockNode, StatementNode } from '../parser/nodes';
+import type { BodyNode, DoBlockNode, IfBranchNode, StatementNode } from '../parser/nodes';
 
 /**
  * The block kinds whose own line evaluates an expression: a For's bounds and
  * step, a Select Case subject, a Do or While condition, a With subject.
  */
+type Headers = { before?: StatementNode; after?: StatementNode };
+const NO_HEADERS: Headers = {};
+// The lexer adopts fresh, equal source instances once per snapshot (issue #45).
+// Comparing source strings in each node's cache would repeat that module-sized
+// comparison for every header and rule after a worker/transport boundary.
+const headersByBlock = new WeakMap<BodyNode, { tokens: readonly VbaToken[]; headers: Headers }>();
+const statementsByBranch = new WeakMap<IfBranchNode, { tokens: readonly VbaToken[]; statement: StatementNode }>();
+
+/** Reuse the same synthetic leaf in every rule reading this source snapshot. */
+export function ifBranchStatement(source: string, branch: IfBranchNode): StatementNode {
+	const tokens = tokenizeCached(source);
+	const cached = statementsByBranch.get(branch);
+	if (cached?.tokens === tokens) { return cached.statement; }
+	const span = branch.headerSpan;
+	const statement: StatementNode = { kind: 'Statement', span, raw: source.slice(span.start, span.end) };
+	statementsByBranch.set(branch, { tokens, statement });
+	return statement;
+}
+
 const HEADER_BLOCKS: ReadonlySet<string> = new Set(['ForBlock', 'SelectBlock', 'DoBlock', 'WhileBlock', 'WithBlock']);
 
 /**
@@ -20,11 +39,11 @@ const HEADER_BLOCKS: ReadonlySet<string> = new Set(['ForBlock', 'SelectBlock', '
  * logical line or at a colon, so `If a Then With c: .Add 1: End With` gives
  * `With c` alone, and a string holding a colon stays whole.
  */
-export function blockHeaderStatements(source: string, node: BodyNode): { before?: StatementNode; after?: StatementNode } {
-	if (!HEADER_BLOCKS.has(node.kind)) {
-		return {};
-	}
+export function blockHeaderStatements(source: string, node: BodyNode): Headers {
+	if (!HEADER_BLOCKS.has(node.kind)) { return NO_HEADERS; }
 	const toks = tokenizeCached(source);
+	const cached = headersByBlock.get(node);
+	if (cached?.tokens === toks) { return cached.headers; }
 	const statement = (from: number, to: number): StatementNode => {
 		const span = { start: toks[from].start, end: toks[to].end };
 		return { kind: 'Statement', span, raw: source.slice(span.start, span.end) };
@@ -67,6 +86,7 @@ export function blockHeaderStatements(source: string, node: BodyNode): { before?
 			out.after = statement(first, last);
 		}
 	}
+	headersByBlock.set(node, { tokens: toks, headers: out });
 	return out;
 }
 
@@ -80,7 +100,7 @@ export function blockHeaderLeaves(source: string, node: BodyNode): StatementNode
 	if (node.kind === 'IfBlock') {
 		return node.branches
 			.filter((branch) => branch.branchKind !== 'else')
-			.map((branch) => ({ kind: 'Statement', span: branch.headerSpan, raw: source.slice(branch.headerSpan.start, branch.headerSpan.end) }));
+			.map((branch) => ifBranchStatement(source, branch));
 	}
 	const { before, after } = blockHeaderStatements(source, node);
 	return [before, after].filter((stmt): stmt is StatementNode => stmt !== undefined);

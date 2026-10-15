@@ -26,6 +26,7 @@
 //     back to raw for named/omitted arguments or bang access.
 
 import { MAX_EXPRESSION_DEPTH } from './expressionLimits';
+import { resolveRuntimeFunction } from '../runtime/vbaRuntime';
 import { VbaToken } from '../lexer/tokenKinds';
 import { isIdentLike, relationalOperatorAt, tokenName, tokenWord } from '../lexer/tokenHelpers';
 import {
@@ -125,13 +126,16 @@ const NOT_PRECEDENCE = 6;
 /**
  * Parse a value expression from tokens[from, to). The token slice must already
  * exclude comments and statement separators (use codeTokens upstream).
+ * spanOffset translates relative token positions without copying cached tokens;
+ * endIndex remains an index into the original token array.
  */
 export function parseExpression(
 	tokens: readonly VbaToken[],
 	from = 0,
 	to = tokens.length,
+	spanOffset = 0,
 ): ExprParseResult {
-	const parser = new ExpressionParser(tokens, from, to);
+	const parser = new ExpressionParser(tokens, from, to, spanOffset);
 	const expr = parser.parse();
 	return { expr, diagnostics: parser.diagnostics, endIndex: parser.index };
 }
@@ -140,13 +144,15 @@ export function parseExpression(
  * Parse a parenless call-statement argument list from tokens[from, to). Returns
  * null when any present argument is malformed (the caller falls back to a raw
  * statement). Supports positional, named (`name:=value`), and omitted arguments.
+ * spanOffset has the same coordinate semantics as parseExpression.
  */
 export function parseParenlessArguments(
 	tokens: readonly VbaToken[],
 	from: number,
 	to: number,
+	spanOffset = 0,
 ): Argument[] | null {
-	return new ExpressionParser(tokens, from, to).parseParenlessArgumentList();
+	return new ExpressionParser(tokens, from, to, spanOffset).parseParenlessArgumentList();
 }
 
 // Recursive-descent depth cap so pathological input (thousands of nested parens,
@@ -162,6 +168,7 @@ class ExpressionParser {
 		private readonly tokens: readonly VbaToken[],
 		from: number,
 		private readonly to: number,
+		private readonly spanOffset: number,
 	) {
 		this.index = from;
 	}
@@ -213,7 +220,7 @@ class ExpressionParser {
 
 	private diag(token: VbaToken | undefined, message: string): void {
 		const span: Span = token
-			? { start: token.start, end: token.end }
+			? { start: token.start + this.spanOffset, end: token.end + this.spanOffset }
 			: { start: 0, end: 0 };
 		this.diagnostics.push({ span, message, severity: 'error', specRef: 'MS-VBAL 5.6' });
 	}
@@ -251,7 +258,7 @@ class ExpressionParser {
 				exprKind: 'UnaryExpr',
 				operator: 'Not',
 				operand,
-				span: { start: lead.start, end: this.spanOf(operand).end },
+				span: { start: lead.start + this.spanOffset, end: this.spanOf(operand).end },
 			} satisfies UnaryExpr;
 		} else {
 			left = this.parseUnary();
@@ -344,7 +351,7 @@ class ExpressionParser {
 				exprKind: 'UnaryExpr',
 				operator: unaryOp,
 				operand,
-				span: { start: token.start, end: this.spanOf(operand).end },
+				span: { start: token.start + this.spanOffset, end: this.spanOf(operand).end },
 			};
 			return node;
 		}
@@ -410,7 +417,7 @@ class ExpressionParser {
 				exprKind: 'UnaryExpr',
 				operator: token.rawText as UnaryOperator,
 				operand,
-				span: { start: token.start, end: this.spanOf(operand).end },
+				span: { start: token.start + this.spanOffset, end: this.spanOf(operand).end },
 			};
 			return node;
 		}
@@ -442,8 +449,8 @@ class ExpressionParser {
 					exprKind: 'MemberAccessExpr',
 					object: expr,
 					member,
-					memberSpan: { start: memberToken.start, end: memberToken.end },
-					span: { start: this.spanOf(expr).start, end: memberToken.end },
+					memberSpan: { start: memberToken.start + this.spanOffset, end: memberToken.end + this.spanOffset },
+					span: { start: this.spanOf(expr).start, end: memberToken.end + this.spanOffset },
 				};
 				expr = node;
 				continue;
@@ -481,7 +488,7 @@ class ExpressionParser {
 		if (
 			!nameTok ||
 			!(nameTok.kind === 'identifier' || nameTok.kind === 'bracketedIdentifier') ||
-			bangToken.start !== this.spanOf(receiver).end || // `!` glued to receiver
+			bangToken.start + this.spanOffset !== this.spanOf(receiver).end || // `!` glued to receiver
 			nameTok.start !== bangToken.end // name glued to `!`
 		) {
 			return null;
@@ -493,9 +500,9 @@ class ExpressionParser {
 			exprKind: 'MemberAccessExpr',
 			object: receiver,
 			member,
-			memberSpan: { start: nameTok.start, end: nameTok.end },
+			memberSpan: { start: nameTok.start + this.spanOffset, end: nameTok.end + this.spanOffset },
 			accessKind: 'bang',
-			span: { start: this.spanOf(receiver).start, end: nameTok.end },
+			span: { start: this.spanOf(receiver).start, end: nameTok.end + this.spanOffset },
 		};
 	}
 
@@ -510,7 +517,7 @@ class ExpressionParser {
 				exprKind: 'IndexExpr',
 				callee,
 				args,
-				span: { start: this.spanOf(callee).start, end: close.end },
+				span: { start: this.spanOf(callee).start, end: close.end + this.spanOffset },
 			};
 		}
 		for (;;) {
@@ -531,7 +538,7 @@ class ExpressionParser {
 					exprKind: 'IndexExpr',
 					callee,
 					args,
-					span: { start: this.spanOf(callee).start, end: close.end },
+					span: { start: this.spanOf(callee).start, end: close.end + this.spanOffset },
 				};
 			}
 			this.diag(sep ?? open, "Expected ',' or ')' in argument list.");
@@ -578,7 +585,7 @@ class ExpressionParser {
 		// Omitted slot: the position is empty (the next token is a separator or the
 		// list terminator). Modeled as a zero-width span at that position.
 		if (this.atArgumentBoundary(head, terminator)) {
-			const pos = head!.start;
+			const pos = head!.start + this.spanOffset;
 			return { value: null, span: { start: pos, end: pos } };
 		}
 		if (!head) {
@@ -595,7 +602,7 @@ class ExpressionParser {
 			colonEq.rawText === ':='
 		) {
 			name = tokenName(head) ?? head.rawText;
-			nameSpan = { start: head.start, end: head.end };
+			nameSpan = { start: head.start + this.spanOffset, end: head.end + this.spanOffset };
 			this.next(); // consume name
 			this.next(); // consume :=
 		}
@@ -646,7 +653,7 @@ class ExpressionParser {
 				const node: ParenExpr = {
 					exprKind: 'ParenExpr',
 					inner,
-					span: { start: token.start, end: close.end },
+					span: { start: token.start + this.spanOffset, end: close.end + this.spanOffset },
 				};
 				return node;
 			}
@@ -668,8 +675,8 @@ class ExpressionParser {
 				exprKind: 'MemberAccessExpr',
 				object: null,
 				member,
-				memberSpan: { start: memberToken.start, end: memberToken.end },
-				span: { start: token.start, end: memberToken.end },
+				memberSpan: { start: memberToken.start + this.spanOffset, end: memberToken.end + this.spanOffset },
+				span: { start: token.start + this.spanOffset, end: memberToken.end + this.spanOffset },
 			};
 			return node;
 		}
@@ -696,7 +703,9 @@ class ExpressionParser {
 		}
 
 		// Identifier reference.
-		if (token.kind === 'identifier' || token.kind === 'bracketedIdentifier') {
+		if (token.kind === 'identifier' || token.kind === 'bracketedIdentifier'
+			|| (token.kind === 'keyword' && (resolveRuntimeFunction(tokenWord(token))?.kind === 'function'
+				|| ['me', 'date', 'time', 'string', 'error'].includes(tokenWord(token))))) {
 			this.next();
 			return this.identifierExpr(token);
 		}
@@ -710,7 +719,7 @@ class ExpressionParser {
 		const node: IdentifierExpr = {
 			exprKind: 'IdentifierExpr',
 			name,
-			span: { start: token.start, end: token.end },
+			span: { start: token.start + this.spanOffset, end: token.end + this.spanOffset },
 		};
 		// Capture an immediately-adjacent unambiguous type-declaration character
 		// ($/%/@). &/!/#/^ are left to the operator layer to avoid misreading a
@@ -724,7 +733,7 @@ class ExpressionParser {
 		) {
 			this.next();
 			node.typeSuffix = suffix.rawText;
-			node.span = { start: token.start, end: suffix.end };
+			node.span = { start: token.start + this.spanOffset, end: suffix.end + this.spanOffset };
 		}
 		return node;
 	}
@@ -758,7 +767,7 @@ class ExpressionParser {
 			exprKind: 'LiteralExpr',
 			literalKind,
 			raw: token.rawText,
-			span: { start: token.start, end: token.end },
+			span: { start: token.start + this.spanOffset, end: token.end + this.spanOffset },
 		};
 	}
 
@@ -785,8 +794,8 @@ class ExpressionParser {
 		return {
 			exprKind: 'NewExpr',
 			typeName,
-			typeNameSpan: { start: keyword.start, end: endToken.end },
-			span: { start: keyword.start, end: endToken.end },
+			typeNameSpan: { start: keyword.start + this.spanOffset, end: endToken.end + this.spanOffset },
+			span: { start: keyword.start + this.spanOffset, end: endToken.end + this.spanOffset },
 		};
 	}
 
@@ -802,7 +811,7 @@ class ExpressionParser {
 		return {
 			exprKind: 'AddressOfExpr',
 			target,
-			span: { start: keyword.start, end: target.span.end },
+			span: { start: keyword.start + this.spanOffset, end: target.span.end },
 		};
 	}
 
@@ -832,8 +841,8 @@ class ExpressionParser {
 			exprKind: 'TypeOfIsExpr',
 			operand,
 			typeName,
-			typeNameSpan: { start: typeToken.start, end: typeToken.end },
-			span: { start: keyword.start, end: typeToken.end },
+			typeNameSpan: { start: typeToken.start + this.spanOffset, end: typeToken.end + this.spanOffset },
+			span: { start: keyword.start + this.spanOffset, end: typeToken.end + this.spanOffset },
 		};
 	}
 }

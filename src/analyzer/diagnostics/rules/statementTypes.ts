@@ -72,7 +72,7 @@ type Category = 'variant' | 'number' | 'date' | 'string' | 'boolean' | 'object' 
 const NUMBER_TYPES = new Set(['byte', 'integer', 'long', 'longlong', 'longptr', 'currency', 'single', 'double', 'decimal']);
 
 /** Words that join two operands, so a user-defined type beside one is used as a value. */
-const OPERATOR_WORDS = new Set(['and', 'or', 'xor', 'eqv', 'imp', 'mod', 'like', 'not', 'is']);
+const OPERATOR_WORDS = new Set(['and', 'or', 'xor', 'eqv', 'imp', 'mod', 'like', 'is']);
 
 interface Context {
 	source: string;
@@ -81,6 +81,8 @@ interface Context {
 	activity: ConditionalActivityTracker | undefined;
 	push: PushFn;
 	udts: ReadonlySet<string>;
+	/** The Types this module declares itself, which non-scalar-binary-operand judges beside a binary operator. */
+	moduleUdts: ReadonlySet<string>;
 	enums: ReadonlySet<string>;
 	/** Whether an untyped variable is a Variant, which a Deftype line changes. */
 	untypedIsVariant: boolean;
@@ -101,10 +103,12 @@ export function checkStatementTypes(
 	procedureFilter?: (member: ProcedureNode) => boolean,
 ): void {
 	const udts = new Set<string>();
+	const moduleUdts = new Set<string>();
 	const enums = new Set<string>();
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind === 'Type') {
 			udts.add(member.name.toLowerCase());
+			moduleUdts.add(member.name.toLowerCase());
 		} else if (member.kind === 'Enum') {
 			enums.add(member.name.toLowerCase());
 		}
@@ -126,6 +130,7 @@ export function checkStatementTypes(
 		activity,
 		push,
 		udts,
+		moduleUdts,
 		enums,
 		untypedIsVariant: !/^[ \t]*Def(?:Bool|Byte|Int|Lng|LngLng|LngPtr|Cur|Sng|Dbl|Dec|Date|Str|Obj|Var)\b/im.test(source),
 		types: moduleTypes(source, mod, activity),
@@ -556,6 +561,18 @@ function checkStatement(ctx: Context, procSym: VbaSymbol | undefined, span: Span
 		const after = toks[i + 1];
 		const operatorBefore = !!before && i - 1 !== assignmentEq && isOperator(before);
 		const operatorAfter = !!after && i + 1 !== assignmentEq && isOperator(after);
+		// A Type of this module beside a binary operator is
+		// non-scalar-binary-operand's, which sees every context; a unary minus,
+		// `v = -t`, `a Is b`, which that rule leaves to Is, and another
+		// module's Type stay here.
+		const prior = toks[i - 2];
+		const unaryMinus = operatorBefore && before.rawText === '-' && !operatorAfter
+			&& (prior === undefined || i - 2 === assignmentEq || ['(', ','].includes(prior.rawText) || isOperator(prior));
+		const besideIs = tokenText(before) === 'is' || tokenText(after) === 'is';
+		const typeName = normalizeType(variableNamed(ctx, procSym, name)?.asType) ?? '';
+		if (ctx.moduleUdts.has(typeName) && !unaryMinus && !besideIs) {
+			continue;
+		}
 		if ((operatorBefore || operatorAfter) && !uncheckedAggregateOperators(toks, i - 1, operatorBefore, i + 1, operatorAfter)) {
 			udtMismatch(ctx, name, at(i));
 		}
@@ -591,7 +608,9 @@ function firstTopLevelEquals(toks: readonly VbaToken[]): number {
 
 function isOperator(tok: VbaToken): boolean {
 	// `Item:=t` names an argument, which udt-variant-coercion reads.
-	return tok.kind === 'operator' ? tok.rawText !== '.' && tok.rawText !== '!' && tok.rawText !== ':=' : OPERATOR_WORDS.has(tokenText(tok));
+	// Excel compiles aggregate ^ operands and Not t. Unary -t remains
+	// refused: compiling it crashes Excel (measured 2026-10-15).
+	return tok.kind === 'operator' ? !['.', '!', ':=', '^'].includes(tok.rawText) : OPERATOR_WORDS.has(tokenText(tok));
 }
 
 /**
