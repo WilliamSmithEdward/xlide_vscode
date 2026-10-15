@@ -66,10 +66,11 @@ leaves a workbook open, and when a kept Excel no longer takes the worker's
 settings. `--cases-per-excel 1` gives every case its own Excel. If a case
 hangs, the coordinator times out the worker and kills it and the Excel
 process that the worker recorded; the next case starts a new worker. Timeout
-is not VBA evidence: it is treated as oracle infrastructure health. The coordinator retries
-the same case up to `--timeout-retries`; if every attempt times out, it aborts
-the remaining run as `outcome: "oracle_failure"` and exits non-zero even without
-`--strict`. Investigate the harness/Excel modal state before running additional
+is not VBA evidence: it is treated as oracle infrastructure health. The
+coordinator retries the same case up to `--timeout-retries`, except one that
+timed out behind a compile-error dialog, which is not retried; if every
+attempt times out, it aborts the remaining run as `outcome: "oracle_failure"`
+and exits non-zero even without `--strict`. Investigate the harness/Excel modal state before running additional
 oracle cases. If an oracle failure follows accidental parallel oracle runs,
 treat the parallelism as the first suspected infrastructure cause and rerun the
 cases sequentially after checking for lingering Excel/VBE processes or modal
@@ -235,7 +236,10 @@ name an `entryPoint`. The worker starts the same Win32 dialog watcher before
 running the macro; a `Microsoft Visual Basic` dialog with `Run-time error` text
 is recorded as `outcome: "rejected"` and dismissed with the dialog's `End`
 button. The dismiss fallback also sends standard OK/Cancel/Abort dialog commands
-because VBE runtime dialogs vary in their button command IDs. Use runtime
+because VBE runtime dialogs vary in their button command IDs. A `Compile error:`
+dialog during a run is recorded as `outcome: "rejected"` with stage
+`compile_dialog`; the watcher then ends that Excel, because `Excel.Run` does
+not return after a compile error is dismissed. Use runtime
 fixtures sparingly, only when a deterministic runtime error changes diagnostic
 severity or corpus truth.
 
@@ -269,7 +273,8 @@ Every oracle case must also declare `provenance`:
 Every oracle case must declare the phase it proves and the meaning of that
 observation:
 
-- `evidencePhase: "compile"` for VBE Compile command evidence.
+- `evidencePhase: "compile"` for VBE Compile command evidence, or a compile
+  error raised while running.
 - `evidencePhase: "runtime"` for `excel.Run` evidence.
 - `mode: "compile_then_run"` may produce either compile or runtime evidence
   depending on where Excel/VBE rejects the snippet.
