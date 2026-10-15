@@ -19,4 +19,34 @@ describe('Excel VBE oracle worker', () => {
         expect(worker).not.toContain('$excel.Visible = $false');
         expect(worker).toContain('$excel.VBE.MainWindow.Visible = $true');
     });
+
+    it('checks that Excel is alive before accepting without a dialog', () => {
+        // A crashed Excel shows no dialog either, so "no dialog" alone recorded
+        // a crash as accepted. Every accept that is not backed by a dialog must
+        // first confirm that the worker's Excel is still running.
+        const worker = fs.readFileSync(
+            path.join(__dirname, '..', 'syntax_corpus', 'oracle', 'excel_vbe_oracle_worker.ps1'),
+            'utf8',
+        );
+        const lines = worker.split(/\r?\n/).map((line) => line.trim());
+        const accepts = lines
+            .map((line, index) => ({ line, index }))
+            .filter(({ line }) => line === '$result.outcome = "accepted"');
+        const dialogAccepts = accepts.filter(({ index }) => lines[index + 1] === '$result.stage = "vbe_dialog_after_compile"');
+        const plainAccepts = accepts.filter((accept) => !dialogAccepts.includes(accept));
+
+        expect(dialogAccepts).toHaveLength(1);
+        expect(plainAccepts.length).toBeGreaterThan(0);
+        for (const { index } of plainAccepts) {
+            expect(lines[index - 1]).toBe('Assert-ExcelAlive $excel $excelPid');
+        }
+
+        const assertBody = worker.slice(
+            worker.indexOf('function Assert-ExcelAlive'),
+            worker.indexOf('function ConvertTo-NormalizedCommandCaption'),
+        );
+        expect(assertBody).toContain('Get-Process -Id $ExcelPid');
+        expect(assertBody).toContain('$null = $Excel.Hwnd');
+        expect(assertBody.match(/throw "/g)).toHaveLength(2);
+    });
 });

@@ -143,6 +143,13 @@ a bogus "accepted" control). Guard against it with the controls below.
    raise it for slow/cold machines. A future efficiency win is to warm the VBE
    compiler once per worker so a shorter watch window suffices.
 
+8. **A crash is not an accept.** Compiling some snippets crashes Excel. The
+   watcher then sees no dialog, which used to be recorded as `accepted`. Before
+   accepting, the worker now checks that the Excel process it started is still
+   running and answers a COM call; if not, the case is a `worker_error` and the
+   run stops. An Excel that hangs instead, for example behind a crash report,
+   blocks that call, and the case ends as a `timeout`.
+
 ## Automation Policy
 
 The oracle must not use `SendKeys`, keyboard focus scripting, or
@@ -169,7 +176,9 @@ source, show the disposable module in VBE, then invoke the exact
 `Compile <project-name>` VBE command bar control through COM. The worker does
 not use keyboard accelerators for compile invocation. A `Compile error:` dialog
 is treated as compile rejection. If no compile dialog appears before the popup
-watch period ends, the case is recorded as compile-accepted.
+watch period ends, the case is recorded as compile-accepted, but only if Excel
+is still running and answering COM calls. If Excel crashed, the case is a
+`worker_error`.
 
 By default a fixture supplies one standard-module `source` string. For
 workbook-object behavior, a fixture may instead supply a `modules` array. Each
