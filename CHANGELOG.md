@@ -2,6 +2,27 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.1.14] - 2026-10-15
+
+Stop reporting code that Excel compiles or runs.
+
+- Allow a Type passed to a function inside `Debug.Print`, as in
+  `Debug.Print Len(t)`; printing the Type itself is still a Type mismatch.
+- Allow any constant default on an Optional object parameter, such as
+  `Optional c As Collection = 5`. A default that is not a constant is
+  still reported.
+- Read `Dim v As Range` as the project's own Type or Enum when the project
+  declares one named Range, and let a variable As ThisWorkbook or As
+  Sheet1 hold that document's host object.
+- Accept `Dim Shared`, `Erase a()`, labels with a type character such as
+  `L1$:`, `Resume 0`, `Err.Nope`, `Me = 1` in an object module, `Now(1)`,
+  `Str(Null)`, `Static Public Sub`, `Module1.Take (v)`, `LSet s = 2`, and
+  `^` or `Not` on an array or a Type.
+- Report a few neighbouring forms Excel refuses: `Set Me = ...`,
+  `Static Global Sub`, `-a` on an array, `Oct$(Null)`, `Time$(1)`,
+  `Command$(1)`, and a LongLong passed as a copy, qualified or by name to
+  a Long parameter (#1356, contributed by Sam, @swsammy).
+
 ## [11.1.13] - 2026-10-12
 
 Report Null and Nothing `#If` conditions wherever Excel refuses them.
