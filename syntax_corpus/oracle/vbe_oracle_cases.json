@@ -123855,6 +123855,138 @@
       "source": "Option Explicit\r\nPrivate Type T\r\n    a As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t1 As T, v As Variant\r\n    v = 2 ^ t1\r\nEnd Sub\r\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "rq6_left_is_nothing",
+      "description": "rq6_left_is_nothing: compiles (control-disabled) (measured in Excel 16.0, 2026-10-16; results_rq6.log)",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "moduleName": "Module1",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nSub Main()\n    Debug.Print Left(\"x\", 1) Is Nothing\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "rq6_left_dollar_is_nothing",
+      "description": "rq6_left_dollar_is_nothing: Type mismatch (measured in Excel 16.0, 2026-10-16; results_rq6.log)",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "moduleName": "Module1",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nSub Main()\n    Debug.Print Left$(\"x\", 1) Is Nothing\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rq6_now_is_nothing",
+      "description": "rq6_now_is_nothing: compiles (control-disabled) (measured in Excel 16.0, 2026-10-16; results_rq6.log)",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "moduleName": "Module1",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nSub Main()\n    Debug.Print Now Is Nothing\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "rq6_typeof_left",
+      "description": "rq6_typeof_left: compiles (control-disabled) (measured in Excel 16.0, 2026-10-16; results_rq6.log)",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "moduleName": "Module1",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nSub Main()\n    Debug.Print TypeOf Left(\"x\", 1) Is Collection\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "rq6_typeof_paren_collection_if",
+      "description": "rq6_typeof_paren_collection_if: Syntax error (measured in Excel 16.0, 2026-10-16; results_rq6.log)",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "moduleName": "Module1",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nSub Main()\n    Dim c As New Collection\n    If TypeOf (c) Is Collection Then\n    End If\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rq6_typeof_paren_collection_assign",
+      "description": "rq6_typeof_paren_collection_assign: Syntax error (measured in Excel 16.0, 2026-10-16; results_rq6.log)",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "moduleName": "Module1",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nSub Main()\n    Dim c As New Collection, b As Boolean\n    b = TypeOf (c) Is Collection\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rq6_numbers_arg_plus",
+      "description": "rq6_numbers_arg_plus: Type mismatch (measured in Excel 16.0, 2026-10-16; results_rq6.log)",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "moduleName": "Module1",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPrivate Function Numbers(ByVal n As Long) As Long()\n    Dim a(1) As Long\n    Numbers = a\nEnd Function\nSub Main()\n    Debug.Print Numbers(1) + 1\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rq6_numbers_arg_is",
+      "description": "rq6_numbers_arg_is: Type mismatch (measured in Excel 16.0, 2026-10-16; results_rq6.log)",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "moduleName": "Module1",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPrivate Function Numbers(ByVal n As Long) As Long()\n    Dim a(1) As Long\n    Numbers = a\nEnd Function\nSub Main()\n    Debug.Print Numbers(1) Is Nothing\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rq6_numbers_arg_typeof",
+      "description": "rq6_numbers_arg_typeof: Type mismatch (measured in Excel 16.0, 2026-10-16; results_rq6.log)",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "moduleName": "Module1",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPrivate Function Numbers(ByVal n As Long) As Long()\n    Dim a(1) As Long\n    Numbers = a\nEnd Function\nSub Main()\n    Debug.Print TypeOf Numbers(1) Is Collection\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rq6_udt_pow_private",
+      "description": "rq6_udt_pow_private: compiles (control-disabled) (measured in Excel 16.0, 2026-10-16; results_rq6.log)",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "moduleName": "Module1",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPrivate Type T\n    a As Long\nEnd Type\nSub Main()\n    Dim t1 As T, v As Variant\n    If False Then v = t1 ^ 2\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "rq6_udt_pow_right_private",
+      "description": "rq6_udt_pow_right_private: compiles (control-disabled) (measured in Excel 16.0, 2026-10-16; results_rq6.log)",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "moduleName": "Module1",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nPrivate Type T\n    a As Long\nEnd Type\nSub Main()\n    Dim t1 As T, v As Variant\n    If False Then v = 2 ^ t1\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
     }
   ]
 }

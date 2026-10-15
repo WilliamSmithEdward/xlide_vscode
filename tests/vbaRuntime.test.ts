@@ -24,6 +24,22 @@ describe('VBA runtime metadata', () => {
 		expect(resolveRuntimeObject('NotARealObject')).toBeUndefined();
 	});
 
+	it.each(['Left', 'Right', 'Mid', 'Trim', 'LTrim', 'RTrim', 'UCase', 'LCase', 'Space', 'ChrB', 'Str', 'Hex', 'Oct', 'Error', 'Command'])(
+		'distinguishes %s Variant declaration from its String subtype and $ form', (name) => {
+			expect(resolveRuntimeFunction(name)?.returns).toBe('String');
+			expect(resolveRuntimeFunction(name)?.declaredReturns).toBe('Variant');
+			expect(resolveRuntimeFunction(name + '$')?.declaredReturns).toBe('String');
+		});
+	it.each(['Now', 'Time', 'DateAdd', 'DateSerial', 'TimeSerial', 'DateValue', 'TimeValue', 'CVDate', 'FileDateTime'])(
+		'distinguishes %s Variant declaration from its Date subtype', (name) => {
+			expect(resolveRuntimeFunction(name)?.returns).toBe('Date');
+			expect(resolveRuntimeFunction(name)?.declaredReturns).toBe('Variant');
+		});
+	it.each([['CStr', 'String'], ['CDate', 'Date'], ['CLng', 'Long'], ['Replace', 'String'], ['TypeName', 'String']])(
+		'keeps the typed return of %s', (name, type) => {
+			expect(resolveRuntimeFunction(name)?.declaredReturns).toBe(type);
+		});
+
 	it('resolves the hidden pointer, byte-string, and vbLongLong built-ins', () => {
 		expect(resolveRuntimeFunction('VarPtr')?.returns).toBe('LongPtr');
 		expect(resolveRuntimeFunction('StrPtr')?.returns).toBe('LongPtr');

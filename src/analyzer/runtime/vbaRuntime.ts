@@ -21,8 +21,10 @@ export interface VbaRuntimeFunction {
 	name: string;
 	/** Full signature line, e.g. `Left(String, Length) As String`. */
 	signature: string;
-	/** Declared return type, when the entry is a function. */
+	/** Value type/subtype used for display and value inference. */
 	returns?: string;
+	/** Declared return type for compile constraints (Variant can hold objects). */
+	declaredReturns?: string;
 	/** `function` returns a value; `statement` is invoked for effect only. */
 	kind: 'function' | 'statement';
 	/** Provenance marker - always verified against Microsoft VBA docs. */
@@ -85,7 +87,14 @@ function fn(
 	params?: readonly VbaRuntimeParam[],
 	options?: Pick<VbaRuntimeFunction, 'explicitCall'>,
 ): VbaRuntimeFunction {
-	return { name, signature, returns, kind: 'function', source: 'verified', params, ...options };
+	return { name, signature, returns, declaredReturns: returns, kind: 'function', source: 'verified', params, ...options };
+}
+
+// These functions declare Variant even when the value they produce has a
+// String or Date subtype. The $ forms declare String. Keep the value subtype
+// available to completion/value inference without using it as a compile type.
+function variantFn(...args: Parameters<typeof fn>): VbaRuntimeFunction {
+	return { ...fn(...args), declaredReturns: 'Variant' };
 }
 
 function stmt(
@@ -184,14 +193,14 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 		'InputBox(Prompt, [Title], [Default], [XPos], [YPos], [HelpFile], [Context]) As String',
 		'String',
 	),
-	fn('Environ', 'Environ(Expression) As String', 'String'),
+	variantFn('Environ', 'Environ(Expression) As String', 'String'),
 	fn('Shell', 'Shell(PathName, [WindowStyle As VbAppWinStyle = vbMinimizedFocus]) As Double', 'Double'),
 	fn('DoEvents', 'DoEvents() As Integer', 'Integer', undefined, { explicitCall: 'forbidden' }),
 	fn('Erl', 'Erl() As Integer', 'Integer', undefined, { explicitCall: 'forbidden' }),
 	// The FUNCTION form. `Error 5` - the statement that raises one - is grammar
 	// handled by the parser; `Error` and `Error(5)` read the message text for a
 	// code, defaulting to the current Err.Number.
-	fn('Error', 'Error([ErrorNumber]) As String', 'String'),
+	variantFn('Error', 'Error([ErrorNumber]) As String', 'String'),
 	fn('Error$', 'Error$([ErrorNumber]) As String', 'String'),
 	fn('CreateObject', 'CreateObject(Class, [ServerName]) As Object', 'Object'),
 	fn('GetObject', 'GetObject([PathName], [Class]) As Object', 'Object'),
@@ -208,23 +217,23 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 
 	// -- String functions ---------------------------------------------------
 	fn('Len', 'Len(Expression) As Long', 'Long'),
-	fn('Left', 'Left(String, Length) As String', 'String', LEFT_VARIANT_PARAMS),
+	variantFn('Left', 'Left(String, Length) As String', 'String', LEFT_VARIANT_PARAMS),
 	fn('Left$', 'Left$(String, Length) As String', 'String', LEFT_PARAMS),
-	fn('Right', 'Right(String, Length) As String', 'String', RIGHT_VARIANT_PARAMS),
+	variantFn('Right', 'Right(String, Length) As String', 'String', RIGHT_VARIANT_PARAMS),
 	fn('Right$', 'Right$(String, Length) As String', 'String', RIGHT_PARAMS),
-	fn('Mid', 'Mid(String, Start, [Length]) As String', 'String', MID_VARIANT_PARAMS),
+	variantFn('Mid', 'Mid(String, Start, [Length]) As String', 'String', MID_VARIANT_PARAMS),
 	fn('Mid$', 'Mid$(String, Start, [Length]) As String', 'String', MID_PARAMS),
 	// The `$` forms of the string functions raise error 94 for Null where the
 	// Variant forms hand Null back (issue #104; each measured in Excel 16.0).
-	fn('Trim', 'Trim(String) As String', 'String'),
+	variantFn('Trim', 'Trim(String) As String', 'String'),
 	fn('Trim$', 'Trim$(String) As String', 'String', NULL_RAISES_PARAM('String')),
-	fn('LTrim', 'LTrim(String) As String', 'String'),
+	variantFn('LTrim', 'LTrim(String) As String', 'String'),
 	fn('LTrim$', 'LTrim$(String) As String', 'String', NULL_RAISES_PARAM('String')),
-	fn('RTrim', 'RTrim(String) As String', 'String'),
+	variantFn('RTrim', 'RTrim(String) As String', 'String'),
 	fn('RTrim$', 'RTrim$(String) As String', 'String', NULL_RAISES_PARAM('String')),
-	fn('UCase', 'UCase(String) As String', 'String'),
+	variantFn('UCase', 'UCase(String) As String', 'String'),
 	fn('UCase$', 'UCase$(String) As String', 'String', NULL_RAISES_PARAM('String')),
-	fn('LCase', 'LCase(String) As String', 'String'),
+	variantFn('LCase', 'LCase(String) As String', 'String'),
 	fn('LCase$', 'LCase$(String) As String', 'String', NULL_RAISES_PARAM('String')),
 	fn('Replace', 'Replace(Expression, Find, Replace, [Start = 1], [Count = -1], [Compare As VbCompareMethod = vbBinaryCompare]) As String', 'String', REPLACE_PARAMS),
 	fn('Replace$', 'Replace$(Expression, Find, Replace, [Start = 1], [Count = -1], [Compare As VbCompareMethod = vbBinaryCompare]) As String', 'String', REPLACE_PARAMS),
@@ -238,27 +247,27 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	]),
 	fn('Join', 'Join(SourceArray, [Delimiter]) As String', 'String'),
 	fn('StrComp', 'StrComp(String1, String2, [Compare As VbCompareMethod]) As Integer', 'Integer'),
-	fn('StrConv', 'StrConv(String, Conversion As VbStrConv, [LCID]) As String', 'String'),
+	variantFn('StrConv', 'StrConv(String, Conversion As VbStrConv, [LCID]) As String', 'String'),
 	fn('String$', 'String$(Number, Character) As String', 'String', STRING_PARAMS),
-	fn('Space', 'Space(Number) As String', 'String', SPACE_PARAMS),
+	variantFn('Space', 'Space(Number) As String', 'String', SPACE_PARAMS),
 	fn('Space$', 'Space$(Number) As String', 'String', SPACE_PARAMS),
-	fn('Format', 'Format(Expression, [Format], [FirstDayOfWeek As VbDayOfWeek], [FirstWeekOfYear As VbFirstWeekOfYear]) As String', 'String'),
-	fn('Chr', 'Chr(CharCode) As String', 'String', NULL_RAISES_PARAM('CharCode')),
-	fn('ChrW', 'ChrW(CharCode) As String', 'String', NULL_RAISES_PARAM('CharCode')),
+	variantFn('Format', 'Format(Expression, [Format], [FirstDayOfWeek As VbDayOfWeek], [FirstWeekOfYear As VbFirstWeekOfYear]) As String', 'String'),
+	variantFn('Chr', 'Chr(CharCode) As String', 'String', NULL_RAISES_PARAM('CharCode')),
+	variantFn('ChrW', 'ChrW(CharCode) As String', 'String', NULL_RAISES_PARAM('CharCode')),
 	fn('Asc', 'Asc(String) As Integer', 'Integer', NULL_RAISES_PARAM('String')),
 	fn('AscW', 'AscW(String) As Integer', 'Integer'),
 
 	// -- Byte-string functions (the ...B variants operate on byte positions) --
 	fn('LenB', 'LenB(Expression) As Long', 'Long'),
-	fn('LeftB', 'LeftB(String, Length) As String', 'String'),
+	variantFn('LeftB', 'LeftB(String, Length) As String', 'String'),
 	fn('LeftB$', 'LeftB$(String, Length) As String', 'String'),
-	fn('RightB', 'RightB(String, Length) As String', 'String'),
+	variantFn('RightB', 'RightB(String, Length) As String', 'String'),
 	fn('RightB$', 'RightB$(String, Length) As String', 'String'),
-	fn('MidB', 'MidB(String, Start, [Length]) As String', 'String'),
+	variantFn('MidB', 'MidB(String, Start, [Length]) As String', 'String'),
 	fn('MidB$', 'MidB$(String, Start, [Length]) As String', 'String'),
 	fn('InStrB', 'InStrB([Start], String1, String2, [Compare As VbCompareMethod]) As Long', 'Long'),
 	fn('AscB', 'AscB(String) As Integer', 'Integer'),
-	fn('ChrB', 'ChrB(CharCode) As String', 'String'),
+	variantFn('ChrB', 'ChrB(CharCode) As String', 'String'),
 	fn('ChrB$', 'ChrB$(CharCode) As String', 'String'),
 
 	// -- Pointer / memory (hidden but always available in VBA) --------------
@@ -280,16 +289,16 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	fn('CStr', 'CStr(Expression) As String', 'String', NULL_RAISES_PARAM('Expression')),
 	fn('CVar', 'CVar(Expression) As Variant', 'Variant'),
 	fn('Val', 'Val(String) As Double', 'Double', NULL_RAISES_PARAM('String')),
-	fn('Hex', 'Hex(Number) As String', 'String'),
+	variantFn('Hex', 'Hex(Number) As String', 'String'),
 	fn('Hex$', 'Hex$(Number) As String', 'String', NULL_RAISES_PARAM('Number')),
 	// Oct(Null) gives Null back (issue #332, measured in Excel 16.0).
-	fn('Oct', 'Oct(Number) As String', 'String'),
+	variantFn('Oct', 'Oct(Number) As String', 'String'),
 	// Oct$(Null) raises 94, as Hex$ does (measured in Excel 16.0).
 	fn('Oct$', 'Oct$(Number) As String', 'String', NULL_RAISES_PARAM('Number')),
 
 	// CVDate is the legacy conversion function the type-conversion reference
 	// still documents beside CDate.
-	fn('CVDate', 'CVDate(Expression) As Date', 'Date'),
+	variantFn('CVDate', 'CVDate(Expression) As Date', 'Date'),
 
 	// -- Math ---------------------------------------------------------------
 	fn('Abs', 'Abs(Number) As Variant', 'Variant'),
@@ -309,11 +318,11 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	fn('Rnd', 'Rnd([Number]) As Single', 'Single'),
 
 	// -- Date / time --------------------------------------------------------
-	fn('Now', 'Now() As Date', 'Date'),
+	variantFn('Now', 'Now() As Date', 'Date'),
 	// `Time` is both a function and a statement (`Time = #12:00:00 PM#`); the
 	// name is what the identifier rules need, and the read form is the one
 	// with a signature to show (issue #41).
-	fn('Time', 'Time() As Date', 'Date'),
+	variantFn('Time', 'Time() As Date', 'Date'),
 	// `Time$(1)` is Wrong number of arguments (measured in Excel 16.0).
 	fn('Time$', 'Time$() As String', 'String'),
 	fn('Timer', 'Timer() As Single', 'Single'),
@@ -327,13 +336,13 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	fn('MonthName', 'MonthName(Month, [Abbreviate As Boolean = False]) As String', 'String'),
 	fn('WeekdayName', 'WeekdayName(Weekday, [Abbreviate As Boolean = False], [FirstDayOfWeek As VbDayOfWeek = vbUseSystemDayOfWeek]) As String', 'String'),
 	// DateAdd("d", Null, d) raises 94 (issue #332, measured in Excel 16.0).
-	fn('DateAdd', 'DateAdd(Interval, Number, Date) As Date', 'Date', [{ name: 'Interval', type: 'Variant' }, { name: 'Number', type: 'Variant', nullRaises: true }, { name: 'Date', type: 'Variant' }]),
+	variantFn('DateAdd', 'DateAdd(Interval, Number, Date) As Date', 'Date', [{ name: 'Interval', type: 'Variant' }, { name: 'Number', type: 'Variant', nullRaises: true }, { name: 'Date', type: 'Variant' }]),
 	fn('DateDiff', 'DateDiff(Interval, Date1, Date2, [FirstDayOfWeek As VbDayOfWeek], [FirstWeekOfYear As VbFirstWeekOfYear]) As Long', 'Long'),
 	fn('DatePart', 'DatePart(Interval, Date, [FirstDayOfWeek As VbDayOfWeek], [FirstWeekOfYear As VbFirstWeekOfYear]) As Integer', 'Integer'),
-	fn('DateSerial', 'DateSerial(Year, Month, Day) As Date', 'Date'),
-	fn('TimeSerial', 'TimeSerial(Hour, Minute, Second) As Date', 'Date'),
-	fn('DateValue', 'DateValue(Date) As Date', 'Date'),
-	fn('TimeValue', 'TimeValue(Time) As Date', 'Date'),
+	variantFn('DateSerial', 'DateSerial(Year, Month, Day) As Date', 'Date'),
+	variantFn('TimeSerial', 'TimeSerial(Hour, Minute, Second) As Date', 'Date'),
+	variantFn('DateValue', 'DateValue(Date) As Date', 'Date'),
+	variantFn('TimeValue', 'TimeValue(Time) As Date', 'Date'),
 
 	// -- Arrays / inspection ------------------------------------------------
 	fn('Array', 'Array(ArgList) As Variant', 'Variant', [
@@ -375,7 +384,7 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	// -- Additional string functions ---------------------------------------
 	fn('StrReverse', 'StrReverse(Expression) As String', 'String', NULL_RAISES_PARAM('Expression')),
 	// Str(Null) gives Null back; only Str$(Null) raises 94 (measured in Excel 16.0).
-	fn('Str', 'Str(Number) As String', 'String'),
+	variantFn('Str', 'Str(Number) As String', 'String'),
 	fn('Str$', 'Str$(Number) As String', 'String', NULL_RAISES_PARAM('Number')),
 	fn('Filter', 'Filter(SourceArray, Match, [Include As Boolean = True], [Compare As VbCompareMethod = vbBinaryCompare]) As String()', 'String()'),
 	fn('FormatCurrency', 'FormatCurrency(Expression, [NumDigitsAfterDecimal = -1], [IncludeLeadingDigit As VbTriState = vbUseDefault], [UseParensForNegativeNumbers As VbTriState = vbUseDefault], [GroupDigits As VbTriState = vbUseDefault]) As String', 'String'),
@@ -387,10 +396,10 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	fn('CVErr', 'CVErr(ErrorNumber) As Variant', 'Variant'),
 
 	// -- Interaction / registry --------------------------------------------
-	fn('Command', 'Command() As String', 'String'),
+	variantFn('Command', 'Command() As String', 'String'),
 	// `Command$(1)` is Wrong number of arguments (measured in Excel 16.0).
 	fn('Command$', 'Command$() As String', 'String'),
-	fn('Partition', 'Partition(Number, Start, Stop, Interval) As String', 'String'),
+	variantFn('Partition', 'Partition(Number, Start, Stop, Interval) As String', 'String'),
 	fn('GetSetting', 'GetSetting(AppName, Section, Key, [Default]) As String', 'String'),
 	fn('GetAllSettings', 'GetAllSettings(AppName, Section) As Variant', 'Variant'),
 	stmt('SaveSetting', 'SaveSetting AppName, Section, Key, Setting'),
@@ -399,17 +408,17 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	stmt('SendKeys', 'SendKeys String, [Wait]'),
 
 	// -- File system --------------------------------------------------------
-	fn('Dir', 'Dir([PathName], [Attributes As VbFileAttribute = vbNormal]) As String', 'String'),
+	variantFn('Dir', 'Dir([PathName], [Attributes As VbFileAttribute = vbNormal]) As String', 'String'),
 	fn('FreeFile', 'FreeFile([RangeNumber]) As Integer', 'Integer'),
 	fn('EOF', 'EOF(FileNumber) As Boolean', 'Boolean'),
 	fn('LOF', 'LOF(FileNumber) As Long', 'Long'),
 	fn('Loc', 'Loc(FileNumber) As Long', 'Long'),
 	fn('Seek', 'Seek(FileNumber) As Long', 'Long'),
 	fn('FileLen', 'FileLen(PathName) As Long', 'Long'),
-	fn('FileDateTime', 'FileDateTime(PathName) As Date', 'Date'),
+	variantFn('FileDateTime', 'FileDateTime(PathName) As Date', 'Date'),
 	fn('GetAttr', 'GetAttr(PathName) As VbFileAttribute', 'VbFileAttribute'),
 	fn('FileAttr', 'FileAttr(FileNumber, ReturnType) As Long', 'Long'),
-	fn('CurDir', 'CurDir([Drive]) As String', 'String'),
+	variantFn('CurDir', 'CurDir([Drive]) As String', 'String'),
 	stmt('ChDir', 'ChDir Path'),
 	stmt('ChDrive', 'ChDrive Drive'),
 	stmt('MkDir', 'MkDir Path'),

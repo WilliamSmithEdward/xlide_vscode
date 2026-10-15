@@ -124,6 +124,9 @@ function checkStatement(
 		if (close < 0) {
 			return;
 		}
+		// TypeOf owns a parenthesised operand and reports its Syntax error.
+		// Do not also evaluate the group's default member, including nested groups.
+		if (tokenText(toks[i - 1]) === 'typeof') { i = close; continue; }
 		if (!grouping(i)) {
 			// `UBound((a))`, `UBound((a) + 0)`: the array must be a name.
 			const name = tokenText(toks[i - 1]);

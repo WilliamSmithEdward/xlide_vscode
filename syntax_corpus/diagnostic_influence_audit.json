@@ -4025,11 +4025,15 @@
         "codex_expr_udt_field_times_control_compile",
         "codex_expr_udt_field_xor_control_compile",
         "codex_expr_is_udt_member_left_probe_compile",
-        "codex_expr_is_udt_member_right_probe_compile"
+        "codex_expr_is_udt_member_right_probe_compile",
+        "rq6_left_is_nothing",
+        "rq6_left_dollar_is_nothing",
+        "rq6_now_is_nothing",
+        "rq6_numbers_arg_is"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "The binary Is operator requires object-reference operands. Known scalar literals, declared scalars and whole arrays are rejected; measured UDT scalar-member operands report Type mismatch, while scalar operands usually report Object required. Conservative expression shapes resolve parentheses, declared array elements, same-module UDT field chains, and module or unshadowed runtime function results. Variant, Object/class/default-member values, Nothing/Null/Empty, unresolved or ambiguous bindings and indexing an array-returning call stay quiet (Numbers()(0) Is Nothing compiles, runtime 424). TypeOf x Is Y is a distinct TypeOfIsExpr owned by typeof-invalid-expression and typeof-is-always-false. Shared value roots cover assignment values and target inputs, call arguments, Print items, conditions, Select Case subjects/values/ranges, With subjects and For bounds/steps; unsupported grammars retain conservative fallbacks. Scalar matching uses the raw declared type rather than normalizeType, so a project class named vbLong is not mistaken for Long. Oracle evidence includes is_scalar_long_var_compile, is_array_var_compile, codex_expr_is_function_left_probe_compile and codex_expr_is_udt_member_left_probe_compile, plus Variant/Object controls.",
+      "notes": "The binary Is operator requires object-reference operands. Known scalar literals, declared scalars and whole arrays are rejected; measured UDT scalar-member operands report Type mismatch, while scalar operands usually report Object required. Conservative expression shapes resolve parentheses, declared array elements, same-module UDT field chains, and module or unshadowed runtime function results. Variant, Object/class/default-member values, Nothing/Null/Empty, unresolved or ambiguous bindings and indexing an array-returning call stay quiet (Numbers()(0) Is Nothing compiles, runtime 424). TypeOf x Is Y is a distinct TypeOfIsExpr owned by typeof-invalid-expression and typeof-is-always-false. Shared value roots cover assignment values and target inputs, call arguments, Print items, conditions, Select Case subjects/values/ranges, With subjects and For bounds/steps; unsupported grammars retain conservative fallbacks. Scalar matching uses the raw declared type rather than normalizeType, so a project class named vbLong is not mistaken for Long. Oracle evidence includes is_scalar_long_var_compile, is_array_var_compile, codex_expr_is_function_left_probe_compile and codex_expr_is_udt_member_left_probe_compile, plus Variant/Object controls. Round 2 (Excel 16.0, 2026-10-16, results_rq6.log): Left and Now declare Variant; their String/Date value subtypes do not make Is a compile error. Left$ declares String and is Type mismatch. A valid Numbers(1) call returning Long() keeps its array result and is Type mismatch; only signature-invalid invocations defer to argument-count.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -6141,12 +6145,15 @@
         "codex_expr_udt_field_mod_probe_compile",
         "codex_expr_udt_field_ne_probe_compile",
         "codex_expr_udt_field_plus_probe_compile",
-        "codex_expr_udt_field_times_probe_compile"
+        "codex_expr_udt_field_times_probe_compile",
+        "rq6_numbers_arg_plus",
+        "rq6_udt_pow_private",
+        "rq6_udt_pow_right_private"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "diagnosticKind": "compile-error",
-      "notes": "The shared operand rule reports declared arrays and same-module user-defined Type values used with &, +, -, *, /, \\, Mod, =, <>, <, >, <=, >=, And, Or, Xor, Eqv, Imp and Like. It resolves parentheses, declared array elements, UDT field chains, and known module or unshadowed runtime function results; an indexed element is judged by its element shape, not its containing array. Unknown bindings, ambiguous calls, unresolved members, Variant, Object/class/default-member values, and cross-module UDT identities stay quiet. Assignment's own = is not a binary comparison; arguments and receivers used to address assignment targets are values. The shared walk covers assignment values, call arguments, Print items, If/ElseIf and loop conditions, Select Case subjects and Case values/ranges, With subjects, and For bounds/steps; unsupported statement grammars retain conservative token-based fallbacks. Is is owned by is-operator-non-object, and ^ is exempt for arrays and UDTs because Excel compiles aggregate power operands, including bare UDTs on either side (control-disabled, measured 2026-10-15). Not on arrays or UDTs is exempt; unary minus on a UDT remains reported by udt-value-mismatch because compiling it crashes Excel. Separately, Nothing used with any binary operator except Is, or with a unary operator, reports Invalid use of object (issue #325). Whole-array conditions and other statement-specific checks retain their own rule ownership (issue #424)."
+      "notes": "The shared operand rule reports declared arrays and same-module user-defined Type values used with &, +, -, *, /, \\, Mod, =, <>, <, >, <=, >=, And, Or, Xor, Eqv, Imp and Like. It resolves parentheses, declared array elements, UDT field chains, and known module or unshadowed runtime function results; an indexed element is judged by its element shape, not its containing array. Unknown bindings, ambiguous calls, unresolved members, Variant, Object/class/default-member values, and cross-module UDT identities stay quiet. Assignment's own = is not a binary comparison; arguments and receivers used to address assignment targets are values. The shared walk covers assignment values, call arguments, Print items, If/ElseIf and loop conditions, Select Case subjects and Case values/ranges, With subjects, and For bounds/steps; unsupported statement grammars retain conservative token-based fallbacks. Is is owned by is-operator-non-object, and ^ is exempt for arrays and UDTs because Excel compiles aggregate power operands, including bare UDTs on either side (control-disabled, measured 2026-10-15). Not on arrays or UDTs is exempt; unary minus on a UDT remains reported by udt-value-mismatch because compiling it crashes Excel. Separately, Nothing used with any binary operator except Is, or with a unary operator, reports Invalid use of object (issue #325). Whole-array conditions and other statement-specific checks retain their own rule ownership (issue #424). Round 2 (Excel 16.0, 2026-10-16, results_rq6.log): Numbers(1) + 1 is Type mismatch when Numbers takes that argument and returns Long(). Invalid invocations defer to argument-count. The exact Private Type T power fixtures rq6_udt_pow_private and rq6_udt_pow_right_private compile; keep aggregate power accepted."
     },
     {
       "code": "argument-shape-mismatch",
@@ -7238,11 +7245,13 @@
         "codex_expr_udt_field_power_control_compile",
         "codex_expr_udt_field_power_probe_compile",
         "codex_expr_udt_field_times_control_compile",
-        "codex_expr_udt_field_xor_control_compile"
+        "codex_expr_udt_field_xor_control_compile",
+        "rq6_typeof_paren_collection_if",
+        "rq6_typeof_paren_collection_assign"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Collection used as an operand. VBE \"Argument not optional\" on a Collection whose default member Item takes an index (issue #125, Excel 16.0). Issue #221: any object whose default member needs an index, Excel's collections included, and such an object as the whole value of a Let into a typed value (s = c). A Collection in grouping parentheses is its default member: Set d = (c), c.Add (c), Take (c), Call Take((c)), With (New Collection) (issue #236, Excel 16.0). Issue #242: a Collection as the first argument of Len, CStr, Val, CLng, CDbl, CInt, CBool, CDate, Trim$, UCase$, LCase$, InStrRev, Asc, Chr or Abs does not compile: Argument not optional (measured in Excel 16.0). Issue #369: a variable As Sheets or Worksheets read as a value, s = o, o & \"x\", If o = 7, is Argument not optional, though their default member is typed Object. Issue #462: Word Paragraphs and Tables and PowerPoint Slides need an index for their default member Item, so an operator on one is Argument not optional. A Word Paragraph, whose default member Range holds an object, is Type mismatch as an operand or a Let into a String. Issue #464: DAO's Fields and TableDefs need an index for their default member Item, so an operator on one is Argument not optional. A Recordset, Database or TableDef, whose default member holds a collection, is Type mismatch as an operand. Issue #424: a Collection as a Select Case subject or beside Not or And is Argument not optional; as a condition or in IIf it raises 450.",
+      "notes": "Collection used as an operand. VBE \"Argument not optional\" on a Collection whose default member Item takes an index (issue #125, Excel 16.0). Issue #221: any object whose default member needs an index, Excel's collections included, and such an object as the whole value of a Let into a typed value (s = c). A Collection in grouping parentheses is its default member: Set d = (c), c.Add (c), Take (c), Call Take((c)), With (New Collection) (issue #236, Excel 16.0). Issue #242: a Collection as the first argument of Len, CStr, Val, CLng, CDbl, CInt, CBool, CDate, Trim$, UCase$, LCase$, InStrRev, Asc, Chr or Abs does not compile: Argument not optional (measured in Excel 16.0). Issue #369: a variable As Sheets or Worksheets read as a value, s = o, o & \"x\", If o = 7, is Argument not optional, though their default member is typed Object. Issue #462: Word Paragraphs and Tables and PowerPoint Slides need an index for their default member Item, so an operator on one is Argument not optional. A Word Paragraph, whose default member Range holds an object, is Type mismatch as an operand or a Let into a String. Issue #464: DAO's Fields and TableDefs need an index for their default member Item, so an operator on one is Argument not optional. A Recordset, Database or TableDef, whose default member holds a collection, is Type mismatch as an operand. Issue #424: a Collection as a Select Case subject or beside Not or And is Argument not optional; as a condition or in IIf it raises 450. Round 2 (Excel 16.0, 2026-10-16, results_rq6.log): TypeOf (c) Is Collection, with c As New Collection, is one Syntax error in If and assignment contexts. TypeOf owns the entire parenthesised operand; do not also diagnose its default member.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -10152,12 +10161,16 @@
         "codex_expr_udt_field_power_control_compile",
         "codex_expr_udt_field_power_probe_compile",
         "codex_expr_udt_field_times_control_compile",
-        "codex_expr_udt_field_xor_control_compile"
+        "codex_expr_udt_field_xor_control_compile",
+        "rq6_typeof_left",
+        "rq6_typeof_paren_collection_if",
+        "rq6_typeof_paren_collection_assign",
+        "rq6_numbers_arg_typeof"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "diagnosticKind": "compile-error",
-      "notes": "TypeOf requires an unparenthesised object expression and an object type after Is. Scalar, array and parenthesised operands are compile errors; Variant and Object operands remain allowed."
+      "notes": "TypeOf requires an unparenthesised object expression and an object type after Is. Scalar, array and parenthesised operands are compile errors; Variant and Object operands remain allowed. Round 2 (Excel 16.0, 2026-10-16, results_rq6.log): TypeOf Left(\"x\", 1) Is Collection compiles because Left declares Variant. TypeOf owns parenthesised Collection operands and emits one Syntax error in If and assignment contexts. Numbers(1) returning Long() with a valid required argument is Type mismatch."
     }
   ]
 }

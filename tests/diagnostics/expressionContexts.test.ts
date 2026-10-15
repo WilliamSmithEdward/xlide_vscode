@@ -99,7 +99,7 @@ describe('the same expression rules in every statement context', () => {
 			.toEqual([code]);
 	});
 	it.each([
-		['Now Is Nothing', "'Now' has type Date"],
+		['Left$("x", 1) Is Nothing', 'the expression has type String'],
 		['NumberValue() Is Nothing', 'the expression has type Long'],
 		['ArrayValue() + 1', 'the expression has array type'],
 	] as const)('describes expression types without claiming a declaration: %s', (expression, detail) => {
@@ -221,4 +221,71 @@ describe('measured expression-context regressions', () => {
 			}
 		}
 	});
+});
+
+const round2Codes: Record<string, string[]> = {
+	rq6_left_is_nothing: [],
+	rq6_left_dollar_is_nothing: ['is-operator-non-object'],
+	rq6_now_is_nothing: [],
+	rq6_typeof_left: [],
+	rq6_typeof_paren_collection_if: ['typeof-invalid-expression'],
+	rq6_typeof_paren_collection_assign: ['typeof-invalid-expression'],
+	rq6_numbers_arg_plus: ['non-scalar-binary-operand'],
+	rq6_numbers_arg_is: ['is-operator-non-object'],
+	rq6_numbers_arg_typeof: ['typeof-invalid-expression'],
+	rq6_udt_pow_private: [],
+	rq6_udt_pow_right_private: [],
+};
+const round2 = (JSON.parse(readFileSync('syntax_corpus/oracle/vbe_oracle_cases.json', 'utf8')) as {
+	cases: { id: string; source: string; expected: string }[];
+}).cases.filter((test) => test.id.startsWith('rq6_'));
+
+describe('Excel 16.0 round-2 measurements (2026-10-16)', () => {
+	it('keeps all eleven exact measured sources and audit links', () => {
+		expect(round2.map((test) => test.id).sort()).toEqual(Object.keys(round2Codes).sort());
+		for (const test of round2) {
+			expect(test.expected).toBe(round2Codes[test.id].length ? 'rejected' : 'accepted');
+			expect(expectedFamilies.has(test.id), test.id).toBe(true);
+		}
+	});
+	it.each(round2)('$id reports exactly the measured compile diagnosis', (test) => {
+		const errors = compileErrors(test.source);
+		expect(errors.map((diag) => diag.code)).toEqual(round2Codes[test.id]);
+		if (test.id.includes('paren_collection')) { expect(errors[0].message).toContain('Syntax error'); }
+		if (test.id === 'rq6_left_dollar_is_nothing') { expect(errors[0].message).toContain('type String'); }
+		if (test.id === 'rq6_numbers_arg_is') { expect(errors[0].message).toContain('array type'); }
+	});
+	it.each(['Right("x", 1)', 'Mid("x", 1)', 'Trim("x")', 'Space(1)', 'Hex(1)', 'Oct(1)', 'Str(1)', 'Now', 'Time', 'DateSerial(2026, 10, 16)'])(
+		'uses Variant declarations for compile constraints: %s', (call) => {
+			for (const expression of [`${call} Is Nothing`, `TypeOf ${call} Is Collection`]) {
+				expect(compileErrors(source(`Debug.Print ${expression}`))).toEqual([]);
+			}
+		});
+	it.each(['Right$("x", 1)', 'Mid$("x", 1)', 'Trim$("x")', 'Space$(1)', 'Hex$(1)', 'Oct$(1)', 'Str$(1)', 'Time$'])(
+		'keeps typed $ function constraints: %s', (call) => {
+			expect(compileErrors(source(`Debug.Print ${call} Is Nothing`)).map((diag) => diag.code)).toEqual(['is-operator-non-object']);
+			expect(compileErrors(source(`Debug.Print TypeOf ${call} Is Collection`)).map((diag) => diag.code)).toEqual(['typeof-invalid-expression']);
+		});
+	it.each(['Numbers()', 'Numbers(1, 2)', 'Numbers(other:=1)'])(
+		'leaves invalid array invocations to argument-count: %s', (call) => {
+			for (const expression of [`${call} + 1`, `${call} Is Nothing`, `TypeOf ${call} Is Collection`]) {
+				expect(compileErrors(source(`Debug.Print ${expression}`, 'Private Function Numbers(ByVal n As Long) As Long()\nEnd Function\n'))
+					.map((diag) => diag.code)).toEqual(['argument-count']);
+			}
+		});
+	it.each(['Numbers(1)', 'Numbers(n:=1)', 'Numbers()', 'Numbers(1, 2)'])(
+		'preserves valid required, named, optional and ParamArray invocations: %s', (call) => {
+			const declaration = call === 'Numbers()' ? 'Optional ByVal n As Long = 1'
+				: call === 'Numbers(1, 2)' ? 'ParamArray n() As Variant' : 'ByVal n As Long';
+			for (const [expression, code] of [[`${call} + 1`, 'non-scalar-binary-operand'],
+				[`${call} Is Nothing`, 'is-operator-non-object'], [`TypeOf ${call} Is Collection`, 'typeof-invalid-expression']]) {
+				expect(compileErrors(source(`Debug.Print ${expression}`, `Private Function Numbers(${declaration}) As Long()\nEnd Function\n`))
+					.map((diag) => diag.code)).toEqual([code]);
+			}
+		});
+	it.each(['TypeOf ((c)) Is Collection', 'TypeOf (((c))) Is Collection'])(
+		'gives TypeOf ownership of nested Collection parentheses: %s', (expression) => {
+			expect(compileErrors(source(`Dim c As New Collection\nDebug.Print ${expression}`)).map((diag) => diag.code))
+				.toEqual(['typeof-invalid-expression']);
+		});
 });
