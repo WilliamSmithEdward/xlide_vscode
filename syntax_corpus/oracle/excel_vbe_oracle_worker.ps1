@@ -623,6 +623,22 @@ function Invoke-VbeCompileCommand($Excel) {
     $vbe = $Excel.VBE
     $projectName = [string]$vbe.ActiveVBProject.Name
     $caption = "Compile $projectName"
+    # The Compile command is button (type 1) Id 578. Looking it up directly takes
+    # milliseconds; walking every command bar by caption takes about 9 s. The
+    # walk stays as the fallback if the lookup fails or finds another control.
+    $control = $null
+    try {
+        $found = $vbe.CommandBars.FindControl(1, 578)
+        if ($null -ne $found -and (ConvertTo-NormalizedCommandCaption $found.Caption) -eq $caption) {
+            $control = $found
+        }
+    }
+    catch {
+    }
+    if ($null -ne $control) {
+        $control.Execute()
+        return
+    }
     foreach ($bar in @($vbe.CommandBars)) {
         $control = Find-VbeCommandControl $bar.Controls $caption
         if ($null -ne $control) {
