@@ -120,6 +120,16 @@ export function checkProcedureHeader(
 		while (i < toks.length && PROC_MODIFIERS.has(toks[i].rawText.toLowerCase())) {
 			i++;
 		}
+		// `Static Public Sub` compiles, `Static Global Sub` is "Expected:
+		// identifier" at Global (measured in Excel 16.0). The block matcher
+		// still reads the header, so its End Sub does not report as well.
+		if (toks[0]?.rawText.toLowerCase() === 'static' && toks[1]?.rawText.toLowerCase() === 'global') {
+			push('invalidProcedureHeader', "'Global' cannot follow 'Static' in a procedure header. This is a VBE compile error: Expected: identifier.", {
+				start: headerStart + toks[1].start,
+				end: headerStart + toks[1].end,
+			});
+			continue;
+		}
 		const kw = toks[i]?.rawText.toLowerCase();
 		let allowAs = false;
 		if (kw === 'function') {
@@ -1861,8 +1871,8 @@ function parameterArrayAsTypeSyntaxHit(
  * declared type when the default expression is deterministic. VBE oracle
  * evidence rejects nonnumeric string defaults for numeric and Boolean
  * parameters as compile-time Type mismatch, while numeric strings remain valid.
- * Array parameters cannot be initialized from scalar defaults, and object
- * parameters default only to Nothing when the object type is known.
+ * Array parameters cannot be initialized from scalar defaults. An object
+ * parameter takes any constant default (measured in Excel 16.0).
  */
 export function checkParameterDefaultValues(
 	source: string,
@@ -1907,27 +1917,21 @@ export function checkParameterDefaultValues(
  * non-constant - a function/array call (`name(...)`), `New`, or `AddressOf`.
  * Bare identifiers and member references (`Module.CONST`, `MyEnum.Value`) are
  * left alone because they may be constants, so this stays no-false-positive.
- * Object-typed parameters are skipped: their defaults are owned by the
- * `parameter-default-type-mismatch` rule ("must be Nothing"), avoiding a
- * double diagnostic.
+ * An object parameter's default is held to the same: any constant compiles
+ * there (measured in Excel 16.0), a call does not.
  */
 export function checkNonConstantParameterDefaults(
 	source: string,
 	mod: ModuleNode,
 	activity: ConditionalActivityTracker | undefined,
-	memberCtx: MemberCompletionContext,
 	push: PushFn,
 ): void {
-	const objectType = createObjectAssignmentTypeResolver(memberCtx);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
 		for (const param of member.params) {
 			if (!param.defaultRaw) {
-				continue;
-			}
-			if (objectType(param.asType)) {
 				continue;
 			}
 			const defaultTokens = parameterDefaultTokens(source, param);
@@ -2246,14 +2250,15 @@ function parameterDefaultIncompatibilityReason(
 	if (!expectedRaw) {
 		return undefined;
 	}
-	const expectedObject = objectType(expectedRaw);
-	if (expectedObject) {
-		return normalizeType(actual.type) === 'nothing'
-			? undefined
-			: 'Optional object parameter defaults must be Nothing.';
-	}
 	const reason = incompatibilityReason(expectedRaw, actual);
 	if (!reason || !/string literal/i.test(actual.label)) {
+		return undefined;
+	}
+	// An object parameter takes any constant default: `Optional c As
+	// Collection = 5`, `= "a"`, `= True` and `= Null` compile, and a call
+	// that leaves the argument out runs (measured in Excel 16.0). Asked last,
+	// as resolving the type can read the project's metadata.
+	if (objectType(expectedRaw)) {
 		return undefined;
 	}
 	return 'This is a VBE compile error: Type mismatch.';

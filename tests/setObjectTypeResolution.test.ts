@@ -25,7 +25,21 @@ describe('Set object type resolution', () => {
   for (const item of surfaces) { const name = item.name, kind = item.kind; Object.defineProperty(item, 'name', { enumerable: true, get() { names++; return name; } }); Object.defineProperty(item, 'kind', { enumerable: true, get() { kinds++; return kind; } }); }
   const body = 'Dim c As Box\n' + ('Set c = ' + rhs + '\n').repeat(100);
   expect(prepare('Sub P()\n' + body + 'End Sub\nSub Q()\n' + body + 'End Sub')(surfaces)).toHaveLength(rhs === 'ActiveSheet' ? 200 : 0);
-  expect(names).toBeLessThan(500); expect(kinds).toBeLessThan(500);
+  // A project Type or Enum may hide a host class's name (`Type Range`), so an
+  // unqualified host name costs one pass over the surfaces per analysis.
+  expect(names).toBeLessThan(rhs === 'ActiveSheet' ? 750 : 500); expect(kinds).toBeLessThan(rhs === 'ActiveSheet' ? 750 : 500);
+ });
+ it.each([false, true])('reads the surfaces once for host values into project types, a document among them=%s', (document) => {
+  // `Set c = ActiveWorkbook` into a class or document type: which document
+  // takes which host class is read once per analysis, not per assignment.
+  const reads = (count: number): number => {
+   let kinds = 0;
+   const surfaces = Array.from({ length: 1000 }, (_, i) => surface('K' + i)); surfaces.push(surface('Box', document ? 'document' : 'class'));
+   for (const item of surfaces) { const kind = item.kind; Object.defineProperty(item, 'kind', { enumerable: true, get() { kinds++; return kind; } }); }
+   expect(prepare('Sub P()\nDim c As Box\n' + 'Set c = ActiveWorkbook\n'.repeat(count) + 'End Sub')(surfaces)).toHaveLength(count);
+   return kinds;
+  };
+  expect(reads(100)).toBe(reads(1));
  });
  it('bounds metadata reads for distinct targets and missing queries', () => {
   let reads = 0;
@@ -52,10 +66,19 @@ describe('Set object type resolution', () => {
   expect(resolve('Object')?.display).toBe('Object'); expect(resolve('object')?.display).toBe('object');
   expect(resolve('Box')).toEqual({ kind: 'project', display: 'bOX', key: 'box', implements: item.implements });
  });
- it('keeps generic, scalar, host and library queries from inspecting project metadata', () => {
+ it('keeps generic, scalar and qualified library queries from inspecting project metadata', () => {
   const item = surface('Box'); Object.defineProperty(item, 'kind', { get() { throw Error('Unexpected project scan'); } });
   const ctx = { projectClassMembers: [item] }, resolve = typeInference.createObjectAssignmentTypeResolver(ctx);
-  for (const type of ['Object', 'Collection', 'Long', 'Variant', undefined, '', 'Worksheet', 'Excel.Worksheet', 'DAO.Recordset']) expect(resolve(type)).toEqual(typeInference.resolveKnownObjectAssignmentType(type, ctx));
+  for (const type of ['Object', 'Collection', 'Long', 'Variant', undefined, '', 'Excel.Worksheet', 'DAO.Recordset']) expect(resolve(type)).toEqual(typeInference.resolveKnownObjectAssignmentType(type, ctx));
+ });
+ it('reads the project surfaces once for unqualified host names, which a project Type can hide', () => {
+  let kinds = 0;
+  const item = surface('Box'), kind = item.kind; Object.defineProperty(item, 'kind', { get() { kinds++; return kind; } });
+  const ctx = { projectClassMembers: [item, surface('Range', 'userType')] }, resolve = typeInference.createObjectAssignmentTypeResolver(ctx);
+  for (const type of ['Worksheet', 'Workbook', 'Chart', 'Worksheet']) expect(resolve(type)?.kind).toBe('host');
+  expect(resolve('Range')).toBeUndefined();
+  expect(resolve('Excel.Range')?.kind).toBe('host');
+  expect(kinds).toBe(1);
  });
  it('refreshes misses, names, kinds, ambiguity and implements on subsequent Set passes', () => {
   const surfaces = [surface('Other')], run = prepare('Sub P()\nDim c As Box\nSet c = ActiveSheet\nEnd Sub');

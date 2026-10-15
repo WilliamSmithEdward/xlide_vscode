@@ -235,7 +235,7 @@
     {
       "code": "undeclared-variable",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "MS-VBAL 5.2.4.1.1 plus Excel/VBE compile oracle",
+      "sourceOfTruth": "MS-VBAL 5.2.4.1.1 plus Excel/VBE compile oracle; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "option_explicit_undeclared_assignment_compile",
@@ -286,7 +286,28 @@
         "issue318_63_compile",
         "issue423_71_compile",
         "issue423_72_compile",
-      "qualified_office_office_constant"
+      "qualified_office_office_constant",
+        "dim_shared_local_runtime",
+        "dim_shared_module_runtime",
+        "dim_shared_array_runtime",
+        "dim_shared_new_runtime",
+        "public_shared_module_runtime",
+        "global_shared_module_runtime",
+        "label_dollar_goto_runtime",
+        "label_dollar_goto_dollar_runtime",
+        "label_percent_runtime",
+        "label_hash_runtime",
+        "label_dollar_then_long_variable_runtime",
+        "label_ampersand_runtime",
+        "label_bang_runtime",
+        "label_at_runtime",
+        "label_caret_runtime",
+        "label_dollar_then_statement_runtime",
+        "label_dollar_resume_runtime",
+        "me_let_document_module_compile",
+        "me_let_class_module_compile",
+        "me_let_keyword_class_compile",
+        "label_line_number_and_dollar_runtime"
     ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
@@ -298,7 +319,7 @@
     {
       "code": "invalid-proc-header",
       "status": "spec-derived",
-      "sourceOfTruth": "MS-VBAL 5.3.1",
+      "sourceOfTruth": "MS-VBAL 5.3.1; neighbouring forms measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-15)",
       "corpusInfluence": "none",
       "assertedOracleCases": [
         "issue254_24_compile",
@@ -313,7 +334,8 @@
         "issue254_33_compile",
         "issue266_18_compile",
         "issue266_21_compile",
-        "issue266_38_compile"
+        "issue266_38_compile",
+        "static_global_sub_header_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -399,7 +421,7 @@
     {
       "code": "invalid-declaration-name",
       "status": "spec-derived",
-      "sourceOfTruth": "MS-VBAL 3.3.5.2 reserved identifiers are not IDENTIFIER tokens",
+      "sourceOfTruth": "MS-VBAL 3.3.5.2 reserved identifiers are not IDENTIFIER tokens; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports",
       "corpusInfluence": "none",
       "assertedOracleCases": [
         "reserved_member_name_type_fields_compile",
@@ -421,7 +443,18 @@
         "reserved_member_name_closer_as_new_type_field_compile",
         "reserved_member_name_type_field_as_without_type_compile",
         "reserved_member_name_me_type_field_compile",
-        "reserved_member_name_every_reserved_word_type_fields_compile"
+        "reserved_member_name_every_reserved_word_type_fields_compile",
+        "dim_shared_local_runtime",
+        "dim_shared_two_names_runtime",
+        "dim_shared_module_runtime",
+        "private_shared_module_runtime",
+        "dim_shared_array_runtime",
+        "dim_shared_new_runtime",
+        "public_shared_module_runtime",
+        "global_shared_module_runtime",
+        "dim_shared_dynamic_array_runtime",
+        "static_shared_compile",
+        "dim_shared_as_type_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -441,7 +474,7 @@
     {
       "code": "argument-count",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "MS-VBAL 5.4.2.1 plus asserted Excel/VBE oracle cases plus deterministic project signature graph",
+      "sourceOfTruth": "MS-VBAL 5.4.2.1 plus asserted Excel/VBE oracle cases plus deterministic project signature graph; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports; neighbouring forms measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-15)",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "member_function_result_write_collection",
@@ -552,7 +585,21 @@
         "issue609_10_compile",
         "issue609_11_compile",
         "issue609_14_compile",
-        "issue415d_04_compile"
+        "issue415d_04_compile",
+        "err_raise_too_many_arguments_compile",
+        "now_indexed_result_compile",
+        "time_indexed_result_compile",
+        "command_indexed_result_compile",
+        "now_indexed_two_compile",
+        "now_indexed_print_compile",
+        "timer_with_argument_compile",
+        "erl_with_argument_compile",
+        "doevents_with_argument_compile",
+        "project_now_function_index_compile",
+        "project_time_variant_function_index_runtime",
+        "now_statement_parenthesized_compile",
+        "time_dollar_argument_compile",
+        "command_dollar_argument_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -562,7 +609,7 @@
     {
       "code": "argument-type-mismatch",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "Excel/VBE compile and runtime oracle plus deterministic XLIDE literal, return-type, numeric-expression, string-concatenation, and project signature model",
+      "sourceOfTruth": "Excel/VBE compile and runtime oracle plus deterministic XLIDE literal, return-type, numeric-expression, string-concatenation, and project signature model; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "setter_index_byval_bad",
@@ -668,7 +715,11 @@
         "issue685r_35_runtime",
         "issue685r_37_runtime",
         "issue685r_40_runtime",
-        "issue685r_42_runtime"
+        "issue685r_42_runtime",
+        "thisworkbook_type_parameter_runtime",
+        "str_null_runtime",
+        "str_dollar_null_runtime",
+        "oct_dollar_null_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -728,7 +779,7 @@
     {
       "code": "byref-argument-type-mismatch",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "Excel/VBE compile oracle plus deterministic XLIDE source-backed callable signatures and shared expression value resolver",
+      "sourceOfTruth": "Excel/VBE compile oracle plus deterministic XLIDE source-backed callable signatures and shared expression value resolver; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports; neighbouring forms measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-15)",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "receiver_get_byref",
@@ -784,7 +835,19 @@
         "issue410c_09_compile",
         "issue410c_10_compile",
         "issue410c_11_compile",
-        "issue410c_12_compile"
+        "issue410c_12_compile",
+        "byref_qualified_parenthesized_copy_runtime",
+        "byref_qualified_no_parentheses_compile",
+        "byref_qualified_call_compile",
+        "byref_qualified_function_compile",
+        "byref_qualified_parenthesized_byte_runtime",
+        "byref_qualified_parenthesized_single_runtime",
+        "byref_qualified_parenthesized_double_runtime",
+        "byref_qualified_parenthesized_currency_runtime",
+        "byref_qualified_parenthesized_string_runtime",
+        "byref_qualified_parenthesized_date_runtime",
+        "byref_qualified_parenthesized_boolean_runtime",
+        "byref_class_method_no_parentheses_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -794,7 +857,7 @@
     {
       "code": "assignment-type-mismatch",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "Excel/VBE compile and runtime oracle plus deterministic XLIDE scalar assignment compatibility model",
+      "sourceOfTruth": "Excel/VBE compile and runtime oracle plus deterministic XLIDE scalar assignment compatibility model; neighbouring forms measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-15)",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "vb_named_enum_long_storage",
@@ -1120,7 +1183,9 @@
       "host_enum_bare_good",
       "host_enum_member_good",
       "source_enum_member_bad",
-      "source_enum_member_good"
+      "source_enum_member_good",
+        "str_null_into_string_runtime",
+        "str_null_into_variant_runtime"
     ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -1193,7 +1258,7 @@
     {
       "code": "assignment-object-type-mismatch",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "Excel/VBE runtime oracle (a Set of the wrong object class compiles and raises 13, issue #202) plus deterministic XLIDE object assignment compatibility model",
+      "sourceOfTruth": "Excel/VBE runtime oracle (a Set of the wrong object class compiles and raises 13, issue #202) plus deterministic XLIDE object assignment compatibility model; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports; neighbouring forms measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-15)",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "indexed_property_set_wrongclass",
@@ -1241,7 +1306,14 @@
         "issue306_24_runtime",
         "issue306_25_runtime",
         "issue685f_04_runtime",
-        "issue685r_34_runtime"
+        "issue685r_34_runtime",
+        "thisworkbook_type_set_activeworkbook_runtime",
+        "thisworkbook_type_member_runtime",
+        "document_type_thisworkbook_range_runtime",
+        "document_type_sheet_workbook_runtime",
+        "document_type_sheet_worksheet_runtime",
+        "document_type_sheet_range_runtime",
+        "document_type_thisworkbook_application_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -1333,7 +1405,7 @@
     {
       "code": "member-not-found",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "Excel/VBE compile oracle plus deterministic source-backed project class member model",
+      "sourceOfTruth": "Excel/VBE compile oracle plus deterministic source-backed project class member model; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "class_unknown_property_assignment_compile",
@@ -1378,7 +1450,10 @@
         "issue423_67_compile",
         "issue423_68_compile",
         "issue423_75_compile",
-        "issue423_76_compile"
+        "issue423_76_compile",
+        "err_unknown_member_assign_compile",
+        "err_unknown_member_read_compile",
+        "err_unknown_member_call_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -1388,7 +1463,7 @@
     {
       "code": "object-variable-not-set",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "Excel/VBE runtime oracle plus deterministic XLIDE straight-line local object initialization model",
+      "sourceOfTruth": "Excel/VBE runtime oracle plus deterministic XLIDE straight-line local object initialization model; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "object_variable_not_set_runtime",
@@ -1652,7 +1727,11 @@
         "issue685e_08_runtime",
         "issue685e_10_runtime",
         "issue685e_12_runtime",
-        "issue685r_13_runtime"
+        "issue685r_13_runtime",
+        "type_named_range_shadows_excel_runtime",
+        "type_named_worksheet_shadows_excel_runtime",
+        "public_type_named_range_other_module_runtime",
+        "enum_named_range_shadows_excel_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -1677,7 +1756,7 @@
     {
       "code": "string-arithmetic-coercion",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "Excel/VBE runtime oracle plus deterministic XLIDE numeric-expression compatibility model",
+      "sourceOfTruth": "Excel/VBE runtime oracle plus deterministic XLIDE numeric-expression compatibility model; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "numeric_plus_nonnumeric_string_assignment",
@@ -1768,7 +1847,10 @@
         "issue417_189_runtime",
         "issue329b_10_runtime",
         "issue329b_25_runtime",
-        "issue329b_27_runtime"
+        "issue329b_27_runtime",
+        "lset_string_number_runtime",
+        "rset_string_number_runtime",
+        "lset_string_long_variable_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -2939,7 +3021,7 @@
     {
       "code": "unallocated-dynamic-array-access",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "Excel/VBE runtime oracle plus VBA dynamic array allocation semantics",
+      "sourceOfTruth": "Excel/VBE runtime oracle plus VBA dynamic array allocation semantics; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "unallocated_dynamic_array_index_runtime",
@@ -3000,7 +3082,8 @@
         "issue449e_10_runtime",
         "issue449e_11_runtime",
         "issue685b_01_runtime",
-        "issue685b_02_runtime"
+        "issue685b_02_runtime",
+        "erase_two_arrays_empty_parentheses_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -3261,7 +3344,7 @@
     {
       "code": "erase-requires-array",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "Excel/VBE compile oracle plus VBA Erase target semantics",
+      "sourceOfTruth": "Excel/VBE compile oracle plus VBA Erase target semantics; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "erase_object_scalar_compile",
@@ -3276,7 +3359,8 @@
         "issue417_43_compile",
         "issue417_72_compile",
         "issue417_80_compile",
-        "issue417_85_compile"
+        "issue417_85_compile",
+        "erase_empty_parentheses_long_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
@@ -3308,7 +3392,7 @@
     {
       "code": "unexpected-declaration-token",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "MS-VBAL 5.2.3.1 plus asserted Excel/VBE oracle case for a trailing identifier after an As type name",
+      "sourceOfTruth": "MS-VBAL 5.2.3.1 plus asserted Excel/VBE oracle case for a trailing identifier after an As type name; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports; neighbouring forms measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-15)",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "dim_as_type_trailing_identifier_compile",
@@ -3317,7 +3401,18 @@
         "issue234_17_compile",
         "issue234_34_compile",
         "issue234_36_compile",
-        "issue236_24_compile"
+        "issue236_24_compile",
+        "dim_shared_local_runtime",
+        "dim_shared_two_names_runtime",
+        "dim_shared_module_runtime",
+        "private_shared_module_runtime",
+        "dim_shared_array_runtime",
+        "dim_shared_new_runtime",
+        "public_shared_module_runtime",
+        "global_shared_module_runtime",
+        "dim_shared_dynamic_array_runtime",
+        "static_shared_compile",
+        "private_shared_withevents_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -3586,9 +3681,12 @@
     {
       "code": "parameter-default-not-constant",
       "status": "spec-derived",
-      "sourceOfTruth": "MS-VBAL 5.3.1.5 (an Optional default-value is a constant-expression) plus the VBE 'Constant expression required' compile error",
+      "sourceOfTruth": "MS-VBAL 5.3.1.5 (an Optional default-value is a constant-expression) plus the VBE 'Constant expression required' compile error; neighbouring forms measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-15)",
       "corpusInfluence": "none",
-      "assertedOracleCases": [],
+      "assertedOracleCases": [
+        "optional_object_default_array_call_compile",
+        "optional_object_default_string_expression_runtime"
+      ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "notes": "Flags an Optional parameter default that is provably non-constant: a function/array call (name(...)), New, or AddressOf. Bare identifiers and member references (Module.CONST, MyEnum.Value) stay quiet because they may be constants. Object-typed parameters are skipped - their defaults are owned by parameter-default-type-mismatch's 'must be Nothing' check - so the two rules never double-report.",
@@ -3693,7 +3791,7 @@
     {
       "code": "set-requires-object",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "Excel/VBE compile oracle plus deterministic XLIDE scalar variable and assignment-target binding",
+      "sourceOfTruth": "Excel/VBE compile oracle plus deterministic XLIDE scalar variable and assignment-target binding; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "indexed_property_set_scalar",
@@ -3718,7 +3816,8 @@
         "issue417_28_compile",
         "issue417_38_compile",
         "issue417_48_compile",
-        "issue417_95_compile"
+        "issue417_95_compile",
+        "type_named_range_set_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -3845,7 +3944,7 @@
     {
       "code": "invalid-expression-syntax",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "MS-VBAL 5.6 expression syntax plus VBE Syntax error behavior for impossible operator sequences and incomplete member access",
+      "sourceOfTruth": "MS-VBAL 5.6 expression syntax plus VBE Syntax error behavior for impossible operator sequences and incomplete member access; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports; neighbouring forms measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-15)",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "thisworkbook_trailing_dot_compile",
@@ -3857,7 +3956,11 @@
         "issue234_59_compile",
         "issue369a_23_compile",
         "issue369a_38_compile",
-        "issue369a_39_compile"
+        "issue369a_39_compile",
+        "label_caret_runtime",
+        "line_number_then_label_caret_compile",
+        "line_number_then_label_hash_compile",
+        "label_caret_before_statement_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -4050,7 +4153,7 @@
     {
       "code": "parameter-default-type-mismatch",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "Excel/VBE compile oracle plus deterministic XLIDE parameter default literal model",
+      "sourceOfTruth": "Excel/VBE compile oracle plus deterministic XLIDE parameter default literal model; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports; neighbouring forms measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-15)",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "optional_long_numeric_default_compile",
@@ -4059,13 +4162,22 @@
         "optional_string_string_default_compile",
         "optional_boolean_true_default_compile",
         "optional_boolean_nonnumeric_string_default_compile",
-        "issue141_b_compile"
+        "issue141_b_compile",
+        "optional_collection_default_number_runtime",
+        "optional_object_default_number_runtime",
+        "optional_object_default_string_runtime",
+        "optional_range_default_zero_runtime",
+        "optional_collection_default_true_runtime",
+        "optional_collection_default_date_runtime",
+        "optional_collection_default_null_runtime",
+        "optional_class_default_number_runtime",
+        "optional_object_default_string_expression_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
         "excel_vba_analysis_final_hardening_cases.md"
       ],
-      "notes": "The active rule is intentionally narrow: scalar coverage fires only when an Optional parameter default is a deterministic string literal that VBE rejects for the declared scalar type, array coverage fires when an Optional array parameter has a deterministic scalar default such as values() As Long = 0, and object coverage fires when the declared type resolves to Object, a host object, or a visible project object and the deterministic default is not Nothing. Oracle controls prove numeric and numeric-string Long defaults, String defaults, True Boolean defaults, and Nothing object defaults remain accepted; broader default-expression diagnostics remain pending.",
+      "notes": "The active rule is intentionally narrow: scalar coverage fires only when an Optional parameter default is a deterministic string literal that VBE rejects for the declared scalar type, array coverage fires when an Optional array parameter has a deterministic scalar default such as values() As Long = 0. An object parameter takes any constant default: Excel compiles = 5, = \"a\", = True, = #1/1/2020# and = Null on Object, Collection, Range and project-class parameters, and a call that leaves the argument out runs (2026-10-15), so no object default is reported. Oracle controls prove numeric and numeric-string Long defaults, String defaults, True Boolean defaults, and Nothing object defaults remain accepted; broader default-expression diagnostics remain pending.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -4087,14 +4199,25 @@
     {
       "code": "undefined-label",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "MS-VBAL 5.4.1 plus Excel/VBE compile oracle",
+      "sourceOfTruth": "MS-VBAL 5.4.1 plus Excel/VBE compile oracle; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "procedure_goto_missing_label_compile",
         "procedure_goto_existing_label_compile",
         "issue230_07_compile",
         "issue230_16_compile",
-        "issue230_35_compile"
+        "issue230_35_compile",
+        "label_dollar_goto_runtime",
+        "label_ampersand_runtime",
+        "label_bang_runtime",
+        "label_at_runtime",
+        "label_caret_runtime",
+        "label_dollar_resume_runtime",
+        "resume_double_zero_runtime",
+        "goto_zero_compile",
+        "resume_one_undefined_compile",
+        "resume_zero_handler_runtime",
+        "label_line_number_and_dollar_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -4431,7 +4554,7 @@
     {
       "code": "udt-value-mismatch",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, full project compile, 2026-09-30 (issue #213)",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, full project compile, 2026-09-30 (issue #213); Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports; neighbouring forms measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-15); neighbouring forms measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-15)",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "issue213_44_compile",
@@ -4442,7 +4565,28 @@
         "issue213_52_compile",
         "issue213_53_compile",
         "issue253_94_compile",
-        "issue417_88_compile"
+        "issue417_88_compile",
+        "print_udt_len_argument_runtime",
+        "print_udt_lenb_argument_runtime",
+        "print_udt_len_second_argument_runtime",
+        "print_udt_user_function_argument_runtime",
+        "print_udt_varptr_argument_runtime",
+        "print_udt_len_plus_runtime",
+        "print_udt_grouped_len_runtime",
+        "print_udt_len_of_grouped_runtime",
+        "print_udt_grouped_compile",
+        "print_udt_bare_compile",
+        "print_udt_as_array_index_compile",
+        "udt_power_compile",
+        "udt_power_right_compile",
+        "udt_not_runtime",
+        "udt_plus_compile",
+        "udt_binary_minus_compile",
+        "print_udt_array_index_in_call_compile",
+        "print_udt_array_index_single_line_if_compile",
+        "print_udt_field_array_index_compile",
+        "print_udt_collection_item_argument_compile",
+        "print_udt_cstr_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -4641,7 +4785,7 @@
     {
       "code": "type-suffix-mismatch",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, full project compile, 2026-09-30 (issue #216)",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, full project compile, 2026-09-30 (issue #216); Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "issue216_15_compile",
@@ -4649,7 +4793,8 @@
         "issue216_19_compile",
         "issue216_20_compile",
         "issue216_21_compile",
-        "issue216_88_compile"
+        "issue216_88_compile",
+        "label_dollar_then_long_variable_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -4915,10 +5060,11 @@
     {
       "code": "me-outside-object-module",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "Excel/VBE oracle (corpus_me_004_compile: compile rejected, 'Invalid use of Me keyword') plus MS-VBAL 5.6.2.2",
+      "sourceOfTruth": "Excel/VBE oracle (corpus_me_004_compile: compile rejected, 'Invalid use of Me keyword') plus MS-VBAL 5.6.2.2; neighbouring forms measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-15)",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
-        "corpus_me_004_compile"
+        "corpus_me_004_compile",
+        "set_me_standard_module_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -5063,10 +5209,14 @@
     {
       "code": "invalid-assignment-target",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "Excel/VBE oracle (corpus_bad_005_compile: 1 = x compile rejected, 'Syntax error') plus MS-VBAL 5.4.3 assignment",
+      "sourceOfTruth": "Excel/VBE oracle (corpus_bad_005_compile: 1 = x compile rejected, 'Syntax error') plus MS-VBAL 5.4.3 assignment; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports; neighbouring forms measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-15)",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
-        "corpus_bad_005_compile"
+        "corpus_bad_005_compile",
+        "set_me_class_compile",
+        "set_me_document_module_compile",
+        "let_me_document_module_runtime",
+        "me_assign_document_module_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -5137,14 +5287,18 @@
     {
       "code": "unmatched-block-closer",
       "status": "spec-derived",
-      "sourceOfTruth": "MS-VBAL 5.4 (block statements) / VBE compile structure: a block closer (End If/End Sub/Next/Loop/Wend/End With/End Select/#End If/#Else) requires a matching opener",
+      "sourceOfTruth": "MS-VBAL 5.4 (block statements) / VBE compile structure: a block closer (End If/End Sub/Next/Loop/Wend/End With/End Select/#End If/#Else) requires a matching opener; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports",
       "corpusInfluence": "none",
       "assertedOracleCases": [
         "issue231_59_compile",
         "issue272_48_compile",
         "issue272_82_compile",
         "issue272_86_compile",
-        "issue272_127_compile"
+        "issue272_127_compile",
+        "static_public_sub_runtime",
+        "static_friend_sub_runtime",
+        "static_private_function_compile",
+        "static_public_property_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -5154,7 +5308,7 @@
     {
       "code": "non-scalar-binary-operand",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "MS-VBAL 5.6 (binary operators require scalar operands) plus the Excel/VBE compile oracle (array operand 'Type mismatch') and the deterministic 5.6 expression AST + declared-array shape environment (DeclaredValueShape.isArray)",
+      "sourceOfTruth": "MS-VBAL 5.6 (binary operators require scalar operands) plus the Excel/VBE compile oracle (array operand 'Type mismatch') and the deterministic 5.6 expression AST + declared-array shape environment (DeclaredValueShape.isArray); Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports; neighbouring forms measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-15)",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "nonscalar_array_concat_probe",
@@ -5203,7 +5357,14 @@
         "issue417_63_compile",
         "issue417_64_compile",
         "issue417_89_compile",
-        "issue417_90_compile"
+        "issue417_90_compile",
+        "udt_power_compile",
+        "udt_power_right_compile",
+        "array_power_runtime",
+        "udt_field_power_compile",
+        "udt_plus_compile",
+        "array_unary_minus_compile",
+        "udt_binary_minus_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -6147,7 +6308,7 @@
     {
       "code": "collection-operand",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #125): 1 asserted case from the issue's measured corpus",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #125): 1 asserted case from the issue's measured corpus; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "issue125_e_compile",
@@ -6184,7 +6345,8 @@
         "issue416b_07_runtime",
         "issue416b_08_runtime",
         "issue416b_09_runtime",
-        "issue416b_10_runtime"
+        "issue416b_10_runtime",
+        "collection_power_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -7646,13 +7808,14 @@
     {
       "code": "resume-without-error",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #117): 1 asserted case from the issue's measured corpus",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #117): 1 asserted case from the issue's measured corpus; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "issue117_b_runtime",
         "issue142_b_runtime",
         "issue421_06_runtime",
-        "issue421_07_runtime"
+        "issue421_07_runtime",
+        "resume_zero_without_error_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -8452,7 +8615,7 @@
       "code": "longlong-narrowing",
       "status": "vbe-oracle-verified",
       "diagnosticKind": "compile-error",
-      "sourceOfTruth": "Excel/VBE compile oracle, 64-bit: Type mismatch",
+      "sourceOfTruth": "Excel/VBE compile oracle, 64-bit: Type mismatch; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "issue298_01_compile",
@@ -8479,7 +8642,14 @@
         "issue298_22_compile",
         "issue298_23_compile",
         "issue298_24_compile",
-        "issue298_25_compile"
+        "issue298_25_compile",
+        "longlong_parenthesized_byref_long_compile",
+        "longlong_qualified_parenthesized_byref_long_compile",
+        "longlong_call_double_parentheses_compile",
+        "longlong_named_parenthesized_compile",
+        "longlong_qualified_byval_long_compile",
+        "longlong_qualified_named_byval_long_compile",
+        "longlong_named_byval_long_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],

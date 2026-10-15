@@ -192,7 +192,7 @@ function fieldUseMisuse(
 	const operatorBefore = before !== undefined && VALUE_OPERATORS.has(word(before)) && start - 1 !== assignAt;
 	const operatorAfter = after !== undefined && VALUE_OPERATORS.has(word(after)) && !target && end + 1 !== assignAt;
 	if (operatorBefore || operatorAfter) {
-		if (kind === 'array' || kind === 'udt') {
+		if ((kind === 'array' || kind === 'udt') && !uncheckedAggregateOperators(toks, start - 1, operatorBefore, end + 1, operatorAfter)) {
 			return { rule: 'nonScalarBinaryOperand', message: `The '${(operatorAfter ? after : before)!.rawText}' operator requires a scalar operand, but '${shown}' is ${kind === 'array' ? 'an array' : `a ${declared}`}. This is a VBE compile error: Type mismatch.`, span: at };
 		}
 		if (kind === 'object' && normalizeType(step.field.type) === 'collection') {
@@ -502,4 +502,33 @@ function depthAt(toks: readonly VbaToken[], from: number, index: number): number
 		depth += toks[i].rawText === '(' ? 1 : toks[i].rawText === ')' ? -1 : 0;
 	}
 	return depth;
+}
+
+/**
+ * The operators the VBE does not type-check against an array or a Type at
+ * compile: `^` on either side, and `Not` before. `t ^ 2`, `a ^ 2`, `Not t`
+ * and `Not a` compile; `^` on a Type raises 51 and Not runs (measured in
+ * Excel 16.0), where `-a` and `t + 1` are Type mismatch. Compiling `-t`
+ * stops Excel itself, so it stays reported. True when every operator beside
+ * the operand is one of these.
+ */
+export function uncheckedAggregateOperators(
+	toks: readonly VbaToken[],
+	beforeIndex: number,
+	hasBefore: boolean,
+	afterIndex: number,
+	hasAfter: boolean,
+): boolean {
+	const unchecked = (index: number, side: 'before' | 'after'): boolean => {
+		const tok = toks[index];
+		if (tok?.rawText === '^') {
+			return true;
+		}
+		if (side === 'after') {
+			return false;
+		}
+		return tokenText(tok) === 'not';
+	};
+	return (!hasBefore || unchecked(beforeIndex, 'before')) && (!hasAfter || unchecked(afterIndex, 'after'))
+		&& (hasBefore || hasAfter);
 }

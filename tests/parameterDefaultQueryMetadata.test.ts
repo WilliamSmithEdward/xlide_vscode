@@ -10,13 +10,23 @@ function surface(name: string, kind: VbaProjectClassMembers['kind'] = 'class'): 
 }
 function run(rule: keyof typeof rules, source: string, classes: VbaProjectClassMembers[]) {
 	const mod = parseModule(source), output: unknown[][] = [];
-	rules[rule](source, mod, createConditionalActivityTracker(mod), { projectClassMembers: classes }, (...args) => output.push(args));
+	const push = (...args: unknown[]) => output.push(args);
+	if (rule === 'checkParameterDefaultValues') {
+		checkParameterDefaultValues(source, mod, createConditionalActivityTracker(mod), { projectClassMembers: classes }, push);
+	} else {
+		checkNonConstantParameterDefaults(source, mod, createConditionalActivityTracker(mod), push);
+	}
 	return output;
 }
 function sourceFor(types: string[]) {
 	return types.map((type, i) => `Sub P${i}(Optional actor As ${type} = 0, Optional n As Long = Factory())\nEnd Sub\n`).join('');
 }
+// An object parameter takes any constant default, `= 0` included (measured
+// in Excel 16.0), so only the non-constant default is reported.
 function expected(rule: keyof typeof rules, source: string, types: string[]) {
+	if (rule === 'checkParameterDefaultValues') {
+		return [];
+	}
 	let from = 0;
 	return types.map(type => {
 		const needle = rule === 'checkParameterDefaultValues' ? '= 0' : 'Factory()', index = source.indexOf(needle, from);
@@ -74,20 +84,24 @@ it.each(['userType', 'enum', 'standardModule'] as const)('does not treat %s as a
 		['parameterDefaultNotConstant', "Optional parameter 'actor' default must be a constant expression; the call 'Factory(...)' is not constant.", { start, end: start + 'Factory()'.length }],
 	]);
 });
-it('preserves ambiguous object-call defaults and rebuilds after ambiguity disappears', () => {
+// An object parameter's call default is no constant either, whatever the
+// type names: the check reads no project metadata.
+it('reports object-call defaults whether or not the type is ambiguous', () => {
 	const source = 'Sub Go(Optional actor As Class1 = Factory())\nEnd Sub\n', classes = [surface('Class1'), surface('CLASS1')];
 	const start = source.indexOf('Factory()');
-	expect(run('checkNonConstantParameterDefaults', source, classes)).toEqual([
-		['parameterDefaultNotConstant', "Optional parameter 'actor' default must be a constant expression; the call 'Factory(...)' is not constant.", { start, end: start + 'Factory()'.length }],
-	]);
+	const report = [['parameterDefaultNotConstant', "Optional parameter 'actor' default must be a constant expression; the call 'Factory(...)' is not constant.", { start, end: start + 'Factory()'.length }]];
+	expect(run('checkNonConstantParameterDefaults', source, classes)).toEqual(report);
 	classes.pop();
-	expect(run('checkNonConstantParameterDefaults', source, classes)).toEqual([]);
+	expect(run('checkNonConstantParameterDefaults', source, classes)).toEqual(report);
 });
 
 it('preserves host priority over ambiguous project names', () => {
  const source = sourceFor(['Worksheet']), classes = [surface('Worksheet'), surface('WORKSHEET')];
  expect(run('checkParameterDefaultValues', source, classes)).toEqual(expected('checkParameterDefaultValues', source, ['Worksheet']));
- expect(run('checkNonConstantParameterDefaults', 'Sub Go(Optional actor As Worksheet = Factory())\nEnd Sub\n', classes)).toEqual([]);
+ const callSource = 'Sub Go(Optional actor As Worksheet = Factory())\nEnd Sub\n', start = callSource.indexOf('Factory()');
+ expect(run('checkNonConstantParameterDefaults', callSource, classes)).toEqual([
+  ['parameterDefaultNotConstant', "Optional parameter 'actor' default must be a constant expression; the call 'Factory(...)' is not constant.", { start, end: start + 'Factory()'.length }],
+ ]);
 });
 it('preserves unknown qualified project types', () => {
  const source = sourceFor(['Project.Class1']), classes = [surface('Class1')];

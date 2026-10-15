@@ -582,10 +582,17 @@ describe('diagnostic message wording', () => {
 
 	it('pins the message for parameter-default-type-mismatch', () => {
 		const src =
-			'Public Sub NegParam07_OptionalObjectDefaultNonNothing(Optional ByVal obj As Object = 1)\n' +
+			'Public Sub NegParam07_OptionalLongDefaultText(Optional ByVal n As Long = "abc")\n' +
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'parameter-default-type-mismatch');
-		expect(hits[0].message).toBe("Optional parameter 'obj' expects Object, but its default value is numeric literal 1. Optional object parameter defaults must be Nothing.");
+		expect(hits[0].message).toBe("Optional parameter 'n' expects Long, but its default value is String literal \"abc\". This is a VBE compile error: Type mismatch.");
+	});
+
+	it('accepts any constant default on an object parameter, as Excel compiles it', () => {
+		const src =
+			'Public Sub OptionalObjectDefaults(Optional ByVal obj As Object = 1, Optional c As Collection = "a", Optional r As Range = True)\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'parameter-default-type-mismatch')).toHaveLength(0);
 	});
 
 	it('pins the message for property-accessor-signature-mismatch', () => {

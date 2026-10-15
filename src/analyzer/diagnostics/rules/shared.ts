@@ -300,7 +300,7 @@ function undeclaredReferenceSkipIndexes(
 	}
 	if (toks[1]?.rawText === ':' || isLineLabelOnlyStatement(source, span, toks)) {
 		skip.add(0); // line label declaration
-	} else if (toks.length === 2 && isDecimalLineNumber(toks[0]) && isLineLabelOnlyStatement(source, span, toks.slice(1))) {
+	} else if ((toks.length === 2 || toks.length === 3) && isDecimalLineNumber(toks[0]) && isLineLabelOnlyStatement(source, span, toks.slice(1))) {
 		skip.add(1); // `10 L1:`, a line number and a label (issue #230)
 	}
 	const firstExecutable = firstExecutableTokenIndex(toks);
@@ -555,15 +555,17 @@ function simpleAssignmentLhsIdentifierIndex(toks: readonly VbaToken[]): number {
 		: -1;
 }
 
-function isLineLabelOnlyStatement(
+export function isLineLabelOnlyStatement(
 	source: string,
 	span: Span,
 	toks: readonly VbaToken[],
 ): boolean {
-	if (toks.length !== 1 || !isPotentialVariableReferenceToken(toks[0])) {
+	// `L1$:` is the label L1, a type character included (measured in Excel 16.0).
+	const suffixed = toks.length === 2 && toks[1].start === toks[0].end && /^[%&!#@$^]$/.test(toks[1].rawText);
+	if ((toks.length !== 1 && !suffixed) || !isPotentialVariableReferenceToken(toks[0])) {
 		return false;
 	}
-	let j = span.start + toks[0].end;
+	let j = span.start + toks[toks.length - 1].end;
 	while (j < source.length && (source[j] === ' ' || source[j] === '\t')) {
 		j++;
 	}

@@ -68,6 +68,7 @@ import {
 	memberTakesOwnArguments,
 } from '../completion/memberAccess';
 import { procedureSymbolFor, type PushFn } from './analysisContext';
+import { eventHandlerDocumentTypeForContext } from '../completion/eventHandlers';
 import { EMPTY_COLLECTION, identityAssignment, OBJECT_NOTHING, setCallEffects, VARIANT_EMPTY, setDeclaredFacts, straightLineAssignments, straightLineDeadBranches, straightLineExit, straightLineUnreachable, type CallEffects, type DeclaredFacts, type ReachingAssignments } from './straightLineValues';
 import { isInvalidBooleanString, isInvalidDateString, isInvalidNumericString, numericStringVerdict } from './stringConversion';
 import {
@@ -1059,7 +1060,13 @@ export function expressionCalls(
 		// makes the parentheses part of the argument, which is then a copy
 		// (issue #111). `Take(i)` glued, and `x = Take (i)` inside an
 		// expression, are calls with a list.
-		const argumentsParenthesized = i === firstExecutable
+		// A qualified statement reads the same: `Module1.Take (i)` passes a
+		// copy (measured in Excel 16.0).
+		let chainStart = i;
+		while (chainStart - 2 >= firstExecutable && toks[chainStart - 1].rawText === '.' && tokenName(toks[chainStart - 2])) {
+			chainStart -= 2;
+		}
+		const argumentsParenthesized = chainStart === firstExecutable
 			&& toks[parenIndex].start > toks[nameEndIndex].end;
 		// `ReDim Three(2)` inside Function Three sizes the return array, and a
 		// ReDim target anywhere is a variable, never a call (issue #115).
@@ -1996,9 +2003,10 @@ export function runtimeTypeSignature(runtime: VbaRuntimeFunction): CallableTypeS
 				...(p.nullRaises ? { nullRaises: true } : {}),
 			})),
 			returnType: runtime.returns,
+			runtime: true,
 		};
 	}
-	return parseRuntimeDisplaySignature(runtime.name, runtime.signature, runtime.returns);
+	return { ...parseRuntimeDisplaySignature(runtime.name, runtime.signature, runtime.returns), runtime: true };
 }
 
 export function runtimeAritySignature(runtime: VbaRuntimeFunction): CallableTypeSignature | undefined {
@@ -3180,20 +3188,78 @@ export function createObjectAssignmentTypeResolver(
 		}
 		return projectTypes.get(lower);
 	};
+	let valueTypes: ReadonlySet<string> | undefined;
 	return (type) => {
 		queries ??= new Map();
 		// Raw keys preserve the display spelling used for generic and host types.
 		if (!queries.has(type)) {
-			queries.set(type, resolveKnownObjectAssignmentType(type, memberCtx, projectType));
+			queries.set(type, resolveKnownObjectAssignmentType(type, memberCtx, projectType, () => valueTypes ??= projectValueTypeNames(memberCtx)));
 		}
 		return queries.get(type);
 	};
 }
 
+/**
+ * The lowercase names of the project's visible Types and Enums that no
+ * project object module shares: a name the project gives a value type hides
+ * a library class of that name. One pass over the project's surfaces.
+ */
+export function projectValueTypeNames(memberCtx: MemberCompletionContext): ReadonlySet<string> {
+	const cached = PROJECT_VALUE_TYPE_NAMES.get(memberCtx);
+	if (cached) {
+		return cached;
+	}
+	const values = new Set<string>();
+	const objects = new Set<string>();
+	for (const candidate of memberCtx.projectClassMembers ?? []) {
+		const kind = candidate.kind;
+		if (kind === 'standardModule') {
+			continue;
+		}
+		(kind === 'userType' || kind === 'enum' ? values : objects).add(candidate.name.toLowerCase());
+	}
+	for (const name of objects) {
+		values.delete(name);
+	}
+	PROJECT_VALUE_TYPE_NAMES.set(memberCtx, values);
+	return values;
+}
+
+/** One analysis pass's context holds one project, so its names are read once. */
+const PROJECT_VALUE_TYPE_NAMES = new WeakMap<MemberCompletionContext, ReadonlySet<string>>();
+
+/**
+ * Each document module's host class, lowercased and qualified
+ * (`excel.workbook` for ThisWorkbook): its designer's class where the
+ * workbook gave one, otherwise the class its code name implies.
+ */
+function projectDocumentHostTypes(memberCtx: MemberCompletionContext): ReadonlyMap<string, string> {
+	const cached = PROJECT_DOCUMENT_HOST_TYPES.get(memberCtx);
+	if (cached) {
+		return cached;
+	}
+	const types = new Map<string, string>();
+	for (const candidate of memberCtx.projectClassMembers ?? []) {
+		if (candidate.kind !== 'document') {
+			continue;
+		}
+		const documentType = eventHandlerDocumentTypeForContext({ moduleName: candidate.name, moduleKind: 'document' });
+		const hostType = candidate.designerClass
+			?? (documentType === 'workbook' ? 'Excel.Workbook' : documentType === 'chart' ? 'Excel.Chart'
+				: documentType === 'document' ? 'Word.Document' : 'Excel.Worksheet');
+		types.set(candidate.name.toLowerCase(), hostType.toLowerCase());
+	}
+	PROJECT_DOCUMENT_HOST_TYPES.set(memberCtx, types);
+	return types;
+}
+
+const PROJECT_DOCUMENT_HOST_TYPES = new WeakMap<MemberCompletionContext, ReadonlyMap<string, string>>();
+
 export function resolveKnownObjectAssignmentType(
 	type: string | undefined,
 	memberCtx: MemberCompletionContext,
 	projectTypeLookup?: (lower: string) => VbaProjectClassMembers | undefined,
+	valueTypeLookup?: () => ReadonlySet<string>,
 ): KnownObjectAssignmentType | undefined {
 	if (!type) {
 		return undefined;
@@ -3213,6 +3279,13 @@ export function resolveKnownObjectAssignmentType(
 	// was reported clean while refusing to compile.
 	if (normalized === 'collection') {
 		return { kind: 'generic', display: type, key: 'collection' };
+	}
+	// A Type or Enum the project declares, where the code can see it, takes
+	// the name before any library: `Type Range` makes `Dim v As Range` a
+	// value, and `Public Enum Worksheet` in another module does the same
+	// (measured in Excel 16.0). Only a qualified name reaches the library.
+	if (!type.includes('.') && (valueTypeLookup ? valueTypeLookup() : projectValueTypeNames(memberCtx)).has(normalized)) {
+		return undefined;
 	}
 	const host = resolveHostAlias(type, memberCtx.model);
 	if (host) {
@@ -5014,6 +5087,15 @@ export function objectAssignmentIncompatibilityReason(
 			: `This object type is not compatible with ${expected.display}.`;
 	}
 	if (actualObject.kind === 'host' && HOST_VALUES_ALSO_OF_TYPE.get(actualObject.key) === expected.key) {
+		return undefined;
+	}
+	// A document module is the host's own object: the workbook ThisWorkbook
+	// names is a Workbook, so `Set a = ActiveWorkbook` into `a As ThisWorkbook`
+	// runs while that workbook is the active one (measured in Excel 16.0).
+	// Which workbook the host value holds is not known here, but a value of
+	// another host class is never the document.
+	if (expected.kind === 'project' && actualObject.kind === 'host'
+		&& projectDocumentHostTypes(memberCtx).get(expected.key) === actualObject.key) {
 		return undefined;
 	}
 	if (actualObject.kind === 'project' && (implementsType ?? implementsObjectType)(actualObject, expected)) {

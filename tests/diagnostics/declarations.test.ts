@@ -1543,16 +1543,14 @@ describe('analyzeModule - parameter default values', () => {
 		]);
 	});
 
-	it('flags non-Nothing Optional object parameter defaults', () => {
+	it('accepts any constant default on an Optional object parameter, as Excel compiles it', () => {
+		// optional_object_default_number_runtime and its neighbours: `= 1`,
+		// `= "a"`, `= True` and `= Null` compile, and a call that leaves the
+		// argument out runs (measured in Excel 16.0).
 		const src =
 			'Public Sub NegParam07_OptionalObjectDefaultNonNothing(Optional ByVal obj As Object = 1)\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'parameter-default-type-mismatch');
-
-		expectDiagnostic(src, hits, 'parameter-default-type-mismatch', {
-			severity: 'error',
-			span: '1',
-		});
+		expect(byCode(analyzeModule(src), 'parameter-default-type-mismatch')).toHaveLength(0);
 	});
 
 	it('flags scalar defaults on Optional array parameters', () => {
@@ -1567,7 +1565,7 @@ describe('analyzeModule - parameter default values', () => {
 		});
 	});
 
-	it('flags non-Nothing defaults for known host and project object parameters', () => {
+	it('accepts constant defaults for known host and project object parameters', () => {
 		const src =
 			'Sub T(Optional ByVal sheet As Worksheet = "Sheet1", Optional ByVal person As Person = True)\n' +
 			'End Sub\n';
@@ -1580,10 +1578,7 @@ describe('analyzeModule - parameter default values', () => {
 			'parameter-default-type-mismatch',
 		);
 
-		expectDiagnostics(src, hits, 'parameter-default-type-mismatch', [
-			{ span: '"Sheet1"', message: 'Nothing' },
-			{ span: 'True', message: 'Nothing' },
-		]);
+		expect(hits).toHaveLength(0);
 	});
 
 	it('accepts oracle-backed scalar Optional default controls', () => {

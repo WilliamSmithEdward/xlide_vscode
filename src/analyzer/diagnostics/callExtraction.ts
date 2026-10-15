@@ -68,6 +68,8 @@ export interface CallableTypeSignature {
 	returnType?: string;
 	/** A Function or Property Get, which gives a value; absent where unknown. */
 	valued?: boolean;
+	/** VBA's own function, not a project procedure of the same name. */
+	runtime?: boolean;
 }
 
 /**
@@ -78,6 +80,17 @@ export interface CallableTypeSignature {
  * array result refuses the argument at compile.
  */
 export function callThenIndex(sig: CallableTypeSignature, call: CallArguments): boolean {
+	// VBA's own Now, Time and Command give a Variant, which `v = Now(1)`
+	// indexes: it compiles, and raises 13 when it runs. Date is a keyword
+	// there, and Timer, Time$, Command$, Erl and DoEvents refuse the
+	// argument; so does a project Function Now, and the statement `Now (1)`
+	// is refused too (measured in Excel 16.0). Only an expression's call
+	// leaves explicitCall unset.
+	if (sig.runtime && !call.qualifier && call.explicitCall === undefined && !call.argumentsParenthesized
+		&& sig.params.length === 0 && call.slots.length > 0
+		&& INDEXED_PARAMETERLESS_BUILT_INS.has(sig.name.toLowerCase())) {
+		return true;
+	}
 	if (sig.valued !== true || sig.params.length > 0 || call.slots.length === 0) {
 		return false;
 	}
@@ -578,6 +591,9 @@ export function validateArity(
 		);
 	}
 }
+
+/** VBA's parameterless functions whose result `Now(1)` indexes (measured in Excel 16.0). */
+const INDEXED_PARAMETERLESS_BUILT_INS: ReadonlySet<string> = new Set(['now', 'time', 'command']);
 
 /** VBA functions a parameterless project Function does not hide, by the argument counts that reach them (issue #645). */
 const BUILT_INS_PAST_PARAMETERLESS: ReadonlyMap<string, readonly number[]> = new Map([

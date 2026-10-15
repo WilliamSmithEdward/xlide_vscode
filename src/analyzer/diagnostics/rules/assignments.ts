@@ -1031,8 +1031,9 @@ function checkArraySetterValue(
  * A Choose, Switch or IIf whose literal arguments make it return Null
  * (issue #243, measured in Excel 16.0): `Choose(5, 1, 2)` and
  * `Choose(0, "a")` name no choice, `Switch(False, 1)` finds no True
- * condition, and `IIf(False, 1, Null)` takes its Null. A module procedure of
- * the same name is the module's.
+ * condition, and `IIf(False, 1, Null)` takes its Null. `Str(Null)` gives
+ * its Null back, which a String refuses with 94 (measured in Excel 16.0). A
+ * module procedure of the same name is the module's.
  */
 function nullFromChoice(
 	valueTokens: readonly VbaToken[],
@@ -1041,7 +1042,7 @@ function nullFromChoice(
 	const toks = valueTokens.filter((tok) => tok.kind !== 'comment');
 	const start = tokenText(toks[0]) === 'vba' && toks[1]?.rawText === '.' ? 2 : 0;
 	const fn = tokenText(toks[start]);
-	if ((fn !== 'choose' && fn !== 'switch' && fn !== 'iif') || toks[start + 1]?.rawText !== '(' || matchParenFrom(toks, start + 1) !== toks.length - 1) {
+	if ((fn !== 'choose' && fn !== 'switch' && fn !== 'iif' && fn !== 'str') || toks[start + 1]?.rawText !== '(' || matchParenFrom(toks, start + 1) !== toks.length - 1) {
 		return undefined;
 	}
 	if (start === 0 && moduleNameDeclared(fn)) {
@@ -1060,6 +1061,11 @@ function nullFromChoice(
 	};
 	const shown = toks.slice(start).map((tok) => tok.rawText).join('').replace(/,/g, ', ');
 	const result = { first: toks[0], last: toks[toks.length - 1] };
+	if (fn === 'str') {
+		return args.length === 1 && args[0].length === 1 && tokenText(args[0][0]) === 'null'
+			? { ...result, why: `${shown} gives its Null argument back` }
+			: undefined;
+	}
 	if (fn === 'choose') {
 		const index = args.length > 1 ? literal(args[0]) : undefined;
 		const choices = args.length - 1;

@@ -177,12 +177,12 @@ export function matchOpener(t: string): OpenBlock | undefined {
     // reports on that very line. Refusing to see the header made its `End
     // Sub` report as an orphan too - two findings for one mistake, the second
     // naming a line where nothing is wrong.
-    m = /^(?:(?:Public|Private|Friend|Global)\s+)?(?:Static\s+)?(Sub|Function)\s+([\p{L}\p{M}\p{N}_]+)/iu.exec(t);
+    m = /^(?:(?:Public|Private|Friend|Global)\s+(?:Static\s+)?|Static\s+(?:(?:Public|Private|Friend|Global)\s+)?)?(Sub|Function)\s+([\p{L}\p{M}\p{N}_]+)/iu.exec(t);
     if (m) {
         const kind = (/^sub$/i.test(m[1]) ? 'Sub' : 'Function') as BlockKind;
         return { kind, line: 0, label: `${kind} ${m[2]}` };
     }
-    m = /^(?:(?:Public|Private|Friend|Global)\s+)?(?:Static\s+)?Property\s+(Get|Let|Set)\s+([\p{L}\p{M}\p{N}_]+)/iu.exec(t);
+    m = /^(?:(?:Public|Private|Friend|Global)\s+(?:Static\s+)?|Static\s+(?:(?:Public|Private|Friend|Global)\s+)?)?Property\s+(Get|Let|Set)\s+([\p{L}\p{M}\p{N}_]+)/iu.exec(t);
     if (m) { return { kind: 'Property', line: 0, label: `Property ${m[2]}` }; }
     m = /^(?:(?:Public|Private|Global)\s+)?Type\s+([\p{L}\p{M}\p{N}_]+)/iu.exec(t);
     if (m) { return { kind: 'Type', line: 0, label: `Type ${m[1]}` }; }
@@ -224,11 +224,11 @@ function blockOpenerColumnSpan(raw: string, kind: BlockKind): ColumnSpan | undef
     const stripped = stripVba(raw);
     switch (kind) {
         case 'Sub':
-            return capturedColumnSpan(stripped, /^(\s*)(?:(?:Public|Private|Friend|Global)\s+)?(?:Static\s+)?(Sub)\b/i);
+            return capturedColumnSpan(stripped, /^(\s*)(?:(?:Public|Private|Friend|Global)\s+(?:Static\s+)?|Static\s+(?:(?:Public|Private|Friend|Global)\s+)?)?(Sub)\b/i);
         case 'Function':
-            return capturedColumnSpan(stripped, /^(\s*)(?:(?:Public|Private|Friend|Global)\s+)?(?:Static\s+)?(Function)\b/i);
+            return capturedColumnSpan(stripped, /^(\s*)(?:(?:Public|Private|Friend|Global)\s+(?:Static\s+)?|Static\s+(?:(?:Public|Private|Friend|Global)\s+)?)?(Function)\b/i);
         case 'Property':
-            return capturedColumnSpan(stripped, /^(\s*)(?:(?:Public|Private|Friend|Global)\s+)?(?:Static\s+)?(Property\s+(?:Get|Let|Set))\b/i);
+            return capturedColumnSpan(stripped, /^(\s*)(?:(?:Public|Private|Friend|Global)\s+(?:Static\s+)?|Static\s+(?:(?:Public|Private|Friend|Global)\s+)?)?(Property\s+(?:Get|Let|Set))\b/i);
         case 'If':
             return capturedColumnSpan(stripped, /^(\s*)(If)\b/i);
         case 'With':
@@ -288,7 +288,7 @@ function moduleDeclarationInProcedureHit(raw: string): ModuleDeclarationInProced
     const stripped = stripVba(raw);
     const procedure = capturedColumnSpan(
         stripped,
-        /^(\s*)(?:(?:Public|Private|Friend|Global)\s+)?(?:Static\s+)?(Sub|Function)\b/i,
+        /^(\s*)(?:(?:Public|Private|Friend|Global)\s+(?:Static\s+)?|Static\s+(?:(?:Public|Private|Friend|Global)\s+)?)?(Sub|Function)\b/i,
     );
     if (procedure) {
         return { label: 'Procedure declarations', span: procedure };
@@ -296,7 +296,7 @@ function moduleDeclarationInProcedureHit(raw: string): ModuleDeclarationInProced
 
     const property = capturedColumnSpan(
         stripped,
-        /^(\s*)(?:(?:Public|Private|Friend|Global)\s+)?(?:Static\s+)?(Property\s+(?:Get|Let|Set))\b/i,
+        /^(\s*)(?:(?:Public|Private|Friend|Global)\s+(?:Static\s+)?|Static\s+(?:(?:Public|Private|Friend|Global)\s+)?)?(Property\s+(?:Get|Let|Set))\b/i,
     );
     if (property) {
         return { label: 'Procedure declarations', span: property };

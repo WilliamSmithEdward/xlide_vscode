@@ -319,6 +319,21 @@ export function statementAndBranchSpans(stmt: LeafStatementNode): Span[] {
 	return branches ? [stmt.span, ...branches] : [stmt.span];
 }
 
+/**
+ * Like statementAndBranchSpans, with a single-line If's own span cut at its
+ * Then, so a rule that reads the whole span does not read a branch twice.
+ */
+export function conditionAndBranchSpans(source: string, stmt: LeafStatementNode): Span[] {
+	const spans = statementAndBranchSpans(stmt);
+	if (spans.length === 1) {
+		return spans;
+	}
+	const [whole, ...branches] = spans;
+	const toks = statementTokens(source, whole);
+	const then = toks.findIndex((tok) => tok.kind === 'keyword' && tok.rawText.toLowerCase() === 'then');
+	return then < 0 ? spans : [{ start: whole.start, end: whole.start + toks[then].start }, ...branches];
+}
+
 export function bareAssignmentTarget(
 	source: string,
 	span: Span,

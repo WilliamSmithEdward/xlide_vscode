@@ -146,9 +146,11 @@ function isValueUse(tokens: readonly VbaToken[], i: number): boolean {
 	if (after?.rawText === ':=') {
 		return false;
 	}
-	// `Label:` at the start of a line.
+	// `Label:` at the start of a line, and `Label$:` with a type character
+	// (measured in Excel 16.0).
 	const atLineStart = !before || before.kind === 'newline';
-	return !(atLineStart && after?.kind === 'colon');
+	const suffixed = after !== undefined && after.start === tokens[i].end && /^[%&!#@$^]$/.test(after.rawText);
+	return !(atLineStart && (after?.kind === 'colon' || (suffixed && tokens[i + 2]?.kind === 'colon')));
 }
 
 /** Where the Const statement starting at `start` ends: its line's end. */

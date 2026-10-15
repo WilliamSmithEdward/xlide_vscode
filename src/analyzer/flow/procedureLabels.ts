@@ -187,7 +187,10 @@ function labelReferencesIn(tokens: readonly VbaToken[], span: Span, firstWord = 
 		}
 		if (word === 'resume') {
 			const nextWord = tokenWord(toks[i + 1]);
-			if (!toks[i + 1] || nextWord === 'next') {
+			// `Resume 0` (and `Resume 00`) is `Resume`: it runs the statement
+			// that failed again, and names no label (measured in Excel 16.0).
+			if (!toks[i + 1] || nextWord === 'next'
+				|| (toks[i + 1].kind === 'integerLiteral' && normalizedDecimalLabel(toks[i + 1].rawText) === '0')) {
 				continue;
 			}
 			const ref = labelReferenceAfter(toks, span, i + 1, 'resume');
@@ -354,11 +357,24 @@ export function statementLabelDeclarations(source: string, span: Span): VbaProce
 	return labelDeclarationsIn(source, span, statementTokensCached(source, span));
 }
 
-function labelDeclarationsIn(source: string, span: Span, toks: readonly VbaToken[]): VbaProcedureLabel[] {
-	const first = toks[0];
+/**
+ * A type character right after a label's name, before its colon: `L1$:`,
+ * `L1%:` and `L1#:` are the labels L1 (measured in Excel 16.0).
+ */
+function isLabelTypeSuffix(name: VbaToken, suffix: VbaToken | undefined, colon: VbaToken | undefined): boolean {
+	return !!suffix && suffix.start === name.end && /^[%&!#@$^]$/.test(suffix.rawText) && colon?.rawText === ':';
+}
+
+function labelDeclarationsIn(source: string, span: Span, tokens: readonly VbaToken[]): VbaProcedureLabel[] {
+	const first = tokens[0];
 	if (!first) {
 		return [];
 	}
+	const suffixed = first.kind !== 'integerLiteral' && tokenName(first) !== undefined && (
+		isLabelTypeSuffix(first, tokens[1], tokens[2])
+		|| (tokens.length === 2 && isLabelTypeSuffix(first, tokens[1], { rawText: ':' } as VbaToken)
+			&& hasSourceColonAfterToken(source, span, tokens[1])));
+	const toks = suffixed ? [first, ...tokens.slice(2)] : tokens;
 	if (first.kind !== 'integerLiteral' && toks.length >= 2 && toks[1].rawText !== ':') {
 		return [];
 	}
@@ -373,7 +389,9 @@ function labelDeclarationsIn(source: string, span: Span, toks: readonly VbaToken
 		// a trailing statement here previously left bare numeric labels uncollected,
 		// so references to them falsely fired `undefined-label`. `labelFromToken`
 		// already gated non-decimal forms (hex/octal) to undefined above.
-		const named = toks.length === 2 && toks[1].kind !== 'integerLiteral' && hasSourceColonAfterToken(source, span, toks[1])
+		const suffixedName = toks.length === 3 && toks[1].kind !== 'integerLiteral'
+			&& isLabelTypeSuffix(toks[1], toks[2], { rawText: ':' } as VbaToken) && hasSourceColonAfterToken(source, span, toks[2]);
+		const named = (toks.length === 2 && toks[1].kind !== 'integerLiteral' && hasSourceColonAfterToken(source, span, toks[1])) || suffixedName
 			? labelFromToken(toks[1], span)
 			: undefined;
 		return named ? [label, named] : [label];
@@ -384,7 +402,7 @@ function labelDeclarationsIn(source: string, span: Span, toks: readonly VbaToken
 	if (toks.length >= 2 && toks[1].rawText === ':') {
 		return [label];
 	}
-	if (toks.length === 1 && hasSourceColonAfterToken(source, span, first)) {
+	if (toks.length === 1 && (suffixed || hasSourceColonAfterToken(source, span, first))) {
 		return [label];
 	}
 	return [];

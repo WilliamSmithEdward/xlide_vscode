@@ -21,10 +21,12 @@ import type { ModuleNode, Span , ProcedureNode } from '../../parser/nodes';
 import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { VbaProcedureSignature, VbaSymbol } from '../../symbols/symbolModel';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
-import { extractCall, isNamedSlot } from '../callExtraction';
+import { extractCall, extractQualifiedCall, isNamedSlot } from '../callExtraction';
+import { qualifiedProcedureKey } from '../../symbols/symbolModel';
 import {
 	callableTypeSignaturesFor,
 	expressionCalls,
+	namedArgumentSlot,
 	normalizeType,
 	runtimeCallableSourceShadowed,
 	sourceNameScopeFor,
@@ -111,21 +113,33 @@ export function checkLongLongNarrowing(
 			});
 			// Calls: a ByVal whole-number parameter of a procedure, and a VBA
 			// function's whole-number argument.
-			const calls = [extractCall(source, span), ...expressionCalls(source, span, signatures, sourceNames)].filter((call) => call !== undefined);
+			const calls = [extractCall(source, span), extractQualifiedCall(source, span, signatures), ...expressionCalls(source, span, signatures, sourceNames)].filter((call) => call !== undefined);
 			const seen = new Set<number>();
 			for (const call of calls) {
-				if (!call || seen.has(call.nameSpan.start) || call.slots.some(isNamedSlot)) {
+				if (!call || seen.has(call.nameSpan.start)) {
 					continue;
 				}
 				seen.add(call.nameSpan.start);
 				const base = call.sliceStart;
-				const signature = call.qualifier ? undefined : signatures.get(call.name.toLowerCase());
+				const signature = call.qualifier ? signatures.get(call.lookupKey ?? qualifiedProcedureKey(call.qualifier, call.name)) : signatures.get(call.name.toLowerCase());
 				if (signature) {
 					call.slots.forEach((slot, k) => {
-						const param = signature.params[k];
+						const named = isNamedSlot(slot) ? namedArgumentSlot(slot) : undefined;
+						if (isNamedSlot(slot) && !named) {
+							return;
+						}
+						const param = named
+							? signature.params.find((p) => p.name.toLowerCase() === named.name.toLowerCase())
+							: signature.params[k];
+						const value = named ? named.value : slot;
 						const type = normalizeType(param?.type);
-						if (param && !param.byRef && type && NARROW.has(type) && slot.length > 0 && wide(slot)) {
-							report(slot, base, `the ByVal ${capitalize(type)} '${param.name}' of '${signature.name}'`);
+						// A ByRef parameter given a copy converts it the same way:
+						// `Take (q)`, `Module1.Take (q)`, `Take n:=(q)` (measured in
+						// Excel 16.0).
+						const copied = (call.argumentsParenthesized === true && call.slots.length === 1)
+							|| (value[0]?.rawText === '(' && matchParenFrom(value, 0) === value.length - 1);
+						if (param && (!param.byRef || copied) && type && NARROW.has(type) && value.length > 0 && wide(value)) {
+							report(value, base, `the ${param.byRef ? '' : 'ByVal '}${capitalize(type)} '${param.name}' of '${signature.name}'`);
 						}
 					});
 					continue;
