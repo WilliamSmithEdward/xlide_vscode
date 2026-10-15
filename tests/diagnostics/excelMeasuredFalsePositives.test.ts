@@ -183,6 +183,9 @@ const STILL_REPORTED: ReadonlyArray<[string, readonly string[]]> = [
 	['optional_object_default_array_call_compile', ['parameter-default-not-constant']],
 	['set_me_standard_module_compile', ['me-outside-object-module']],
 	['static_global_sub_header_compile', ['invalid-proc-header']],
+	['print_udt_cstr_compile', ['udt-value-mismatch']],
+	['byref_class_method_no_parentheses_compile', ['byref-argument-type-mismatch']],
+	['private_shared_withevents_compile', ['unexpected-declaration-token']],
 ];
 
 describe('Excel-measured false positives', () => {

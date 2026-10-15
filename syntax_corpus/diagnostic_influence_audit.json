@@ -779,7 +779,7 @@
     {
       "code": "byref-argument-type-mismatch",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "Excel/VBE compile oracle plus deterministic XLIDE source-backed callable signatures and shared expression value resolver; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports",
+      "sourceOfTruth": "Excel/VBE compile oracle plus deterministic XLIDE source-backed callable signatures and shared expression value resolver; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports; neighbouring forms measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-15)",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "receiver_get_byref",
@@ -846,7 +846,8 @@
         "byref_qualified_parenthesized_currency_runtime",
         "byref_qualified_parenthesized_string_runtime",
         "byref_qualified_parenthesized_date_runtime",
-        "byref_qualified_parenthesized_boolean_runtime"
+        "byref_qualified_parenthesized_boolean_runtime",
+        "byref_class_method_no_parentheses_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -3391,7 +3392,7 @@
     {
       "code": "unexpected-declaration-token",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "MS-VBAL 5.2.3.1 plus asserted Excel/VBE oracle case for a trailing identifier after an As type name; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports",
+      "sourceOfTruth": "MS-VBAL 5.2.3.1 plus asserted Excel/VBE oracle case for a trailing identifier after an As type name; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports; neighbouring forms measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-15)",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "dim_as_type_trailing_identifier_compile",
@@ -3410,7 +3411,8 @@
         "public_shared_module_runtime",
         "global_shared_module_runtime",
         "dim_shared_dynamic_array_runtime",
-        "static_shared_compile"
+        "static_shared_compile",
+        "private_shared_withevents_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -4552,7 +4554,7 @@
     {
       "code": "udt-value-mismatch",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, full project compile, 2026-09-30 (issue #213); Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports; neighbouring forms measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-15)",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, full project compile, 2026-09-30 (issue #213); Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports; neighbouring forms measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-15); neighbouring forms measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-15)",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "issue213_44_compile",
@@ -4583,7 +4585,8 @@
         "print_udt_array_index_in_call_compile",
         "print_udt_array_index_single_line_if_compile",
         "print_udt_field_array_index_compile",
-        "print_udt_collection_item_argument_compile"
+        "print_udt_collection_item_argument_compile",
+        "print_udt_cstr_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],

@@ -117212,6 +117212,60 @@
       "source": "Option Explicit\r\nStatic Global Sub Foo()\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "print_udt_cstr_compile",
+      "description": "Debug.Print CStr(t) with t a Type: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nType T\r\n    a As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t As T\r\n    Debug.Print CStr(t)\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "byref_class_method_no_parentheses_compile",
+      "description": "c.Take v on a class, v an Integer into ByRef Long: ByRef argument type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Integer\r\n    Dim c As New Class1\r\n    c.Take v\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Sub Take(n As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "private_shared_withevents_compile",
+      "description": "Private Shared WithEvents x As Workbook in a class: Expected: identifier (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate Shared WithEvents x As Workbook\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }
