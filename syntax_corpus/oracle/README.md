@@ -58,9 +58,15 @@ fixtures whose `expected` value is already asserted, and writes only
 
 The runner starts an unsaved disposable Excel workbook per case. Keeping the
 workbook in memory avoids local macro-security policy blocking generated test
-macros. If a case hangs, the coordinator times out the worker and attempts
-to kill only the Excel process that the worker recorded. Timeout is not VBA
-evidence: it is treated as oracle infrastructure health. The coordinator retries
+macros. One worker serves the cases in turn, and one Excel serves compile
+cases, which run no code: the worker closes each case's workbook, and starts
+a new Excel after every run case, after `--cases-per-excel` cases (default
+40), after any case that is not `accepted` or `rejected`, after any case that
+leaves a workbook open, and when a kept Excel no longer takes the worker's
+settings. `--cases-per-excel 1` gives every case its own Excel. If a case
+hangs, the coordinator times out the worker and kills it and the Excel
+process that the worker recorded; the next case starts a new worker. Timeout
+is not VBA evidence: it is treated as oracle infrastructure health. The coordinator retries
 the same case up to `--timeout-retries`; if every attempt times out, it aborts
 the remaining run as `outcome: "oracle_failure"` and exits non-zero even without
 `--strict`. Investigate the harness/Excel modal state before running additional
@@ -239,8 +245,8 @@ VBE Compile. A dialog owned by the disposable Excel process with title
 containing `Compile error:` is recorded as `outcome: "rejected"`; the watcher
 captures the dialog text, dismisses it with direct Win32 button/window commands,
 verifies the dialog is no longer visible, and only then writes the oracle result
-file. It does not reopen the Debug menu after dismissal; the disposable Excel
-instance is closed immediately afterward. Timeouts remain a fallback for hangs
+file. It does not reopen the Debug menu after dismissal; the case's workbook
+is closed immediately afterward. Timeouts remain a fallback for hangs
 or unrelated modal prompts, not the primary rejection signal. A timeout never
 means accepted or rejected; after the retry budget is exhausted, it means the
 oracle itself needs attention.
