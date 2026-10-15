@@ -675,6 +675,13 @@ function Wait-ForRunDialogResult {
     return $null
 }
 
+# Errors with which the VBE refuses to take a module's source. They are
+# compile evidence, not harness failures. Keep this list to messages that
+# have been seen; anything else adding a module fails stays a worker_error.
+$InsertionRefusals = @(
+    "Too many line continuations"
+)
+
 function ConvertTo-NormalizedCommandCaption($Caption) {
     return ([string]$Caption).Replace('&', '').Trim()
 }
@@ -994,6 +1001,14 @@ function Invoke-OracleCase {
         $dialog = Read-DialogResult
         if ($null -ne $dialog) {
             Set-DialogOutcome $dialog ($mode -eq "compile")
+        }
+        elseif (($stage -eq "add_module" -or $stage -eq "add_modules") -and $InsertionRefusals -contains $_.Exception.Message) {
+            # The VBE refused the source itself, as its editor would.
+            $result.outcome = "rejected"
+            $result.stage = "insert_refused"
+            $result.evidencePhase = "compile"
+            $result.message = $_.Exception.Message
+            $result.hresult = $_.Exception.HResult
         }
         else {
             $result.outcome = "worker_error"
