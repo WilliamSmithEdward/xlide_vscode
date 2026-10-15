@@ -156,20 +156,13 @@ function runCaseOnce(kase, timeoutSeconds, dialogHoldSeconds) {
     const dialogPath = path.join(tmpDir, 'vbe_dialog.json');
     fs.writeFileSync(casePath, JSON.stringify(kase), 'utf8');
 
-    // The watcher must outlast the VBE compile-/runtime-dialog latency. That
-    // latency is dominated by the FIRST compile in a freshly spawned Excel
-    // (each case gets its own process); on a cold VBE it exceeds a fixed 8s
-    // cap, which silently misrecorded rejects as "accepted".
-    //
-    // Two competing constraints set the window:
-    //   * reject cases need watch >= the cold dialog latency (~20s here);
-    //   * accept cases show NO dialog and wait the FULL window, so
-    //     excel_start + watch + cleanup must fit inside --timeout or the
-    //     coordinator kills the worker as a (false) timeout.
-    // So reserve generous startup/cleanup headroom and cap the window: ~22s
-    // reliably catches the dialog without making accept cases wait forever.
-    // Raise --timeout for slower machines (adds headroom); for a window longer
-    // than the cap, use --dialog-hold-seconds.
+    // The watch window is an upper bound, not a wait. A compile case ends when
+    // its error dialog is recorded or the Compile command turns disabled, and a
+    // run case ends shortly after Excel.Run returns. Only a case that gives
+    // neither signal waits out the window, so excel_start + watch + cleanup
+    // must still fit inside --timeout. Raising --timeout adds Excel-startup
+    // headroom; the window itself is capped at 22 s, so for a longer one use
+    // --dialog-hold-seconds.
     const dialogWatchSeconds = dialogHoldSeconds > 0
         ? Math.max(1, timeoutSeconds - dialogHoldSeconds - 5)
         : Math.max(12, Math.min(22, timeoutSeconds - 22));

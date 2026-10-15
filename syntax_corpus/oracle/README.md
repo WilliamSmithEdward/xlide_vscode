@@ -100,23 +100,26 @@ a bogus "accepted" control). Guard against it with the controls below.
    surfaced as a detectable visible top-level window, so the Win32 dialog watcher
    never sees it and the rejection is misrecorded as `accepted`.
 
-2. **Every case pays a cold-VBE first-compile cost.** Each case spawns its own
-   Excel process, so the error dialog can take well over ten seconds to appear.
-   The dialog-watch window must outlast that latency or rejects are missed — the
-   original fixed 8-second cap was too short and produced systematic false
-   "accepted" results.
+2. **Accept on a positive signal where there is one.** The original fixed
+   8-second watch window produced systematic false "accepted" results, because
+   rejects took longer than that to show their dialog (most of it was the
+   Compile command's lookup, since replaced). Accepts no longer wait out the
+   window: a compile case is accepted when the Compile command turns disabled,
+   which it does only once the project has compiled, and is still disabled with
+   no dialog seen 300 ms later. A run case is accepted when `Excel.Run` returns
+   and no dialog is seen within 300 ms, because `Run` returns only after its
+   dialog is dismissed. Both also require Excel to be alive (see #8).
 
 3. **`--timeout` is the single knob.** In normal mode the watch window is
-   `min(22, timeout - 22)` seconds; raising `--timeout` adds Excel-startup
+   `max(12, min(22, timeout - 22))` seconds; raising `--timeout` adds Excel-startup
    headroom. For a window longer than the 22s cap (a very slow VBE), use
    `--dialog-hold-seconds`, whose branch uses `timeout - hold - 5` uncapped.
 
-4. **Accept cases bound the timeout.** A genuinely-accepted case shows no dialog,
-   so the worker waits the *entire* watch window before concluding `accepted`,
-   then quits Excel. `excel_start + watch + cleanup` must fit inside `--timeout`
-   or the coordinator kills the worker as a false `timeout`/`oracle_failure`.
-   Reject cases return as soon as the dialog is caught, so they are fast; it is
-   the accept controls that set the timeout floor.
+4. **The watch window is an upper bound.** A compile case that neither shows a
+   dialog nor disables the Compile command waits the *entire* window, then is
+   recorded as `accepted` if Excel is alive. `excel_start + watch + cleanup`
+   must fit inside `--timeout` or the coordinator kills the worker as a false
+   `timeout`/`oracle_failure`.
 
 5. **The first run on a cold machine may time out entirely.** The first-ever COM
    Excel launch (Office first-run/activation) can exceed the timeout before
@@ -137,11 +140,9 @@ a bogus "accepted" control). Guard against it with the controls below.
      --case number_to_string_assignment --strict --json
    ```
 
-7. **Tuning for efficiency.** The default `--timeout 45` suits a warm machine.
-   Reject-heavy batches finish quickly (early return). To speed accept-heavy
-   batches once warm, try `--timeout 40` and watch for accept-case timeouts;
-   raise it for slow/cold machines. A future efficiency win is to warm the VBE
-   compiler once per worker so a shorter watch window suffices.
+7. **Tuning.** The default `--timeout 45` suits a warm machine; raise it for
+   slow or cold machines. Accepted and rejected cases both end on a signal, so
+   a shorter timeout saves nothing on a healthy run.
 
 8. **A crash is not an accept.** Compiling some snippets crashes Excel. The
    watcher then sees no dialog, which used to be recorded as `accepted`. Before
@@ -175,9 +176,10 @@ The default fixture mode is `compile`. Compile fixtures insert the fixture
 source, show the disposable module in VBE, then invoke the exact
 `Compile <project-name>` VBE command bar control through COM. The worker does
 not use keyboard accelerators for compile invocation. A `Compile error:` dialog
-is treated as compile rejection. If no compile dialog appears before the popup
-watch period ends, the case is recorded as compile-accepted, but only if Excel
-is still running and answering COM calls. If Excel crashed, the case is a
+is treated as compile rejection. When the Compile command turns disabled with
+no dialog, or no compile dialog appears before the popup watch period ends, the
+case is recorded as compile-accepted, but only if Excel is still running and
+answering COM calls. If Excel crashed, the case is a
 `worker_error`.
 
 By default a fixture supplies one standard-module `source` string. For

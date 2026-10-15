@@ -45,6 +45,11 @@ public static class XlideVbeDialogWatcher {
     private const int SW_RESTORE = 9;
     private static Thread watcherThread;
     private static volatile bool stopRequested;
+    private static volatile bool dialogSeen;
+
+    public static bool DialogSeen {
+        get { return dialogSeen; }
+    }
 
     private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
@@ -120,6 +125,7 @@ public static class XlideVbeDialogWatcher {
         }
 
         stopRequested = false;
+        dialogSeen = false;
         watcherThread = new Thread(delegate() {
             Watch(excelProcessId, resultPath, stagePath, maxSeconds, holdSeconds);
         });
@@ -185,6 +191,7 @@ public static class XlideVbeDialogWatcher {
         while (!stopRequested && DateTime.UtcNow < deadline) {
             DialogInfo dialog = FindVbeDialog(excelProcessId);
             if (dialog != null) {
+                dialogSeen = true;
                 if (!String.IsNullOrEmpty(stagePath)) {
                     try {
                         string stage = dialog.Kind == "vbe_compile_dialog" ? "compile_dialog" : "vbe_dialog";
@@ -546,18 +553,6 @@ function Set-DialogOutcome($Dialog, [bool]$CompileOnly) {
     }
 }
 
-function Wait-ForDialogResult {
-    $deadline = [DateTime]::UtcNow.AddSeconds([Math]::Max(1, $DialogWatchSeconds))
-    while ([DateTime]::UtcNow -lt $deadline) {
-        $dialog = Read-DialogResult
-        if ($null -ne $dialog) {
-            return $dialog
-        }
-        Start-Sleep -Milliseconds 100
-    }
-    return $null
-}
-
 # No dialog only means accepted if Excel is still there to show one. When
 # Excel crashes, as compiling some snippets makes it do, the watcher sees no
 # dialog either.
@@ -571,6 +566,84 @@ function Assert-ExcelAlive($Excel, $ExcelPid) {
     catch {
         throw "Excel (pid $ExcelPid) did not answer a COM call after the $stage stage: $($_.Exception.Message)"
     }
+}
+
+# A dialog the watcher saw near the end of a wait is recorded by the time
+# Stop() has joined it, so look again before concluding there was none.
+function Resolve-DialogAfterStop($Dialog) {
+    if ($null -ne $Dialog) {
+        return $Dialog
+    }
+    $Dialog = Read-DialogResult
+    if ($null -eq $Dialog -and [XlideVbeDialogWatcher]::DialogSeen) {
+        throw "A VBE dialog appeared but was not dismissed and recorded."
+    }
+    return $Dialog
+}
+
+# Once the watcher has seen a dialog, its result is on the way: after any
+# --dialog-hold-seconds hold and up to 5 s of dismissing. A dialog that was
+# seen but never recorded must not count as no dialog.
+function Wait-ForSeenDialogResult {
+    $deadline = [DateTime]::UtcNow.AddSeconds($DialogHoldSeconds + 10)
+    $dialog = Read-DialogResult
+    while ($null -eq $dialog -and [DateTime]::UtcNow -lt $deadline) {
+        Start-Sleep -Milliseconds 100
+        $dialog = Read-DialogResult
+    }
+    if ($null -eq $dialog) {
+        throw "A VBE dialog appeared but was not dismissed and recorded."
+    }
+    return $dialog
+}
+
+# The Compile command is disabled once the project has compiled, and stays
+# enabled when compiling fails with an error dialog. A disabled command with no
+# dialog is the accept signal, so accepted cases don't wait out the window.
+function Wait-ForCompileResult($Control, $ExcelPid) {
+    $deadline = [DateTime]::UtcNow.AddSeconds([Math]::Max(1, $DialogWatchSeconds))
+    while ([DateTime]::UtcNow -lt $deadline) {
+        if ([XlideVbeDialogWatcher]::DialogSeen) {
+            return Wait-ForSeenDialogResult
+        }
+        # A crashed Excel answers $null here rather than throwing. A busy one
+        # can reject the read, so only a missing process ends the wait early.
+        $enabled = $null
+        try { $enabled = $Control.Enabled } catch { }
+        if ($enabled -isnot [bool]) {
+            if ($null -eq (Get-Process -Id $ExcelPid -ErrorAction SilentlyContinue)) {
+                return $null
+            }
+        }
+        elseif (-not $enabled) {
+            # Give a dialog that raced the read time to be seen, and make sure
+            # the command is still disabled rather than briefly so.
+            Start-Sleep -Milliseconds 300
+            if ([XlideVbeDialogWatcher]::DialogSeen) {
+                return Wait-ForSeenDialogResult
+            }
+            $enabled = $null
+            try { $enabled = $Control.Enabled } catch { }
+            if ($enabled -is [bool] -and -not $enabled) {
+                return $null
+            }
+        }
+        Start-Sleep -Milliseconds 50
+    }
+    return $null
+}
+
+# Excel.Run returns only after a dialog it raised has been dismissed, so the
+# watcher has normally seen it by then; 300 ms is a margin, not a wait.
+function Wait-ForRunDialogResult {
+    $deadline = [DateTime]::UtcNow.AddMilliseconds(300)
+    while (-not [XlideVbeDialogWatcher]::DialogSeen -and [DateTime]::UtcNow -lt $deadline) {
+        Start-Sleep -Milliseconds 20
+    }
+    if ([XlideVbeDialogWatcher]::DialogSeen) {
+        return Wait-ForSeenDialogResult
+    }
+    return $null
 }
 
 function ConvertTo-NormalizedCommandCaption($Caption) {
@@ -652,13 +725,13 @@ function Invoke-VbeCompileCommand($Excel) {
     }
     if ($null -ne $control) {
         $control.Execute()
-        return
+        return $control
     }
     foreach ($bar in @($vbe.CommandBars)) {
         $control = Find-VbeCommandControl $bar.Controls $caption
         if ($null -ne $control) {
             $control.Execute()
-            return
+            return $control
         }
     }
     throw "Could not find exact VBE command '$caption'. Oracle compile command was not invoked."
@@ -749,12 +822,13 @@ try {
 
         [XlideVbeDialogWatcher]::Start($excelPid, $DialogPath, $StagePath, $DialogWatchSeconds, $DialogHoldSeconds)
         try {
-            Invoke-VbeCompileCommand $excel
-            $dialog = Wait-ForDialogResult
+            $compileControl = Invoke-VbeCompileCommand $excel
+            $dialog = Wait-ForCompileResult $compileControl $excelPid
         }
         finally {
             [XlideVbeDialogWatcher]::Stop()
         }
+        $dialog = Resolve-DialogAfterStop $dialog
         if ($null -ne $dialog) {
             Set-DialogOutcome $dialog $true
         }
@@ -796,9 +870,10 @@ try {
             }
         }
         finally {
-            $dialog = Wait-ForDialogResult
+            $dialog = Wait-ForRunDialogResult
             [XlideVbeDialogWatcher]::Stop()
         }
+        $dialog = Resolve-DialogAfterStop $dialog
         if ($null -ne $dialog) {
             Set-DialogOutcome $dialog $false
         }
