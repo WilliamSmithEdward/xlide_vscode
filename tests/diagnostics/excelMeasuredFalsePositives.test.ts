@@ -198,3 +198,25 @@ describe('Excel-measured controls the rules still report', () => {
 		expect(codes.filter((code) => !reported.includes(code))).toEqual([]);
 	});
 });
+
+// A single-line If's branches are checked as statements of their own, once:
+// the If's own span is read only up to Then.
+describe('statement-type checks in a single-line If', () => {
+	const at = (line: string): string[] => analyzeVbaModuleSource({
+		source: `Option Explicit\nType T\n    a As Long\nEnd Type\nSub Main()\n    Dim t As T, v As Variant, a(1) As Long\n    ${line}\nEnd Sub\n`,
+		moduleName: 'Module1',
+		moduleKind: 'standard',
+		host: 'excel',
+	}).diagnostics.filter((d) => d.severity === 'error').map((d) => `${d.code}@${d.span.start}`);
+	it.each([
+		['If True Then v = t + 2', 1],
+		['If True Then v = t + 2 Else v = t * 2', 2],
+		['If True Then Debug.Print t', 1],
+		['If True Then Debug.Print Len(a(t))', 1],
+		['If t + 1 Then v = 1', 1],
+	])('%s reports each Type once', (line, count) => {
+		const codes = at(line as string);
+		expect(codes).toHaveLength(count as number);
+		expect(new Set(codes).size).toBe(codes.length);
+	});
+});

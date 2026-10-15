@@ -59,7 +59,7 @@ import {
 	isInactiveNode,
 	matchParenFrom,
 	rawExpressionTokens,
-	statementAndBranchSpans,
+	conditionAndBranchSpans,
 	statementTokens,
 	statementTokensAfterLeadingLabel,
 	tokenName,
@@ -245,8 +245,9 @@ function walkBody(
 			case 'Statement':
 			case 'Assignment':
 			case 'Call':
-				// A single-line If's branches are statements of their own.
-				for (const span of statementAndBranchSpans(node)) {
+				// A single-line If's branches are statements of their own, and
+				// its condition is read up to Then.
+				for (const span of conditionAndBranchSpans(ctx.source, node)) {
 					checkStatement(ctx, procSym, span);
 				}
 				break;
