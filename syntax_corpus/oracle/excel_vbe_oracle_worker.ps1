@@ -532,8 +532,11 @@ public static class XlideVbeDialogWatcher {
 }
 "@
 
+# Escaped to ASCII, so a dialog message with any character survives the
+# console code page on its way to the coordinator.
 function Write-ResultJson($Value) {
-    $Value | ConvertTo-Json -Depth 12 -Compress
+    $json = $Value | ConvertTo-Json -Depth 12 -Compress
+    return [regex]::Replace($json, '[^\x00-\x7F]', { param($m) '\u{0:x4}' -f [int][char]$m.Value })
 }
 
 function Remove-ComObjectReference($Value) {
@@ -554,7 +557,7 @@ function Read-DialogResult {
         return $null
     }
     try {
-        return Get-Content -LiteralPath $DialogPath -Raw | ConvertFrom-Json
+        return Get-Content -LiteralPath $DialogPath -Raw -Encoding UTF8 | ConvertFrom-Json
     }
     catch {
         return $null
@@ -845,7 +848,9 @@ function Set-OracleExcelSettings($excel) {
 }
 
 function Invoke-OracleCase {
-    $case = Get-Content -LiteralPath $CasePath -Raw | ConvertFrom-Json
+    # The coordinator writes the case as UTF-8; Windows PowerShell would
+    # otherwise read it in the ANSI code page and garble non-ASCII source.
+    $case = Get-Content -LiteralPath $CasePath -Raw -Encoding UTF8 | ConvertFrom-Json
     $excel = $null
     $excelPid = 0
     $workbook = $null
@@ -967,6 +972,18 @@ function Invoke-OracleCase {
                         break
                     }
                     catch {
+                        # The macro ran, but its returned Date lies beyond what
+                        # .NET can hold, so only reading the return value failed.
+                        # This one exact error counts as a return; any other
+                        # stays an error.
+                        $returnError = $_.Exception.InnerException
+                        if ($_.Exception -is [System.Management.Automation.MethodInvocationException] -and
+                            $null -ne $returnError -and
+                            $returnError.GetType() -eq [System.ArgumentException] -and
+                            $returnError.Message -ceq "Not a legal OleAut date.") {
+                            $lastError = $null
+                            break
+                        }
                         $lastError = $_
                         if ($_.Exception.Message -notmatch "Cannot run the macro") {
                             throw
