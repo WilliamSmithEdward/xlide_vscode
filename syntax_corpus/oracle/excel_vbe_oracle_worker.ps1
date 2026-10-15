@@ -31,6 +31,7 @@ $ErrorActionPreference = "Stop"
 Add-Type @"
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -127,6 +128,13 @@ public static class XlideVbeDialogWatcher {
     private static extern uint GetCurrentThreadId();
 
     public static void Start(uint excelProcessId, string resultPath, string stagePath, int maxSeconds, int holdSeconds) {
+        Start(excelProcessId, resultPath, stagePath, maxSeconds, holdSeconds, false);
+    }
+
+    // With endExcelOnCompileError, a compile-error dialog ends Excel once it
+    // has been recorded. Excel.Run does not return after a compile error is
+    // dismissed, so a run case would otherwise wait for the timeout.
+    public static void Start(uint excelProcessId, string resultPath, string stagePath, int maxSeconds, int holdSeconds, bool endExcelOnCompileError) {
         Stop();
         if (excelProcessId == 0 || String.IsNullOrEmpty(resultPath)) {
             return;
@@ -135,7 +143,7 @@ public static class XlideVbeDialogWatcher {
         stopRequested = false;
         dialogSeen = false;
         watcherThread = new Thread(delegate() {
-            Watch(excelProcessId, resultPath, stagePath, maxSeconds, holdSeconds);
+            Watch(excelProcessId, resultPath, stagePath, maxSeconds, holdSeconds, endExcelOnCompileError);
         });
         watcherThread.IsBackground = true;
         watcherThread.Start();
@@ -194,7 +202,7 @@ public static class XlideVbeDialogWatcher {
         return GetForegroundWindow() == hWnd;
     }
 
-    private static void Watch(uint excelProcessId, string resultPath, string stagePath, int maxSeconds, int holdSeconds) {
+    private static void Watch(uint excelProcessId, string resultPath, string stagePath, int maxSeconds, int holdSeconds, bool endExcelOnCompileError) {
         DateTime deadline = DateTime.UtcNow.AddSeconds(Math.Max(1, maxSeconds));
         while (!stopRequested && DateTime.UtcNow < deadline) {
             DialogInfo dialog = FindVbeDialog(excelProcessId);
@@ -211,10 +219,23 @@ public static class XlideVbeDialogWatcher {
                 HoldDialogForInspection(dialog.Handle, holdSeconds);
                 if (DismissDialog(dialog.Handle)) {
                     WriteDialogResult(resultPath, dialog);
+                    if (endExcelOnCompileError && dialog.Kind == "vbe_compile_dialog") {
+                        EndProcess(excelProcessId);
+                    }
                     return;
                 }
             }
             Thread.Sleep(100);
+        }
+    }
+
+    private static void EndProcess(uint processId) {
+        try {
+            using (Process process = Process.GetProcessById((int)processId)) {
+                process.Kill();
+            }
+        }
+        catch {
         }
     }
 
@@ -930,7 +951,7 @@ function Invoke-OracleCase {
                 $entryPoint
             )
             $lastError = $null
-            [XlideVbeDialogWatcher]::Start($excelPid, $DialogPath, $StagePath, $DialogWatchSeconds, $DialogHoldSeconds)
+            [XlideVbeDialogWatcher]::Start($excelPid, $DialogPath, $StagePath, $DialogWatchSeconds, $DialogHoldSeconds, $true)
             try {
                 foreach ($macro in $macroNames) {
                     try {

@@ -45,6 +45,17 @@ function expectedMatches(expected, outcome) {
         || expected === 'observe' || expected === outcome;
 }
 
+// A rejection also has to come from the phase the fixture claims: a runtime
+// fixture whose source does not compile proves nothing about the runtime.
+function phaseMatches(kase, result) {
+    const declared = String(kase.evidencePhase ?? '');
+    if (String(kase.expected) !== 'rejected' || String(result.outcome) !== 'rejected'
+        || (declared !== 'compile' && declared !== 'runtime')) {
+        return true;
+    }
+    return evidencePhaseForResult(kase, result) === declared;
+}
+
 function isOracleInfrastructureFailure(outcome) {
     return !EVIDENCE_OUTCOMES.has(outcome);
 }
@@ -58,6 +69,8 @@ function evidencePhaseForResult(kase, result) {
     if (resultPhase === 'compile' || resultPhase === 'runtime') { return resultPhase; }
     const stage = String(result.stage ?? '');
     if (stage === 'run' || stage === 'runtime_dialog') { return 'runtime'; }
+    // A run that stops at a compile error is compile evidence.
+    if (stage === 'compile_dialog') { return 'compile'; }
     return evidencePhaseForCase(kase);
 }
 
@@ -355,15 +368,15 @@ async function runCaseAttempt(worker, kase, timeoutSeconds, dialogHoldSeconds) {
     runResult.probeMode = 'compile_then_run';
     runResult.compileResult = { outcome: compileResult.outcome, stage: compileResult.stage };
     if (EVIDENCE_OUTCOMES.has(String(runResult.outcome))) {
-        runResult.evidencePhase = 'runtime';
+        runResult.evidencePhase = evidencePhaseForResult({ ...kase, mode: 'run' }, runResult);
     }
     return runResult;
 }
 
 async function runCaseWithRetries(worker, kase, timeoutSeconds, timeoutRetries, dialogHoldSeconds) {
-    const attempts = Math.max(1, timeoutRetries + 1);
+    const maxAttempts = Math.max(1, timeoutRetries + 1);
     const timeoutResults = [];
-    for (let attempt = 1; attempt <= attempts; attempt++) {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         const holdSeconds = attempt === 1 ? dialogHoldSeconds : 0;
         const result = await runCaseAttempt(worker, kase, timeoutSeconds, holdSeconds);
         result.attempt = attempt;
@@ -375,7 +388,12 @@ async function runCaseWithRetries(worker, kase, timeoutSeconds, timeoutRetries, 
             return result;
         }
         timeoutResults.push(result);
+        // A timeout still behind a compile-error dialog means the dialog could
+        // not be dismissed (a run case's Excel is ended at one); another
+        // attempt would meet the same dialog.
+        if (result.stage === 'compile_dialog') { break; }
     }
+    const attempts = timeoutResults.length;
     const last = timeoutResults.at(-1);
     return {
         caseId: kase.id,
@@ -500,7 +518,8 @@ async function main(argv) {
             );
             const expected = String(kase.expected ?? 'observe');
             result.expected = expected;
-            result.matched = expectedMatches(expected, String(result.outcome ?? ''));
+            result.matched = expectedMatches(expected, String(result.outcome ?? ''))
+                && phaseMatches(kase, result);
             result.description = kase.description ?? '';
             const outcome = String(result.outcome ?? '');
             if (isOracleInfrastructureFailure(outcome)) {
