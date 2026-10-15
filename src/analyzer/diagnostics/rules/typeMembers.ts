@@ -192,7 +192,7 @@ function fieldUseMisuse(
 	const operatorBefore = before !== undefined && VALUE_OPERATORS.has(word(before)) && start - 1 !== assignAt;
 	const operatorAfter = after !== undefined && VALUE_OPERATORS.has(word(after)) && !target && end + 1 !== assignAt;
 	if (operatorBefore || operatorAfter) {
-		if ((kind === 'array' || kind === 'udt') && !uncheckedAggregateOperators(toks, start - 1, operatorBefore, end + 1, operatorAfter, kind === 'udt')) {
+		if ((kind === 'array' || kind === 'udt') && !uncheckedAggregateOperators(toks, start - 1, operatorBefore, end + 1, operatorAfter)) {
 			return { rule: 'nonScalarBinaryOperand', message: `The '${(operatorAfter ? after : before)!.rawText}' operator requires a scalar operand, but '${shown}' is ${kind === 'array' ? 'an array' : `a ${declared}`}. This is a VBE compile error: Type mismatch.`, span: at };
 		}
 		if (kind === 'object' && normalizeType(step.field.type) === 'collection') {
@@ -506,11 +506,11 @@ function depthAt(toks: readonly VbaToken[], from: number, index: number): number
 
 /**
  * The operators the VBE does not type-check against an array or a Type at
- * compile: `^` on either side, `Not` before, and before a Type a unary
- * minus. `t ^ 2`, `a ^ 2`, `Not t`, `Not a` and `-t` compile; `^` on a Type
- * raises 51 and Not runs (measured in Excel 16.0), where `-a`, `1 - t` and
- * `t + 1` are Type mismatch. True when every operator beside the operand is
- * one of these.
+ * compile: `^` on either side, and `Not` before. `t ^ 2`, `a ^ 2`, `Not t`
+ * and `Not a` compile; `^` on a Type raises 51 and Not runs (measured in
+ * Excel 16.0), where `-a` and `t + 1` are Type mismatch. Compiling `-t`
+ * stops Excel itself, so it stays reported. True when every operator beside
+ * the operand is one of these.
  */
 export function uncheckedAggregateOperators(
 	toks: readonly VbaToken[],
@@ -518,7 +518,6 @@ export function uncheckedAggregateOperators(
 	hasBefore: boolean,
 	afterIndex: number,
 	hasAfter: boolean,
-	udt = false,
 ): boolean {
 	const unchecked = (index: number, side: 'before' | 'after'): boolean => {
 		const tok = toks[index];
@@ -527,13 +526,6 @@ export function uncheckedAggregateOperators(
 		}
 		if (side === 'after') {
 			return false;
-		}
-		if (udt && tok?.rawText === '-') {
-			// Unary when no operand ends just before it.
-			const prior = toks[index - 1];
-			return prior === undefined || prior.rawText === '(' || prior.rawText === ','
-				|| (prior.kind !== 'identifier' && prior.kind !== 'bracketedIdentifier' && !/Literal$/.test(prior.kind) && prior.rawText !== ')'
-					&& !['me', 'true', 'false', 'nothing', 'empty', 'null'].includes(tokenText(prior) ?? ''));
 		}
 		return tokenText(tok) === 'not';
 	};

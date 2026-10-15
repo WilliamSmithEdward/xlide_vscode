@@ -4583,8 +4583,7 @@
         "print_udt_array_index_in_call_compile",
         "print_udt_array_index_single_line_if_compile",
         "print_udt_field_array_index_compile",
-        "print_udt_collection_item_argument_compile",
-        "udt_unary_minus_compile"
+        "print_udt_collection_item_argument_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -5362,8 +5361,7 @@
         "udt_field_power_compile",
         "udt_plus_compile",
         "array_unary_minus_compile",
-        "udt_binary_minus_compile",
-        "udt_unary_minus_compile"
+        "udt_binary_minus_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],

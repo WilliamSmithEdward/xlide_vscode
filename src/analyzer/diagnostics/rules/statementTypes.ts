@@ -555,7 +555,7 @@ function checkStatement(ctx: Context, procSym: VbaSymbol | undefined, span: Span
 		const after = toks[i + 1];
 		const operatorBefore = !!before && i - 1 !== assignmentEq && isOperator(before);
 		const operatorAfter = !!after && i + 1 !== assignmentEq && isOperator(after);
-		if ((operatorBefore || operatorAfter) && !uncheckedAggregateOperators(toks, i - 1, operatorBefore, i + 1, operatorAfter, true)) {
+		if ((operatorBefore || operatorAfter) && !uncheckedAggregateOperators(toks, i - 1, operatorBefore, i + 1, operatorAfter)) {
 			udtMismatch(ctx, name, at(i));
 		}
 	}

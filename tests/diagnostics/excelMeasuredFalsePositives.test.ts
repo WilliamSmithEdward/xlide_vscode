@@ -125,7 +125,6 @@ const COMPILED_OR_RAN: ReadonlyArray<[string, readonly string[]]> = [
 	['label_line_number_and_dollar_runtime', ['undeclared-variable', 'undefined-label']],
 	['document_type_sheet_worksheet_runtime', ['assignment-object-type-mismatch']],
 	['str_null_into_variant_runtime', ['assignment-type-mismatch']],
-	['udt_unary_minus_compile', ['non-scalar-binary-operand', 'udt-value-mismatch']],
 	['optional_object_default_string_expression_runtime', ['parameter-default-not-constant', 'parameter-default-type-mismatch']],
 	['line_number_then_label_caret_compile', ['invalid-expression-syntax', 'undefined-label']],
 	['line_number_then_label_hash_compile', ['invalid-expression-syntax', 'undefined-label']],

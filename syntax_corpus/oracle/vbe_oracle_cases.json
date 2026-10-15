@@ -117055,16 +117055,6 @@
       "diagnosticMeaning": "runtime-valid"
     },
     {
-      "id": "udt_unary_minus_compile",
-      "description": "v = -t with t a Type compiles (running it stopped Excel) (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
-      "provenance": "vbe-oracle-verified",
-      "expected": "accepted",
-      "mode": "compile",
-      "source": "Option Explicit\r\nType T\r\n    a As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t As T\r\n    Dim v As Variant\r\n    If False Then v = -t\r\nEnd Sub\r\n",
-      "evidencePhase": "compile",
-      "diagnosticMeaning": "compile-valid"
-    },
-    {
       "id": "optional_object_default_array_call_compile",
       "description": "Optional x As Object = Array(1): Constant expression required (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
       "provenance": "vbe-oracle-verified",
