@@ -76,7 +76,7 @@ import {
 	typeEnvironmentFor,
 } from '../typeInference';
 import { isInvalidBooleanString, isInvalidDateString } from '../stringConversion';
-import { isBareOrVbaQualifiedIntrinsicCall } from './shared';
+import { isBareOrVbaQualifiedIntrinsicCall, isLineLabelOnlyStatement } from './shared';
 import {
 	elementOperandEndingAt,
 	elementsWrittenIn,
@@ -295,6 +295,11 @@ export function checkInvalidExpressionSyntax(
 		const env = typeEnvironmentFor(symbols, member);
 		const procSym = procedureSymbolFor(symbols, member);
 		return (stmt) => {
+			// `L1^:` is the label L1 with a type character, not a `^` (measured
+			// in Excel 16.0).
+			if (isLineLabelOnlyStatement(source, stmt.span, statementTokens(source, stmt.span))) {
+				return;
+			}
 			const incompleteMember = incompleteMemberAccess(source, stmt.span, {
 				scalarTypes: env,
 				resolveScalarType: (name) => declaredTypeForSourceBinding(
@@ -1208,7 +1213,10 @@ export function checkStringArithmeticOperands(
 					}
 				}
 			}
-			scanOperators(stmt.span.start, toks, bare ? toks.findIndex((tok) => tok.rawText === '=') : -1, branchAssigns);
+			// `LSet s = 2` and `RSet s = n` store too: the `=` compares nothing
+			// (measured in Excel 16.0).
+			const copies = tokenText(toks[0]) === 'lset' || tokenText(toks[0]) === 'rset';
+			scanOperators(stmt.span.start, toks, bare || copies ? toks.findIndex((tok) => tok.rawText === '=') : -1, branchAssigns);
 		};
 	};
 }

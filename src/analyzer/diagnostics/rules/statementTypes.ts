@@ -42,6 +42,7 @@
 //  - udt-variant-coercion: a user-defined type passed to a method of a
 //    Collection, an Object or a Variant, `c.Add t`, `o.Add t`.
 
+import { uncheckedAggregateOperators } from './typeMembers';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type { BodyNode, ModuleNode, ProcedureNode, Span } from '../../parser/nodes';
@@ -415,6 +416,16 @@ function checkStatement(ctx: Context, procSym: VbaSymbol | undefined, span: Span
 	const at = (i: number): Span => absoluteSpan(span, toks[i]);
 
 	if (first === 'set') {
+		// Me always names this object: it can be a value, and a Let reaches its
+		// default member, but nothing can Set it (measured in Excel 16.0).
+		if (tokenText(toks[1]) === 'me' && toks[2]?.rawText === '=') {
+			ctx.push(
+				'invalidAssignmentTarget',
+				`'Me' always refers to this object and cannot be Set to another. This is a VBE compile error: Invalid use of Me keyword.`,
+				at(1),
+			);
+			return;
+		}
 		const name = udtAt(1);
 		if (name && toks[2]?.rawText === '=') {
 			ctx.push(
@@ -426,9 +437,27 @@ function checkStatement(ctx: Context, procSym: VbaSymbol | undefined, span: Span
 		return;
 	}
 	if (first === 'debug' && toks[1]?.rawText === '.' && tokenText(toks[2]) === 'print') {
+		// The open parentheses around each token, by whether they hold the
+		// arguments of a call. A Type is a value to Print, and so inside
+		// grouping parentheses and as an array index, but an argument passes
+		// by reference: `Debug.Print Len(t)`, `LenB(t)` and a user Function
+		// taking the Type compile (measured in Excel 16.0).
+		const opens: boolean[] = [];
 		for (let i = 3; i < toks.length; i++) {
+			const raw = toks[i].rawText;
+			if (raw === '(') {
+				const before = toks[i - 1];
+				const callee = i - 1 > 2 && before !== undefined ? tokenName(before) : undefined;
+				opens.push(before?.rawText === ')'
+					|| (callee !== undefined && !(toks[i - 2]?.rawText !== '.' && variableNamed(ctx, procSym, callee)?.isArray)));
+				continue;
+			}
+			if (raw === ')') {
+				opens.pop();
+				continue;
+			}
 			const name = udtAt(i);
-			if (name && isArgumentBoundary(toks[i - 1]) && isArgumentBoundary(toks[i + 1])) {
+			if (name && !opens.includes(true) && isArgumentBoundary(toks[i - 1]) && isArgumentBoundary(toks[i + 1])) {
 				udtMismatch(ctx, name, at(i));
 			}
 		}
@@ -501,9 +530,9 @@ function checkStatement(ctx: Context, procSym: VbaSymbol | undefined, span: Span
 		}
 		const before = toks[i - 1];
 		const after = toks[i + 1];
-		const operatorBefore = before && i - 1 !== assignmentEq && isOperator(before);
-		const operatorAfter = after && i + 1 !== assignmentEq && isOperator(after);
-		if (operatorBefore || operatorAfter) {
+		const operatorBefore = !!before && i - 1 !== assignmentEq && isOperator(before);
+		const operatorAfter = !!after && i + 1 !== assignmentEq && isOperator(after);
+		if ((operatorBefore || operatorAfter) && !uncheckedAggregateOperators(toks, i - 1, operatorBefore, i + 1, operatorAfter)) {
 			udtMismatch(ctx, name, at(i));
 		}
 	}
@@ -758,6 +787,10 @@ function checkTypeSuffixes(ctx: Context, procSym: VbaSymbol | undefined, toks: r
 		// `rs!Field` is a member, not a suffix.
 		const after = toks[i + 2];
 		if (after && after.start === suffixTok.end && (tokenName(after) || after.kind === 'integerLiteral')) {
+			continue;
+		}
+		// `L1$:` alone at the start of its statement is a label, not the variable.
+		if (i === 0 && (toks.length === 2 || toks[2]?.kind === 'colon') && /^\s*:/.test(ctx.source.slice(span.start + suffixTok.end))) {
 			continue;
 		}
 		const variable = variableNamed(ctx, procSym, name);

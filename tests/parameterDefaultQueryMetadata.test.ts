@@ -16,7 +16,12 @@ function run(rule: keyof typeof rules, source: string, classes: VbaProjectClassM
 function sourceFor(types: string[]) {
 	return types.map((type, i) => `Sub P${i}(Optional actor As ${type} = 0, Optional n As Long = Factory())\nEnd Sub\n`).join('');
 }
+// An object parameter takes any constant default, `= 0` included (measured
+// in Excel 16.0), so only the non-constant default is reported.
 function expected(rule: keyof typeof rules, source: string, types: string[]) {
+	if (rule === 'checkParameterDefaultValues') {
+		return [];
+	}
 	let from = 0;
 	return types.map(type => {
 		const needle = rule === 'checkParameterDefaultValues' ? '= 0' : 'Factory()', index = source.indexOf(needle, from);

@@ -284,6 +284,8 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	fn('Hex$', 'Hex$(Number) As String', 'String', NULL_RAISES_PARAM('Number')),
 	// Oct(Null) gives Null back (issue #332, measured in Excel 16.0).
 	fn('Oct', 'Oct(Number) As String', 'String'),
+	// Oct$(Null) raises 94, as Hex$ does (measured in Excel 16.0).
+	fn('Oct$', 'Oct$(Number) As String', 'String', NULL_RAISES_PARAM('Number')),
 
 	// CVDate is the legacy conversion function the type-conversion reference
 	// still documents beside CDate.
@@ -370,7 +372,8 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 
 	// -- Additional string functions ---------------------------------------
 	fn('StrReverse', 'StrReverse(Expression) As String', 'String', NULL_RAISES_PARAM('Expression')),
-	fn('Str', 'Str(Number) As String', 'String', NULL_RAISES_PARAM('Number')),
+	// Str(Null) gives Null back; only Str$(Null) raises 94 (measured in Excel 16.0).
+	fn('Str', 'Str(Number) As String', 'String'),
 	fn('Str$', 'Str$(Number) As String', 'String', NULL_RAISES_PARAM('Number')),
 	fn('Filter', 'Filter(SourceArray, Match, [Include As Boolean = True], [Compare As VbCompareMethod = vbBinaryCompare]) As String()', 'String()'),
 	fn('FormatCurrency', 'FormatCurrency(Expression, [NumDigitsAfterDecimal = -1], [IncludeLeadingDigit As VbTriState = vbUseDefault], [UseParensForNegativeNumbers As VbTriState = vbUseDefault], [GroupDigits As VbTriState = vbUseDefault]) As String', 'String'),

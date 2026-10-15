@@ -211,7 +211,10 @@ export function checkMemberNotFound(
 				memberCtx,
 			);
 			const hasMember = surface?.hasMember(ref.member) === true;
-			if (!surface?.exhaustive || hasMember) {
+			// The compiler binds Err's members late: `Err.Nope` compiles, and
+			// raises 438 when it runs (measured in Excel 16.0).
+			const lateBound = surface?.owner.toLowerCase() === 'err';
+			if (!surface?.exhaustive || hasMember || lateBound) {
 				const form = projectMemberFormProblem(source, ref, memberCtx);
 				if (form) {
 					push('argumentCount', form, ref.memberSpan);
@@ -733,6 +736,10 @@ export function checkUndeclaredVariables(
 		const lower = name.toLowerCase();
 		return (
 			lower === 'vba' ||
+			// `Me = 1` in an object module assigns Me's default member: it
+			// compiles, and raises 438 only if there is none (measured in
+			// Excel 16.0). In a standard module Me has its own rule.
+			(lower === 'me' && moduleKind !== undefined && moduleKind !== 'standard') ||
 			libraryQualifiers.has(lower) ||
 			redimDeclared.has(lower) ||
 			// A UserForm's controls are members the designer declared, not the

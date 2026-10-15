@@ -658,6 +658,14 @@ class Parser {
 		if (head === 'dim' || head === 'const') {
 			i++;
 		}
+		// `Dim Shared a As Long`, and Private, Public or Global Shared at module
+		// level, compile, Shared a leftover of older Basic that changes
+		// nothing; `Static Shared`, `Dim Shared As Long` and `Private Shared
+		// WithEvents` are errors (measured in Excel 16.0).
+		if (!isConst && ['Dim', 'Private', 'Public', 'Global'].includes(modifier) && tokenWord(tokens[i]) === 'shared'
+			&& tokens[i + 1] && tokenWord(tokens[i + 1]) !== 'as' && tokenWord(tokens[i + 1]) !== 'withevents') {
+			i++;
+		}
 		let withEvents = false;
 		if (tokenWord(tokens[i]) === 'withevents') {
 			withEvents = true;

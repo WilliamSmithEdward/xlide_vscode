@@ -115256,6 +115256,1600 @@
       "source": "#Const O = Nothing\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "print_udt_len_argument_runtime",
+      "description": "Debug.Print Len(t) with t a Type compiles and runs: Len takes the Type by reference (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nType T\r\n    a As Long\r\nEnd Type\r\nSub TakeT(x As T)\r\nEnd Sub\r\nFunction RetLen(x As T) As Long\r\n    RetLen = Len(x)\r\nEnd Function\r\nSub Main()\r\n    Dim v As T\r\n    Debug.Print Len(v)\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "print_udt_lenb_argument_runtime",
+      "description": "Debug.Print LenB(t) with t a Type compiles and runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nType T\r\n    a As Long\r\nEnd Type\r\nSub TakeT(x As T)\r\nEnd Sub\r\nFunction RetLen(x As T) As Long\r\n    RetLen = Len(x)\r\nEnd Function\r\nSub Main()\r\n    Dim v As T\r\n    Debug.Print LenB(v)\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "print_udt_len_second_argument_runtime",
+      "description": "Debug.Print 1, Len(t) with t a Type compiles and runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nType T\r\n    a As Long\r\nEnd Type\r\nSub TakeT(x As T)\r\nEnd Sub\r\nFunction RetLen(x As T) As Long\r\n    RetLen = Len(x)\r\nEnd Function\r\nSub Main()\r\n    Dim v As T\r\n    Debug.Print 1, Len(v)\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "print_udt_user_function_argument_runtime",
+      "description": "Debug.Print F(t), F taking the Type ByRef, compiles and runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nType T\r\n    a As Long\r\nEnd Type\r\nSub TakeT(x As T)\r\nEnd Sub\r\nFunction RetLen(x As T) As Long\r\n    RetLen = Len(x)\r\nEnd Function\r\nSub Main()\r\n    Dim v As T\r\n    Debug.Print RetLen(v)\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "print_udt_varptr_argument_runtime",
+      "description": "Debug.Print VarPtr(t) <> 0 with t a Type compiles and runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nType T\r\n    a As Long\r\nEnd Type\r\nSub TakeT(x As T)\r\nEnd Sub\r\nFunction RetLen(x As T) As Long\r\n    RetLen = Len(x)\r\nEnd Function\r\nSub Main()\r\n    Dim v As T\r\n    Debug.Print VarPtr(v) <> 0\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "print_udt_len_plus_runtime",
+      "description": "Debug.Print Len(t) + 1 with t a Type compiles and runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nType T\r\n    a As Long\r\nEnd Type\r\nSub TakeT(x As T)\r\nEnd Sub\r\nFunction RetLen(x As T) As Long\r\n    RetLen = Len(x)\r\nEnd Function\r\nSub Main()\r\n    Dim v As T\r\n    Debug.Print Len(v) + 1\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "print_udt_grouped_len_runtime",
+      "description": "Debug.Print (Len(t)) with t a Type compiles and runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nType T\r\n    a As Long\r\nEnd Type\r\nSub TakeT(x As T)\r\nEnd Sub\r\nFunction RetLen(x As T) As Long\r\n    RetLen = Len(x)\r\nEnd Function\r\nSub Main()\r\n    Dim v As T\r\n    Debug.Print (Len(v))\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "print_udt_len_of_grouped_runtime",
+      "description": "Debug.Print Len((t)) with t a Type compiles and runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nType T\r\n    a As Long\r\nEnd Type\r\nSub TakeT(x As T)\r\nEnd Sub\r\nFunction RetLen(x As T) As Long\r\n    RetLen = Len(x)\r\nEnd Function\r\nSub Main()\r\n    Dim v As T\r\n    Debug.Print Len((v))\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "print_udt_grouped_compile",
+      "description": "Debug.Print (t) with t a Type: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nType T\r\n    a As Long\r\nEnd Type\r\nSub TakeT(x As T)\r\nEnd Sub\r\nFunction RetLen(x As T) As Long\r\n    RetLen = Len(x)\r\nEnd Function\r\nSub Main()\r\n    Dim v As T\r\n    Debug.Print (v)\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "print_udt_bare_compile",
+      "description": "Debug.Print t with t a Type: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nType T\r\n    a As Long\r\nEnd Type\r\nSub TakeT(x As T)\r\nEnd Sub\r\nFunction RetLen(x As T) As Long\r\n    RetLen = Len(x)\r\nEnd Function\r\nSub Main()\r\n    Dim v As T\r\n    Debug.Print v\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "print_udt_as_array_index_compile",
+      "description": "Debug.Print arr(t), a Type as an array index: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nType T\r\n    a As Long\r\nEnd Type\r\nSub TakeT(x As T)\r\nEnd Sub\r\nFunction RetLen(x As T) As Long\r\n    RetLen = Len(x)\r\nEnd Function\r\nSub Main()\r\n    Dim v As T\r\n    Dim arr(1) As Long\r\n    Debug.Print arr(v)\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "optional_collection_default_number_runtime",
+      "description": "Optional c As Collection = 5 compiles, and a call that leaves it out runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Foo(Optional ByVal x As Collection = 5)\r\nEnd Sub\r\nSub Main()\r\n    Foo\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "optional_object_default_number_runtime",
+      "description": "Optional o As Object = 1 compiles, and a call that leaves it out runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Foo(Optional ByVal x As Object = 1)\r\nEnd Sub\r\nSub Main()\r\n    Foo\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "optional_object_default_string_runtime",
+      "description": "Optional o As Object = \"a\" compiles and runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Foo(Optional ByVal x As Object = \"a\")\r\nEnd Sub\r\nSub Main()\r\n    Foo\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "optional_range_default_zero_runtime",
+      "description": "Optional r As Range = 0 compiles and runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Foo(Optional ByVal x As Range = 0)\r\nEnd Sub\r\nSub Main()\r\n    Foo\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "optional_collection_default_true_runtime",
+      "description": "Optional c As Collection = True compiles and runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Foo(Optional x As Collection = True)\r\nEnd Sub\r\nSub Main()\r\n    Foo\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "optional_collection_default_date_runtime",
+      "description": "Optional c As Collection = #1/1/2020# compiles and runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Foo(Optional x As Collection = #1/1/2020#)\r\nEnd Sub\r\nSub Main()\r\n    Foo\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "optional_collection_default_null_runtime",
+      "description": "Optional c As Collection = Null compiles and runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Foo(Optional x As Collection = Null)\r\nEnd Sub\r\nSub Main()\r\n    Foo\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "optional_class_default_number_runtime",
+      "description": "Optional c As Class1 = 5 compiles and runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Foo(Optional x As Class1 = 5)\r\nEnd Sub\r\nSub Main()\r\n    Foo\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "type_named_range_shadows_excel_runtime",
+      "description": "Type Range in the module makes Dim v As Range a value: v.a = 1 runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nType Range\r\n    a As Long\r\nEnd Type\r\nSub Main()\r\n    Dim v As Range\r\n    v.a = 1\r\n    Debug.Print v.a\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "type_named_worksheet_shadows_excel_runtime",
+      "description": "Type Worksheet in the module makes Dim v As Worksheet a value (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nType Worksheet\r\n    a As Long\r\nEnd Type\r\nSub Main()\r\n    Dim v As Worksheet\r\n    v.a = 2\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "public_type_named_range_other_module_runtime",
+      "description": "Public Type Range in another module shadows Excel.Range (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Range\r\n    v.a = 1\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Type Range\r\n    a As Long\r\nEnd Type\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "enum_named_range_shadows_excel_runtime",
+      "description": "Enum Range makes Dim v As Range a Long (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nEnum Range\r\n    a = 1\r\nEnd Enum\r\nSub Main()\r\n    Dim v As Range\r\n    v = 5\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "type_named_range_excel_qualified_runtime",
+      "description": "Excel.Range still names the library class beside Type Range (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nType Range\r\n    a As Long\r\nEnd Type\r\nSub Main()\r\n    Dim v As Excel.Range\r\n    Set v = Sheet1.Range(\"A1\")\r\n    Debug.Print v.Address\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": ""
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "private_type_named_range_other_module_runtime",
+      "description": "A Private Type Range in another module leaves Range the Excel class (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Range\r\n    Set v = Sheet1.Range(\"A1\")\r\n    Debug.Print v.Address\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate Type Range\r\n    a As Long\r\nEnd Type\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": ""
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "type_named_range_set_compile",
+      "description": "Set v = Nothing with v As a Type named Range: Object required (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nType Range\r\n    a As Long\r\nEnd Type\r\nSub Main()\r\n    Dim v As Range\r\n    Set v = Nothing\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "thisworkbook_type_set_activeworkbook_runtime",
+      "description": "Dim a As ThisWorkbook: Set a = ActiveWorkbook runs while it is the active workbook (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim a As ThisWorkbook\r\n    Set a = ActiveWorkbook\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "thisworkbook_type_member_runtime",
+      "description": "Dim a As ThisWorkbook: Set a = ThisWorkbook, then a.Name runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim a As ThisWorkbook\r\n    Set a = ThisWorkbook\r\n    Debug.Print a.Name\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "thisworkbook_type_parameter_runtime",
+      "description": "A parameter As ThisWorkbook takes ThisWorkbook (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Foo(w As ThisWorkbook)\r\nEnd Sub\r\nSub Main()\r\n    Foo ThisWorkbook\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "dim_shared_local_runtime",
+      "description": "Dim Shared a As Long in a procedure compiles and a is a Long (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim Shared a As Long\r\n    a = 3\r\n    Debug.Print a\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "dim_shared_two_names_runtime",
+      "description": "Dim Shared a As Long, b As String compiles (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim Shared a As Long, b As String\r\n    b = \"x\"\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "dim_shared_module_runtime",
+      "description": "Dim Shared g As Long at module level compiles (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nDim Shared g As Long\r\nSub Main()\r\n    g = 1\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "private_shared_module_runtime",
+      "description": "Private Shared g As Long compiles (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Shared g As Long\r\nSub Main()\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "dim_shared_array_runtime",
+      "description": "Dim Shared a(3) As Long compiles (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim Shared a(3) As Long\r\n    a(1) = 1\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "dim_shared_new_runtime",
+      "description": "Dim Shared c As New Collection compiles (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim Shared c As New Collection\r\n    c.Add 1\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "public_shared_module_runtime",
+      "description": "Public Shared g As Long compiles (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPublic Shared g As Long\r\nSub Main()\r\n    g = 1\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "global_shared_module_runtime",
+      "description": "Global Shared g As Long compiles (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nGlobal Shared g As Long\r\nSub Main()\r\n    g = 1\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "dim_shared_dynamic_array_runtime",
+      "description": "Dim Shared a() As Long, then ReDim a(2), runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim Shared a() As Long\r\n    ReDim a(2)\r\n    a(1) = 1\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "static_shared_compile",
+      "description": "Static Shared a As Long: Syntax error (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Static Shared a As Long\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "dim_shared_as_type_compile",
+      "description": "Dim Shared As Long: Syntax error (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim Shared As Long\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "erase_two_arrays_empty_parentheses_runtime",
+      "description": "Erase a(), b() compiles and runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long, b() As Long\r\n    Erase a(), b()\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "erase_empty_parentheses_dynamic_runtime",
+      "description": "Erase a() on a dynamic array runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(2)\r\n    Erase a()\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "erase_type_field_empty_parentheses_runtime",
+      "description": "Erase t.f() on a Type field array runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nType T\r\n    f() As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t1 As T\r\n    Erase t1.f()\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "label_dollar_goto_runtime",
+      "description": "GoTo L1 reaches the label written L1$: (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Main()\r\n    GoTo L1\r\nL1$:\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "label_dollar_goto_dollar_runtime",
+      "description": "GoTo L1$ reaches L1$: (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Main()\r\n    GoTo L1$\r\nL1$:\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "label_percent_runtime",
+      "description": "L1%: is a label (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Main()\r\nL1%:\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "label_hash_runtime",
+      "description": "L1#: is a label (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Main()\r\nL1#:\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "label_dollar_then_long_variable_runtime",
+      "description": "L1$: then Dim L1 As Long compiles (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Main()\r\nL1$:\r\n    Dim L1 As Long\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "label_ampersand_runtime",
+      "description": "GoTo L1 reaches L1&: (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Main()\r\n    GoTo L1\r\nL1&:\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "label_bang_runtime",
+      "description": "GoTo L1 reaches L1!: (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Main()\r\n    GoTo L1\r\nL1!:\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "label_at_runtime",
+      "description": "GoTo L1 reaches L1@: (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Main()\r\n    GoTo L1\r\nL1@:\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "label_caret_runtime",
+      "description": "GoTo L1 reaches L1^: (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Main()\r\n    GoTo L1\r\nL1^:\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "label_dollar_then_statement_runtime",
+      "description": "L1$: Dim a As Long on one line compiles (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Main()\r\nL1$: Dim a As Long\r\n    a = 1\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "label_dollar_resume_runtime",
+      "description": "Resume L1 reaches L1$: (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Main()\r\n    On Error GoTo EH\r\n    Exit Sub\r\nEH:\r\n    Resume L1\r\nL1$:\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "resume_double_zero_runtime",
+      "description": "Resume 00 in a handler compiles: it is Resume (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Main()\r\n    On Error GoTo EH\r\n    Exit Sub\r\nEH:\r\n    Resume 00\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "resume_zero_beside_label_zero_runtime",
+      "description": "Resume 0 with a line labelled 0 compiles (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Main()\r\n    On Error GoTo EH\r\n    Exit Sub\r\nEH:\r\n    Resume 0\r\n0:\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "goto_zero_compile",
+      "description": "GoTo 0 names a label: Label not defined (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    GoTo 0\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "resume_one_undefined_compile",
+      "description": "Resume 1 with no line 1: Label not defined (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    On Error GoTo EH\r\n    Exit Sub\r\nEH:\r\n    Resume 1\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "resume_zero_without_error_runtime",
+      "description": "Resume 0 with no error raises 20 (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Main()\r\n    Resume 0\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "resume_zero_handler_runtime",
+      "description": "Resume 0 in a handler compiles: it names no label (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Main()\r\n    On Error GoTo EH\r\n    Exit Sub\r\nEH:\r\n    Resume 0\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "err_unknown_member_assign_compile",
+      "description": "Err.Nope = 1 compiles (it raises 438 when it runs) (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Err.Nope = 1\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "err_unknown_member_read_compile",
+      "description": "v = Err.Nope compiles (it raises 438 when it runs) (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    v = Err.Nope\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "err_unknown_member_call_compile",
+      "description": "Err.Nope compiles (it raises 438 when it runs) (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Err.Nope\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "vba_err_unknown_member_compile",
+      "description": "VBA.Err.Nope compiles (it raises 438 when it runs) (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    VBA.Err.Nope\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "errobject_variable_unknown_member_compile",
+      "description": "A member an ErrObject variable lacks compiles (it raises 438 when it runs) (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim e As ErrObject\r\n    Set e = Err\r\n    e.Nope\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "err_raise_too_many_arguments_compile",
+      "description": "Err.Raise with six arguments: Wrong number of arguments (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Err.Raise 5, \"a\", \"b\", \"c\", 1, 2\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "me_let_document_module_compile",
+      "description": "Me = 1 in a worksheet module compiles (raises 438 when it runs) (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Sheet1.Foo\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nSub Foo()\r\n    Me = 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "me_let_class_module_compile",
+      "description": "Me = 1 in a class compiles (raises 438 when it runs) (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Class1\r\n    c.Foo\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nSub Foo()\r\n    Me = 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "me_let_keyword_class_compile",
+      "description": "Let Me = 1 in a class compiles (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nSub Foo()\r\n    Let Me = 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "set_me_class_compile",
+      "description": "Set Me = Nothing in a class: Invalid use of Me keyword (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nSub Foo()\r\n    Set Me = Nothing\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "set_me_document_module_compile",
+      "description": "Set Me = Nothing in a worksheet module: Invalid use of Me keyword (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nSub Foo()\r\n    Set Me = Nothing\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "now_indexed_result_compile",
+      "description": "v = Now(1) compiles: the parentheses index the Variant Now gives (raises 13 when it runs) (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    v = Now(1)\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "time_indexed_result_compile",
+      "description": "v = Time(1) compiles: the parentheses index the Variant Time gives (raises 13 when it runs) (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    v = Time(1)\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "command_indexed_result_compile",
+      "description": "v = Command(1) compiles: the parentheses index the Variant Command gives (raises 13 when it runs) (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    v = Command(1)\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "now_indexed_two_compile",
+      "description": "v = Now(1, 2) compiles (raises 13 when it runs) (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    v = Now(1, 2)\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "now_indexed_print_compile",
+      "description": "Debug.Print Now(1) compiles (raises 13 when it runs) (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Debug.Print Now(1)\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "timer_with_argument_compile",
+      "description": "v = Timer(1): Wrong number of arguments (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    v = Timer(1)\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "erl_with_argument_compile",
+      "description": "v = Erl(1): Wrong number of arguments (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    v = Erl(1)\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "doevents_with_argument_compile",
+      "description": "v = DoEvents(1): Wrong number of arguments (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    v = DoEvents(1)\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "str_null_runtime",
+      "description": "Str(Null) gives Null back and runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    v = Str(Null)\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "str_dollar_null_runtime",
+      "description": "Str$(Null) raises 94 (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    v = Str$(Null)\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "oct_dollar_null_runtime",
+      "description": "Oct$(Null) raises 94 (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    v = Oct$(Null)\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "hex_null_runtime",
+      "description": "Hex(Null) gives Null back and runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    v = Hex(Null)\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "static_public_sub_runtime",
+      "description": "Static Public Sub compiles (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nStatic Public Sub Foo()\r\nEnd Sub\r\nSub Main()\r\n    Foo\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "static_private_function_compile",
+      "description": "Static Private Function compiles (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nStatic Private Function F() As Long\r\nEnd Function\r\nSub Main()\r\n    Debug.Print F\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "static_friend_sub_runtime",
+      "description": "Static Friend Sub in a class compiles (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nStatic Friend Sub Foo()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "static_public_property_compile",
+      "description": "Static Public Property Get compiles (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nStatic Public Property Get P() As Long\r\nEnd Property\r\nSub Main()\r\n    Debug.Print P\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "byref_qualified_parenthesized_copy_runtime",
+      "description": "Module1.Take (v), v an Integer into ByRef Long, passes a copy and runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Integer\r\n    Module1.Take (v)\r\nEnd Sub\r\nPublic Sub Take(ByRef n As Long)\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "byref_qualified_call_double_parentheses_runtime",
+      "description": "Call Module1.Take((v)) passes a copy and runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Integer\r\n    Call Module1.Take((v))\r\nEnd Sub\r\nPublic Sub Take(ByRef n As Long)\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "byref_qualified_function_parenthesized_compile",
+      "description": "r = Module1.F((v)) passes a copy and runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Integer, r As Long\r\n    r = Module1.F((v))\r\nEnd Sub\r\nPublic Function F(ByRef n As Long) As Long\r\nEnd Function\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "byref_class_method_parenthesized_runtime",
+      "description": "c.Take (v) on a class passes a copy and runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Class1, v As Integer\r\n    c.Take (v)\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Sub Take(ByRef n As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "byref_qualified_no_parentheses_compile",
+      "description": "Module1.Take v, v an Integer into ByRef Long: ByRef argument type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Integer\r\n    Module1.Take v\r\nEnd Sub\r\nPublic Sub Take(ByRef n As Long)\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "byref_qualified_call_compile",
+      "description": "Call Module1.Take(v): ByRef argument type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Integer\r\n    Call Module1.Take(v)\r\nEnd Sub\r\nPublic Sub Take(ByRef n As Long)\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "byref_qualified_function_compile",
+      "description": "r = Module1.F(v): ByRef argument type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Integer, r As Long\r\n    r = Module1.F(v)\r\nEnd Sub\r\nPublic Function F(ByRef n As Long) As Long\r\nEnd Function\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "byref_qualified_parenthesized_byte_runtime",
+      "description": "Module1.Take (value), value a Byte into ByRef Long, passes a copy and runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\n\r\nPublic Sub Main()\r\n    Dim value As Byte\r\n    value = 1\r\n    Module1.Take (value)\r\nEnd Sub\r\nPublic Sub Take(ByRef value As Long)\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "byref_qualified_parenthesized_single_runtime",
+      "description": "Module1.Take (value), value a Single into ByRef Long, passes a copy and runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\n\r\nPublic Sub Main()\r\n    Dim value As Single\r\n    value = 1\r\n    Module1.Take (value)\r\nEnd Sub\r\nPublic Sub Take(ByRef value As Long)\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "byref_qualified_parenthesized_double_runtime",
+      "description": "Module1.Take (value), value a Double into ByRef Long, passes a copy and runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\n\r\nPublic Sub Main()\r\n    Dim value As Double\r\n    value = 1\r\n    Module1.Take (value)\r\nEnd Sub\r\nPublic Sub Take(ByRef value As Long)\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "byref_qualified_parenthesized_currency_runtime",
+      "description": "Module1.Take (value), value a Currency into ByRef Long, passes a copy and runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\n\r\nPublic Sub Main()\r\n    Dim value As Currency\r\n    value = 1\r\n    Module1.Take (value)\r\nEnd Sub\r\nPublic Sub Take(ByRef value As Long)\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "byref_qualified_parenthesized_string_runtime",
+      "description": "Module1.Take (value), value a String into ByRef Long, passes a copy and runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\n\r\nPublic Sub Main()\r\n    Dim value As String\r\n    value = \"1\"\r\n    Module1.Take (value)\r\nEnd Sub\r\nPublic Sub Take(ByRef value As Long)\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "byref_qualified_parenthesized_date_runtime",
+      "description": "Module1.Take (value), value a Date into ByRef Long, passes a copy and runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\n\r\nPublic Sub Main()\r\n    Dim value As Date\r\n    value = #1/1/2000#\r\n    Module1.Take (value)\r\nEnd Sub\r\nPublic Sub Take(ByRef value As Long)\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "byref_qualified_parenthesized_boolean_runtime",
+      "description": "Module1.Take (value), value a Boolean into ByRef Long, passes a copy and runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\n\r\nPublic Sub Main()\r\n    Dim value As Boolean\r\n    value = True\r\n    Module1.Take (value)\r\nEnd Sub\r\nPublic Sub Take(ByRef value As Long)\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "lset_string_number_runtime",
+      "description": "LSet s = 2 into a String runs: the = stores (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim s As String\r\n    s = \"abc\"\r\n    LSet s = 2\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "rset_string_number_runtime",
+      "description": "RSet s = 2.5 into a String runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim s As String\r\n    s = \"abc\"\r\n    RSet s = 2.5\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "lset_string_boolean_runtime",
+      "description": "LSet s = True into a String runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim s As String\r\n    s = \"abc\"\r\n    LSet s = True\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "lset_string_long_variable_runtime",
+      "description": "LSet s = n, n a Long, runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim s As String, n As Long\r\n    s = \"abc\"\r\n    n = 7\r\n    LSet s = n\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "udt_power_compile",
+      "description": "v = t ^ 2 with t a Type compiles (raises 51 when it runs) (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nType T\r\n    a As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t1 As T, v As Variant\r\n    v = t1 ^ 2\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "udt_power_right_compile",
+      "description": "v = 2 ^ t with t a Type compiles (raises 51 when it runs) (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nType T\r\n    a As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t1 As T, v As Variant\r\n    v = 2 ^ t1\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "udt_not_runtime",
+      "description": "v = Not t with t a Type compiles and runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nType T\r\n    a As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t1 As T, v As Variant\r\n    v = Not t1\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "array_power_runtime",
+      "description": "v = a ^ 2 with a a Long array compiles and runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, v As Variant\r\n    v = a ^ 2\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "udt_field_power_compile",
+      "description": "rec.child ^ 1, a Type field, compiles (raises 51 when it runs) (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Type InnerRecord\r\n    n As Long\r\nEnd Type\r\nPrivate Type OuterRecord\r\n    child As InnerRecord\r\nEnd Type\r\n\r\nPublic Sub Main()\r\n    Dim rec As OuterRecord\r\n    Dim result As Variant\r\n    rec.child.n = 2\r\n    result = rec.child ^ 1\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "udt_plus_compile",
+      "description": "v = t + 2 with t a Type: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nType T\r\n    a As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t1 As T, v As Variant\r\n    v = t1 + 2\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "collection_power_compile",
+      "description": "v = c ^ 2 with c a Collection: Argument not optional (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection, v As Variant\r\n    v = c ^ 2\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "longlong_parenthesized_byref_long_compile",
+      "description": "Take (q), q a LongLong, into ByRef Long: the copy narrows, Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim value As LongLong\r\n    value = 1\r\n    Take (value)\r\nEnd Sub\r\nPublic Sub Take(ByRef value As Long)\r\nEnd Sub\r\nPublic Sub TakeV(ByVal value As Long)\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "longlong_qualified_parenthesized_byref_long_compile",
+      "description": "Module1.Take (q), q a LongLong, into ByRef Long: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim value As LongLong\r\n    value = 1\r\n    Module1.Take (value)\r\nEnd Sub\r\nPublic Sub Take(ByRef value As Long)\r\nEnd Sub\r\nPublic Sub TakeV(ByVal value As Long)\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "longlong_call_double_parentheses_compile",
+      "description": "Call Take((q)), q a LongLong, into ByRef Long: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim value As LongLong\r\n    value = 1\r\n    Call Take((value))\r\nEnd Sub\r\nPublic Sub Take(ByRef value As Long)\r\nEnd Sub\r\nPublic Sub TakeV(ByVal value As Long)\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "longlong_named_parenthesized_compile",
+      "description": "Take value:=(q), q a LongLong, into ByRef Long: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim value As LongLong\r\n    value = 1\r\n    Take value:=(value)\r\nEnd Sub\r\nPublic Sub Take(ByRef value As Long)\r\nEnd Sub\r\nPublic Sub TakeV(ByVal value As Long)\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "longlong_qualified_byval_long_compile",
+      "description": "Module1.TakeV q, q a LongLong, into ByVal Long: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim value As LongLong\r\n    value = 1\r\n    Module1.TakeV value\r\nEnd Sub\r\nPublic Sub Take(ByRef value As Long)\r\nEnd Sub\r\nPublic Sub TakeV(ByVal value As Long)\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "longlong_qualified_named_byval_long_compile",
+      "description": "Module1.TakeV value:=q, q a LongLong: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim value As LongLong\r\n    value = 1\r\n    Module1.TakeV value:=value\r\nEnd Sub\r\nPublic Sub Take(ByRef value As Long)\r\nEnd Sub\r\nPublic Sub TakeV(ByVal value As Long)\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "longlong_named_byval_long_compile",
+      "description": "TakeV value:=q, q a LongLong: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim value As LongLong\r\n    value = 1\r\n    TakeV value:=value\r\nEnd Sub\r\nPublic Sub Take(ByRef value As Long)\r\nEnd Sub\r\nPublic Sub TakeV(ByVal value As Long)\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "longlong_clng_parenthesized_runtime",
+      "description": "Take (CLng(q)) converts first and runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim value As LongLong\r\n    value = 1\r\n    Take (CLng(value))\r\nEnd Sub\r\nPublic Sub Take(ByRef value As Long)\r\nEnd Sub\r\nPublic Sub TakeV(ByVal value As Long)\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "longlong_qualified_clng_runtime",
+      "description": "Module1.TakeV CLng(q) converts first and runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim value As LongLong\r\n    value = 1\r\n    Module1.TakeV CLng(value)\r\nEnd Sub\r\nPublic Sub Take(ByRef value As Long)\r\nEnd Sub\r\nPublic Sub TakeV(ByVal value As Long)\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "erase_empty_parentheses_long_compile",
+      "description": "Erase n() with n a Long: Expected array (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long\r\n    Erase n()\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "label_line_number_and_dollar_runtime",
+      "description": "10 L1$: is line 10 and label L1 (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Main()\r\n    GoTo L1\r\n10 L1$:\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "array_unary_minus_compile",
+      "description": "v = -a with a a Long array: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, v As Variant\r\n    v = -a\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "array_not_runtime",
+      "description": "v = Not a with a a Long array compiles and runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, v As Variant\r\n    v = Not a\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "udt_binary_minus_compile",
+      "description": "v = 1 - t with t a Type: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nType T\r\n    a As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t1 As T, v As Variant\r\n    v = 1 - t1\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }

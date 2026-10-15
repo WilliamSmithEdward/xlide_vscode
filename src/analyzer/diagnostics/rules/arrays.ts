@@ -1604,16 +1604,24 @@ function eraseStatementSimpleTargets(source: string, span: Span): Set<string> {
 	}
 	const out = new Set<string>();
 	for (const group of splitTopLevelTokenGroups(toks.slice(1), ',')) {
-		const content = group.filter((tok) => tok.kind !== 'comment');
-		if (content.length !== 1) {
-			continue;
-		}
-		const name = tokenName(content[0]);
+		const name = eraseGroupName(group.filter((tok) => tok.kind !== 'comment'));
 		if (name) {
 			out.add(name.toLowerCase());
 		}
 	}
 	return out;
+}
+
+/**
+ * The array an Erase target names: `a`, or `a()` with empty parentheses,
+ * which Excel compiles as the same target (`Erase a(), b()`, measured in
+ * Excel 16.0). Anything longer is an expression.
+ */
+function eraseGroupName(content: readonly VbaToken[]): string | undefined {
+	if (content.length === 1 || (content.length === 3 && content[1].rawText === '(' && content[2].rawText === ')')) {
+		return tokenName(content[0]);
+	}
+	return undefined;
 }
 
 /**
@@ -1692,10 +1700,7 @@ function eraseScalarTargets(
 	const out: Array<{ name: string; span: Span; asType: string }> = [];
 	for (const group of splitTopLevelTokenGroups(toks.slice(1), ',')) {
 		const content = group.filter((tok) => tok.kind !== 'comment');
-		if (content.length !== 1) {
-			continue;
-		}
-		const name = tokenName(content[0]);
+		const name = eraseGroupName(content);
 		if (!name) {
 			continue;
 		}

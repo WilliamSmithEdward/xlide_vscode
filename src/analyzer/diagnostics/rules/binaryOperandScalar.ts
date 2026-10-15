@@ -42,11 +42,12 @@ import type { ProcedureExpressionVisitor } from '../exprWalk';
 
 /**
  * Binary operators that require scalar operands (MS-VBAL 5.6). Excludes `Is`
- * (object-reference operands, owned by `is-operator-non-object`) and `Like`
- * (operands are coerced to String).
+ * (object-reference operands, owned by `is-operator-non-object`), `Like`
+ * (operands are coerced to String) and `^`: the VBE compiles `a ^ 2` on an
+ * array or a Type, which runs or raises 51 (measured in Excel 16.0).
  */
 const SCALAR_OPERAND_OPERATORS: ReadonlySet<BinaryOperator> = new Set<BinaryOperator>([
-	'&', '+', '-', '*', '/', '\\', '^', 'Mod',
+	'&', '+', '-', '*', '/', '\\', 'Mod',
 	'=', '<>', '<', '>', '<=', '>=',
 	'And', 'Or', 'Xor', 'Eqv', 'Imp',
 ]);
@@ -70,6 +71,17 @@ export function checkBinaryOperandScalar(
 					'nonScalarBinaryOperand',
 					`The '${operation.operator}' operator needs a value, and Nothing is an object reference. This is a VBE compile error: Invalid use of object.`,
 					operation.nothing.span,
+				);
+				return;
+			}
+			// A unary minus negates one value, and an array is none: `-a` is
+			// Type mismatch, where `Not a` compiles (measured in Excel 16.0).
+			if (expr.exprKind === 'UnaryExpr' && expr.operator === '-' && expr.operand.exprKind === 'IdentifierExpr'
+				&& shapes.get(expr.operand.name.toLowerCase())?.isArray === true) {
+				push(
+					'nonScalarBinaryOperand',
+					`The '-' operator requires a scalar operand, but '${expr.operand.name}' is declared As an array. This will fail to compile with 'Type mismatch'.`,
+					expr.operand.span,
 				);
 				return;
 			}

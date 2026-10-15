@@ -571,6 +571,17 @@ function ConvertTo-VbComponentType($TypeName) {
 }
 
 function Add-OracleComponent($VbProject, $ModuleSpec) {
+    if (([string]$ModuleSpec.type).ToLowerInvariant() -eq "document") {
+        # The workbook's document modules exist already and cannot be added:
+        # ThisWorkbook and Sheet1 take the case's code in place. The workbook
+        # is disposable, so nothing is put back.
+        $component = $VbProject.VBComponents.Item([string]$ModuleSpec.name)
+        $lineCount = $component.CodeModule.CountOfLines
+        if ($lineCount -gt 0) { $null = $component.CodeModule.DeleteLines(1, $lineCount) }
+        $source = [string]$ModuleSpec.source
+        if ($source.Trim().Length -gt 0) { $component.CodeModule.AddFromString($source) }
+        return $component
+    }
     $componentType = ConvertTo-VbComponentType $ModuleSpec.type
     $component = $VbProject.VBComponents.Add($componentType)
     if ($ModuleSpec.PSObject.Properties.Name -contains "name" -and $ModuleSpec.name) {

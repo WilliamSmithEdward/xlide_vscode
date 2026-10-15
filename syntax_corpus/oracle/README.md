@@ -173,9 +173,11 @@ watch period ends, the case is recorded as compile-accepted.
 
 By default a fixture supplies one standard-module `source` string. For
 workbook-object behavior, a fixture may instead supply a `modules` array. Each
-entry has `name`, `type` (`standard` or `class`), and `source`; mark the standard
-module containing the `entryPoint` with `entry: true` when it is not the first
-standard module. This lets the oracle verify class-module member behavior
+entry has `name`, `type` (`standard`, `class` or `document`), and `source`;
+mark the standard module containing the `entryPoint` with `entry: true` when it
+is not the first standard module. A `document` entry names one of the new
+workbook's own document modules (`ThisWorkbook`, `Sheet1`), whose code the
+worker replaces in place, since a document module cannot be added. This lets the oracle verify class-module member behavior
 without changing production code.
 
 Use `mode: "compile_then_run"` for discovery cases where the failure phase is

@@ -1861,8 +1861,8 @@ function parameterArrayAsTypeSyntaxHit(
  * declared type when the default expression is deterministic. VBE oracle
  * evidence rejects nonnumeric string defaults for numeric and Boolean
  * parameters as compile-time Type mismatch, while numeric strings remain valid.
- * Array parameters cannot be initialized from scalar defaults, and object
- * parameters default only to Nothing when the object type is known.
+ * Array parameters cannot be initialized from scalar defaults. An object
+ * parameter takes any constant default (measured in Excel 16.0).
  */
 export function checkParameterDefaultValues(
 	source: string,
@@ -1927,15 +1927,14 @@ export function checkNonConstantParameterDefaults(
 			if (!param.defaultRaw) {
 				continue;
 			}
-			if (objectType(param.asType)) {
-				continue;
-			}
 			const defaultTokens = parameterDefaultTokens(source, param);
 			if (!defaultTokens) {
 				continue;
 			}
 			const nonConstant = nonConstantDefaultElement(defaultTokens.tokens, param.span.start, 'enumOrOptional');
-			if (!nonConstant) {
+			// Resolved only for a default that is no constant: the type can
+			// read the project's metadata.
+			if (!nonConstant || objectType(param.asType)) {
 				continue;
 			}
 			push(
@@ -2246,14 +2245,15 @@ function parameterDefaultIncompatibilityReason(
 	if (!expectedRaw) {
 		return undefined;
 	}
-	const expectedObject = objectType(expectedRaw);
-	if (expectedObject) {
-		return normalizeType(actual.type) === 'nothing'
-			? undefined
-			: 'Optional object parameter defaults must be Nothing.';
-	}
 	const reason = incompatibilityReason(expectedRaw, actual);
 	if (!reason || !/string literal/i.test(actual.label)) {
+		return undefined;
+	}
+	// An object parameter takes any constant default: `Optional c As
+	// Collection = 5`, `= "a"`, `= True` and `= Null` compile, and a call
+	// that leaves the argument out runs (measured in Excel 16.0). Asked last,
+	// as resolving the type can read the project's metadata.
+	if (objectType(expectedRaw)) {
 		return undefined;
 	}
 	return 'This is a VBE compile error: Type mismatch.';

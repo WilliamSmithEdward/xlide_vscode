@@ -1642,7 +1642,9 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(hits).toHaveLength(0);
 	});
 
-	it('uses the exhaustive runtime object surface for Err', () => {
+	it('resolves Err against its runtime surface, and leaves a member it lacks to run time', () => {
+		// err_unknown_member_call_compile: Excel compiles `Err.DoesNotExist`
+		// and raises 438 when it runs (measured in Excel 16.0).
 		const src =
 			'Public Sub T()\n' +
 			'    Err.Raise vbObjectError + 1, "M", "boom"\n' +
@@ -1650,7 +1652,7 @@ describe('analyzeModule - assignment type validation', () => {
 			'End Sub\n';
 		const diagnostics = analyzeModule(src, { knownIdentifiers: new Set<string>() });
 		expect(byCode(diagnostics, 'undeclared-variable')).toHaveLength(0);
-		expectDiagnostic(src, diagnostics, 'member-not-found', { span: 'DoesNotExist' });
+		expect(byCode(diagnostics, 'member-not-found')).toHaveLength(0);
 	});
 
 	it('uses the exhaustive runtime object surface for Debug', () => {
