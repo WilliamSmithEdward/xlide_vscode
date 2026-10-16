@@ -22,8 +22,22 @@ param(
     [Parameter(Mandatory = $false)]
     [switch]$Serve,
 
+    # How many compile cases one kept host instance serves before it is
+    # replaced. -CasesPerExcel is the name it had when only Excel was driven.
     [Parameter(Mandatory = $false)]
-    [int]$CasesPerExcel = 40
+    [Alias('CasesPerExcel')]
+    [int]$CasesPerInstance = 40,
+
+    # Without -Serve: the host the case runs in, as the coordinator's host
+    # table gives it. A served request carries its own.
+    [Parameter(Mandatory = $false)]
+    [string]$HostName = "excel",
+
+    [Parameter(Mandatory = $false)]
+    [string]$HostProgId = "Excel.Application",
+
+    [Parameter(Mandatory = $false)]
+    [string]$HostImage = "EXCEL"
 )
 
 $ErrorActionPreference = "Stop"
@@ -127,23 +141,23 @@ public static class XlideVbeDialogWatcher {
     [DllImport("kernel32.dll")]
     private static extern uint GetCurrentThreadId();
 
-    public static void Start(uint excelProcessId, string resultPath, string stagePath, int maxSeconds, int holdSeconds) {
-        Start(excelProcessId, resultPath, stagePath, maxSeconds, holdSeconds, false);
+    public static void Start(uint hostProcessId, string resultPath, string stagePath, int maxSeconds, int holdSeconds) {
+        Start(hostProcessId, resultPath, stagePath, maxSeconds, holdSeconds, false);
     }
 
-    // With endExcelOnCompileError, a compile-error dialog ends Excel once it
-    // has been recorded. Excel.Run does not return after a compile error is
-    // dismissed, so a run case would otherwise wait for the timeout.
-    public static void Start(uint excelProcessId, string resultPath, string stagePath, int maxSeconds, int holdSeconds, bool endExcelOnCompileError) {
+    // With endHostOnCompileError, a compile-error dialog ends the host once
+    // it has been recorded. Excel's Run does not return after a compile error
+    // is dismissed, so a run case would otherwise wait for the timeout.
+    public static void Start(uint hostProcessId, string resultPath, string stagePath, int maxSeconds, int holdSeconds, bool endHostOnCompileError) {
         Stop();
-        if (excelProcessId == 0 || String.IsNullOrEmpty(resultPath)) {
+        if (hostProcessId == 0 || String.IsNullOrEmpty(resultPath)) {
             return;
         }
 
         stopRequested = false;
         dialogSeen = false;
         watcherThread = new Thread(delegate() {
-            Watch(excelProcessId, resultPath, stagePath, maxSeconds, holdSeconds, endExcelOnCompileError);
+            Watch(hostProcessId, resultPath, stagePath, maxSeconds, holdSeconds, endHostOnCompileError);
         });
         watcherThread.IsBackground = true;
         watcherThread.Start();
@@ -202,10 +216,10 @@ public static class XlideVbeDialogWatcher {
         return GetForegroundWindow() == hWnd;
     }
 
-    private static void Watch(uint excelProcessId, string resultPath, string stagePath, int maxSeconds, int holdSeconds, bool endExcelOnCompileError) {
+    private static void Watch(uint hostProcessId, string resultPath, string stagePath, int maxSeconds, int holdSeconds, bool endHostOnCompileError) {
         DateTime deadline = DateTime.UtcNow.AddSeconds(Math.Max(1, maxSeconds));
         while (!stopRequested && DateTime.UtcNow < deadline) {
-            DialogInfo dialog = FindVbeDialog(excelProcessId);
+            DialogInfo dialog = FindVbeDialog(hostProcessId);
             if (dialog != null) {
                 dialogSeen = true;
                 if (!String.IsNullOrEmpty(stagePath)) {
@@ -219,8 +233,8 @@ public static class XlideVbeDialogWatcher {
                 HoldDialogForInspection(dialog.Handle, holdSeconds);
                 if (DismissDialog(dialog.Handle)) {
                     WriteDialogResult(resultPath, dialog);
-                    if (endExcelOnCompileError && dialog.Kind == "vbe_compile_dialog") {
-                        EndProcess(excelProcessId);
+                    if (endHostOnCompileError && dialog.Kind == "vbe_compile_dialog") {
+                        EndProcess(hostProcessId);
                     }
                     return;
                 }
@@ -251,7 +265,7 @@ public static class XlideVbeDialogWatcher {
         }
     }
 
-    private static DialogInfo FindVbeDialog(uint excelProcessId) {
+    private static DialogInfo FindVbeDialog(uint hostProcessId) {
         DialogInfo found = null;
         EnumWindows(delegate(IntPtr hWnd, IntPtr lParam) {
             if (found != null) {
@@ -260,7 +274,7 @@ public static class XlideVbeDialogWatcher {
 
             uint windowProcessId;
             GetWindowThreadProcessId(hWnd, out windowProcessId);
-            if (windowProcessId != excelProcessId || !IsWindowVisible(hWnd)) {
+            if (windowProcessId != hostProcessId || !IsWindowVisible(hWnd)) {
                 return true;
             }
 
@@ -294,7 +308,7 @@ public static class XlideVbeDialogWatcher {
         return false;
     }
 
-    private static IntPtr FindVbeMainWindow(uint excelProcessId) {
+    private static IntPtr FindVbeMainWindow(uint hostProcessId) {
         IntPtr found = IntPtr.Zero;
         EnumWindows(delegate(IntPtr hWnd, IntPtr lParam) {
             if (found != IntPtr.Zero) {
@@ -303,7 +317,7 @@ public static class XlideVbeDialogWatcher {
 
             uint windowProcessId;
             GetWindowThreadProcessId(hWnd, out windowProcessId);
-            if (windowProcessId != excelProcessId || !IsWindowVisible(hWnd)) {
+            if (windowProcessId != hostProcessId || !IsWindowVisible(hWnd)) {
                 return true;
             }
 
@@ -585,18 +599,18 @@ function Set-DialogOutcome($Dialog, [bool]$CompileOnly) {
     }
 }
 
-# No dialog only means accepted if Excel is still there to show one. When
-# Excel crashes, as compiling some snippets makes it do, the watcher sees no
-# dialog either.
-function Assert-ExcelAlive($Excel, $ExcelPid) {
-    if ($null -eq (Get-Process -Id $ExcelPid -ErrorAction SilentlyContinue)) {
-        throw "Excel (pid $ExcelPid) exited during the $stage stage. A crash is not VBA evidence."
+# No dialog only means accepted if the host is still there to show one. When
+# the host crashes, as compiling some snippets makes Excel do, the watcher
+# sees no dialog either.
+function Assert-HostAlive($App, $HostPid) {
+    if ($null -eq (Get-Process -Id $HostPid -ErrorAction SilentlyContinue)) {
+        throw "$($script:hostNoun) (pid $HostPid) exited during the $stage stage. A crash is not VBA evidence."
     }
     try {
-        $null = $Excel.Hwnd
+        $null = $App.Name
     }
     catch {
-        throw "Excel (pid $ExcelPid) did not answer a COM call after the $stage stage: $($_.Exception.Message)"
+        throw "$($script:hostNoun) (pid $HostPid) did not answer a COM call after the $stage stage: $($_.Exception.Message)"
     }
 }
 
@@ -632,18 +646,18 @@ function Wait-ForSeenDialogResult {
 # The Compile command is disabled once the project has compiled, and stays
 # enabled when compiling fails with an error dialog. A disabled command with no
 # dialog is the accept signal, so accepted cases don't wait out the window.
-function Wait-ForCompileResult($Control, $ExcelPid) {
+function Wait-ForCompileResult($Control, $HostPid) {
     $deadline = [DateTime]::UtcNow.AddSeconds([Math]::Max(1, $DialogWatchSeconds))
     while ([DateTime]::UtcNow -lt $deadline) {
         if ([XlideVbeDialogWatcher]::DialogSeen) {
             return Wait-ForSeenDialogResult
         }
-        # A crashed Excel answers $null here rather than throwing. A busy one
+        # A crashed host answers $null here rather than throwing. A busy one
         # can reject the read, so only a missing process ends the wait early.
         $enabled = $null
         try { $enabled = $Control.Enabled } catch { }
         if ($enabled -isnot [bool]) {
-            if ($null -eq (Get-Process -Id $ExcelPid -ErrorAction SilentlyContinue)) {
+            if ($null -eq (Get-Process -Id $HostPid -ErrorAction SilentlyContinue)) {
                 return $null
             }
         }
@@ -665,8 +679,8 @@ function Wait-ForCompileResult($Control, $ExcelPid) {
     return $null
 }
 
-# Excel.Run returns only after a dialog it raised has been dismissed, so the
-# watcher has normally seen it by then; 300 ms is a margin, not a wait.
+# A host's Run returns only after a dialog it raised has been dismissed, so
+# the watcher has normally seen it by then; 300 ms is a margin, not a wait.
 function Wait-ForRunDialogResult {
     $deadline = [DateTime]::UtcNow.AddMilliseconds(300)
     while (-not [XlideVbeDialogWatcher]::DialogSeen -and [DateTime]::UtcNow -lt $deadline) {
@@ -697,11 +711,22 @@ function ConvertTo-VbComponentType($TypeName) {
     }
 }
 
+# A new module's code is the case's source and nothing else. Excel keeps what
+# its VBE puts in a new module, as it always has; the other hosts drop it, so
+# Access's own Option Compare Database is not a second Option statement.
+function Set-ComponentSource($Component, [string]$Source) {
+    if ($script:hostName -ne "excel") {
+        $lineCount = $Component.CodeModule.CountOfLines
+        if ($lineCount -gt 0) { $null = $Component.CodeModule.DeleteLines(1, $lineCount) }
+    }
+    $Component.CodeModule.AddFromString($Source)
+}
+
 function Add-OracleComponent($VbProject, $ModuleSpec) {
     if (([string]$ModuleSpec.type).ToLowerInvariant() -eq "document") {
-        # The workbook's document modules exist already and cannot be added:
-        # ThisWorkbook and Sheet1 take the case's code in place. The workbook
-        # is disposable, so nothing is put back.
+        # The file's document modules exist already and cannot be added:
+        # ThisWorkbook and Sheet1, or ThisDocument, take the case's code in
+        # place. The file is disposable, so nothing is put back.
         $component = $VbProject.VBComponents.Item([string]$ModuleSpec.name)
         $lineCount = $component.CodeModule.CountOfLines
         if ($lineCount -gt 0) { $null = $component.CodeModule.DeleteLines(1, $lineCount) }
@@ -733,7 +758,7 @@ function Add-OracleComponent($VbProject, $ModuleSpec) {
             if (Test-Path -LiteralPath $importPath) { Remove-Item -LiteralPath $importPath -Force }
         }
     }
-    $component.CodeModule.AddFromString($source)
+    Set-ComponentSource $component $source
     return $component
 }
 
@@ -757,8 +782,8 @@ function Find-VbeCommandControl($Controls, [string]$Caption) {
     return $null
 }
 
-function Invoke-VbeCompileCommand($Excel) {
-    $vbe = $Excel.VBE
+function Invoke-VbeCompileCommand($App) {
+    $vbe = $App.VBE
     $projectName = [string]$vbe.ActiveVBProject.Name
     $caption = "Compile $projectName"
     # The Compile command is button (type 1) Id 578. Looking it up directly takes
@@ -785,7 +810,7 @@ function Invoke-VbeCompileCommand($Excel) {
         throw "Could not find exact VBE command '$caption'. Oracle compile command was not invoked."
     }
     # A disabled command is the accept signal, so it has to start enabled. In
-    # a kept Excel it can still show the previous project's compiled state.
+    # a kept instance it can still show the previous project's compiled state.
     $deadline = [DateTime]::UtcNow.AddSeconds(1)
     while ($control.Enabled -ne $true) {
         if ([DateTime]::UtcNow -ge $deadline) {
@@ -797,67 +822,247 @@ function Invoke-VbeCompileCommand($Excel) {
     return $control
 }
 
-# One Excel serves several compile cases, each in a fresh workbook. Compiling
-# runs no code, so it leaves Excel as it found it. Excel is replaced after
-# every run case, whose macro can change Excel itself; after -CasesPerExcel
-# cases; after any case that did not end in evidence or left a workbook open;
-# and when a kept Excel no longer takes the settings.
-$script:excel = $null
-$script:excelPid = 0
-$script:excelCases = 0
+# One host instance serves several compile cases, each in a fresh file.
+# Compiling runs no code, so it leaves the host as it found it. The instance
+# is replaced after every run case, whose macro can change the host itself;
+# after -CasesPerInstance cases; after any case that did not end in evidence
+# or left a file open; when the next case names another host; and when a
+# kept instance no longer takes the settings. Access is never kept: closing
+# its database asks whether to save the case's modules.
+$script:app = $null
+$script:appPid = 0
+$script:appCases = 0
+$script:hostName = $HostName
+$script:hostProgId = $HostProgId
+$script:hostImage = $HostImage
+$script:hostNoun = $HostName
+$script:appHost = $null
+$script:hostImageOfApp = $null
 
-function Start-OracleExcel {
-    $script:excel = New-Object -ComObject Excel.Application
-    $processId = 0
-    [void][XlideUser32]::GetWindowThreadProcessId([IntPtr]$script:excel.Hwnd, [ref]$processId)
-    $script:excelPid = $processId
-    $script:excelCases = 0
+function Set-OracleHost($Name, $ProgId, $Image) {
+    $script:hostName = ([string]$Name).ToLowerInvariant()
+    $script:hostProgId = [string]$ProgId
+    $script:hostImage = [string]$Image
+    $script:hostNoun = switch ($script:hostName) {
+        "excel" { "Excel" }
+        "word" { "Word" }
+        "powerpoint" { "PowerPoint" }
+        "access" { "Access" }
+        default { throw "Unsupported oracle host: $Name" }
+    }
 }
 
-function Stop-OracleExcel {
-    if ($null -ne $script:excel) {
-        try { $script:excel.Quit() } catch { }
-        Remove-ComObjectReference $script:excel
-        $script:excel = $null
+function Get-HostProcessIds {
+    return @(Get-Process -Name $script:hostImage -ErrorAction SilentlyContinue | ForEach-Object { $_.Id })
+}
+
+function Get-WindowProcessId([long]$Hwnd) {
+    $processId = 0
+    [void][XlideUser32]::GetWindowThreadProcessId([IntPtr]$Hwnd, [ref]$processId)
+    return [int]$processId
+}
+
+function Start-OracleHost {
+    $before = Get-HostProcessIds
+    # Word and PowerPoint can hand an automation request to an instance that
+    # is already running, and PowerPoint always does: that instance is
+    # someone's, and the oracle would compile into it and then quit it.
+    if (($script:hostName -eq "word" -or $script:hostName -eq "powerpoint") -and $before.Count -gt 0) {
+        throw "$($script:hostNoun) is already running (pid $($before -join ', ')). The oracle drives only an instance of its own; close $($script:hostNoun) first."
+    }
+    if ($script:hostName -eq "excel") {
+        $script:app = New-Object -ComObject Excel.Application
+    }
+    else {
+        # Late-bound, so Word's Quit(0) and Access's Quit(2) take plain values.
+        $script:app = [Activator]::CreateInstance([type]::GetTypeFromProgID($script:hostProgId))
+    }
+    $processId = switch ($script:hostName) {
+        "excel" { Get-WindowProcessId $script:app.Hwnd }
+        "powerpoint" { Get-WindowProcessId $script:app.HWND }
+        "access" { Get-WindowProcessId $script:app.hWndAccessApp() }
+        default {
+            # Word's Application has no window handle of its own: the instance
+            # is the process that was not there before.
+            $new = @(Get-HostProcessIds | Where-Object { $before -notcontains $_ })
+            if ($new.Count -eq 1) { $new[0] } else { 0 }
+        }
+    }
+    if (-not $processId) {
+        $script:app = $null
+        throw "Could not tell which $($script:hostNoun) process the oracle started."
+    }
+    $script:appPid = $processId
+    $script:appHost = $script:hostName
+    $script:appCases = 0
+}
+
+function Stop-OracleHost {
+    if ($null -ne $script:app) {
+        try {
+            switch ($script:appHost) {
+                "word" { $script:app.Quit(0) }
+                "access" { $script:app.Quit(2) }
+                default { $script:app.Quit() }
+            }
+        } catch { }
+        Remove-ComObjectReference $script:app
+        $script:app = $null
         [GC]::Collect()
         [GC]::WaitForPendingFinalizers()
     }
-    if ($script:excelPid) {
-        Get-Process -Id $script:excelPid -ErrorAction SilentlyContinue |
-            Where-Object { $_.ProcessName -eq "EXCEL" } |
+    if ($script:appPid) {
+        # End only the process this worker recorded, and only if it is still
+        # the host's: a pid can have been reused.
+        Get-Process -Id $script:appPid -ErrorAction SilentlyContinue |
+            Where-Object { $_.ProcessName -eq $script:hostImageOfApp } |
             Stop-Process -Force -ErrorAction SilentlyContinue
-        $script:excelPid = 0
+        # Gone before the next case looks, or the next Word or PowerPoint case
+        # would take this worker's own exiting instance for someone else's.
+        $deadline = [DateTime]::UtcNow.AddSeconds(10)
+        while ([DateTime]::UtcNow -lt $deadline -and $null -ne (Get-Process -Id $script:appPid -ErrorAction SilentlyContinue)) {
+            Start-Sleep -Milliseconds 50
+        }
+        $script:appPid = 0
     }
+    $script:appHost = $null
 }
 
 # Applied before every case, since a case's macro can change them.
-function Set-OracleExcelSettings($excel) {
-    # Excel must stay visible: when the host application is hidden, the VBE
-    # Compile-error / Run-time-error modal is not surfaced as a detectable
-    # visible top-level window, so the Win32 dialog watcher never sees it and a
-    # rejection is silently misrecorded as "accepted". Keeping Excel visible
-    # (the documented harness behavior) makes the dialog detectable. The worker
-    # still does not require foreground focus.
-    $excel.Visible = $true
-    $excel.DisplayAlerts = $false
-    $excel.EnableEvents = $false
-    try { $excel.ScreenUpdating = $false } catch { }
-    # msoAutomationSecurityLow. This applies only to the disposable Excel
-    # instance created by this worker.
-    try { $excel.AutomationSecurity = 1 } catch { }
+function Set-OracleHostSettings($App) {
+    # The host must stay visible: when it is hidden, the VBE Compile-error /
+    # Run-time-error modal is not surfaced as a detectable visible top-level
+    # window, so the Win32 dialog watcher never sees it and a rejection is
+    # silently misrecorded as "accepted". The worker still does not require
+    # foreground focus. AutomationSecurity 1 is msoAutomationSecurityLow,
+    # for the disposable instance this worker created.
+    switch ($script:hostName) {
+        "excel" {
+            $App.Visible = $true
+            $App.DisplayAlerts = $false
+            $App.EnableEvents = $false
+            try { $App.ScreenUpdating = $false } catch { }
+        }
+        "word" {
+            $App.Visible = $true
+            $App.DisplayAlerts = 0            # wdAlertsNone
+        }
+        "powerpoint" {
+            $App.Visible = -1                 # msoTrue
+            $App.DisplayAlerts = 1            # ppAlertsNone
+        }
+        "access" {
+            $App.Visible = $true
+            # Refused until a database is open, so it is asked again after.
+            try { $App.DoCmd.SetWarnings($false) } catch { }
+        }
+    }
+    try { $App.AutomationSecurity = 1 } catch { }
+}
+
+# A fresh file for one case. Access's database has to be on disk; its path
+# comes back so the case can delete it.
+function New-OracleContainer($App) {
+    switch ($script:hostName) {
+        "excel" { $container = $App.Workbooks.Add(); [void]$container.Activate(); return @{ Container = $container; Path = $null } }
+        "word" { return @{ Container = $App.Documents.Add(); Path = $null } }
+        "powerpoint" { return @{ Container = $App.Presentations.Add(-1); Path = $null } }
+        "access" {
+            # A plain string: given Join-Path's wrapped one, NewCurrentDatabase
+            # never returns (measured 2026-10-16; the same call from Python
+            # takes 0.1 s).
+            $path = [string](Join-Path ([IO.Path]::GetTempPath()) ('XlideOracle_' + [Guid]::NewGuid().ToString('N') + '.accdb'))
+            $App.NewCurrentDatabase($path)
+            $App.DoCmd.SetWarnings($false)
+            return @{ Container = $null; Path = $path }
+        }
+    }
+}
+
+function Get-OracleVbProject($App, $Container) {
+    if ($script:hostName -eq "access") {
+        return $App.VBE.ActiveVBProject
+    }
+    return $Container.VBProject
+}
+
+function Close-OracleContainer($App, $Container) {
+    switch ($script:hostName) {
+        "excel" { $Container.Close($false) }
+        "word" { $Container.Close(0) }    # wdDoNotSaveChanges
+        "powerpoint" { $Container.Saved = -1; $Container.Close() }
+        "access" { }                        # the instance quits without saving
+    }
+}
+
+function Get-OpenContainerCount($App) {
+    switch ($script:hostName) {
+        "excel" { return $App.Workbooks.Count }
+        "word" { return $App.Documents.Count }
+        "powerpoint" { return $App.Presentations.Count }
+        default { return 0 }
+    }
+}
+
+# The names a host's Run might know the entry point by, most specific first,
+# and how it says it found none.
+function Get-RunMacroNames($Container, $Component, [string]$EntryPoint, $VbProject) {
+    $moduleName = [string]$Component.Name
+    switch ($script:hostName) {
+        "excel" {
+            $fileName = [string]$Container.Name
+            return @("'$fileName'!$moduleName.$EntryPoint", "'$fileName'!$EntryPoint", "$moduleName.$EntryPoint", $EntryPoint)
+        }
+        "word" {
+            $projectName = [string]$VbProject.Name
+            return @("$projectName.$moduleName.$EntryPoint", "$moduleName.$EntryPoint", $EntryPoint)
+        }
+        "powerpoint" {
+            $fileName = [string]$Container.Name
+            return @("'$fileName'!$moduleName.$EntryPoint", "$moduleName.$EntryPoint", $EntryPoint)
+        }
+        "access" { return @($EntryPoint) }
+    }
+}
+
+$MacroNotFoundPatterns = @(
+    "Cannot run the macro",
+    "Unable to run the specified macro",
+    "Can't run the specified macro",
+    "Macro cannot be found",
+    "cannot find the procedure"
+)
+
+function Test-MacroNotFound([string]$Message) {
+    foreach ($pattern in $MacroNotFoundPatterns) {
+        if ($Message.Contains($pattern)) { return $true }
+    }
+    return $false
+}
+
+# The build of the running host, read from its own executable.
+function Get-HostBuild($HostPid) {
+    try {
+        $path = (Get-Process -Id $HostPid -ErrorAction Stop).MainModule.FileName
+        $v = [Diagnostics.FileVersionInfo]::GetVersionInfo($path)
+        if ($v.FileMajorPart -gt 0) {
+            return '{0}.{1}.{2}.{3}' -f $v.FileMajorPart, $v.FileMinorPart, $v.FileBuildPart, $v.FilePrivatePart
+        }
+    } catch { }
+    return $null
 }
 
 function Invoke-OracleCase {
     # The coordinator writes the case as UTF-8; Windows PowerShell would
     # otherwise read it in the ANSI code page and garble non-ASCII source.
     $case = Get-Content -LiteralPath $CasePath -Raw -Encoding UTF8 | ConvertFrom-Json
-    $excel = $null
-    $excelPid = 0
-    $workbook = $null
+    $app = $null
+    $appPid = 0
+    $container = $null
     $vbProject = $null
     $component = $null
     $codeModule = $null
-    $workbookPath = $null
+    $containerPath = $null
     $mode = "compile"
     Set-Stage "setup"
 
@@ -867,40 +1072,41 @@ function Invoke-OracleCase {
         stage = $stage
         message = ""
         hresult = $null
-        excelBuild = $null
+        host = $script:hostName
+        hostBuild = $null
     }
 
     try {
-        Set-Stage "start_excel"
-        # A kept Excel that no longer takes the settings is replaced before
-        # the case starts, rather than failing the case.
-        if ($null -ne $script:excel) {
-            Set-Content -LiteralPath $PidPath -Value $script:excelPid -Encoding ascii
-            try { Set-OracleExcelSettings $script:excel } catch { Stop-OracleExcel }
+        Set-Stage "start_host"
+        # A kept instance of another host, or one that no longer takes the
+        # settings, is replaced before the case starts rather than failing it.
+        if ($null -ne $script:app -and $script:appHost -ne $script:hostName) {
+            Stop-OracleHost
         }
-        if ($null -eq $script:excel) {
-            Start-OracleExcel
-            Set-Content -LiteralPath $PidPath -Value $script:excelPid -Encoding ascii
-            Set-OracleExcelSettings $script:excel
+        if ($null -ne $script:app) {
+            Set-Content -LiteralPath $PidPath -Value "$($script:appPid) $($script:hostImage)" -Encoding ascii
+            try { Set-OracleHostSettings $script:app } catch { Stop-OracleHost }
         }
-        $excel = $script:excel
-        $excelPid = $script:excelPid
-        # The build of the running Excel, not of the registration. Failure leaves
+        if ($null -eq $script:app) {
+            $script:hostImageOfApp = $script:hostImage
+            Start-OracleHost
+            Set-Content -LiteralPath $PidPath -Value "$($script:appPid) $($script:hostImage)" -Encoding ascii
+            Set-OracleHostSettings $script:app
+        }
+        $app = $script:app
+        $appPid = $script:appPid
+        # The build of the running host, not of the registration. Failure leaves
         # it unknown; checkpoint runs reject such evidence.
-        try {
-            $v = [Diagnostics.FileVersionInfo]::GetVersionInfo((Join-Path $excel.Path 'EXCEL.EXE'))
-            if ($v.FileMajorPart -gt 0) {
-                $result.excelBuild = '{0}.{1}.{2}.{3}' -f $v.FileMajorPart, $v.FileMinorPart, $v.FileBuildPart, $v.FilePrivatePart
-            }
-        } catch { }
-        $script:excelCases += 1
+        $result.hostBuild = Get-HostBuild $appPid
+        $script:appCases += 1
 
-        Set-Stage "create_workbook"
-        $workbook = $excel.Workbooks.Add()
-        [void]$workbook.Activate()
+        Set-Stage "create_file"
+        $created = New-OracleContainer $app
+        $container = $created.Container
+        $containerPath = $created.Path
 
         Set-Stage "add_module"
-        $vbProject = $workbook.VBProject
+        $vbProject = Get-OracleVbProject $app $container
         $component = $null
         if ($case.PSObject.Properties.Name -contains "modules" -and $case.modules) {
             Set-Stage "add_modules"
@@ -920,7 +1126,7 @@ function Invoke-OracleCase {
         else {
             $component = $vbProject.VBComponents.Add(1)
             $component.Name = "XlideOracleModule"
-            $component.CodeModule.AddFromString([string]$case.source)
+            Set-ComponentSource $component ([string]$case.source)
         }
         $codeModule = $component.CodeModule
 
@@ -932,20 +1138,20 @@ function Invoke-OracleCase {
             Set-Stage "compile"
             # Compile probes drive the VBE command bars; the VBE main window is shown
             # so the Compile command is available and its error dialog is surfaced.
-            $excel.VBE.MainWindow.Visible = $true
+            $app.VBE.MainWindow.Visible = $true
             # The Compile command compiles the active project, and every case's
             # project has the same name, so make sure it is this case's.
-            $excel.VBE.ActiveVBProject = $vbProject
+            $app.VBE.ActiveVBProject = $vbProject
 
             [void]$component.Activate()
             $codeModule.CodePane.Show()
             $codeModule.CodePane.SetSelection(1, 1, 1, 1)
             Start-Sleep -Milliseconds 250
 
-            [XlideVbeDialogWatcher]::Start($excelPid, $DialogPath, $StagePath, $DialogWatchSeconds, $DialogHoldSeconds)
+            [XlideVbeDialogWatcher]::Start($appPid, $DialogPath, $StagePath, $DialogWatchSeconds, $DialogHoldSeconds)
             try {
-                $compileControl = Invoke-VbeCompileCommand $excel
-                $dialog = Wait-ForCompileResult $compileControl $excelPid
+                $compileControl = Invoke-VbeCompileCommand $app
+                $dialog = Wait-ForCompileResult $compileControl $appPid
             }
             finally {
                 [XlideVbeDialogWatcher]::Stop()
@@ -955,28 +1161,20 @@ function Invoke-OracleCase {
                 Set-DialogOutcome $dialog $true
             }
             else {
-                Assert-ExcelAlive $excel $excelPid
+                Assert-HostAlive $app $appPid
                 $result.outcome = "accepted"
                 $result.stage = $stage
             }
         }
         elseif ($mode -eq "run" -and $case.entryPoint) {
             Set-Stage "run"
-            $entryPoint = [string]$case.entryPoint
-            $moduleName = [string]$component.Name
-            $workbookName = [string]$workbook.Name
-            $macroNames = @(
-                "'$workbookName'!$moduleName.$entryPoint",
-                "'$workbookName'!$entryPoint",
-                "$moduleName.$entryPoint",
-                $entryPoint
-            )
+            $macroNames = Get-RunMacroNames $container $component ([string]$case.entryPoint) $vbProject
             $lastError = $null
-            [XlideVbeDialogWatcher]::Start($excelPid, $DialogPath, $StagePath, $DialogWatchSeconds, $DialogHoldSeconds, $true)
+            [XlideVbeDialogWatcher]::Start($appPid, $DialogPath, $StagePath, $DialogWatchSeconds, $DialogHoldSeconds, $true)
             try {
                 foreach ($macro in $macroNames) {
                     try {
-                        [void]$excel.Run($macro)
+                        [void]$app.Run($macro)
                         $lastError = $null
                         break
                     }
@@ -994,7 +1192,7 @@ function Invoke-OracleCase {
                             break
                         }
                         $lastError = $_
-                        if ($_.Exception.Message -notmatch "Cannot run the macro") {
+                        if (-not (Test-MacroNotFound $_.Exception.Message)) {
                             throw
                         }
                     }
@@ -1018,7 +1216,7 @@ function Invoke-OracleCase {
         }
 
         if ($result.outcome -eq "setup_error") {
-            Assert-ExcelAlive $excel $excelPid
+            Assert-HostAlive $app $appPid
             $result.outcome = "accepted"
             $result.stage = $stage
         }
@@ -1046,26 +1244,31 @@ function Invoke-OracleCase {
     finally {
         try { [XlideVbeDialogWatcher]::Stop() } catch { }
         $closed = $true
-        if ($null -ne $workbook) {
-            try { $workbook.Close($false) } catch { $closed = $false }
+        if ($null -ne $container) {
+            try { Close-OracleContainer $app $container } catch { $closed = $false }
         }
 
         Remove-ComObjectReference $codeModule
         Remove-ComObjectReference $component
         Remove-ComObjectReference $vbProject
-        Remove-ComObjectReference $workbook
+        Remove-ComObjectReference $container
 
-        if ($workbookPath -and (Test-Path -LiteralPath $workbookPath)) {
-            try { Remove-Item -LiteralPath $workbookPath -Force } catch { }
-        }
-
-        # A macro can open workbooks of its own; they must not outlive the case.
-        if ($closed -and $null -ne $script:excel) {
-            try { $closed = $script:excel.Workbooks.Count -eq 0 } catch { $closed = $false }
+        # A macro can open files of its own; they must not outlive the case.
+        if ($closed -and $null -ne $script:app) {
+            try { $closed = (Get-OpenContainerCount $script:app) -eq 0 } catch { $closed = $false }
         }
         $evidence = $result.outcome -eq "accepted" -or $result.outcome -eq "rejected"
-        if (-not $closed -or -not $evidence -or $mode -ne "compile" -or $script:excelCases -ge $CasesPerExcel) {
-            Stop-OracleExcel
+        if (-not $closed -or -not $evidence -or $mode -ne "compile" -or $script:hostName -eq "access" -or $script:appCases -ge $CasesPerInstance) {
+            Stop-OracleHost
+        }
+
+        # Access's database is a file of its own, free once Access has quit.
+        if ($containerPath) {
+            foreach ($candidate in @($containerPath, [IO.Path]::ChangeExtension($containerPath, '.laccdb'))) {
+                if (Test-Path -LiteralPath $candidate) {
+                    try { Remove-Item -LiteralPath $candidate -Force } catch { }
+                }
+            }
         }
     }
 
@@ -1085,20 +1288,22 @@ if ($Serve) {
             $script:DialogPath = [string]$request.dialogPath
             $script:DialogWatchSeconds = [int]$request.dialogWatchSeconds
             $script:DialogHoldSeconds = [int]$request.dialogHoldSeconds
+            Set-OracleHost $request.host $request.hostProgId $request.hostImage
             $output = @(Invoke-OracleCase)
             [Console]::Out.WriteLine("XLIDE-ORACLE-RESULT " + (Write-ResultJson $output[-1]))
             [Console]::Out.Flush()
         }
     }
     finally {
-        Stop-OracleExcel
+        Stop-OracleHost
     }
 }
 else {
     if (-not $CasePath -or -not $PidPath) {
         throw "-CasePath and -PidPath are required without -Serve."
     }
+    Set-OracleHost $HostName $HostProgId $HostImage
     $output = @(Invoke-OracleCase)
-    Stop-OracleExcel
+    Stop-OracleHost
     Write-ResultJson $output[-1]
 }

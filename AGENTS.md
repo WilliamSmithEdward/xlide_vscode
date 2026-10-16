@@ -54,6 +54,16 @@ gh release download vX.Y.Z --pattern '*.vsix'
 npx @vscode/vsce publish --packagePath xlide-X.Y.Z.vsix
 ```
 
+## Every Office host
+
+XLIDE supports four Office hosts: Excel, Word, PowerPoint and Access. A pull
+request that adds or fixes something for one of them, whoever opens it, is
+carried to all four before or alongside its merge. That holds for the test
+harnesses too: the live Office suite (`npm run test:office`) and the VBE
+oracle (`syntax_corpus/oracle/`, whose fixtures name their `host`). Route by
+`src/officeHostApps.ts` rather than naming one application, and where the
+hosts really differ, measure each one and record the difference.
+
 ## Editor responsiveness
 
 The owner wants completion menus to update nearly instantaneously while typing

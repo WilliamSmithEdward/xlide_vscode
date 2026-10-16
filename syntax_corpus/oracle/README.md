@@ -1,12 +1,40 @@
-# Excel/VBE Oracle Harness
+# VBE Oracle Harness
 
-This folder contains an optional Windows-only harness that asks a real Excel/VBE
-instance whether small VBA snippets are accepted or rejected. Its sibling for
-VB6, `twinbasic/`, asks twinBASIC's compiler the same question and has its
-own README.
+This folder contains an optional Windows-only harness that asks the VBE of a
+real Office application, Excel, Word, PowerPoint or Access, whether small VBA
+snippets are accepted or rejected. Its sibling for VB6, `twinbasic/`, asks
+twinBASIC's compiler the same question and has its own README.
 
 It is a developer audit tool only. XLIDE production code must stay deterministic
 and must not depend on Excel, COM, Office, or VBE automation at runtime.
+
+## Hosts
+
+A fixture names the application it runs in with `host`: `excel`, `word`,
+`powerpoint` or `access`. A fixture without one runs in Excel, which is where
+most of the corpus was measured. The coordinator keeps its own copy of the
+host table in `src/officeHostApps.ts` (ProgID and process image), and
+`tests/vbeOracleWorker.test.ts` keeps the two in step. A change to the oracle
+for one host is made for all four.
+
+Each case gets a fresh file in its host: a workbook, a document, a
+presentation, or an Access database written to the temp folder and deleted
+afterwards. Where the hosts differ (measured on Office 16.0 build 20430):
+
+- Word and PowerPoint can hand an automation request to an instance that is
+  already running, and PowerPoint always does. The worker refuses to start
+  either while one is open, with a `worker_error` that says so, rather than
+  compile into someone's instance and then quit it.
+- A new module in Word, PowerPoint or Access holds only the case's source:
+  the worker deletes what the VBE put there, such as Access's own
+  `Option Compare Database`. Excel keeps what it always kept.
+- Access is never kept between cases: closing its database asks whether to
+  save the case's modules, so each case quits it without saving.
+- Run takes `'file'!Module.Proc` in Excel and PowerPoint, `Project.Module.Proc`
+  in Word, and only the bare procedure name in Access.
+
+`run_excel_vbe_oracle.mjs`, the coordinator's name when it drove only Excel,
+still works, and so does `--cases-per-excel` for `--cases-per-instance`.
 
 Fixtures containing procedure `Attribute ... .VB_...` lines are imported from
 an exported component header, so default-member and enumeration attributes are
@@ -20,9 +48,9 @@ npm run test:oracle:vbe
 ```
 
 Run oracle commands sequentially. Do not run multiple `test:oracle:vbe` or
-`run_excel_vbe_oracle.mjs` invocations in parallel, even for different cases.
-The harness drives Excel/VBE through a single-user COM/UI automation surface;
-parallel runs can contend for VBE focus, command bars, modal dialogs, and Excel
+`run_vbe_oracle.mjs` invocations in parallel, even for different cases.
+The harness drives the VBE through a single-user COM/UI automation surface;
+parallel runs can contend for VBE focus, command bars, modal dialogs, and host
 process cleanup, producing timeouts or misleading contradictory results. When
 several cases need retesting, run one command, wait for it to finish and clean
 up, then run the next.
@@ -30,12 +58,12 @@ up, then run the next.
 Useful filters:
 
 ```powershell
-node syntax_corpus/oracle/run_excel_vbe_oracle.mjs --case missing_trailing_required_argument
-node syntax_corpus/oracle/run_excel_vbe_oracle.mjs --timeout 30 --json
-node syntax_corpus/oracle/run_excel_vbe_oracle.mjs --timeout-retries 2
-node syntax_corpus/oracle/run_excel_vbe_oracle.mjs --case string_scalar_member_access_compile --dialog-hold-seconds 20
-node syntax_corpus/oracle/run_excel_vbe_oracle.mjs --strict
-node syntax_corpus/oracle/run_excel_vbe_oracle.mjs --checkpoint oracle-results.jsonl
+node syntax_corpus/oracle/run_vbe_oracle.mjs --case missing_trailing_required_argument
+node syntax_corpus/oracle/run_vbe_oracle.mjs --timeout 30 --json
+node syntax_corpus/oracle/run_vbe_oracle.mjs --timeout-retries 2
+node syntax_corpus/oracle/run_vbe_oracle.mjs --case string_scalar_member_access_compile --dialog-hold-seconds 20
+node syntax_corpus/oracle/run_vbe_oracle.mjs --strict
+node syntax_corpus/oracle/run_vbe_oracle.mjs --checkpoint oracle-results.jsonl
 ```
 
 With `--checkpoint`, each case's result is appended to the file as soon as it
@@ -44,21 +72,23 @@ finishes. Running the same command again skips every case that already has an
 resumes where it stopped once the cause is fixed. Such results are marked
 `resumed: true`. A case runs again if anything in its fixture has changed,
 including its `expected` value or description, or if the worker or coordinator
-has, or if Excel's build has.
+has, or if the build of its host has.
 
 That makes a checkpoint file safe to keep as a verdict cache across runs: an
-Office update reruns every case. The build is the file version of the
-`EXCEL.EXE` that Excel.Application is registered to, read once per run without
-starting Excel; `--checkpoint` refuses to run if it cannot be read. Each result
-records the build of the Excel that produced it as `excelBuild`, and a result
-whose build is missing or differs is an infrastructure failure, never cached
-evidence. An Office update during a run stops it at the next case that starts
-the new Excel; run it again, and the old build's entries are not reused.
+Office update reruns every case. A host's build is the file version of the
+executable its ProgID is registered to (`EXCEL.EXE`, `WINWORD.EXE`,
+`POWERPNT.EXE`, `MSACCESS.EXE`), read once per run without starting it, for
+each host the cases use; `--checkpoint` refuses to run if one cannot be read.
+Each result records its `host` and the build of the running instance that
+produced it as `hostBuild`, and a result whose build is missing or differs is
+an infrastructure failure, never cached evidence. An Office update during a
+run stops it at the next case that starts the new build; run it again, and
+the old build's entries are not reused.
 
 Promotion workflow for an observe-only case:
 
 ```powershell
-node syntax_corpus/oracle/run_excel_vbe_oracle.mjs --case local_string_with_argument_statement --promote-observed
+node syntax_corpus/oracle/run_vbe_oracle.mjs --case local_string_with_argument_statement --promote-observed
 ```
 
 Promotion is deliberately narrow. It requires at least one `--case`, refuses
@@ -70,28 +100,34 @@ fixtures whose `expected` value is already asserted, and writes only
 ## Requirements
 
 - Windows
-- Microsoft Excel installed
-- Trust access to the VBA project object model enabled
-- No unrelated modal Excel/VBE prompts blocking automation
+- The Office applications the cases name installed (Excel for the bulk of
+  the corpus)
+- Trust access to the VBA project object model enabled in each of them
+  (Access has no such setting)
+- No unrelated modal VBE prompts blocking automation, and no Word or
+  PowerPoint of your own open while cases for that host run
 
-The runner starts an unsaved disposable Excel workbook per case. Keeping the
-workbook in memory avoids local macro-security policy blocking generated test
-macros. One worker serves the cases in turn, and one Excel serves compile
-cases, which run no code: the worker closes each case's workbook, and starts
-a new Excel after every run case, after `--cases-per-excel` cases (default
-40), after any case that is not `accepted` or `rejected`, after any case that
-leaves a workbook open, and when a kept Excel no longer takes the worker's
-settings. `--cases-per-excel 1` gives every case its own Excel. If a case
-hangs, the coordinator times out the worker and kills it and the Excel
-process that the worker recorded; the next case starts a new worker. Timeout
+The runner starts an unsaved disposable file per case (Access's database is
+on disk in the temp folder). Keeping the file in memory avoids local
+macro-security policy blocking generated test macros. One worker serves the
+cases in turn, and one host instance serves compile cases of that host,
+which run no code: the worker closes each case's file, and starts a new
+instance after every run case, after every Access case, after
+`--cases-per-instance` cases (default 40), after any case that is not
+`accepted` or `rejected`, after any case that leaves a file open, when the
+next case names another host, and when a kept instance no longer takes the
+worker's settings. `--cases-per-instance 1` gives every case its own
+instance. If a case hangs, the coordinator times out the worker and kills it
+and the host process that the worker recorded, by its pid and image name;
+the next case starts a new worker. Timeout
 is not VBA evidence: it is treated as oracle infrastructure health. The
 coordinator retries the same case up to `--timeout-retries`, except one that
 timed out behind a compile-error dialog, which is not retried; if every
 attempt times out, it aborts the remaining run as `outcome: "oracle_failure"`
-and exits non-zero even without `--strict`. Investigate the harness/Excel modal state before running additional
+and exits non-zero even without `--strict`. Investigate the harness/host modal state before running additional
 oracle cases. If an oracle failure follows accidental parallel oracle runs,
 treat the parallelism as the first suspected infrastructure cause and rerun the
-cases sequentially after checking for lingering Excel/VBE processes or modal
+cases sequentially after checking for lingering Office/VBE processes or modal
 dialogs.
 
 Only `accepted` and `rejected` are evidence outcomes. Any other worker outcome
@@ -102,14 +138,14 @@ VBE dialog is captured, the case is not treated as a VBA rejection.
 
 For extension development, `ORACLE-FAIL` is a stop-the-line signal for the AI
 agent. Do not continue adding or promoting oracle cases after it appears. First
-perform a deep application inspection: check for lingering Excel/VBE processes,
+perform a deep application inspection: check for lingering Office/VBE processes,
 modal dialogs, worker stage output, command-bar invocation, dialog detection and
 dismissal, timeout/retry behavior, recent harness edits, and whether the failure
 is reproducible with a single focused case. Resume oracle-backed development
 only after the harness failure has a concrete explanation or fix.
 
 By default the runner is observational and exits successfully even when a
-fixture expectation differs from the observed result. The local Excel/VBE
+fixture expectation differs from the observed result. The local VBE
 automation path is operational; use `--strict` to enforce expectations.
 
 ## Timing, reliability, and lessons learned
@@ -120,7 +156,7 @@ that VBE actually rejects, fails to capture the error dialog, and records the ca
 as accepted. That poisons the no-false-positive discipline (a rule shipped against
 a bogus "accepted" control). Guard against it with the controls below.
 
-1. **Excel must run visible.** The worker sets `Application.Visible = $true`. When
+1. **The host must run visible.** The worker sets each host's `Visible`. When
    the host is hidden, the VBE `Compile error:` / `Run-time error` modal is not
    surfaced as a detectable visible top-level window, so the Win32 dialog watcher
    never sees it and the rejection is misrecorded as `accepted`.
@@ -131,23 +167,23 @@ a bogus "accepted" control). Guard against it with the controls below.
    Compile command's lookup, since replaced). Accepts no longer wait out the
    window: a compile case is accepted when the Compile command turns disabled,
    which it does only once the project has compiled, and is still disabled with
-   no dialog seen 300 ms later. A run case is accepted when `Excel.Run` returns
+   no dialog seen 300 ms later. A run case is accepted when the host's `Run` returns
    and no dialog is seen within 300 ms, because `Run` returns only after its
-   dialog is dismissed. Both also require Excel to be alive (see #8).
+   dialog is dismissed. Both also require the host to be alive (see #8).
 
 3. **`--timeout` is the single knob.** In normal mode the watch window is
-   `max(12, min(22, timeout - 22))` seconds; raising `--timeout` adds Excel-startup
+   `max(12, min(22, timeout - 22))` seconds; raising `--timeout` adds startup
    headroom. For a window longer than the 22s cap (a very slow VBE), use
    `--dialog-hold-seconds`, whose branch uses `timeout - hold - 5` uncapped.
 
 4. **The watch window is an upper bound.** A compile case that neither shows a
    dialog nor disables the Compile command waits the *entire* window, then is
-   recorded as `accepted` if Excel is alive. `excel_start + watch + cleanup`
+   recorded as `accepted` if the host is alive. `host_start + watch + cleanup`
    must fit inside `--timeout` or the coordinator kills the worker as a false
    `timeout`/`oracle_failure`.
 
 5. **The first run on a cold machine may time out entirely.** The first-ever COM
-   Excel launch (Office first-run/activation) can exceed the timeout before
+   Office launch (Office first-run/activation) can exceed the timeout before
    compilation even starts. Treat a *single* initial timeout as cold-start
    warmup, re-run, and expect subsequent runs to be faster as the OS/COM caches
    warm. A *systematic* timeout or `oracle_failure` after warmup is a real harness
@@ -159,7 +195,7 @@ a bogus "accepted" control). Guard against it with the controls below.
    not promote anything until it is fixed:
 
    ```powershell
-   py syntax_corpus/oracle/run_excel_vbe_oracle.mjs `
+   node syntax_corpus/oracle/run_vbe_oracle.mjs `
      --case missing_trailing_required_argument `
      --case bare_variable_statement `
      --case number_to_string_assignment --strict --json
@@ -171,16 +207,16 @@ a bogus "accepted" control). Guard against it with the controls below.
 
 8. **A crash is not an accept.** Compiling some snippets crashes Excel. The
    watcher then sees no dialog, which used to be recorded as `accepted`. Before
-   accepting, the worker now checks that the Excel process it started is still
+   accepting, the worker now checks that the host process it started is still
    running and answers a COM call; if not, the case is a `worker_error` and the
-   run stops. An Excel that hangs instead, for example behind a crash report,
+   run stops. A host that hangs instead, for example behind a crash report,
    blocks that call, and the case ends as a `timeout`.
 
 ## Automation Policy
 
 The oracle must not use `SendKeys`, keyboard focus scripting, or
-timing-dependent keystroke playback as evidence. Driving Excel/VBE should use
-deterministic low-level hooks: COM object model calls for workbook/VBE actions,
+timing-dependent keystroke playback as evidence. Driving the VBE should use
+deterministic low-level hooks: COM object model calls for file/VBE actions,
 VBE command-bar controls for compile invocation, Win32 window enumeration and
 messages for dialog capture/dismissal, or UI Automation hooks where COM/Win32
 cannot expose the required state. If a case can only be exercised through
@@ -203,8 +239,8 @@ source, show the disposable module in VBE, then invoke the exact
 not use keyboard accelerators for compile invocation. A `Compile error:` dialog
 is treated as compile rejection. When the Compile command turns disabled with
 no dialog, or no compile dialog appears before the popup watch period ends, the
-case is recorded as compile-accepted, but only if Excel is still running and
-answering COM calls. If Excel crashed, the case is a
+case is recorded as compile-accepted, but only if the host is still running and
+answering COM calls. If the host crashed, the case is a
 `worker_error`.
 
 Some source never reaches the compiler: the VBE refuses to insert it, as its
@@ -215,12 +251,13 @@ while adding a module stays a `worker_error`; add a message to the worker's
 list only once it has been seen.
 
 By default a fixture supplies one standard-module `source` string. For
-workbook-object behavior, a fixture may instead supply a `modules` array. Each
+document-module behavior, a fixture may instead supply a `modules` array. Each
 entry has `name`, `type` (`standard`, `class` or `document`), and `source`;
 mark the standard module containing the `entryPoint` with `entry: true` when it
 is not the first standard module. A `document` entry names one of the new
-workbook's own document modules (`ThisWorkbook`, `Sheet1`), whose code the
-worker replaces in place, since a document module cannot be added. This lets the oracle verify class-module member behavior
+file's own document modules (`ThisWorkbook` or `Sheet1` in Excel,
+`ThisDocument` in Word), whose code the worker replaces in place, since a
+document module cannot be added. A new presentation or database has none. This lets the oracle verify class-module member behavior
 without changing production code.
 
 Use `mode: "compile_then_run"` for discovery cases where the failure phase is
@@ -245,9 +282,9 @@ the phase actually being asserted:
 - Keep `compile_then_run` only for intentional harness controls or unresolved
   discovery probes that need to keep proving the full two-phase path.
 
-The worker keeps Excel visible but does not require foreground focus for normal
+The worker keeps the host visible but does not require foreground focus for normal
 compile or run evidence. Dialog detection is owned by Win32 window enumeration
-for the recorded Excel process; timeouts remain only a fallback and never
+for the recorded host process; timeouts remain only a fallback and never
 satisfy an expected or observe-only fixture result.
 
 For harness debugging, `--dialog-hold-seconds N` keeps the first detected VBE
@@ -263,7 +300,7 @@ is recorded as `outcome: "rejected"` and dismissed with the dialog's `End`
 button. The dismiss fallback also sends standard OK/Cancel/Abort dialog commands
 because VBE runtime dialogs vary in their button command IDs. A `Compile error:`
 dialog during a run is recorded as `outcome: "rejected"` with stage
-`compile_dialog`; the watcher then ends that Excel, because `Excel.Run` does
+`compile_dialog`; the watcher then ends that host instance, because Excel's `Run` does
 not return after a compile error is dismissed. Use runtime
 fixtures sparingly, only when a deterministic runtime error changes diagnostic
 severity or corpus truth.
@@ -272,15 +309,15 @@ An entry point may be a `Function`. If it returns a Date beyond what .NET can
 hold, the macro has run but reading its return value fails with
 `Not a legal OleAut date.`; the worker treats exactly that error as a normal
 return, so a captured dialog still rejects the case and an accept still
-requires Excel to be alive. Any other error from `Run` is handled as before.
+requires the host to be alive. Any other error from `Run` is handled as before.
 
 During compile fixtures, the worker starts a Win32 dialog watcher before invoking
-VBE Compile. A dialog owned by the disposable Excel process with title
+VBE Compile. A dialog owned by the disposable host process with title
 `Microsoft Visual Basic for Applications`, class `#32770`, and child text
 containing `Compile error:` is recorded as `outcome: "rejected"`; the watcher
 captures the dialog text, dismisses it with direct Win32 button/window commands,
 verifies the dialog is no longer visible, and only then writes the oracle result
-file. It does not reopen the Debug menu after dismissal; the case's workbook
+file. It does not reopen the Debug menu after dismissal; the case's file
 is closed immediately afterward. Timeouts remain a fallback for hangs
 or unrelated modal prompts, not the primary rejection signal. A timeout never
 means accepted or rejected; after the retry budget is exhausted, it means the
@@ -292,7 +329,7 @@ does not yet assert a specific result.
 Every oracle case must also declare `provenance`:
 
 - `vbe-oracle-verified` for accepted/rejected expectations that are intended to
-  assert Excel/VBE behavior.
+  assert Office VBE behavior.
 - `observed-not-asserted` for `expected: "observe"` cases.
 
 Every oracle case must declare the phase it proves and the meaning of that
@@ -300,9 +337,9 @@ observation:
 
 - `evidencePhase: "compile"` for VBE Compile command evidence, a compile
   error raised while running, or the VBE refusing to insert the source.
-- `evidencePhase: "runtime"` for `excel.Run` evidence.
+- `evidencePhase: "runtime"` for evidence from the host's `Run`.
 - `mode: "compile_then_run"` may produce either compile or runtime evidence
-  depending on where Excel/VBE rejects the snippet.
+  depending on where the VBE rejects the snippet.
 - `diagnosticMeaning: "compile-error"` when VBE Compile rejects the source.
 - `diagnosticMeaning: "runtime-error"` when the source compiles but running the
   entry point raises a deterministic VBE runtime dialog.

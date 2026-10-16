@@ -5,7 +5,7 @@
 // a superset of VB6 with published incompatibilities, so its verdict is typed
 // evidence about twinBASIC and inferred evidence about VB6; the harness
 // records it as such and never as "VB6-accepted". Shaped like
-// ../run_excel_vbe_oracle.mjs: one case at a time, a bounded run, a kill that
+// ../run_vbe_oracle.mjs: one case at a time, a bounded run, a kill that
 // reaches only what the run spawned, and only `accepted`/`rejected` as
 // evidence.
 //
