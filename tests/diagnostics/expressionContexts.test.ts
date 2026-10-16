@@ -143,7 +143,7 @@ describe('the same expression rules in every statement context', () => {
 		expect(compileErrors(source('items(Action) = 1')).filter((diag) => diag.code === 'sub-used-as-value')).toHaveLength(1);
 		expect(compileErrors(source('items(0) = 1\nAction'))).toEqual([]);
 	});
-	it('preserves the Type-field fallback in statement grammars without expression ASTs', () => {
+	it('reports a file Print array field operand once', () => {
 		const text = source('Dim row As Payload\nPrint #1, row.values + 1', 'Private Type Payload\nvalues(1) As Long\nEnd Type\n');
 		expect(compileErrors(text).filter((diag) => diag.code === 'non-scalar-binary-operand')).toHaveLength(1);
 	});
@@ -220,6 +220,9 @@ describe('measured expression-context regressions', () => {
 		if (test.expected === 'rejected') {
 			for (const code of expectedFamilies.get(test.id) ?? []) {
 				expect(errors.map((diag) => diag.code)).toContain(code);
+				if (code === 'is-operator-non-object' && test.description.includes('Type mismatch')) {
+					expect(errors.find((diag) => diag.code === code)?.message).toContain('VBE compile error: Type mismatch.');
+				}
 			}
 		}
 	});
@@ -253,6 +256,9 @@ describe('Excel 16.0 round-2 measurements (2026-10-16)', () => {
 	it.each(round2)('$id reports exactly the measured compile diagnosis', (test) => {
 		const errors = compileErrors(test.source);
 		expect(errors.map((diag) => diag.code)).toEqual(round2Codes[test.id]);
+		if (['rq6_left_dollar_is_nothing', 'rq6_numbers_arg_plus', 'rq6_numbers_arg_is', 'rq6_numbers_arg_typeof'].includes(test.id)) {
+			expect(errors[0].message).toContain('Type mismatch');
+		}
 		if (test.id.includes('paren_collection')) { expect(errors[0].message).toContain('Syntax error'); }
 		if (test.id === 'rq6_left_dollar_is_nothing') { expect(errors[0].message).toContain('type String'); }
 		if (test.id === 'rq6_numbers_arg_is') { expect(errors[0].message).toContain('array type'); }
@@ -297,10 +303,51 @@ function measuredMain(body: string, declarations = ''): string {
 }
 
 describe('Excel 16.0 measured gap follow-ups', () => {
+	it.each(['InStr("abc", "a")', 'Len("abc")'])(
+		'keeps the measured scalar compile error even in an unexecuted branch: %s', (call) => {
+			for (const prefix of ['', 'If False Then ']) {
+				const errors = compileErrors(measuredMain(`${prefix}Debug.Print ${call} Is Nothing`));
+				expect(errors.map((diag) => diag.code)).toEqual(['is-operator-non-object']);
+				expect(errors[0].message).toContain('VBE compile error: Type mismatch.');
+			}
+		});
+	it.each(['Year(#1/1/2026#)', 'VBA.Year(#1/1/2026#)', 'Left("abc", 1)', 'VBA.Left("abc", 1)', 'Flexible()'])(
+		'accepts declared Variant results for Is: %s', (call) => {
+			const declaration = 'Private Function Flexible() As Variant\nEnd Function\n';
+			for (const expression of [`${call} Is Nothing`, `Nothing Is ${call}`]) {
+				expect(compileErrors(measuredMain(`Debug.Print ${expression}`, declaration))).toEqual([]);
+			}
+		});
+	it.each(['Print', 'Write'])('checks file %s values without treating the array target as a value', (statement) => {
+		const errors = compileErrors(measuredMain(`Dim a(1) As Long\n${statement} #1, a + 1`));
+		expect(errors.map((diag) => diag.code)).toEqual(['non-scalar-binary-operand']);
+		expect(errors[0].message).toContain('Type mismatch');
+		for (const expression of ['a(0) + 1', '1', 'a ^ 2', 'Not a']) {
+			expect(compileErrors(measuredMain(`Dim a(1) As Long\n${statement} #1, ${expression}`))).toEqual([]);
+		}
+	});
+	it('checks only ReDim bound expressions', () => {
+		const errors = compileErrors(measuredMain('Dim a() As Long, n As Long\nReDim a(n Is Nothing)'));
+		expect(errors.map((diag) => diag.code)).toEqual(['is-operator-non-object']);
+		expect(errors[0].message).toContain('VBE compile error: Type mismatch.');
+		for (const body of ['ReDim a(n + 1)', 'ReDim a(0 To n, 1 To n + 1)', 'ReDim Preserve a(n + 1)', 'ReDim a(Len("abc"))']) {
+			expect(compileErrors(measuredMain(`Dim a() As Long, n As Long\n${body}`))).toEqual([]);
+		}
+	});
+	it.each(['((Nothing)) + 1', '1 + ((Nothing))', '-((Nothing))', 'Not ((Nothing))'])(
+		'unwraps nested Nothing operands: %s', (expression) => {
+			const errors = compileErrors(measuredMain(`Debug.Print ${expression}`));
+			expect(errors.map((diag) => diag.code)).toEqual(['non-scalar-binary-operand']);
+			expect(errors[0].message).toContain('VBE compile error: Invalid use of object.');
+		});
+	it.each(['((1)) + 1', '((Nothing)) Is Nothing', 'Nothing Is ((Nothing))'])(
+		'accepts nested parentheses controls: %s', (expression) => {
+			expect(compileErrors(measuredMain(`Debug.Print ${expression}`))).toEqual([]);
+		});
 	const record = 'Private Type R\nn As Long\nEnd Type\n';
-	it.each(['Print', 'Write'])('retains the UDT fallback for file %s operands', (statement) => {
+	it.each(['Print', 'Write'])('gives the shared visitor ownership of file %s UDT operands', (statement) => {
 		const errors = compileErrors(measuredMain(`Dim r1 As R\n${statement} #1, r1 + 1`, record));
-		expect(errors.map((diag) => diag.code)).toEqual(['udt-value-mismatch']);
+		expect(errors.map((diag) => diag.code)).toEqual(['non-scalar-binary-operand']);
 		expect(errors[0].message).toContain('Type mismatch');
 	});
 	it.each(['Print', 'Write'])('accepts file %s scalar fields and the measured aggregate controls', (statement) => {

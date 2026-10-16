@@ -124116,6 +124116,66 @@
       "source": "Option Explicit\r\nEnum E\r\n    a = 1\r\nEnd Enum\r\nSub Main()\r\n    Dim x As Long\r\n    x = E\r\nEnd Sub\r\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "review_skipped_instr_is_nothing_compile",
+      "description": "If False Then Debug.Print InStr(\"abc\", \"a\") Is Nothing: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    If False Then Debug.Print InStr(\"abc\", \"a\") Is Nothing\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "review_instr_is_nothing_compile",
+      "description": "Debug.Print InStr(\"abc\", \"a\") Is Nothing: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Debug.Print InStr(\"abc\", \"a\") Is Nothing\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "review_len_is_nothing_compile",
+      "description": "Debug.Print Len(\"abc\") Is Nothing: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Debug.Print Len(\"abc\") Is Nothing\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "review_file_print_array_plus_compile",
+      "description": "Dim a(1) As Long; Print #1, a + 1: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long\r\n    Print #1, a + 1\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "review_redim_bound_is_nothing_compile",
+      "description": "Dim a() As Long, n As Long; ReDim a(n Is Nothing): Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long, n As Long\r\n    ReDim a(n Is Nothing)\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "review_double_paren_nothing_plus_compile",
+      "description": "Debug.Print ((Nothing)) + 1: Invalid use of object (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Debug.Print ((Nothing)) + 1\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }

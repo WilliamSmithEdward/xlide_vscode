@@ -93,6 +93,33 @@ describe('expression traversal work', () => {
 		expect(visit.mock.calls[0][0]).toMatchObject({ exprKind: 'BinaryExpr', operator: '+' });
 	});
 
+	it.each([
+		['Print #1, a + 1; CStr(n + 1), a(0)', ['a + 1', 'CStr(n + 1)', 'a(0)']],
+		['Write #1, a + 1, CStr(n + 1)', ['a + 1', 'CStr(n + 1)']],
+		['ReDim Preserve a(0 To n Is Nothing, F(1, 2)), b(1 To n + 1) As Long', ['0', 'n Is Nothing', 'F(1, 2)', '1', 'n + 1']],
+	] as const)('parses only value roots once per statement snapshot: %s', (body, values) => {
+		const { source, proc } = fixture(body);
+		const stmt = proc.body[0];
+		if (stmt.kind !== 'Statement') { throw new Error('missing statement'); }
+		const parse = vi.spyOn(parser, 'parseExpression');
+		const roots = statementValueExpressions(source, stmt);
+		expect(roots.map((expr) => source.slice(expr.span.start, expr.span.end))).toEqual(values);
+		for (let i = 0; i < 100; i++) { expect(statementValueExpressions(source, stmt)).toBe(roots); }
+		expect(parse).toHaveBeenCalledTimes(values.length);
+	});
+
+	it.each([10, 1000])('shares one linear traversal across %i file outputs and ReDim bounds', (count) => {
+		const { source, mod } = fixture(Array(count).fill('Print #1, a + 1\nReDim a(n Is Nothing)').join('\n'));
+		const parse = vi.spyOn(parser, 'parseExpression');
+		const scalar = vi.fn(), identity = vi.fn();
+		walkProcedureExpressions(mod, undefined, [() => scalar, () => identity], source, undefined, [['BinaryExpr'], ['BinaryExpr']]);
+		expect(parse).toHaveBeenCalledTimes(count * 2);
+		expect(scalar).toHaveBeenCalledTimes(count * 2);
+		expect(identity).toHaveBeenCalledTimes(count * 2);
+		walkProcedureExpressions(mod, undefined, [() => vi.fn()], source, undefined, [['BinaryExpr']]);
+		expect(parse).toHaveBeenCalledTimes(count * 2);
+	});
+
 	it.each([10, 1000])('dispatches only selected kinds across %i assignments, preserving generic visitors', (count) => {
 		const { source, mod } = fixture(Array(count).fill('v = n + 1').join('\n'));
 		const binary = vi.fn(), typeOf = vi.fn(), generic = vi.fn();

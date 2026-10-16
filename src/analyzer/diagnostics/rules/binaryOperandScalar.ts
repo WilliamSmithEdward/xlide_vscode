@@ -83,8 +83,8 @@ export function checkBinaryOperandScalar(
 }
 
 function isNothing(expr: ExprNode): boolean {
-	const inner = expr.exprKind === 'ParenExpr' ? expr.inner : expr;
-	return inner.exprKind === 'LiteralExpr' && inner.literalKind === 'nothing';
+	while (expr.exprKind === 'ParenExpr') { expr = expr.inner; }
+	return expr.exprKind === 'LiteralExpr' && expr.literalKind === 'nothing';
 }
 
 /** A provably non-scalar operand; unknown shapes stay quiet. */

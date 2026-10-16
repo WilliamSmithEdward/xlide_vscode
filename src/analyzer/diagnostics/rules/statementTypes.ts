@@ -579,7 +579,7 @@ function checkStatement(ctx: Context, procSym: VbaSymbol | undefined, span: Span
 		const operatorAfter = !!after && i + 1 !== assignmentEq && isOperator(after);
 		// A Type of this module beside a binary operator is
 		// non-scalar-binary-operand's only where its walker parsed the operand.
-		// File Print/Write and other unsupported grammars keep this fallback.
+		// Unsupported statement grammars keep this fallback.
 		// A unary minus (`v = -t`), `a Is b` (left to Is), and another
 		// module's Type also stay here.
 		const prior = toks[i - 2];

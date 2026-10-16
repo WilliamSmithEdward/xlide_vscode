@@ -180,7 +180,7 @@ function checkTypeOfIs(
  * operands on both sides (MS-VBAL 5.6). When an operand is PROVABLY a non-object
  * - a scalar value literal, or an identifier declared As a known scalar type
  * (numeric / String / Boolean / Date) - `a Is b` is a VBE compile error
- * ("Object required"). Oracle-verified rejected at compile:
+ * ("Type mismatch"). Oracle-verified rejected at compile:
  * `is_scalar_long_var_compile`, `is_scalar_string_var_compile`,
  * `is_two_scalar_vars_compile`, `is_literal_integer_operands_probe`,
  * `is_literal_string_operands_probe`; with the Variant control
@@ -209,7 +209,7 @@ export function checkIsOperatorOperands(
 			if (offender) {
 				push(
 					'isOperatorNonObject',
-					`The 'Is' operator requires object operands, but ${offender.detail}, which is not an object.`,
+					`The 'Is' operator requires object operands, but ${offender.detail}, which is not an object. This is a VBE compile error: Type mismatch.`,
 					offender.span,
 				);
 			}

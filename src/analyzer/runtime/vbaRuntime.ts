@@ -91,7 +91,7 @@ function fn(
 }
 
 // These functions declare Variant even when the value they produce has a
-// String or Date subtype. The $ forms declare String. Keep the value subtype
+// scalar subtype. The $ forms declare String. Keep the value subtype
 // available to completion/value inference without using it as a compile type.
 function variantFn(...args: Parameters<typeof fn>): VbaRuntimeFunction {
 	return { ...fn(...args), declaredReturns: 'Variant' };
@@ -326,7 +326,7 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	// `Time$(1)` is Wrong number of arguments (measured in Excel 16.0).
 	fn('Time$', 'Time$() As String', 'String'),
 	fn('Timer', 'Timer() As Single', 'Single'),
-	fn('Year', 'Year(Date) As Integer', 'Integer'),
+	variantFn('Year', 'Year(Date) As Integer', 'Integer'),
 	fn('Month', 'Month(Date) As Integer', 'Integer'),
 	fn('Day', 'Day(Date) As Integer', 'Integer'),
 	fn('Hour', 'Hour(Time) As Integer', 'Integer'),

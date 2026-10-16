@@ -39,6 +39,11 @@ describe('VBA runtime metadata', () => {
 		'keeps the typed return of %s', (name, type) => {
 			expect(resolveRuntimeFunction(name)?.declaredReturns).toBe(type);
 		});
+	it('distinguishes the Year Variant declaration from its Integer subtype', () => {
+		expect(resolveRuntimeFunction('Year')?.returns).toBe('Integer');
+		expect(resolveRuntimeFunction('Year')?.declaredReturns).toBe('Variant');
+		for (const name of ['InStr', 'Len']) { expect(resolveRuntimeFunction(name)?.declaredReturns).toBe('Long'); }
+	});
 
 	it('resolves the hidden pointer, byte-string, and vbLongLong built-ins', () => {
 		expect(resolveRuntimeFunction('VarPtr')?.returns).toBe('LongPtr');

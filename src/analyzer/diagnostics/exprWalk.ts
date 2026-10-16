@@ -13,7 +13,7 @@
 
 import type { BodyNode, ExprNode, LeafStatementNode, ModuleNode, ProcedureNode } from '../parser/nodes';
 import type { ConditionalActivityTracker } from '../conditional/conditionalCompilation';
-import { activeModuleMembers, blockHeaderStatements, firstExecutableTokenIndex, isInactiveNode, statementAndBranchSpans, statementTokens, tokenText } from './walker';
+import { activeModuleMembers, blockHeaderStatements, firstExecutableTokenIndex, isInactiveNode, matchParenFrom, statementAndBranchSpans, statementTokens, tokenText } from './walker';
 import { ifBranchStatement } from './blockHeaders';
 import { parseExpression, parseParenlessArguments } from '../parser/parseExpression';
 import type { VbaToken } from '../lexer/tokenKinds';
@@ -211,15 +211,15 @@ export function statementValueExpressions(source: string, stmt: LeafStatementNod
 		};
 		// Only top-level separators delimit roots; commas and operators inside
 		// a call or parentheses belong to that expression.
-		const split = (from: number, separators: ReadonlySet<string>): void => {
+		const split = (from: number, separators: ReadonlySet<string>, to = toks.length): void => {
 			let depth = 0, start = from;
-			for (let i = from; i < toks.length; i++) {
+			for (let i = from; i < to; i++) {
 				const raw = toks[i].rawText;
 				if (raw === '(') { depth++; }
 				else if (raw === ')') { depth--; }
 				else if (depth === 0 && separators.has(tokenText(toks[i]))) { parse(start, i); start = i + 1; }
 			}
-			parse(start);
+			parse(start, to);
 		};
 		if (head === 'if' || head === 'elseif') {
 			const then = toks.findIndex((tok) => tokenText(tok) === 'then');
@@ -235,6 +235,24 @@ export function statementValueExpressions(source: string, stmt: LeafStatementNod
 			if (tokenText(toks[first + 1]) !== 'else') { split(first + 1, new Set([',', 'to'])); }
 		} else if (head === 'debug' && toks[first + 1]?.rawText === '.' && tokenText(toks[first + 2]) === 'print') {
 			split(first + 3, new Set([',', ';']));
+		} else if ((head === 'print' || head === 'write') && toks[first + 1]?.rawText === '#') {
+			// The file prefix is statement syntax; only output items are values.
+			let depth = 0;
+			for (let i = first + 2; i < toks.length; i++) {
+				if (toks[i].rawText === '(') { depth++; }
+				else if (toks[i].rawText === ')') { depth--; }
+				else if (depth === 0 && toks[i].rawText === ',') { split(i + 1, new Set([',', ';'])); break; }
+			}
+		} else if (head === 'redim') {
+			// Targets and optional As types are declarations, not value reads.
+			// At each target's parentheses, visit only the dimension bounds.
+			for (let i = first + 1; i < toks.length; i++) {
+				if (toks[i].rawText !== '(') { continue; }
+				const close = matchParenFrom(toks, i);
+				if (close < 0) { break; }
+				split(i + 1, new Set([',', 'to']), close);
+				i = close;
+			}
 		} else if (!['dim', 'static', 'const', 'public', 'private', 'redim', 'erase', 'exit', 'goto', 'resume', 'on', 'end', 'next', 'wend', 'else', 'loop', 'do'].includes(head)) {
 			const eq = topLevelEqualsIndex(toks);
 			if (eq >= 0) { parse(eq + 1); }

@@ -11,7 +11,7 @@ function fixture(body: string, type = 'Long') {
 }
 function run(f: ReturnType<typeof fixture>) { const out: unknown[][]=[]; walk.walkProcedureExpressions(f.mod,undefined,[checkIsOperatorOperands(f.symbols,(...v)=>out.push(v))],f.source);return out; }
 function expected(f: ReturnType<typeof fixture>, count: number) {
- let from = 0; return Array.from({length:count},()=> { const start = f.source.indexOf('n Is Nothing',from);from=start+1;return ['isOperatorNonObject',"The 'Is' operator requires object operands, but 'n' has type Long, which is not an object.",{start,end:start+1}];});
+ let from = 0; return Array.from({length:count},()=> { const start = f.source.indexOf('n Is Nothing',from);from=start+1;return ['isOperatorNonObject',"The 'Is' operator requires object operands, but 'n' has type Long, which is not an object. This is a VBE compile error: Type mismatch.",{start,end:start+1}];});
 }
 for (const n of [10,100,1000]) it(`shares one visitor across ${n} conditions and print items`, () => {
  const f=fixture(Array(n).fill("If n Is Nothing Then Debug.Print n ' tail").join('\n'));
