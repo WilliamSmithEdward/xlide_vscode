@@ -2,6 +2,18 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.1.16] - 2026-10-16
+
+Let an Excel oracle run survive source the VBE will not take, and resume
+where it stopped. The extension itself is unchanged.
+
+- Record source the VBE refuses to insert, such as a line with too many
+  continuations, as a compile rejection instead of a harness failure, and
+  add `--checkpoint`, which skips the cases a stopped run already finished
+  (#1363, contributed by Sam, @swsammy).
+- Give the fixture for a character outside the Basic Multilingual Plane
+  the emoji it was meant to hold (#1367, contributed by Sam, @swsammy).
+
 ## [11.1.15] - 2026-10-15
 
 Run the Excel oracle that the analyzer is checked against faster and more
