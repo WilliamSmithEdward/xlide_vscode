@@ -2,6 +2,19 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.1.17] - 2026-10-16
+
+Make the live Office test suite skip what it cannot run, and start fewer
+processes. The extension itself is unchanged.
+
+- Skip a password-protection check whose Office application is not
+  installed or is already running, instead of failing it, and wait for an
+  instance the check started to exit before the next one (#1369,
+  contributed by Sam, @swsammy).
+- Count running Office applications with one tasklist call instead of a
+  PowerShell per question, and wait for the dialog watcher to be ready
+  instead of a fixed pause (#1370, contributed by Sam, @swsammy).
+
 ## [11.1.16] - 2026-10-16
 
 Let an Excel oracle run survive source the VBE will not take, and resume
