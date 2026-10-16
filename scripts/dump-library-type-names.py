@@ -32,6 +32,8 @@ LIBS = {
     'MSForms': '{0D452EE1-E08F-101A-852E-02608C4D0BB4}',
     'Scripting': '{420B2830-E718-11CF-893D-00A0C9054228}',
     'VBScript_RegExp_55': '{3F4DACA7-160D-11D2-A8E9-00104B365C9F}',
+    # The Access database engine, which every new Access database references.
+    'DAO': '{4AC9E1DA-5BAD-4AC7-86E3-24F4CDCECA28}',
 }
 
 

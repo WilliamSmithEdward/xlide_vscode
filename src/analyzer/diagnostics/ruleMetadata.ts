@@ -1651,6 +1651,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 3.3.5.2 / 5.2.3.1',
 		confidence: 'high',
 	},
+	memberExistsInBaseClass: {
+		code: 'member-exists-in-base-class',
+		title: 'Declaration takes a name the module\'s host class already has',
+		defaultSeverity: 'error',
+		category: 'declaration',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'VBE "Member already exists in an object module from which this object module derives" (measured in Excel, Word, PowerPoint and Access 16.0)',
+		confidence: 'high',
+	},
 	invalidNewTypeName: {
 		code: 'invalid-new-type-name',
 		title: 'Type cannot be created with New',

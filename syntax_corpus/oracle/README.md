@@ -252,12 +252,16 @@ list only once it has been seen.
 
 By default a fixture supplies one standard-module `source` string. For
 document-module behavior, a fixture may instead supply a `modules` array. Each
-entry has `name`, `type` (`standard`, `class` or `document`), and `source`;
+entry has `name`, `type` (`standard`, `class`, `userform` or `document`), and
+`source`;
 mark the standard module containing the `entryPoint` with `entry: true` when it
 is not the first standard module. A `document` entry names one of the new
 file's own document modules (`ThisWorkbook` or `Sheet1` in Excel,
 `ThisDocument` in Word), whose code the worker replaces in place, since a
-document module cannot be added. A new presentation or database has none. This lets the oracle verify class-module member behavior
+document module cannot be added. A new presentation has none. In Access a
+`document` entry named `Form_<name>` or `Report_<name>` makes that form or
+report, gives it a module and saves it, then takes the case's code. A
+`userform` entry adds a UserForm, whose module holds the case's code. This lets the oracle verify class-module member behavior
 without changing production code.
 
 Use `mode: "compile_then_run"` for discovery cases where the failure phase is
