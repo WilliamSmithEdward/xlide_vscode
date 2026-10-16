@@ -103,6 +103,7 @@ import {
 import { checkTypeFieldArrays } from './rules/typeFieldArrays';
 import { checkTypeMembers } from './rules/typeMembers';
 import { checkDeclareStatements, checkUnusableDeclareCalls } from './rules/declares';
+import { checkBaseClassMemberClash } from './rules/baseClassMembers';
 import { checkLateBoundFriendMember } from './rules/lateBinding';
 import { checkHandlerFlow } from './rules/handlerFlow';
 import { checkFileStatements } from './rules/fileStatements';
@@ -881,6 +882,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'invalidAsTypeNames',
 		run: (ctx, push) => checkInvalidAsTypeNames(ctx.source, ctx.mod, ctx.activity, ctx.opts, push),
+	},
+	{
+		name: 'baseClassMemberClash',
+		run: (ctx, push) => checkBaseClassMemberClash(ctx.mod, ctx.activity, ctx.opts, push),
 	},
 	{
 		name: 'callParens',

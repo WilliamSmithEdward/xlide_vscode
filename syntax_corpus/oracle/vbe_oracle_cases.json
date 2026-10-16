@@ -117564,6 +117564,1438 @@
           "source": "Sub Main()\r\nEnd Sub\r\n"
         }
       ]
+    },
+    {
+      "id": "base_member_word_public_function_compile",
+      "description": "Word ThisDocument: Public Function of a member name: Member already exists in an object module from which this object module derives",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Public Function Words() As Long\r\n    Words = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_word_private_function_compile",
+      "description": "Word ThisDocument: Private Function of a member name: Member already exists in an object module from which this object module derives",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Private Function Words() As Long\r\n    Words = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_word_implicit_function_compile",
+      "description": "Word ThisDocument: Function with no modifier: Member already exists in an object module from which this object module derives",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Function Words() As Long\r\n    Words = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_word_friend_function_compile",
+      "description": "Word ThisDocument: Friend Function: Member already exists in an object module from which this object module derives",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Friend Function Words() As Long\r\n    Words = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_word_public_sub_method_compile",
+      "description": "Word ThisDocument: Public Sub named after a method: Expected: identifier",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Public Sub Close()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_word_private_sub_method_compile",
+      "description": "Word ThisDocument: Private Sub named after a method: Expected: identifier",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Private Sub Close()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_word_public_variable_compile",
+      "description": "Word ThisDocument: Public variable of a member name: Member already exists in an object module from which this object module derives",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Public Words As Long\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_word_private_variable_compile",
+      "description": "Word ThisDocument: Private variable of a member name: Member already exists in an object module from which this object module derives",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Private Words As Long\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_word_dim_variable_compile",
+      "description": "Word ThisDocument: Dim at module level: Member already exists in an object module from which this object module derives",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Dim Words As Long\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_word_public_property_get_compile",
+      "description": "Word ThisDocument: Property Get: Member already exists in an object module from which this object module derives",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Public Property Get Words() As Long\r\n    Words = 1\r\nEnd Property\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_word_public_const_compile",
+      "description": "Word ThisDocument: Const: Constants, fixed-length strings, arrays, user-defined types and Declare statements not allowed as Public members of object modules",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Public Const Words As Long = 1\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_word_lower_case_compile",
+      "description": "Word ThisDocument: lower-case spelling: Member already exists in an object module from which this object module derives",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Public Function words() As Long\r\n    words = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_word_application_member_compile",
+      "description": "Word ThisDocument: an Application member, not Document: compiles.",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Public Function Selection() As Long\r\n    Selection = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_word_event_name_compile",
+      "description": "Word ThisDocument: name of a Document event: Expected: identifier",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Public Sub Open()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_word_local_variable_compile",
+      "description": "Word ThisDocument: a local variable: compiles.",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Public Sub Probe()\r\n    Dim Words As Long\r\n    Words = 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_word_parameter_compile",
+      "description": "Word ThisDocument: a parameter: compiles.",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Public Sub Probe(ByVal Words As Long)\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_word_hidden_member_compile",
+      "description": "Word ThisDocument: Dummy1, a hidden member of Document: Member already exists in an object module from which this object module derives",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Public Function Dummy1() As Long\r\n    Dummy1 = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_excel_workbook_public_function_compile",
+      "description": "Excel ThisWorkbook: Workbook.Name: Member already exists in an object module from which this object module derives",
+      "host": "excel",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Public Function Name() As String\r\n    Name = \"a\"\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_excel_workbook_private_function_compile",
+      "description": "Excel ThisWorkbook: Private Workbook.Name: Member already exists in an object module from which this object module derives",
+      "host": "excel",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Private Function Name() As String\r\n    Name = \"a\"\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_excel_workbook_public_variable_compile",
+      "description": "Excel ThisWorkbook: Workbook.Sheets variable: Member already exists in an object module from which this object module derives",
+      "host": "excel",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Public Sheets As Long\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_excel_workbook_application_member_compile",
+      "description": "Excel ThisWorkbook: Application member: compiles.",
+      "host": "excel",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Public Function Selection() As Long\r\n    Selection = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_excel_sheet_public_sub_compile",
+      "description": "Excel Sheet1: Worksheet.Range: Member already exists in an object module from which this object module derives",
+      "host": "excel",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Public Sub Range()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_excel_sheet_private_sub_compile",
+      "description": "Excel Sheet1: Private Worksheet.Calculate: Member already exists in an object module from which this object module derives",
+      "host": "excel",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Private Sub Calculate()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_excel_sheet_control_compile",
+      "description": "Excel Sheet1: control: compiles.",
+      "host": "excel",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Public Sub Refill()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_access_form_public_function_compile",
+      "description": "Access Form_Probe: Form.Name: Member already exists in an object module from which this object module derives",
+      "host": "access",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Form_Probe",
+          "type": "document",
+          "source": "Public Function Name() As String\r\n    Name = \"a\"\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_access_form_private_sub_compile",
+      "description": "Access Form_Probe: Form.Requery: Member already exists in an object module from which this object module derives",
+      "host": "access",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Form_Probe",
+          "type": "document",
+          "source": "Private Sub Requery()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_access_form_variable_compile",
+      "description": "Access Form_Probe: Form.Caption variable: Member already exists in an object module from which this object module derives",
+      "host": "access",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Form_Probe",
+          "type": "document",
+          "source": "Private Caption As String\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_access_form_control_compile",
+      "description": "Access Form_Probe: control: compiles.",
+      "host": "access",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Form_Probe",
+          "type": "document",
+          "source": "Public Function Probe() As Long\r\n    Probe = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_access_form_application_member_compile",
+      "description": "Access Form_Probe: Application member: compiles.",
+      "host": "access",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Form_Probe",
+          "type": "document",
+          "source": "Public Function CurrentDb() As Long\r\n    CurrentDb = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_access_report_public_function_compile",
+      "description": "Access Report_Probe: Report.Name: Member already exists in an object module from which this object module derives",
+      "host": "access",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Report_Probe",
+          "type": "document",
+          "source": "Public Function Name() As String\r\n    Name = \"a\"\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_access_report_control_compile",
+      "description": "Access Report_Probe: control: compiles.",
+      "host": "access",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Report_Probe",
+          "type": "document",
+          "source": "Public Function Probe() As Long\r\n    Probe = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_excel_userform_public_function_compile",
+      "description": "Excel UserForm1: UserForm.Caption: Member already exists in an object module from which this object module derives",
+      "host": "excel",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Public Function Caption() As String\r\n    Caption = \"a\"\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_excel_userform_private_sub_compile",
+      "description": "Excel UserForm1: UserForm.Repaint: Member already exists in an object module from which this object module derives",
+      "host": "excel",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Private Sub Repaint()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_excel_userform_variable_compile",
+      "description": "Excel UserForm1: UserForm.Controls variable: Member already exists in an object module from which this object module derives",
+      "host": "excel",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Private Controls As Long\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_excel_userform_show_compile",
+      "description": "Excel UserForm1: Show, a method of the form object: Member already exists in an object module from which this object module derives",
+      "host": "excel",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Public Sub Show()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_excel_userform_control_compile",
+      "description": "Excel UserForm1: control: compiles.",
+      "host": "excel",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Public Function Probe() As Long\r\n    Probe = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_word_userform_public_function_compile",
+      "description": "Word UserForm1: UserForm.Caption: Member already exists in an object module from which this object module derives",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Public Function Caption() As String\r\n    Caption = \"a\"\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_word_userform_private_sub_compile",
+      "description": "Word UserForm1: UserForm.Repaint: Member already exists in an object module from which this object module derives",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Private Sub Repaint()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_word_userform_variable_compile",
+      "description": "Word UserForm1: UserForm.Controls variable: Member already exists in an object module from which this object module derives",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Private Controls As Long\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_word_userform_show_compile",
+      "description": "Word UserForm1: Show, a method of the form object: Member already exists in an object module from which this object module derives",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Public Sub Show()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_word_userform_control_compile",
+      "description": "Word UserForm1: control: compiles.",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Public Function Probe() As Long\r\n    Probe = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_powerpoint_userform_public_function_compile",
+      "description": "PowerPoint UserForm1: UserForm.Caption: Member already exists in an object module from which this object module derives",
+      "host": "powerpoint",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Public Function Caption() As String\r\n    Caption = \"a\"\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_powerpoint_userform_private_sub_compile",
+      "description": "PowerPoint UserForm1: UserForm.Repaint: Member already exists in an object module from which this object module derives",
+      "host": "powerpoint",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Private Sub Repaint()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_powerpoint_userform_variable_compile",
+      "description": "PowerPoint UserForm1: UserForm.Controls variable: Member already exists in an object module from which this object module derives",
+      "host": "powerpoint",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Private Controls As Long\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_powerpoint_userform_show_compile",
+      "description": "PowerPoint UserForm1: Show, a method of the form object: Member already exists in an object module from which this object module derives",
+      "host": "powerpoint",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Public Sub Show()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_powerpoint_userform_control_compile",
+      "description": "PowerPoint UserForm1: control: compiles.",
+      "host": "powerpoint",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Public Function Probe() As Long\r\n    Probe = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_word_property_let_compile",
+      "description": "Word ThisDocument: Property Let: Member already exists in an object module from which this object module derives",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Public Property Let Words(ByVal v As Long)\r\nEnd Property\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_word_property_set_compile",
+      "description": "Word ThisDocument: Property Set: Member already exists in an object module from which this object module derives",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Public Property Set Words(ByVal v As Object)\r\nEnd Property\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_word_private_const_compile",
+      "description": "Word ThisDocument: Private Const: Member already exists in an object module from which this object module derives",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Private Const Words As Long = 1\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_word_withevents_compile",
+      "description": "Word ThisDocument: WithEvents variable: compiles.",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Private WithEvents Words As Word.Application\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_word_enum_name_compile",
+      "description": "Word ThisDocument: Enum named like a member: compiles.",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Private Enum Words\r\n    a\r\nEnd Enum\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_word_enum_member_compile",
+      "description": "Word ThisDocument: Enum member named like a member: compiles.",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Private Enum Probe\r\n    Words\r\nEnd Enum\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_word_type_name_compile",
+      "description": "Word ThisDocument: Type named like a member: compiles.",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Private Type Words\r\n    a As Long\r\nEnd Type\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_word_declare_compile",
+      "description": "Word ThisDocument: Declare: Member already exists in an object module from which this object module derives",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Private Declare PtrSafe Function Words Lib \"kernel32\" Alias \"GetTickCount\" () As Long\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_word_event_compile",
+      "description": "Word ThisDocument: Event: compiles.",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Public Event Words()\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_word_static_local_compile",
+      "description": "Word ThisDocument: Static local: compiles.",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Public Sub Probe()\r\n    Static Words As Long\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "base_member_word_label_compile",
+      "description": "Word ThisDocument: line label: compiles.",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Public Sub Probe()\r\nWords:\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "reftype_access_dao_recordset_compile",
+      "description": "Access: DAO Recordset, bare: compiles.",
+      "host": "access",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim x As Recordset\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "reftype_access_dao_database_compile",
+      "description": "Access: DAO Database, qualified: compiles.",
+      "host": "access",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim x As DAO.Database\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "reftype_access_dao_field_compile",
+      "description": "Access: DAO Field, bare: compiles.",
+      "host": "access",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim x As Field\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "reftype_access_office_commandbar_compile",
+      "description": "Access: Office CommandBar, which a new database does not reference: User-defined type not defined",
+      "host": "access",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim x As CommandBar\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "reftype_access_stdole_stdfont_compile",
+      "description": "Access: stdole StdFont: compiles.",
+      "host": "access",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim x As StdFont\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "reftype_access_unknown_compile",
+      "description": "Access: a name no reference holds: User-defined type not defined",
+      "host": "access",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim x As Qwerty\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "reftype_powerpoint_office_commandbar_compile",
+      "description": "PowerPoint: Office CommandBar: compiles.",
+      "host": "powerpoint",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim x As CommandBar\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "reftype_powerpoint_stdole_stdfont_compile",
+      "description": "PowerPoint: stdole StdFont: compiles.",
+      "host": "powerpoint",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim x As StdFont\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "reftype_powerpoint_own_slide_compile",
+      "description": "PowerPoint: PowerPoint Slide, bare: compiles.",
+      "host": "powerpoint",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim x As Slide\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "reftype_powerpoint_unknown_compile",
+      "description": "PowerPoint: a name no reference holds: User-defined type not defined",
+      "host": "powerpoint",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim x As Qwerty\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "reftype_word_unknown_compile",
+      "description": "Word: a name no reference holds: User-defined type not defined",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim x As Qwerty\r\nEnd Sub\r\n"
     }
   ]
 }

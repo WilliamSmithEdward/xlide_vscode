@@ -706,9 +706,35 @@ function ConvertTo-NormalizedCommandCaption($Caption) {
 function ConvertTo-VbComponentType($TypeName) {
     switch (([string]$TypeName).ToLowerInvariant()) {
         "class" { return 2 }
+        "userform" { return 3 }       # vbext_ct_MSForm
         "standard" { return 1 }
         default { return 1 }
     }
+}
+
+# An Access form or report module, Form_X or Report_X, exists once its form
+# or report does and has a module. A new database has none, so the case's
+# form or report is created, given a module, saved under its name, and
+# closed; the module's code is then replaced like any document module's.
+function New-AccessDocumentModule($VbProject, [string]$Name) {
+    if ($Name -notmatch '^(Form|Report)_(\w+)$') {
+        throw "An Access document module is named Form_<name> or Report_<name>, not '$Name'."
+    }
+    $isForm = $matches[1] -eq 'Form'
+    $objectName = $matches[2]
+    $objectType = if ($isForm) { 2 } else { 3 }    # acForm, acReport
+    # Assigned directly: through an if expression PowerShell would unroll the
+    # form, which enumerates its controls.
+    $design = $null
+    if ($isForm) { $design = $script:app.CreateForm() } else { $design = $script:app.CreateReport() }
+    $design.HasModule = $true
+    $created = [string]$design.Name
+    Remove-ComObjectReference $design
+    $script:app.DoCmd.Close($objectType, $created, 1)    # acSaveYes
+    if ($created -ne $objectName) {
+        $script:app.DoCmd.Rename($objectName, $objectType, $created)
+    }
+    return $VbProject.VBComponents.Item($Name)
 }
 
 # A new module's code is the case's source and nothing else. Excel keeps what
@@ -727,7 +753,11 @@ function Add-OracleComponent($VbProject, $ModuleSpec) {
         # The file's document modules exist already and cannot be added:
         # ThisWorkbook and Sheet1, or ThisDocument, take the case's code in
         # place. The file is disposable, so nothing is put back.
-        $component = $VbProject.VBComponents.Item([string]$ModuleSpec.name)
+        $component = if ($script:hostName -eq "access") {
+            New-AccessDocumentModule $VbProject ([string]$ModuleSpec.name)
+        } else {
+            $VbProject.VBComponents.Item([string]$ModuleSpec.name)
+        }
         $lineCount = $component.CodeModule.CountOfLines
         if ($lineCount -gt 0) { $null = $component.CodeModule.DeleteLines(1, $lineCount) }
         $source = [string]$ModuleSpec.source
