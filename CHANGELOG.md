@@ -2,6 +2,21 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.1.19] - 2026-10-16
+
+Report two compile errors in every Office host.
+
+- Report a declaration that takes a name its module's host class already
+  has, such as `Public Function Words()` in ThisDocument, `Private Sub
+  Requery()` in an Access form, or `Public Sub Show()` in a UserForm, with
+  the new rule `member-exists-in-base-class`. It covers ThisWorkbook and
+  sheet modules, ThisDocument, Access form and report modules, and
+  UserForms, as the VBE does (#1375).
+- Report a type none of an Access database's references holds, such as
+  `Dim w As Worksheet`, now that the analyzer knows the DAO library's
+  names. Word is still not judged, since a document references its Normal
+  template (#1375).
+
 ## [11.1.18] - 2026-10-16
 
 Run the VBE oracle in every Office host XLIDE supports. The extension itself
