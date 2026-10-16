@@ -15,6 +15,7 @@
 //   - An application is quit only when nothing but the suite's files was open
 //     in it, and no process is ever killed.
 
+import * as cp from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -70,14 +71,38 @@ export const q = (value: string): string => `'${value.replace(/'/g, "''")}'`;
 
 /** How many processes of the host's application are running. */
 export async function runningCount(host: OfficeHostApp): Promise<number> {
-    const result = await ps(`@(Get-Process -Name ${OFFICE_HOST_APPS[host].processName} -ErrorAction SilentlyContinue).Count`);
-    return Number(result.out[0] ?? '0');
+    // Enumerate all rows: filtered tasklist emits localized prose for no match.
+    // Never interpret a failed or malformed query as permission to attach.
+    const output = await new Promise<string>((resolve, reject) => {
+        cp.execFile('tasklist.exe', ['/FO', 'CSV', '/NH'], { windowsHide: true, maxBuffer: 4 * 1024 * 1024 }, (error, stdout) => {
+            if (error) { reject(error); } else { resolve(stdout); }
+        });
+    });
+    const rows = output.trim().split(/\r?\n/).map((line) => /^"([^"\r\n]+)","(\d+)",/.exec(line));
+    if (rows.length === 0 || rows.some((row) => !row)) {
+        throw new Error('Cannot establish Office process count from tasklist');
+    }
+    const image = `${OFFICE_HOST_APPS[host].processName}.exe`.toLowerCase();
+    return rows.filter((row) => row![1].toLowerCase() === image).length;
 }
 
 /** Whether the host is installed for automation on this machine. */
 export async function hostInstalled(host: OfficeHostApp): Promise<boolean> {
+    // Vitest isolates test files. A scratch marker shares this immutable probe
+    // across them; global setup removes it before each run. Never cache liveness.
+    const marker = path.join(SCRATCH, `installed-${host}.txt`);
+    if (fs.existsSync(marker)) {
+        const cached = fs.readFileSync(marker, 'utf8');
+        if (cached === 'yes' || cached === 'no') { return cached === 'yes'; }
+    }
     const result = await ps(`if ([type]::GetTypeFromProgID("${OFFICE_HOST_APPS[host].progId}")) { "yes" } else { "no" }`);
-    return result.out[0] === 'yes';
+    const answer = result.out[0];
+    if (result.code !== 0 || (answer !== 'yes' && answer !== 'no')) {
+        throw new Error(`Cannot establish whether ${host} is installed: ${result.err.join(' ')}`);
+    }
+    fs.mkdirSync(SCRATCH, { recursive: true });
+    fs.writeFileSync(marker, answer);
+    return answer === 'yes';
 }
 
 /**
@@ -119,7 +144,7 @@ export async function waitForExit(host: OfficeHostApp, timeoutMs = 30_000): Prom
         if (await runningCount(host) === 0) {
             return true;
         }
-        await sleep(500);
+        await sleep(100);
     }
     return false;
 }
@@ -203,6 +228,9 @@ export const WATCHER = [
     '    }',
     '}',
     "'@",
+    // Ready only once the type has loaded; a failed compile ends the watcher.
+    'if (-not (\'XlideDialogs\' -as [type])) { exit 1 }',
+    'Set-Content -LiteralPath ($LogPath + ".ready") -Value "ready"',
     '$until = (Get-Date).AddSeconds($Seconds)',
     'while ((Get-Date) -lt $until -and (Get-Process -Id $TargetPid -ErrorAction SilentlyContinue)) {',
     '    foreach ($line in [XlideDialogs]::Dialogs([uint32]$TargetPid)) { Add-Content -Path $LogPath -Value $line }',
@@ -219,8 +247,16 @@ export function watchLines(hwndExpression: string, log: string): string[] {
         'Add-Type -MemberDefinition \'[DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);\' -Name Owner -Namespace XlideLive',
         '$owner = 0',
         `[void][XlideLive.Owner]::GetWindowThreadProcessId([IntPtr]${hwndExpression}, [ref]$owner)`,
-        `Start-Process powershell.exe -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ${q(watcher)}, '-TargetPid', $owner, '-LogPath', ${q(log)}) -WindowStyle Hidden | Out-Null`,
-        'Start-Sleep -Milliseconds 1500',
+        `Remove-Item -LiteralPath ${q(log + '.ready')}, ${q(log + '.unready')} -Force -ErrorAction SilentlyContinue`,
+        `$watch = Start-Process powershell.exe -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ${q(watcher)}, '-TargetPid', $owner, '-LogPath', ${q(log)}) -WindowStyle Hidden -PassThru`,
+        // Carries on if the watcher is not ready in time, so the script still
+        // reaches its own Quit, but records that; dialogsSeen then fails the
+        // check, even if the watcher gets ready later.
+        '$watchUntil = [DateTime]::UtcNow.AddSeconds(30)',
+        `while (-not (Test-Path -LiteralPath ${q(log + '.ready')}) -and -not $watch.HasExited -and [DateTime]::UtcNow -lt $watchUntil) {`,
+        '  Start-Sleep -Milliseconds 25',
+        '}',
+        `if (-not (Test-Path -LiteralPath ${q(log + '.ready')})) { Set-Content -LiteralPath ${q(log + '.unready')} -Value 'unready' }`,
     ];
 }
 
@@ -234,5 +270,8 @@ export function fields(lines: readonly string[]): Record<string, string> {
 
 /** The dialogs the watcher saw, one per line. */
 export function dialogsSeen(log: string): string[] {
+    if (fs.existsSync(`${log}.unready`) || !fs.existsSync(`${log}.ready`)) {
+        throw new Error(`The dialog watcher for ${log} was not ready before the open, so dialogs were not watched.`);
+    }
     return fs.existsSync(log) ? fs.readFileSync(log, 'utf8').split(/\r?\n/).filter(Boolean) : [];
 }

@@ -4,7 +4,7 @@ import * as cp from 'child_process';
 import { afterAll, describe, expect, it } from 'vitest';
 import { describeLockHolders, findFileLockHolders } from '../../src/fileLockHolders';
 import { buildHostOpenScript } from '../../src/officeHostLauncher';
-import { hostIsFree, ps, releaseHost, scratchCopy, sleep } from './officeHarness';
+import { hostIsFree, ps, releaseHost, scratchCopy } from './officeHarness';
 
 /** A PowerShell process holding the file with no sharing, until it is told to let go. */
 function holdFile(filePath: string): { pid: Promise<number>; release: () => Promise<void> } {
@@ -61,9 +61,12 @@ describe.runIf(wordFree)('Restart Manager and Word', () => {
         const open = await ps(buildHostOpenScript({ host: 'word', filePath: file, attachToRunning: true, readOnly: true }));
         expect(open.out).toContain('XLIDE_OPEN|opened');
         const wordPid = Number((await ps('(Get-Process -Name WINWORD | Select-Object -First 1).Id')).out[0]);
-        await sleep(500);
-        const holders = await findFileLockHolders(file);
-        expect(holders?.map((holder) => [holder.pid, holder.image])).toEqual([[wordPid, 'WINWORD.EXE']]);
+        const observed: { holders?: Awaited<ReturnType<typeof findFileLockHolders>> } = {};
+        await expect.poll(async () => {
+            observed.holders = await findFileLockHolders(file);
+            return observed.holders?.map((holder) => [holder.pid, holder.image]);
+        }, { timeout: 5_000, interval: 100 }).toEqual([[wordPid, 'WINWORD.EXE']]);
+        const holders = observed.holders;
         expect(describeLockHolders(holders!)).toMatch(/^Microsoft Word \(WINWORD\.EXE, process \d+\)$/);
     });
 });
