@@ -324,6 +324,9 @@ export class ProjectEngine implements vscode.Disposable {
 			case 'ensureProjectAccess':
 				svc.assertProjectAccess(str(p, 'path'));
 				return { ok: true };
+			case 'shareProjectAccess':
+				svc.shareProjectAccess(str(p, 'path'), str(p, 'copy'));
+				return { ok: true };
 			// --- VBA modules ---
 			case 'listModules':
 				return svc.listModules(str(p, 'path'));

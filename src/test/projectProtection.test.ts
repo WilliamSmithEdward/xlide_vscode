@@ -12,6 +12,7 @@ import { encodeModuleUri, encodeFormMarkupUri, XlideFileSystemProvider } from '.
 import { updateProjectModuleSyncSettings } from '../projectModuleSyncSettings';
 import { openMacroContainer } from '../vba/macroContainer';
 import { activate, closeAllEditors, EXTENSION_ID, until, workspaceRoot } from './support';
+import { XLIDE_ASSERT_MODULE_NAME, XLIDE_ASSERT_MODULE_SOURCE } from '../vbaTestSupportModule';
 
 const PASSWORD = 'Test66';
 const SOURCE_MARKER = 'counter = 1';
@@ -147,7 +148,20 @@ suite('Protected VBA project integration', () => {
         assert.ok(document.getText().length > 0);
         await vscode.commands.executeCommand('vscode.openWith', uri, 'xlideFormDesigner', vscode.ViewColumn.One);
         assert.ok(vscode.window.tabGroups.all.flatMap(group => group.tabs).some(tab => tab.input instanceof vscode.TabInputCustom && tab.input.uri.toString() === uri.toString()));
+        // The designer renders from a scratch copy, which the unlock covers.
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        assert.equal(prompts.length, 2, 'the designer must not ask again for its scratch copy');
         assert.deepEqual(fs.readFileSync(file), before);
+    });
+    test('agent test runs reuse one unlock', async () => {
+        answers = [PASSWORD];
+        await invoke('xlide_writeModule', { moduleName: XLIDE_ASSERT_MODULE_NAME, source: XLIDE_ASSERT_MODULE_SOURCE });
+        await invoke('xlide_writeModule', { moduleName: 'ProbeTests', source: "Option Explicit\r\n'@xlide-test\r\nPublic Sub PassesQuietly()\r\nEnd Sub\r\n" });
+        for (let run = 0; run < 2; run++) {
+            const result = JSON.parse(await invoke('xlide_runVbaTests', { moduleName: 'ProbeTests' }));
+            assert.equal(result.ok, true, JSON.stringify(result).slice(0, 600));
+        }
+        assert.equal(prompts.length, 1, 'each run stages a copy, which must not ask again');
     });
 
     test('one unlock is reused across repeated sidebar actions', async () => {

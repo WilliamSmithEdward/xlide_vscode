@@ -52,6 +52,9 @@ export async function stageOwnedReadOnlyTestHost(
     const runnerModuleName = `XlideRun${Date.now().toString(36).slice(-8)}`;
     try {
         await fs.promises.copyFile(filePath, tempFilePath);
+        // Each run stages a new copy, which would otherwise ask again for a
+        // protected project's password.
+        await bridge.call('shareProjectAccess', { path: filePath, copy: tempFilePath });
         await bridge.call<{ ok?: boolean; signatureDropped?: boolean }>('writeModule', {
             path: tempFilePath,
             module: XLIDE_ASSERT_MODULE_NAME,

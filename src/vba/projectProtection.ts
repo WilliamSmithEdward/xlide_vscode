@@ -119,4 +119,14 @@ export function authorizeVbaProject(filePath: string, protection: VbaProjectProt
     return true;
 }
 
+/**
+ * Lets a byte copy XLIDE made of an unlocked file open without a second
+ * prompt. The copy keeps its own check: it opens only while its protection
+ * records match the ones the original was unlocked with.
+ */
+export function shareVbaProjectAuthorization(filePath: string, copyPath: string): void {
+    const fingerprint = authorized.get(projectIdentityKey(filePath));
+    if (fingerprint !== undefined) { authorized.set(projectIdentityKey(copyPath), fingerprint); }
+}
+
 export function clearVbaProjectAuthorizations(): void { authorized.clear(); }
