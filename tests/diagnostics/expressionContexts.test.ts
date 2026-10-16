@@ -8,6 +8,7 @@ import { forEachExpressionInBody, statementValueExpressions } from '../../src/an
 import { parseModule } from '../../src/analyzer/parser/parseModule';
 import { buildModuleSymbols } from '../../src/analyzer/symbols/buildModuleSymbols';
 import { expressionShapeResolver } from '../../src/analyzer/diagnostics/expressionShape';
+import { resolveRuntimeFunction } from '../../src/analyzer/runtime/vbaRuntime';
 
 const contexts = [
 	'result = {expr}', 'Debug.Print {expr}', 'Debug.Print 1, {expr}',
@@ -484,5 +485,88 @@ describe('Excel 16.0 measured gap follow-ups', () => {
 
 	it('keeps Left without $ out of compile errors for Is Nothing (runtime 424)', () => {
 		expect(compileErrors(measuredMain('Debug.Print Left("x", 1) Is Nothing'))).toEqual([]);
+	});
+});
+
+// Excel 16.0 measurements supplied for this branch; all use Option Explicit
+// except the explicit DefLng implicit-local samples below.
+describe('Excel 16.0 measured shape corrections', () => {
+	it.each([
+		'Year(d)', 'Month(d)', 'Day(d)', 'Weekday(d)', 'Hour(d)', 'Minute(d)', 'Second(d)',
+		'DatePart("yyyy", d)', 'DateDiff("d", d, d)', 'Round(1.25, 1)', 'VBA.Year(d)',
+	])('keeps the Variant compile shape of %s (Is runs with 424)', (call) => {
+		const runtime = resolveRuntimeFunction(call.replace(/^VBA\./, '').split('(')[0]);
+		expect(runtime?.declaredReturns).toBe('Variant');
+		expect(runtime?.returns).toBe(call.startsWith('Round') ? 'Double' : call.startsWith('DateDiff') ? 'Long' : 'Integer');
+		const declarations = 'Dim d As Date';
+		expect(compileErrors(measuredMain(`${declarations}\nDebug.Print ${call} Is Nothing`))).toEqual([]);
+		expect(compileErrors(measuredMain(`${declarations}\nIf TypeOf ${call} Is Collection Then Exit Sub`))).toEqual([]);
+	});
+	it.each([
+		'Val("1")', 'Asc("a")', 'CInt(1)', 'Sgn(1)', 'StrComp("a", "b")',
+		'Abs(1)', 'Int(1)', 'Fix(1)', 'Timer', 'CDate(1)', 'CStr(1)', 'CLng(1)',
+		'Len("a")', 'InStr("a", "a")', 'Left$("a", 1)',
+	])('preserves the measured scalar compile constraint of %s', (call) => {
+		for (const [body, code] of [
+			[`Debug.Print ${call} Is Nothing`, 'is-operator-non-object'],
+			[`If TypeOf ${call} Is Collection Then Exit Sub`, 'typeof-invalid-expression'],
+		]) {
+			const errors = compileErrors(measuredMain(body));
+			expect(errors.map((diag) => diag.code)).toEqual([code]);
+			expect(errors[0].message).toContain('VBE compile error: Type mismatch.');
+		}
+		expect(compileErrors(measuredMain(`Debug.Print ${call}`))).toEqual([]);
+	});
+	it.each(['Case a', 'Case Is > a'])('rejects a whole array in %s', (clause) => {
+		const errors = compileErrors(measuredMain(`Dim a(1) As Long\nSelect Case 1\n${clause}\nEnd Select`));
+		expect(errors.map((diag) => diag.code)).toEqual(['non-scalar-binary-operand']);
+		expect(errors[0].message).toContain('VBE compile error: Type mismatch.');
+		for (const control of ['a(0)', '1']) {
+			expect(compileErrors(measuredMain(`Dim a(1) As Long\nSelect Case 1\n${clause.replace(/a$/, control)}\nEnd Select`))).toEqual([]);
+		}
+	});
+	it('rejects a whole array as the For start value', () => {
+		const errors = compileErrors(measuredMain('Dim a(1) As Long, i As Long\nFor i = a To 1\nNext'));
+		expect(errors.map((diag) => diag.code)).toEqual(['non-scalar-binary-operand']);
+		expect(errors[0].message).toContain('VBE compile error: Type mismatch.');
+		for (const start of ['a(0)', '1']) {
+			expect(compileErrors(measuredMain(`Dim a(1) As Long, i As Long\nFor i = ${start} To 1\nNext`))).toEqual([]);
+		}
+	});
+	it('types an undeclared read by DefLng without requiring an assignment', () => {
+		const text = 'DefLng A-W\nSub Main()\nIf a Is Nothing Then Exit Sub\nEnd Sub\n';
+		const errors = compileErrors(text);
+		expect(errors.map((diag) => diag.code)).toEqual(['is-operator-non-object']);
+		expect(errors[0].message).toContain("'a' has type Long");
+		expect(errors[0].message).toContain('VBE compile error: Type mismatch.');
+		for (const control of [text.replace('DefLng A-W\n', ''), text.replace('a Is Nothing', 'x Is Nothing'), text.replace('a Is Nothing', 'Application Is Nothing'), text.replace('a Is Nothing', 'Err Is Nothing'), text.replace('a Is Nothing', 'Now Is Nothing'), text.replace('Sub Main()\n', 'Sub Main()\nDim a As Object\n')]) {
+			expect(compileErrors(control)).toEqual([]);
+		}
+		expect(compileErrors('Option Explicit\n' + text).map((diag) => diag.code)).toEqual(['undeclared-variable']);
+	});
+	it('rejects TypeOf on a variable of a same-module Enum', () => {
+		const declaration = 'Private Enum SomeEnum\nfirst = 1\nEnd Enum\n';
+		const body = 'Dim e As SomeEnum\nIf TypeOf e Is Collection Then Exit Sub';
+		const errors = compileErrors(measuredMain(body, declaration));
+		expect(errors.map((diag) => diag.code)).toEqual(['typeof-invalid-expression']);
+		expect(errors[0].message).toBe('TypeOf requires an object expression. This is a VBE compile error: Type mismatch.');
+		for (const type of ['Variant', 'Object', 'Collection']) {
+			expect(compileErrors(measuredMain(body.replace('As SomeEnum', `As ${type}`), declaration))).toEqual([]);
+		}
+	});
+	it.each(['Foo(1)', 'Module1.Foo(1)'])('leaves an invalid scalar invocation to argument-count: %s', (call) => {
+		const declaration = 'Function Foo(n As Long, m As Long) As Long\nEnd Function\n';
+		const errors = compileErrors(measuredMain(`If TypeOf ${call} Is Object Then Exit Sub`, declaration));
+		expect(errors.map((diag) => diag.code)).toEqual(['argument-count']);
+		expect(errors[0].message).toContain('Argument not optional');
+		const valid = compileErrors(measuredMain(`If TypeOf ${call.replace('(1)', '(1, 2)')} Is Object Then Exit Sub`, declaration));
+		expect(valid.map((diag) => diag.code)).toEqual(['typeof-invalid-expression']);
+		expect(valid[0].message).toContain('VBE compile error: Type mismatch.');
+		expect(compileErrors(measuredMain(`If TypeOf ${call.replace('(1)', '(1, 2)')} Is Object Then Exit Sub`, declaration.replace('As Long\n', 'As Object\n')))).toEqual([]);
+	});
+	it('names the scalar-variable Is diagnosis Type mismatch', () => {
+		const errors = compileErrors(measuredMain('Dim n As Long\nDebug.Print n Is Nothing'));
+		expect(errors.map((diag) => diag.code)).toEqual(['is-operator-non-object']);
+		expect(errors[0].message).toBe("The 'Is' operator requires object operands, but 'n' has type Long, which is not an object. This is a VBE compile error: Type mismatch.");
 	});
 });

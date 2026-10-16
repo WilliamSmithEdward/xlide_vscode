@@ -468,6 +468,8 @@ export function typeEnvironmentFor(
 }
 
 export interface DeclaredValueShape {
+	/** Provably scalar even when an intrinsic has no single result subtype. */
+	isScalar?: boolean;
 	asType?: string;
 	isArray: boolean;
 	isFixedArray: boolean;

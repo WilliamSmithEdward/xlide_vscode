@@ -57,6 +57,7 @@ import { isFixedArrayField, moduleTypes, type ModuleTypes } from '../typeFields'
 import {
 	absoluteSpan,
 	activeModuleMembers,
+	blockHeaderStatements,
 	isInactiveNode,
 	matchParenFrom,
 	rawExpressionTokens,
@@ -289,6 +290,11 @@ function checkFor(
 	}
 	const variable = variableNamed(ctx, procSym, name);
 	if (!node.each) {
+		const header = blockHeaderStatements(ctx.source, node).before;
+		if (header) {
+			const toks = statementTokens(ctx.source, header.span);
+			if (toks[2]?.rawText === '=' && tokenText(toks[4]) === 'to') { checkArrayScalarValue(ctx, procSym, toks[3], header.span, 'For start'); }
+		}
 		const kind = category(ctx, variable);
 		if (kind === 'string' || kind === 'boolean' || kind === 'object' || kind === 'udt' || kind === 'class') {
 			ctx.push(
@@ -405,6 +411,13 @@ function udtCoercion(ctx: Context, name: string, span: Span): void {
 	);
 }
 
+/** Only a declared bare array in these measured scalar statement slots. */
+function checkArrayScalarValue(ctx: Context, procSym: VbaSymbol | undefined, value: VbaToken, span: Span, where: string): void {
+	const name = tokenName(value);
+	if (!name || !variableNamed(ctx, procSym, name)?.isArray) { return; }
+	ctx.push('nonScalarBinaryOperand', `'${name}' is declared as an array, which ${where} cannot read as one value. This is a VBE compile error: Type mismatch.`, absoluteSpan(span, value));
+}
+
 function checkStatement(ctx: Context, procSym: VbaSymbol | undefined, span: Span, stmt: LeafStatementNode): void {
 	const toks = statementTokensAfterLeadingLabel(ctx.source, span);
 	if (toks.length === 0) {
@@ -414,6 +427,11 @@ function checkStatement(ctx: Context, procSym: VbaSymbol | undefined, span: Span
 	checkNamedArguments(ctx, procSym, toks, span);
 	checkMidTarget(ctx, procSym, toks, span);
 	const first = tokenText(toks[0]);
+	// A lone Case value has no binary operator for the expression rule to own.
+	// Limit this to simple values and relational clauses, not unmeasured ranges.
+	if (first === 'case' && (toks.length === 2 || toks.length === 4 && tokenText(toks[1]) === 'is')) {
+		checkArrayScalarValue(ctx, procSym, toks[toks.length - 1], span, 'Case');
+	}
 	if (first === 'return' && toks.length > 1 && toks[1].kind !== 'colon') {
 		ctx.push(
 			'returnWithValue',

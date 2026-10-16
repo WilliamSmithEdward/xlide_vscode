@@ -538,7 +538,7 @@ export function buildModuleSymbols(
 	return {
 		moduleName, moduleKind, root, all: flat,
 		...(defTypes.size > 0 ? { defTypes } : {}),
-		...(implicitLocals && implicitLocals.size > 0 ? { implicitLocals } : {}),
+		...(implicitLocals ? { implicitLocals } : {}),
 	};
 }
 

@@ -25,6 +25,8 @@ export interface VbaRuntimeFunction {
 	returns?: string;
 	/** Declared return type for compile constraints (Variant can hold objects). */
 	declaredReturns?: string;
+	/** Intrinsic numeric result with no single declared subtype (Abs/Int/Fix). */
+	scalarReturn?: boolean;
 	/** `function` returns a value; `statement` is invoked for effect only. */
 	kind: 'function' | 'statement';
 	/** Provenance marker - always verified against Microsoft VBA docs. */
@@ -85,7 +87,7 @@ function fn(
 	signature: string,
 	returns?: string,
 	params?: readonly VbaRuntimeParam[],
-	options?: Pick<VbaRuntimeFunction, 'explicitCall'>,
+	options?: Pick<VbaRuntimeFunction, 'explicitCall' | 'scalarReturn'>,
 ): VbaRuntimeFunction {
 	return { name, signature, returns, declaredReturns: returns, kind: 'function', source: 'verified', params, ...options };
 }
@@ -301,9 +303,9 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	variantFn('CVDate', 'CVDate(Expression) As Date', 'Date'),
 
 	// -- Math ---------------------------------------------------------------
-	fn('Abs', 'Abs(Number) As Variant', 'Variant'),
-	fn('Int', 'Int(Number) As Variant', 'Variant'),
-	fn('Fix', 'Fix(Number) As Variant', 'Variant'),
+	fn('Abs', 'Abs(Number) As Variant', 'Variant', undefined, { scalarReturn: true }),
+	fn('Int', 'Int(Number) As Variant', 'Variant', undefined, { scalarReturn: true }),
+	fn('Fix', 'Fix(Number) As Variant', 'Variant', undefined, { scalarReturn: true }),
 	// Sgn(Null) raises 94; Abs, Int and Hex pass Null through (issue #242).
 	fn('Sgn', 'Sgn(Number) As Integer', 'Integer', NULL_RAISES_PARAM('Number')),
 	// Sqr, Exp and Log raise 94 on Null (issue #332, measured in Excel 16.0).
@@ -314,7 +316,7 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	fn('Cos', 'Cos(Number) As Double', 'Double'),
 	fn('Tan', 'Tan(Number) As Double', 'Double'),
 	fn('Atn', 'Atn(Number) As Double', 'Double'),
-	fn('Round', 'Round(Number, [NumDigitsAfterDecimal]) As Double', 'Double'),
+	variantFn('Round', 'Round(Number, [NumDigitsAfterDecimal]) As Double', 'Double'),
 	fn('Rnd', 'Rnd([Number]) As Single', 'Single'),
 
 	// -- Date / time --------------------------------------------------------
@@ -327,18 +329,18 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	fn('Time$', 'Time$() As String', 'String'),
 	fn('Timer', 'Timer() As Single', 'Single'),
 	variantFn('Year', 'Year(Date) As Integer', 'Integer'),
-	fn('Month', 'Month(Date) As Integer', 'Integer'),
-	fn('Day', 'Day(Date) As Integer', 'Integer'),
-	fn('Hour', 'Hour(Time) As Integer', 'Integer'),
-	fn('Minute', 'Minute(Time) As Integer', 'Integer'),
-	fn('Second', 'Second(Time) As Integer', 'Integer'),
-	fn('Weekday', 'Weekday(Date, [FirstDayOfWeek As VbDayOfWeek = vbSunday]) As Integer', 'Integer'),
+	variantFn('Month', 'Month(Date) As Integer', 'Integer'),
+	variantFn('Day', 'Day(Date) As Integer', 'Integer'),
+	variantFn('Hour', 'Hour(Time) As Integer', 'Integer'),
+	variantFn('Minute', 'Minute(Time) As Integer', 'Integer'),
+	variantFn('Second', 'Second(Time) As Integer', 'Integer'),
+	variantFn('Weekday', 'Weekday(Date, [FirstDayOfWeek As VbDayOfWeek = vbSunday]) As Integer', 'Integer'),
 	fn('MonthName', 'MonthName(Month, [Abbreviate As Boolean = False]) As String', 'String'),
 	fn('WeekdayName', 'WeekdayName(Weekday, [Abbreviate As Boolean = False], [FirstDayOfWeek As VbDayOfWeek = vbUseSystemDayOfWeek]) As String', 'String'),
 	// DateAdd("d", Null, d) raises 94 (issue #332, measured in Excel 16.0).
 	variantFn('DateAdd', 'DateAdd(Interval, Number, Date) As Date', 'Date', [{ name: 'Interval', type: 'Variant' }, { name: 'Number', type: 'Variant', nullRaises: true }, { name: 'Date', type: 'Variant' }]),
-	fn('DateDiff', 'DateDiff(Interval, Date1, Date2, [FirstDayOfWeek As VbDayOfWeek], [FirstWeekOfYear As VbFirstWeekOfYear]) As Long', 'Long'),
-	fn('DatePart', 'DatePart(Interval, Date, [FirstDayOfWeek As VbDayOfWeek], [FirstWeekOfYear As VbFirstWeekOfYear]) As Integer', 'Integer'),
+	variantFn('DateDiff', 'DateDiff(Interval, Date1, Date2, [FirstDayOfWeek As VbDayOfWeek], [FirstWeekOfYear As VbFirstWeekOfYear]) As Long', 'Long'),
+	variantFn('DatePart', 'DatePart(Interval, Date, [FirstDayOfWeek As VbDayOfWeek], [FirstWeekOfYear As VbFirstWeekOfYear]) As Integer', 'Integer'),
 	variantFn('DateSerial', 'DateSerial(Year, Month, Day) As Date', 'Date'),
 	variantFn('TimeSerial', 'TimeSerial(Hour, Minute, Second) As Date', 'Date'),
 	variantFn('DateValue', 'DateValue(Date) As Date', 'Date'),

@@ -180,7 +180,8 @@ function checkTypeOfIs(
  * operands on both sides (MS-VBAL 5.6). When an operand is PROVABLY a non-object
  * - a scalar value literal, or an identifier declared As a known scalar type
  * (numeric / String / Boolean / Date) - `a Is b` is a VBE compile error
- * ("Type mismatch"). Oracle-verified rejected at compile:
+ * ("Type mismatch", including `cl_ctx_is_long__debug_print_compile`).
+ * Oracle-verified rejected at compile:
  * `is_scalar_long_var_compile`, `is_scalar_string_var_compile`,
  * `is_two_scalar_vars_compile`, `is_literal_integer_operands_probe`,
  * `is_literal_string_operands_probe`; with the Variant control
@@ -232,9 +233,9 @@ function nonObjectOperand(
 	if (expr.exprKind === 'ParenExpr') { return nonObjectOperand(expr.inner, shapeOf); }
 	const shape = shapeOf(expr);
 	const declared = shape?.asType;
-	if (shape?.isArray || declared && isKnownScalarType(declared.trim().toLowerCase())) {
+	if (shape?.isArray || shape?.isScalar || declared && isKnownScalarType(declared.trim().toLowerCase())) {
 		const name = expr.exprKind === 'IdentifierExpr' ? `'${expr.name}'` : 'the expression';
-		return { span: expr.span, detail: `${name} has ${shape?.isArray ? 'array type' : `type ${declared}`}` };
+		return { span: expr.span, detail: `${name} has ${shape?.isArray ? 'array type' : shape?.isScalar ? 'a scalar numeric type' : `type ${declared}`}` };
 	}
 	return undefined;
 }
@@ -242,6 +243,7 @@ function nonObjectOperand(
 /** Compile constraints of TypeOf, separate from the compatibility warning. */
 export function checkTypeOfExpression(symbols: ReturnType<typeof buildModuleSymbols>, push: PushFn, projectVisibleSymbols?: readonly VbaSymbol[]): ProcedureExpressionVisitor {
 	const forProcedure = expressionShapeResolver(symbols, projectVisibleSymbols);
+	const enumNames = new Set((symbols.root.children ?? []).filter((symbol) => symbol.kind === 'enum').map((symbol) => symbol.name.toLowerCase()));
 	return (member) => {
 		const shapeOf = forProcedure(member);
 		return (expr) => {
@@ -249,7 +251,7 @@ export function checkTypeOfExpression(symbols: ReturnType<typeof buildModuleSymb
 			const shape = shapeOf(expr.operand);
 			if (expr.operand.exprKind === 'ParenExpr' || isKnownScalarType(expr.typeName.toLowerCase()) || expr.typeName.toLowerCase() === 'variant') {
 				push('typeOfInvalidExpression', "TypeOf requires an unparenthesised object expression and an object type after Is. This is a VBE compile error: Syntax error.", expr.span);
-			} else if (shape?.isArray || shape?.asType && isKnownScalarType(shape.asType.toLowerCase())) {
+			} else if (shape?.isArray || shape?.isScalar || shape?.asType && (isKnownScalarType(shape.asType.toLowerCase()) || enumNames.has(shape.asType.toLowerCase()))) {
 				push('typeOfInvalidExpression', "TypeOf requires an object expression. This is a VBE compile error: Type mismatch.", expr.operand.span);
 			}
 		};

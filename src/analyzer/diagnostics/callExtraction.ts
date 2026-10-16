@@ -585,7 +585,7 @@ export function validateArity(
 			: undefined;
 		push(
 			'argumentCount',
-			`Wrong number of arguments to '${displayName}': expected ${describeArity(required, max)}, but got ${n}.`,
+			`Wrong number of arguments to '${displayName}': expected ${describeArity(required, max)}, but got ${n}.${n < required && !sig.runtime ? ' This is a VBE compile error: Argument not optional.' : ''}`,
 			call.nameSpan,
 			placeholder,
 		);

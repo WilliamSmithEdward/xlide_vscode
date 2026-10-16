@@ -447,7 +447,8 @@ export interface ModuleSymbols {
 	/**
 	 * With a DefType line and no Option Explicit: the names each procedure
 	 * assigns without declaring them, by the procedure's start offset. Each
-	 * is a local the DefType types (issue #285).
+	 * is a local the DefType types (issue #285). Presence, including an empty
+	 * map, also permits implicit locals introduced by reads.
 	 */
 	implicitLocals?: ReadonlyMap<number, ReadonlySet<string>>;
 }

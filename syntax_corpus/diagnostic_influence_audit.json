@@ -601,7 +601,8 @@
         "time_dollar_argument_compile",
         "command_dollar_argument_compile",
         "review_print_fn_missing_arg_compile",
-        "review_if_fn_missing_arg_compile"
+        "review_if_fn_missing_arg_compile",
+        "review_typeof_bad_call_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -3860,7 +3861,7 @@
     {
       "code": "is-operator-non-object",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "MS-VBAL 5.6 (the Is object-identity operator requires object-reference operands) plus the Excel/VBE compile oracle (Object required) and the deterministic MS-VBAL 5.6 expression AST + declared-type environment; review neighbours measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-16); review neighbours measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-16)",
+      "sourceOfTruth": "MS-VBAL 5.6 (the Is object-identity operator requires object-reference operands) plus the Excel/VBE compile oracle (Object required) and the deterministic MS-VBAL 5.6 expression AST + declared-type environment; review neighbours measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-16)",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "is_scalar_long_var_compile",
@@ -4037,7 +4038,19 @@
         "review_skipped_instr_is_nothing_compile",
         "review_instr_is_nothing_compile",
         "review_len_is_nothing_compile",
-        "review_redim_bound_is_nothing_compile"
+        "review_redim_bound_is_nothing_compile",
+        "review_val_is_nothing_compile",
+        "review_asc_is_nothing_compile",
+        "review_cint_is_nothing_compile",
+        "review_sgn_is_nothing_compile",
+        "review_strcomp_is_nothing_compile",
+        "review_abs_is_nothing_compile",
+        "review_int_is_nothing_compile",
+        "review_fix_is_nothing_compile",
+        "review_timer_is_nothing_compile",
+        "review_cdate_is_nothing_compile",
+        "review_cstr_is_nothing_compile",
+        "review_deflng_undeclared_is_nothing_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -5908,7 +5921,7 @@
     {
       "code": "non-scalar-binary-operand",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "MS-VBAL 5.6 plus Excel/VBE compile measurements, including accepted aggregate power operands; shared expression AST and conservative declaration-shape resolution; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports; neighbouring forms measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-15); review neighbours measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-16); review neighbours measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-16)",
+      "sourceOfTruth": "MS-VBAL 5.6 plus Excel/VBE compile measurements, including accepted aggregate power operands; shared expression AST and conservative declaration-shape resolution; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports; neighbouring forms measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-15); review neighbours measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-16)",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "nonscalar_array_concat_probe",
@@ -6162,7 +6175,10 @@
         "review_print_file_udt_plus_compile",
         "review_write_file_udt_plus_compile",
         "review_file_print_array_plus_compile",
-        "review_double_paren_nothing_plus_compile"
+        "review_double_paren_nothing_plus_compile",
+        "review_case_array_bare_compile",
+        "review_case_is_array_bare_compile",
+        "review_for_to_array_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -10182,7 +10198,8 @@
         "rq6_typeof_left",
         "rq6_typeof_paren_collection_if",
         "rq6_typeof_paren_collection_assign",
-        "rq6_numbers_arg_typeof"
+        "rq6_numbers_arg_typeof",
+        "review_typeof_enum_var_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],

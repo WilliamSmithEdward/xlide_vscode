@@ -3,9 +3,10 @@
 import type { Argument, ExprNode, ProcedureNode } from '../parser/nodes';
 import type { VbaSymbol } from '../symbols/symbolModel';
 import type { buildModuleSymbols } from '../symbols/buildModuleSymbols';
-import { resolveRuntimeFunction } from '../runtime/vbaRuntime';
-import { callableTypeSignatureFromSymbol, declarationShapeEnvironmentFor, typeEnvironmentFor, sourceNameScopeFor, type SourceNameScope, type DeclaredValueShape } from './typeInference';
+import { resolveRuntimeConstant, resolveRuntimeFunction, resolveRuntimeObject } from '../runtime/vbaRuntime';
+import { callableTypeSignatureFromSymbol, declarationShapeEnvironmentFor, defTypeOf, typeEnvironmentFor, sourceNameScopeFor, type SourceNameScope, type DeclaredValueShape } from './typeInference';
 import type { CallableTypeSignature } from './callExtraction';
+import { resolveHostConstant, resolveHostGlobal, resolveHostGlobalMember } from '../host/hostModel';
 
 type ShapeFactory = (proc: ProcedureNode) => (expr: ExprNode) => DeclaredValueShape | undefined;
 const factories = new WeakMap<ReturnType<typeof buildModuleSymbols>, { visible: readonly VbaSymbol[] | undefined; factory: ShapeFactory }>();
@@ -40,17 +41,15 @@ export function expressionShapeResolver(symbols: ReturnType<typeof buildModuleSy
 			const definitions = declarations.get(name);
 			const fn = readDeclarations.get(name);
 			if (fn && (fn.kind === 'function' || fn.kind === 'propertyGet' || fn.kind === 'declare' && fn.declareKind === 'Function')) {
-				if (fn.isArray) {
-					let signature = signatures.get(fn);
-					if (!signature) { signatures.set(fn, signature = callableTypeSignatureFromSymbol(fn)); }
-					if (!acceptsArguments(signature, args)) { return undefined; }
-				}
+				let signature = signatures.get(fn);
+				if (!signature) { signatures.set(fn, signature = callableTypeSignatureFromSymbol(fn)); }
+				if (!acceptsArguments(signature, args)) { return undefined; }
 				return { asType: fn.asType, isArray: fn.isArray === true, isFixedArray: false };
 			}
 			if (definitions || moduleQualified) { return undefined; }
 			const runtime = resolveRuntimeFunction(name + suffix);
 			if (runtime?.kind !== 'function' || (scope ??= sourceNameScopeFor(symbols, proc, projectVisibleSymbols)).runtimeShadows.has(name)) { return undefined; }
-			return { asType: runtime.declaredReturns, isArray: false, isFixedArray: false };
+			return { asType: runtime.declaredReturns, isScalar: runtime.scalarReturn, isArray: false, isFixedArray: false };
 		};
 		const callableQualifier = (expr: ExprNode): 'module' | 'vba' | undefined => {
 			if (expr.exprKind !== 'MemberAccessExpr' || expr.accessKind === 'bang' || expr.object?.exprKind !== 'IdentifierExpr') { return undefined; }
@@ -63,7 +62,7 @@ export function expressionShapeResolver(symbols: ReturnType<typeof buildModuleSy
 		const qualifiedCallableShape = (expr: Extract<ExprNode, { exprKind: 'MemberAccessExpr' }>, qualifier: 'module' | 'vba', args: readonly Argument[] = []): DeclaredValueShape | undefined => {
 			if (qualifier === 'module') { return callableShape(expr.member.toLowerCase(), args, '', true); }
 			const runtime = resolveRuntimeFunction(expr.member);
-			return runtime?.kind === 'function' ? { asType: runtime.declaredReturns, isArray: false, isFixedArray: false } : undefined;
+			return runtime?.kind === 'function' ? { asType: runtime.declaredReturns, isScalar: runtime.scalarReturn, isArray: false, isFixedArray: false } : undefined;
 		};
 		const resolve = (expr: ExprNode): DeclaredValueShape | undefined => {
 			if (expr.exprKind === 'ParenExpr') { return resolve(expr.inner); }
@@ -75,7 +74,16 @@ export function expressionShapeResolver(symbols: ReturnType<typeof buildModuleSy
 				// declaration shape; reuse the effective type environment's binding
 				// and host/runtime exclusions before attempting callable resolution.
 				const asType = (types ??= typeEnvironmentFor(symbols, proc)).get(name);
-				return asType ? { asType, isArray: false, isFixedArray: false } : callableShape(name, [], expr.typeSuffix);
+				if (asType) { return { asType, isArray: false, isFixedArray: false }; }
+				const callable = callableShape(name, [], expr.typeSuffix);
+				if (callable) { return callable; }
+				// A read alone also creates an implicit local without Option Explicit.
+				// Preserve source/project, host and runtime bindings before DefType.
+				const implicitType = symbols.implicitLocals !== undefined && !expr.typeSuffix ? defTypeOf(symbols, name) : undefined;
+				return implicitType && !(scope ??= sourceNameScopeFor(symbols, proc, projectVisibleSymbols)).runtimeShadows.has(name)
+					&& !resolveRuntimeFunction(name) && !resolveRuntimeObject(name) && !resolveRuntimeConstant(name)
+					&& !resolveHostGlobal(name, undefined) && !resolveHostGlobalMember(name, undefined) && !resolveHostConstant(name, undefined)
+					? { asType: implicitType, isArray: false, isFixedArray: false } : undefined;
 			}
 			if (expr.exprKind === 'MemberAccessExpr' && expr.object && expr.accessKind !== 'bang') {
 				const qualifier = callableQualifier(expr);
@@ -117,7 +125,7 @@ export function expressionShapeResolver(symbols: ReturnType<typeof buildModuleSy
 	return factory;
 }
 
-/** Match argument slots to the declaration before judging an array result. */
+/** Match argument slots to the declaration before judging its result shape. */
 function acceptsArguments(signature: CallableTypeSignature, args: readonly Argument[]): boolean {
 	const params = signature.params;
 	const supplied = new Set<number>();

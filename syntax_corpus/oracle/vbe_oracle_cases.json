@@ -123836,7 +123836,7 @@
     },
     {
       "id": "codex_expr_udt_power_left_compile",
-      "description": "v = t1 ^ 2 with t1 a Type: compiles, control-disabled (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15)",
+      "description": "v = t1 ^ 2 with t1 a Type: compiles, control-disabled (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16)",
       "provenance": "vbe-oracle-verified",
       "expected": "accepted",
       "mode": "compile",
@@ -123847,7 +123847,7 @@
     },
     {
       "id": "codex_expr_udt_power_right_compile",
-      "description": "v = 2 ^ t1 with t1 a Type: compiles, control-disabled (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15)",
+      "description": "v = 2 ^ t1 with t1 a Type: compiles, control-disabled (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16)",
       "provenance": "vbe-oracle-verified",
       "expected": "accepted",
       "mode": "compile",
@@ -123990,7 +123990,7 @@
     },
     {
       "id": "review_print_file_udt_plus_compile",
-      "description": "Private Type R; n As Long; End Type; Dim r1 As R; Print #1, r1 + 1: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "description": "Private Type R; n As Long; End Type; Dim r1 As R; Print #1, r1 + 1: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
       "provenance": "vbe-oracle-verified",
       "expected": "rejected",
       "mode": "compile",
@@ -124000,7 +124000,7 @@
     },
     {
       "id": "review_write_file_udt_plus_compile",
-      "description": "Private Type R; n As Long; End Type; Dim r1 As R; Write #1, r1 + 1: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "description": "Private Type R; n As Long; End Type; Dim r1 As R; Write #1, r1 + 1: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
       "provenance": "vbe-oracle-verified",
       "expected": "rejected",
       "mode": "compile",
@@ -124010,7 +124010,7 @@
     },
     {
       "id": "review_class_get_let_is_nothing_compile",
-      "description": "Public Property Get Count() As Long; End Property; Public Property Let Count(ByVal value As Long); End Prop...: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "description": "Public Property Get Count() As Long; End Property; Public Property Let Count(ByVal value As Long); End Prop...: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
       "provenance": "vbe-oracle-verified",
       "expected": "rejected",
       "mode": "compile",
@@ -124032,7 +124032,7 @@
     },
     {
       "id": "review_qualified_array_fn_plus_compile",
-      "description": "Public Function Numbers() As Long(); End Function; Public Sub Main(); Debug.Print Module1.Numbers() + 1: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "description": "Public Function Numbers() As Long(); End Function; Public Sub Main(); Debug.Print Module1.Numbers() + 1: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
       "provenance": "vbe-oracle-verified",
       "expected": "rejected",
       "mode": "compile",
@@ -124049,7 +124049,7 @@
     },
     {
       "id": "review_vba_clng_is_nothing_compile",
-      "description": "Debug.Print VBA.CLng(1) Is Nothing: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "description": "Debug.Print VBA.CLng(1) Is Nothing: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
       "provenance": "vbe-oracle-verified",
       "expected": "rejected",
       "mode": "compile",
@@ -124059,7 +124059,7 @@
     },
     {
       "id": "review_case_is_array_plus_compile",
-      "description": "Dim a(1) As Long; Select Case 1; Case Is > a + 1; End Select: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "description": "Dim a(1) As Long; Select Case 1; Case Is > a + 1; End Select: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
       "provenance": "vbe-oracle-verified",
       "expected": "rejected",
       "mode": "compile",
@@ -124069,7 +124069,7 @@
     },
     {
       "id": "review_print_fn_missing_arg_compile",
-      "description": "Function NeedsValue(ByVal arg As Long) As Long; End Function; Debug.Print NeedsValue: Argument not optional (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "description": "Function NeedsValue(ByVal arg As Long) As Long; End Function; Debug.Print NeedsValue: Argument not optional (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
       "provenance": "vbe-oracle-verified",
       "expected": "rejected",
       "mode": "compile",
@@ -124079,7 +124079,7 @@
     },
     {
       "id": "review_if_fn_missing_arg_compile",
-      "description": "Function NeedsValue(ByVal arg As Long) As Long; End Function; If NeedsValue Then Debug.Print 1: Argument not optional (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "description": "Function NeedsValue(ByVal arg As Long) As Long; End Function; If NeedsValue Then Debug.Print 1: Argument not optional (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
       "provenance": "vbe-oracle-verified",
       "expected": "rejected",
       "mode": "compile",
@@ -124099,7 +124099,7 @@
     },
     {
       "id": "review_if_enum_type_compile",
-      "description": "Enum E; a = 1; End Enum; If E Then Debug.Print 1: Expected variable or procedure, not enum type (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "description": "Enum E; a = 1; End Enum; If E Then Debug.Print 1: Expected variable or procedure, not enum type (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
       "provenance": "vbe-oracle-verified",
       "expected": "rejected",
       "mode": "compile",
@@ -124109,7 +124109,7 @@
     },
     {
       "id": "review_assign_enum_type_compile",
-      "description": "Enum E; a = 1; End Enum; Dim x As Long; x = E: Expected variable or procedure, not enum type (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "description": "Enum E; a = 1; End Enum; Dim x As Long; x = E: Expected variable or procedure, not enum type (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
       "provenance": "vbe-oracle-verified",
       "expected": "rejected",
       "mode": "compile",
@@ -124119,7 +124119,7 @@
     },
     {
       "id": "review_skipped_instr_is_nothing_compile",
-      "description": "If False Then Debug.Print InStr(\"abc\", \"a\") Is Nothing: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "description": "If False Then Debug.Print InStr(\"abc\", \"a\") Is Nothing: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
       "provenance": "vbe-oracle-verified",
       "expected": "rejected",
       "mode": "compile",
@@ -124129,7 +124129,7 @@
     },
     {
       "id": "review_instr_is_nothing_compile",
-      "description": "Debug.Print InStr(\"abc\", \"a\") Is Nothing: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "description": "Debug.Print InStr(\"abc\", \"a\") Is Nothing: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
       "provenance": "vbe-oracle-verified",
       "expected": "rejected",
       "mode": "compile",
@@ -124139,7 +124139,7 @@
     },
     {
       "id": "review_len_is_nothing_compile",
-      "description": "Debug.Print Len(\"abc\") Is Nothing: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "description": "Debug.Print Len(\"abc\") Is Nothing: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
       "provenance": "vbe-oracle-verified",
       "expected": "rejected",
       "mode": "compile",
@@ -124149,7 +124149,7 @@
     },
     {
       "id": "review_file_print_array_plus_compile",
-      "description": "Dim a(1) As Long; Print #1, a + 1: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "description": "Dim a(1) As Long; Print #1, a + 1: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
       "provenance": "vbe-oracle-verified",
       "expected": "rejected",
       "mode": "compile",
@@ -124159,7 +124159,7 @@
     },
     {
       "id": "review_redim_bound_is_nothing_compile",
-      "description": "Dim a() As Long, n As Long; ReDim a(n Is Nothing): Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "description": "Dim a() As Long, n As Long; ReDim a(n Is Nothing): Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
       "provenance": "vbe-oracle-verified",
       "expected": "rejected",
       "mode": "compile",
@@ -124169,11 +124169,292 @@
     },
     {
       "id": "review_double_paren_nothing_plus_compile",
-      "description": "Debug.Print ((Nothing)) + 1: Invalid use of object (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "description": "Debug.Print ((Nothing)) + 1: Invalid use of object (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
       "provenance": "vbe-oracle-verified",
       "expected": "rejected",
       "mode": "compile",
       "source": "Option Explicit\r\nSub Main()\r\n    Debug.Print ((Nothing)) + 1\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "review_month_is_nothing_compile",
+      "description": "Debug.Print Month(#1/1/2026#) Is Nothing: compiles (raises 424 when run) (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Debug.Print Month(#1/1/2026#) Is Nothing\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "review_day_is_nothing_compile",
+      "description": "Debug.Print Day(#1/1/2026#) Is Nothing: compiles (raises 424 when run) (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Debug.Print Day(#1/1/2026#) Is Nothing\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "review_weekday_is_nothing_compile",
+      "description": "Debug.Print Weekday(#1/1/2026#) Is Nothing: compiles (raises 424 when run) (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Debug.Print Weekday(#1/1/2026#) Is Nothing\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "review_hour_is_nothing_compile",
+      "description": "Debug.Print Hour(#1/1/2026#) Is Nothing: compiles (raises 424 when run) (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Debug.Print Hour(#1/1/2026#) Is Nothing\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "review_minute_is_nothing_compile",
+      "description": "Debug.Print Minute(#1/1/2026#) Is Nothing: compiles (raises 424 when run) (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Debug.Print Minute(#1/1/2026#) Is Nothing\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "review_second_is_nothing_compile",
+      "description": "Debug.Print Second(#1/1/2026#) Is Nothing: compiles (raises 424 when run) (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Debug.Print Second(#1/1/2026#) Is Nothing\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "review_datepart_is_nothing_compile",
+      "description": "Debug.Print DatePart(\"yyyy\", #1/1/2026#) Is Nothing: compiles (raises 424 when run) (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Debug.Print DatePart(\"yyyy\", #1/1/2026#) Is Nothing\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "review_val_is_nothing_compile",
+      "description": "Debug.Print Val(\"1\") Is Nothing: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Debug.Print Val(\"1\") Is Nothing\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "review_asc_is_nothing_compile",
+      "description": "Debug.Print Asc(\"a\") Is Nothing: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Debug.Print Asc(\"a\") Is Nothing\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "review_cint_is_nothing_compile",
+      "description": "Debug.Print CInt(1) Is Nothing: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Debug.Print CInt(1) Is Nothing\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "review_datediff_is_nothing_compile",
+      "description": "Debug.Print DateDiff(\"d\", #1/1/2026#, #1/2/2026#) Is Nothing: compiles (raises 424 when run) (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Debug.Print DateDiff(\"d\", #1/1/2026#, #1/2/2026#) Is Nothing\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "review_sgn_is_nothing_compile",
+      "description": "Debug.Print Sgn(1) Is Nothing: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Debug.Print Sgn(1) Is Nothing\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "review_strcomp_is_nothing_compile",
+      "description": "Debug.Print StrComp(\"a\", \"b\") Is Nothing: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Debug.Print StrComp(\"a\", \"b\") Is Nothing\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "review_round_is_nothing_compile",
+      "description": "Debug.Print Round(1.5) Is Nothing: compiles (raises 424 when run) (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Debug.Print Round(1.5) Is Nothing\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "review_abs_is_nothing_compile",
+      "description": "Debug.Print Abs(1) Is Nothing: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Debug.Print Abs(1) Is Nothing\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "review_int_is_nothing_compile",
+      "description": "Debug.Print Int(1.5) Is Nothing: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Debug.Print Int(1.5) Is Nothing\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "review_fix_is_nothing_compile",
+      "description": "Debug.Print Fix(1.5) Is Nothing: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Debug.Print Fix(1.5) Is Nothing\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "review_timer_is_nothing_compile",
+      "description": "Debug.Print Timer Is Nothing: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Debug.Print Timer Is Nothing\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "review_cdate_is_nothing_compile",
+      "description": "Debug.Print CDate(#1/1/2026#) Is Nothing: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Debug.Print CDate(#1/1/2026#) Is Nothing\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "review_cstr_is_nothing_compile",
+      "description": "Debug.Print CStr(1) Is Nothing: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Debug.Print CStr(1) Is Nothing\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "review_typeof_year_collection_runtime",
+      "description": "Dim d As Date; If TypeOf Year(d) Is Collection Then Exit Sub: compiles and runs (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    If TypeOf Year(d) Is Collection Then Exit Sub\r\nEnd Sub\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "review_vba_year_is_nothing_compile",
+      "description": "Dim d As Date; If VBA.Year(d) Is Nothing Then Exit Sub: compiles (raises 424 when run) (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    If VBA.Year(d) Is Nothing Then Exit Sub\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "review_case_array_bare_compile",
+      "description": "Dim a(1) As Long; Select Case 1; Case a; End Select: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long\r\n    Select Case 1\r\n    Case a\r\n    End Select\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "review_case_is_array_bare_compile",
+      "description": "Dim a(1) As Long; Select Case 1; Case Is > a; End Select: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long\r\n    Select Case 1\r\n    Case Is > a\r\n    End Select\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "review_for_to_array_compile",
+      "description": "Dim a(1) As Long, i As Long; For i = a To 1; Next: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, i As Long\r\n    For i = a To 1\r\n    Next\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "review_deflng_undeclared_is_nothing_compile",
+      "description": "DefLng A-W; If a Is Nothing Then Exit Sub: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "DefLng A-W\r\nSub Main()\r\n    If a Is Nothing Then Exit Sub\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "review_typeof_enum_var_compile",
+      "description": "Enum SomeEnum; x = 1; End Enum; Dim e As SomeEnum; If TypeOf e Is Collection Then Exit Sub: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nEnum SomeEnum\r\n    x = 1\r\nEnd Enum\r\nSub Main()\r\n    Dim e As SomeEnum\r\n    If TypeOf e Is Collection Then Exit Sub\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "review_typeof_bad_call_compile",
+      "description": "Function Foo(n As Long, m As Long) As Long; End Function; If TypeOf Foo(1) Is Object Then Exit Sub: Argument not optional (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-16).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Foo(n As Long, m As Long) As Long\r\nEnd Function\r\nSub Main()\r\n    If TypeOf Foo(1) Is Object Then Exit Sub\r\nEnd Sub\r\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
     }

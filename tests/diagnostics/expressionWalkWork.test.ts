@@ -7,6 +7,7 @@ import { blockHeaderStatements, ifBranchStatement } from '../../src/analyzer/dia
 import { forEachExpressionInBody, statementValueExpressions, walkProcedureExpressions } from '../../src/analyzer/diagnostics/exprWalk';
 import { DIAGNOSTIC_RULE_REGISTRY } from '../../src/analyzer/diagnostics/registry';
 import * as expressionWalk from '../../src/analyzer/diagnostics/exprWalk';
+import { checkStatementTypes } from '../../src/analyzer/diagnostics/rules/statementTypes';
 import { checkStatementForms } from '../../src/analyzer/diagnostics/rules/statementForms';
 import { buildModuleSymbols } from '../../src/analyzer/symbols/buildModuleSymbols';
 
@@ -18,6 +19,18 @@ function fixture(body: string) {
 }
 
 describe('expression traversal work', () => {
+	it.each([10, 1000])('checks %i bare Case and For array values without expression parsing', (count) => {
+		const source = 'Option Explicit\nSub Main()\nDim a(1) As Long, i As Long\n'
+			+ Array(count).fill('Select Case 1\nCase a\nCase Is > a\nEnd Select\nFor i = a To 1\nNext').join('\n') + '\nEnd Sub\n';
+		const mod = parseModule(source);
+		const symbols = buildModuleSymbols('Module1', 'standard', source, { parsedModule: mod });
+		const parse = vi.spyOn(parser, 'parseExpression');
+		const push = vi.fn();
+		checkStatementTypes(source, mod, symbols, undefined, undefined, undefined, push);
+		expect(push.mock.calls.map(([rule]) => rule)).toEqual(Array(count * 3).fill('nonScalarBinaryOperand'));
+		expect(parse).not.toHaveBeenCalled();
+	});
+
 	// `Debug.Print 1` names no value, so the class-Sub lookup that a value
 	// reference needs reads no project class's members.
 	it('reads no class members for a statement callee that is no value', () => {
