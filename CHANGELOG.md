@@ -2,6 +2,20 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.1.18] - 2026-10-16
+
+Run the VBE oracle in every Office host XLIDE supports. The extension itself
+is unchanged.
+
+- Run a VBE oracle fixture in Word, PowerPoint or Access when it names that
+  `host`, with the same safeguards as Excel, and refuse to drive a Word or
+  PowerPoint that is already open. The first measured fixtures cover all
+  three hosts, and the no-false-positive sweep reads each one as its host
+  (#1373).
+- Key `--checkpoint` verdicts to the build of the host that produced them,
+  so an Office update runs every case again (#1372, contributed by Sam,
+  @swsammy).
+
 ## [11.1.17] - 2026-10-16
 
 Make the live Office test suite skip what it cannot run, and start fewer
