@@ -1,13 +1,14 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { describe, expect, it } from 'vitest';
-import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
+import { oracleShardCases, oracleShardCount } from './oracleShards';
+import { analyzeVbaModuleSource } from '../../src/vbaModuleAnalysis';
 import {
 	buildVbaProjectIndex,
 	effectiveModuleKind,
 	projectAnalysisOptionsForModule,
 	projectProcedureSignatures,
-} from '../src/vbaProjectAnalysis';
+} from '../../src/vbaProjectAnalysis';
 
 // Issue #237: wrapping a procedure's body in `If True Then` / `End If`
 // changes nothing the VBE does - each wrapped oracle case was measured in
@@ -84,31 +85,41 @@ function wrapped(source: string, entry: string): string | undefined {
 	return [...lines.slice(0, header + 1), 'If True Then', ...lines.slice(header + 1, end), 'End If', ...lines.slice(end)].join('\r\n');
 }
 
-describe('oracle cases wrapped in If True Then (issue #237)', () => {
-	it('report the same errors wrapped as unwrapped', () => {
-		const differences: string[] = [];
-		let checked = 0;
-		for (const oracleCase of corpus.cases) {
-			if (!oracleCase.entryPoint) {
-				continue;
+/** The case's modules, its entry module and that module's wrapped source, or undefined when the case is not checked. */
+function wrappedCase(oracleCase: OracleCase): { modules: OracleModule[]; entry: OracleModule; source: string } | undefined {
+	if (!oracleCase.entryPoint) {
+		return undefined;
+	}
+	const modules = modulesOf(oracleCase);
+	const entry = modules.find((mod) => mod.entry) ?? modules[0];
+	const source = wrapped(entry.source, oracleCase.entryPoint);
+	return source === undefined ? undefined : { modules, entry, source };
+}
+
+export function wrappedInIfShard(shard: number): void {
+	describe(`oracle cases wrapped in If True Then (issue #237) - shard ${shard + 1} of ${oracleShardCount}`, () => {
+		it('report the same errors wrapped as unwrapped', () => {
+			const differences: string[] = [];
+			for (const oracleCase of oracleShardCases(corpus.cases, shard)) {
+				const checked = wrappedCase(oracleCase);
+				if (checked === undefined) {
+					continue;
+				}
+				const { modules, entry, source } = checked;
+				const before = errorCodes(modules);
+				const after = errorCodes(modules.map((mod) => (mod === entry ? { ...mod, source } : mod)));
+				if (before.join('\n') !== after.join('\n')) {
+					differences.push(`${oracleCase.id}: [${before.join(', ')}] -> [${after.join(', ')}]`);
+				}
 			}
-			const modules = modulesOf(oracleCase);
-			const entry = modules.find((mod) => mod.entry) ?? modules[0];
-			const source = wrapped(entry.source, oracleCase.entryPoint);
-			if (source === undefined) {
-				continue;
-			}
-			checked++;
-			const before = errorCodes(modules);
-			const after = errorCodes(modules.map((mod) => (mod === entry ? { ...mod, source } : mod)));
-			if (before.join('\n') !== after.join('\n')) {
-				differences.push(`${oracleCase.id}: [${before.join(', ')}] -> [${after.join(', ')}]`);
-			}
-		}
-		expect(checked).toBeGreaterThan(1000);
-		expect(differences).toEqual([]);
-		// Two analyses of every oracle case: about 17 s alone here with 6,400
-		// cases, and 33 to 63 s on a CI runner beside the suite. The oracle
-		// grows with every measured issue, so the limit leaves room.
-	}, 240_000);
-});
+			// Checked cases over the whole corpus, not this shard, so the
+			// threshold is the one the sweep had before it was split.
+			expect(corpus.cases.filter((oracleCase) => wrappedCase(oracleCase) !== undefined).length).toBeGreaterThan(1000);
+			expect(differences).toEqual([]);
+			// Two analyses of each case in a quarter of the oracle: the eight
+			// shards of both sweeps took about 90 s side by side here with 9,740
+			// cases on 2026-10-16. The oracle grows with every measured issue, so
+			// the limit leaves room.
+		}, 240_000);
+	});
+}

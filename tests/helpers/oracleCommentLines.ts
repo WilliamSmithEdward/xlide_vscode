@@ -1,13 +1,14 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { describe, expect, it } from 'vitest';
-import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
+import { oracleShardCases, oracleShardCount } from './oracleShards';
+import { analyzeVbaModuleSource } from '../../src/vbaModuleAnalysis';
 import {
 	buildVbaProjectIndex,
 	effectiveModuleKind,
 	projectAnalysisOptionsForModule,
 	projectProcedureSignatures,
-} from '../src/vbaProjectAnalysis';
+} from '../../src/vbaProjectAnalysis';
 
 // Issue #249: a comment line is no statement. A `' note` line after every
 // complete line of an oracle case changes nothing the VBE does - the cases
@@ -78,28 +79,32 @@ function findings(modules: readonly OracleModule[], origins?: ReadonlyMap<string
 	return out.sort();
 }
 
-describe('oracle cases with a comment after every line (issue #249)', () => {
-	it('report the same findings at the same lines', () => {
-		const differences: string[] = [];
-		for (const oracleCase of corpus.cases) {
-			const modules = modulesOf(oracleCase);
-			const origins = new Map<string, number[]>();
-			const withComments = modules.map((mod) => {
-				const { source, origin } = commented(mod.source);
-				origins.set(mod.name, origin);
-				return { ...mod, source };
-			});
-			const before = findings(modules);
-			const after = findings(withComments, origins);
-			if (before.join('\n') !== after.join('\n')) {
-				differences.push(`${oracleCase.id}: [${before.join(', ')}] -> [${after.join(', ')}]`);
+export function commentLinesShard(shard: number): void {
+	describe(`oracle cases with a comment after every line (issue #249) - shard ${shard + 1} of ${oracleShardCount}`, () => {
+		it('report the same findings at the same lines', () => {
+			const differences: string[] = [];
+			for (const oracleCase of oracleShardCases(corpus.cases, shard)) {
+				const modules = modulesOf(oracleCase);
+				const origins = new Map<string, number[]>();
+				const withComments = modules.map((mod) => {
+					const { source, origin } = commented(mod.source);
+					origins.set(mod.name, origin);
+					return { ...mod, source };
+				});
+				const before = findings(modules);
+				const after = findings(withComments, origins);
+				if (before.join('\n') !== after.join('\n')) {
+					differences.push(`${oracleCase.id}: [${before.join(', ')}] -> [${after.join(', ')}]`);
+				}
 			}
-		}
-		expect(corpus.cases.length).toBeGreaterThan(2000);
-		expect(differences).toEqual([]);
-		// Two analyses of every oracle case: about 30 s alone here with 8,600
-		// cases, and 115 s on a CI runner beside the suite on 2026-10-03, which
-		// the old 120 s limit then failed. The oracle grows with every measured
-		// issue, so the limit leaves room, as oracleWrappedInIf's does.
-	}, 240_000);
-});
+			expect(corpus.cases.length).toBeGreaterThan(2000);
+			expect(differences).toEqual([]);
+			// Two analyses of each case in a quarter of the oracle: the eight
+			// shards of both sweeps took about 90 s side by side here with 9,740
+			// cases on 2026-10-16. Unsplit, the sweep took 115 s on a CI runner
+			// beside the suite on 2026-10-03, which the old 120 s limit then
+			// failed. The oracle grows with every measured issue, so the limit
+			// leaves room, as oracleWrappedInIf's does.
+		}, 240_000);
+	});
+}
