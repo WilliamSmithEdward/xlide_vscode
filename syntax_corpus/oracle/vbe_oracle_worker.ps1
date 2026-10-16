@@ -69,6 +69,7 @@ public static class XlideVbeDialogWatcher {
     private static Thread watcherThread;
     private static volatile bool stopRequested;
     private static volatile bool dialogSeen;
+    private static readonly ManualResetEvent stopEvent = new ManualResetEvent(false);
 
     public static bool DialogSeen {
         get { return dialogSeen; }
@@ -156,6 +157,7 @@ public static class XlideVbeDialogWatcher {
 
         stopRequested = false;
         dialogSeen = false;
+        stopEvent.Reset();
         watcherThread = new Thread(delegate() {
             Watch(hostProcessId, resultPath, stagePath, maxSeconds, holdSeconds, endHostOnCompileError);
         });
@@ -165,6 +167,7 @@ public static class XlideVbeDialogWatcher {
 
     public static void Stop() {
         stopRequested = true;
+        stopEvent.Set();
         if (watcherThread != null && watcherThread.IsAlive) {
             watcherThread.Join(5000);
         }
@@ -239,7 +242,7 @@ public static class XlideVbeDialogWatcher {
                     return;
                 }
             }
-            Thread.Sleep(100);
+            stopEvent.WaitOne(100);
         }
     }
 
@@ -261,7 +264,7 @@ public static class XlideVbeDialogWatcher {
         FocusWindow(hWnd);
         DateTime deadline = DateTime.UtcNow.AddSeconds(seconds);
         while (!stopRequested && DateTime.UtcNow < deadline && IsWindow(hWnd)) {
-            Thread.Sleep(100);
+            stopEvent.WaitOne(100);
         }
     }
 
@@ -383,7 +386,13 @@ public static class XlideVbeDialogWatcher {
             SendDialogCommand(hWnd, IDCANCEL, IntPtr.Zero);
             SendDialogCommand(hWnd, IDABORT, IntPtr.Zero);
             SendWindowClose(hWnd);
-            Thread.Sleep(100);
+            DateTime resendAt = DateTime.UtcNow.AddMilliseconds(100);
+            while (DateTime.UtcNow < resendAt && DateTime.UtcNow < deadline) {
+                if (!IsWindow(hWnd) || !IsWindowVisible(hWnd)) {
+                    return true;
+                }
+                Thread.Sleep(10);
+            }
         }
         return !IsWindow(hWnd) || !IsWindowVisible(hWnd);
     }
@@ -634,7 +643,7 @@ function Wait-ForSeenDialogResult {
     $deadline = [DateTime]::UtcNow.AddSeconds($DialogHoldSeconds + 10)
     $dialog = Read-DialogResult
     while ($null -eq $dialog -and [DateTime]::UtcNow -lt $deadline) {
-        Start-Sleep -Milliseconds 100
+        Start-Sleep -Milliseconds 10
         $dialog = Read-DialogResult
     }
     if ($null -eq $dialog) {
