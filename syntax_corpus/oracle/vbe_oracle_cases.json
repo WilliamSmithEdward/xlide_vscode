@@ -29909,7 +29909,7 @@
       "provenance": "vbe-oracle-verified",
       "expected": "rejected",
       "mode": "compile",
-      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant\r\n    v = 1 \u1F600\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant\r\n    v = 1 \uD83D\uDE00\r\n    Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
     },
