@@ -2,6 +2,18 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.1.22] - 2026-10-16
+
+Ask for a protected project's password once, not on every test run.
+
+- Stop asking again for the password of a project already unlocked in this
+  session when its VBA tests run, from the sidebar or from an agent's
+  `xlide_runVbaTests`. Each run works on a copy of the file, which was
+  treated as a second locked file. Opening a protected form in the designer
+  asked twice for the same reason. A copy XLIDE makes now shares the
+  original's unlock, and only while its protection records still match
+  (#1388, #1389).
+
 ## [11.1.21] - 2026-10-16
 
 Start the VBE oracle faster. The extension itself is unchanged.
