@@ -1,7 +1,8 @@
 // Diagnostics tests: what the state rules know is carried into blocks (issue
 // #237). Measured through pyVBAharness in Excel 16.0 on 2026-09-30: each
 // error raises inside each kind of block below, which never touches the
-// variable. tests/oracleWrappedInIf.test.ts checks the same over the oracle.
+// variable. tests/oracleWrappedInIf.shard*.test.ts checks the same over the
+// oracle.
 
 import { describe, it, expect } from 'vitest';
 import { analyzeModule } from '../../src/analyzer';
