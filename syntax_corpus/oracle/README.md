@@ -211,6 +211,17 @@ a bogus "accepted" control). Guard against it with the controls below.
    running and answers a COM call; if not, the case is a `worker_error` and the
    run stops. A host that hangs instead, for example behind a crash report,
    blocks that call, and the case ends as a `timeout`.
+   A fixture may name exact four-part builds in `crashesHostBuilds`, for
+   example `["16.0.20430.20182"]`. On a listed registered build of its host,
+   the coordinator does not run it: it reports `skipped` at `known_host_crash`
+   and counts it separately in text and JSON. This is no evidence, expectation
+   failure or infrastructure failure; `--strict` does not fail on a skip.
+   Skips are never checkpointed and cannot be promoted with `--promote-observed`.
+   Without `--checkpoint`, the build is read only for hosts whose selected
+   fixtures carry the field. If that lookup fails, the fixture runs as usual.
+   Other builds run as usual too, and an unlisted crash still stops the run.
+   The two `#Const O = Nothing` condition fixtures crash all four hosts,
+   measured in Excel, Word, PowerPoint and Access 16.0 (build 20430).
 
 ## Automation Policy
 
