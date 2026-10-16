@@ -67,7 +67,7 @@ function setupUncheckpointedMain(registered: { build: string | null; why?: strin
         loadCasesDocument: () => ({ cases }),
         OFFICE_HOSTS: { excel: { progId: 'Excel.Application' } },
         comRegistered: () => true,
-        registeredHostBuild: () => registered,
+        registeredHostBuild: () => ({ registered: true, ...registered }),
         OracleWorker: class { async close() {} },
         caseHash: () => 'hash',
         runCaseWithRetries: async (_worker: unknown, kase: { id: string }) => {
@@ -93,44 +93,42 @@ it('stops on a worker crash when the registered build is not listed as a known c
     expect(JSON.parse(output[0])).toMatchObject({ oracleFailureCount: 1, skippedCount: 0 });
 });
 
-it('continues after a skip, excludes it from checkpoints and strict failures, and reports both summaries', async () => {
-    for (const json of [true, false]) {
-        const writes: string[] = [];
-        const output: string[] = [];
-        const ran: string[] = [];
-        const cases = [{ id: 'crash', crashesHostBuilds: [build], expected: 'accepted' },
-            { id: 'safe', expected: 'accepted' }];
-        const start = source.indexOf('async function main(');
-        const mainSource = source.slice(start, source.indexOf('\nprocess.exit(', start));
-        const main = runInNewContext(`${mainSource}\nmain`, {
-            ...policy,
-            parseArgs: () => ({ timeout: 30, timeoutRetries: 0, dialogHoldSeconds: 0,
-                casesPerInstance: 40, caseIds: [], checkpoint: 'checkpoint', strict: true, json }),
-            process: { platform: 'win32' },
-            console: { log: (line: string) => output.push(line), error: (line: string) => output.push(line) },
-            loadCasesDocument: () => ({ cases }),
-            OFFICE_HOSTS: { excel: { progId: 'Excel.Application' } },
-            comRegistered: () => true,
-            registeredHostBuild: () => ({ build }),
-            loadCheckpoint: () => new Map(),
-            OracleWorker: class { async close() {} },
-            caseHash: () => 'hash', checkpointKey: () => 'key',
-            runCaseWithRetries: async (_worker: unknown, kase: { id: string }) => {
-                ran.push(kase.id);
-                return { caseId: kase.id, outcome: 'accepted' };
-            },
-            phaseMatches: () => true,
-            fs: { appendFileSync: (_file: string, line: string) => writes.push(line) },
-        });
-        expect(await main([])).toBe(0);
-        expect(ran).toEqual(['safe']);
-        expect(writes).toHaveLength(1);
-        expect(JSON.parse(writes[0]).result.caseId).toBe('safe');
-        if (json) {
-            expect(JSON.parse(output[0])).toMatchObject({ failureCount: 0, oracleFailureCount: 0, skippedCount: 1 });
-        } else {
-            expect(output.join('\n')).toContain('SKIP crash');
-            expect(output.join('\n')).toContain('1 skipped case(s)');
-        }
+it.each([true, false])('continues after a skip and excludes it from checkpoints and strict failures, json=%s', async (json) => {
+    const writes: string[] = [];
+    const output: string[] = [];
+    const ran: string[] = [];
+    const cases = [{ id: 'crash', crashesHostBuilds: [build], expected: 'accepted' },
+        { id: 'safe', expected: 'accepted' }];
+    const start = source.indexOf('async function main(');
+    const mainSource = source.slice(start, source.indexOf('\nprocess.exit(', start));
+    const main = runInNewContext(`${mainSource}\nmain`, {
+        ...policy,
+        parseArgs: () => ({ timeout: 30, timeoutRetries: 0, dialogHoldSeconds: 0,
+            casesPerInstance: 40, caseIds: [], checkpoint: 'checkpoint', strict: true, json }),
+        process: { platform: 'win32' },
+        console: { log: (line: string) => output.push(line), error: (line: string) => output.push(line) },
+        loadCasesDocument: () => ({ cases }),
+        OFFICE_HOSTS: { excel: { progId: 'Excel.Application' } },
+        comRegistered: () => true,
+        registeredHostBuild: () => ({ registered: true, build }),
+        loadCheckpoint: () => new Map(),
+        OracleWorker: class { async close() {} },
+        caseHash: () => 'hash', checkpointKey: () => 'key',
+        runCaseWithRetries: async (_worker: unknown, kase: { id: string }) => {
+            ran.push(kase.id);
+            return { caseId: kase.id, outcome: 'accepted' };
+        },
+        phaseMatches: () => true,
+        fs: { appendFileSync: (_file: string, line: string) => writes.push(line) },
+    });
+    expect(await main([])).toBe(0);
+    expect(ran).toEqual(['safe']);
+    expect(writes).toHaveLength(1);
+    expect(JSON.parse(writes[0]).result.caseId).toBe('safe');
+    if (json) {
+        expect(JSON.parse(output[0])).toMatchObject({ failureCount: 0, oracleFailureCount: 0, skippedCount: 1 });
+    } else {
+        expect(output.join('\n')).toContain('SKIP crash');
+        expect(output.join('\n')).toContain('1 skipped case(s)');
     }
 });

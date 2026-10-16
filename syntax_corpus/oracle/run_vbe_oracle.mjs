@@ -47,6 +47,10 @@ function comRegistered(progId) {
 
 // Resolve the COM server without starting the host. Use numeric file-version
 // parts so registry lookup and worker reports do not depend on display strings.
+// One process serves both checks: the marker line, flushed after the null check,
+// confirms registration even when the build probe times out. With no marker,
+// registration falls back to comRegistered's 5 s, so a lookup that never
+// completes takes up to 20 s.
 function registeredHostBuild(progId) {
     const completed = spawnSync('powershell.exe', [
         '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command',
@@ -54,6 +58,8 @@ function registeredHostBuild(progId) {
         try {
             $type = [type]::GetTypeFromProgID("${progId}")
             if ($null -eq $type) { exit 2 }
+            [Console]::Out.WriteLine('XLIDE-ORACLE-REGISTERED')
+            [Console]::Out.Flush()
             $path = "CLSID\\" + $type.GUID.ToString('B') + "\\LocalServer32"
             $key = [Microsoft.Win32.Registry]::ClassesRoot.OpenSubKey($path)
             # 32-bit Office may register only in the 32-bit view.
@@ -69,11 +75,16 @@ function registeredHostBuild(progId) {
             '{0}.{1}.{2}.{3}' -f $v.FileMajorPart, $v.FileMinorPart, $v.FileBuildPart, $v.FilePrivatePart
         } catch { exit 2 }`,
     ], { encoding: 'utf8', timeout: 15_000 });
-    const build = completed.stdout?.trim();
-    if (!completed.error && completed.status === 0 && /^\d+\.\d+\.\d+\.\d+$/.test(build)) {
-        return { build };
+    const lines = (completed.stdout ?? '').split(/\r?\n/);
+    const trailing = lines.pop();
+    const marker = 'XLIDE-ORACLE-REGISTERED';
+    const confirmed = lines.includes(marker);
+    const registered = confirmed || comRegistered(progId);
+    const build = [...lines.filter((line) => line !== marker), trailing].join('\n').trim();
+    if (confirmed && !completed.error && completed.status === 0 && /^\d+\.\d+\.\d+\.\d+$/.test(build)) {
+        return { registered, build };
     }
-    return { build: null, why: completed.error?.message || completed.stderr?.trim() || `PowerShell exited ${completed.status}` };
+    return { registered, build: null, why: completed.error?.message || completed.stderr?.trim() || `PowerShell exited ${completed.status}` };
 }
 
 function loadCasesDocument(file) {
@@ -685,15 +696,23 @@ async function main(argv) {
         return 2;
     }
     const hosts = [...new Set(cases.map(caseHost))];
+    const buildHosts = hostsNeedingBuilds(cases, args.checkpoint);
+    const registrations = new Map();
+    // Every host's probe runs before any build failure is reported.
     for (const host of hosts) {
-        if (!comRegistered(OFFICE_HOSTS[host].progId)) {
+        const progId = OFFICE_HOSTS[host].progId;
+        const registered = buildHosts.includes(host)
+            ? registeredHostBuild(progId) : { registered: comRegistered(progId) };
+        registrations.set(host, registered);
+        if (!registered.registered) {
             console.error(`VBE oracle cases for ${host} require Microsoft ${OFFICE_HOSTS[host].noun} COM registration.`);
             return 2;
         }
     }
     const hostBuilds = new Map();
-    for (const host of hostsNeedingBuilds(cases, args.checkpoint)) {
-        const registered = registeredHostBuild(OFFICE_HOSTS[host].progId);
+    // A later host's missing registration must win over any build failure.
+    for (const host of buildHosts) {
+        const registered = registrations.get(host);
         if (!registered.build && args.checkpoint) {
             console.error(`--checkpoint requires a readable file version for the registered ${OFFICE_HOSTS[host].image}.EXE: ${registered.why}`);
             return 2;
