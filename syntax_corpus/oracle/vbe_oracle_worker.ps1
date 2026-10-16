@@ -1199,7 +1199,6 @@ function Invoke-OracleCase {
             [void]$component.Activate()
             $codeModule.CodePane.Show()
             $codeModule.CodePane.SetSelection(1, 1, 1, 1)
-            Start-Sleep -Milliseconds 250
 
             [XlideVbeDialogWatcher]::Start($appPid, $DialogPath, $StagePath, $DialogWatchSeconds, $DialogHoldSeconds)
             try {
