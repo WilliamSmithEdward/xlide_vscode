@@ -123987,6 +123987,135 @@
       "source": "Option Explicit\nPrivate Type T\n    a As Long\nEnd Type\nSub Main()\n    Dim t1 As T, v As Variant\n    If False Then v = 2 ^ t1\nEnd Sub\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "review_print_file_udt_plus_compile",
+      "description": "Private Type R; n As Long; End Type; Dim r1 As R; Print #1, r1 + 1: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Type R\r\n    n As Long\r\nEnd Type\r\nSub Main()\r\n    Dim r1 As R\r\n    Print #1, r1 + 1\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "review_write_file_udt_plus_compile",
+      "description": "Private Type R; n As Long; End Type; Dim r1 As R; Write #1, r1 + 1: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Type R\r\n    n As Long\r\nEnd Type\r\nSub Main()\r\n    Dim r1 As R\r\n    Write #1, r1 + 1\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "review_class_get_let_is_nothing_compile",
+      "description": "Public Property Get Count() As Long; End Property; Public Property Let Count(ByVal value As Long); End Prop...: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get Count() As Long\r\nEnd Property\r\nPublic Property Let Count(ByVal value As Long)\r\nEnd Property\r\nPublic Sub Test()\r\n    Debug.Print Count Is Nothing\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "review_qualified_array_fn_plus_compile",
+      "description": "Public Function Numbers() As Long(); End Function; Public Sub Main(); Debug.Print Module1.Numbers() + 1: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Numbers() As Long()\r\nEnd Function\r\nPublic Sub Main()\r\n    Debug.Print Module1.Numbers() + 1\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "review_vba_clng_is_nothing_compile",
+      "description": "Debug.Print VBA.CLng(1) Is Nothing: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Debug.Print VBA.CLng(1) Is Nothing\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "review_case_is_array_plus_compile",
+      "description": "Dim a(1) As Long; Select Case 1; Case Is > a + 1; End Select: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long\r\n    Select Case 1\r\n    Case Is > a + 1\r\n    End Select\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "review_print_fn_missing_arg_compile",
+      "description": "Function NeedsValue(ByVal arg As Long) As Long; End Function; Debug.Print NeedsValue: Argument not optional (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction NeedsValue(ByVal arg As Long) As Long\r\nEnd Function\r\nSub Main()\r\n    Debug.Print NeedsValue\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "review_if_fn_missing_arg_compile",
+      "description": "Function NeedsValue(ByVal arg As Long) As Long; End Function; If NeedsValue Then Debug.Print 1: Argument not optional (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction NeedsValue(ByVal arg As Long) As Long\r\nEnd Function\r\nSub Main()\r\n    If NeedsValue Then Debug.Print 1\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "review_print_enum_type_compile",
+      "description": "Enum E; a = 1; End Enum; Debug.Print E: Type mismatch (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nEnum E\r\n    a = 1\r\nEnd Enum\r\nSub Main()\r\n    Debug.Print E\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "review_if_enum_type_compile",
+      "description": "Enum E; a = 1; End Enum; If E Then Debug.Print 1: Expected variable or procedure, not enum type (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nEnum E\r\n    a = 1\r\nEnd Enum\r\nSub Main()\r\n    If E Then Debug.Print 1\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "review_assign_enum_type_compile",
+      "description": "Enum E; a = 1; End Enum; Dim x As Long; x = E: Expected variable or procedure, not enum type (measured in Excel 16.0, Office Home 2024, 64-bit, 2026-10-15).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nEnum E\r\n    a = 1\r\nEnd Enum\r\nSub Main()\r\n    Dim x As Long\r\n    x = E\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }

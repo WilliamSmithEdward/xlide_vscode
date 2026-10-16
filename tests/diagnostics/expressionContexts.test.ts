@@ -6,6 +6,8 @@ import { buildVbaProjectIndex, projectAnalysisOptionsForModule, projectProcedure
 import * as expressions from '../../src/analyzer/parser/parseExpression';
 import { forEachExpressionInBody, statementValueExpressions } from '../../src/analyzer/diagnostics/exprWalk';
 import { parseModule } from '../../src/analyzer/parser/parseModule';
+import { buildModuleSymbols } from '../../src/analyzer/symbols/buildModuleSymbols';
+import { expressionShapeResolver } from '../../src/analyzer/diagnostics/expressionShape';
 
 const contexts = [
 	'result = {expr}', 'Debug.Print {expr}', 'Debug.Print 1, {expr}',
@@ -22,11 +24,11 @@ const declarations = 'Private Type Record\nfield As Long\nEnd Type\nPrivate Enum
 function source(body: string, extra = ''): string {
 	return declarations + extra + '\nFunction Main() As Variant\nDim n As Long, result As Variant, i As Long\nDim a(1) As Long, items(2) As Variant\nDim rec As Record, holder As Object, flexible As Variant\nConst limit = 2\n' + body + '\nEnd Function\nSub Action()\nEnd Sub\nSub Take(ByVal value As Variant)\nEnd Sub\nFunction Echo(ByVal value As Variant) As Variant\nEnd Function\nFunction NumberValue() As Long\nEnd Function\n';
 }
-function compileErrors(text: string, extraModules: VbaProjectModuleInput[] = []) {
-	const project = buildVbaProjectIndex([{ moduleName: 'Module1', type: 'standard', source: text },
+function compileErrors(text: string, extraModules: VbaProjectModuleInput[] = [], moduleKind: 'standard' | 'class' = 'standard') {
+	const project = buildVbaProjectIndex([{ moduleName: 'Module1', type: moduleKind, source: text },
 		{ moduleName: 'ThisWorkbook', type: 'document', documentType: 'workbook', source: '' },
 		{ moduleName: 'Sheet1', type: 'document', documentType: 'worksheet', designerClass: 'Excel.Worksheet', implicitMembers: [], source: '' }, ...extraModules]);
-	return analyzeVbaModuleSource({ source: text, moduleKind: 'standard', moduleName: 'Module1', host: 'excel', referencedLibraries: ['VBA', 'Excel', 'stdole', 'Office'],
+	return analyzeVbaModuleSource({ source: text, moduleKind, moduleName: 'Module1', host: 'excel', referencedLibraries: ['VBA', 'Excel', 'stdole', 'Office'],
 		workbookSheets: [{ name: 'Sheet1', kind: 'worksheet' }],
 		...projectAnalysisOptionsForModule(project, 'Module1', projectProcedureSignatures(project)),
 	}).diagnostics.filter((diag) => diag.severity === 'error' && diagnosticMetadataForCode(diag.code ?? '')?.diagnosticKind === 'compile-error');
@@ -288,4 +290,152 @@ describe('Excel 16.0 round-2 measurements (2026-10-16)', () => {
 			expect(compileErrors(source(`Dim c As New Collection\nDebug.Print ${expression}`)).map((diag) => diag.code))
 				.toEqual(['typeof-invalid-expression']);
 		});
+});
+
+function measuredMain(body: string, declarations = ''): string {
+	return `Option Explicit\n${declarations}\nPublic Sub Main()\n${body}\nEnd Sub\n`;
+}
+
+describe('Excel 16.0 measured gap follow-ups', () => {
+	const record = 'Private Type R\nn As Long\nEnd Type\n';
+	it.each(['Print', 'Write'])('retains the UDT fallback for file %s operands', (statement) => {
+		const errors = compileErrors(measuredMain(`Dim r1 As R\n${statement} #1, r1 + 1`, record));
+		expect(errors.map((diag) => diag.code)).toEqual(['udt-value-mismatch']);
+		expect(errors[0].message).toContain('Type mismatch');
+	});
+	it.each(['Print', 'Write'])('accepts file %s scalar fields and the measured aggregate controls', (statement) => {
+		for (const expression of ['r1.n + 1', 'r1 ^ 2', '2 ^ r1', 'Not r1']) {
+			expect(compileErrors(measuredMain(`Dim r1 As R\n${statement} #1, ${expression}`, record)), expression).toEqual([]);
+		}
+	});
+	it.each(['Debug.Print r1 + 1', 'If r1 + 1 Then Debug.Print 1', 'If True Then Debug.Print r1 + 1'])(
+		'reports a walker-covered UDT operand only once: %s', (body) => {
+			expect(compileErrors(measuredMain(`Dim r1 As R\n${body}`, record)).map((diag) => diag.code))
+				.toEqual(['non-scalar-binary-operand']);
+		});
+
+	const enumeration = 'Private Enum E\na = 1\nEnd Enum\n';
+	it.each([
+		['Debug.Print E', 'Type mismatch'],
+		['If E Then Debug.Print 1', 'Expected variable or procedure, not enum type'],
+		['Dim x As Long\nx = E', 'Expected variable or procedure, not enum type'],
+	])('matches the Enum value diagnosis for %s', (body, message) => {
+		const errors = compileErrors(measuredMain(body, enumeration));
+		expect(errors.map((diag) => diag.code)).toEqual(['malformed-statement']);
+		expect(errors[0].message).toContain(`VBE compile error: ${message}.`);
+	});
+	it.each(['Debug.Print E.a', 'If E.a Then Debug.Print 1', 'Dim x As Long\nx = E.a'])(
+		'accepts the Enum member control: %s', (body) => {
+			expect(compileErrors(measuredMain(body, enumeration))).toEqual([]);
+		});
+
+	const countProperty = 'Public Property Get Count() As Long\nCount = 0\nEnd Property\nPublic Property Let Count(ByVal value As Long)\nEnd Property\n';
+	it('selects Property Get for a read of a Get/Let pair', () => {
+		expect(compileErrors(measuredMain('Debug.Print Count Is Nothing', countProperty), [], 'class').map((diag) => diag.code))
+			.toEqual(['is-operator-non-object']);
+	});
+	it('accepts scalar property reads/writes and object/Variant property identity controls', () => {
+		expect(compileErrors(measuredMain('Count = 1\nDebug.Print Count', countProperty), [], 'class')).toEqual([]);
+		const objectProperty = 'Public Property Get Count() As Object\nSet Count = Nothing\nEnd Property\nPublic Property Set Count(ByVal value As Object)\nEnd Property\n';
+		expect(compileErrors(measuredMain('Debug.Print Count Is Nothing', objectProperty), [], 'class')).toEqual([]);
+		expect(compileErrors(measuredMain('Debug.Print Count Is Nothing', countProperty.replaceAll('As Long', 'As Variant')), [], 'class')).toEqual([]);
+	});
+
+	const numbers = 'Public Function Numbers() As Long()\nEnd Function\n';
+	it('retains the array shape of a module-qualified function result', () => {
+		expect(compileErrors(measuredMain('Debug.Print Module1.Numbers() + 1', numbers)).map((diag) => diag.code))
+			.toEqual(['non-scalar-binary-operand']);
+	});
+	it('resolves the declared scalar result of VBA.CLng', () => {
+		expect(compileErrors(measuredMain('Debug.Print VBA.CLng(1) Is Nothing')).map((diag) => diag.code))
+			.toEqual(['is-operator-non-object']);
+	});
+	it.each([
+		['Debug.Print Module1.Numbers()(0) Is Nothing', numbers],
+		['Debug.Print Module1.Numbers() + 1', numbers.replace('As Long()', 'As Long')],
+		['Debug.Print VBA.CLng(1) + 1', ''],
+		['Debug.Print VBA.Left("x", 1) Is Nothing', ''],
+		['Dim Module1 As Object\nDebug.Print Module1.Numbers() + 1', numbers],
+		['Dim VBA As Object\nDebug.Print VBA.CLng(1) Is Nothing', ''],
+	])('accepts qualified-call controls: %s', (body, declarations) => {
+		expect(compileErrors(measuredMain(body, declarations))).toEqual([]);
+	});
+	it('leaves invalid qualified array invocations to argument-count', () => {
+		expect(compileErrors(measuredMain('Debug.Print Module1.Numbers(1) + 1', numbers)).map((diag) => diag.code))
+			.toEqual(['argument-count']);
+	});
+	it.each([10, 1000])('reuses declaration facts across qualified reads in a %i-declaration snapshot', (count) => {
+		const declarations = numbers + Array.from({ length: count }, (_, i) => `Private Function F${i}() As Long\nEnd Function\n`).join('');
+		const text = measuredMain('Debug.Print Module1.Numbers() + 1', declarations);
+		const mod = parseModule(text);
+		const symbols = buildModuleSymbols('Module1', 'standard', text, { parsedModule: mod });
+		let reads = 0;
+		for (const symbol of symbols.root.children ?? []) {
+			const name = symbol.name;
+			Object.defineProperty(symbol, 'name', { get() { reads++; return name; } });
+		}
+		const proc = mod.members.find((node) => node.kind === 'Procedure' && node.name === 'Main')!;
+		if (proc.kind !== 'Procedure' || proc.body[0].kind !== 'Statement') { throw new Error('missing Main/Print'); }
+		const expr = statementValueExpressions(text, proc.body[0])[0];
+		if (expr.exprKind !== 'BinaryExpr') { throw new Error('missing operator'); }
+		const factory = expressionShapeResolver(symbols);
+		const shapeOf = factory(proc);
+		expect(shapeOf(expr.left)?.isArray).toBe(true);
+		const initialReads = reads;
+		for (let i = 0; i < 100; i++) {
+			expect(expressionShapeResolver(symbols)).toBe(factory);
+			expect(factory(proc)).toBe(shapeOf);
+			expect(shapeOf(expr.left)?.isArray).toBe(true);
+		}
+		expect(reads).toBe(initialReads);
+	});
+
+	it('parses the value after Case Is > before checking array operands', () => {
+		expect(compileErrors(measuredMain('Dim a(1) As Long\nSelect Case 1\nCase Is > a + 1\nEnd Select')).map((diag) => diag.code))
+			.toEqual(['non-scalar-binary-operand']);
+	});
+	it.each(['Case Is > a(0) + 1', 'Case Is > 1', 'Case 0, Is > a(0) + 1', 'Case 0 To a(0) + 1', 'Case Else'])(
+		'accepts the Case control: %s', (clause) => {
+			expect(compileErrors(measuredMain(`Dim a(1) As Long\nSelect Case 1\n${clause}\nEnd Select`))).toEqual([]);
+		});
+	it('caches Case clause parsing for the statement snapshot', () => {
+		const text = measuredMain('Dim a(1) As Long\nSelect Case 1\nCase Is > a + 1\nEnd Select');
+		const proc = parseModule(text).members.find((node) => node.kind === 'Procedure')!;
+		if (proc.kind !== 'Procedure') { throw new Error('missing procedure'); }
+		const block = proc.body.find((node) => node.kind === 'SelectBlock')!;
+		if (block.kind !== 'SelectBlock') { throw new Error('missing Select'); }
+		const stmt = block.body.find((node) => node.kind === 'Statement')!;
+		if (stmt.kind !== 'Statement') { throw new Error('missing Case'); }
+		const spy = vi.spyOn(expressions, 'parseExpression');
+		try {
+			const roots = statementValueExpressions(text, stmt);
+			for (let i = 0; i < 100; i++) { expect(statementValueExpressions(text, stmt)).toBe(roots); }
+			expect(roots.map((expr) => text.slice(expr.span.start, expr.span.end))).toEqual(['a + 1']);
+			expect(spy).toHaveBeenCalledTimes(1);
+		} finally { spy.mockRestore(); }
+	});
+
+	const needsValue = 'Function NeedsValue(ByVal arg As Long) As Long\nNeedsValue = arg\nDebug.Print NeedsValue\nIf NeedsValue Then Debug.Print 1\nEnd Function\n';
+	it.each(['Debug.Print NeedsValue', 'If NeedsValue Then Debug.Print 1'])(
+		'rejects a required-argument Function read in %s', (body) => {
+			const errors = compileErrors(measuredMain(body, needsValue));
+			expect(errors.map((diag) => diag.code)).toEqual(['argument-count']);
+			expect(errors[0].message).toContain('Argument not optional');
+		});
+	it.each([
+		['Debug.Print NeedsValue(1)', needsValue],
+		['If NeedsValue(1) Then Debug.Print 1', needsValue],
+		['Debug.Print NeedsValue\nIf NeedsValue Then Debug.Print 1', needsValue.replace('ByVal arg As Long', 'Optional ByVal arg As Long = 1')],
+		['Dim NeedsValue As Long\nDebug.Print NeedsValue\nIf NeedsValue Then Debug.Print 1', needsValue],
+	])('accepts Function value controls, including its own return variable: %s', (body, declarations) => {
+		expect(compileErrors(measuredMain(body, declarations))).toEqual([]);
+	});
+	it('does not classify a bare Function call statement as a value read', () => {
+		const errors = compileErrors(measuredMain('NeedsValue', needsValue));
+		expect(errors.some((diag) => diag.message.includes('is read here with none'))).toBe(false);
+	});
+
+	it('keeps Left without $ out of compile errors for Is Nothing (runtime 424)', () => {
+		expect(compileErrors(measuredMain('Debug.Print Left("x", 1) Is Nothing'))).toEqual([]);
+	});
 });

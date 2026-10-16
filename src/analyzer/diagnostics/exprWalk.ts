@@ -203,6 +203,8 @@ export function statementValueExpressions(source: string, stmt: LeafStatementNod
 		const first = firstExecutableTokenIndex(toks);
 		const head = tokenText(toks[first]);
 		const parse = (from: number, to = toks.length): void => {
+			// Case's Is <relop> is a clause prefix, not an expression operator.
+			if (head === 'case' && tokenText(toks[from]) === 'is' && ['=', '<>', '<', '>', '<=', '>='].includes(toks[from + 1]?.rawText)) { from += 2; }
 			if (from >= to) { return; }
 			const result = parseExpression(toks, from, to, span.start);
 			if (result.expr && result.endIndex === to && result.diagnostics.length === 0) { roots.push(result.expr); }

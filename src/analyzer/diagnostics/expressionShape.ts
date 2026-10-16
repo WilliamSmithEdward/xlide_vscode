@@ -20,6 +20,12 @@ export function expressionShapeResolver(symbols: ReturnType<typeof buildModuleSy
 		group.push(symbol);
 		declarations.set(key, group);
 	}
+	const readDeclarations = new Map<string, VbaSymbol>();
+	for (const [name, group] of declarations) {
+		// A read selects the Get of a property family; its Let/Set are writers.
+		const readers = group.filter((symbol) => symbol.kind !== 'propertyLet' && symbol.kind !== 'propertySet');
+		if (readers.length === 1 && (group.length === 1 || readers[0].kind === 'propertyGet')) { readDeclarations.set(name, readers[0]); }
+	}
 	const signatures = new WeakMap<VbaSymbol, CallableTypeSignature>();
 	const fields = new WeakMap<VbaSymbol, ReadonlyMap<string, VbaSymbol>>();
 	const procedures = new WeakMap<ProcedureNode, ReturnType<ShapeFactory>>();
@@ -29,10 +35,10 @@ export function expressionShapeResolver(symbols: ReturnType<typeof buildModuleSy
 		let scope: SourceNameScope | undefined;
 		const shapes = declarationShapeEnvironmentFor(symbols, proc);
 		let types: ReturnType<typeof typeEnvironmentFor> | undefined;
-		const callableShape = (name: string, args: readonly Argument[] = [], suffix = ''): DeclaredValueShape | undefined => {
-			if (shapes.has(name)) { return undefined; }
+		const callableShape = (name: string, args: readonly Argument[] = [], suffix = '', moduleQualified = false): DeclaredValueShape | undefined => {
+			if (!moduleQualified && shapes.has(name)) { return undefined; }
 			const definitions = declarations.get(name);
-			const fn = definitions?.length === 1 ? definitions[0] : undefined;
+			const fn = readDeclarations.get(name);
 			if (fn && (fn.kind === 'function' || fn.kind === 'propertyGet' || fn.kind === 'declare' && fn.declareKind === 'Function')) {
 				if (fn.isArray) {
 					let signature = signatures.get(fn);
@@ -41,10 +47,23 @@ export function expressionShapeResolver(symbols: ReturnType<typeof buildModuleSy
 				}
 				return { asType: fn.asType, isArray: fn.isArray === true, isFixedArray: false };
 			}
-			if (definitions) { return undefined; }
+			if (definitions || moduleQualified) { return undefined; }
 			const runtime = resolveRuntimeFunction(name + suffix);
 			if (runtime?.kind !== 'function' || (scope ??= sourceNameScopeFor(symbols, proc, projectVisibleSymbols)).runtimeShadows.has(name)) { return undefined; }
 			return { asType: runtime.declaredReturns, isArray: false, isFixedArray: false };
+		};
+		const callableQualifier = (expr: ExprNode): 'module' | 'vba' | undefined => {
+			if (expr.exprKind !== 'MemberAccessExpr' || expr.accessKind === 'bang' || expr.object?.exprKind !== 'IdentifierExpr') { return undefined; }
+			const name = expr.object.name.toLowerCase();
+			if (shapes.has(name) || declarations.has(name)) { return undefined; }
+			if (symbols.moduleKind === 'standard' && name === symbols.moduleName.toLowerCase()) { return 'module'; }
+			if (name === 'vba' && !(scope ??= sourceNameScopeFor(symbols, proc, projectVisibleSymbols)).runtimeShadows.has(name)) { return 'vba'; }
+			return undefined;
+		};
+		const qualifiedCallableShape = (expr: Extract<ExprNode, { exprKind: 'MemberAccessExpr' }>, qualifier: 'module' | 'vba', args: readonly Argument[] = []): DeclaredValueShape | undefined => {
+			if (qualifier === 'module') { return callableShape(expr.member.toLowerCase(), args, '', true); }
+			const runtime = resolveRuntimeFunction(expr.member);
+			return runtime?.kind === 'function' ? { asType: runtime.declaredReturns, isArray: false, isFixedArray: false } : undefined;
 		};
 		const resolve = (expr: ExprNode): DeclaredValueShape | undefined => {
 			if (expr.exprKind === 'ParenExpr') { return resolve(expr.inner); }
@@ -59,6 +78,8 @@ export function expressionShapeResolver(symbols: ReturnType<typeof buildModuleSy
 				return asType ? { asType, isArray: false, isFixedArray: false } : callableShape(name, [], expr.typeSuffix);
 			}
 			if (expr.exprKind === 'MemberAccessExpr' && expr.object && expr.accessKind !== 'bang') {
+				const qualifier = callableQualifier(expr);
+				if (qualifier) { return qualifiedCallableShape(expr, qualifier); }
 				const holder = resolve(expr.object);
 				if (!holder?.asType || holder.isArray) { return undefined; }
 				const types = declarations.get(holder.asType.toLowerCase());
@@ -77,6 +98,8 @@ export function expressionShapeResolver(symbols: ReturnType<typeof buildModuleSy
 				return field ? { asType: field.asType, isArray: field.isArray === true, isFixedArray: field.arrayBounds !== undefined } : undefined;
 			}
 			if (expr.exprKind === 'IndexExpr') {
+				const qualifier = callableQualifier(expr.callee);
+				if (qualifier && expr.callee.exprKind === 'MemberAccessExpr') { return qualifiedCallableShape(expr.callee, qualifier, expr.args); }
 				const calleeShape = expr.callee.exprKind === 'IdentifierExpr'
 					? shapes.get(expr.callee.name.toLowerCase()) : resolve(expr.callee);
 				if (calleeShape?.isArray) { return expr.args.length === 0 ? calleeShape : { ...calleeShape, isArray: false, isFixedArray: false }; }

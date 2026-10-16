@@ -268,7 +268,7 @@ export function checkStatementForms(
 					const bareLower = name?.toLowerCase();
 					const home = bareLower === undefined ? undefined : needsArgument.get(bareLower);
 					const qualifier = toks[i - 1]?.rawText === '.' ? tokenName(toks[i - 2])?.toLowerCase() : undefined;
-					if (name && home && target && i > eq && !['(', '.', '!', ':='].includes(toks[i + 1]?.rawText ?? '')
+					if (name && home && !['(', '.', '!', ':='].includes(toks[i + 1]?.rawText ?? '')
 						&& toks[i - 1]?.rawText !== '!' && isValue(i) && (toks[i - 1]?.rawText !== '.' || (qualifier === home && toks[i - 3]?.rawText !== '.'))
 						&& tokenText(toks[i - 1]) !== 'addressof' && !(qualifier && tokenText(toks[i - 3]) === 'addressof') && !locals.has(bareLower!) && !env.has(bareLower!) && bareLower !== member.name.toLowerCase()) {
 						push('argumentCount', `'${name}' needs an argument, and is read here with none. This is a VBE compile error: Argument not optional.`, at(i));
@@ -287,7 +287,9 @@ export function checkStatementForms(
 					// in Excel 16.0).
 					// So does TypeName(E) (issue #639).
 					if (toks[i + 1]?.rawText !== '.' && ownEnums.has(nameLower) && !locals.has(nameLower) && isValue(i)) {
-						push('malformedStatement', `'${name}' names an Enum type, which has no value; name one of its members, as in ${name}.Member. This is a VBE compile error: Expected variable or procedure, not enum type.`, at(i));
+						const barePrint = tokenText(toks[first]) === 'debug' && toks[first + 1]?.rawText === '.'
+							&& tokenText(toks[first + 2]) === 'print' && i === first + 3 && i === limit - 1;
+						push('malformedStatement', `'${name}' names an Enum type, which has no value; name one of its members, as in ${name}.Member. This is a VBE compile error: ${barePrint ? 'Type mismatch' : 'Expected variable or procedure, not enum type'}.`, at(i));
 						continue;
 					}
 					// `AddressOf TimerProc` takes the procedure's address, not its value.

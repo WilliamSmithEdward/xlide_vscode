@@ -43,9 +43,10 @@
 //    Collection, an Object or a Variant, `c.Add t`, `o.Add t`.
 
 import { uncheckedAggregateOperators } from './typeMembers';
+import { forEachSubExpression, statementValueExpressions } from '../exprWalk';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import type { VbaToken } from '../../lexer/tokenKinds';
-import type { BodyNode, ModuleNode, ProcedureNode, Span } from '../../parser/nodes';
+import type { BodyNode, LeafStatementNode, ModuleNode, ProcedureNode, Span } from '../../parser/nodes';
 import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { VbaSymbol } from '../../symbols/symbolModel';
 import type { ProjectTypeName } from '../../completion/typeCompletion';
@@ -253,7 +254,7 @@ function walkBody(
 				// A single-line If's branches are statements of their own, and
 				// its condition is read up to Then.
 				for (const span of conditionAndBranchSpans(ctx.source, node)) {
-					checkStatement(ctx, procSym, span);
+					checkStatement(ctx, procSym, span, node);
 				}
 				break;
 			default:
@@ -404,7 +405,7 @@ function udtCoercion(ctx: Context, name: string, span: Span): void {
 	);
 }
 
-function checkStatement(ctx: Context, procSym: VbaSymbol | undefined, span: Span): void {
+function checkStatement(ctx: Context, procSym: VbaSymbol | undefined, span: Span, stmt: LeafStatementNode): void {
 	const toks = statementTokensAfterLeadingLabel(ctx.source, span);
 	if (toks.length === 0) {
 		return;
@@ -552,6 +553,21 @@ function checkStatement(ctx: Context, procSym: VbaSymbol | undefined, span: Span
 	// `t = u` in an expression. The assignment's own `=` is not one, however
 	// long its target: `parents(depth) = cInfo`, `.Items(0).Id = rec`.
 	const assignmentEq = startsAssignment(toks) ? firstTopLevelEquals(toks) : -1;
+	let coveredOperands: Set<number> | undefined;
+	const covered = (offset: number): boolean => {
+		if (!coveredOperands) {
+			coveredOperands = new Set();
+			for (const root of statementValueExpressions(ctx.source, stmt)) {
+				forEachSubExpression(root, (expr) => {
+					if (expr.exprKind !== 'BinaryExpr' || expr.operator === 'Is' || expr.operator === '^') { return; }
+					for (const operand of [expr.left, expr.right]) {
+						if (operand.exprKind === 'IdentifierExpr') { coveredOperands!.add(operand.span.start); }
+					}
+				});
+			}
+		}
+		return coveredOperands.has(offset);
+	};
 	for (let i = 0; i < toks.length; i++) {
 		const name = udtAt(i);
 		if (!name) {
@@ -562,15 +578,16 @@ function checkStatement(ctx: Context, procSym: VbaSymbol | undefined, span: Span
 		const operatorBefore = !!before && i - 1 !== assignmentEq && isOperator(before);
 		const operatorAfter = !!after && i + 1 !== assignmentEq && isOperator(after);
 		// A Type of this module beside a binary operator is
-		// non-scalar-binary-operand's, which sees every context; a unary minus,
-		// `v = -t`, `a Is b`, which that rule leaves to Is, and another
-		// module's Type stay here.
+		// non-scalar-binary-operand's only where its walker parsed the operand.
+		// File Print/Write and other unsupported grammars keep this fallback.
+		// A unary minus (`v = -t`), `a Is b` (left to Is), and another
+		// module's Type also stay here.
 		const prior = toks[i - 2];
 		const unaryMinus = operatorBefore && before.rawText === '-' && !operatorAfter
 			&& (prior === undefined || i - 2 === assignmentEq || ['(', ','].includes(prior.rawText) || isOperator(prior));
 		const besideIs = tokenText(before) === 'is' || tokenText(after) === 'is';
 		const typeName = normalizeType(variableNamed(ctx, procSym, name)?.asType) ?? '';
-		if (ctx.moduleUdts.has(typeName) && !unaryMinus && !besideIs) {
+		if ((operatorBefore || operatorAfter) && ctx.moduleUdts.has(typeName) && !unaryMinus && !besideIs && covered(at(i).start)) {
 			continue;
 		}
 		if ((operatorBefore || operatorAfter) && !uncheckedAggregateOperators(toks, i - 1, operatorBefore, i + 1, operatorAfter)) {

@@ -474,7 +474,7 @@
     {
       "code": "argument-count",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "MS-VBAL 5.4.2.1 plus asserted Excel/VBE oracle cases plus deterministic project signature graph; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports; neighbouring forms measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-15)",
+      "sourceOfTruth": "MS-VBAL 5.4.2.1 plus asserted Excel/VBE oracle cases plus deterministic project signature graph; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports; neighbouring forms measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-15); review neighbours measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-16)",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "member_function_result_write_collection",
@@ -599,7 +599,9 @@
         "project_time_variant_function_index_runtime",
         "now_statement_parenthesized_compile",
         "time_dollar_argument_compile",
-        "command_dollar_argument_compile"
+        "command_dollar_argument_compile",
+        "review_print_fn_missing_arg_compile",
+        "review_if_fn_missing_arg_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -3858,7 +3860,7 @@
     {
       "code": "is-operator-non-object",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "MS-VBAL 5.6 (the Is object-identity operator requires object-reference operands) plus the Excel/VBE compile oracle (Object required) and the deterministic MS-VBAL 5.6 expression AST + declared-type environment",
+      "sourceOfTruth": "MS-VBAL 5.6 (the Is object-identity operator requires object-reference operands) plus the Excel/VBE compile oracle (Object required) and the deterministic MS-VBAL 5.6 expression AST + declared-type environment; review neighbours measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-16)",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "is_scalar_long_var_compile",
@@ -4029,7 +4031,9 @@
         "rq6_left_is_nothing",
         "rq6_left_dollar_is_nothing",
         "rq6_now_is_nothing",
-        "rq6_numbers_arg_is"
+        "rq6_numbers_arg_is",
+        "review_class_get_let_is_nothing_compile",
+        "review_vba_clng_is_nothing_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -5031,7 +5035,7 @@
     {
       "code": "udt-value-mismatch",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, full project compile, 2026-09-30 (issue #213); Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports; neighbouring forms measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-15); neighbouring forms measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-15)",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, full project compile, 2026-09-30 (issue #213); Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports; neighbouring forms measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-15); neighbouring forms measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-15); review neighbours measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-16)",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "issue213_44_compile",
@@ -5063,7 +5067,9 @@
         "print_udt_array_index_single_line_if_compile",
         "print_udt_field_array_index_compile",
         "print_udt_collection_item_argument_compile",
-        "print_udt_cstr_compile"
+        "print_udt_cstr_compile",
+        "review_print_file_udt_plus_compile",
+        "review_write_file_udt_plus_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -5900,7 +5906,7 @@
     {
       "code": "non-scalar-binary-operand",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "MS-VBAL 5.6 plus Excel/VBE compile measurements, including accepted aggregate power operands; shared expression AST and conservative declaration-shape resolution; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports; neighbouring forms measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-15)",
+      "sourceOfTruth": "MS-VBAL 5.6 plus Excel/VBE compile measurements, including accepted aggregate power operands; shared expression AST and conservative declaration-shape resolution; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports; neighbouring forms measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-15); review neighbours measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-16)",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "nonscalar_array_concat_probe",
@@ -6148,7 +6154,9 @@
         "codex_expr_udt_field_times_probe_compile",
         "rq6_numbers_arg_plus",
         "rq6_udt_pow_private",
-        "rq6_udt_pow_right_private"
+        "rq6_udt_pow_right_private",
+        "review_qualified_array_fn_plus_compile",
+        "review_case_is_array_plus_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -7482,7 +7490,7 @@
     {
       "code": "malformed-statement",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-30 (issue #234), full compile",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-30 (issue #234), full compile; review neighbours measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-16)",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "issue234_06_compile",
@@ -7840,7 +7848,10 @@
         "issue403_07_compile",
         "issue436_03_compile",
         "issue290_05_compile",
-        "cl_decl_enum_name_as_value_compile"
+        "cl_decl_enum_name_as_value_compile",
+        "review_print_enum_type_compile",
+        "review_if_enum_type_compile",
+        "review_assign_enum_type_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
