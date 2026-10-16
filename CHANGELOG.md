@@ -2,6 +2,16 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.1.21] - 2026-10-16
+
+Start the VBE oracle faster. The extension itself is unchanged.
+
+- Read a host's COM registration and its build in one PowerShell process
+  when the run needs the build, as with `--checkpoint` or a fixture that
+  lists `crashesHostBuilds`. A run of four checkpointed fixtures, one per
+  Office host, now starts in 0.85 s instead of 1.54 s (#1386, contributed
+  by Sam, @swsammy).
+
 ## [11.1.20] - 2026-10-16
 
 Stop reporting a class default member that returns an object, read into a
