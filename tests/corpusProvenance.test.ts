@@ -24,6 +24,7 @@ interface CorpusProvenanceSidecar {
 
 interface OracleCase {
 	id: string;
+	crashesHostBuilds?: string[];
 	expected: 'accepted' | 'rejected' | 'observe';
 	provenance: Provenance;
 	mode?: 'compile' | 'run' | 'compile_then_run';
@@ -132,6 +133,12 @@ describe('syntax corpus provenance', () => {
 
 		for (const fixture of oracle.cases) {
 			expect(fixture.id.trim().length).toBeGreaterThan(0);
+			if (fixture.crashesHostBuilds !== undefined) {
+				expect(Array.isArray(fixture.crashesHostBuilds)).toBe(true);
+				for (const build of fixture.crashesHostBuilds) {
+					expect(build).toMatch(/^\d+\.\d+\.\d+\.\d+$/);
+				}
+			}
 			expect(allowed.has(fixture.provenance)).toBe(true);
 			if (fixture.mode === 'compile_then_run') {
 				expect(['compile', 'runtime']).toContain(fixture.evidencePhase);

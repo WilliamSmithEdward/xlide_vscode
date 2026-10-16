@@ -83,7 +83,37 @@ function loadCasesDocument(file) {
     if (!Array.isArray(data.cases)) {
         throw new Error(`${file} does not contain a cases array`);
     }
+    validateCrashBuilds(data.cases);
     return data;
+}
+
+function validateCrashBuilds(cases) {
+    for (const kase of cases) {
+        if (!Object.hasOwn(kase, 'crashesHostBuilds')) { continue; }
+        if (!Array.isArray(kase.crashesHostBuilds)
+            || kase.crashesHostBuilds.some((build) => typeof build !== 'string'
+                || !/^\d+\.\d+\.\d+\.\d+$/.test(build) || build.trim() !== build)) {
+            throw new Error(`${kase.id}: crashesHostBuilds must be an array of exact four-part numeric host build strings`);
+        }
+    }
+}
+
+function hostsNeedingBuilds(cases, checkpoint) {
+    return [...new Set(cases.filter((kase) => checkpoint
+        || Object.hasOwn(kase, 'crashesHostBuilds')).map(caseHost))];
+}
+
+function knownHostCrashResult(kase, hostBuilds) {
+    const build = hostBuilds.get(caseHost(kase));
+    if (!build || !kase.crashesHostBuilds?.includes(build)) { return undefined; }
+    return {
+        caseId: kase.id,
+        outcome: 'skipped',
+        stage: 'known_host_crash',
+        hostBuild: build,
+        message: `Skipped known host crash on ${caseHost(kase)} build ${build}.`,
+        hresult: null,
+    };
 }
 
 // A checkpoint file holds one JSON line per finished case: a hash of the
@@ -151,7 +181,7 @@ function phaseMatches(kase, result) {
 }
 
 function isOracleInfrastructureFailure(outcome) {
-    return !EVIDENCE_OUTCOMES.has(outcome);
+    return outcome !== 'skipped' && !EVIDENCE_OUTCOMES.has(outcome);
 }
 
 function evidencePhaseForCase(kase) {
@@ -628,7 +658,13 @@ async function main(argv) {
         return 2;
     }
 
-    const document = loadCasesDocument(args.cases);
+    let document;
+    try {
+        document = loadCasesDocument(args.cases);
+    } catch (err) {
+        console.error(err.message);
+        return 2;
+    }
     let cases = document.cases;
     if (args.caseIds.length) {
         const wanted = new Set(args.caseIds);
@@ -656,18 +692,17 @@ async function main(argv) {
         }
     }
     const hostBuilds = new Map();
-    if (args.checkpoint) {
-        for (const host of hosts) {
-            const registered = registeredHostBuild(OFFICE_HOSTS[host].progId);
-            if (!registered.build) {
-                console.error(`--checkpoint requires a readable file version for the registered ${OFFICE_HOSTS[host].image}.EXE: ${registered.why}`);
-                return 2;
-            }
-            hostBuilds.set(host, registered.build);
+    for (const host of hostsNeedingBuilds(cases, args.checkpoint)) {
+        const registered = registeredHostBuild(OFFICE_HOSTS[host].progId);
+        if (!registered.build && args.checkpoint) {
+            console.error(`--checkpoint requires a readable file version for the registered ${OFFICE_HOSTS[host].image}.EXE: ${registered.why}`);
+            return 2;
         }
+        if (registered.build) { hostBuilds.set(host, registered.build); }
     }
 
     const results = [];
+    let skippedCount = 0;
     let failures = 0;
     let oracleFailures = 0;
     const checkpoint = args.checkpoint ? loadCheckpoint(args.checkpoint) : null;
@@ -677,8 +712,10 @@ async function main(argv) {
         for (const kase of cases) {
             const hash = caseHash(kase, hostBuilds.get(caseHost(kase)) ?? null);
             const saved = checkpoint?.get(checkpointKey(String(kase.id), hash));
-            let result;
-            if (saved) {
+            let result = knownHostCrashResult(kase, hostBuilds);
+            if (result) {
+                skippedCount += 1;
+            } else if (saved) {
                 result = { ...saved, resumed: true };
             } else {
                 result = await runCaseWithRetries(
@@ -696,7 +733,7 @@ async function main(argv) {
             const outcome = String(result.outcome ?? '');
             if (isOracleInfrastructureFailure(outcome)) {
                 oracleFailures += 1;
-            } else if (!result.matched) {
+            } else if (outcome !== 'skipped' && !result.matched) {
                 failures += 1;
             }
             results.push(result);
@@ -730,12 +767,13 @@ async function main(argv) {
             results,
             failureCount: failures,
             oracleFailureCount: oracleFailures,
+            skippedCount,
         }, null, 2));
     } else {
         for (const result of results) {
             const marker = isOracleInfrastructureFailure(String(result.outcome ?? ''))
                 ? 'ORACLE-FAIL'
-                : (result.matched ? 'PASS' : 'FAIL');
+                : (result.outcome === 'skipped' ? 'SKIP' : (result.matched ? 'PASS' : 'FAIL'));
             console.log(
                 `${marker} ${result.caseId}: outcome=${result.outcome} `
                 + `expected=${result.expected} stage=${result.stage ?? ''}`,
@@ -745,7 +783,7 @@ async function main(argv) {
         }
         console.log(
             `\n${results.length} oracle case(s), ${failures} expectation failure(s), `
-            + `${oracleFailures} oracle infrastructure failure(s).`,
+            + `${oracleFailures} oracle infrastructure failure(s), ${skippedCount} skipped case(s).`,
         );
     }
 
