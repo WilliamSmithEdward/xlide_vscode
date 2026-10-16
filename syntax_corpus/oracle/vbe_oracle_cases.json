@@ -117266,6 +117266,304 @@
       ],
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "host_word_compile_valid",
+      "description": "Word: a module with a declared local compiles.",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long\r\n    n = 1\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "host_word_undeclared_variable_compile",
+      "description": "Word: an undeclared variable under Option Explicit is Variable not defined.",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "source": "Option Explicit\r\nSub Main()\r\n    n = 1\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "host_word_division_by_zero_runtime",
+      "description": "Word: 1 / 0 into a Long raises run-time error 11.",
+      "host": "word",
+      "mode": "run",
+      "entryPoint": "Main",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Sub Main()\r\n    Dim n As Long\r\n    n = 1 / 0\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "host_word_run_compile_error_compile_then_run",
+      "description": "Word: a run whose source does not compile is rejected at the compile error.",
+      "host": "word",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "source": "Option Explicit\r\nSub Main()\r\n    y = 1\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "host_word_own_library_type_compile",
+      "description": "Word: a variable of the host's own Word.Range compiles.",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim x As Word.Range\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "host_word_excel_worksheet_type_compile",
+      "description": "Word: Worksheet is Excel's, so As Worksheet is User-defined type not defined.",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim w As Worksheet\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "host_word_object_model_runtime",
+      "description": "Word: a Function reading the host's own object model runs.",
+      "host": "word",
+      "mode": "run",
+      "entryPoint": "Main",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Function Main() As Variant\r\n    Main = ActiveDocument.Content.Characters.Count\r\nEnd Function\r\n"
+    },
+    {
+      "id": "host_powerpoint_compile_valid",
+      "description": "PowerPoint: a module with a declared local compiles.",
+      "host": "powerpoint",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long\r\n    n = 1\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "host_powerpoint_undeclared_variable_compile",
+      "description": "PowerPoint: an undeclared variable under Option Explicit is Variable not defined.",
+      "host": "powerpoint",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "source": "Option Explicit\r\nSub Main()\r\n    n = 1\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "host_powerpoint_division_by_zero_runtime",
+      "description": "PowerPoint: 1 / 0 into a Long raises run-time error 11.",
+      "host": "powerpoint",
+      "mode": "run",
+      "entryPoint": "Main",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Sub Main()\r\n    Dim n As Long\r\n    n = 1 / 0\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "host_powerpoint_run_compile_error_compile_then_run",
+      "description": "PowerPoint: a run whose source does not compile is rejected at the compile error.",
+      "host": "powerpoint",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "source": "Option Explicit\r\nSub Main()\r\n    y = 1\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "host_powerpoint_own_library_type_compile",
+      "description": "PowerPoint: a variable of the host's own PowerPoint.Slide compiles.",
+      "host": "powerpoint",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim x As PowerPoint.Slide\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "host_powerpoint_excel_worksheet_type_compile",
+      "description": "PowerPoint: Worksheet is Excel's, so As Worksheet is User-defined type not defined.",
+      "host": "powerpoint",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim w As Worksheet\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "host_powerpoint_object_model_runtime",
+      "description": "PowerPoint: a Function reading the host's own object model runs.",
+      "host": "powerpoint",
+      "mode": "run",
+      "entryPoint": "Main",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Function Main() As Variant\r\n    Main = ActivePresentation.Slides.Count\r\nEnd Function\r\n"
+    },
+    {
+      "id": "host_access_compile_valid",
+      "description": "Access: a module with a declared local compiles.",
+      "host": "access",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long\r\n    n = 1\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "host_access_undeclared_variable_compile",
+      "description": "Access: an undeclared variable under Option Explicit is Variable not defined.",
+      "host": "access",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "source": "Option Explicit\r\nSub Main()\r\n    n = 1\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "host_access_division_by_zero_runtime",
+      "description": "Access: 1 / 0 into a Long raises run-time error 11.",
+      "host": "access",
+      "mode": "run",
+      "entryPoint": "Main",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Sub Main()\r\n    Dim n As Long\r\n    n = 1 / 0\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "host_access_run_compile_error_compile_then_run",
+      "description": "Access: a run whose source does not compile is rejected at the compile error.",
+      "host": "access",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "source": "Option Explicit\r\nSub Main()\r\n    y = 1\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "host_access_own_library_type_compile",
+      "description": "Access: a variable of the host's own Access.Form compiles.",
+      "host": "access",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim x As Access.Form\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "host_access_excel_worksheet_type_compile",
+      "description": "Access: Worksheet is Excel's, so As Worksheet is User-defined type not defined.",
+      "host": "access",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim w As Worksheet\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "host_access_object_model_runtime",
+      "description": "Access: a Function reading the host's own object model runs.",
+      "host": "access",
+      "mode": "run",
+      "entryPoint": "Main",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Function Main() As Variant\r\n    Main = Len(CurrentProject.Name)\r\nEnd Function\r\n"
+    },
+    {
+      "id": "host_excel_worksheet_type_compile",
+      "description": "Excel, named as the host: As Worksheet compiles, where Word, PowerPoint and Access refuse it.",
+      "host": "excel",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim w As Worksheet\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "host_word_this_document_module_runtime",
+      "description": "Word: code in the document module ThisDocument runs, called from a standard module through the module name.",
+      "host": "word",
+      "mode": "run",
+      "entryPoint": "Main",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Public Function WordCount() As Long\r\n    WordCount = Me.Words.Count\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Function Main() As Variant\r\n    Main = ThisDocument.WordCount()\r\nEnd Function\r\n"
+        }
+      ]
+    },
+    {
+      "id": "host_word_this_document_member_clash_compile",
+      "description": "Word: a Public Function Words in ThisDocument clashes with Document.Words: Member already exists in an object module from which this object module derives.",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Public Function Words() As Long\r\n    Words = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\nEnd Sub\r\n"
+        }
+      ]
     }
   ]
 }

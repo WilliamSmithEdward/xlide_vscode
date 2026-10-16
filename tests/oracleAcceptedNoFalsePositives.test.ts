@@ -35,6 +35,8 @@ interface OracleModule {
 
 interface OracleCase {
 	id: string;
+	/** The Office host the case was measured in; absent means Excel. */
+	host?: string;
 	expected: 'accepted' | 'rejected' | 'observe';
 	evidencePhase?: 'compile' | 'runtime';
 	moduleName?: string;
@@ -93,11 +95,14 @@ describe('oracle accepted cases - corpus-wide no-false-positive sweep', () => {
 			const procedures = projectProcedureSignatures(project);
 			const falsePositives: string[] = [];
 			for (const mod of modules) {
+				// A case measured in Word, PowerPoint or Access is analyzed as
+				// that host's code, as the extension would for its file.
 				const { diagnostics } = analyzeVbaModuleSource({
 					source: mod.source,
 					moduleName: mod.moduleName,
 					moduleKind: effectiveModuleKind(mod),
 					...projectAnalysisOptionsForModule(project, mod.moduleName, procedures),
+					...(oracleCase.host && oracleCase.host !== 'excel' ? { host: oracleCase.host } : {}),
 				});
 				for (const diagnostic of diagnostics) {
 					if (constrainedByAcceptedCase(diagnostic.code ?? '', oracleCase.evidencePhase)) {
