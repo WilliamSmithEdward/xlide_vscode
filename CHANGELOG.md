@@ -2,6 +2,21 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.1.20] - 2026-10-16
+
+Stop reporting a class default member that returns an object, read into a
+Variant.
+
+- Allow `v = c` and `Main = c` where `c` is a class whose parameterless
+  default member returns a Collection: VBA reads the default member once
+  and the Variant holds the Collection, as measured in Excel, Word,
+  PowerPoint and Access. `object-default-value` reported Run-time error 450
+  for it (#1380, #1381, contributed by Sam, @swsammy).
+- Make the VBE oracle and its test sweeps faster, run three fixtures that
+  call `Module1` against a module of that name, and skip fixtures that
+  crash a known Office build (#1376 to #1379, #1382, #1383, contributed by
+  Sam, @swsammy).
+
 ## [11.1.19] - 2026-10-16
 
 Report two compile errors in every Office host.
