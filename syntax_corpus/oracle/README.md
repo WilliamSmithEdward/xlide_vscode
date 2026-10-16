@@ -35,7 +35,16 @@ node syntax_corpus/oracle/run_excel_vbe_oracle.mjs --timeout 30 --json
 node syntax_corpus/oracle/run_excel_vbe_oracle.mjs --timeout-retries 2
 node syntax_corpus/oracle/run_excel_vbe_oracle.mjs --case string_scalar_member_access_compile --dialog-hold-seconds 20
 node syntax_corpus/oracle/run_excel_vbe_oracle.mjs --strict
+node syntax_corpus/oracle/run_excel_vbe_oracle.mjs --checkpoint oracle-results.jsonl
 ```
+
+With `--checkpoint`, each case's result is appended to the file as soon as it
+finishes. Running the same command again skips every case that already has an
+`accepted` or `rejected` result there, so a run stopped by an `ORACLE-FAIL`
+resumes where it stopped once the cause is fixed. Such results are marked
+`resumed: true`. A case runs again if anything in its fixture has changed,
+including its `expected` value or description, or if the worker or coordinator
+has.
 
 Promotion workflow for an observe-only case:
 
@@ -189,6 +198,13 @@ case is recorded as compile-accepted, but only if Excel is still running and
 answering COM calls. If Excel crashed, the case is a
 `worker_error`.
 
+Some source never reaches the compiler: the VBE refuses to insert it, as its
+editor would, for example with `Too many line continuations`. A refusal on a
+short list of such messages is recorded as `outcome: "rejected"` with stage
+`insert_refused` and `evidencePhase: "compile"`, in any mode. Any other error
+while adding a module stays a `worker_error`; add a message to the worker's
+list only once it has been seen.
+
 By default a fixture supplies one standard-module `source` string. For
 workbook-object behavior, a fixture may instead supply a `modules` array. Each
 entry has `name`, `type` (`standard`, `class` or `document`), and `source`;
@@ -273,8 +289,8 @@ Every oracle case must also declare `provenance`:
 Every oracle case must declare the phase it proves and the meaning of that
 observation:
 
-- `evidencePhase: "compile"` for VBE Compile command evidence, or a compile
-  error raised while running.
+- `evidencePhase: "compile"` for VBE Compile command evidence, a compile
+  error raised while running, or the VBE refusing to insert the source.
 - `evidencePhase: "runtime"` for `excel.Run` evidence.
 - `mode: "compile_then_run"` may produce either compile or runtime evidence
   depending on where Excel/VBE rejects the snippet.

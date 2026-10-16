@@ -7,6 +7,7 @@
 // checks only.
 
 import { spawn, spawnSync } from 'node:child_process';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -37,6 +38,52 @@ function loadCasesDocument(file) {
         throw new Error(`${file} does not contain a cases array`);
     }
     return data;
+}
+
+// A checkpoint file holds one JSON line per finished case: a hash of the
+// case and of this harness, and the case's result. A case whose id and hash
+// match a line with evidence is not run again, so an aborted run can resume
+// where it stopped; editing the case or the harness runs it again.
+const HARNESS_HASH = crypto.createHash('sha256')
+    .update(fs.readFileSync(fileURLToPath(import.meta.url)))
+    .update(fs.readFileSync(WORKER))
+    .digest('hex');
+
+function caseHash(kase) {
+    return crypto.createHash('sha256').update(HARNESS_HASH).update(JSON.stringify(kase)).digest('hex');
+}
+
+function checkpointKey(caseId, hash) {
+    return `${caseId}\n${hash}`;
+}
+
+function loadCheckpoint(file) {
+    const done = new Map();
+    let raw;
+    try {
+        raw = fs.readFileSync(file, 'utf8');
+    } catch (err) {
+        if (err.code === 'ENOENT') { return done; }
+        throw err;
+    }
+    // End a line cut short by a killed run, so the next result starts afresh.
+    if (raw && !raw.endsWith('\n')) {
+        fs.appendFileSync(file, '\n', 'utf8');
+    }
+    for (const line of raw.split(/\r?\n/)) {
+        if (!line.trim()) { continue; }
+        let entry;
+        try {
+            entry = JSON.parse(line);
+        } catch {
+            continue; // a line cut short when a run was killed
+        }
+        const result = entry?.result;
+        if (result && EVIDENCE_OUTCOMES.has(String(result.outcome))) {
+            done.set(checkpointKey(String(result.caseId), String(entry.caseHash)), result);
+        }
+    }
+    return done;
 }
 
 function expectedMatches(expected, outcome) {
@@ -425,6 +472,10 @@ const USAGE = `Usage: node run_excel_vbe_oracle.mjs [options]
                               1 gives every case its own Excel.
   --dialog-hold-seconds <n>   Debugging aid: hold a detected VBE dialog visible
                               this long before dismissing (first attempt only).
+  --checkpoint <path>         Append each case's result to this JSON-lines file,
+                              and skip cases it already holds an accepted or
+                              rejected result for, so a stopped run can resume.
+                              A case whose content changed runs again.
   --json                      Emit machine-readable JSON
   --strict                    Exit non-zero when outcomes do not match fixtures
   --promote-observed          Write accepted/rejected outcomes back as asserted
@@ -439,6 +490,7 @@ function parseArgs(argv) {
         timeoutRetries: DEFAULT_TIMEOUT_RETRIES,
         casesPerExcel: DEFAULT_CASES_PER_EXCEL,
         dialogHoldSeconds: 0,
+        checkpoint: null,
         json: false,
         strict: false,
         promoteObserved: false,
@@ -457,6 +509,7 @@ function parseArgs(argv) {
             case '--timeout-retries': args.timeoutRetries = number(argv[++i], flag); break;
             case '--cases-per-excel': args.casesPerExcel = number(argv[++i], flag); break;
             case '--dialog-hold-seconds': args.dialogHoldSeconds = number(argv[++i], flag); break;
+            case '--checkpoint': args.checkpoint = argv[++i]; break;
             case '--json': args.json = true; break;
             case '--strict': args.strict = true; break;
             case '--promote-observed': args.promoteObserved = true; break;
@@ -511,12 +564,23 @@ async function main(argv) {
     const results = [];
     let failures = 0;
     let oracleFailures = 0;
+    const checkpoint = args.checkpoint ? loadCheckpoint(args.checkpoint) : null;
     const worker = new OracleWorker(args.casesPerExcel);
     try {
         for (const kase of cases) {
-            const result = await runCaseWithRetries(
-                worker, kase, args.timeout, args.timeoutRetries, args.dialogHoldSeconds,
-            );
+            const hash = caseHash(kase);
+            const saved = checkpoint?.get(checkpointKey(String(kase.id), hash));
+            let result;
+            if (saved) {
+                result = { ...saved, resumed: true };
+            } else {
+                result = await runCaseWithRetries(
+                    worker, kase, args.timeout, args.timeoutRetries, args.dialogHoldSeconds,
+                );
+                if (args.checkpoint) {
+                    fs.appendFileSync(args.checkpoint, `${JSON.stringify({ caseHash: hash, result })}\n`, 'utf8');
+                }
+            }
             const expected = String(kase.expected ?? 'observe');
             result.expected = expected;
             result.matched = expectedMatches(expected, String(result.outcome ?? ''))
