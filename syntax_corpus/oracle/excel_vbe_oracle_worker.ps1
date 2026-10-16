@@ -867,6 +867,7 @@ function Invoke-OracleCase {
         stage = $stage
         message = ""
         hresult = $null
+        excelBuild = $null
     }
 
     try {
@@ -884,6 +885,14 @@ function Invoke-OracleCase {
         }
         $excel = $script:excel
         $excelPid = $script:excelPid
+        # The build of the running Excel, not of the registration. Failure leaves
+        # it unknown; checkpoint runs reject such evidence.
+        try {
+            $v = [Diagnostics.FileVersionInfo]::GetVersionInfo((Join-Path $excel.Path 'EXCEL.EXE'))
+            if ($v.FileMajorPart -gt 0) {
+                $result.excelBuild = '{0}.{1}.{2}.{3}' -f $v.FileMajorPart, $v.FileMinorPart, $v.FileBuildPart, $v.FilePrivatePart
+            }
+        } catch { }
         $script:excelCases += 1
 
         Set-Stage "create_workbook"

@@ -44,7 +44,16 @@ finishes. Running the same command again skips every case that already has an
 resumes where it stopped once the cause is fixed. Such results are marked
 `resumed: true`. A case runs again if anything in its fixture has changed,
 including its `expected` value or description, or if the worker or coordinator
-has.
+has, or if Excel's build has.
+
+That makes a checkpoint file safe to keep as a verdict cache across runs: an
+Office update reruns every case. The build is the file version of the
+`EXCEL.EXE` that Excel.Application is registered to, read once per run without
+starting Excel; `--checkpoint` refuses to run if it cannot be read. Each result
+records the build of the Excel that produced it as `excelBuild`, and a result
+whose build is missing or differs is an infrastructure failure, never cached
+evidence. An Office update during a run stops it at the next case that starts
+the new Excel; run it again, and the old build's entries are not reused.
 
 Promotion workflow for an observe-only case:
 

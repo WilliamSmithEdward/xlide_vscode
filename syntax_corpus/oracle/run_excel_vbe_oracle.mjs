@@ -30,6 +30,37 @@ function excelComRegistered() {
     return !completed.error && completed.status === 0;
 }
 
+// Resolve the COM server without activating Excel. Use numeric file-version
+// parts so registry lookup and worker reports do not depend on display strings.
+function registeredExcelBuild() {
+    const completed = spawnSync('powershell.exe', [
+        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command',
+        `$ErrorActionPreference = 'Stop'
+        try {
+            $type = [type]::GetTypeFromProgID("Excel.Application")
+            if ($null -eq $type) { exit 2 }
+            $path = "CLSID\\" + $type.GUID.ToString('B') + "\\LocalServer32"
+            $key = [Microsoft.Win32.Registry]::ClassesRoot.OpenSubKey($path)
+            # 32-bit Office may register only in the 32-bit view.
+            if ($null -eq $key) {
+                $key = [Microsoft.Win32.RegistryKey]::OpenBaseKey('ClassesRoot', [Microsoft.Win32.RegistryView]::Registry32).OpenSubKey($path)
+            }
+            $command = [string]$key.GetValue('')
+            if ($command -notmatch '^\\s*(?:"([^"]+[.]exe)"|(.+?[.]exe))(?:\\s|$)') { exit 2 }
+            $exe = $matches[1]
+            if (-not $exe) { $exe = $matches[2] }
+            $v = [Diagnostics.FileVersionInfo]::GetVersionInfo($exe)
+            if ($v.FileMajorPart -le 0) { exit 2 }
+            '{0}.{1}.{2}.{3}' -f $v.FileMajorPart, $v.FileMinorPart, $v.FileBuildPart, $v.FilePrivatePart
+        } catch { exit 2 }`,
+    ], { encoding: 'utf8', timeout: 15_000 });
+    const build = completed.stdout?.trim();
+    if (!completed.error && completed.status === 0 && /^\d+\.\d+\.\d+\.\d+$/.test(build)) {
+        return { build };
+    }
+    return { build: null, why: completed.error?.message || completed.stderr?.trim() || `PowerShell exited ${completed.status}` };
+}
+
 function loadCasesDocument(file) {
     // utf-8-sig: PowerShell writes this file back with a BOM.
     const raw = fs.readFileSync(file, 'utf8').replace(/^﻿/, '');
@@ -41,16 +72,17 @@ function loadCasesDocument(file) {
 }
 
 // A checkpoint file holds one JSON line per finished case: a hash of the
-// case and of this harness, and the case's result. A case whose id and hash
-// match a line with evidence is not run again, so an aborted run can resume
-// where it stopped; editing the case or the harness runs it again.
+// case, this harness and the Excel build, and the case's result. A case
+// whose id and hash match a line with evidence is not run again, so an
+// aborted run can resume where it stopped; editing the case or the harness,
+// or a new Excel build, runs it again.
 const HARNESS_HASH = crypto.createHash('sha256')
     .update(fs.readFileSync(fileURLToPath(import.meta.url)))
     .update(fs.readFileSync(WORKER))
     .digest('hex');
 
-function caseHash(kase) {
-    return crypto.createHash('sha256').update(HARNESS_HASH).update(JSON.stringify(kase)).digest('hex');
+function caseHash(kase, excelBuild) {
+    return crypto.createHash('sha256').update(HARNESS_HASH).update(JSON.stringify([excelBuild, kase])).digest('hex');
 }
 
 function checkpointKey(caseId, hash) {
@@ -320,6 +352,24 @@ class OracleWorker {
 }
 
 async function runCaseOnce(worker, kase, timeoutSeconds, dialogHoldSeconds) {
+    const result = await runCaseOnceUnchecked(worker, kase, timeoutSeconds, dialogHoldSeconds);
+    if (worker.excelBuild && EVIDENCE_OUTCOMES.has(String(result.outcome))
+        && result.excelBuild !== worker.excelBuild) {
+        // A result without a build usually comes from a worker that died, and
+        // its own stage and message say why; keep them.
+        return {
+            ...result,
+            outcome: 'worker_error',
+            stage: result.excelBuild ? 'excel_build' : result.stage,
+            message: result.excelBuild
+                ? `Expected Excel build ${worker.excelBuild}; this case ran on ${result.excelBuild}.`
+                : `No Excel build was reported, so this result cannot be cached. ${result.message ?? ''}`.trim(),
+        };
+    }
+    return result;
+}
+
+async function runCaseOnceUnchecked(worker, kase, timeoutSeconds, dialogHoldSeconds) {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-vbe-oracle-'));
     const casePath = path.join(tmpDir, 'case.json');
     const pidPath = path.join(tmpDir, 'excel.pid');
@@ -475,7 +525,9 @@ const USAGE = `Usage: node run_excel_vbe_oracle.mjs [options]
   --checkpoint <path>         Append each case's result to this JSON-lines file,
                               and skip cases it already holds an accepted or
                               rejected result for, so a stopped run can resume.
-                              A case whose content changed runs again.
+                              Fixture, harness or Excel build changes rerun cases.
+                              Requires a readable registered EXCEL.EXE version;
+                              missing/mismatched worker builds abort the run.
   --json                      Emit machine-readable JSON
   --strict                    Exit non-zero when outcomes do not match fixtures
   --promote-observed          Write accepted/rejected outcomes back as asserted
@@ -548,6 +600,13 @@ async function main(argv) {
         return 2;
     }
 
+    const registered = args.checkpoint ? registeredExcelBuild() : { build: null };
+    const excelBuild = registered.build;
+    if (args.checkpoint && !excelBuild) {
+        console.error(`--checkpoint requires a readable file version for the registered EXCEL.EXE: ${registered.why}`);
+        return 2;
+    }
+
     const document = loadCasesDocument(args.cases);
     let cases = document.cases;
     if (args.caseIds.length) {
@@ -566,9 +625,10 @@ async function main(argv) {
     let oracleFailures = 0;
     const checkpoint = args.checkpoint ? loadCheckpoint(args.checkpoint) : null;
     const worker = new OracleWorker(args.casesPerExcel);
+    worker.excelBuild = excelBuild;
     try {
         for (const kase of cases) {
-            const hash = caseHash(kase);
+            const hash = caseHash(kase, excelBuild);
             const saved = checkpoint?.get(checkpointKey(String(kase.id), hash));
             let result;
             if (saved) {
