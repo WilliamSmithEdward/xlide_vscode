@@ -861,6 +861,8 @@ function Invoke-VbeCompileCommand($App) {
 # its database asks whether to save the case's modules.
 $script:app = $null
 $script:appPid = 0
+$script:appBuild = $null
+$script:appBuildPid = 0
 $script:appCases = 0
 $script:hostName = $HostName
 $script:hostProgId = $HostProgId
@@ -893,6 +895,8 @@ function Get-WindowProcessId([long]$Hwnd) {
 }
 
 function Start-OracleHost {
+    $script:appBuild = $null
+    $script:appBuildPid = 0
     $before = Get-HostProcessIds
     # Word and PowerPoint can hand an automation request to an instance that
     # is already running, and PowerPoint always does: that instance is
@@ -928,6 +932,8 @@ function Start-OracleHost {
 }
 
 function Stop-OracleHost {
+    $script:appBuild = $null
+    $script:appBuildPid = 0
     if ($null -ne $script:app) {
         try {
             switch ($script:appHost) {
@@ -1070,13 +1076,21 @@ function Test-MacroNotFound([string]$Message) {
     return $false
 }
 
-# The build of the running host, read from its own executable.
+# The build of the running host, read from its own executable once per host
+# process. A failed read is not kept, so the next case reads it again.
 function Get-HostBuild($HostPid) {
+    if ($null -ne $script:appBuild -and $script:appBuildPid -eq $HostPid) {
+        return $script:appBuild
+    }
+    $script:appBuild = $null
+    $script:appBuildPid = 0
     try {
         $path = (Get-Process -Id $HostPid -ErrorAction Stop).MainModule.FileName
         $v = [Diagnostics.FileVersionInfo]::GetVersionInfo($path)
         if ($v.FileMajorPart -gt 0) {
-            return '{0}.{1}.{2}.{3}' -f $v.FileMajorPart, $v.FileMinorPart, $v.FileBuildPart, $v.FilePrivatePart
+            $script:appBuild = '{0}.{1}.{2}.{3}' -f $v.FileMajorPart, $v.FileMinorPart, $v.FileBuildPart, $v.FilePrivatePart
+            $script:appBuildPid = $HostPid
+            return $script:appBuild
         }
     } catch { }
     return $null
