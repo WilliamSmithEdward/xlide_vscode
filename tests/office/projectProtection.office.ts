@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import { openMacroContainer } from '../../src/vba/macroContainer';
 import { VbaProject } from '../../src/vba/vbaProject';
-import { hostIsFree, ps, q, scratchCopy } from './officeHarness';
+import { hostIsFree, ps, q, scratchCopy, waitForExit } from './officeHarness';
 import { OFFICE_HOST_APPS, type OfficeHostApp } from '../../src/officeHostApps';
 
 const CASES: Array<[OfficeHostApp, string]> = [
@@ -16,7 +16,7 @@ const CASES: Array<[OfficeHostApp, string]> = [
     ['access', 'PasswordProtectedAccessFixture.accdb'],
 ];
 describe('Protected VBA password fixtures in real Office', () => {
-    it.each(CASES)('%s recognizes %s as locked for viewing', async (host, fixture, context) => {
+    it.for(CASES)('%s recognizes %s as locked for viewing', async ([host, fixture], context) => {
         if (!await hostIsFree(host)) { context.skip(); }
         const file = scratchCopy(fixture, `password-${host}-${fixture}`);
         const before = fs.readFileSync(file);
@@ -58,8 +58,11 @@ try {
     if ($app) { if ($owned) { ${quit} }; [void][Runtime.InteropServices.Marshal]::ReleaseComObject($app) }
     $addins = $null; $vbe = $null; $project = $null; $document = $null; $app = $null
     [GC]::Collect(); [GC]::WaitForPendingFinalizers()
+    if ($owned) { "owned-instance=yes" }
 }
 `);
+        // Wait only after our own instance was quit; never wait on a refused race.
+        if (result.out.includes('owned-instance=yes')) { await waitForExit(host); }
         expect(result.code, JSON.stringify(result)).toBe(0);
         if (result.out.includes('owned-instance=no')) { context.skip(); }
         expect(result.out).toContain('protection=1');
