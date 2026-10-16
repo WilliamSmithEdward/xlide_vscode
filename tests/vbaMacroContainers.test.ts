@@ -292,6 +292,7 @@ function realServiceBridge(): ProjectEngine {
 				case 'readModule': return svc.readModule(p, String(args.module), Boolean(args.full)) as T;
 				case 'readFormExport': return svc.readFormExport(p, String(args.module)) as T;
 				case 'writeModule': return svc.writeModule(p, String(args.module), String(args.source ?? ''), args.kind === 'class' ? 'class' : 'standard') as T;
+				case 'shareProjectAccess': return svc.shareProjectAccess(p, String(args.copy)) as T;
 				default: throw new Error(`bridge shim: unhandled ${method}`);
 			}
 		},

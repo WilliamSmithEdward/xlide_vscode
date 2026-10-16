@@ -6,7 +6,7 @@
 // renamed over the original, so a failure part-way through never leaves a
 // truncated project.
 
-import { assertVbaProjectAccess, authorizeVbaProject, VbaProjectLockedError } from './projectProtection';
+import { assertVbaProjectAccess, authorizeVbaProject, shareVbaProjectAuthorization, VbaProjectLockedError } from './projectProtection';
 import { hostPlatform } from './hostPlatform';
 import * as path from 'path';
 import { evictOldest } from '../util/boundedMap';
@@ -2751,6 +2751,16 @@ export function assertProjectAccess(filePath: string): void {
 	if (isVb6ProjectPath(filePath)) { return; }
 	const open = openContainerIfAnyVba(filePath, true);
 	if (open) { assertVbaProjectAccess(filePath, open.project.protection); }
+}
+
+/**
+ * Gives a copy XLIDE made of `filePath`, such as a test run's staged
+ * workbook, the unlock the original has, so the user is not asked again for
+ * a file they never opened. Throws while the original is still locked.
+ */
+export function shareProjectAccess(filePath: string, copyPath: string): void {
+	assertProjectAccess(filePath);
+	shareVbaProjectAuthorization(filePath, copyPath);
 }
 
 export function isProjectAccessLocked(filePath: string): boolean {

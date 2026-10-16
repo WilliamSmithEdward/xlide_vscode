@@ -168,13 +168,19 @@ export function registerFormPreview(
 				});
 			};
 
+			/** A fresh copy of the project, which a protected project's unlock covers. */
+			const copyScratch = async (): Promise<void> => {
+				fs.copyFileSync(projectPath, scratchPath);
+				appliedText = null;
+				await bridge.call('shareProjectAccess', { path: projectPath, copy: scratchPath });
+			};
+
 			/** Copies the real project under the scratch when it moved. */
-			const ensureScratch = (): void => {
+			const ensureScratch = async (): Promise<void> => {
 				const mtime = Math.floor(fs.statSync(projectPath).mtimeMs);
 				if (mtime !== baselineMtime || !fs.existsSync(scratchPath)) {
-					fs.copyFileSync(projectPath, scratchPath);
+					await copyScratch();
 					baselineMtime = mtime;
-					appliedText = null;
 				}
 			};
 
@@ -185,11 +191,10 @@ export function registerFormPreview(
 			 * disappears returns to the saved value, not to the edit before.
 			 */
 			const syncScratchToText = async (text: string): Promise<void> => {
-				ensureScratch();
+				await ensureScratch();
 				if (appliedText === text) { return; }
 				if (appliedText !== null) {
-					fs.copyFileSync(projectPath, scratchPath);
-					appliedText = null;
+					await copyScratch();
 				}
 				await bridge.call('applyFormMarkup', { path: scratchPath, module: moduleName, markup: text });
 				appliedText = text;
@@ -416,10 +421,13 @@ export function registerFormPreview(
 			// its text IS the baseline's print - trusting that skips a whole
 			// parse-and-diff on every designer open.
 			if (!document.isDirty) {
-				try {
-					ensureScratch();
-					appliedText = document.getText();
-				} catch { /* the first sync will surface the real failure */ }
+				const baseline = document.getText();
+				enqueue(async () => {
+					try {
+						await ensureScratch();
+						appliedText = baseline;
+					} catch { /* the first sync will surface the real failure */ }
+				});
 			}
 			enqueue(syncAndRender);
 		}

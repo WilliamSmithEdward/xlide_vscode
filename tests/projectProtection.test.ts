@@ -11,6 +11,7 @@ import { VbaProjectProtection, decodeProtectionRecord, clearVbaProjectAuthorizat
 import * as svc from '../src/vba/projectService';
 import { ProjectEngine } from '../src/projectEngine';
 import { ensureProjectPassword } from '../src/projectPasswordPrompt';
+import { stageOwnedReadOnlyTestHost } from '../src/vbaTestHostStaging';
 
 import { hashed, record, raw, protectFixture, FIXTURE_PASSWORD } from './helpers/projectProtectionFixture';
 let dir: string;
@@ -176,5 +177,40 @@ describe('protected file access', () => {
         const first = ensureProjectPassword(file); const second = ensureProjectPassword(file);
         await vi.waitFor(() => expect(vscode.window.showInputBox).toHaveBeenCalledTimes(1));
         respond('Correct!'); await Promise.all([first, second]);
+    });
+    it('a copy XLIDE makes shares the unlock, and only while its protection matches', async () => {
+        protect('Correct!');
+        vi.mocked(vscode.window.showInputBox).mockResolvedValue('Correct!');
+        const engine = new ProjectEngine({} as never);
+        const copy = path.join(dir, 'Staged.xlsm'); fs.copyFileSync(file, copy);
+        await engine.call('shareProjectAccess', { path: file, copy });
+        expect(vscode.window.showInputBox).toHaveBeenCalledTimes(1);
+        await engine.call('readModule', { path: copy, module: moduleName });
+        expect(vscode.window.showInputBox).toHaveBeenCalledTimes(1);
+        const unshared = path.join(dir, 'Unshared.xlsm'); fs.copyFileSync(file, unshared);
+        expect(svc.isProjectAccessLocked(unshared)).toBe(true);
+        protect('Other', copy);
+        expect(svc.isProjectAccessLocked(copy)).toBe(true);
+        engine.dispose();
+    });
+    it('staging a test run asks for the password once across runs', async () => {
+        protect('Correct!');
+        vi.mocked(vscode.window.showInputBox).mockResolvedValue('Correct!');
+        const engine = new ProjectEngine({} as never);
+        for (let run = 0; run < 3; run++) {
+            const staging = await stageOwnedReadOnlyTestHost(engine, file, [], { log: () => {} });
+            expect(svc.listModules(staging.tempFilePath).some(module => module.name === 'XlideAssert')).toBe(true);
+            staging.dispose();
+        }
+        expect(vscode.window.showInputBox).toHaveBeenCalledTimes(1);
+        engine.dispose();
+    });
+    it('staging a test run refuses a cancelled unlock and stages nothing', async () => {
+        protect('Correct!'); const before = fs.readFileSync(file);
+        vi.mocked(vscode.window.showInputBox).mockResolvedValue(undefined);
+        const engine = new ProjectEngine({} as never);
+        await expect(stageOwnedReadOnlyTestHost(engine, file, [], { log: () => {} })).rejects.toBeInstanceOf(vscode.CancellationError);
+        expect(fs.readFileSync(file)).toEqual(before);
+        engine.dispose();
     });
 });
