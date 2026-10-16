@@ -40638,9 +40638,9 @@
     },
     {
       "id": "issue256_09_runtime",
-      "description": "Issue #256 class attributes, case 09, measured in Excel 16.0 (build 20326) through pyVBAharness, from a workbook pyOpenVBA wrote: raise 450.",
+      "description": "Issue #256 class attributes, case 09: Main = c into a Variant return keeps the Collection returned by Items; accepted, measured in Excel 16.0 (build 20430) through the VBE oracle. The 450 seen through pyVBAharness came from its second read of the result.",
       "provenance": "vbe-oracle-verified",
-      "expected": "rejected",
+      "expected": "accepted",
       "mode": "run",
       "entryPoint": "Main",
       "modules": [
@@ -40657,7 +40657,7 @@
         }
       ],
       "evidencePhase": "runtime",
-      "diagnosticMeaning": "runtime-error"
+      "diagnosticMeaning": "runtime-valid"
     },
     {
       "id": "issue256_10_runtime",
@@ -40864,6 +40864,554 @@
       ],
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue256_19_runtime",
+      "description": "Issue #256 class attributes, case 19: Get1 = c keeps the Collection; the second Let, v = Get1(), raises run-time error 450, measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Get1() As Variant\r\n    Dim c As New C1\r\n    Get1 = c\r\nEnd Function\r\nSub Main()\r\n    Dim v As Variant\r\n    v = Get1()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate mItems As New Collection\r\nPublic Sub Add(ByVal v As Variant)\r\n    mItems.Add v\r\nEnd Sub\r\nPublic Property Get Items() As Collection\r\nAttribute Items.VB_UserMemId = 0\r\n    Set Items = mItems\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "excel"
+    },
+    {
+      "id": "issue256_20_runtime",
+      "description": "Issue #256 class attributes, case 20: v = c into a Variant local keeps the Collection; runs, measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New C1\r\n    Dim v As Variant\r\n    v = c\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate mItems As New Collection\r\nPublic Sub Add(ByVal v As Variant)\r\n    mItems.Add v\r\nEnd Sub\r\nPublic Property Get Items() As Collection\r\nAttribute Items.VB_UserMemId = 0\r\n    Set Items = mItems\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "excel"
+    },
+    {
+      "id": "issue256_21_runtime",
+      "description": "Issue #256 class attributes, case 21: v = c then v.Count reads the returned Collection; runs, measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New C1\r\n    c.Add 1\r\n    Dim v As Variant\r\n    v = c\r\n    If v.Count <> 1 Then Err.Raise 5\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate mItems As New Collection\r\nPublic Sub Add(ByVal v As Variant)\r\n    mItems.Add v\r\nEnd Sub\r\nPublic Property Get Items() As Collection\r\nAttribute Items.VB_UserMemId = 0\r\n    Set Items = mItems\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "excel"
+    },
+    {
+      "id": "issue256_22_runtime",
+      "description": "Issue #256 class attributes, case 22: Debug.Print c raises run-time error 13, Type mismatch, measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New C1\r\n    Debug.Print c\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate mItems As New Collection\r\nPublic Sub Add(ByVal v As Variant)\r\n    mItems.Add v\r\nEnd Sub\r\nPublic Property Get Items() As Collection\r\nAttribute Items.VB_UserMemId = 0\r\n    Set Items = mItems\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "excel"
+    },
+    {
+      "id": "issue256_23_compile",
+      "description": "Issue #256 class attributes, case 23: s = c into a String is rejected at compile time, Type mismatch, measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New C1\r\n    Dim s As String\r\n    s = c\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate mItems As New Collection\r\nPublic Sub Add(ByVal v As Variant)\r\n    mItems.Add v\r\nEnd Sub\r\nPublic Property Get Items() As Collection\r\nAttribute Items.VB_UserMemId = 0\r\n    Set Items = mItems\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "excel"
+    },
+    {
+      "id": "issue256_word_09_runtime",
+      "description": "Word: Issue #256 class attributes, case 09: Main = c into a Variant return keeps the Collection returned by Items; accepted, measured in Word 16.0 (build 20430) through the VBE oracle. The 450 seen through pyVBAharness came from its second read of the result.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New C1\r\n    Main = c\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate mItems As New Collection\r\nPublic Sub Add(ByVal v As Variant)\r\n    mItems.Add v\r\nEnd Sub\r\nPublic Property Get Items() As Collection\r\nAttribute Items.VB_UserMemId = 0\r\n    Set Items = mItems\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue256_word_19_runtime",
+      "description": "Word: Issue #256 class attributes, case 19: Get1 = c keeps the Collection; the second Let, v = Get1(), raises run-time error 450, measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Get1() As Variant\r\n    Dim c As New C1\r\n    Get1 = c\r\nEnd Function\r\nSub Main()\r\n    Dim v As Variant\r\n    v = Get1()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate mItems As New Collection\r\nPublic Sub Add(ByVal v As Variant)\r\n    mItems.Add v\r\nEnd Sub\r\nPublic Property Get Items() As Collection\r\nAttribute Items.VB_UserMemId = 0\r\n    Set Items = mItems\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "word"
+    },
+    {
+      "id": "issue256_word_20_runtime",
+      "description": "Word: Issue #256 class attributes, case 20: v = c into a Variant local keeps the Collection; runs, measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New C1\r\n    Dim v As Variant\r\n    v = c\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate mItems As New Collection\r\nPublic Sub Add(ByVal v As Variant)\r\n    mItems.Add v\r\nEnd Sub\r\nPublic Property Get Items() As Collection\r\nAttribute Items.VB_UserMemId = 0\r\n    Set Items = mItems\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue256_word_21_runtime",
+      "description": "Word: Issue #256 class attributes, case 21: v = c then v.Count reads the returned Collection; runs, measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New C1\r\n    c.Add 1\r\n    Dim v As Variant\r\n    v = c\r\n    If v.Count <> 1 Then Err.Raise 5\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate mItems As New Collection\r\nPublic Sub Add(ByVal v As Variant)\r\n    mItems.Add v\r\nEnd Sub\r\nPublic Property Get Items() As Collection\r\nAttribute Items.VB_UserMemId = 0\r\n    Set Items = mItems\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue256_word_22_runtime",
+      "description": "Word: Issue #256 class attributes, case 22: Debug.Print c raises run-time error 13, Type mismatch, measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New C1\r\n    Debug.Print c\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate mItems As New Collection\r\nPublic Sub Add(ByVal v As Variant)\r\n    mItems.Add v\r\nEnd Sub\r\nPublic Property Get Items() As Collection\r\nAttribute Items.VB_UserMemId = 0\r\n    Set Items = mItems\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "word"
+    },
+    {
+      "id": "issue256_word_23_compile",
+      "description": "Word: Issue #256 class attributes, case 23: s = c into a String is rejected at compile time, Type mismatch, measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New C1\r\n    Dim s As String\r\n    s = c\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate mItems As New Collection\r\nPublic Sub Add(ByVal v As Variant)\r\n    mItems.Add v\r\nEnd Sub\r\nPublic Property Get Items() As Collection\r\nAttribute Items.VB_UserMemId = 0\r\n    Set Items = mItems\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue256_powerpoint_09_runtime",
+      "description": "PowerPoint: Issue #256 class attributes, case 09: Main = c into a Variant return keeps the Collection returned by Items; accepted, measured in PowerPoint 16.0 (build 20430) through the VBE oracle. The 450 seen through pyVBAharness came from its second read of the result.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New C1\r\n    Main = c\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate mItems As New Collection\r\nPublic Sub Add(ByVal v As Variant)\r\n    mItems.Add v\r\nEnd Sub\r\nPublic Property Get Items() As Collection\r\nAttribute Items.VB_UserMemId = 0\r\n    Set Items = mItems\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue256_powerpoint_19_runtime",
+      "description": "PowerPoint: Issue #256 class attributes, case 19: Get1 = c keeps the Collection; the second Let, v = Get1(), raises run-time error 450, measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Get1() As Variant\r\n    Dim c As New C1\r\n    Get1 = c\r\nEnd Function\r\nSub Main()\r\n    Dim v As Variant\r\n    v = Get1()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate mItems As New Collection\r\nPublic Sub Add(ByVal v As Variant)\r\n    mItems.Add v\r\nEnd Sub\r\nPublic Property Get Items() As Collection\r\nAttribute Items.VB_UserMemId = 0\r\n    Set Items = mItems\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue256_powerpoint_20_runtime",
+      "description": "PowerPoint: Issue #256 class attributes, case 20: v = c into a Variant local keeps the Collection; runs, measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New C1\r\n    Dim v As Variant\r\n    v = c\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate mItems As New Collection\r\nPublic Sub Add(ByVal v As Variant)\r\n    mItems.Add v\r\nEnd Sub\r\nPublic Property Get Items() As Collection\r\nAttribute Items.VB_UserMemId = 0\r\n    Set Items = mItems\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue256_powerpoint_21_runtime",
+      "description": "PowerPoint: Issue #256 class attributes, case 21: v = c then v.Count reads the returned Collection; runs, measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New C1\r\n    c.Add 1\r\n    Dim v As Variant\r\n    v = c\r\n    If v.Count <> 1 Then Err.Raise 5\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate mItems As New Collection\r\nPublic Sub Add(ByVal v As Variant)\r\n    mItems.Add v\r\nEnd Sub\r\nPublic Property Get Items() As Collection\r\nAttribute Items.VB_UserMemId = 0\r\n    Set Items = mItems\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue256_powerpoint_22_runtime",
+      "description": "PowerPoint: Issue #256 class attributes, case 22: Debug.Print c raises run-time error 13, Type mismatch, measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New C1\r\n    Debug.Print c\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate mItems As New Collection\r\nPublic Sub Add(ByVal v As Variant)\r\n    mItems.Add v\r\nEnd Sub\r\nPublic Property Get Items() As Collection\r\nAttribute Items.VB_UserMemId = 0\r\n    Set Items = mItems\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue256_powerpoint_23_compile",
+      "description": "PowerPoint: Issue #256 class attributes, case 23: s = c into a String is rejected at compile time, Type mismatch, measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New C1\r\n    Dim s As String\r\n    s = c\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate mItems As New Collection\r\nPublic Sub Add(ByVal v As Variant)\r\n    mItems.Add v\r\nEnd Sub\r\nPublic Property Get Items() As Collection\r\nAttribute Items.VB_UserMemId = 0\r\n    Set Items = mItems\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue256_access_09_runtime",
+      "description": "Access: Issue #256 class attributes, case 09: Main = c into a Variant return keeps the Collection returned by Items; accepted, measured in Access 16.0 (build 20430) through the VBE oracle. The 450 seen through pyVBAharness came from its second read of the result.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New C1\r\n    Main = c\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate mItems As New Collection\r\nPublic Sub Add(ByVal v As Variant)\r\n    mItems.Add v\r\nEnd Sub\r\nPublic Property Get Items() As Collection\r\nAttribute Items.VB_UserMemId = 0\r\n    Set Items = mItems\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue256_access_19_runtime",
+      "description": "Access: Issue #256 class attributes, case 19: Get1 = c keeps the Collection; the second Let, v = Get1(), raises run-time error 450, measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Get1() As Variant\r\n    Dim c As New C1\r\n    Get1 = c\r\nEnd Function\r\nSub Main()\r\n    Dim v As Variant\r\n    v = Get1()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate mItems As New Collection\r\nPublic Sub Add(ByVal v As Variant)\r\n    mItems.Add v\r\nEnd Sub\r\nPublic Property Get Items() As Collection\r\nAttribute Items.VB_UserMemId = 0\r\n    Set Items = mItems\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "access"
+    },
+    {
+      "id": "issue256_access_20_runtime",
+      "description": "Access: Issue #256 class attributes, case 20: v = c into a Variant local keeps the Collection; runs, measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New C1\r\n    Dim v As Variant\r\n    v = c\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate mItems As New Collection\r\nPublic Sub Add(ByVal v As Variant)\r\n    mItems.Add v\r\nEnd Sub\r\nPublic Property Get Items() As Collection\r\nAttribute Items.VB_UserMemId = 0\r\n    Set Items = mItems\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue256_access_21_runtime",
+      "description": "Access: Issue #256 class attributes, case 21: v = c then v.Count reads the returned Collection; runs, measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New C1\r\n    c.Add 1\r\n    Dim v As Variant\r\n    v = c\r\n    If v.Count <> 1 Then Err.Raise 5\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate mItems As New Collection\r\nPublic Sub Add(ByVal v As Variant)\r\n    mItems.Add v\r\nEnd Sub\r\nPublic Property Get Items() As Collection\r\nAttribute Items.VB_UserMemId = 0\r\n    Set Items = mItems\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue256_access_22_runtime",
+      "description": "Access: Issue #256 class attributes, case 22: Debug.Print c raises run-time error 13, Type mismatch, measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New C1\r\n    Debug.Print c\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate mItems As New Collection\r\nPublic Sub Add(ByVal v As Variant)\r\n    mItems.Add v\r\nEnd Sub\r\nPublic Property Get Items() As Collection\r\nAttribute Items.VB_UserMemId = 0\r\n    Set Items = mItems\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "access"
+    },
+    {
+      "id": "issue256_access_23_compile",
+      "description": "Access: Issue #256 class attributes, case 23: s = c into a String is rejected at compile time, Type mismatch, measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New C1\r\n    Dim s As String\r\n    s = c\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate mItems As New Collection\r\nPublic Sub Add(ByVal v As Variant)\r\n    mItems.Add v\r\nEnd Sub\r\nPublic Property Get Items() As Collection\r\nAttribute Items.VB_UserMemId = 0\r\n    Set Items = mItems\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
     },
     {
       "id": "issue259_01_runtime",

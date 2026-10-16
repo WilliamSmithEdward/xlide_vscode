@@ -19,8 +19,10 @@
 // A class's default member read the wrong way (issue #256, measured in
 // Excel 16.0): one whose first parameter is required, read with no
 // argument, raises 449, Argument not optional; one with no parameter that
-// returns a Collection gives the Collection, whose own default needs an
-// index, 450. A class with no default member indexed, `c(1)`, raises 438.
+// returns a Collection stores that object in a Variant (build 20430).
+// Only a second Let reads the Collection default and raises 450. Debug.Print
+// of the class raises 13; this rule does not diagnose that context.
+// A class with no default member indexed, `c(1)`, raises 438.
 // For Each over a class asks its -4 member (`VB_UserMemId = -4`) for an
 // enumerator: with none it raises 438, and with one returning a
 // Collection rather than an object it raises 451.
@@ -804,9 +806,8 @@ function defaultReadProblem(member: VbaProjectClassMember | undefined): string |
 	if (first !== '' && !first.startsWith('[') && !/^paramarray\b/i.test(first)) {
 		return `whose default member ${member.name} takes an argument this read does not give. This will raise Run-time error '449': Argument not optional.`;
 	}
-	if (first === '' && normalizeType(member.returns) === 'collection') {
-		return `whose default member ${member.name} returns a Collection, and a Collection's default member Item needs an index. This will raise Run-time error '450': Wrong number of arguments or invalid property assignment.`;
-	}
+	// Let evaluates the class default only once, even when it returns an object.
+	// Its return type alone cannot establish a failure at this read.
 	return undefined;
 }
 
