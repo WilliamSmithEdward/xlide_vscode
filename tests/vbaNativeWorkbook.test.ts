@@ -466,6 +466,19 @@ describe('blank file templates', () => {
 		expect(names).toContain('ThisWorkbook');
 		expect(names).toContain('Module1');
 	});
+
+	// Every new file is copied from one of these, so whatever a template holds
+	// lands in the user's project. blank.xltm shipped with the pyVBAharness
+	// modules it was authored through (ZSave, PyVbaHarnessRunner and
+	// PyVbaHarnessCall) until 11.1.23.
+	it.each(fs.readdirSync(TEMPLATE_DIR))('%s holds no code beyond an empty Module1', (file) => {
+		const modules = svc.readModules(path.join(TEMPLATE_DIR, file), true);
+		for (const module of modules.filter((m) => m.type !== 'document')) {
+			expect(module.name, `${file} holds an extra module`).toBe('Module1');
+			const code = (module.source ?? '').split(/\r?\n/).filter((line) => !/^Attribute\s/i.test(line));
+			expect(code.join('\n').trim(), `${file} Module1 holds code`).toMatch(/^(Option Explicit)?$/i);
+		}
+	});
 });
 
 describe('createProject template dispatch', () => {
