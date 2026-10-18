@@ -40,6 +40,7 @@ function setup(cases: Case[] = [], checkpoint = false) {
             casesPerInstance: 40, caseIds: [], json: true, checkpoint: checkpoint ? 'checkpoint' : undefined }),
         process: Object.assign(new EventEmitter(), { platform: 'win32' }),
         setDialogSounds: () => {}, // Sound lifecycle is covered in vbeOracleDialogSounds.test.ts.
+        acquireOracleLock: () => () => {}, oracleLockPath: () => '/profile/.xlide-vbe-oracle.lock',
         console: { log: (line: string) => output.push(line), error: (line: string) => errors.push(line) },
         loadCasesDocument: () => ({ cases }),
         loadCheckpoint: () => new Map(),

@@ -876,6 +876,7 @@ function Invoke-VbeCompileCommand($App) {
 # its database asks whether to save the case's modules.
 $script:app = $null
 $script:appPid = 0
+$script:appStarted = $null
 $script:appBuild = $null
 $script:appBuildPid = 0
 $script:appCases = 0
@@ -907,6 +908,15 @@ function Get-WindowProcessId([long]$Hwnd) {
     $processId = 0
     [void][XlideUser32]::GetWindowThreadProcessId([IntPtr]$Hwnd, [ref]$processId)
     return [int]$processId
+}
+
+function Write-OracleHostProcess {
+    $record = "$($script:appPid) $($script:hostImageOfApp) $($script:appStarted)"
+    Set-Content -LiteralPath $PidPath -Value $record -Encoding ascii
+    if ($Serve) {
+        [Console]::Out.WriteLine("XLIDE-ORACLE-HOST " + $record)
+        [Console]::Out.Flush()
+    }
 }
 
 function Start-OracleHost {
@@ -941,9 +951,27 @@ function Start-OracleHost {
         $script:app = $null
         throw "Could not tell which $($script:hostNoun) process the oracle started."
     }
+    # Recorded only with its start time, so the pid is never taken alone:
+    # a host that ended before it was read is left to its COM reference.
+    $ticks = (Get-Process -Id $processId -ErrorAction Stop).StartTime.ToUniversalTime().Ticks
     $script:appPid = $processId
     $script:appHost = $script:hostName
+    $script:appStarted = $ticks - ($ticks % 10)
+    Write-OracleHostProcess
     $script:appCases = 0
+}
+
+function Get-OwnedOracleHostProcess {
+    $p = Get-Process -Id $script:appPid -ErrorAction SilentlyContinue
+    if ($null -eq $p -or $p.ProcessName -ne $script:hostImageOfApp) { return }
+    # One whose start time cannot be read may still be the host: it is
+    # neither killed nor taken for gone. The handle opened first is kept by
+    # the process object, so its pid stays this process's until it is killed.
+    try {
+        $null = $p.Handle
+        $ticks = $p.StartTime.ToUniversalTime().Ticks
+    } catch { return 'unverified' }
+    if (($ticks - ($ticks % 10)) -eq $script:appStarted) { return $p }
 }
 
 function Stop-OracleHost {
@@ -963,20 +991,31 @@ function Stop-OracleHost {
         [GC]::WaitForPendingFinalizers()
     }
     if ($script:appPid) {
-        # End only the process this worker recorded, and only if it is still
-        # the host's: a pid can have been reused.
-        Get-Process -Id $script:appPid -ErrorAction SilentlyContinue |
-            Where-Object { $_.ProcessName -eq $script:hostImageOfApp } |
+        # Check creation identity as well as image: even the same host image
+        # can have reused the PID after a crash between cases.
+        Get-OwnedOracleHostProcess | Where-Object { $_ -is [Diagnostics.Process] } |
             Stop-Process -Force -ErrorAction SilentlyContinue
         # Gone before the next case looks, or the next Word or PowerPoint case
         # would take this worker's own exiting instance for someone else's.
         $deadline = [DateTime]::UtcNow.AddSeconds(10)
-        while ([DateTime]::UtcNow -lt $deadline -and $null -ne (Get-Process -Id $script:appPid -ErrorAction SilentlyContinue)) {
+        while ([DateTime]::UtcNow -lt $deadline -and $null -ne (Get-OwnedOracleHostProcess)) {
             Start-Sleep -Milliseconds 50
+        }
+        # A host that would not stop stays recorded, and the worker ends with
+        # an error: its case fails unless a dialog decided it, and with
+        # -Serve the coordinator ends the host it was told of.
+        if ($null -ne (Get-OwnedOracleHostProcess)) {
+            throw "The $($script:hostImageOfApp) process $($script:appPid) would not stop."
         }
         $script:appPid = 0
     }
+    $script:appStarted = $null
     $script:appHost = $null
+    if ($PidPath) { Remove-Item -LiteralPath $PidPath -Force -ErrorAction SilentlyContinue }
+    if ($Serve) {
+        [Console]::Out.WriteLine("XLIDE-ORACLE-HOST closed")
+        [Console]::Out.Flush()
+    }
 }
 
 # Applied before every case, since a case's macro can change them.
@@ -1143,13 +1182,12 @@ function Invoke-OracleCase {
             Stop-OracleHost
         }
         if ($null -ne $script:app) {
-            Set-Content -LiteralPath $PidPath -Value "$($script:appPid) $($script:hostImage)" -Encoding ascii
+            Write-OracleHostProcess
             try { Set-OracleHostSettings $script:app } catch { Stop-OracleHost }
         }
         if ($null -eq $script:app) {
             $script:hostImageOfApp = $script:hostImage
             Start-OracleHost
-            Set-Content -LiteralPath $PidPath -Value "$($script:appPid) $($script:hostImage)" -Encoding ascii
             Set-OracleHostSettings $script:app
         }
         $app = $script:app

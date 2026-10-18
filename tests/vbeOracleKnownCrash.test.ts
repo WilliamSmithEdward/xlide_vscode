@@ -78,6 +78,7 @@ describe('VBE oracle promotion writes', () => {
                 comRegistered: () => true,
                 // No real Office, registry, or filesystem effects in this test.
                 setDialogSounds() {},
+                acquireOracleLock: () => () => {}, oracleLockPath: () => '/profile/.xlide-vbe-oracle.lock',
                 OracleWorker: class { async close() {} },
                 caseHash: () => 'hash',
                 runCaseWithRetries: async (_worker: unknown, kase: { id: string }) => {
@@ -145,6 +146,7 @@ function setupUncheckpointedMain(registered: { build: string | null; why?: strin
             casesPerInstance: 40, caseIds: [], strict: true, json: true }),
         process: Object.assign(new EventEmitter(), { platform: 'win32' }),
         setDialogSounds: () => {}, // Sound lifecycle is covered in vbeOracleDialogSounds.test.ts.
+        acquireOracleLock: () => () => {}, oracleLockPath: () => '/profile/.xlide-vbe-oracle.lock',
         console: { log: (line: string) => output.push(line), error: (line: string) => output.push(line) },
         loadCasesDocument: () => ({ cases }),
         OFFICE_HOSTS: { excel: { progId: 'Excel.Application' } },
@@ -189,6 +191,7 @@ it.each([true, false])('continues after a skip and excludes it from checkpoints 
             casesPerInstance: 40, caseIds: [], checkpoint: 'checkpoint', strict: true, json }),
         process: Object.assign(new EventEmitter(), { platform: 'win32' }),
         setDialogSounds: () => {}, // Sound lifecycle is covered in vbeOracleDialogSounds.test.ts.
+        acquireOracleLock: () => () => {}, oracleLockPath: () => '/profile/.xlide-vbe-oracle.lock',
         console: { log: (line: string) => output.push(line), error: (line: string) => output.push(line) },
         loadCasesDocument: () => ({ cases }),
         OFFICE_HOSTS: { excel: { progId: 'Excel.Application' } },

@@ -6,7 +6,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { OFFICE_HOST_APPS } from '../src/officeHostApps';
 
 // Run the coordinator's actual functions, with no real PowerShell, signals,
-// registry writes, Office processes or account-profile writes.
+// registry writes, Office processes or account-profile writes. The run lock
+// and the host clean-up have tests of their own (vbeOracleLock.test.ts).
 const source = readFileSync(join(process.cwd(), 'syntax_corpus/oracle/run_vbe_oracle.mjs'), 'utf8');
 const names = ['dialogSoundsPath', 'dialogSoundsScript', 'setDialogSounds', 'parseArgs',
     'caseHost', 'hostsNeedingBuilds', 'knownHostCrashResult', 'expectedMatches', 'isOracleInfrastructureFailure'];
@@ -20,7 +21,7 @@ const functions = names.map((name) => {
 const soundsConstant = source.match(/^const DIALOG_SOUNDS = .*;$/m)![0];
 const mainStart = source.indexOf('async function main(');
 const mainSource = source.slice(mainStart, source.indexOf('\nprocess.exit(', mainStart));
-const signals = [['SIGINT', 130], ['SIGBREAK', 149], ['SIGTERM', 143], ['SIGHUP', 129]] as const;
+const signals = [['SIGINT', 130], ['SIGBREAK', 149], ['SIGHUP', 129]] as const;
 const ownedEvents = ['exit', ...signals.map(([signal]) => signal)];
 type Case = { id: string; host?: string; expected?: string };
 type Completed = { status: number | null; stderr?: string | null; error?: Error };
@@ -83,6 +84,8 @@ function setup(cases: Case[] = [{ id: 'first' }, { id: 'second' }]) {
             { progId: info.progId, image: info.processName, noun: info.noun }])),
         loadCasesDocument, comRegistered,
         registeredHostBuild,
+        acquireOracleLock: () => () => {}, oracleLockPath: () => 'C:\\Users\\account\\.xlide-vbe-oracle.lock',
+        killProcess: () => true,
         loadCheckpoint: () => new Map(),
         OracleWorker: class {
             async close() {
@@ -145,16 +148,17 @@ describe('VBE oracle dialog sound lifecycle', () => {
         const running = probe.main(['--json']);
         expect(probe.trace).toEqual(['silence', 'measure:first']);
         probe.fakeProcess.emit('exit', 1);
-        expect(probe.trace).toEqual(['silence', 'measure:first', 'restore']);
+        // The clean-up ends the worker, then puts the sounds back.
+        expect(probe.trace).toEqual(['silence', 'measure:first', 'kill', 'restore']);
         probe.fakeProcess.emit('exit', 1);
         pending.resolve({ caseId: 'first', outcome: 'accepted' });
         expect(await running).toBe(0);
-        expect(probe.trace).toEqual(['silence', 'measure:first', 'restore', 'close:begin', 'close:end']);
+        expect(probe.trace).toEqual(['silence', 'measure:first', 'kill', 'restore', 'close:begin', 'close:end']);
         expectNoOwnedListeners(probe);
     });
 
     it.each(signals.flatMap(([signal, code]) => ['case', 'close'].map((stage) => ({ signal, code, stage }))))(
-        'restores and exits $code on $signal during $stage, leaving the worker to its own Ctrl-C, without a second restore', async ({ signal, code, stage }) => {
+        'restores and exits $code on $signal during $stage, after ending the worker, without a second restore', async ({ signal, code, stage }) => {
             const probe = setup([{ id: 'first' }]);
             const measuring = deferred<{ caseId: string; outcome: string }>();
             const closing = deferred<void>();
@@ -168,11 +172,11 @@ describe('VBE oracle dialog sound lifecycle', () => {
                 await closeStarted.promise;
             }
             expect(() => probe.fakeProcess.emit(signal)).toThrow(probe.interrupted);
-            expect(probe.trace.slice(-2)).toEqual(['restore', `exit:${code}`]);
+            expect(probe.trace.slice(-3)).toEqual(['kill', 'restore', `exit:${code}`]);
             expect(probe.fakeProcess.exit).toHaveBeenCalledExactlyOnceWith(code);
-            // The worker gets the same Ctrl-C and quits its host itself, as without this change.
-            expect(probe.kill).not.toHaveBeenCalled();
-            expect(probe.fakeProcess.listenerCount(signal)).toBe(0);
+            expect(probe.kill).toHaveBeenCalledOnce();
+            // Still listening until the run ends, so a second one cannot end the run mid-clean-up.
+            expect(probe.fakeProcess.listenerCount(signal)).toBe(1);
             if (stage === 'case') {
                 measuring.reject(probe.interrupted);
                 closing.resolve();
@@ -182,6 +186,21 @@ describe('VBE oracle dialog sound lifecycle', () => {
             expect(probe.spawnSync).toHaveBeenCalledTimes(2);
             expectNoOwnedListeners(probe);
         });
+
+    it.each(signals)('restores once and exits %s on %s arriving while the sounds are being silenced', async (signal, code) => {
+        const probe = setup([{ id: 'first' }]);
+        // The signal is handled from inside the silencing call, as a Ctrl-C
+        // reaching the run while that PowerShell runs would be once it returns.
+        probe.spawnSync.mockImplementationOnce((_command, _args, options) => {
+            probe.trace.push(options.env.XLIDE_SOUNDS_ACTION);
+            probe.fakeProcess.emit(signal);
+            return { status: 0 };
+        });
+        await expect(probe.main(['--json'])).rejects.toBe(probe.interrupted);
+        expect(probe.trace).toEqual(['silence', 'kill', 'restore', `exit:${code}`, 'close:begin', 'close:end']);
+        expect(probe.runCaseWithRetries).not.toHaveBeenCalled();
+        expectNoOwnedListeners(probe);
+    });
 
     it.each([
         { argv: ['--invalid'], platform: 'win32', code: 2 },

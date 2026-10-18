@@ -64,9 +64,10 @@ events, supported string registry kinds and nonempty string sound paths.
 Malformed backups are quarantined intact rather than restored or discarded.
 
 Run oracle commands sequentially. Do not run multiple `test:oracle:vbe` or
-`run_vbe_oracle.mjs` invocations in parallel, even for different cases.
-The harness drives the VBE through a single-user COM/UI automation surface;
-parallel runs can contend for VBE focus, command bars, modal dialogs, and host
+`run_vbe_oracle.mjs` invocations in parallel, even for different cases. A
+per-user lock enforces this (see "One run at a time" below). The harness
+drives the VBE through a single-user COM/UI automation surface; parallel runs
+can contend for VBE focus, command bars, modal dialogs, and host
 process cleanup, producing timeouts or misleading contradictory results. When
 several cases need retesting, run one command, wait for it to finish and clean
 up, then run the next.
@@ -100,6 +101,52 @@ produced it as `hostBuild`, and a result whose build is missing or differs is
 an infrastructure failure, never cached evidence. An Office update during a
 run stops it at the next case that starts the new build; run it again, and
 the old build's entries are not reused.
+
+### One run at a time
+
+Every run takes a lock, `.xlide-vbe-oracle.lock` in the account's profile
+folder (as Windows records it, whatever `USERPROFILE` or `HOME` says). The
+lock is a folder holding one owner file with the run's machine name, pid and
+process start time. A second run finds it and exits with code 2.
+
+A run takes over a lock whose owner has ended, or whose pid now belongs to a
+process that started at another time. It checks the owner in its own process
+list, reading the start time through CIM when the owner runs elevated, so it
+never takes over a lock that names another machine, an owner whose start time
+it cannot read, or an owner file that is only partly written. It refuses
+instead and names the lock; remove the lock folder only after checking that no
+oracle run is active. An empty lock folder holds no run, and is removed.
+
+A normal exit or an error ends the worker and the Office host it started, then
+releases the lock. Ctrl-C, Ctrl-Break and closing the console window do the
+same, and remove the current case's temporary folder. A second Ctrl-C does not
+end the run in the middle of that clean-up, but it also reaches the PowerShell
+and `taskkill` the clean-up runs, so it can leave the host running. Windows
+allows a closing console only a few seconds, so this clean-up may not finish. A
+host still starting when the run is interrupted or its case times out is not
+yet known to the run and is left running. A run killed outright releases
+nothing: it leaves its host running and its case folder (`xlide-vbe-oracle-*`
+in `%TEMP%`), and the next run takes over its lock. Close such a host by hand,
+since Word and PowerPoint refuse to start for the next run while one is
+running.
+
+Before the coordinator or the worker kills an Office process, it checks that
+its pid and start time still match the host it started, since Windows reuses
+pids. It holds a handle on the process from that check to the kill, so the pid
+cannot pass to another process in between. A host whose kill was cut short, or
+whose start time cannot be read, stays recorded, and is tried again before the
+next worker starts and when the run ends. If it still cannot be ended before
+the next worker starts, that case is a `worker_error` instead, which stops the
+run. One that would not stop between cases ends the worker with an error, and
+the coordinator ends the host. That case is reported as a `worker_error`, which
+stops the run, unless a dialog it recorded already decided it. One that still
+cannot be ended when the run ends is named, to close by hand. The dialog
+watcher alone ends the host by pid, straight after it has dismissed that host's
+dialog.
+
+`--case`, `--cases` and `--checkpoint` need a value: one that is missing, or
+that starts with `--`, is refused, so `--checkpoint --strict` cannot write
+results to a file named `--strict`.
 
 Promotion workflow for an observe-only case:
 

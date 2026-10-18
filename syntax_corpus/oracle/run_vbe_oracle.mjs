@@ -21,6 +21,7 @@ const EVIDENCE_OUTCOMES = new Set(['accepted', 'rejected']);
 const DEFAULT_TIMEOUT_RETRIES = 2;
 const DEFAULT_CASES_PER_INSTANCE = 40;
 const RESULT_PREFIX = 'XLIDE-ORACLE-RESULT ';
+const HOST_PREFIX = 'XLIDE-ORACLE-HOST ';
 
 // The Office hosts a fixture can run in, as src/officeHostApps.ts describes
 // them (tests/vbeOracleWorker.test.ts keeps the two in step). A fixture names
@@ -444,28 +445,174 @@ function promoteObservedCases(document, results) {
     return { promoted, errors: [] };
 }
 
-// The worker records "<pid> <image>" for the host instance it started.
-function readRecordedProcess(pidPath) {
-    try {
-        const [rawPid, image] = fs.readFileSync(pidPath, 'ascii').trim().split(/\s+/);
-        const pid = Number.parseInt(rawPid, 10);
-        return Number.isInteger(pid) && /^[A-Z]+$/.test(image ?? '') ? { pid, image } : undefined;
-    } catch {
-        return undefined;
+function pause(ms) {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+// A process's start time as UTC ticks, cut to CIM's microseconds; null once it
+// has ended, and 'unreadable' while it runs but neither lookup can read it.
+function processStart(pid) {
+    const completed = spawnSync('powershell.exe', [
+        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command',
+        `$ErrorActionPreference = 'Stop'
+        function Get-Start {
+            $p = Get-Process -Id ${pid} -ErrorAction SilentlyContinue
+            if ($null -eq $p) { return 'gone' }
+            # StartTime needs a process handle, which a normal shell cannot
+            # open on an elevated process: it then reads as nothing, without
+            # an error. CIM reads it without one.
+            $time = $null
+            try { $time = $p.StartTime } catch { }
+            if ($null -eq $time) {
+                $p = Get-CimInstance Win32_Process -Filter "ProcessId=${pid}"
+                if ($null -eq $p) { return 'gone' }
+                $time = $p.CreationDate
+            }
+            $ticks = $time.ToUniversalTime().Ticks
+            return $ticks - ($ticks % 10)
+        }
+        try { Get-Start } catch { 'unreadable' }`,
+    ], { encoding: 'utf8', timeout: 15_000 });
+    const value = completed.stdout?.trim() ?? '';
+    if (!completed.error && completed.status === 0 && (value === 'gone' || value === 'unreadable' || /^\d+$/.test(value))) {
+        return value === 'gone' ? null : value;
     }
+    throw new Error(`Cannot check process ${pid}: ${completed.error?.message || completed.stderr?.trim() || 'start time unavailable'}`);
 }
 
-// Only that host's image: a recorded pid may since have been reused by
-// another process.
+// One oracle run per user, cached or not. The lock is in the account's own
+// profile folder rather than USERPROFILE or HOME, so a run with either
+// variable changed still meets it.
+function oracleLockPath() {
+    let home = '';
+    try { home = os.userInfo().homedir; } catch { /* no account record */ }
+    return path.join(home || os.homedir(), '.xlide-vbe-oracle.lock');
+}
+
+// Takes the lock folder with one owner file in it, naming this machine, pid
+// and start time, and returns the release. A lock whose owner on this machine
+// has ended, or whose pid now belongs to a process started at another time, is
+// taken over. One held on another machine never is, since its process cannot
+// be checked from here.
+function acquireOracleLock(lock = oracleLockPath()) {
+    const owner = { host: os.hostname(), pid: process.pid, started: processStart(process.pid) };
+    if (!/^\d+$/.test(owner.started ?? '')) { throw new Error('Cannot read this process start time.'); }
+    const ownerFile = path.join(lock, `${crypto.randomUUID()}.json`);
+    const incomplete = `The oracle lock ${lock} is being taken or given up by another run, or was left part-written; try again, and remove it only if it stays so while no oracle run is active.`;
+    const changed = 'The oracle lock changed while acquiring it; retry when the other run has finished.';
+    // Not recursive, so it fails once another run has written its owner file.
+    const removeEmpty = () => {
+        try { fs.rmdirSync(lock); }
+        catch (err) { if (!['ENOENT', 'ENOTEMPTY', 'EEXIST'].includes(err.code)) { throw err; } }
+    };
+    for (let attempt = 0; attempt < 4; attempt++) {
+        try {
+            fs.mkdirSync(lock);
+        } catch (err) {
+            if (err.code !== 'EEXIST') { throw err; }
+            let files;
+            // Its holder may release it between the two calls.
+            try { files = fs.readdirSync(lock); } catch (readErr) { if (readErr.code === 'ENOENT') { continue; } throw readErr; }
+            // An owner writes its file straight after making the folder, so an
+            // empty folder holds no run: one whose release failed left it.
+            if (files.length === 0) { removeEmpty(); continue; }
+            if (files.length !== 1 || !/^[a-f0-9-]+\.json$/.test(files[0])) { throw new Error(incomplete); }
+            const previousFile = path.join(lock, files[0]);
+            let previous;
+            try { previous = JSON.parse(fs.readFileSync(previousFile, 'utf8')); }
+            catch (err) {
+                if (err.code === 'ENOENT') { continue; }
+                if (!(err instanceof SyntaxError)) { throw err; }
+                // Its owner may still be writing it.
+                if (attempt >= 2) { throw new Error(incomplete); }
+                pause(50);
+                continue;
+            }
+            if (!Number.isSafeInteger(previous?.pid) || previous.pid <= 0 || typeof previous.host !== 'string'
+                || typeof previous.started !== 'string' || !/^\d+$/.test(previous.started)) {
+                throw new Error(`Invalid lock owner in ${previousFile}.`);
+            }
+            if (previous.host !== owner.host) {
+                throw new Error(`An oracle run on ${previous.host} holds the lock; remove ${lock} only after checking that no oracle run there is active.`);
+            }
+            const holderStarted = processStart(previous.pid);
+            if (holderStarted === previous.started) {
+                throw new Error(`Another VBE oracle run is active (pid ${previous.pid}); wait for it to finish.`);
+            }
+            if (holderStarted === 'unreadable') {
+                throw new Error(`Cannot tell whether process ${previous.pid}, which holds the oracle lock, is an oracle run; remove ${lock} only after checking that no oracle run is active.`);
+            }
+            // Only the run that removes this owner's file may remove the
+            // folder, so a run taking over the same lock late cannot remove a
+            // new owner's.
+            try { fs.unlinkSync(previousFile); }
+            catch (err) { if (err.code === 'ENOENT') { continue; } throw err; }
+            removeEmpty();
+            continue;
+        }
+        try { fs.writeFileSync(ownerFile, JSON.stringify(owner), { flag: 'wx' }); }
+        catch (err) {
+            // Another run removed the folder as empty before this file was in it.
+            if (err.code === 'ENOENT') { continue; }
+            throw err;
+        }
+        // Or it did so and took the folder over before this file was written:
+        // both owner files are then in it, and this run backs off.
+        if (fs.readdirSync(lock).length !== 1) {
+            fs.rmSync(ownerFile, { force: true });
+            throw new Error(changed);
+        }
+        // Not recursive, so a run that took the lock over keeps it. A folder
+        // left empty, say while a virus scanner holds it, the next run removes.
+        return () => {
+            fs.rmSync(ownerFile, { force: true });
+            try { fs.rmdirSync(lock); } catch { /* see above */ }
+        };
+    }
+    throw new Error(changed);
+}
+
+// The worker records "<pid> <image> <UTC start ticks>" for the host instance
+// it started, in the case's folder and on its output.
+function parseRecordedProcess(text) {
+    const match = /^(\d+) ([A-Z]+) (\d+)$/.exec(text.trim());
+    const pid = Number(match?.[1]);
+    return match && Number.isSafeInteger(pid) && pid > 0 ? { pid, image: match[2], started: match[3] } : undefined;
+}
+
+function readRecordedProcess(pidPath) {
+    try { return parseRecordedProcess(fs.readFileSync(pidPath, 'ascii')); }
+    catch { return undefined; }
+}
+
+// Only the host the worker started: its pid may since have been reused, even
+// by the same program, so the start time must still match. A process whose
+// start time cannot be read is left alone. True once that host is known to
+// be gone; false if it may still be there: its start time unreadable, or the
+// check cut short, for example by a Ctrl-C that reached its PowerShell
+// through the shared console, so the caller can keep the host and try again.
+// One PowerShell holds a handle on the process from the check to the kill:
+// Windows does not give a pid to another process while a handle to it is
+// open, so the process checked is the one killed.
 function killProcess(recorded) {
-    if (recorded === undefined) { return; }
-    spawnSync('taskkill', [
-        '/PID', String(recorded.pid), '/FI', `IMAGENAME eq ${recorded.image}.EXE`, '/T', '/F',
-    ], { encoding: 'utf8', timeout: 10_000 });
-}
-
-function killRecordedHost(pidPath) {
-    killProcess(readRecordedProcess(pidPath));
+    if (!recorded) { return true; }
+    const completed = spawnSync('powershell.exe', [
+        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command',
+        `$ErrorActionPreference = 'Stop'
+        $p = Get-Process -Id ${recorded.pid} -ErrorAction SilentlyContinue
+        if ($null -eq $p -or $p.ProcessName -ne '${recorded.image}') { 'gone'; exit }
+        try {
+            $null = $p.Handle
+            $ticks = $p.StartTime.ToUniversalTime().Ticks
+        } catch { 'unreadable'; exit }
+        if (($ticks - ($ticks % 10)) -ne ${recorded.started}) { 'gone'; exit }
+        # A message from taskkill must not end this script before its answer.
+        $ErrorActionPreference = 'Continue'
+        taskkill.exe /PID ${recorded.pid} /T /F *> $null
+        if ($LASTEXITCODE -eq 0) { 'killed' } else { 'failed' }`,
+    ], { encoding: 'utf8', timeout: 15_000 });
+    const value = completed.stdout?.trim();
+    return !completed.error && completed.status === 0 && (value === 'gone' || value === 'killed');
 }
 
 function readDialogResult(kase, dialogPath) {
@@ -511,6 +658,11 @@ class OracleWorker {
         this.hostBuilds = null;
     }
 
+    // A host kept because its kill was cut short, tried again.
+    endKeptHost() {
+        if (killProcess(this.hostProcess)) { this.hostProcess = undefined; }
+    }
+
     start() {
         const child = spawn('powershell.exe', [
             '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', WORKER,
@@ -525,13 +677,17 @@ class OracleWorker {
         readline.createInterface({ input: child.stdout }).on('line', (line) => {
             if (this.child === child && line.startsWith(RESULT_PREFIX)) {
                 this.settle({ line: line.slice(RESULT_PREFIX.length) });
+            } else if (this.child === child && line.startsWith(HOST_PREFIX)) {
+                // A host started or quit between cases ("closed" clears it).
+                this.hostProcess = parseRecordedProcess(line.slice(HOST_PREFIX.length));
             }
         });
         const ended = (error, code) => {
             if (this.child !== child) { return; }
             this.child = null;
             // A worker that did not exit cleanly did not quit its host instance.
-            if (error || code !== 0) { killProcess(this.hostProcess); }
+            // A kill cut short keeps the host, for the clean-up to end it.
+            if (!(error || code !== 0) || killProcess(this.hostProcess)) { this.hostProcess = undefined; }
             this.settle({ exited: true, error, code });
         };
         child.on('error', (error) => ended(error, null));
@@ -552,7 +708,16 @@ class OracleWorker {
     }
 
     request(message, timeoutMs) {
-        if (!this.child) { this.start(); }
+        if (!this.child) {
+            this.endKeptHost();
+            // A new worker would report a host of its own over a kept one,
+            // which would then be forgotten, so the case fails instead.
+            if (this.hostProcess) {
+                const error = new Error(`Office process ${this.hostProcess.pid} from an earlier case could not be ended.`);
+                return Promise.resolve({ exited: true, error, code: null, stderr: '' });
+            }
+            this.start();
+        }
         return new Promise((resolve) => {
             const timer = setTimeout(() => this.settle({ timedOut: true }), timeoutMs);
             this.pending = (reply) => {
@@ -580,14 +745,18 @@ class OracleWorker {
     // Ends the worker, which quits its host instance; kills both if it does not exit.
     close() {
         const child = this.child;
-        if (!child) { return Promise.resolve(); }
+        if (!child) {
+            this.endKeptHost();
+            return Promise.resolve();
+        }
         return new Promise((resolve) => {
             const timer = setTimeout(() => {
                 this.kill();
-                killProcess(this.hostProcess);
+                this.endKeptHost();
                 resolve();
             }, 30_000);
-            child.once('close', () => { clearTimeout(timer); resolve(); });
+            // A host the worker's exit could not end is tried again.
+            child.once('close', () => { clearTimeout(timer); this.endKeptHost(); resolve(); });
             child.stdin.end();
         });
     }
@@ -621,6 +790,8 @@ async function runCaseOnceUnchecked(worker, kase, timeoutSeconds, dialogHoldSeco
     const stagePath = path.join(tmpDir, 'stage.txt');
     const dialogPath = path.join(tmpDir, 'vbe_dialog.json');
     fs.writeFileSync(casePath, JSON.stringify(kase), 'utf8');
+    // For the clean-up after Ctrl-C, which only this case's own folder knows.
+    worker.pidPath = pidPath;
 
     // The watch window is an upper bound, not a wait. A compile case ends when
     // its error dialog is recorded or the Compile command turns disabled, and a
@@ -639,13 +810,19 @@ async function runCaseOnceUnchecked(worker, kase, timeoutSeconds, dialogHoldSeco
             casePath, pidPath, stagePath, dialogPath, dialogWatchSeconds, dialogHoldSeconds,
             host, hostProgId: OFFICE_HOSTS[host].progId, hostImage: OFFICE_HOSTS[host].image,
         }, timeoutSeconds * 1000);
-        worker.hostProcess = readRecordedProcess(pidPath) ?? worker.hostProcess;
+        const recorded = readRecordedProcess(pidPath);
+        // A case that replied retired any host it did not record. One that
+        // timed out or crashed may have stopped while quitting the previous
+        // host, before recording a new one, so the host the worker last
+        // announced is still its to end.
+        worker.hostProcess = recorded ?? (reply.timedOut || reply.exited ? worker.hostProcess : undefined);
 
         if (reply.timedOut) {
             let stage = 'timeout';
             try { stage = fs.readFileSync(stagePath, 'ascii').trim() || 'timeout'; } catch { /* keep */ }
             worker.kill();
-            killRecordedHost(pidPath);
+            // A kill cut short keeps the host, for the clean-up to end it.
+            if (killProcess(worker.hostProcess)) { worker.hostProcess = undefined; }
             return {
                 caseId: kase.id,
                 outcome: 'timeout',
@@ -657,7 +834,7 @@ async function runCaseOnceUnchecked(worker, kase, timeoutSeconds, dialogHoldSeco
 
         if (reply.exited) {
             // This case's host instance, which the worker's exit handler may not have known.
-            killProcess(worker.hostProcess);
+            if (killProcess(worker.hostProcess)) { worker.hostProcess = undefined; }
             return readDialogResult(kase, dialogPath) ?? {
                 caseId: kase.id,
                 outcome: 'worker_error',
@@ -683,6 +860,7 @@ async function runCaseOnceUnchecked(worker, kase, timeoutSeconds, dialogHoldSeco
         if (reply.stderr) { result.stderr = reply.stderr; }
         return result;
     } finally {
+        worker.pidPath = null;
         fs.rmSync(tmpDir, { recursive: true, force: true });
     }
 }
@@ -758,7 +936,8 @@ async function runCaseWithRetries(worker, kase, timeoutSeconds, timeoutRetries, 
 const USAGE = `Usage: node run_vbe_oracle.mjs [options]
 
   A fixture runs in the Office host its "host" names: excel (the default),
-  word, powerpoint or access.
+  word, powerpoint or access. One run at a time per user: every run takes a
+  lock at ${oracleLockPath()}.
 
   --cases <path>              Fixture document (default: vbe_oracle_cases.json)
   --case <id>                 Run only this case; repeatable
@@ -799,6 +978,12 @@ function parseArgs(argv) {
         strict: false,
         promoteObserved: false,
     };
+    // A missing value must not swallow the next option: --checkpoint --strict
+    // would otherwise write results to a file named --strict.
+    const value = (raw, flag) => {
+        if (raw === undefined || raw === '' || raw.startsWith('--')) { throw new Error(`${flag} expects a value (got '${raw ?? ''}')`); }
+        return raw;
+    };
     const number = (raw, flag) => {
         const value = Number.parseInt(raw, 10);
         if (!Number.isInteger(value)) { throw new Error(`${flag} expects an integer (got '${raw}')`); }
@@ -807,14 +992,14 @@ function parseArgs(argv) {
     for (let i = 0; i < argv.length; i++) {
         const flag = argv[i];
         switch (flag) {
-            case '--cases': args.cases = argv[++i]; break;
-            case '--case': args.caseIds.push(argv[++i]); break;
+            case '--cases': args.cases = value(argv[++i], flag); break;
+            case '--case': args.caseIds.push(value(argv[++i], flag)); break;
             case '--timeout': args.timeout = number(argv[++i], flag); break;
             case '--timeout-retries': args.timeoutRetries = number(argv[++i], flag); break;
             case '--cases-per-instance':
             case '--cases-per-excel': args.casesPerInstance = number(argv[++i], flag); break;
             case '--dialog-hold-seconds': args.dialogHoldSeconds = number(argv[++i], flag); break;
-            case '--checkpoint': args.checkpoint = argv[++i]; break;
+            case '--checkpoint': args.checkpoint = value(argv[++i], flag); break;
             case '--json': args.json = true; break;
             case '--strict': args.strict = true; break;
             case '--promote-observed': args.promoteObserved = true; break;
@@ -870,11 +1055,87 @@ async function main(argv) {
 
     // Every host the selected cases use must be installed, and for a
     // checkpoint run its build must be readable.
-    const unknownHosts = [...new Set(cases.map(caseHost))].filter((host) => !(host in OFFICE_HOSTS));
+    const unknownHosts = [...new Set(cases.map(caseHost))].filter((host) => !Object.hasOwn(OFFICE_HOSTS, host));
     if (unknownHosts.length) {
         console.error(`Unknown oracle host(s): ${unknownHosts.join(', ')}. Use ${Object.keys(OFFICE_HOSTS).join(', ')}.`);
         return 2;
     }
+
+    // Ctrl-C, Ctrl-Break and closing the console end the worker and the host
+    // it started, then release the lock. The handlers go in before the lock
+    // is taken: Node runs one only after the code taking the lock has
+    // finished, so a signal meanwhile still releases it. They stay in place
+    // until the run ends, so a second Ctrl-C does not end the process in the
+    // middle of the clean-up, though it can cut short a kill under way.
+    // Ctrl-C, closing the console and a normal end all put the message-box
+    // sounds back, unless Windows ends the process first; the next run then
+    // does.
+    let release = () => {};
+    let worker;
+    let silenced = false;
+    const restoreSounds = () => {
+        if (!silenced) { return; }
+        silenced = false;
+        setDialogSounds('restore');
+    };
+    let exiting = false;
+    const onExit = () => {
+        if (exiting) { return; }
+        exiting = true;
+        const pidPath = worker?.pidPath;
+        const announced = worker?.hostProcess;
+        const steps = [
+            () => worker?.kill(),
+            () => killProcess(announced),
+            // The case's own record, unless it names the host just checked:
+            // a closing console allows only seconds.
+            () => {
+                const recorded = pidPath && readRecordedProcess(pidPath);
+                if (recorded && !(recorded.pid === announced?.pid && recorded.started === announced?.started)) {
+                    killProcess(recorded);
+                }
+            },
+            // The current case's own folder, which its clean-up will not reach.
+            // The worker ended just now may hold it for a moment.
+            () => pidPath && fs.rmSync(path.dirname(pidPath), { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }),
+            () => restoreSounds(),
+            () => release(),
+        ];
+        for (const step of steps) {
+            try { step(); } catch { /* the remaining steps still run */ }
+        }
+    };
+    const signals = Object.entries({ SIGINT: 130, SIGHUP: 129, SIGBREAK: 149 })
+        .map(([signal, code]) => [signal, () => { onExit(); process.exit(code); }]);
+    process.once('exit', onExit);
+    for (const [signal, handler] of signals) { process.on(signal, handler); }
+    try {
+        try { release = acquireOracleLock(); }
+        catch (err) {
+            console.error(`Cannot acquire VBE oracle lock ${oracleLockPath()}: ${err.message}`);
+            return 2;
+        }
+        worker = new OracleWorker(args.casesPerInstance);
+        return await runOracle(args, worker, document, cases, () => {
+            silenced = true;
+            setDialogSounds('silence');
+        });
+    } finally {
+        try {
+            await worker?.close();
+            const kept = worker?.hostProcess;
+            if (kept) { console.error(`Could not end Office process ${kept.pid} (${kept.image}); close it by hand.`); }
+        } finally {
+            restoreSounds();
+            release();
+            process.removeListener('exit', onExit);
+            for (const [signal, handler] of signals) { process.removeListener(signal, handler); }
+        }
+    }
+}
+
+// Sounds are silenced only once the cases are about to run, and put back by main.
+async function runOracle(args, worker, document, cases, silenceSounds) {
     const hosts = [...new Set(cases.map(caseHost))];
     const buildHosts = hostsNeedingBuilds(cases, args.checkpoint);
     const registrations = new Map();
@@ -905,61 +1166,37 @@ async function main(argv) {
     let failures = 0;
     let oracleFailures = 0;
     const checkpoint = args.checkpoint ? loadCheckpoint(args.checkpoint) : null;
-    const worker = new OracleWorker(args.casesPerInstance);
     worker.hostBuilds = args.checkpoint ? hostBuilds : null;
-    // Ctrl-C, closing the console and a normal end all put the sounds back,
-    // unless Windows ends the process first; the next run then does.
-    let restored = false;
-    const restoreSounds = () => {
-        if (restored) { return; }
-        restored = true;
-        setDialogSounds('restore');
-    };
-    // The worker gets the same Ctrl-C and quits its host as before; only the
-    // sounds need putting back here.
-    const interrupt = (code) => () => { restoreSounds(); process.exit(code); };
-    const signals = [['SIGINT', interrupt(130)], ['SIGBREAK', interrupt(149)], ['SIGTERM', interrupt(143)], ['SIGHUP', interrupt(129)]];
-    for (const [signal, handler] of signals) { process.once(signal, handler); }
-    process.once('exit', restoreSounds);
-    setDialogSounds('silence');
-    try {
-        for (const kase of cases) {
-            const hash = caseHash(kase, hostBuilds.get(caseHost(kase)) ?? null);
-            const saved = checkpoint?.get(checkpointKey(String(kase.id), hash));
-            let result = knownHostCrashResult(kase, hostBuilds);
-            if (result) {
-                skippedCount += 1;
-            } else if (saved) {
-                result = { ...saved, resumed: true };
-            } else {
-                result = await runCaseWithRetries(
-                    worker, kase, args.timeout, args.timeoutRetries, args.dialogHoldSeconds,
-                );
-                if (args.checkpoint) {
-                    fs.appendFileSync(args.checkpoint, `${JSON.stringify({ caseHash: hash, result })}\n`, 'utf8');
-                }
+    silenceSounds();
+    for (const kase of cases) {
+        const hash = caseHash(kase, hostBuilds.get(caseHost(kase)) ?? null);
+        const saved = checkpoint?.get(checkpointKey(String(kase.id), hash));
+        let result = knownHostCrashResult(kase, hostBuilds);
+        if (result) {
+            skippedCount += 1;
+        } else if (saved) {
+            result = { ...saved, resumed: true };
+        } else {
+            result = await runCaseWithRetries(
+                worker, kase, args.timeout, args.timeoutRetries, args.dialogHoldSeconds,
+            );
+            if (args.checkpoint) {
+                fs.appendFileSync(args.checkpoint, `${JSON.stringify({ caseHash: hash, result })}\n`, 'utf8');
             }
-            const expected = String(kase.expected ?? 'observe');
-            result.expected = expected;
-            result.matched = expectedMatches(expected, String(result.outcome ?? ''))
-                && phaseMatches(kase, result);
-            result.description = kase.description ?? '';
-            const outcome = String(result.outcome ?? '');
-            if (isOracleInfrastructureFailure(outcome)) {
-                oracleFailures += 1;
-            } else if (outcome !== 'skipped' && !result.matched) {
-                failures += 1;
-            }
-            results.push(result);
-            if (isOracleInfrastructureFailure(outcome)) { break; }
         }
-    } finally {
-        try { await worker.close(); }
-        finally {
-            restoreSounds();
-            for (const [signal, handler] of signals) { process.removeListener(signal, handler); }
-            process.removeListener('exit', restoreSounds);
+        const expected = String(kase.expected ?? 'observe');
+        result.expected = expected;
+        result.matched = expectedMatches(expected, String(result.outcome ?? ''))
+            && phaseMatches(kase, result);
+        result.description = kase.description ?? '';
+        const outcome = String(result.outcome ?? '');
+        if (isOracleInfrastructureFailure(outcome)) {
+            oracleFailures += 1;
+        } else if (outcome !== 'skipped' && !result.matched) {
+            failures += 1;
         }
+        results.push(result);
+        if (isOracleInfrastructureFailure(outcome)) { break; }
     }
 
     if (args.promoteObserved) {
