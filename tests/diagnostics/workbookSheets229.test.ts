@@ -22,6 +22,7 @@ describe('saved sheet contents are not runtime facts', () => {
  it.each([
   'Main = ThisWorkbook.Sheets("Report").Name',
   'Main = ThisWorkbook.Sheets(10).Name',
+  'Main = ThisWorkbook.Sheets(256).Name',
   'Main = ThisWorkbook.Worksheets("Trend").Name',
   'Main = ThisWorkbook.Charts("Budget").Name',
   'Main = ThisWorkbook.Sheets.Item("Nope").Name',
