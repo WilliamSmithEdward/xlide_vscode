@@ -2,6 +2,23 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.1.23] - 2026-10-18
+
+Clean new template defaults and make VBE oracle runs safer and more reliable.
+
+- Remove leftover test-harness modules from the blank macro-enabled Excel
+  template used for new `.xltm` files (#1391, contributed by Sam, @swsammy).
+- Silence the account's four message-box sounds during oracle runs and restore
+  them afterward. Validate recovery data before writing settings, quarantine
+  malformed backups intact, and execute recovery regressions in Windows CI
+  (#1392, contributed by Sam, @swsammy, with recovery validation hardened during
+  review).
+- Remove registry, midnight, sheet-count and drive assumptions from selected
+  oracle fixtures (#1393, contributed by Sam, @swsammy).
+- End an oracle-owned host after recording a run-case error dialog rather than
+  waiting for a slow or crashing Run return; preserve compile-case behavior
+  across Excel, Word, PowerPoint and Access (#1394, contributed by Sam, @swsammy).
+
 ## [11.1.22] - 2026-10-16
 
 Ask for a protected project's password once, not on every test run.
