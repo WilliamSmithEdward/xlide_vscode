@@ -140,7 +140,7 @@ function dialogSoundsScript() {
         if ($null -eq $key) { continue }
         try {
             $value = [string]$key.GetValue('', $null, 'DoNotExpandEnvironmentNames')
-            $kind = [string]$key.GetValueKind('')
+            $kind = if ($value) { [string]$key.GetValueKind('') } else { '' }
             if ($value -and $kind -in @('String', 'ExpandString')) { $sounds += [pscustomobject]@{ name = $name; value = $value; kind = $kind } }
         } finally { $key.Close() }
     }
