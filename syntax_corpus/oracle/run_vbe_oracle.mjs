@@ -90,12 +90,28 @@ function dialogSoundsScript() {
             } finally { $key.Close() }
         }
     }
+    function Test-SavedSounds($saved) {
+        if ($null -eq $saved -or
+            ($saved.owner -isnot [int] -and $saved.owner -isnot [long]) -or
+            $saved.owner -le 0 -or $saved.owner -gt [int]::MaxValue -or
+            $saved.started -isnot [string] -or $saved.started -notmatch '^\d+$') { return $false }
+        $entries = @($saved.sounds)
+        if ($entries.Count -lt 1 -or $entries.Count -gt $events.Count) { return $false }
+        $seen = @()
+        foreach ($sound in $entries) {
+            if ($null -eq $sound -or $sound.name -isnot [string] -or
+                $events -notcontains $sound.name -or $seen -contains $sound.name -or
+                $sound.kind -isnot [string] -or $sound.kind -notin @('String', 'ExpandString') -or
+                $sound.value -isnot [string] -or [string]::IsNullOrEmpty($sound.value)) { return $false }
+            $seen += $sound.name
+        }
+        return $true
+    }
     if (Test-Path -LiteralPath $file) {
         $saved = $null
         try { $saved = Get-Content -Raw -Encoding UTF8 -LiteralPath $file | ConvertFrom-Json } catch { }
-        # Usable only with a sound to put back for each entry, as this script writes it.
-        $usable = @($saved.sounds | Where-Object { $_ -and $events -contains $_.name -and [Enum]::IsDefined([Microsoft.Win32.RegistryValueKind], [string]$_.kind) })
-        if ($null -eq $saved -or $null -eq $saved.owner -or -not $usable.Count -or $usable.Count -ne @($saved.sounds).Count) {
+        # Validate the entire backup before the first restore write or deletion.
+        if (-not (Test-SavedSounds $saved)) {
             # Unreadable: its sounds cannot be put back, so set it aside where
             # the user can find them, and go on.
             $aside = $file + '.unreadable-' + [DateTime]::UtcNow.Ticks
@@ -124,13 +140,16 @@ function dialogSoundsScript() {
         if ($null -eq $key) { continue }
         try {
             $value = [string]$key.GetValue('', $null, 'DoNotExpandEnvironmentNames')
-            if ($value) { $sounds += [pscustomobject]@{ name = $name; value = $value; kind = [string]$key.GetValueKind('') } }
+            $kind = [string]$key.GetValueKind('')
+            if ($value -and $kind -in @('String', 'ExpandString')) { $sounds += [pscustomobject]@{ name = $name; value = $value; kind = $kind } }
         } finally { $key.Close() }
     }
     if (-not $sounds.Count) { exit 0 }
     # Created only if absent, so of two runs starting together one saves and
     # silences, and the other leaves the sounds to it.
-    $json = [pscustomobject]@{ owner = $owner; started = (Started $owner); sounds = $sounds } | ConvertTo-Json -Depth 4
+    $snapshot = [pscustomobject]@{ owner = $owner; started = (Started $owner); sounds = $sounds }
+    if (-not (Test-SavedSounds $snapshot)) { throw 'Could not validate the sound recovery snapshot; sounds were not changed.' }
+    $json = $snapshot | ConvertTo-Json -Depth 4
     try { $stream = [IO.File]::Open($file, 'CreateNew', 'Write', 'None') }
     catch [IO.IOException] {
         # ERROR_FILE_EXISTS: another run got there first. Anything else is a real failure.

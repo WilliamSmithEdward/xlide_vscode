@@ -58,7 +58,10 @@ are left alone. The runner first saves their values and registry types in
 when it finishes or is interrupted, except any you set to another sound or
 removed meanwhile. If it is killed before putting them back, the next run
 does; a file that cannot be read is moved aside with a message instead. While
-another run is going, a second run leaves the sounds to it.
+another run is going, a second run leaves the sounds to it. Recovery validates
+the complete backup before any registry write: owner identity, unique allowed
+events, supported string registry kinds and nonempty string sound paths.
+Malformed backups are quarantined intact rather than restored or discarded.
 
 Run oracle commands sequentially. Do not run multiple `test:oracle:vbe` or
 `run_vbe_oracle.mjs` invocations in parallel, even for different cases.

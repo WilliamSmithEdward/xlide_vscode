@@ -327,7 +327,7 @@ describe('VBE oracle generated dialog sound PowerShell', () => {
         const ps = script();
         expect(ps.startsWith("$ErrorActionPreference = 'Stop'\n")).toBe(true);
         expect(ps.match(/GetValue\('', \$null, 'DoNotExpandEnvironmentNames'\)/g)).toHaveLength(2);
-        expect(ps).toContain("name = $name; value = $value; kind = [string]$key.GetValueKind('')");
+        expect(ps).toContain("name = $name; value = $value; kind = $kind");
         expect(ps).toContain("$key.SetValue('', '', [Microsoft.Win32.RegistryValueKind]$sound.kind)");
         expect(ps).toContain("$key.SetValue('', [string]$sound.value, [Microsoft.Win32.RegistryValueKind]$sound.kind)");
         const restore = ps.slice(ps.indexOf('function Restore('), ps.indexOf('if (Test-Path'));
@@ -336,7 +336,7 @@ describe('VBE oracle generated dialog sound PowerShell', () => {
         expect(restore).toContain('if ($null -eq $key) { continue }');
         const capture = ps.slice(ps.indexOf('$sounds = @()'), ps.indexOf('$json ='));
         expect(capture).toContain('if ($null -eq $key) { continue }');
-        expect(capture).toContain('if ($value) { $sounds += [pscustomobject]');
+        expect(capture).toContain("if ($value -and $kind -in @('String', 'ExpandString')) { $sounds += [pscustomobject]");
         expect(capture).toContain('if (-not $sounds.Count) { exit 0 }');
         expect(ps.match(/finally \{ \$key.Close\(\) \}/g)).toHaveLength(3);
     });
@@ -348,7 +348,7 @@ describe('VBE oracle generated dialog sound PowerShell', () => {
         // Windows PowerShell reads a file without a byte-order mark as the ANSI code page unless told.
         expect(ps).toContain('try { $saved = Get-Content -Raw -Encoding UTF8 -LiteralPath $file | ConvertFrom-Json } catch { }');
         expect(ps).toContain('$bytes = [Text.Encoding]::UTF8.GetBytes($json)');
-        expect(ps).toContain('$json = [pscustomobject]@{ owner = $owner; started = (Started $owner); sounds = $sounds } | ConvertTo-Json -Depth 4');
+        expect(ps).toContain('$snapshot = [pscustomobject]@{ owner = $owner; started = (Started $owner); sounds = $sounds }');
     });
 
     it('claims the saved-sounds file only if absent, before the first registry write', () => {
@@ -386,9 +386,9 @@ describe('VBE oracle generated dialog sound PowerShell', () => {
 
     it('sets an unreadable saved-sounds file aside and goes on', () => {
         const ps = script();
-        const unreadable = ps.indexOf('if ($null -eq $saved -or $null -eq $saved.owner -or -not $usable.Count -or $usable.Count -ne @($saved.sounds).Count) {');
+        const unreadable = ps.indexOf('if (-not (Test-SavedSounds $saved)) {');
         // A file with no usable sound, or one entry it could not put back, is set aside too.
-        expect(ps).toContain("$usable = @($saved.sounds | Where-Object { $_ -and $events -contains $_.name -and [Enum]::IsDefined([Microsoft.Win32.RegistryValueKind], [string]$_.kind) })");
+        expect(ps).toContain('$sound.value -isnot [string] -or [string]::IsNullOrEmpty($sound.value)');
         expect(unreadable).toBeGreaterThan(0);
         expect(ps).toContain("$aside = $file + '.unreadable-' + [DateTime]::UtcNow.Ticks");
         // A literal move: brackets in a profile path are not wildcards.
