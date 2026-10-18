@@ -37,6 +37,175 @@ function caseHost(kase) {
     return String(kase.host ?? DEFAULT_HOST).toLowerCase();
 }
 
+// Most rejected cases show a VBE error box, and Windows plays a message-box
+// sound for each. On some machines each sound leaves thousands of kernel trace
+// registrations that Windows frees only slowly, so a long run can fill
+// gigabytes of kernel memory. While a run goes, it silences the four
+// message-box sounds for its user (Windows falls back to the Default Beep for
+// a silenced dialog sound, so all four are needed) and then puts back exactly
+// what was there. The previous sounds are saved first, so a run killed before
+// it could put them back leaves them for the next run to restore.
+const DIALOG_SOUNDS = ['.Default', 'SystemAsterisk', 'SystemExclamation', 'SystemHand'];
+
+function dialogSoundsPath() {
+    let home = '';
+    try { home = os.userInfo().homedir; } catch { /* no account record */ }
+    return path.join(home || os.homedir(), '.xlide-vbe-oracle-sounds.json');
+}
+
+function dialogSoundsScript() {
+    return String.raw`
+    $file = $env:XLIDE_SOUNDS_FILE
+    $owner = [int]$env:XLIDE_SOUNDS_OWNER
+    $events = @(${DIALOG_SOUNDS.map((name) => `'${name}'`).join(', ')})
+    $schemes = 'AppEvents\Schemes\Apps\.Default'
+    function Open-Sound($name, $writable) {
+        [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey((Join-Path (Join-Path $schemes $name) '.Current'), $writable)
+    }
+    # A normal shell cannot read an elevated run's StartTime, but CIM can read
+    # its creation time, to the microsecond: both are compared to that.
+    # Every process, elevated or not, is listed, so one not listed has ended.
+    function Started($id) {
+        $listed = Get-Process -Id $id -ErrorAction SilentlyContinue
+        if ($null -eq $listed) { return '' }
+        try { $time = $listed.StartTime.ToFileTimeUtc() }
+        catch {
+            # A query that fails is no proof the process has ended.
+            try { $process = Get-CimInstance Win32_Process -Filter "ProcessId=$id" -ErrorAction Stop } catch { return 'unreadable' }
+            if ($null -eq $process) { return '' }
+            try { $time = $process.CreationDate.ToFileTimeUtc() } catch { return 'unreadable' }
+        }
+        return [string]($time - ($time % 10))
+    }
+    # Only a sound still silent is put back: one the user set to another
+    # sound, or removed, during the run stays as the user left it.
+    function Restore($saved) {
+        foreach ($sound in @($saved.sounds)) {
+            $key = Open-Sound $sound.name $true
+            if ($null -eq $key) { continue }
+            try {
+                if ($key.GetValueNames() -contains '' -and -not [string]$key.GetValue('', $null, 'DoNotExpandEnvironmentNames')) {
+                    $key.SetValue('', [string]$sound.value, [Microsoft.Win32.RegistryValueKind]$sound.kind)
+                }
+            } finally { $key.Close() }
+        }
+    }
+    function Test-SavedSounds($saved) {
+        if ($null -eq $saved -or
+            ($saved.owner -isnot [int] -and $saved.owner -isnot [long]) -or
+            $saved.owner -le 0 -or $saved.owner -gt [int]::MaxValue -or
+            $saved.started -isnot [string] -or $saved.started -notmatch '^\d+$') { return $false }
+        $entries = @($saved.sounds)
+        if ($entries.Count -lt 1 -or $entries.Count -gt $events.Count) { return $false }
+        $seen = @()
+        foreach ($sound in $entries) {
+            if ($null -eq $sound -or $sound.name -isnot [string] -or
+                $events -notcontains $sound.name -or $seen -contains $sound.name -or
+                $sound.kind -isnot [string] -or $sound.kind -notin @('String', 'ExpandString') -or
+                $sound.value -isnot [string] -or [string]::IsNullOrEmpty($sound.value)) { return $false }
+            $seen += $sound.name
+        }
+        return $true
+    }
+    if (Test-Path -LiteralPath $file) {
+        $saved = $null
+        try { $saved = Get-Content -Raw -Encoding UTF8 -LiteralPath $file | ConvertFrom-Json } catch { }
+        # Validate the entire backup before the first restore write or deletion.
+        if (-not (Test-SavedSounds $saved)) {
+            # Unreadable: its sounds cannot be put back, so set it aside where
+            # the user can find them, and go on.
+            $aside = $file + '.unreadable-' + [DateTime]::UtcNow.Ticks
+            [IO.File]::Move($file, $aside)
+            [Console]::Error.WriteLine("The saved message-box sounds could not be read; they were moved to $aside.")
+        } elseif ($env:XLIDE_SOUNDS_ACTION -eq 'restore') {
+            if ($saved.owner -eq $owner -and $saved.started -eq (Started $owner)) {
+                Restore $saved
+                Remove-Item -Force -LiteralPath $file
+            }
+            exit 0
+        } elseif ($saved.started -and (Started $saved.owner) -in @($saved.started, 'unreadable')) {
+            # Another run that is still going silenced them and will put them
+            # back; one that cannot be checked is left alone too.
+            exit 0
+        } else {
+            # Left by a run that was killed.
+            Restore $saved
+            Remove-Item -Force -LiteralPath $file
+        }
+    }
+    if ($env:XLIDE_SOUNDS_ACTION -eq 'restore') { exit 0 }
+    $sounds = @()
+    foreach ($name in $events) {
+        $key = Open-Sound $name $false
+        if ($null -eq $key) { continue }
+        try {
+            $value = [string]$key.GetValue('', $null, 'DoNotExpandEnvironmentNames')
+            $kind = if ($value) { [string]$key.GetValueKind('') } else { '' }
+            if ($value -and $kind -in @('String', 'ExpandString')) { $sounds += [pscustomobject]@{ name = $name; value = $value; kind = $kind } }
+        } finally { $key.Close() }
+    }
+    if (-not $sounds.Count) { exit 0 }
+    # Created only if absent, so of two runs starting together one saves and
+    # silences, and the other leaves the sounds to it.
+    $snapshot = [pscustomobject]@{ owner = $owner; started = (Started $owner); sounds = $sounds }
+    if (-not (Test-SavedSounds $snapshot)) { throw 'Could not validate the sound recovery snapshot; sounds were not changed.' }
+    $json = $snapshot | ConvertTo-Json -Depth 4
+    try { $stream = [IO.File]::Open($file, 'CreateNew', 'Write', 'None') }
+    catch [IO.IOException] {
+        # ERROR_FILE_EXISTS: another run got there first. Anything else is a real failure.
+        if ($_.Exception.HResult -eq -2147024816) { exit 0 }
+        throw
+    }
+    try {
+        $bytes = [Text.Encoding]::UTF8.GetBytes($json)
+        $stream.Write($bytes, 0, $bytes.Length)
+        $stream.Flush($true)
+    } finally { $stream.Dispose() }
+    foreach ($sound in $sounds) {
+        $key = Open-Sound $sound.name $true
+        if ($null -eq $key) { continue }
+        try { $key.SetValue('', '', [Microsoft.Win32.RegistryValueKind]$sound.kind) } finally { $key.Close() }
+    }
+`;
+}
+
+// Never stops a run: a sound that cannot be changed only costs memory.
+function setDialogSounds(action) {
+    const completed = spawnSync('powershell.exe', [
+        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', `$ErrorActionPreference = 'Stop'
+    # One run at a time saves, repairs or puts back the account's sounds, so
+    # two runs starting together cannot undo each other's saved copy. Windows
+    # releases the mutex if this process ends while holding it. One mutex per
+    # account, in every session, open to that account elevated or not.
+    [Console]::OutputEncoding = [Text.Encoding]::UTF8
+    $user = [Security.Principal.WindowsIdentity]::GetCurrent().User
+    $access = New-Object Security.AccessControl.MutexSecurity
+    $access.AddAccessRule((New-Object Security.AccessControl.MutexAccessRule($user, 'FullControl', 'Allow')))
+    $created = $false
+    $mutex = [Threading.Mutex]::new($false, "Global\\xlide-vbe-oracle-sounds-$($user.Value)", [ref]$created, $access)
+    $owned = $false
+    try { $owned = $mutex.WaitOne(10000) } catch [Threading.AbandonedMutexException] { $owned = $true }
+    if (-not $owned) {
+        [Console]::Error.WriteLine('another oracle run held the sounds for over ten seconds')
+        exit 3
+    }
+    try {
+    ${dialogSoundsScript()}
+    } finally { try { $mutex.ReleaseMutex() } catch { } }`,
+    ], {
+        encoding: 'utf8', timeout: 15_000,
+        env: { ...process.env, XLIDE_SOUNDS_FILE: dialogSoundsPath(), XLIDE_SOUNDS_OWNER: String(process.pid), XLIDE_SOUNDS_ACTION: action },
+    });
+    // A notice from a successful run, such as an unreadable file set aside.
+    if (!completed.error && completed.status === 0 && completed.stderr?.trim()) { console.error(completed.stderr.trim()); }
+    if (completed.error || completed.status !== 0) {
+        const why = completed.error?.message || completed.stderr?.trim() || `PowerShell exited ${completed.status}`;
+        console.error(action === 'silence'
+            ? `Could not silence the message-box sounds for this run (${why}); rejected cases may play them.`
+            : `Could not put back the message-box sounds (${why}); the next oracle run will.`);
+    }
+}
+
 function comRegistered(progId) {
     const completed = spawnSync('powershell.exe', [
         '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command',
@@ -727,6 +896,21 @@ async function main(argv) {
     const checkpoint = args.checkpoint ? loadCheckpoint(args.checkpoint) : null;
     const worker = new OracleWorker(args.casesPerInstance);
     worker.hostBuilds = args.checkpoint ? hostBuilds : null;
+    // Ctrl-C, closing the console and a normal end all put the sounds back,
+    // unless Windows ends the process first; the next run then does.
+    let restored = false;
+    const restoreSounds = () => {
+        if (restored) { return; }
+        restored = true;
+        setDialogSounds('restore');
+    };
+    // The worker gets the same Ctrl-C and quits its host as before; only the
+    // sounds need putting back here.
+    const interrupt = (code) => () => { restoreSounds(); process.exit(code); };
+    const signals = [['SIGINT', interrupt(130)], ['SIGBREAK', interrupt(149)], ['SIGTERM', interrupt(143)], ['SIGHUP', interrupt(129)]];
+    for (const [signal, handler] of signals) { process.once(signal, handler); }
+    process.once('exit', restoreSounds);
+    setDialogSounds('silence');
     try {
         for (const kase of cases) {
             const hash = caseHash(kase, hostBuilds.get(caseHost(kase)) ?? null);
@@ -759,7 +943,12 @@ async function main(argv) {
             if (isOracleInfrastructureFailure(outcome)) { break; }
         }
     } finally {
-        await worker.close();
+        try { await worker.close(); }
+        finally {
+            restoreSounds();
+            for (const [signal, handler] of signals) { process.removeListener(signal, handler); }
+            process.removeListener('exit', restoreSounds);
+        }
     }
 
     if (args.promoteObserved) {

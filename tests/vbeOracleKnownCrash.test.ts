@@ -1,3 +1,4 @@
+import { EventEmitter } from 'node:events';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { runInNewContext } from 'node:vm';
@@ -62,7 +63,8 @@ function setupUncheckpointedMain(registered: { build: string | null; why?: strin
         ...policy,
         parseArgs: () => ({ timeout: 30, timeoutRetries: 0, dialogHoldSeconds: 0,
             casesPerInstance: 40, caseIds: [], strict: true, json: true }),
-        process: { platform: 'win32' },
+        process: Object.assign(new EventEmitter(), { platform: 'win32' }),
+        setDialogSounds: () => {}, // Sound lifecycle is covered in vbeOracleDialogSounds.test.ts.
         console: { log: (line: string) => output.push(line), error: (line: string) => output.push(line) },
         loadCasesDocument: () => ({ cases }),
         OFFICE_HOSTS: { excel: { progId: 'Excel.Application' } },
@@ -105,7 +107,8 @@ it.each([true, false])('continues after a skip and excludes it from checkpoints 
         ...policy,
         parseArgs: () => ({ timeout: 30, timeoutRetries: 0, dialogHoldSeconds: 0,
             casesPerInstance: 40, caseIds: [], checkpoint: 'checkpoint', strict: true, json }),
-        process: { platform: 'win32' },
+        process: Object.assign(new EventEmitter(), { platform: 'win32' }),
+        setDialogSounds: () => {}, // Sound lifecycle is covered in vbeOracleDialogSounds.test.ts.
         console: { log: (line: string) => output.push(line), error: (line: string) => output.push(line) },
         loadCasesDocument: () => ({ cases }),
         OFFICE_HOSTS: { excel: { progId: 'Excel.Application' } },
