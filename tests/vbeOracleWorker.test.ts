@@ -152,10 +152,14 @@ describe('VBE oracle worker', () => {
     });
 
     it.skipIf(process.platform !== 'win32')('tells a return error from any other Run error in PowerShell', () => {
-        const worker = readOracle('vbe_oracle_worker.ps1');
+        // A Windows checkout has CRLF lines; made LF here, the cut below ends
+        // with the function's own line break, and PowerShell reading commands
+        // from standard input needs the blank line that then follows it to
+        // run the definition.
+        const worker = readOracle('vbe_oracle_worker.ps1').replaceAll('\r\n', '\n');
         const start = worker.indexOf('$ReturnErrorMessages = @(');
         const fn = worker.indexOf('function Test-RunReturnError');
-        const end = fn + (/\r?\n\}\r?\n/.exec(worker.slice(fn))?.index ?? -fn) + 3;
+        const end = fn + (/\n\}\n/.exec(worker.slice(fn))?.index ?? -fn) + 3;
         const probes = [
             ['wrapped date', true, 'New-Wrapped ([ArgumentException]::new("Not a legal OleAut date."))'],
             ['wrapped E_INVALIDARG', true, 'New-Wrapped ([ArgumentException]::new("Value does not fall within the expected range."))'],
