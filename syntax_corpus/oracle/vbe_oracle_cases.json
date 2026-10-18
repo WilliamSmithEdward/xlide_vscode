@@ -94894,6 +94894,82 @@
       "diagnosticMeaning": "runtime-valid"
     },
     {
+      "id": "issue609_word_13_runtime",
+      "description": "Word: issue #609 case 13, a parameterless Variant Function called with an argument as a statement (`Arr 1`). VBA leaves Main there without an error and the host's Run returns E_INVALIDARG, which counts as a return, measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Function Arr() As Variant\r\n    Arr = Array(10, 20)\r\nEnd Function\r\nFunction Main() As Variant\r\n    Arr 1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue609_word_17_runtime",
+      "description": "Word: issue #609 case 17, a parameterless Variant Function called with an argument as a statement (`Arr (1)`). VBA leaves Main there without an error and the host's Run returns E_INVALIDARG, which counts as a return, measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Function Arr() As Variant\r\n    Arr = Array(10, 20)\r\nEnd Function\r\nFunction Main() As Variant\r\n    Arr (1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue609_access_13_runtime",
+      "description": "Access: issue #609 case 13, a parameterless Variant Function called with an argument as a statement (`Arr 1`). VBA leaves Main there without an error and the host's Run returns E_INVALIDARG, which counts as a return, measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Function Arr() As Variant\r\n    Arr = Array(10, 20)\r\nEnd Function\r\nFunction Main() As Variant\r\n    Arr 1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue609_access_17_runtime",
+      "description": "Access: issue #609 case 17, a parameterless Variant Function called with an argument as a statement (`Arr (1)`). VBA leaves Main there without an error and the host's Run returns E_INVALIDARG, which counts as a return, measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Function Arr() As Variant\r\n    Arr = Array(10, 20)\r\nEnd Function\r\nFunction Main() As Variant\r\n    Arr (1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "access"
+    },
+    {
       "id": "issue346b_01_runtime",
       "description": "Issue #346 a local known value as a For bound or a host property value, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
       "provenance": "vbe-oracle-verified",

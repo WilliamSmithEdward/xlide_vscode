@@ -341,11 +341,30 @@ Error Reporting has finished, 6 to 10 s later. Use runtime
 fixtures sparingly, only when a deterministic runtime error changes diagnostic
 severity or corpus truth.
 
-An entry point may be a `Function`. If it returns a Date beyond what .NET can
-hold, the macro has run but reading its return value fails with
-`Not a legal OleAut date.`; the worker treats exactly that error as a normal
-return, so a captured dialog still rejects the case and an accept still
-requires the host to be alive. Any other error from `Run` is handled as before.
+An entry point may be a `Function`. The worker treats exactly two errors from
+`Run` as a normal return:
+
+- `Not a legal OleAut date.`: the Function returned a Date beyond what .NET
+  can hold, so reading the return value fails.
+- `Value does not fall within the expected range.` (E_INVALIDARG): the host's
+  Run returns it for a Variant Function that VBA left early, with no error
+  handler active and without an error, at a statement such as `Arr 1` (a
+  parameterless Function called with an argument). A VBA caller of the same
+  Function gets Empty back and carries on. Excel, Word and Access behave
+  alike. PowerPoint's Run fails there with `The remote procedure call
+  failed.`, which stays an infrastructure failure. Excel's Run can return the
+  same error after an ordinary run-time error dialog too; the dialog decides
+  that case.
+
+A captured dialog still rejects the case and an accept still requires the host
+to be alive. Any other error from `Run` is handled as before.
+
+In Excel 16.0 (build 20430) the host sometimes crashes after such a case has
+been decided. Watched for 5 s after each of 10 runs, `issue609_13_runtime` was
+accepted every time, and once Excel then logged an access violation in
+mso40uiwin32client.dll; an ordinary fixture logged none in 20 runs. The verdict
+is read while the host is alive, and a run case's host is replaced after it, so
+such a crash changes no result. It leaves only a Windows Error Reporting entry.
 
 During compile fixtures, the worker starts a Win32 dialog watcher before invoking
 VBE Compile. A dialog owned by the disposable host process with title

@@ -1091,6 +1091,33 @@ function Test-MacroNotFound([string]$Message) {
     return $false
 }
 
+# Two errors from Run count as a return:
+# - the macro returned a Date beyond what .NET can hold, so reading the
+#   return value fails with "Not a legal OleAut date.";
+# - the host's Run itself returns E_INVALIDARG. It does so for a Variant
+#   Function that VBA left early, with no error handler active and without
+#   an error, at a statement such as `Arr 1` (a parameterless Function called
+#   with an argument); a VBA caller of the same Function gets Empty back and
+#   carries on. Excel's Run can return it after an ordinary run-time error
+#   dialog too, where the dialog decides the case.
+# Excel's Run raises either one wrapped in a MethodInvocationException;
+# Word's and Access's raise E_INVALIDARG unwrapped. A dialog still rejects
+# the case, an accept still requires the host to be alive, and any other
+# error stays an error.
+$ReturnErrorMessages = @(
+    "Not a legal OleAut date.",
+    "Value does not fall within the expected range."
+)
+
+function Test-RunReturnError($Exception) {
+    if ($Exception -is [System.Management.Automation.MethodInvocationException]) {
+        $Exception = $Exception.InnerException
+    }
+    return $null -ne $Exception -and
+        $Exception.GetType() -eq [System.ArgumentException] -and
+        $ReturnErrorMessages -ccontains $Exception.Message
+}
+
 # The build of the running host, read from its own executable once per host
 # process. A failed read is not kept, so the next case reads it again.
 function Get-HostBuild($HostPid) {
@@ -1237,15 +1264,7 @@ function Invoke-OracleCase {
                         break
                     }
                     catch {
-                        # The macro ran, but its returned Date lies beyond what
-                        # .NET can hold, so only reading the return value failed.
-                        # This one exact error counts as a return; any other
-                        # stays an error.
-                        $returnError = $_.Exception.InnerException
-                        if ($_.Exception -is [System.Management.Automation.MethodInvocationException] -and
-                            $null -ne $returnError -and
-                            $returnError.GetType() -eq [System.ArgumentException] -and
-                            $returnError.Message -ceq "Not a legal OleAut date.") {
+                        if (Test-RunReturnError $_.Exception) {
                             $lastError = $null
                             break
                         }

@@ -1,3 +1,4 @@
+import { spawnSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { describe, expect, it } from 'vitest';
@@ -129,6 +130,54 @@ describe('VBE oracle worker', () => {
         for (const host of known) {
             expect(corpus.cases.some((kase) => (kase.host ?? 'excel') === host), host).toBe(true);
         }
+    });
+
+    it('counts a Run error that comes after VBA finished as a return, and nothing else', () => {
+        // A Variant Function that VBA leaves early without an error (as at
+        // `Arr 1`, issue609_13/17) makes the host's Run return E_INVALIDARG,
+        // and a returned Date beyond .NET's range fails to convert. Both are
+        // returns; the run catch must test for them before anything else, so
+        // the dialog and alive checks after the loop still decide the case.
+        const worker = readOracle('vbe_oracle_worker.ps1');
+        const runStart = worker.indexOf('Set-Stage "run"');
+        const run = worker.slice(runStart, worker.indexOf('Resolve-DialogAfterStop', runStart));
+        expect(run).toMatch(/catch \{\s*if \(Test-RunReturnError \$_\.Exception\) \{\s*\$lastError = \$null\s*break\s*\}/);
+        expect(run.match(/\[void\]\$app\.Run\(/g)).toHaveLength(1);
+
+        const messages = /\$ReturnErrorMessages = @\(([^)]*)\)/.exec(worker)?.[1] ?? '';
+        expect([...messages.matchAll(/"([^"]+)"/g)].map((match) => match[1])).toEqual([
+            'Not a legal OleAut date.',
+            'Value does not fall within the expected range.',
+        ]);
+    });
+
+    it.skipIf(process.platform !== 'win32')('tells a return error from any other Run error in PowerShell', () => {
+        const worker = readOracle('vbe_oracle_worker.ps1');
+        const start = worker.indexOf('$ReturnErrorMessages = @(');
+        const fn = worker.indexOf('function Test-RunReturnError');
+        const end = fn + (/\r?\n\}\r?\n/.exec(worker.slice(fn))?.index ?? -fn) + 3;
+        const probes = [
+            ['wrapped date', true, 'New-Wrapped ([ArgumentException]::new("Not a legal OleAut date."))'],
+            ['wrapped E_INVALIDARG', true, 'New-Wrapped ([ArgumentException]::new("Value does not fall within the expected range."))'],
+            ['bare E_INVALIDARG', true, '[ArgumentException]::new("Value does not fall within the expected range.")'],
+            ['bare date', true, '[ArgumentException]::new("Not a legal OleAut date.")'],
+            ['other message', false, 'New-Wrapped ([ArgumentException]::new("Value does not fall within the expected range"))'],
+            ['other case', false, '[ArgumentException]::new("value does not fall within the expected range.")'],
+            // A subclass with the very message: only the type check refuses it.
+            ['derived type', false, '[System.Text.DecoderFallbackException]::new("Value does not fall within the expected range.")'],
+            ['macro not found', false, 'New-Wrapped ([Runtime.InteropServices.COMException]::new("Cannot run the macro", -2146827284))'],
+            ['remote call failed', false, '[Runtime.InteropServices.COMException]::new("The remote procedure call failed.", -2147023170)'],
+            ['wrapped nothing', false, 'New-Wrapped $null'],
+        ] as const;
+        const script = [
+            worker.slice(start, end),
+            'function New-Wrapped($Inner) { [System.Management.Automation.MethodInvocationException]::new("Exception calling Run", $Inner) }',
+            ...probes.map(([name, , exception]) => `"${name}=" + (Test-RunReturnError (${exception}))`),
+        ].join('\n');
+        const run = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', '-'], { input: script, encoding: 'utf8' });
+        expect(run.stderr).toBe('');
+        const lines = run.stdout.trim().split(/\r?\n/);
+        expect(lines).toEqual(probes.map(([name, expected]) => `${name}=${expected ? 'True' : 'False'}`));
     });
 
     it('keeps the old coordinator name working', () => {
