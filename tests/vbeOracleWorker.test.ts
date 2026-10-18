@@ -64,6 +64,31 @@ describe('VBE oracle worker', () => {
         expect(assertBody.match(/throw "/g)).toHaveLength(2);
     });
 
+    it('ends the host once a run case has recorded its dialog, whatever the dialog', () => {
+        // The dialog is a run case's evidence. In Excel 16.0 (build 20430),
+        // after a run-time error in a Function declared As String, Excel
+        // crashes once the dialog is dismissed and Run returns only when
+        // Windows Error Reporting is done, 6 to 10 s later; after a compile
+        // error Run does not return at all.
+        const worker = readOracle('vbe_oracle_worker.ps1');
+        const watchStart = worker.indexOf('private static void Watch(');
+        const watch = worker.slice(watchStart, worker.indexOf('private static void EndProcess', watchStart));
+        const recorded = watch.indexOf('WriteDialogResult(resultPath, dialog);');
+        const ended = watch.indexOf('EndProcess(hostProcessId);');
+        expect(recorded).toBeGreaterThan(0);
+        expect(ended).toBeGreaterThan(recorded);
+        expect(watch.slice(recorded, ended)).toMatch(/^WriteDialogResult\(resultPath, dialog\);\s*if \(endHostAfterDialog\) \{\s*$/);
+
+        // Only a run case ends its host this way; a compile case keeps it.
+        const starts = [...worker.matchAll(/\[XlideVbeDialogWatcher\]::Start\(([^)]*)\)/g)].map((match) => match[1]);
+        expect(starts).toEqual([
+            '$appPid, $DialogPath, $StagePath, $DialogWatchSeconds, $DialogHoldSeconds',
+            '$appPid, $DialogPath, $StagePath, $DialogWatchSeconds, $DialogHoldSeconds, $true',
+        ]);
+        const runStart = worker.indexOf('Set-Stage "run"');
+        expect(worker.indexOf(starts[1], runStart)).toBeGreaterThan(runStart);
+    });
+
     it('marks served results the way the coordinator reads them', () => {
         // In -Serve mode the coordinator takes only stdout lines that start
         // with this prefix as results, so the two files must agree on it.
