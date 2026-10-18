@@ -22166,7 +22166,7 @@
       "expected": "accepted",
       "mode": "run",
       "entryPoint": "Main",
-      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim v As Variant\r\n    If Timer > 0 Then v = 2\r\n    Main = 5 / v\r\nEnd Function\r\n\r\n",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim v As Variant\r\n    If Timer >= 0 Then v = 2\r\n    Main = 5 / v\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
     },
@@ -27199,7 +27199,7 @@
       "expected": "rejected",
       "mode": "run",
       "entryPoint": "Main",
-      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim ws As Worksheet\r\n    Set ws = ThisWorkbook.Sheets(10)\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim ws As Worksheet\r\n    Set ws = ThisWorkbook.Sheets(256)\r\n    Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
     },
@@ -55040,7 +55040,7 @@
       "expected": "accepted",
       "mode": "run",
       "entryPoint": "Main",
-      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim b As Boolean\r\n    b = GetSetting(\"app\", \"s\", \"k\", \"False\")\r\n    Main = b\r\nEnd Function\r\n\r\n",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim b As Boolean\r\n    On Error Resume Next: DeleteSetting \"ZzXlide361\": On Error GoTo 0\r\n    b = GetSetting(\"ZzXlide361\", \"s\", \"k\", \"False\")\r\n    Main = b\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
     },
@@ -104814,7 +104814,7 @@
       "expected": "rejected",
       "mode": "run",
       "entryPoint": "Main",
-      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = \"ok\"\r\n    On Error Resume Next: DeleteSetting \"ZzXlide700\": On Error GoTo 0\r\n    Main = Len(Dir(\"C:\\\", 64))\r\n    On Error Resume Next: DeleteSetting \"ZzXlide700\": On Error GoTo 0\r\nEnd Function\r\n\r\n",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = \"ok\"\r\n    On Error Resume Next: DeleteSetting \"ZzXlide700\": On Error GoTo 0\r\n    Main = Len(Dir(Environ(\"SystemDrive\") & \"\\\", 64))\r\n    On Error Resume Next: DeleteSetting \"ZzXlide700\": On Error GoTo 0\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
     },
@@ -104825,7 +104825,7 @@
       "expected": "accepted",
       "mode": "run",
       "entryPoint": "Main",
-      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = \"ok\"\r\n    On Error Resume Next: DeleteSetting \"ZzXlide700\": On Error GoTo 0\r\n    Main = Len(Dir(\"C:\\\", 63))\r\n    On Error Resume Next: DeleteSetting \"ZzXlide700\": On Error GoTo 0\r\nEnd Function\r\n\r\n",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = \"ok\"\r\n    On Error Resume Next: DeleteSetting \"ZzXlide700\": On Error GoTo 0\r\n    Main = Len(Dir(Environ(\"SystemDrive\") & \"\\\", 63))\r\n    On Error Resume Next: DeleteSetting \"ZzXlide700\": On Error GoTo 0\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
     },
@@ -104836,7 +104836,7 @@
       "expected": "accepted",
       "mode": "run",
       "entryPoint": "Main",
-      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = \"ok\"\r\n    On Error Resume Next: DeleteSetting \"ZzXlide700\": On Error GoTo 0\r\n    Main = Len(Dir(\"C:\\\", 32))\r\n    On Error Resume Next: DeleteSetting \"ZzXlide700\": On Error GoTo 0\r\nEnd Function\r\n\r\n",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = \"ok\"\r\n    On Error Resume Next: DeleteSetting \"ZzXlide700\": On Error GoTo 0\r\n    Main = Len(Dir(Environ(\"SystemDrive\") & \"\\\", 32))\r\n    On Error Resume Next: DeleteSetting \"ZzXlide700\": On Error GoTo 0\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
     },
@@ -104847,7 +104847,7 @@
       "expected": "accepted",
       "mode": "run",
       "entryPoint": "Main",
-      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = \"ok\"\r\n    On Error Resume Next: DeleteSetting \"ZzXlide700\": On Error GoTo 0\r\n    Main = Len(Dir(\"C:\\\", 16))\r\n    On Error Resume Next: DeleteSetting \"ZzXlide700\": On Error GoTo 0\r\nEnd Function\r\n\r\n",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = \"ok\"\r\n    On Error Resume Next: DeleteSetting \"ZzXlide700\": On Error GoTo 0\r\n    Main = Len(Dir(Environ(\"SystemDrive\") & \"\\\", 16))\r\n    On Error Resume Next: DeleteSetting \"ZzXlide700\": On Error GoTo 0\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
     },
@@ -104858,7 +104858,7 @@
       "expected": "rejected",
       "mode": "run",
       "entryPoint": "Main",
-      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = \"ok\"\r\n    On Error Resume Next: DeleteSetting \"ZzXlide700\": On Error GoTo 0\r\n    Main = Len(Dir(\"C:\\\", 127))\r\n    On Error Resume Next: DeleteSetting \"ZzXlide700\": On Error GoTo 0\r\nEnd Function\r\n\r\n",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = \"ok\"\r\n    On Error Resume Next: DeleteSetting \"ZzXlide700\": On Error GoTo 0\r\n    Main = Len(Dir(Environ(\"SystemDrive\") & \"\\\", 127))\r\n    On Error Resume Next: DeleteSetting \"ZzXlide700\": On Error GoTo 0\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
     },
@@ -104869,7 +104869,7 @@
       "expected": "rejected",
       "mode": "run",
       "entryPoint": "Main",
-      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = \"ok\"\r\n    On Error Resume Next: DeleteSetting \"ZzXlide700\": On Error GoTo 0\r\n    Main = Len(Dir(\"C:\\\", 128))\r\n    On Error Resume Next: DeleteSetting \"ZzXlide700\": On Error GoTo 0\r\nEnd Function\r\n\r\n",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = \"ok\"\r\n    On Error Resume Next: DeleteSetting \"ZzXlide700\": On Error GoTo 0\r\n    Main = Len(Dir(Environ(\"SystemDrive\") & \"\\\", 128))\r\n    On Error Resume Next: DeleteSetting \"ZzXlide700\": On Error GoTo 0\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
     },
@@ -104880,7 +104880,7 @@
       "expected": "rejected",
       "mode": "run",
       "entryPoint": "Main",
-      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = \"ok\"\r\n    On Error Resume Next: DeleteSetting \"ZzXlide700\": On Error GoTo 0\r\n    Main = Len(Dir(\"C:\\\", 256))\r\n    On Error Resume Next: DeleteSetting \"ZzXlide700\": On Error GoTo 0\r\nEnd Function\r\n\r\n",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = \"ok\"\r\n    On Error Resume Next: DeleteSetting \"ZzXlide700\": On Error GoTo 0\r\n    Main = Len(Dir(Environ(\"SystemDrive\") & \"\\\", 256))\r\n    On Error Resume Next: DeleteSetting \"ZzXlide700\": On Error GoTo 0\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
     },
@@ -104891,7 +104891,7 @@
       "expected": "rejected",
       "mode": "run",
       "entryPoint": "Main",
-      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = \"ok\"\r\n    On Error Resume Next: DeleteSetting \"ZzXlide700\": On Error GoTo 0\r\n    Main = Len(Dir(\"C:\\\", -1))\r\n    On Error Resume Next: DeleteSetting \"ZzXlide700\": On Error GoTo 0\r\nEnd Function\r\n\r\n",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = \"ok\"\r\n    On Error Resume Next: DeleteSetting \"ZzXlide700\": On Error GoTo 0\r\n    Main = Len(Dir(Environ(\"SystemDrive\") & \"\\\", -1))\r\n    On Error Resume Next: DeleteSetting \"ZzXlide700\": On Error GoTo 0\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
     },
@@ -104902,7 +104902,7 @@
       "expected": "accepted",
       "mode": "run",
       "entryPoint": "Main",
-      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = \"ok\"\r\n    On Error Resume Next: DeleteSetting \"ZzXlide700\": On Error GoTo 0\r\n    Main = Len(Dir(\"C:\\\", vbDirectory))\r\n    On Error Resume Next: DeleteSetting \"ZzXlide700\": On Error GoTo 0\r\nEnd Function\r\n\r\n",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = \"ok\"\r\n    On Error Resume Next: DeleteSetting \"ZzXlide700\": On Error GoTo 0\r\n    Main = Len(Dir(Environ(\"SystemDrive\") & \"\\\", vbDirectory))\r\n    On Error Resume Next: DeleteSetting \"ZzXlide700\": On Error GoTo 0\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
     },
