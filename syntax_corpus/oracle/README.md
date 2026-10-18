@@ -47,6 +47,19 @@ only its newly created component and deletes its temporary import file.
 npm run test:oracle:vbe
 ```
 
+While it runs, the runner silences four Windows sounds for your user: Default
+Beep, Asterisk, Exclamation and Critical Stop. Most rejected cases show a VBE
+error box, which plays one of these sounds, and on some machines each sound
+leaves thousands of kernel trace registrations that Windows frees only slowly,
+so a long run could fill gigabytes of kernel memory. Windows plays the Default
+Beep in place of a silenced dialog sound, so all four are needed; other sounds
+are left alone. The runner first saves their values and registry types in
+`~/.xlide-vbe-oracle-sounds.json` in your account profile, then puts them back
+when it finishes or is interrupted, except any you set to another sound or
+removed meanwhile. If it is killed before putting them back, the next run
+does; a file that cannot be read is moved aside with a message instead. While
+another run is going, a second run leaves the sounds to it.
+
 Run oracle commands sequentially. Do not run multiple `test:oracle:vbe` or
 `run_vbe_oracle.mjs` invocations in parallel, even for different cases.
 The harness drives the VBE through a single-user COM/UI automation surface;
