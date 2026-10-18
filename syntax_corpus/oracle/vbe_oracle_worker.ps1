@@ -146,10 +146,16 @@ public static class XlideVbeDialogWatcher {
         Start(hostProcessId, resultPath, stagePath, maxSeconds, holdSeconds, false);
     }
 
-    // With endHostOnCompileError, a compile-error dialog ends the host once
-    // it has been recorded. Excel's Run does not return after a compile error
-    // is dismissed, so a run case would otherwise wait for the timeout.
-    public static void Start(uint hostProcessId, string resultPath, string stagePath, int maxSeconds, int holdSeconds, bool endHostOnCompileError) {
+    // When a run case starts the watcher with endHostAfterDialog, the watcher
+    // ends the host once it has recorded a dialog: the dialog is the case's
+    // evidence, and the host is replaced after every run case anyway.
+    // Waiting for Run instead can take long. Excel's Run does not return after
+    // a compile error is dismissed, so the case would wait for the timeout.
+    // In Excel 16.0 (build 20430), after a run-time error in a Function
+    // declared As String, Excel crashes in oleaut32 once the dialog is
+    // dismissed, and Run returns only when Windows Error Reporting has
+    // finished with it, 6 to 10 s later.
+    public static void Start(uint hostProcessId, string resultPath, string stagePath, int maxSeconds, int holdSeconds, bool endHostAfterDialog) {
         Stop();
         if (hostProcessId == 0 || String.IsNullOrEmpty(resultPath)) {
             return;
@@ -159,7 +165,7 @@ public static class XlideVbeDialogWatcher {
         dialogSeen = false;
         stopEvent.Reset();
         watcherThread = new Thread(delegate() {
-            Watch(hostProcessId, resultPath, stagePath, maxSeconds, holdSeconds, endHostOnCompileError);
+            Watch(hostProcessId, resultPath, stagePath, maxSeconds, holdSeconds, endHostAfterDialog);
         });
         watcherThread.IsBackground = true;
         watcherThread.Start();
@@ -219,7 +225,7 @@ public static class XlideVbeDialogWatcher {
         return GetForegroundWindow() == hWnd;
     }
 
-    private static void Watch(uint hostProcessId, string resultPath, string stagePath, int maxSeconds, int holdSeconds, bool endHostOnCompileError) {
+    private static void Watch(uint hostProcessId, string resultPath, string stagePath, int maxSeconds, int holdSeconds, bool endHostAfterDialog) {
         DateTime deadline = DateTime.UtcNow.AddSeconds(Math.Max(1, maxSeconds));
         while (!stopRequested && DateTime.UtcNow < deadline) {
             DialogInfo dialog = FindVbeDialog(hostProcessId);
@@ -236,7 +242,7 @@ public static class XlideVbeDialogWatcher {
                 HoldDialogForInspection(dialog.Handle, holdSeconds);
                 if (DismissDialog(dialog.Handle)) {
                     WriteDialogResult(resultPath, dialog);
-                    if (endHostOnCompileError && dialog.Kind == "vbe_compile_dialog") {
+                    if (endHostAfterDialog) {
                         EndProcess(hostProcessId);
                     }
                     return;

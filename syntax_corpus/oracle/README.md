@@ -315,8 +315,13 @@ is recorded as `outcome: "rejected"` and dismissed with the dialog's `End`
 button. The dismiss fallback also sends standard OK/Cancel/Abort dialog commands
 because VBE runtime dialogs vary in their button command IDs. A `Compile error:`
 dialog during a run is recorded as `outcome: "rejected"` with stage
-`compile_dialog`; the watcher then ends that host instance, because Excel's `Run` does
-not return after a compile error is dismissed. Use runtime
+`compile_dialog`. Once it has recorded either dialog in a run case, the watcher
+ends that host instance: the dialog is the case's evidence, and the host is
+replaced after every run case anyway. Waiting for `Run` instead can take long:
+Excel's `Run` does not return after a compile error is dismissed, and in
+Excel 16.0 (build 20430) a run-time error in a `Function` declared `As String`
+crashes Excel once the dialog is dismissed, so `Run` returns only when Windows
+Error Reporting has finished, 6 to 10 s later. Use runtime
 fixtures sparingly, only when a deterministic runtime error changes diagnostic
 severity or corpus truth.
 
