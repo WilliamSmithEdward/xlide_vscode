@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 // Exercise the coordinator's pure policy without starting PowerShell or Office.
 const source = readFileSync(join(process.cwd(), 'syntax_corpus/oracle/run_vbe_oracle.mjs'), 'utf8');
 const names = ['caseHost', 'validateCrashBuilds', 'hostsNeedingBuilds', 'knownHostCrashResult',
-    'expectedMatches', 'isOracleInfrastructureFailure', 'promoteObservedCases'];
+    'expectedMatches', 'isOracleInfrastructureFailure', 'promoteObservedCases', 'formatCasesDocument'];
 const functions = names.map((name) => {
     const start = source.indexOf(`function ${name}(`);
     return source.slice(start, source.indexOf('\n}', start) + 2);
@@ -49,6 +49,25 @@ describe('VBE oracle known host crashes', () => {
             .toEqual(["a: outcome 'skipped' cannot be promoted"]);
         expect(document.cases[0].expected).toBe('observe');
         expect(policy.isOracleInfrastructureFailure('worker_error')).toBe(true);
+    });
+});
+
+describe('VBE oracle promotion writes', () => {
+    it('rewrites the committed fixture file byte for byte', () => {
+        // \r appears on autocrlf checkouts, never in the blob.
+        const text = readFileSync(join(process.cwd(), 'syntax_corpus/oracle/vbe_oracle_cases.json'), 'utf8')
+            .replace(/\r\n/g, '\n');
+        expect(policy.formatCasesDocument(JSON.parse(text)) === text,
+            'lay the file out as JSON.stringify(document, null, 2) with DEL and non-ASCII written as \\uXXXX').toBe(true);
+    });
+
+    it('keeps non-ASCII characters escaped', () => {
+        const source = 'n = 1\u00A0+ 1 \u00C9tat \uD83D\uDE00\u2028\u007F';
+        const document = { cases: [{ id: 'a', expected: 'accepted', source }] };
+        const text = policy.formatCasesDocument(document);
+        expect(text).toContain('"source": "n = 1\\u00A0+ 1 \\u00C9tat \\uD83D\\uDE00\\u2028\\u007F"');
+        expect(/^[\n -~]*$/.test(text)).toBe(true);
+        expect(JSON.parse(text).cases[0].source).toBe(source);
     });
 });
 

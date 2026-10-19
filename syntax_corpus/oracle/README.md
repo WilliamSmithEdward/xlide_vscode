@@ -112,6 +112,9 @@ fixtures whose `expected` value is already asserted, and writes only
 `accepted`/`rejected` outcomes back to `vbe_oracle_cases.json` with
 `provenance: "vbe-oracle-verified"`, `evidencePhase`, and
 `diagnosticMeaning`. Timeouts and worker errors remain unpromotable.
+It rewrites the whole file as `JSON.stringify(document, null, 2)` with DEL
+and every non-ASCII character written as `\uXXXX`, so lay out hand-edited
+cases the same way; `tests/vbeOracleKnownCrash.test.ts` checks it.
 
 ## Requirements
 

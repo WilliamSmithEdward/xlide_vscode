@@ -386,6 +386,17 @@ function diagnosticMeaningForResult(kase, result, expected) {
     return expected === 'rejected' ? 'compile-error' : 'compile-valid';
 }
 
+// Written as the fixture file is kept: two-space JSON in printable ASCII,
+// with DEL and every non-ASCII character escaped, so a no-break space or an
+// accented name stays visible and a promotion changes only the cases it
+// promotes.
+function formatCasesDocument(document) {
+    return `${JSON.stringify(document, null, 2).replace(
+        /[\u007f-\uffff]/g,
+        (ch) => `\\u${ch.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0')}`,
+    )}\n`;
+}
+
 function promoteObservedCases(document, results) {
     const resultById = new Map();
     for (const result of results) {
@@ -966,7 +977,7 @@ async function main(argv) {
             for (const error of errors) { console.error(`  ${error}`); }
             return 1;
         }
-        fs.writeFileSync(args.cases, `${JSON.stringify(document, null, 2)}\n`, 'utf8');
+        fs.writeFileSync(args.cases, formatCasesDocument(document), 'utf8');
         console.error(`Promoted ${promoted} oracle case(s) in ${args.cases}`);
     }
 
