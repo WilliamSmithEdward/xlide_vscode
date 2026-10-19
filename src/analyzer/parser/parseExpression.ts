@@ -444,13 +444,14 @@ class ExpressionParser {
 					break;
 				}
 				this.next();
-				const member = tokenName(memberToken) ?? memberToken.rawText;
+				const identifier = this.identifierExpr(memberToken);
+				const member = identifier.name + (identifier.typeSuffix ?? '');
 				const node: MemberAccessExpr = {
 					exprKind: 'MemberAccessExpr',
 					object: expr,
 					member,
-					memberSpan: { start: memberToken.start + this.spanOffset, end: memberToken.end + this.spanOffset },
-					span: { start: this.spanOf(expr).start, end: memberToken.end + this.spanOffset },
+					memberSpan: { start: memberToken.start + this.spanOffset, end: identifier.span.end },
+					span: { start: this.spanOf(expr).start, end: identifier.span.end },
 				};
 				expr = node;
 				continue;
@@ -670,13 +671,14 @@ class ExpressionParser {
 				return null;
 			}
 			this.next();
-			const member = tokenName(memberToken) ?? memberToken.rawText;
+			const identifier = this.identifierExpr(memberToken);
+			const member = identifier.name + (identifier.typeSuffix ?? '');
 			const node: MemberAccessExpr = {
 				exprKind: 'MemberAccessExpr',
 				object: null,
 				member,
-				memberSpan: { start: memberToken.start + this.spanOffset, end: memberToken.end + this.spanOffset },
-				span: { start: token.start + this.spanOffset, end: memberToken.end + this.spanOffset },
+				memberSpan: { start: memberToken.start + this.spanOffset, end: identifier.span.end },
+				span: { start: token.start + this.spanOffset, end: identifier.span.end },
 			};
 			return node;
 		}
@@ -817,9 +819,9 @@ class ExpressionParser {
 
 	private parseTypeOf(keyword: VbaToken): TypeOfIsExpr | null {
 		this.next(); // consume TypeOf
-		// Operand runs up to the `Is` keyword; parse it as a postfix expression
-		// (a receiver chain), which is what `TypeOf <expr> Is <Type>` allows.
-		const operand = this.parsePostfix();
+		// Recover arithmetic operands up to the comparison-level Is delimiter.
+		// Recovery does not establish VBA acceptance or a compile-error message.
+		const operand = this.parseBinary(BINARY_PRECEDENCE.Is + 1);
 		if (!operand) {
 			this.diag(keyword, "Expected an expression after 'TypeOf'.");
 			return null;

@@ -31,17 +31,21 @@ import type { MemberCompletionContext } from '../../completion/memberAccess';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import type { VbaSymbol } from '../../symbols/symbolModel';
 import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
-import type { PushFn } from '../analysisContext';
+import { procedureSymbolFor, type PushFn } from '../analysisContext';
 import {
 	createObjectAssignmentTypeResolver,
 	createObjectTypeImplementationLookup,
 	createProjectInterfaceSharingLookup,
 	isKnownScalarType,
+	isNumericType,
+	constantStringValue,
+	sourceIdentifierBinding,
+	type DeclaredValueShape,
 	objectAssignmentIncompatibilityReason,
 	typeEnvironmentFor,
 } from '../typeInference';
 import { tokenizeCached } from '../../lexer/tokenize';
-import { expressionShapeResolver } from '../expressionShape';
+import { expressionShapeResolver, type ExpressionShapeContext } from '../expressionShape';
 import type { ProcedureExpressionVisitor } from '../exprWalk';
 
 /**
@@ -198,15 +202,33 @@ export function checkIsOperatorOperands(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	push: PushFn,
 	projectVisibleSymbols?: readonly VbaSymbol[],
+	shapeContext?: ExpressionShapeContext,
 ): ProcedureExpressionVisitor {
-	const forProcedure = expressionShapeResolver(symbols, projectVisibleSymbols);
+	const forProcedure = expressionShapeResolver(symbols, projectVisibleSymbols, shapeContext);
+	const isEnum = enumTypeResolver(symbols, projectVisibleSymbols, shapeContext);
 	return (member) => {
-		const shapeOf = forProcedure(member);
+		const declaredShape = forProcedure(member);
+		const procSym = procedureSymbolFor(symbols, member);
+		const values = new Map<string, DeclaredValueShape | undefined>();
+		const shapeOf = (expr: ExprNode): DeclaredValueShape | undefined => {
+			const shape = declaredShape(expr);
+			if (expr.exprKind !== 'IdentifierExpr' || shape?.asType || shape?.isArray || shape?.isScalar) { return shape; }
+			const name = expr.name.toLowerCase();
+			if (values.has(name)) { return values.get(name) ?? shape; }
+			// Use the indexed source binding so local Object/Variant shadows win.
+			const binding = sourceIdentifierBinding(symbols, procSym, projectVisibleSymbols, name, 'expression');
+			const symbol = binding.definitions.length === 1 ? binding.definitions[0] : undefined;
+			const asType = symbol?.kind === 'enumMember' ? symbol.containerName
+				: symbol && constantStringValue(symbol) !== undefined ? 'String' : undefined;
+			const value = asType ? { asType, isArray: false, isFixedArray: false } : undefined;
+			values.set(name, value);
+			return value ?? shape;
+		};
 		return (expr) => {
 			if (expr.exprKind !== 'BinaryExpr' || expr.operator !== 'Is') {
 				return;
 			}
-			const offender = nonObjectOperand(expr.left, shapeOf) ?? nonObjectOperand(expr.right, shapeOf);
+			const offender = nonObjectOperand(expr.left, shapeOf, isEnum) ?? nonObjectOperand(expr.right, shapeOf, isEnum);
 			if (offender) {
 				push(
 					'isOperatorNonObject',
@@ -222,6 +244,7 @@ export function checkIsOperatorOperands(
 function nonObjectOperand(
 	expr: ExprNode,
 	shapeOf: ReturnType<ReturnType<typeof expressionShapeResolver>>,
+	isEnum: (name: string) => boolean,
 ): { span: Span; detail: string } | undefined {
 	if (expr.exprKind === 'LiteralExpr') {
 		const k = expr.literalKind;
@@ -230,20 +253,34 @@ function nonObjectOperand(
 		}
 		return undefined; // Nothing / Null / Empty -> not provably scalar
 	}
-	if (expr.exprKind === 'ParenExpr') { return nonObjectOperand(expr.inner, shapeOf); }
+	if (expr.exprKind === 'ParenExpr') { return nonObjectOperand(expr.inner, shapeOf, isEnum); }
+	// Only the measured arithmetic forms, with provably scalar inputs. An
+	// unknown/Variant operand remains unknown, including inside parentheses.
+	if ((expr.exprKind === 'UnaryExpr' || expr.exprKind === 'BinaryExpr') && numericIsOperand(expr, shapeOf)) {
+		return { span: expr.span, detail: 'the expression has a scalar numeric type' };
+	}
 	const shape = shapeOf(expr);
 	const declared = shape?.asType;
-	if (shape?.isArray || shape?.isScalar || declared && isKnownScalarType(declared.trim().toLowerCase())) {
-		const name = expr.exprKind === 'IdentifierExpr' ? `'${expr.name}'` : 'the expression';
+	if (shape?.isArray || shape?.isScalar || declared && (isKnownScalarType(declared.trim().toLowerCase()) || isEnum(declared.toLowerCase()))) {
+		const name = expr.exprKind === 'IdentifierExpr' ? `'${expr.name}${expr.typeSuffix ?? ''}'` : 'the expression';
 		return { span: expr.span, detail: `${name} has ${shape?.isArray ? 'array type' : shape?.isScalar ? 'a scalar numeric type' : `type ${declared}`}` };
 	}
 	return undefined;
 }
 
+function numericIsOperand(expr: ExprNode, shapeOf: ReturnType<ReturnType<typeof expressionShapeResolver>>): boolean {
+	if (expr.exprKind === 'ParenExpr') { return numericIsOperand(expr.inner, shapeOf); }
+	if (expr.exprKind === 'LiteralExpr') { return expr.literalKind === 'integer' || expr.literalKind === 'float'; }
+	if (expr.exprKind === 'UnaryExpr' && expr.operator === '-') { return numericIsOperand(expr.operand, shapeOf); }
+	if (expr.exprKind === 'BinaryExpr' && expr.operator === '+') { return numericIsOperand(expr.left, shapeOf) && numericIsOperand(expr.right, shapeOf); }
+	const shape = shapeOf(expr);
+	return !shape?.isArray && shape?.asType !== undefined && isNumericType(shape.asType.toLowerCase());
+}
+
 /** Compile constraints of TypeOf, separate from the compatibility warning. */
-export function checkTypeOfExpression(symbols: ReturnType<typeof buildModuleSymbols>, push: PushFn, projectVisibleSymbols?: readonly VbaSymbol[]): ProcedureExpressionVisitor {
-	const forProcedure = expressionShapeResolver(symbols, projectVisibleSymbols);
-	const enumNames = new Set((symbols.root.children ?? []).filter((symbol) => symbol.kind === 'enum').map((symbol) => symbol.name.toLowerCase()));
+export function checkTypeOfExpression(symbols: ReturnType<typeof buildModuleSymbols>, push: PushFn, projectVisibleSymbols?: readonly VbaSymbol[], shapeContext?: ExpressionShapeContext): ProcedureExpressionVisitor {
+	const forProcedure = expressionShapeResolver(symbols, projectVisibleSymbols, shapeContext);
+	const isEnum = enumTypeResolver(symbols, projectVisibleSymbols, shapeContext);
 	return (member) => {
 		const shapeOf = forProcedure(member);
 		return (expr) => {
@@ -251,9 +288,50 @@ export function checkTypeOfExpression(symbols: ReturnType<typeof buildModuleSymb
 			const shape = shapeOf(expr.operand);
 			if (expr.operand.exprKind === 'ParenExpr' || isKnownScalarType(expr.typeName.toLowerCase()) || expr.typeName.toLowerCase() === 'variant') {
 				push('typeOfInvalidExpression', "TypeOf requires an unparenthesised object expression and an object type after Is. This is a VBE compile error: Syntax error.", expr.span);
-			} else if (shape?.isArray || shape?.isScalar || shape?.asType && (isKnownScalarType(shape.asType.toLowerCase()) || enumNames.has(shape.asType.toLowerCase()))) {
+			} else if (shape?.isArray || shape?.isScalar || shape?.asType && (isKnownScalarType(shape.asType.toLowerCase()) || isEnum(shape.asType.toLowerCase()))) {
 				push('typeOfInvalidExpression', "TypeOf requires an object expression. This is a VBE compile error: Type mismatch.", expr.operand.span);
 			}
 		};
+	};
+}
+
+/** Resolve type identity once per query, retaining module qualification and
+ * ambiguous source bindings. A matching enum spelling alone is insufficient. */
+function enumTypeResolver(
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
+	context: ExpressionShapeContext | undefined,
+): (name: string) => boolean {
+	const cache = new Map<string, boolean>();
+	let qualified: Map<string, VbaSymbol[]> | undefined;
+	let classNames: Set<string> | undefined;
+	return (name) => {
+		const key = name.trim().toLowerCase();
+		const cached = cache.get(key);
+		if (cached !== undefined) { return cached; }
+		let definitions: readonly VbaSymbol[];
+		if (key.includes('.')) {
+			if (!qualified) {
+				qualified = new Map();
+				const seen = new Set<VbaSymbol>();
+				const local = new Set(symbols.root.children ?? []);
+				for (const symbol of [...symbols.root.children ?? [], ...projectVisibleSymbols ?? []]) {
+					if (seen.has(symbol) || !['enum', 'type'].includes(symbol.kind) || symbol.moduleName.toLowerCase() === symbols.moduleName.toLowerCase() && !local.has(symbol)) { continue; }
+					seen.add(symbol);
+					const qualifiedName = `${symbol.moduleName}.${symbol.name}`.toLowerCase();
+					const group = qualified.get(qualifiedName) ?? [];
+					group.push(symbol);
+					qualified.set(qualifiedName, group);
+				}
+			}
+			definitions = qualified.get(key) ?? [];
+		} else {
+			definitions = sourceIdentifierBinding(symbols, undefined, projectVisibleSymbols, key, 'typeName').definitions;
+		}
+		classNames ??= new Set((context?.projectClassMembers ?? []).filter((type) => ['class', 'document', 'userform'].includes(type.kind)).map((type) => type.name.toLowerCase()));
+		const result = definitions.length === 1 && definitions[0].kind === 'enum'
+			&& (definitions[0].moduleName.toLowerCase() === symbols.moduleName.toLowerCase() || !classNames.has(key));
+		cache.set(key, result);
+		return result;
 	};
 }

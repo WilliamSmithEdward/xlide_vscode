@@ -763,6 +763,35 @@ function Set-ComponentSource($Component, [string]$Source) {
     $Component.CodeModule.AddFromString($Source)
 }
 
+# Designer failures are infrastructure failures, never compile evidence.
+function Set-OracleDesignerControls($Component, $ModuleSpec) {
+    if (-not ($ModuleSpec.PSObject.Properties.Name -contains "designerControls")) { return }
+    if ((ConvertTo-VbComponentType $ModuleSpec.type) -ne 3) {
+        throw "Oracle designerControls require a UserForm."
+    }
+    try {
+        foreach ($spec in @($ModuleSpec.designerControls)) {
+            $progId = [string]$spec.progId
+            $name = [string]$spec.name
+            if ($progId -notin @('Forms.CommandButton.1', 'Forms.ComboBox.1') -or $name -notmatch '^[A-Za-z][A-Za-z0-9_]*$') {
+                throw "Unsupported oracle designer control '$name' ($progId)."
+            }
+            $control = $Component.Designer.Controls.Add($progId, $name, $true)
+            if ($null -eq $control -or [string]$control.Name -ne $name) {
+                throw "Designer did not create control '$name'."
+            }
+            $readBack = $Component.Designer.Controls.Item($name)
+            if ($null -eq $readBack -or [string]$readBack.Name -ne $name) {
+                throw "Designer control '$name' cannot be read back."
+            }
+            Remove-ComObjectReference $readBack
+            Remove-ComObjectReference $control
+        }
+    } catch {
+        throw "Oracle designer setup failed: $($_.Exception.Message)"
+    }
+}
+
 function Add-OracleComponent($VbProject, $ModuleSpec) {
     if (([string]$ModuleSpec.type).ToLowerInvariant() -eq "document") {
         # The file's document modules exist already and cannot be added:
@@ -785,9 +814,15 @@ function Add-OracleComponent($VbProject, $ModuleSpec) {
         $component.Name = [string]$ModuleSpec.name
     }
     $source = [string]$ModuleSpec.source
-    # Procedure attributes are import metadata, not editor statements. Adding
-    # them as code creates a Syntax error during whole-project compilation.
-    if ($source -match '(?m)^\s*Attribute\s+[^\s.]+\.VB_\w+\s*=') {
+    # Module and procedure attributes must be imported, never pasted as code.
+    if ($ModuleSpec.PSObject.Properties.Name -contains "predeclaredId") {
+        if ($componentType -ne 2) { throw "Oracle predeclaredId metadata requires a class module." }
+        $source = [regex]::Replace($source, '(?im)^[ \t]*Attribute[ \t]+VB_PredeclaredId[ \t]*=[^\r\n]*(?:\r?\n|$)', '')
+        $value = if ($ModuleSpec.predeclaredId) { 'True' } else { 'False' }
+        $source = "Attribute VB_PredeclaredId = $value`r`n" + $source
+    }
+    if ($source -match '(?im)^[ \t]*Attribute[ \t]+(?:[^\s.]+\.)?VB_\w+[ \t]*=') {
+        if ($componentType -eq 3) { throw "Oracle UserForm attribute import is not supported." }
         $extension = if ($componentType -eq 2) { '.cls' } else { '.bas' }
         $importPath = Join-Path ([IO.Path]::GetTempPath()) ('xlide-oracle-component-' + [Guid]::NewGuid().ToString('N') + $extension)
         try {
@@ -796,13 +831,33 @@ function Add-OracleComponent($VbProject, $ModuleSpec) {
             $null = $component.Export($importPath)
             $encoding = [Text.Encoding]::Default
             $header = [IO.File]::ReadAllText($importPath, $encoding)
+            # Replace generated module attributes (notably PredeclaredId=False)
+            # instead of importing duplicate False/True declarations.
+            $moduleAttributes = '(?im)^[ \t]*Attribute[ \t]+(VB_\w+)[ \t]*=[^\r\n]*(?:\r?\n|$)'
+            foreach ($attribute in [regex]::Matches($source, $moduleAttributes)) {
+                $key = [regex]::Escape($attribute.Groups[1].Value)
+                $header = [regex]::Replace($header, "(?im)^[ \t]*Attribute[ \t]+$key[ \t]*=[^\r\n]*(?:\r?\n|$)", '')
+                $header += [Environment]::NewLine + $attribute.Value.TrimEnd()
+            }
+            $source = [regex]::Replace($source, $moduleAttributes, '')
             $null = $VbProject.VBComponents.Remove($component)
             [IO.File]::WriteAllText($importPath, $header + [Environment]::NewLine + $source, $encoding)
-            return $VbProject.VBComponents.Import($importPath)
+            $imported = $VbProject.VBComponents.Import($importPath)
+            # Verify the imported metadata, not just the text sent to Import.
+            if ($ModuleSpec.PSObject.Properties.Name -contains "predeclaredId") {
+                Remove-Item -LiteralPath $importPath -Force
+                $null = $imported.Export($importPath)
+                $actual = [IO.File]::ReadAllText($importPath, $encoding)
+                if ($actual -notmatch "(?im)^[ \t]*Attribute[ \t]+VB_PredeclaredId[ \t]*=[ \t]*$value[ \t]*\r?$") {
+                    throw "Oracle imported VB_PredeclaredId did not match $value."
+                }
+            }
+            return $imported
         } finally {
             if (Test-Path -LiteralPath $importPath) { Remove-Item -LiteralPath $importPath -Force }
         }
     }
+    Set-OracleDesignerControls $component $ModuleSpec
     Set-ComponentSource $component $source
     return $component
 }
@@ -825,6 +880,34 @@ function Find-VbeCommandControl($Controls, [string]$Caption) {
         }
     }
     return $null
+}
+
+# A post-dialog CodePane capture, distinct from the dialog's own error text.
+# Failure to read selection never turns valid compile evidence into another verdict.
+function Get-OracleCompileSelection($App) {
+    $pane = $null
+    $module = $null
+    $component = $null
+    try {
+        $pane = $App.VBE.ActiveCodePane
+        [int]$startLine = 0; [int]$startColumn = 0; [int]$endLine = 0; [int]$endColumn = 0
+        $null = $pane.GetSelection([ref]$startLine, [ref]$startColumn, [ref]$endLine, [ref]$endColumn)
+        $module = $pane.CodeModule
+        $component = $module.Parent
+        return @{
+            capturePhase = 'after_compile_dialog_dismissal'
+            moduleName = [string]$component.Name
+            source = [string]$module.Lines(1, $module.CountOfLines)
+            startLine = $startLine; startColumn = $startColumn
+            endLine = $endLine; endColumn = $endColumn
+        }
+    } catch {
+        return @{ capturePhase = 'after_compile_dialog_dismissal'; unavailable = $_.Exception.Message }
+    } finally {
+        Remove-ComObjectReference $component
+        Remove-ComObjectReference $module
+        Remove-ComObjectReference $pane
+    }
 }
 
 function Invoke-VbeCompileCommand($App) {
@@ -1217,6 +1300,7 @@ function Invoke-OracleCase {
             $dialog = Resolve-DialogAfterStop $dialog
             if ($null -ne $dialog) {
                 Set-DialogOutcome $dialog $true
+                $result.selection = Get-OracleCompileSelection $app
             }
             else {
                 Assert-HostAlive $app $appPid

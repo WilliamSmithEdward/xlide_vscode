@@ -765,7 +765,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'typeMembers',
 		incrementalProcedureBodies: true,
-		run: (ctx, push) => checkTypeMembers(ctx.source, ctx.mod, ctx.symbols, ctx.memberCtx, ctx.activity, push, ctx.opts.walkProcedureFilter, ctx.opts.projectVisibleSymbols),
+		run: (ctx, push) => checkTypeMembers(ctx.source, ctx.mod, ctx.symbols, ctx.memberCtx, ctx.activity, push, ctx.opts.walkProcedureFilter, ctx.opts.projectVisibleSymbols, ctx.opts),
 	},
 	{
 		name: 'midStatementLiteralTarget',
@@ -1151,7 +1151,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'typeOfInvalidExpression',
 		expressionKinds: ['TypeOfIsExpr'],
-		procedureExpressions: (ctx, push) => checkTypeOfExpression(ctx.symbols, push, ctx.opts.projectVisibleSymbols),
+		procedureExpressions: (ctx, push) => checkTypeOfExpression(ctx.symbols, push, ctx.opts.projectVisibleSymbols, ctx.opts),
 	},
 	{
 		name: 'typeofMissingOperand',
@@ -1160,12 +1160,12 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'isOperatorNonObject',
 		expressionKinds: ['BinaryExpr'],
-		procedureExpressions: (ctx, push) => checkIsOperatorOperands(ctx.symbols, push, ctx.opts.projectVisibleSymbols),
+		procedureExpressions: (ctx, push) => checkIsOperatorOperands(ctx.symbols, push, ctx.opts.projectVisibleSymbols, ctx.opts),
 	},
 	{
 		name: 'nonScalarBinaryOperand',
 		expressionKinds: ['BinaryExpr', 'UnaryExpr'],
-		procedureExpressions: (ctx, push) => checkBinaryOperandScalar(ctx.symbols, push, ctx.opts.projectVisibleSymbols),
+		procedureExpressions: (ctx, push) => checkBinaryOperandScalar(ctx.symbols, push, ctx.opts.projectVisibleSymbols, ctx.opts),
 	},
 	{
 		name: 'argumentShapeMismatch',

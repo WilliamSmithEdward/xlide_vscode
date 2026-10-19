@@ -3,6 +3,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { describe, expect, it } from 'vitest';
 import { OFFICE_HOST_APPS } from '../src/officeHostApps';
+import { oracleModuleInput, type OracleModule } from './helpers/oracleModuleInput';
+import { buildVbaProjectIndex, projectAnalysisOptionsForModule } from '../src/vbaProjectAnalysis';
 
 const ORACLE = path.join(__dirname, '..', 'syntax_corpus', 'oracle');
 const readOracle = (name: string): string => fs.readFileSync(path.join(ORACLE, name), 'utf8');
@@ -220,3 +222,67 @@ ConvertTo-Json -InputObject @($results) -Compress
     ]);
     expect(results).toEqual(expected);
 }, 20_000);
+
+// These are unmeasured inputs: assert setup and adapter contracts, not verdicts.
+describe('designer and predeclared oracle inputs', () => {
+    it('keeps all ten manual probes observe-only with explicit module identities', () => {
+        const manual = JSON.parse(readOracle('probes/gap_contexts_manual_20261019.json'));
+        const probes = JSON.parse(readOracle('probes/gap_contexts_designer_20261019.json'));
+        expect(probes.cases.map((kase: { id: string }) => kase.id)).toEqual(manual.cases.map((kase: { id: string }) => kase.id));
+        expect(probes.cases).toHaveLength(10);
+        for (const kase of probes.cases) {
+            expect(kase.expected).toBe('observe');
+            expect(kase.mode).toBe('compile');
+            expect(kase.modules.some((mod: { entry?: boolean }) => mod.entry)).toBe(true);
+            const original = manual.cases.find((candidate: { id: string }) => candidate.id === kase.id);
+            for (const mod of kase.modules) {
+                expect(mod.name).toBeTruthy();
+                expect(['standard', 'class', 'userform']).toContain(mod.type);
+                expect(mod.source).toBe(original.source ?? original.modules.find((candidate: { name: string }) => candidate.name === mod.name).source);
+                for (const control of mod.designerControls ?? []) {
+                    const type = control.progId === 'Forms.ComboBox.1' ? 'MSForms.ComboBox' : 'MSForms.CommandButton';
+                    expect(mod.implicitMembers).toContainEqual({ name: control.name, type });
+                }
+            }
+        }
+    });
+
+    it('preserves control and predeclared metadata through the shared analyzer adapter', () => {
+        const probes: { cases: { modules: OracleModule[] }[] } = JSON.parse(readOracle('probes/gap_contexts_designer_20261019.json'));
+        for (const kase of probes.cases) {
+            const inputs = kase.modules.map(oracleModuleInput);
+            const project = buildVbaProjectIndex(inputs);
+            for (const [index, mod] of kase.modules.entries()) {
+                expect(inputs[index]).toMatchObject({ moduleName: mod.name, source: mod.source, type: mod.type });
+                expect(inputs[index].predeclaredId).toBe(mod.predeclaredId);
+                expect(inputs[index].implicitMembers).toEqual(mod.implicitMembers);
+                if (mod.implicitMembers) {
+                    expect(projectAnalysisOptionsForModule(project, mod.name).implicitMembers).toEqual(mod.implicitMembers);
+                }
+            }
+        }
+        // False is meaningful metadata too: it must not become absent.
+        expect(oracleModuleInput({ name: 'Timer', type: 'class', source: '', predeclaredId: false }).predeclaredId).toBe(false);
+    });
+
+    it('creates and reads back supported controls and propagates setup failures', () => {
+        const worker = readOracle('vbe_oracle_worker.ps1');
+        const start = worker.indexOf('function Set-OracleDesignerControls');
+        const body = worker.slice(start, worker.indexOf('\nfunction ', start + 1));
+        expect(body).toContain("'Forms.CommandButton.1', 'Forms.ComboBox.1'");
+        expect(body).toContain('$Component.Designer.Controls.Add($progId, $name, $true)');
+        expect(body).toContain('$Component.Designer.Controls.Item($name)');
+        expect(body).toContain('throw "Oracle designer setup failed:');
+        expect(worker).toContain('Set-OracleDesignerControls $component $ModuleSpec');
+    });
+
+    it('replaces exported module attributes and verifies the imported predeclared flag', () => {
+        const worker = readOracle('vbe_oracle_worker.ps1');
+        expect(worker).toContain("$moduleAttributes = '(?im)^[ \\t]*Attribute[ \\t]+(VB_\\w+)");
+        expect(worker).toContain('$header = [regex]::Replace($header,');
+        expect(worker).toContain('$source = [regex]::Replace($source, $moduleAttributes, \'\')');
+        expect(worker).toContain('$imported = $VbProject.VBComponents.Import($importPath)');
+        expect(worker).toContain('$null = $imported.Export($importPath)');
+        expect(worker).toContain('throw "Oracle imported VB_PredeclaredId did not match $value."');
+    });
+});

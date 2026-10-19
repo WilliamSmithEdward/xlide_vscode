@@ -7,6 +7,7 @@ import { blockHeaderStatements, ifBranchStatement } from '../../src/analyzer/dia
 import { forEachExpressionInBody, statementValueExpressions, walkProcedureExpressions } from '../../src/analyzer/diagnostics/exprWalk';
 import { DIAGNOSTIC_RULE_REGISTRY } from '../../src/analyzer/diagnostics/registry';
 import * as expressionWalk from '../../src/analyzer/diagnostics/exprWalk';
+import { expressionShapeResolver } from '../../src/analyzer/diagnostics/expressionShape';
 import { checkStatementTypes } from '../../src/analyzer/diagnostics/rules/statementTypes';
 import { checkStatementForms } from '../../src/analyzer/diagnostics/rules/statementForms';
 import { buildModuleSymbols } from '../../src/analyzer/symbols/buildModuleSymbols';
@@ -19,16 +20,41 @@ function fixture(body: string) {
 }
 
 describe('expression traversal work', () => {
-	it.each([10, 1000])('checks %i bare Case and For array values without expression parsing', (count) => {
-		const source = 'Option Explicit\nSub Main()\nDim a(1) As Long, i As Long\n'
-			+ Array(count).fill('Select Case 1\nCase a\nCase Is > a\nEnd Select\nFor i = a To 1\nNext').join('\n') + '\nEnd Sub\n';
+	it.each([10, 1000])('checks %i bare Case, For and ReDim array values without expression parsing', (count) => {
+		const source = 'Option Explicit\nSub Main()\nDim a(1) As Long, d() As Long, i As Long\n'
+			+ Array(count).fill('Select Case 1\nCase a\nCase Is > a\nCase a, 1\nCase 0, a\nCase a To 1\nEnd Select\nFor i = a To 1\nNext\nFor i = 1 To a\nNext\nFor i = 1 To 2 Step a\nNext\n10 For i = a To 1\nNext\nReDim d(a)').join('\n') + '\nEnd Sub\n';
 		const mod = parseModule(source);
 		const symbols = buildModuleSymbols('Module1', 'standard', source, { parsedModule: mod });
 		const parse = vi.spyOn(parser, 'parseExpression');
 		const push = vi.fn();
 		checkStatementTypes(source, mod, symbols, undefined, undefined, undefined, push);
-		expect(push.mock.calls.map(([rule]) => rule)).toEqual(Array(count * 3).fill('nonScalarBinaryOperand'));
+		expect(push.mock.calls.map(([rule]) => rule)).toEqual(Array(count * 10).fill('nonScalarBinaryOperand'));
 		expect(parse).not.toHaveBeenCalled();
+	});
+
+	// The project/designer exclusion index is shared across procedure resolvers.
+	it.each([10, 1000])('indexes project/designer names once for %i implicit reads', (count) => {
+		const source = 'DefLng A-Z\nSub Main()\nDebug.Print a Is Nothing\nEnd Sub\nSub Other()\nEnd Sub\n';
+		const mod = parseModule(source);
+		const symbols = buildModuleSymbols('Module1', 'standard', source, { parsedModule: mod });
+		const procedures = mod.members.filter((m): m is ProcedureNode => m.kind === 'Procedure');
+		let reads = 0;
+		const context = {
+			projectClassMembers: [{ get name() { reads++; return 'Sheet1'; }, moduleName: 'Sheet1', kind: 'document' as const, members: [] }],
+			implicitMembers: [{ get name() { reads++; return 'Picker'; }, type: 'MSForms.ComboBox' }],
+		};
+		const factory = expressionShapeResolver(symbols, undefined, context);
+		for (const proc of procedures) {
+			const shape = factory(proc);
+			for (let i = 0; i < count; i++) {
+				expect(shape({ exprKind: 'IdentifierExpr', name: 'a', span: { start: 0, end: 1 } })?.asType).toBe('Long');
+				for (const name of ['Me', 'Sheet1', 'Picker']) {
+					expect(shape({ exprKind: 'IdentifierExpr', name, span: { start: 0, end: name.length } })).toBeUndefined();
+				}
+			}
+		}
+		expect(reads).toBe(2);
+		expect(expressionShapeResolver(symbols, undefined, context)).toBe(factory);
 	});
 
 	// `Debug.Print 1` names no value, so the class-Sub lookup that a value
@@ -49,6 +75,25 @@ describe('expression traversal work', () => {
 		checkStatementForms(source, mod, symbols, undefined, undefined, () => undefined, { projectClassMembers: classes as never });
 		expect(reads).toBe(0);
 	});
+
+	it.each(['Debug.Print Application.Name', 'Debug.Print ThisWorkbook.Name', 'Debug.Print obj.Value', 'x = Application.Name'])(
+		'never reads unrelated class members for %s across repeated passes', (body) => {
+			const source = `Sub Main()\nDim obj As Object, x As Variant\n${body}\nEnd Sub\n`;
+			const mod = parseModule(source);
+			const symbols = buildModuleSymbols('Module1', 'standard', source, { parsedModule: mod });
+			let reads = 0;
+			const classes = Array.from({ length: 1000 }, (_, i) => ({
+				name: 'C' + i, moduleName: 'C' + i, kind: 'class' as const,
+				members: Array.from({ length: 5 }, (_, k) => ({
+					name: 'M' + k, kind: 'method', moduleName: 'C' + i,
+					get sub() { reads++; return true; },
+				})),
+			}));
+			for (let pass = 0; pass < 2; pass++) {
+				checkStatementForms(source, mod, symbols, undefined, undefined, () => undefined, { projectClassMembers: classes as never });
+				expect(reads).toBe(0);
+			}
+		});
 
 	it.each([10, 1000])('indexes value membership once for %i values in a single statement', (count) => {
 		const source = `Private Enum Choice\none = 1\nEnd Enum\nSub Main()\nDebug.Print ${Array(count).fill('Choice').join(', ')}\nEnd Sub\n`;
@@ -107,8 +152,8 @@ describe('expression traversal work', () => {
 	});
 
 	it.each([
-		['Print #1, a + 1; CStr(n + 1), a(0)', ['a + 1', 'CStr(n + 1)', 'a(0)']],
-		['Write #1, a + 1, CStr(n + 1)', ['a + 1', 'CStr(n + 1)']],
+		['Print #1, a + 1; CStr(n + 1), a(0)', ['1', 'a + 1', 'CStr(n + 1)', 'a(0)']],
+		['Write #1, a + 1, CStr(n + 1)', ['1', 'a + 1', 'CStr(n + 1)']],
 		['ReDim Preserve a(0 To n Is Nothing, F(1, 2)), b(1 To n + 1) As Long', ['0', 'n Is Nothing', 'F(1, 2)', '1', 'n + 1']],
 	] as const)('parses only value roots once per statement snapshot: %s', (body, values) => {
 		const { source, proc } = fixture(body);
@@ -126,11 +171,11 @@ describe('expression traversal work', () => {
 		const parse = vi.spyOn(parser, 'parseExpression');
 		const scalar = vi.fn(), identity = vi.fn();
 		walkProcedureExpressions(mod, undefined, [() => scalar, () => identity], source, undefined, [['BinaryExpr'], ['BinaryExpr']]);
-		expect(parse).toHaveBeenCalledTimes(count * 2);
+		expect(parse).toHaveBeenCalledTimes(count * 3);
 		expect(scalar).toHaveBeenCalledTimes(count * 2);
 		expect(identity).toHaveBeenCalledTimes(count * 2);
 		walkProcedureExpressions(mod, undefined, [() => vi.fn()], source, undefined, [['BinaryExpr']]);
-		expect(parse).toHaveBeenCalledTimes(count * 2);
+		expect(parse).toHaveBeenCalledTimes(count * 3);
 	});
 
 	it.each([10, 1000])('dispatches only selected kinds across %i assignments, preserving generic visitors', (count) => {

@@ -15,7 +15,7 @@ import {
 	sameModuleTypeNames,
 	type DeclaredValueShape,
 } from '../typeInference';
-import { expressionShapeResolver } from '../expressionShape';
+import { expressionShapeResolver, type ExpressionShapeContext } from '../expressionShape';
 import type { ProcedureExpressionVisitor } from '../exprWalk';
 
 /**
@@ -34,9 +34,10 @@ export function checkBinaryOperandScalar(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	push: PushFn,
 	projectVisibleSymbols?: readonly VbaSymbol[],
+	shapeContext?: ExpressionShapeContext,
 ): ProcedureExpressionVisitor {
 	const udtNames = sameModuleTypeNames(symbols);
-	const forProcedure = expressionShapeResolver(symbols, projectVisibleSymbols);
+	const forProcedure = expressionShapeResolver(symbols, projectVisibleSymbols, shapeContext);
 	return (member) => {
 		const shapeOf = forProcedure(member);
 		return (expr) => {

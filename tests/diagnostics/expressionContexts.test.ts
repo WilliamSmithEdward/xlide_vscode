@@ -25,8 +25,8 @@ const declarations = 'Private Type Record\nfield As Long\nEnd Type\nPrivate Enum
 function source(body: string, extra = ''): string {
 	return declarations + extra + '\nFunction Main() As Variant\nDim n As Long, result As Variant, i As Long\nDim a(1) As Long, items(2) As Variant\nDim rec As Record, holder As Object, flexible As Variant\nConst limit = 2\n' + body + '\nEnd Function\nSub Action()\nEnd Sub\nSub Take(ByVal value As Variant)\nEnd Sub\nFunction Echo(ByVal value As Variant) As Variant\nEnd Function\nFunction NumberValue() As Long\nEnd Function\n';
 }
-function compileErrors(text: string, extraModules: VbaProjectModuleInput[] = [], moduleKind: 'standard' | 'class' = 'standard') {
-	const project = buildVbaProjectIndex([{ moduleName: 'Module1', type: moduleKind, source: text },
+function compileErrors(text: string, extraModules: VbaProjectModuleInput[] = [], moduleKind: 'standard' | 'class' | 'userform' = 'standard', implicitMembers: VbaProjectModuleInput['implicitMembers'] = []) {
+	const project = buildVbaProjectIndex([{ moduleName: 'Module1', type: moduleKind, source: text, implicitMembers },
 		{ moduleName: 'ThisWorkbook', type: 'document', documentType: 'workbook', source: '' },
 		{ moduleName: 'Sheet1', type: 'document', documentType: 'worksheet', designerClass: 'Excel.Worksheet', implicitMembers: [], source: '' }, ...extraModules]);
 	return analyzeVbaModuleSource({ source: text, moduleKind, moduleName: 'Module1', host: 'excel', referencedLibraries: ['VBA', 'Excel', 'stdole', 'Office'],
@@ -568,5 +568,134 @@ describe('Excel 16.0 measured shape corrections', () => {
 		const errors = compileErrors(measuredMain('Dim n As Long\nDebug.Print n Is Nothing'));
 		expect(errors.map((diag) => diag.code)).toEqual(['is-operator-non-object']);
 		expect(errors[0].message).toBe("The 'Is' operator requires object operands, but 'n' has type Long, which is not an object. This is a VBE compile error: Type mismatch.");
+	});
+});
+
+// Follow-up Excel measurements: use dead branches for function returns so
+// argument/runtime failures cannot be mistaken for compile-time constraints.
+describe('Excel-measured follow-up expression gaps', () => {
+	it.each(['For i = 1 To a', 'For i = 1 To 2 Step a', '10  For i = a To 1'])(
+		'rejects a bare array in %s', (header) => {
+			const body = `Dim a(1) As Long, i As Long\n${header}\nNext`;
+			const errors = compileErrors(measuredMain(body));
+			expect(errors.map((d) => d.code)).toEqual(['non-scalar-binary-operand']);
+			expect(errors[0].message).toBe("'a' is declared as an array, which For cannot read as one value. This is a VBE compile error: Type mismatch.");
+			for (const control of ['a(0)', '1']) {
+				expect(compileErrors(measuredMain(body.replace(header, header.replace(/\ba\b/, control))))).toEqual([]);
+			}
+		});
+	it.each(['Case a, 1', 'Case 0, a', 'Case a To 1'])(
+		'rejects a bare array in %s', (clause) => {
+			const body = `Dim a(1) As Long\nSelect Case 1\n${clause}\nEnd Select`;
+			const errors = compileErrors(measuredMain(body));
+			expect(errors.map((d) => d.code)).toEqual(['non-scalar-binary-operand']);
+			expect(errors[0].message).toBe("'a' is declared as an array, which Case cannot read as one value. This is a VBE compile error: Type mismatch.");
+			for (const control of ['a(0)', '1']) {
+				expect(compileErrors(measuredMain(body.replace(clause, clause.replace(/\ba\b/, control))))).toEqual([]);
+			}
+		});
+	it('rejects a bare array as a ReDim bound', () => {
+		const body = 'Dim a(1) As Long, d() As Long\nReDim d(a)';
+		const errors = compileErrors(measuredMain(body));
+		expect(errors.map((d) => d.code)).toEqual(['non-scalar-binary-operand']);
+		expect(errors[0].message).toBe("'a' is declared as an array, which ReDim bound cannot read as one value. This is a VBE compile error: Type mismatch.");
+		for (const control of ['a(0)', '1']) {
+			expect(compileErrors(measuredMain(body.replace('d(a)', `d(${control})`)))).toEqual([]);
+		}
+	});
+	it('visits the condition of an If nested in a single-line Else exactly once', () => {
+		const body = 'Dim n As Long, s As String\nIf n Then Exit Sub Else If s Is Nothing Then Exit Sub';
+		const errors = compileErrors(measuredMain(body));
+		expect(errors.map((d) => d.code)).toEqual(['is-operator-non-object']);
+		expect(errors[0].message).toBe("The 'Is' operator requires object operands, but 's' has type String, which is not an object. This is a VBE compile error: Type mismatch.");
+		for (const type of ['Object', 'Variant']) {
+			expect(compileErrors(measuredMain(body.replace('s As String', `s As ${type}`)))).toEqual([]);
+		}
+	});
+	it.each([
+		['-n', 'Dim n As Long', '', 'the expression has a scalar numeric type'],
+		['(n + 1)', 'Dim n As Long', '', 'the expression has a scalar numeric type'],
+		['S2', 'Const S2 = "abc"', '', "'S2' has type String"],
+		['e1', '', 'Private Enum E\ne1 = 1\nEnd Enum\n', "'e1' has type E"],
+		['n', 'Dim n As E', 'Private Enum E\ne1 = 1\nEnd Enum\n', "'n' has type E"],
+		['Time$', '', '', "'Time$' has type String"],
+	])('rejects the measured scalar Is operand %s', (operand, locals, declarations, detail) => {
+		const errors = compileErrors(measuredMain(`${locals}\nDebug.Print ${operand} Is Nothing`, declarations));
+		expect(errors.map((d) => d.code)).toEqual(['is-operator-non-object']);
+		expect(errors[0].message).toBe(`The 'Is' operator requires object operands, but ${detail}, which is not an object. This is a VBE compile error: Type mismatch.`);
+		expect(compileErrors(measuredMain(`${locals}\nDebug.Print ${operand}`, declarations))).toEqual([]);
+	});
+	it.each(['n', '-n', '(n + 1)'])('keeps unknown arithmetic inputs conservative: %s', (operand) => {
+		expect(compileErrors(measuredMain(`Dim n As Variant\nDebug.Print ${operand} Is Nothing`))).toEqual([]);
+	});
+	it('respects local shadows of Enum members and string constants', () => {
+		const declarations = 'Private Enum E\ne1 = 1\nEnd Enum\nConst S2 = "abc"\n';
+		expect(compileErrors(measuredMain('Dim e1 As Object, S2 As Variant\nDebug.Print e1 Is Nothing, S2 Is Nothing', declarations))).toEqual([]);
+	});
+	it.each([
+		['Dir', "'Dir' has type String"], ['MsgBox("x")', 'the expression has a scalar numeric type'],
+		['VarType(1)', 'the expression has a scalar numeric type'], ['Rnd', "'Rnd' has type Single"],
+		['FreeFile', "'FreeFile' has type Integer"], ['Replace("a", "a", "b")', 'the expression has type String'],
+		['UBound(a)', 'the expression has type Long'], ['TypeName(1)', 'the expression has type String'],
+		['IsNumeric(1)', 'the expression has type Boolean'], ['Sqr(1)', 'the expression has type Double'],
+		['Join(a)', 'the expression has type String'], ['Val("1")', 'the expression has type Double'],
+		['Asc("a")', 'the expression has type Integer'], ['CInt(1)', 'the expression has type Integer'],
+		['CLng(1)', 'the expression has type Long'], ['Sgn(1)', 'the expression has type Integer'],
+		['StrComp("a", "b")', 'the expression has type Integer'], ['Abs(1)', 'the expression has a scalar numeric type'],
+		['Int(1)', 'the expression has a scalar numeric type'], ['Fix(1)', 'the expression has a scalar numeric type'],
+		['Timer', "'Timer' has type Single"], ['CDate(1)', 'the expression has type Date'],
+		['CStr(1)', 'the expression has type String'], ['Len("a")', 'the expression has type Long'],
+		['InStr("a", "a")', 'the expression has type Long'],
+	])('rejects the measured typed return %s in a dead branch', (call, detail) => {
+		const body = `Dim a(1) As String\nIf False Then Debug.Print ${call} Is Nothing`;
+		const errors = compileErrors(measuredMain(body));
+		expect(errors.map((d) => d.code)).toEqual(['is-operator-non-object']);
+		expect(errors[0].message).toBe(`The 'Is' operator requires object operands, but ${detail}, which is not an object. This is a VBE compile error: Type mismatch.`);
+		expect(compileErrors(measuredMain(body.replace(' Is Nothing', '')))).toEqual([]);
+	});
+	it.each([
+		'DateSerial(2026, 1, 1)', 'TimeSerial(1, 2, 3)', 'DateValue("2026-01-01")', 'TimeValue("01:02:03")',
+		'DateAdd("d", 1, d)', 'Environ("PATH")', 'Format(1)', 'Chr(65)', 'Time', 'CDec(1)', 'Date', 'Now',
+		'Hex(1)', 'Str(1)', 'Trim("x")', 'UCase("x")', 'Split("a,b", ",")',
+		'Year(d)', 'Month(d)', 'Day(d)', 'Weekday(d)', 'Hour(d)', 'Minute(d)', 'Second(d)',
+		'DatePart("yyyy", d)', 'DateDiff("d", d, d)', 'Round(1.25, 1)', 'Left("x", 1)',
+	])('accepts the measured Variant return %s in a dead branch', (call) => {
+		expect(compileErrors(measuredMain(`Dim d As Date\nIf False Then Debug.Print ${call} Is Nothing`))).toEqual([]);
+		// Date is deliberately absent from runtime metadata to avoid a type-name collision.
+		if (call !== 'Date') { expect(resolveRuntimeFunction(call.split('(')[0])?.declaredReturns).toBe('Variant'); }
+	});
+	it.each([
+		['If Sheet1 Is Nothing Then Exit Sub', 'standard'],
+		['If TypeOf Sheet1 Is Worksheet Then Exit Sub', 'standard'],
+		['If Me Is Nothing Then Exit Sub', 'class'],
+	] as const)('does not turn a project object into an implicit Long: %s', (body, kind) => {
+		expect(compileErrors(`DefLng A-Z\nSub Main()\n${body}\nEnd Sub\n`, [], kind)).toEqual([]);
+	});
+	it('does not turn a predeclared class or UserForm into an implicit Long', () => {
+		const modules = [
+			{ moduleName: 'Factory', type: 'class', predeclaredId: true, source: '' },
+			{ moduleName: 'UserForm1', type: 'userform', source: '' },
+		];
+		for (const name of ['Factory', 'UserForm1']) {
+			expect(compileErrors(`DefLng A-Z\nSub Main()\nIf ${name} Is Nothing Then Exit Sub\nEnd Sub\n`, modules)).toEqual([]);
+		}
+	});
+	it('excludes UserForm designer controls and implicit members from DefType fallback', () => {
+		const controls = [{ name: 'CommandButton1', type: 'MSForms.CommandButton' }, { name: 'Picker', type: 'MSForms.ComboBox' }];
+		for (const { name } of controls) {
+			expect(compileErrors(`DefLng A-Z\nSub Main()\nIf ${name} Is Nothing Then Exit Sub\nEnd Sub\n`, [], 'userform', controls)).toEqual([]);
+		}
+	});
+	it.each(['standardModule', 'class', 'document', 'userform'] as const)('excludes every project module kind from the implicit-local fallback: %s', (kind) => {
+		const text = 'DefLng A-Z\nSub Main()\nDebug.Print OtherModule Is Nothing\nEnd Sub\n';
+		const mod = parseModule(text);
+		const symbols = buildModuleSymbols('Module1', 'standard', text, { parsedModule: mod });
+		const proc = mod.members.find((m): m is import('../../src/analyzer/parser/nodes').ProcedureNode => m.kind === 'Procedure')!;
+		const stmt = proc.body[0];
+		if (stmt.kind !== 'Statement') { throw new Error('missing print'); }
+		const expr = statementValueExpressions(text, stmt)[0];
+		if (expr.exprKind !== 'BinaryExpr') { throw new Error('missing Is'); }
+		const shape = expressionShapeResolver(symbols, undefined, { projectClassMembers: [{ name: 'OtherModule', moduleName: 'OtherModule', kind, members: [] }] })(proc);
+		expect(shape(expr.left)).toBeUndefined();
 	});
 });

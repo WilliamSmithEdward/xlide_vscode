@@ -292,8 +292,10 @@ function checkFor(
 	if (!node.each) {
 		const header = blockHeaderStatements(ctx.source, node).before;
 		if (header) {
-			const toks = statementTokens(ctx.source, header.span);
-			if (toks[2]?.rawText === '=' && tokenText(toks[4]) === 'to') { checkArrayScalarValue(ctx, procSym, toks[3], header.span, 'For start'); }
+			const toks = statementTokensAfterLeadingLabel(ctx.source, header.span);
+			if (toks[2]?.rawText === '=') {
+				checkArrayScalarSlots(ctx, procSym, toks, 3, toks.length, new Set(['to', 'step']), header.span, 'For');
+			}
 		}
 		const kind = category(ctx, variable);
 		if (kind === 'string' || kind === 'boolean' || kind === 'object' || kind === 'udt' || kind === 'class') {
@@ -418,6 +420,21 @@ function checkArrayScalarValue(ctx: Context, procSym: VbaSymbol | undefined, val
 	ctx.push('nonScalarBinaryOperand', `'${name}' is declared as an array, which ${where} cannot read as one value. This is a VBE compile error: Type mismatch.`, absoluteSpan(span, value));
 }
 
+/** Split only statement-level slots; array elements and call arguments stay intact. */
+function checkArrayScalarSlots(ctx: Context, procSym: VbaSymbol | undefined, toks: readonly VbaToken[], from: number, end: number, separators: ReadonlySet<string>, span: Span, where: string): void {
+	let depth = 0;
+	let start = from;
+	for (let i = from; i <= end; i++) {
+		if (i < end && toks[i].rawText === '(') { depth++; }
+		else if (i < end && toks[i].rawText === ')') { depth--; }
+		else if (i === end || depth === 0 && separators.has(tokenText(toks[i]))) {
+			const value = tokenText(toks[start]) === 'is' ? start + 2 : start;
+			if (i === value + 1) { checkArrayScalarValue(ctx, procSym, toks[value], span, where); }
+			start = i + 1;
+		}
+	}
+}
+
 function checkStatement(ctx: Context, procSym: VbaSymbol | undefined, span: Span, stmt: LeafStatementNode): void {
 	const toks = statementTokensAfterLeadingLabel(ctx.source, span);
 	if (toks.length === 0) {
@@ -427,10 +444,18 @@ function checkStatement(ctx: Context, procSym: VbaSymbol | undefined, span: Span
 	checkNamedArguments(ctx, procSym, toks, span);
 	checkMidTarget(ctx, procSym, toks, span);
 	const first = tokenText(toks[0]);
-	// A lone Case value has no binary operator for the expression rule to own.
-	// Limit this to simple values and relational clauses, not unmeasured ranges.
-	if (first === 'case' && (toks.length === 2 || toks.length === 4 && tokenText(toks[1]) === 'is')) {
-		checkArrayScalarValue(ctx, procSym, toks[toks.length - 1], span, 'Case');
+	// These bare scalar slots have no binary operator for the expression rule.
+	if (first === 'case') {
+		checkArrayScalarSlots(ctx, procSym, toks, 1, toks.length, new Set([',', 'to']), span, 'Case');
+	}
+	if (first === 'redim') {
+		for (let i = 1; i < toks.length; i++) {
+			if (toks[i].rawText !== '(') { continue; }
+			const close = matchParenFrom(toks, i);
+			if (close < 0) { break; }
+			checkArrayScalarSlots(ctx, procSym, toks, i + 1, close, new Set([',', 'to']), span, 'ReDim bound');
+			i = close;
+		}
 	}
 	if (first === 'return' && toks.length > 1 && toks[1].kind !== 'colon') {
 		ctx.push(

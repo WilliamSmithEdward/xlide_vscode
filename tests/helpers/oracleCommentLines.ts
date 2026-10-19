@@ -1,3 +1,4 @@
+import { oracleModuleInput, type OracleModule } from './oracleModuleInput';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { describe, expect, it } from 'vitest';
@@ -19,12 +20,6 @@ import {
 // line from the rules. Every finding of every severity is compared, at the
 // line it was on before the comments went in. No comment goes in front of
 // an Attribute line, whose place is fixed.
-
-interface OracleModule {
-	name: string;
-	type?: string;
-	source: string;
-}
 
 interface OracleCase {
 	id: string;
@@ -60,7 +55,7 @@ function commented(source: string): { source: string; origin: number[] } {
 
 /** Every finding as `module: code @ line`, sorted, with lines mapped through `origins`. */
 function findings(modules: readonly OracleModule[], origins?: ReadonlyMap<string, number[]>): string[] {
-	const inputs = modules.map((mod) => ({ moduleName: mod.name, type: mod.type, source: mod.source }));
+	const inputs = modules.map(oracleModuleInput);
 	const project = buildVbaProjectIndex(inputs, undefined, { conditionalCompilation: { projectConstants: {} } });
 	const procedures = projectProcedureSignatures(project);
 	const out: string[] = [];

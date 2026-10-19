@@ -20,7 +20,7 @@ import type { ConditionalActivityTracker } from '../../conditional/conditionalCo
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type { BodyNode, LeafStatementNode, ModuleNode, ProcedureNode, Span } from '../../parser/nodes';
 import type { VbaSymbol } from '../../symbols/symbolModel';
-import { expressionShapeResolver } from '../expressionShape';
+import { expressionShapeResolver, type ExpressionShapeContext } from '../expressionShape';
 import { forEachSubExpression, statementValueExpressions } from '../exprWalk';
 import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { PushFn } from '../analysisContext';
@@ -42,13 +42,14 @@ export function checkTypeMembers(
 	push: PushFn,
 	procedureFilter?: (member: ProcedureNode) => boolean,
 	projectVisibleSymbols?: readonly VbaSymbol[],
+	shapeContext: ExpressionShapeContext = memberCtx,
 ): void {
 	const types = moduleTypes(source, mod, activity);
 	if (types.size === 0) {
 		return;
 	}
 	const optionBase = moduleOptionBase(mod, activity);
-	const shapesFor = expressionShapeResolver(symbols, projectVisibleSymbols);
+	const shapesFor = expressionShapeResolver(symbols, projectVisibleSymbols, shapeContext);
 	const isObjectType = (type: string): boolean => !types.has(type) && type !== 'variant' && isKnownObjectAssignmentType(type, memberCtx);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind === 'Procedure' && procedureFilter && !procedureFilter(member)) { continue; }

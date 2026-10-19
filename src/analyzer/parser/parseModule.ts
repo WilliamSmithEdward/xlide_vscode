@@ -2036,8 +2036,8 @@ class Parser {
 		if (tokenWord(tokens[0]) !== 'if') {
 			return [];
 		}
-		// Each arm runs from the token after its Then or Else to the next
-		// Else keyword, which is no part of the arm.
+		// A nested If's condition belongs to its arm. End that condition at
+		// Then, but retain its executable arms as separate statement spans.
 		const arms: Array<{ start: number; keywordAfter?: number }> = [];
 		for (let i = 1; i < tokens.length; i += 1) {
 			const word = tokenWord(tokens[i]);
@@ -2045,7 +2045,8 @@ class Parser {
 				continue;
 			}
 			if (arms.length > 0 && arms[arms.length - 1].keywordAfter === undefined) {
-				arms[arms.length - 1].keywordAfter = tokens[i].start;
+				const previous = arms[arms.length - 1];
+				previous.keywordAfter = word === 'then' ? tokens[i].end : tokens[i].start;
 			}
 			const next = tokens[i + 1];
 			if (next) {

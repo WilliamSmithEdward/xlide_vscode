@@ -104,32 +104,6 @@ export function checkStatementForms(
 			needsArgument.set(lower.toLowerCase(), only.moduleName.toLowerCase());
 		}
 	}
-	let classSubNames: Set<string> | undefined;
-	let classIndex = 0;
-	let memberIndex = 0;
-	const mightBeClassSub = (name: string): boolean => {
-		const lower = name.toLowerCase();
-		classSubNames ??= new Set();
-		if (classSubNames.has(lower)) { return true; }
-		const types = memberCtx.projectClassMembers ?? [];
-		// Resume after the last candidate: a first hit need not scan the project.
-		while (classIndex < types.length) {
-			const type = types[classIndex];
-			if (type.kind === 'class') {
-				while (memberIndex < type.members.length) {
-					const member = type.members[memberIndex++];
-					if (member.sub) {
-						const candidate = member.name.toLowerCase();
-						classSubNames.add(candidate);
-						if (candidate === lower) { return true; }
-					}
-				}
-			}
-			classIndex++;
-			memberIndex = 0;
-		}
-		return false;
-	};
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind === 'Procedure' && procedureFilter && !procedureFilter(member)) { continue; }
 		if (member.kind !== 'Procedure') {
@@ -257,8 +231,8 @@ export function checkStatementForms(
 					// After AddressOf it is addressof-misuse's (issue #299).
 					if (name && toks[i - 1]?.rawText === '.' && toks[i + 1]?.rawText !== '.' && tokenText(toks[i - 3]) !== 'addressof'
 						// The value test first: it is cheap, and `Debug.Print 1` names no
-						// value, so it reads no class's members.
-						&& isValue(i) && mightBeClassSub(name)
+						// value. Resolve the receiver before reading its class members.
+						&& isValue(i)
 						&& projectClassMemberAt(source, span.start + toks[i - 1].end, name, memberCtx)?.sub) {
 						push('subUsedAsValue', `'${name}' is a Sub of the class, which returns nothing, so it cannot be used as a value. This is a VBE compile error: Expected Function or variable.`, at(i));
 						continue;

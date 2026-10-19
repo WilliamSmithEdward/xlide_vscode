@@ -158,7 +158,7 @@ export function buildModuleTypeSignatures(
 }
 
 /** A procedure's signature, its untyped parameters and result typed by the module's DefType lines (issue #285). */
-function moduleSignatureFromSymbol(symbols: ReturnType<typeof buildModuleSymbols>, symbol: VbaSymbol): CallableTypeSignature {
+export function moduleSignatureFromSymbol(symbols: ReturnType<typeof buildModuleSymbols>, symbol: VbaSymbol): CallableTypeSignature {
 	const declared = callableTypeSignatureFromSymbol(symbol);
 	if (!symbols.defTypes || symbol.kind === 'declare') {
 		return declared;

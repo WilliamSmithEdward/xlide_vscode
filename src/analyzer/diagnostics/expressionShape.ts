@@ -3,17 +3,44 @@
 import type { Argument, ExprNode, ProcedureNode } from '../parser/nodes';
 import type { VbaSymbol } from '../symbols/symbolModel';
 import type { buildModuleSymbols } from '../symbols/buildModuleSymbols';
-import { resolveRuntimeConstant, resolveRuntimeFunction, resolveRuntimeObject } from '../runtime/vbaRuntime';
-import { callableTypeSignatureFromSymbol, declarationShapeEnvironmentFor, defTypeOf, typeEnvironmentFor, sourceNameScopeFor, type SourceNameScope, type DeclaredValueShape } from './typeInference';
+import { resolveRuntimeConstant, resolveRuntimeFunction, resolveRuntimeObject, type VbaRuntimeFunction } from '../runtime/vbaRuntime';
+import { moduleSignatureFromSymbol, runtimeAritySignature, declarationShapeEnvironmentFor, defTypeOf, typeEnvironmentFor, sourceNameScopeFor, type SourceNameScope, type DeclaredValueShape } from './typeInference';
 import type { CallableTypeSignature } from './callExtraction';
+import type { MemberCompletionContext } from '../completion/memberAccess';
 import { resolveHostConstant, resolveHostGlobal, resolveHostGlobalMember } from '../host/hostModel';
 
-type ShapeFactory = (proc: ProcedureNode) => (expr: ExprNode) => DeclaredValueShape | undefined;
-const factories = new WeakMap<ReturnType<typeof buildModuleSymbols>, { visible: readonly VbaSymbol[] | undefined; factory: ShapeFactory }>();
+export type ExpressionShapeContext = Pick<MemberCompletionContext, 'projectClassMembers' | 'implicitMembers'>;
 
-export function expressionShapeResolver(symbols: ReturnType<typeof buildModuleSymbols>, projectVisibleSymbols?: readonly VbaSymbol[]): ShapeFactory {
+type ShapeFactory = (proc: ProcedureNode) => (expr: ExprNode) => DeclaredValueShape | undefined;
+const factories = new WeakMap<ReturnType<typeof buildModuleSymbols>, { visible: readonly VbaSymbol[] | undefined; context: ExpressionShapeContext | undefined; factory: ShapeFactory }>();
+
+export function expressionShapeResolver(symbols: ReturnType<typeof buildModuleSymbols>, projectVisibleSymbols?: readonly VbaSymbol[], context?: ExpressionShapeContext): ShapeFactory {
 	const cached = factories.get(symbols);
-	if (cached && cached.visible === projectVisibleSymbols) { return cached.factory; }
+	if (cached && cached.visible === projectVisibleSymbols && cached.context === context) { return cached.factory; }
+	// Indexed once per analysis, never scanned for each operand. These names
+	// have project/designer bindings and cannot become DefType implicit locals.
+	let nonLocalNames: Set<string> | undefined;
+	const valueBindings = new Set<string>();
+	const isNonLocalName = (name: string): boolean => {
+		if (!nonLocalNames) {
+			nonLocalNames = new Set(['me', symbols.moduleName.toLowerCase()]);
+			for (const type of context?.projectClassMembers ?? []) {
+				const name = type.name.toLowerCase();
+				nonLocalNames.add(name);
+				// An unread attribute header cannot prove the absence of a default instance.
+				if (type.kind === 'document' || type.kind === 'userform' || type.kind === 'class' && type.predeclaredId !== false) {
+					valueBindings.add(name);
+				}
+			}
+			for (const member of context?.implicitMembers ?? []) {
+				const name = member.name.toLowerCase();
+				nonLocalNames.add(name);
+				valueBindings.add(name);
+			}
+			for (const symbol of projectVisibleSymbols ?? []) { nonLocalNames.add(symbol.moduleName.toLowerCase()); }
+		}
+		return nonLocalNames.has(name);
+	};
 	const declarations = new Map<string, NonNullable<typeof symbols.root.children>>();
 	for (const symbol of symbols.root.children ?? []) {
 		const key = symbol.name.toLowerCase();
@@ -28,6 +55,13 @@ export function expressionShapeResolver(symbols: ReturnType<typeof buildModuleSy
 		if (readers.length === 1 && (group.length === 1 || readers[0].kind === 'propertyGet')) { readDeclarations.set(name, readers[0]); }
 	}
 	const signatures = new WeakMap<VbaSymbol, CallableTypeSignature>();
+	const runtimeSignatures = new WeakMap<VbaRuntimeFunction, CallableTypeSignature | undefined>();
+	const runtimeShape = (runtime: VbaRuntimeFunction, args: readonly Argument[]): DeclaredValueShape | undefined => {
+		if (!runtimeSignatures.has(runtime)) { runtimeSignatures.set(runtime, runtimeAritySignature(runtime)); }
+		const signature = runtimeSignatures.get(runtime);
+		if (signature && !acceptsArguments(signature, args)) { return undefined; }
+		return { asType: runtime.declaredReturns, isScalar: runtime.scalarReturn, isArray: false, isFixedArray: false };
+	};
 	const fields = new WeakMap<VbaSymbol, ReadonlyMap<string, VbaSymbol>>();
 	const procedures = new WeakMap<ProcedureNode, ReturnType<ShapeFactory>>();
 	const factory: ShapeFactory = (proc) => {
@@ -42,19 +76,19 @@ export function expressionShapeResolver(symbols: ReturnType<typeof buildModuleSy
 			const fn = readDeclarations.get(name);
 			if (fn && (fn.kind === 'function' || fn.kind === 'propertyGet' || fn.kind === 'declare' && fn.declareKind === 'Function')) {
 				let signature = signatures.get(fn);
-				if (!signature) { signatures.set(fn, signature = callableTypeSignatureFromSymbol(fn)); }
+				if (!signature) { signatures.set(fn, signature = moduleSignatureFromSymbol(symbols, fn)); }
 				if (!acceptsArguments(signature, args)) { return undefined; }
-				return { asType: fn.asType, isArray: fn.isArray === true, isFixedArray: false };
+				return { asType: signature.returnType, isArray: fn.isArray === true, isFixedArray: false };
 			}
-			if (definitions || moduleQualified) { return undefined; }
+			if (definitions || moduleQualified || isNonLocalName(name) && valueBindings.has(name)) { return undefined; }
 			const runtime = resolveRuntimeFunction(name + suffix);
 			if (runtime?.kind !== 'function' || (scope ??= sourceNameScopeFor(symbols, proc, projectVisibleSymbols)).runtimeShadows.has(name)) { return undefined; }
-			return { asType: runtime.declaredReturns, isScalar: runtime.scalarReturn, isArray: false, isFixedArray: false };
+			return runtimeShape(runtime, args);
 		};
 		const callableQualifier = (expr: ExprNode): 'module' | 'vba' | undefined => {
 			if (expr.exprKind !== 'MemberAccessExpr' || expr.accessKind === 'bang' || expr.object?.exprKind !== 'IdentifierExpr') { return undefined; }
 			const name = expr.object.name.toLowerCase();
-			if (shapes.has(name) || declarations.has(name)) { return undefined; }
+			if (shapes.has(name) || declarations.has(name) || isNonLocalName(name) && valueBindings.has(name)) { return undefined; }
 			if (symbols.moduleKind === 'standard' && name === symbols.moduleName.toLowerCase()) { return 'module'; }
 			if (name === 'vba' && !(scope ??= sourceNameScopeFor(symbols, proc, projectVisibleSymbols)).runtimeShadows.has(name)) { return 'vba'; }
 			return undefined;
@@ -62,7 +96,8 @@ export function expressionShapeResolver(symbols: ReturnType<typeof buildModuleSy
 		const qualifiedCallableShape = (expr: Extract<ExprNode, { exprKind: 'MemberAccessExpr' }>, qualifier: 'module' | 'vba', args: readonly Argument[] = []): DeclaredValueShape | undefined => {
 			if (qualifier === 'module') { return callableShape(expr.member.toLowerCase(), args, '', true); }
 			const runtime = resolveRuntimeFunction(expr.member);
-			return runtime?.kind === 'function' ? { asType: runtime.declaredReturns, isScalar: runtime.scalarReturn, isArray: false, isFixedArray: false } : undefined;
+			if (runtime?.kind !== 'function') { return undefined; }
+			return runtimeShape(runtime, args);
 		};
 		const resolve = (expr: ExprNode): DeclaredValueShape | undefined => {
 			if (expr.exprKind === 'ParenExpr') { return resolve(expr.inner); }
@@ -73,14 +108,15 @@ export function expressionShapeResolver(symbols: ReturnType<typeof buildModuleSy
 				// DefType also types undeclared assignment locals. They have no
 				// declaration shape; reuse the effective type environment's binding
 				// and host/runtime exclusions before attempting callable resolution.
-				const asType = (types ??= typeEnvironmentFor(symbols, proc)).get(name);
+				const asType = !isNonLocalName(name) && !declarations.has(name)
+					? (types ??= typeEnvironmentFor(symbols, proc)).get(name) : undefined;
 				if (asType) { return { asType, isArray: false, isFixedArray: false }; }
 				const callable = callableShape(name, [], expr.typeSuffix);
 				if (callable) { return callable; }
 				// A read alone also creates an implicit local without Option Explicit.
 				// Preserve source/project, host and runtime bindings before DefType.
 				const implicitType = symbols.implicitLocals !== undefined && !expr.typeSuffix ? defTypeOf(symbols, name) : undefined;
-				return implicitType && !(scope ??= sourceNameScopeFor(symbols, proc, projectVisibleSymbols)).runtimeShadows.has(name)
+				return implicitType && !isNonLocalName(name) && !(scope ??= sourceNameScopeFor(symbols, proc, projectVisibleSymbols)).runtimeShadows.has(name)
 					&& !resolveRuntimeFunction(name) && !resolveRuntimeObject(name) && !resolveRuntimeConstant(name)
 					&& !resolveHostGlobal(name, undefined) && !resolveHostGlobalMember(name, undefined) && !resolveHostConstant(name, undefined)
 					? { asType: implicitType, isArray: false, isFixedArray: false } : undefined;
@@ -121,13 +157,15 @@ export function expressionShapeResolver(symbols: ReturnType<typeof buildModuleSy
 		procedures.set(proc, resolve);
 		return resolve;
 	};
-	factories.set(symbols, { visible: projectVisibleSymbols, factory });
+	factories.set(symbols, { visible: projectVisibleSymbols, context, factory });
 	return factory;
 }
 
 /** Match argument slots to the declaration before judging its result shape. */
 function acceptsArguments(signature: CallableTypeSignature, args: readonly Argument[]): boolean {
-	const params = signature.params;
+	// InStr's two-positional-argument form omits the leading Start slot.
+	const params = signature.runtime && /^(instr|instrb)$/i.test(signature.name) && args.length === 2 && args.every((arg) => !arg.name)
+		? signature.params.slice(1) : signature.params;
 	const supplied = new Set<number>();
 	let named = false;
 	for (let i = 0; i < args.length; i++) {

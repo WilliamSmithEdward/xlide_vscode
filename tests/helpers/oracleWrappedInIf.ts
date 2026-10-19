@@ -1,3 +1,4 @@
+import { oracleModuleInput, type OracleModule } from './oracleModuleInput';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { describe, expect, it } from 'vitest';
@@ -20,13 +21,6 @@ import {
 // characters by the extra indent would be a new line-too-long, rightly, so
 // that code is left out.
 
-interface OracleModule {
-	name: string;
-	type?: string;
-	source: string;
-	entry?: boolean;
-}
-
 interface OracleCase {
 	id: string;
 	entryPoint?: string;
@@ -45,7 +39,7 @@ function modulesOf(oracleCase: OracleCase): OracleModule[] {
 
 /** Each module's error codes, sorted, as the extension would show them. */
 function errorCodes(modules: readonly OracleModule[]): string[] {
-	const inputs = modules.map((mod) => ({ moduleName: mod.name, type: mod.type, source: mod.source }));
+	const inputs = modules.map(oracleModuleInput);
 	const project = buildVbaProjectIndex(inputs, undefined, { conditionalCompilation: { projectConstants: {} } });
 	const procedures = projectProcedureSignatures(project);
 	const out: string[] = [];

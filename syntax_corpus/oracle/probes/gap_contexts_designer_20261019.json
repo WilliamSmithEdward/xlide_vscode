@@ -1,0 +1,320 @@
+{
+  "version": 1,
+  "description": "Unmeasured designer/predeclared compile probes adapted from gap_contexts_manual_20261019.json; observe only.",
+  "cases": [
+    {
+      "id": "binding_control_Timer",
+      "mode": "compile",
+      "inferredExpectedCompile": "accepted; verify designer binding",
+      "why": "An object-valued designer member should shadow the unqualified runtime function.",
+      "expected": "observe",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Form1",
+          "type": "userform",
+          "entry": true,
+          "source": "Option Explicit\nSub Main()\n    If Timer Is Nothing Then Exit Sub\nEnd Sub\n",
+          "designerControls": [
+            {
+              "name": "Timer",
+              "progId": "Forms.CommandButton.1"
+            }
+          ],
+          "implicitMembers": [
+            {
+              "name": "Timer",
+              "type": "MSForms.CommandButton"
+            }
+          ]
+        }
+      ],
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "binding_control_Rnd",
+      "mode": "compile",
+      "inferredExpectedCompile": "accepted; verify designer binding",
+      "why": "An object-valued designer member should shadow the unqualified runtime function.",
+      "expected": "observe",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Form1",
+          "type": "userform",
+          "entry": true,
+          "source": "Option Explicit\nSub Main()\n    If Rnd Is Nothing Then Exit Sub\nEnd Sub\n",
+          "designerControls": [
+            {
+              "name": "Rnd",
+              "progId": "Forms.CommandButton.1"
+            }
+          ],
+          "implicitMembers": [
+            {
+              "name": "Rnd",
+              "type": "MSForms.CommandButton"
+            }
+          ]
+        }
+      ],
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "binding_control_Len",
+      "mode": "compile",
+      "inferredExpectedCompile": "accepted; verify designer binding",
+      "why": "An object-valued designer member should shadow the unqualified runtime function.",
+      "expected": "observe",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Form1",
+          "type": "userform",
+          "entry": true,
+          "source": "Option Explicit\nSub Main()\n    If Len Is Nothing Then Exit Sub\nEnd Sub\n",
+          "designerControls": [
+            {
+              "name": "Len",
+              "progId": "Forms.CommandButton.1"
+            }
+          ],
+          "implicitMembers": [
+            {
+              "name": "Len",
+              "type": "MSForms.CommandButton"
+            }
+          ]
+        }
+      ],
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "binding_control_InputBox",
+      "mode": "compile",
+      "inferredExpectedCompile": "accepted; verify designer binding",
+      "why": "An object-valued designer member should shadow the unqualified runtime function.",
+      "expected": "observe",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Form1",
+          "type": "userform",
+          "entry": true,
+          "source": "Option Explicit\nSub Main()\n    If InputBox Is Nothing Then Exit Sub\nEnd Sub\n",
+          "designerControls": [
+            {
+              "name": "InputBox",
+              "progId": "Forms.CommandButton.1"
+            }
+          ],
+          "implicitMembers": [
+            {
+              "name": "InputBox",
+              "type": "MSForms.CommandButton"
+            }
+          ]
+        }
+      ],
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "binding_control_explicit_vba_timer",
+      "mode": "compile",
+      "inferredExpectedCompile": "rejected; inferred Type mismatch",
+      "why": "Explicit qualification should retain the runtime function even with a Timer control.",
+      "expected": "observe",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Form1",
+          "type": "userform",
+          "entry": true,
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print VBA.Timer Is Nothing\nEnd Sub\n",
+          "designerControls": [
+            {
+              "name": "Timer",
+              "progId": "Forms.CommandButton.1"
+            }
+          ],
+          "implicitMembers": [
+            {
+              "name": "Timer",
+              "type": "MSForms.CommandButton"
+            }
+          ]
+        }
+      ],
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "binding_assigned_picker",
+      "mode": "compile",
+      "inferredExpectedCompile": "accepted; verify default-member assignment",
+      "why": "The first assignment should set the ComboBox default Value rather than introduce a DefLng local.",
+      "expected": "observe",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Form1",
+          "type": "userform",
+          "entry": true,
+          "source": "DefLng A-Z\nSub Main()\n    Picker = 1\n    If Picker Is Nothing Then Exit Sub\nEnd Sub\n",
+          "designerControls": [
+            {
+              "name": "Picker",
+              "progId": "Forms.ComboBox.1"
+            }
+          ],
+          "implicitMembers": [
+            {
+              "name": "Picker",
+              "type": "MSForms.ComboBox"
+            }
+          ]
+        }
+      ],
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "binding_assigned_picker_explicit_value",
+      "mode": "compile",
+      "inferredExpectedCompile": "accepted",
+      "why": "Explicit Value spelling is the binding control.",
+      "expected": "observe",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Form1",
+          "type": "userform",
+          "entry": true,
+          "source": "DefLng A-Z\nSub Main()\n    Picker.Value = 1\n    If Picker Is Nothing Then Exit Sub\nEnd Sub\n",
+          "designerControls": [
+            {
+              "name": "Picker",
+              "progId": "Forms.ComboBox.1"
+            }
+          ],
+          "implicitMembers": [
+            {
+              "name": "Picker",
+              "type": "MSForms.ComboBox"
+            }
+          ]
+        }
+      ],
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "binding_predeclared_timer",
+      "mode": "compile",
+      "inferredExpectedCompile": "accepted; verify predeclared binding",
+      "why": "A usable project predeclared object should shadow the runtime function.",
+      "expected": "observe",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Timer",
+          "predeclaredId": true,
+          "source": "Attribute VB_Name = \"Timer\"\nAttribute VB_PredeclaredId = True\nOption Explicit\n",
+          "type": "class"
+        },
+        {
+          "name": "Module1",
+          "source": "Option Explicit\nSub Main()\n    If Timer Is Nothing Then Exit Sub\nEnd Sub\n",
+          "type": "standard",
+          "entry": true
+        }
+      ],
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "binding_picker_readonly",
+      "mode": "compile",
+      "inferredExpectedCompile": "accepted; verify designer/default-member binding",
+      "why": "Neighbor control for the inherited assigned-Picker classification; not a newly measured Excel verdict.",
+      "expected": "observe",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Form1",
+          "type": "userform",
+          "entry": true,
+          "source": "DefLng A-Z\nSub Main()\n    If Picker Is Nothing Then Exit Sub\nEnd Sub\n",
+          "designerControls": [
+            {
+              "name": "Picker",
+              "progId": "Forms.ComboBox.1"
+            }
+          ],
+          "implicitMembers": [
+            {
+              "name": "Picker",
+              "type": "MSForms.ComboBox"
+            }
+          ]
+        }
+      ],
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "binding_picker_me",
+      "mode": "compile",
+      "inferredExpectedCompile": "accepted; verify designer/default-member binding",
+      "why": "Neighbor control for the inherited assigned-Picker classification; not a newly measured Excel verdict.",
+      "expected": "observe",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Form1",
+          "type": "userform",
+          "entry": true,
+          "source": "DefLng A-Z\nSub Main()\n    Me.Picker = 1\n    If Picker Is Nothing Then Exit Sub\nEnd Sub\n",
+          "designerControls": [
+            {
+              "name": "Picker",
+              "progId": "Forms.ComboBox.1"
+            }
+          ],
+          "implicitMembers": [
+            {
+              "name": "Picker",
+              "type": "MSForms.ComboBox"
+            }
+          ]
+        }
+      ],
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    }
+  ]
+}

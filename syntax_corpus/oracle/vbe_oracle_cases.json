@@ -124457,6 +124457,813 @@
       "source": "Option Explicit\r\nFunction Foo(n As Long, m As Long) As Long\r\nEnd Function\r\nSub Main()\r\n    If TypeOf Foo(1) Is Object Then Exit Sub\r\nEnd Sub\r\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rq17_deflng_me_is_nothing",
+      "description": "rq17_deflng_me_is_nothing: compile accepted (control-disabled); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim k As New Class1\n    k.Run\nEnd Sub\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "DefLng A-Z\nSub Run()\n    If Me Is Nothing Then Exit Sub\n    Debug.Print 1\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq17_case_list_array",
+      "description": "rq17_case_list_array: compile rejected (Compile error:\n\nType mismatch); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    Select Case 1\n        Case 0, a\n    End Select\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq17_lineno_for_array",
+      "description": "rq17_lineno_for_array: compile rejected (Compile error:\n\nType mismatch); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long, i As Long\n10  For i = a To 1\n    Next\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq17_enum_var_is_nothing",
+      "description": "rq17_enum_var_is_nothing: compile rejected (Compile error:\n\nType mismatch); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nPrivate Enum E\n    First = 1\nEnd Enum\nSub Main()\n    Dim n As E\n    Debug.Print n Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_deflng_sheet1_is_nothing",
+      "description": "rq18_deflng_sheet1_is_nothing: compile accepted (control-disabled); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "DefLng A-Z\nSub Main()\n    If Sheet1 Is Nothing Then Exit Sub\n    Debug.Print 1\nEnd Sub\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": ""
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_deflng_typeof_sheet1",
+      "description": "rq18_deflng_typeof_sheet1: compile accepted (control-disabled); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "DefLng A-Z\nSub Main()\n    If TypeOf Sheet1 Is Worksheet Then Debug.Print 1\nEnd Sub\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": ""
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_for_to_array",
+      "description": "rq18_for_to_array: compile rejected (Compile error:\n\nType mismatch); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long, i As Long\n    For i = 1 To a\n    Next\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_for_step_array",
+      "description": "rq18_for_step_array: compile rejected (Compile error:\n\nType mismatch); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long, i As Long\n    For i = 1 To 2 Step a\n    Next\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_case_array_first_in_list",
+      "description": "rq18_case_array_first_in_list: compile rejected (Compile error:\n\nType mismatch); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    Select Case 1\n        Case a, 1\n    End Select\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_case_array_range",
+      "description": "rq18_case_array_range: compile rejected (Compile error:\n\nType mismatch); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    Select Case 1\n        Case a To 1\n    End Select\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_redim_bound_array",
+      "description": "rq18_redim_bound_array: compile rejected (Compile error:\n\nType mismatch); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long, d() As Long\n    ReDim d(a)\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_else_if_string_is_nothing",
+      "description": "rq18_else_if_string_is_nothing: compile rejected (Compile error:\n\nType mismatch); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim n As Long, s As String\n    If n Then Exit Sub Else If s Is Nothing Then Exit Sub\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_neg_is_nothing",
+      "description": "rq18_neg_is_nothing: compile rejected (Compile error:\n\nType mismatch); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim n As Long\n    Debug.Print -n Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_sum_is_nothing",
+      "description": "rq18_sum_is_nothing: compile rejected (Compile error:\n\nType mismatch); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim n As Long\n    Debug.Print (n + 1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_const_is_nothing",
+      "description": "rq18_const_is_nothing: compile rejected (Compile error:\n\nType mismatch); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Const S2 = \"abc\"\n    Debug.Print S2 Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_enum_member_is_nothing",
+      "description": "rq18_enum_member_is_nothing: compile rejected (Compile error:\n\nType mismatch); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nEnum EE\n    e1 = 1\nEnd Enum\nSub Main()\n    Debug.Print e1 Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_dateserial_is_nothing",
+      "description": "rq18_dateserial_is_nothing: compile accepted (control-disabled); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print DateSerial(2026, 1, 1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_timeserial_is_nothing",
+      "description": "rq18_timeserial_is_nothing: compile accepted (control-disabled); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print TimeSerial(1, 2, 3) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_datevalue_is_nothing",
+      "description": "rq18_datevalue_is_nothing: compile accepted (control-disabled); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print DateValue(\"1/1/2026\") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_timevalue_is_nothing",
+      "description": "rq18_timevalue_is_nothing: compile accepted (control-disabled); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print TimeValue(\"1:00\") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_dateadd_is_nothing",
+      "description": "rq18_dateadd_is_nothing: compile accepted (control-disabled); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print DateAdd(\"d\", 1, #1/1/2026#) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_dir_is_nothing",
+      "description": "rq18_dir_is_nothing: compile rejected (Compile error:\n\nType mismatch); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print Dir(\"\") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_environ_is_nothing",
+      "description": "rq18_environ_is_nothing: compile accepted (control-disabled); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print Environ(\"TEMP\") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_format_is_nothing",
+      "description": "rq18_format_is_nothing: compile accepted (control-disabled); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print Format(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_chr_is_nothing",
+      "description": "rq18_chr_is_nothing: compile accepted (control-disabled); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print Chr(65) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_time_is_nothing",
+      "description": "rq18_time_is_nothing: compile accepted (control-disabled); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print Time Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_split_is_nothing",
+      "description": "rq18_split_is_nothing: compile accepted (control-disabled); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print Split(\"a b\") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_msgbox_is_nothing",
+      "description": "rq18_msgbox_is_nothing: compile rejected (Compile error:\n\nType mismatch); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print MsgBox(\"x\", vbOKOnly) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_vartype_is_nothing",
+      "description": "rq18_vartype_is_nothing: compile rejected (Compile error:\n\nType mismatch); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print VarType(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_cdec_is_nothing",
+      "description": "rq18_cdec_is_nothing: compile accepted (control-disabled); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print CDec(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_rnd_is_nothing",
+      "description": "rq18_rnd_is_nothing: compile rejected (Compile error:\n\nType mismatch); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print Rnd Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_freefile_is_nothing",
+      "description": "rq18_freefile_is_nothing: compile rejected (Compile error:\n\nType mismatch); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print FreeFile Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_replace_is_nothing",
+      "description": "rq18_replace_is_nothing: compile rejected (Compile error:\n\nType mismatch); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print Replace(\"a\", \"a\", \"b\") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_ubound_is_nothing",
+      "description": "rq18_ubound_is_nothing: compile rejected (Compile error:\n\nType mismatch); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print UBound(Array(1)) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_typename_is_nothing",
+      "description": "rq18_typename_is_nothing: compile rejected (Compile error:\n\nType mismatch); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print TypeName(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_isnumeric_is_nothing",
+      "description": "rq18_isnumeric_is_nothing: compile rejected (Compile error:\n\nType mismatch); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print IsNumeric(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_sqr_is_nothing",
+      "description": "rq18_sqr_is_nothing: compile rejected (Compile error:\n\nType mismatch); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print Sqr(4) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_join_is_nothing",
+      "description": "rq18_join_is_nothing: compile rejected (Compile error:\n\nType mismatch); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print Join(Array(\"a\")) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_date_is_nothing",
+      "description": "rq18_date_is_nothing: compile accepted (control-disabled); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print Date Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_now_is_nothing",
+      "description": "rq18_now_is_nothing: compile accepted (control-disabled); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print Now Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_hex_is_nothing",
+      "description": "rq18_hex_is_nothing: compile accepted (control-disabled); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print Hex(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_str_is_nothing",
+      "description": "rq18_str_is_nothing: compile accepted (control-disabled); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print Str(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_trim_is_nothing",
+      "description": "rq18_trim_is_nothing: compile accepted (control-disabled); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print Trim(\" a \") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
+    },
+    {
+      "id": "rq18_ucase_is_nothing",
+      "description": "rq18_ucase_is_nothing: compile accepted (control-disabled); measured 2026-10-16, Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "host": "excel",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print UCase(\"a\") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Module1.Main"
     }
   ]
 }

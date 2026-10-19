@@ -202,25 +202,31 @@ export function statementValueExpressions(source: string, stmt: LeafStatementNod
 		const toks = statementTokens(source, span);
 		const first = firstExecutableTokenIndex(toks);
 		const head = tokenText(toks[first]);
-		const parse = (from: number, to = toks.length): void => {
+		const parse = (from: number, to = toks.length, target = false): void => {
 			// Case's Is <relop> is a clause prefix, not an expression operator.
 			if (head === 'case' && tokenText(toks[from]) === 'is' && ['=', '<>', '<', '>', '<=', '>='].includes(toks[from + 1]?.rawText)) { from += 2; }
 			if (from >= to) { return; }
 			const result = parseExpression(toks, from, to, span.start);
-			if (result.expr && result.endIndex === to && result.diagnostics.length === 0) { roots.push(result.expr); }
+			if (result.expr && result.endIndex === to && result.diagnostics.length === 0) { roots.push(...(target ? targetInputs(result.expr) : [result.expr])); }
 		};
 		// Only top-level separators delimit roots; commas and operators inside
 		// a call or parentheses belong to that expression.
-		const split = (from: number, separators: ReadonlySet<string>, to = toks.length): void => {
+		const split = (from: number, separators: ReadonlySet<string>, to = toks.length, item: (from: number, to: number) => void = parse): void => {
 			let depth = 0, start = from;
 			for (let i = from; i < to; i++) {
 				const raw = toks[i].rawText;
 				if (raw === '(') { depth++; }
 				else if (raw === ')') { depth--; }
-				else if (depth === 0 && separators.has(tokenText(toks[i]))) { parse(start, i); start = i + 1; }
+				else if (depth === 0 && separators.has(tokenText(toks[i]))) { item(start, i); start = i + 1; }
 			}
-			parse(start, to);
+			item(start, to);
 		};
+		const printItem = (from: number, to: number): void => {
+			// Tab/Spc are Print directives, not ordinary callable values.
+			if (['tab', 'spc'].includes(tokenText(toks[from])) && toks[from + 1]?.rawText === '(' && matchParenFrom(toks, from + 1) === to - 1) { parse(from + 2, to - 1); }
+			else { parse(from, to); }
+		};
+		const fileNumber = (from: number, to: number): void => { parse(toks[from]?.rawText === '#' ? from + 1 : from, to); };
 		if (head === 'if' || head === 'elseif') {
 			const then = toks.findIndex((tok) => tokenText(tok) === 'then');
 			if (then > first) { parse(first + 1, then); }
@@ -234,14 +240,35 @@ export function statementValueExpressions(source: string, stmt: LeafStatementNod
 		else if (head === 'case') {
 			if (tokenText(toks[first + 1]) !== 'else') { split(first + 1, new Set([',', 'to'])); }
 		} else if (head === 'debug' && toks[first + 1]?.rawText === '.' && tokenText(toks[first + 2]) === 'print') {
-			split(first + 3, new Set([',', ';']));
-		} else if ((head === 'print' || head === 'write') && toks[first + 1]?.rawText === '#') {
-			// The file prefix is statement syntax; only output items are values.
-			let depth = 0;
-			for (let i = first + 2; i < toks.length; i++) {
+			split(first + 3, new Set([',', ';']), toks.length, printItem);
+		} else if (['print', 'write', 'seek', 'put', 'get', 'input'].includes(head) || head === 'line' && tokenText(toks[first + 1]) === 'input') {
+			// File statements have distinct file/value/target slots. Never feed
+			// their # prefix or omitted record positions to ordinary call parsing.
+			const from = first + (head === 'line' ? 2 : 1);
+			let slot = 0;
+			split(from, new Set(head === 'print' ? [',', ';'] : [',']), toks.length, (start, end) => {
+				if (slot++ === 0) { fileNumber(start, end); }
+				else if (head === 'print') { printItem(start, end); }
+				else if (head === 'input' || head === 'line' || head === 'get' && slot > 2) { parse(start, end, true); }
+				else { parse(start, end); }
+			});
+		} else if (head === 'open') {
+			// Open path For mode [Access ...] [Lock ...] As [#]file [Len = size].
+			let depth = 0, forIndex = -1, asIndex = -1, lenIndex = -1;
+			for (let i = first + 1; i < toks.length; i++) {
 				if (toks[i].rawText === '(') { depth++; }
 				else if (toks[i].rawText === ')') { depth--; }
-				else if (depth === 0 && toks[i].rawText === ',') { split(i + 1, new Set([',', ';'])); break; }
+				else if (depth === 0) {
+					const word = tokenText(toks[i]);
+					if (word === 'for' && forIndex < 0) { forIndex = i; }
+					else if (word === 'as' && forIndex >= 0) { asIndex = i; }
+					else if (word === 'len' && asIndex >= 0 && toks[i + 1]?.rawText === '=') { lenIndex = i; }
+				}
+			}
+			if (forIndex >= 0 && asIndex > forIndex) {
+				parse(first + 1, forIndex);
+				fileNumber(asIndex + 1, lenIndex >= 0 ? lenIndex : toks.length);
+				if (lenIndex >= 0) { parse(lenIndex + 2); }
 			}
 		} else if (head === 'redim') {
 			// Targets and optional As types are declarations, not value reads.

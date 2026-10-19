@@ -7,9 +7,9 @@
 // (learn.microsoft.com/office/vba/language) and MS-VBAL; they are never
 // LLM-invented.
 //
-// Names that collide with intrinsic data types or are otherwise context
-// ambiguous (Date, Time, String, Error) are intentionally omitted so that
-// hovering a type in an `As` position is never mistaken for a function call.
+// Names that collide with intrinsic data types need contextual resolution.
+// Date and unsuffixed String stay outside this table; Time and Error have
+// value forms as well as statement syntax.
 //
 // Pure analyzer data: depends on nothing and is reused by hover, identifier
 // completion, and (later) signature help. See Phase 9 in
@@ -189,6 +189,7 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 		'MsgBox',
 		'MsgBox(Prompt, [Buttons As VbMsgBoxStyle = vbOKOnly], [Title], [HelpFile], [Context]) As VbMsgBoxResult',
 		'VbMsgBoxResult',
+		undefined, { scalarReturn: true },
 	),
 	fn(
 		'InputBox',
@@ -241,7 +242,7 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	fn('Replace$', 'Replace$(Expression, Find, Replace, [Start = 1], [Count = -1], [Compare As VbCompareMethod = vbBinaryCompare]) As String', 'String', REPLACE_PARAMS),
 	fn('InStr', 'InStr([Start], String1, String2, [Compare As VbCompareMethod]) As Long', 'Long'),
 	fn('InStrRev', 'InStrRev(StringCheck, StringMatch, [Start = -1], [Compare As VbCompareMethod = vbBinaryCompare]) As Long', 'Long'),
-	fn('Split', 'Split(Expression, [Delimiter], [Limit = -1], [Compare As VbCompareMethod = vbBinaryCompare]) As String()', 'String()', [
+	variantFn('Split', 'Split(Expression, [Delimiter], [Limit = -1], [Compare As VbCompareMethod = vbBinaryCompare]) As String()', 'String()', [
 		{ name: 'Expression', type: 'Variant', nullRaises: true },
 		{ name: 'Delimiter', type: 'Variant', optional: true },
 		{ name: 'Limit', type: 'Long', optional: true },
@@ -359,7 +360,7 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	fn('IsNull', 'IsNull(Expression) As Boolean', 'Boolean'),
 	fn('IsNumeric', 'IsNumeric(Expression) As Boolean', 'Boolean'),
 	fn('IsObject', 'IsObject(Expression) As Boolean', 'Boolean'),
-	fn('VarType', 'VarType(VarName) As VbVarType', 'VbVarType'),
+	fn('VarType', 'VarType(VarName) As VbVarType', 'VbVarType', undefined, { scalarReturn: true }),
 	fn('TypeName', 'TypeName(VarName) As String', 'String'),
 
 	// -- Selection / colour -------------------------------------------------
@@ -410,7 +411,7 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	stmt('SendKeys', 'SendKeys String, [Wait]'),
 
 	// -- File system --------------------------------------------------------
-	variantFn('Dir', 'Dir([PathName], [Attributes As VbFileAttribute = vbNormal]) As String', 'String'),
+	fn('Dir', 'Dir([PathName], [Attributes As VbFileAttribute = vbNormal]) As String', 'String'),
 	fn('FreeFile', 'FreeFile([RangeNumber]) As Integer', 'Integer'),
 	fn('EOF', 'EOF(FileNumber) As Boolean', 'Boolean'),
 	fn('LOF', 'LOF(FileNumber) As Long', 'Long'),

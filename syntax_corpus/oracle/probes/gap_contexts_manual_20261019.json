@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "status": "setup-required; not a runner fixture document",
+  "cases": [
+    {
+      "id": "binding_control_Timer",
+      "moduleName": "Form1",
+      "moduleKind": "userform",
+      "mode": "compile",
+      "inferredExpectedCompile": "accepted; verify designer binding",
+      "why": "An object-valued designer member should shadow the unqualified runtime function.",
+      "source": "Option Explicit\nSub Main()\n    If Timer Is Nothing Then Exit Sub\nEnd Sub\n",
+      "designerSetup": "Add an MSForms CommandButton whose Name is Timer."
+    },
+    {
+      "id": "binding_control_Rnd",
+      "moduleName": "Form1",
+      "moduleKind": "userform",
+      "mode": "compile",
+      "inferredExpectedCompile": "accepted; verify designer binding",
+      "why": "An object-valued designer member should shadow the unqualified runtime function.",
+      "source": "Option Explicit\nSub Main()\n    If Rnd Is Nothing Then Exit Sub\nEnd Sub\n",
+      "designerSetup": "Add an MSForms CommandButton whose Name is Rnd."
+    },
+    {
+      "id": "binding_control_Len",
+      "moduleName": "Form1",
+      "moduleKind": "userform",
+      "mode": "compile",
+      "inferredExpectedCompile": "accepted; verify designer binding",
+      "why": "An object-valued designer member should shadow the unqualified runtime function.",
+      "source": "Option Explicit\nSub Main()\n    If Len Is Nothing Then Exit Sub\nEnd Sub\n",
+      "designerSetup": "Add an MSForms CommandButton whose Name is Len."
+    },
+    {
+      "id": "binding_control_InputBox",
+      "moduleName": "Form1",
+      "moduleKind": "userform",
+      "mode": "compile",
+      "inferredExpectedCompile": "accepted; verify designer binding",
+      "why": "An object-valued designer member should shadow the unqualified runtime function.",
+      "source": "Option Explicit\nSub Main()\n    If InputBox Is Nothing Then Exit Sub\nEnd Sub\n",
+      "designerSetup": "Add an MSForms CommandButton whose Name is InputBox."
+    },
+    {
+      "id": "binding_control_explicit_vba_timer",
+      "moduleName": "Form1",
+      "moduleKind": "userform",
+      "mode": "compile",
+      "inferredExpectedCompile": "rejected; inferred Type mismatch",
+      "why": "Explicit qualification should retain the runtime function even with a Timer control.",
+      "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print VBA.Timer Is Nothing\nEnd Sub\n",
+      "designerSetup": "Add an MSForms CommandButton whose Name is Timer."
+    },
+    {
+      "id": "binding_assigned_picker",
+      "moduleName": "Form1",
+      "moduleKind": "userform",
+      "mode": "compile",
+      "inferredExpectedCompile": "accepted; verify default-member assignment",
+      "why": "The first assignment should set the ComboBox default Value rather than introduce a DefLng local.",
+      "source": "DefLng A-Z\nSub Main()\n    Picker = 1\n    If Picker Is Nothing Then Exit Sub\nEnd Sub\n",
+      "designerSetup": "Add an MSForms ComboBox whose Name is Picker; retain default properties."
+    },
+    {
+      "id": "binding_assigned_picker_explicit_value",
+      "moduleName": "Form1",
+      "moduleKind": "userform",
+      "mode": "compile",
+      "inferredExpectedCompile": "accepted",
+      "why": "Explicit Value spelling is the binding control.",
+      "source": "DefLng A-Z\nSub Main()\n    Picker.Value = 1\n    If Picker Is Nothing Then Exit Sub\nEnd Sub\n",
+      "designerSetup": "Add an MSForms ComboBox whose Name is Picker; retain default properties."
+    },
+    {
+      "id": "binding_predeclared_timer",
+      "mode": "compile",
+      "inferredExpectedCompile": "accepted; verify predeclared binding",
+      "why": "A usable project predeclared object should shadow the runtime function.",
+      "modules": [
+        {
+          "name": "Timer",
+          "kind": "class",
+          "predeclaredId": true,
+          "source": "Attribute VB_Name = \"Timer\"\nAttribute VB_PredeclaredId = True\nOption Explicit\n"
+        },
+        {
+          "name": "Module1",
+          "kind": "standard",
+          "source": "Option Explicit\nSub Main()\n    If Timer Is Nothing Then Exit Sub\nEnd Sub\n"
+        }
+      ],
+      "setup": "Create/import a class with VB_PredeclaredId=True; attributes are exported-module metadata, not lines to paste into the VBE code pane. Run the Module1 entry."
+    },
+    {
+      "id": "binding_picker_readonly",
+      "moduleName": "Form1",
+      "moduleKind": "userform",
+      "mode": "compile",
+      "inferredExpectedCompile": "accepted; verify designer/default-member binding",
+      "why": "Neighbor control for the inherited assigned-Picker classification; not a newly measured Excel verdict.",
+      "designerSetup": "Add an MSForms ComboBox whose Name is Picker; retain default properties.",
+      "source": "DefLng A-Z\nSub Main()\n    If Picker Is Nothing Then Exit Sub\nEnd Sub\n"
+    },
+    {
+      "id": "binding_picker_me",
+      "moduleName": "Form1",
+      "moduleKind": "userform",
+      "mode": "compile",
+      "inferredExpectedCompile": "accepted; verify designer/default-member binding",
+      "why": "Neighbor control for the inherited assigned-Picker classification; not a newly measured Excel verdict.",
+      "designerSetup": "Add an MSForms ComboBox whose Name is Picker; retain default properties.",
+      "source": "DefLng A-Z\nSub Main()\n    Me.Picker = 1\n    If Picker Is Nothing Then Exit Sub\nEnd Sub\n"
+    }
+  ]
+}
