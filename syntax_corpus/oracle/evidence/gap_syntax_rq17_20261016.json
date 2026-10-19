@@ -1,0 +1,712 @@
+{
+  "version": 1,
+  "scope": "Excel-only gap-syntax fixture draft. Historical compile measurements and unmeasured observation cases; no analyzer parity assertion.",
+  "fixtureBase": "45f361db",
+  "measuredDate": "2026-10-16",
+  "environment": {
+    "product": "Microsoft 365 Apps for enterprise",
+    "bitness": "x64",
+    "excelBuild": "16.0.20430.20182",
+    "basis": "Historical per-case probe_builds.json; no new environment capture was made."
+  },
+  "limitations": [
+    "Legacy probe runner revision and reference versions were not recorded with rq17.",
+    "No measured VBE selection ranges are available.",
+    "The two Print controls use dead-code guards; passed runs do not establish executing the member expressions.",
+    "rq17_typeof_is_object compiled successfully, then raised runtime 91; the canonical fixture asserts compilation only.",
+    "M1-M11 and all controls have not been measured and remain observe-only.",
+    "All canonical additions are compile-only; do not run the loop, filesystem or activation controls."
+  ],
+  "artifacts": {
+    "input": {
+      "fileName": "fix/rq17.json",
+      "sha256": "612104dc93b3fb66e399dd6336cc75d6b569f6e0af80558626eb226be926adda",
+      "text": "{\n \"cases\": [\n  {\n   \"id\": \"rq17_member_print_times\",\n   \"source\": \"Option Explicit\\nSub Foo(z As Long)\\nEnd Sub\\nSub Main()\\n    Dim o As Object\\n    If False Then Foo o.Print * 2\\nEnd Sub\\n\"\n  },\n  {\n   \"id\": \"rq17_call_member_print_div\",\n   \"source\": \"Option Explicit\\nSub Foo(z As Long)\\nEnd Sub\\nSub Main()\\n    Dim o As Object\\n    If False Then Call Foo(o.Print / 2)\\nEnd Sub\\n\"\n  },\n  {\n   \"id\": \"rq17_dim_as_decimal\",\n   \"source\": \"Option Explicit\\nSub Main()\\n    Dim d As Decimal\\nEnd Sub\\n\"\n  },\n  {\n   \"id\": \"rq17_proc_const_as_decimal\",\n   \"source\": \"Option Explicit\\nSub Main()\\n    Const k As Decimal = 1\\nEnd Sub\\n\"\n  },\n  {\n   \"id\": \"rq17_public_as_decimal\",\n   \"source\": \"Option Explicit\\nPublic d As Decimal\\nSub Main()\\nEnd Sub\\n\"\n  },\n  {\n   \"id\": \"rq17_param_as_decimal\",\n   \"source\": \"Option Explicit\\nSub F(d As Decimal)\\nEnd Sub\\nSub Main()\\nEnd Sub\\n\"\n  },\n  {\n   \"id\": \"rq17_function_as_decimal\",\n   \"source\": \"Option Explicit\\nFunction F() As Decimal\\nEnd Function\\nSub Main()\\nEnd Sub\\n\"\n  },\n  {\n   \"id\": \"rq17_dim_as_tab\",\n   \"source\": \"Option Explicit\\nSub Main()\\n    Dim t As Tab\\nEnd Sub\\n\"\n  },\n  {\n   \"id\": \"rq17_function_no_parens_fixed_string\",\n   \"source\": \"Option Explicit\\nFunction F As String * 3\\n    F = \\\"abc\\\"\\nEnd Function\\nSub Main()\\nEnd Sub\\n\"\n  },\n  {\n   \"id\": \"rq17_new_excel_application_parens\",\n   \"source\": \"Option Explicit\\nSub Main()\\n    Dim o As Object\\n    If False Then Set o = New Excel.Application()\\nEnd Sub\\n\"\n  },\n  {\n   \"id\": \"rq17_new_class_parens\",\n   \"modules\": [\n    {\n     \"name\": \"Module1\",\n     \"kind\": \"standard\",\n     \"source\": \"Option Explicit\\nSub Main()\\n    Dim o As Object\\n    Set o = New Class1()\\nEnd Sub\\n\"\n    },\n    {\n     \"name\": \"Class1\",\n     \"kind\": \"class\",\n     \"source\": \"Option Explicit\\n\"\n    }\n   ]\n  },\n  {\n   \"id\": \"rq17_typeof_is_double\",\n   \"source\": \"Option Explicit\\nSub Main()\\n    Dim o As Object\\n    Debug.Print TypeOf o Is Double\\nEnd Sub\\n\"\n  },\n  {\n   \"id\": \"rq17_typeof_is_single\",\n   \"source\": \"Option Explicit\\nSub Main()\\n    Dim o As Object\\n    Debug.Print TypeOf o Is Single\\nEnd Sub\\n\"\n  },\n  {\n   \"id\": \"rq17_typeof_is_date\",\n   \"source\": \"Option Explicit\\nSub Main()\\n    Dim o As Object\\n    Debug.Print TypeOf o Is Date\\nEnd Sub\\n\"\n  },\n  {\n   \"id\": \"rq17_typeof_is_boolean\",\n   \"source\": \"Option Explicit\\nSub Main()\\n    Dim o As Object\\n    Debug.Print TypeOf o Is Boolean\\nEnd Sub\\n\"\n  },\n  {\n   \"id\": \"rq17_typeof_is_byte\",\n   \"source\": \"Option Explicit\\nSub Main()\\n    Dim o As Object\\n    Debug.Print TypeOf o Is Byte\\nEnd Sub\\n\"\n  },\n  {\n   \"id\": \"rq17_typeof_is_currency\",\n   \"source\": \"Option Explicit\\nSub Main()\\n    Dim o As Object\\n    Debug.Print TypeOf o Is Currency\\nEnd Sub\\n\"\n  },\n  {\n   \"id\": \"rq17_typeof_is_longlong\",\n   \"source\": \"Option Explicit\\nSub Main()\\n    Dim o As Object\\n    Debug.Print TypeOf o Is LongLong\\nEnd Sub\\n\"\n  },\n  {\n   \"id\": \"rq17_typeof_is_decimal\",\n   \"source\": \"Option Explicit\\nSub Main()\\n    Dim o As Object\\n    Debug.Print TypeOf o Is Decimal\\nEnd Sub\\n\"\n  },\n  {\n   \"id\": \"rq17_typeof_is_object\",\n   \"source\": \"Option Explicit\\nSub Main()\\n    Dim o As Object\\n    Debug.Print TypeOf o Is Object\\nEnd Sub\\n\"\n  },\n  {\n   \"id\": \"rq17_next_index_date\",\n   \"source\": \"Option Explicit\\nSub Main()\\n    Dim i As Date\\n    For i = 1 To 2\\n    Next i(1)\\nEnd Sub\\n\"\n  },\n  {\n   \"id\": \"rq17_next_index_byte\",\n   \"source\": \"Option Explicit\\nSub Main()\\n    Dim i As Byte\\n    For i = 1 To 2\\n    Next i(1)\\nEnd Sub\\n\"\n  },\n  {\n   \"id\": \"rq17_next_index_single\",\n   \"source\": \"Option Explicit\\nSub Main()\\n    Dim i As Single\\n    For i = 1 To 2\\n    Next i(1)\\nEnd Sub\\n\"\n  },\n  {\n   \"id\": \"rq17_next_index_currency\",\n   \"source\": \"Option Explicit\\nSub Main()\\n    Dim i As Currency\\n    For i = 1 To 2\\n    Next i(1)\\nEnd Sub\\n\"\n  },\n  {\n   \"id\": \"rq17_next_index_boolean\",\n   \"source\": \"Option Explicit\\nSub Main()\\n    Dim i As Boolean\\n    For i = 1 To 2\\n    Next i(1)\\nEnd Sub\\n\"\n  },\n  {\n   \"id\": \"rq17_next_index_string\",\n   \"source\": \"Option Explicit\\nSub Main()\\n    Dim i As String\\n    For i = 1 To 2\\n    Next i(1)\\nEnd Sub\\n\"\n  },\n  {\n   \"id\": \"rq17_next_index_longlong\",\n   \"source\": \"Option Explicit\\nSub Main()\\n    Dim i As LongLong\\n    For i = 1 To 2\\n    Next i(1)\\nEnd Sub\\n\"\n  },\n  {\n   \"id\": \"rq17_instr_five\",\n   \"source\": \"Option Explicit\\nSub Main()\\n    Dim v As Variant\\n    v = InStr(1, \\\"a\\\", \\\"b\\\", 1, 1)\\nEnd Sub\\n\"\n  },\n  {\n   \"id\": \"rq17_get_self_index_assign_with_let\",\n   \"source\": \"Option Explicit\\nProperty Get P(i As Long) As Long\\n    P(1) = 2\\n    P = 7\\nEnd Property\\nProperty Let P(i As Long, ByVal value As Long)\\nEnd Property\\nSub Main()\\n    Debug.Print P(0)\\nEnd Sub\\n\"\n  },\n  {\n   \"id\": \"rq17_set_err_source\",\n   \"source\": \"Option Explicit\\nSub Main()\\n    Set Err.Source = \\\"x\\\"\\nEnd Sub\\n\"\n  },\n  {\n   \"id\": \"rq17_suffix_long_nothing\",\n   \"source\": \"Option Explicit\\nSub Main()\\n    Dim n&\\n    n& = Nothing\\nEnd Sub\\n\"\n  },\n  {\n   \"id\": \"rq17_enum_get_index_assign\",\n   \"source\": \"Option Explicit\\nEnum E\\n    A\\nEnd Enum\\nProperty Get P(i As Long) As E\\n    P = A\\nEnd Property\\nSub Main()\\n    P(1) = 2\\nEnd Sub\\n\"\n  },\n  {\n   \"id\": \"rq17_withevents_xlcalculation\",\n   \"modules\": [\n    {\n     \"name\": \"Module1\",\n     \"kind\": \"standard\",\n     \"source\": \"Option Explicit\\nSub Main()\\nEnd Sub\\n\"\n    },\n    {\n     \"name\": \"Class1\",\n     \"kind\": \"class\",\n     \"source\": \"Option Explicit\\nPrivate WithEvents x As XlCalculation\\n\"\n    }\n   ]\n  },\n  {\n   \"id\": \"rq17_withevents_vbdaysofweek\",\n   \"modules\": [\n    {\n     \"name\": \"Module1\",\n     \"kind\": \"standard\",\n     \"source\": \"Option Explicit\\nSub Main()\\nEnd Sub\\n\"\n    },\n    {\n     \"name\": \"Class1\",\n     \"kind\": \"class\",\n     \"source\": \"Option Explicit\\nPrivate WithEvents x As VbDayOfWeek\\n\"\n    }\n   ]\n  },\n  {\n   \"id\": \"rq17_deflng_me_is_nothing\",\n   \"modules\": [\n    {\n     \"name\": \"Module1\",\n     \"kind\": \"standard\",\n     \"source\": \"Option Explicit\\nSub Main()\\n    Dim k As New Class1\\n    k.Run\\nEnd Sub\\n\"\n    },\n    {\n     \"name\": \"Class1\",\n     \"kind\": \"class\",\n     \"source\": \"DefLng A-Z\\nSub Run()\\n    If Me Is Nothing Then Exit Sub\\n    Debug.Print 1\\nEnd Sub\\n\"\n    }\n   ]\n  },\n  {\n   \"id\": \"rq17_case_list_array\",\n   \"source\": \"Option Explicit\\nSub Main()\\n    Dim a(1) As Long\\n    Select Case 1\\n        Case 0, a\\n    End Select\\nEnd Sub\\n\"\n  },\n  {\n   \"id\": \"rq17_lineno_for_array\",\n   \"source\": \"Option Explicit\\nSub Main()\\n    Dim a(1) As Long, i As Long\\n10  For i = a To 1\\n    Next\\nEnd Sub\\n\"\n  },\n  {\n   \"id\": \"rq17_enum_var_is_nothing\",\n   \"source\": \"Option Explicit\\nPrivate Enum E\\n    First = 1\\nEnd Enum\\nSub Main()\\n    Dim n As E\\n    Debug.Print n Is Nothing\\nEnd Sub\\n\"\n  }\n ]\n}"
+    },
+    "results": {
+      "fileName": "results_rq17.log",
+      "sha256": "5d5446993be75089fcf39ca77bd6eaffb47b957c06ec30ac41d294f262eff141",
+      "text": "win-test: sending 696K of xlide-probe-7c15d7 to win-test\n** WARNING: connection is not using a post-quantum key exchange algorithm.\r\n** This session may be vulnerable to \"store now, decrypt later\" attacks.\r\n** The server may need to be upgraded. See https://openssh.com/pq.html\r\nwin-test: running in the desktop session: .venv\\Scripts\\python -I runner.py fix\\rq17.json\r\nPROBE-START 38 cases\r\nPROBE-RESULT {\"id\": \"rq17_member_print_times\", \"compile\": \"accepted\", \"compile_message\": \"\", \"compile_signal\": \"control-disabled\", \"run\": \"passed\", \"run_error\": null, \"run_message\": \"\", \"run_value\": null, \"attempts\": 1}\r\nPROBE-RESULT {\"id\": \"rq17_call_member_print_div\", \"compile\": \"accepted\", \"compile_message\": \"\", \"compile_signal\": \"control-disabled\", \"run\": \"passed\", \"run_error\": null, \"run_message\": \"\", \"run_value\": null, \"attempts\": 1}\r\nPROBE-RESULT {\"id\": \"rq17_dim_as_decimal\", \"compile\": \"rejected\", \"compile_message\": \"Compile error:\\n\\nSyntax error\", \"compile_signal\": \"\", \"attempts\": 1}\r\nPROBE-RESULT {\"id\": \"rq17_proc_const_as_decimal\", \"compile\": \"rejected\", \"compile_message\": \"Compile error:\\n\\nSyntax error\", \"compile_signal\": \"\", \"attempts\": 1}\r\nPROBE-RESULT {\"id\": \"rq17_public_as_decimal\", \"compile\": \"rejected\", \"compile_message\": \"Compile error:\\n\\nExpected: New or type name\", \"compile_signal\": \"\", \"attempts\": 1}\r\nPROBE-RESULT {\"id\": \"rq17_param_as_decimal\", \"compile\": \"rejected\", \"compile_message\": \"Compile error:\\n\\nExpected: type name\", \"compile_signal\": \"\", \"attempts\": 1}\r\nPROBE-RESULT {\"id\": \"rq17_function_as_decimal\", \"compile\": \"rejected\", \"compile_message\": \"Compile error:\\n\\nExpected: type name\", \"compile_signal\": \"\", \"attempts\": 1}\r\nPROBE-RESULT {\"id\": \"rq17_dim_as_tab\", \"compile\": \"rejected\", \"compile_message\": \"Compile error:\\n\\nSyntax error\", \"compile_signal\": \"\", \"attempts\": 1}\r\nPROBE-RESULT {\"id\": \"rq17_function_no_parens_fixed_string\", \"compile\": \"rejected\", \"compile_message\": \"Compile error:\\n\\nExpected: end of statement\", \"compile_signal\": \"\", \"attempts\": 1}\r\nPROBE-RESULT {\"id\": \"rq17_new_excel_application_parens\", \"compile\": \"rejected\", \"compile_message\": \"Compile error:\\n\\nSyntax error\", \"compile_signal\": \"\", \"attempts\": 1}\r\nPROBE-RESULT {\"id\": \"rq17_new_class_parens\", \"compile\": \"rejected\", \"compile_message\": \"Compile error:\\n\\nSyntax error\", \"compile_signal\": \"\", \"attempts\": 1}\r\nPROBE-RESULT {\"id\": \"rq17_typeof_is_double\", \"compile\": \"rejected\", \"compile_message\": \"Compile error:\\n\\nSyntax error\", \"compile_signal\": \"\", \"attempts\": 1}\r\nPROBE-RESULT {\"id\": \"rq17_typeof_is_single\", \"compile\": \"rejected\", \"compile_message\": \"Compile error:\\n\\nSyntax error\", \"compile_signal\": \"\", \"attempts\": 1}\r\nPROBE-RESULT {\"id\": \"rq17_typeof_is_date\", \"compile\": \"rejected\", \"compile_message\": \"Compile error:\\n\\nSyntax error\", \"compile_signal\": \"\", \"attempts\": 1}\r\nPROBE-RESULT {\"id\": \"rq17_typeof_is_boolean\", \"compile\": \"rejected\", \"compile_message\": \"Compile error:\\n\\nSyntax error\", \"compile_signal\": \"\", \"attempts\": 1}\r\nPROBE-RESULT {\"id\": \"rq17_typeof_is_byte\", \"compile\": \"rejected\", \"compile_message\": \"Compile error:\\n\\nSyntax error\", \"compile_signal\": \"\", \"attempts\": 1}\r\nPROBE-RESULT {\"id\": \"rq17_typeof_is_currency\", \"compile\": \"rejected\", \"compile_message\": \"Compile error:\\n\\nSyntax error\", \"compile_signal\": \"\", \"attempts\": 1}\r\nPROBE-RESULT {\"id\": \"rq17_typeof_is_longlong\", \"compile\": \"rejected\", \"compile_message\": \"Compile error:\\n\\nSyntax error\", \"compile_signal\": \"\", \"attempts\": 1}\r\nPROBE-RESULT {\"id\": \"rq17_typeof_is_decimal\", \"compile\": \"rejected\", \"compile_message\": \"Compile error:\\n\\nSyntax error\", \"compile_signal\": \"\", \"attempts\": 1}\r\nPROBE-RESULT {\"id\": \"rq17_typeof_is_object\", \"compile\": \"accepted\", \"compile_message\": \"\", \"compile_signal\": \"control-disabled\", \"run\": \"vba-error\", \"run_error\": {\"number\": 91, \"description\": \"Object variable or With block variable not set\", \"source\": \"VBAProject\", \"line\": null}, \"run_message\": \"\", \"run_value\": null, \"attempts\": 1}\r\nPROBE-RESULT {\"id\": \"rq17_next_index_date\", \"compile\": \"rejected\", \"compile_message\": \"Compile error:\\n\\nExpected array\", \"compile_signal\": \"\", \"attempts\": 1}\r\nPROBE-RESULT {\"id\": \"rq17_next_index_byte\", \"compile\": \"rejected\", \"compile_message\": \"Compile error:\\n\\nExpected array\", \"compile_signal\": \"\", \"attempts\": 1}\r\nPROBE-RESULT {\"id\": \"rq17_next_index_single\", \"compile\": \"rejected\", \"compile_message\": \"Compile error:\\n\\nExpected array\", \"compile_signal\": \"\", \"attempts\": 1}\r\nPROBE-RESULT {\"id\": \"rq17_next_index_currency\", \"compile\": \"rejected\", \"compile_message\": \"Compile error:\\n\\nExpected array\", \"compile_signal\": \"\", \"attempts\": 1}\r\nPROBE-RESULT {\"id\": \"rq17_next_index_boolean\", \"compile\": \"rejected\", \"compile_message\": \"Compile error:\\n\\nType mismatch\", \"compile_signal\": \"\", \"attempts\": 1}\r\nPROBE-PROGRESS 25/38 12s\r\nPROBE-RESULT {\"id\": \"rq17_next_index_string\", \"compile\": \"rejected\", \"compile_message\": \"Compile error:\\n\\nType mismatch\", \"compile_signal\": \"\", \"attempts\": 1}\r\nPROBE-RESULT {\"id\": \"rq17_next_index_longlong\", \"compile\": \"rejected\", \"compile_message\": \"Compile error:\\n\\nExpected array\", \"compile_signal\": \"\", \"attempts\": 1}\r\nPROBE-RESULT {\"id\": \"rq17_instr_five\", \"compile\": \"rejected\", \"compile_message\": \"Compile error:\\n\\nSyntax error\", \"compile_signal\": \"\", \"attempts\": 1}\r\nPROBE-RESULT {\"id\": \"rq17_get_self_index_assign_with_let\", \"compile\": \"accepted\", \"compile_message\": \"\", \"compile_signal\": \"control-disabled\", \"run\": \"passed\", \"run_error\": null, \"run_message\": \"\", \"run_value\": null, \"attempts\": 1}\r\nPROBE-RESULT {\"id\": \"rq17_set_err_source\", \"compile\": \"rejected\", \"compile_message\": \"Compile error:\\n\\nInvalid use of property\", \"compile_signal\": \"\", \"attempts\": 1}\r\nPROBE-RESULT {\"id\": \"rq17_suffix_long_nothing\", \"compile\": \"rejected\", \"compile_message\": \"Compile error:\\n\\nInvalid use of object\", \"compile_signal\": \"\", \"attempts\": 1}\r\nPROBE-RESULT {\"id\": \"rq17_enum_get_index_assign\", \"compile\": \"rejected\", \"compile_message\": \"Compile error:\\n\\nCan't assign to read-only property\", \"compile_signal\": \"\", \"attempts\": 1}\r\nPROBE-RESULT {\"id\": \"rq17_withevents_xlcalculation\", \"compile\": \"rejected\", \"compile_message\": \"Compile error:\\n\\nObject does not source automation events\", \"compile_signal\": \"\", \"attempts\": 1}\r\nPROBE-RESULT {\"id\": \"rq17_withevents_vbdaysofweek\", \"compile\": \"rejected\", \"compile_message\": \"Compile error:\\n\\nObject does not source automation events\", \"compile_signal\": \"\", \"attempts\": 1}\r\nPROBE-RESULT {\"id\": \"rq17_deflng_me_is_nothing\", \"compile\": \"accepted\", \"compile_message\": \"\", \"compile_signal\": \"control-disabled\", \"run\": \"passed\", \"run_error\": null, \"run_message\": \"\", \"run_value\": null, \"attempts\": 1}\r\nPROBE-RESULT {\"id\": \"rq17_case_list_array\", \"compile\": \"rejected\", \"compile_message\": \"Compile error:\\n\\nType mismatch\", \"compile_signal\": \"\", \"attempts\": 1}\r\nPROBE-RESULT {\"id\": \"rq17_lineno_for_array\", \"compile\": \"rejected\", \"compile_message\": \"Compile error:\\n\\nType mismatch\", \"compile_signal\": \"\", \"attempts\": 1}\r\nPROBE-RESULT {\"id\": \"rq17_enum_var_is_nothing\", \"compile\": \"rejected\", \"compile_message\": \"Compile error:\\n\\nType mismatch\", \"compile_signal\": \"\", \"attempts\": 1}\r\nPROBE-DONE 38 18s\r\nWIN-TEST RESULT: PASS exit=0 project=xlide-probe-7c15d7 command=\".venv\\Scripts\\python -I runner.py fix\\rq17.json\" log=/home/samuel/.cache/win-test/xlide-probe-7c15d7/20261016-154420.log\n"
+    }
+  },
+  "measurements": [
+    {
+      "fixtureId": "rq17_member_print_times",
+      "probeId": "rq17_member_print_times",
+      "measuredDate": "2026-10-16",
+      "recordedBuild": "Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "originalInput": {
+        "id": "rq17_member_print_times",
+        "source": "Option Explicit\nSub Foo(z As Long)\nEnd Sub\nSub Main()\n    Dim o As Object\n    If False Then Foo o.Print * 2\nEnd Sub\n"
+      },
+      "rawResult": {
+        "id": "rq17_member_print_times",
+        "compile": "accepted",
+        "compile_message": "",
+        "compile_signal": "control-disabled",
+        "run": "passed",
+        "run_error": null,
+        "run_message": "",
+        "run_value": null,
+        "attempts": 1
+      },
+      "selection": null
+    },
+    {
+      "fixtureId": "rq17_call_member_print_div",
+      "probeId": "rq17_call_member_print_div",
+      "measuredDate": "2026-10-16",
+      "recordedBuild": "Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "originalInput": {
+        "id": "rq17_call_member_print_div",
+        "source": "Option Explicit\nSub Foo(z As Long)\nEnd Sub\nSub Main()\n    Dim o As Object\n    If False Then Call Foo(o.Print / 2)\nEnd Sub\n"
+      },
+      "rawResult": {
+        "id": "rq17_call_member_print_div",
+        "compile": "accepted",
+        "compile_message": "",
+        "compile_signal": "control-disabled",
+        "run": "passed",
+        "run_error": null,
+        "run_message": "",
+        "run_value": null,
+        "attempts": 1
+      },
+      "selection": null
+    },
+    {
+      "fixtureId": "rq17_dim_as_decimal",
+      "probeId": "rq17_dim_as_decimal",
+      "measuredDate": "2026-10-16",
+      "recordedBuild": "Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "originalInput": {
+        "id": "rq17_dim_as_decimal",
+        "source": "Option Explicit\nSub Main()\n    Dim d As Decimal\nEnd Sub\n"
+      },
+      "rawResult": {
+        "id": "rq17_dim_as_decimal",
+        "compile": "rejected",
+        "compile_message": "Compile error:\n\nSyntax error",
+        "compile_signal": "",
+        "attempts": 1
+      },
+      "selection": null
+    },
+    {
+      "fixtureId": "rq17_proc_const_as_decimal",
+      "probeId": "rq17_proc_const_as_decimal",
+      "measuredDate": "2026-10-16",
+      "recordedBuild": "Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "originalInput": {
+        "id": "rq17_proc_const_as_decimal",
+        "source": "Option Explicit\nSub Main()\n    Const k As Decimal = 1\nEnd Sub\n"
+      },
+      "rawResult": {
+        "id": "rq17_proc_const_as_decimal",
+        "compile": "rejected",
+        "compile_message": "Compile error:\n\nSyntax error",
+        "compile_signal": "",
+        "attempts": 1
+      },
+      "selection": null
+    },
+    {
+      "fixtureId": "rq17_public_as_decimal",
+      "probeId": "rq17_public_as_decimal",
+      "measuredDate": "2026-10-16",
+      "recordedBuild": "Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "originalInput": {
+        "id": "rq17_public_as_decimal",
+        "source": "Option Explicit\nPublic d As Decimal\nSub Main()\nEnd Sub\n"
+      },
+      "rawResult": {
+        "id": "rq17_public_as_decimal",
+        "compile": "rejected",
+        "compile_message": "Compile error:\n\nExpected: New or type name",
+        "compile_signal": "",
+        "attempts": 1
+      },
+      "selection": null
+    },
+    {
+      "fixtureId": "rq17_param_as_decimal",
+      "probeId": "rq17_param_as_decimal",
+      "measuredDate": "2026-10-16",
+      "recordedBuild": "Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "originalInput": {
+        "id": "rq17_param_as_decimal",
+        "source": "Option Explicit\nSub F(d As Decimal)\nEnd Sub\nSub Main()\nEnd Sub\n"
+      },
+      "rawResult": {
+        "id": "rq17_param_as_decimal",
+        "compile": "rejected",
+        "compile_message": "Compile error:\n\nExpected: type name",
+        "compile_signal": "",
+        "attempts": 1
+      },
+      "selection": null
+    },
+    {
+      "fixtureId": "rq17_function_as_decimal",
+      "probeId": "rq17_function_as_decimal",
+      "measuredDate": "2026-10-16",
+      "recordedBuild": "Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "originalInput": {
+        "id": "rq17_function_as_decimal",
+        "source": "Option Explicit\nFunction F() As Decimal\nEnd Function\nSub Main()\nEnd Sub\n"
+      },
+      "rawResult": {
+        "id": "rq17_function_as_decimal",
+        "compile": "rejected",
+        "compile_message": "Compile error:\n\nExpected: type name",
+        "compile_signal": "",
+        "attempts": 1
+      },
+      "selection": null
+    },
+    {
+      "fixtureId": "rq17_dim_as_tab",
+      "probeId": "rq17_dim_as_tab",
+      "measuredDate": "2026-10-16",
+      "recordedBuild": "Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "originalInput": {
+        "id": "rq17_dim_as_tab",
+        "source": "Option Explicit\nSub Main()\n    Dim t As Tab\nEnd Sub\n"
+      },
+      "rawResult": {
+        "id": "rq17_dim_as_tab",
+        "compile": "rejected",
+        "compile_message": "Compile error:\n\nSyntax error",
+        "compile_signal": "",
+        "attempts": 1
+      },
+      "selection": null
+    },
+    {
+      "fixtureId": "rq17_function_no_parens_fixed_string",
+      "probeId": "rq17_function_no_parens_fixed_string",
+      "measuredDate": "2026-10-16",
+      "recordedBuild": "Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "originalInput": {
+        "id": "rq17_function_no_parens_fixed_string",
+        "source": "Option Explicit\nFunction F As String * 3\n    F = \"abc\"\nEnd Function\nSub Main()\nEnd Sub\n"
+      },
+      "rawResult": {
+        "id": "rq17_function_no_parens_fixed_string",
+        "compile": "rejected",
+        "compile_message": "Compile error:\n\nExpected: end of statement",
+        "compile_signal": "",
+        "attempts": 1
+      },
+      "selection": null
+    },
+    {
+      "fixtureId": "rq17_new_excel_application_parens",
+      "probeId": "rq17_new_excel_application_parens",
+      "measuredDate": "2026-10-16",
+      "recordedBuild": "Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "originalInput": {
+        "id": "rq17_new_excel_application_parens",
+        "source": "Option Explicit\nSub Main()\n    Dim o As Object\n    If False Then Set o = New Excel.Application()\nEnd Sub\n"
+      },
+      "rawResult": {
+        "id": "rq17_new_excel_application_parens",
+        "compile": "rejected",
+        "compile_message": "Compile error:\n\nSyntax error",
+        "compile_signal": "",
+        "attempts": 1
+      },
+      "selection": null
+    },
+    {
+      "fixtureId": "rq17_new_class_parens",
+      "probeId": "rq17_new_class_parens",
+      "measuredDate": "2026-10-16",
+      "recordedBuild": "Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "originalInput": {
+        "id": "rq17_new_class_parens",
+        "modules": [
+          {
+            "name": "Module1",
+            "kind": "standard",
+            "source": "Option Explicit\nSub Main()\n    Dim o As Object\n    Set o = New Class1()\nEnd Sub\n"
+          },
+          {
+            "name": "Class1",
+            "kind": "class",
+            "source": "Option Explicit\n"
+          }
+        ]
+      },
+      "rawResult": {
+        "id": "rq17_new_class_parens",
+        "compile": "rejected",
+        "compile_message": "Compile error:\n\nSyntax error",
+        "compile_signal": "",
+        "attempts": 1
+      },
+      "selection": null
+    },
+    {
+      "fixtureId": "rq17_typeof_is_double",
+      "probeId": "rq17_typeof_is_double",
+      "measuredDate": "2026-10-16",
+      "recordedBuild": "Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "originalInput": {
+        "id": "rq17_typeof_is_double",
+        "source": "Option Explicit\nSub Main()\n    Dim o As Object\n    Debug.Print TypeOf o Is Double\nEnd Sub\n"
+      },
+      "rawResult": {
+        "id": "rq17_typeof_is_double",
+        "compile": "rejected",
+        "compile_message": "Compile error:\n\nSyntax error",
+        "compile_signal": "",
+        "attempts": 1
+      },
+      "selection": null
+    },
+    {
+      "fixtureId": "rq17_typeof_is_single",
+      "probeId": "rq17_typeof_is_single",
+      "measuredDate": "2026-10-16",
+      "recordedBuild": "Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "originalInput": {
+        "id": "rq17_typeof_is_single",
+        "source": "Option Explicit\nSub Main()\n    Dim o As Object\n    Debug.Print TypeOf o Is Single\nEnd Sub\n"
+      },
+      "rawResult": {
+        "id": "rq17_typeof_is_single",
+        "compile": "rejected",
+        "compile_message": "Compile error:\n\nSyntax error",
+        "compile_signal": "",
+        "attempts": 1
+      },
+      "selection": null
+    },
+    {
+      "fixtureId": "rq17_typeof_is_date",
+      "probeId": "rq17_typeof_is_date",
+      "measuredDate": "2026-10-16",
+      "recordedBuild": "Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "originalInput": {
+        "id": "rq17_typeof_is_date",
+        "source": "Option Explicit\nSub Main()\n    Dim o As Object\n    Debug.Print TypeOf o Is Date\nEnd Sub\n"
+      },
+      "rawResult": {
+        "id": "rq17_typeof_is_date",
+        "compile": "rejected",
+        "compile_message": "Compile error:\n\nSyntax error",
+        "compile_signal": "",
+        "attempts": 1
+      },
+      "selection": null
+    },
+    {
+      "fixtureId": "rq17_typeof_is_boolean",
+      "probeId": "rq17_typeof_is_boolean",
+      "measuredDate": "2026-10-16",
+      "recordedBuild": "Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "originalInput": {
+        "id": "rq17_typeof_is_boolean",
+        "source": "Option Explicit\nSub Main()\n    Dim o As Object\n    Debug.Print TypeOf o Is Boolean\nEnd Sub\n"
+      },
+      "rawResult": {
+        "id": "rq17_typeof_is_boolean",
+        "compile": "rejected",
+        "compile_message": "Compile error:\n\nSyntax error",
+        "compile_signal": "",
+        "attempts": 1
+      },
+      "selection": null
+    },
+    {
+      "fixtureId": "rq17_typeof_is_byte",
+      "probeId": "rq17_typeof_is_byte",
+      "measuredDate": "2026-10-16",
+      "recordedBuild": "Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "originalInput": {
+        "id": "rq17_typeof_is_byte",
+        "source": "Option Explicit\nSub Main()\n    Dim o As Object\n    Debug.Print TypeOf o Is Byte\nEnd Sub\n"
+      },
+      "rawResult": {
+        "id": "rq17_typeof_is_byte",
+        "compile": "rejected",
+        "compile_message": "Compile error:\n\nSyntax error",
+        "compile_signal": "",
+        "attempts": 1
+      },
+      "selection": null
+    },
+    {
+      "fixtureId": "rq17_typeof_is_currency",
+      "probeId": "rq17_typeof_is_currency",
+      "measuredDate": "2026-10-16",
+      "recordedBuild": "Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "originalInput": {
+        "id": "rq17_typeof_is_currency",
+        "source": "Option Explicit\nSub Main()\n    Dim o As Object\n    Debug.Print TypeOf o Is Currency\nEnd Sub\n"
+      },
+      "rawResult": {
+        "id": "rq17_typeof_is_currency",
+        "compile": "rejected",
+        "compile_message": "Compile error:\n\nSyntax error",
+        "compile_signal": "",
+        "attempts": 1
+      },
+      "selection": null
+    },
+    {
+      "fixtureId": "rq17_typeof_is_longlong",
+      "probeId": "rq17_typeof_is_longlong",
+      "measuredDate": "2026-10-16",
+      "recordedBuild": "Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "originalInput": {
+        "id": "rq17_typeof_is_longlong",
+        "source": "Option Explicit\nSub Main()\n    Dim o As Object\n    Debug.Print TypeOf o Is LongLong\nEnd Sub\n"
+      },
+      "rawResult": {
+        "id": "rq17_typeof_is_longlong",
+        "compile": "rejected",
+        "compile_message": "Compile error:\n\nSyntax error",
+        "compile_signal": "",
+        "attempts": 1
+      },
+      "selection": null
+    },
+    {
+      "fixtureId": "rq17_typeof_is_decimal",
+      "probeId": "rq17_typeof_is_decimal",
+      "measuredDate": "2026-10-16",
+      "recordedBuild": "Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "originalInput": {
+        "id": "rq17_typeof_is_decimal",
+        "source": "Option Explicit\nSub Main()\n    Dim o As Object\n    Debug.Print TypeOf o Is Decimal\nEnd Sub\n"
+      },
+      "rawResult": {
+        "id": "rq17_typeof_is_decimal",
+        "compile": "rejected",
+        "compile_message": "Compile error:\n\nSyntax error",
+        "compile_signal": "",
+        "attempts": 1
+      },
+      "selection": null
+    },
+    {
+      "fixtureId": "rq17_typeof_is_object",
+      "probeId": "rq17_typeof_is_object",
+      "measuredDate": "2026-10-16",
+      "recordedBuild": "Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "originalInput": {
+        "id": "rq17_typeof_is_object",
+        "source": "Option Explicit\nSub Main()\n    Dim o As Object\n    Debug.Print TypeOf o Is Object\nEnd Sub\n"
+      },
+      "rawResult": {
+        "id": "rq17_typeof_is_object",
+        "compile": "accepted",
+        "compile_message": "",
+        "compile_signal": "control-disabled",
+        "run": "vba-error",
+        "run_error": {
+          "number": 91,
+          "description": "Object variable or With block variable not set",
+          "source": "VBAProject",
+          "line": null
+        },
+        "run_message": "",
+        "run_value": null,
+        "attempts": 1
+      },
+      "selection": null
+    },
+    {
+      "fixtureId": "rq17_next_index_date",
+      "probeId": "rq17_next_index_date",
+      "measuredDate": "2026-10-16",
+      "recordedBuild": "Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "originalInput": {
+        "id": "rq17_next_index_date",
+        "source": "Option Explicit\nSub Main()\n    Dim i As Date\n    For i = 1 To 2\n    Next i(1)\nEnd Sub\n"
+      },
+      "rawResult": {
+        "id": "rq17_next_index_date",
+        "compile": "rejected",
+        "compile_message": "Compile error:\n\nExpected array",
+        "compile_signal": "",
+        "attempts": 1
+      },
+      "selection": null
+    },
+    {
+      "fixtureId": "rq17_next_index_byte",
+      "probeId": "rq17_next_index_byte",
+      "measuredDate": "2026-10-16",
+      "recordedBuild": "Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "originalInput": {
+        "id": "rq17_next_index_byte",
+        "source": "Option Explicit\nSub Main()\n    Dim i As Byte\n    For i = 1 To 2\n    Next i(1)\nEnd Sub\n"
+      },
+      "rawResult": {
+        "id": "rq17_next_index_byte",
+        "compile": "rejected",
+        "compile_message": "Compile error:\n\nExpected array",
+        "compile_signal": "",
+        "attempts": 1
+      },
+      "selection": null
+    },
+    {
+      "fixtureId": "rq17_next_index_single",
+      "probeId": "rq17_next_index_single",
+      "measuredDate": "2026-10-16",
+      "recordedBuild": "Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "originalInput": {
+        "id": "rq17_next_index_single",
+        "source": "Option Explicit\nSub Main()\n    Dim i As Single\n    For i = 1 To 2\n    Next i(1)\nEnd Sub\n"
+      },
+      "rawResult": {
+        "id": "rq17_next_index_single",
+        "compile": "rejected",
+        "compile_message": "Compile error:\n\nExpected array",
+        "compile_signal": "",
+        "attempts": 1
+      },
+      "selection": null
+    },
+    {
+      "fixtureId": "rq17_next_index_currency",
+      "probeId": "rq17_next_index_currency",
+      "measuredDate": "2026-10-16",
+      "recordedBuild": "Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "originalInput": {
+        "id": "rq17_next_index_currency",
+        "source": "Option Explicit\nSub Main()\n    Dim i As Currency\n    For i = 1 To 2\n    Next i(1)\nEnd Sub\n"
+      },
+      "rawResult": {
+        "id": "rq17_next_index_currency",
+        "compile": "rejected",
+        "compile_message": "Compile error:\n\nExpected array",
+        "compile_signal": "",
+        "attempts": 1
+      },
+      "selection": null
+    },
+    {
+      "fixtureId": "rq17_next_index_boolean",
+      "probeId": "rq17_next_index_boolean",
+      "measuredDate": "2026-10-16",
+      "recordedBuild": "Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "originalInput": {
+        "id": "rq17_next_index_boolean",
+        "source": "Option Explicit\nSub Main()\n    Dim i As Boolean\n    For i = 1 To 2\n    Next i(1)\nEnd Sub\n"
+      },
+      "rawResult": {
+        "id": "rq17_next_index_boolean",
+        "compile": "rejected",
+        "compile_message": "Compile error:\n\nType mismatch",
+        "compile_signal": "",
+        "attempts": 1
+      },
+      "selection": null
+    },
+    {
+      "fixtureId": "rq17_next_index_string",
+      "probeId": "rq17_next_index_string",
+      "measuredDate": "2026-10-16",
+      "recordedBuild": "Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "originalInput": {
+        "id": "rq17_next_index_string",
+        "source": "Option Explicit\nSub Main()\n    Dim i As String\n    For i = 1 To 2\n    Next i(1)\nEnd Sub\n"
+      },
+      "rawResult": {
+        "id": "rq17_next_index_string",
+        "compile": "rejected",
+        "compile_message": "Compile error:\n\nType mismatch",
+        "compile_signal": "",
+        "attempts": 1
+      },
+      "selection": null
+    },
+    {
+      "fixtureId": "rq17_next_index_longlong",
+      "probeId": "rq17_next_index_longlong",
+      "measuredDate": "2026-10-16",
+      "recordedBuild": "Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "originalInput": {
+        "id": "rq17_next_index_longlong",
+        "source": "Option Explicit\nSub Main()\n    Dim i As LongLong\n    For i = 1 To 2\n    Next i(1)\nEnd Sub\n"
+      },
+      "rawResult": {
+        "id": "rq17_next_index_longlong",
+        "compile": "rejected",
+        "compile_message": "Compile error:\n\nExpected array",
+        "compile_signal": "",
+        "attempts": 1
+      },
+      "selection": null
+    },
+    {
+      "fixtureId": "rq17_instr_five",
+      "probeId": "rq17_instr_five",
+      "measuredDate": "2026-10-16",
+      "recordedBuild": "Microsoft 365 Apps for enterprise, 64-bit, 16.0.20430.20182",
+      "originalInput": {
+        "id": "rq17_instr_five",
+        "source": "Option Explicit\nSub Main()\n    Dim v As Variant\n    v = InStr(1, \"a\", \"b\", 1, 1)\nEnd Sub\n"
+      },
+      "rawResult": {
+        "id": "rq17_instr_five",
+        "compile": "rejected",
+        "compile_message": "Compile error:\n\nSyntax error",
+        "compile_signal": "",
+        "attempts": 1
+      },
+      "selection": null
+    }
+  ],
+  "excludedProbeIds": [
+    "rq17_get_self_index_assign_with_let",
+    "rq17_set_err_source",
+    "rq17_suffix_long_nothing",
+    "rq17_enum_get_index_assign",
+    "rq17_withevents_xlcalculation",
+    "rq17_withevents_vbdaysofweek",
+    "rq17_deflng_me_is_nothing",
+    "rq17_case_list_array",
+    "rq17_lineno_for_array",
+    "rq17_enum_var_is_nothing"
+  ],
+  "observations": [
+    {
+      "fixtureId": "gap_syntax_20261019_m01_compile",
+      "reviewForm": "M1",
+      "role": "candidate",
+      "measured": false
+    },
+    {
+      "fixtureId": "gap_syntax_20261019_m01_control_compile",
+      "reviewForm": "M1",
+      "role": "control",
+      "measured": false
+    },
+    {
+      "fixtureId": "gap_syntax_20261019_m02_compile",
+      "reviewForm": "M2",
+      "role": "candidate",
+      "measured": false
+    },
+    {
+      "fixtureId": "gap_syntax_20261019_m02_control_compile",
+      "reviewForm": "M2",
+      "role": "control",
+      "measured": false
+    },
+    {
+      "fixtureId": "gap_syntax_20261019_m03_compile",
+      "reviewForm": "M3",
+      "role": "candidate",
+      "measured": false
+    },
+    {
+      "fixtureId": "gap_syntax_20261019_m03_control_compile",
+      "reviewForm": "M3",
+      "role": "control",
+      "measured": false
+    },
+    {
+      "fixtureId": "gap_syntax_20261019_m04_compile",
+      "reviewForm": "M4",
+      "role": "candidate",
+      "measured": false
+    },
+    {
+      "fixtureId": "gap_syntax_20261019_m04_control_compile",
+      "reviewForm": "M4",
+      "role": "control",
+      "measured": false
+    },
+    {
+      "fixtureId": "gap_syntax_20261019_m05_compile",
+      "reviewForm": "M5",
+      "role": "candidate",
+      "measured": false
+    },
+    {
+      "fixtureId": "gap_syntax_20261019_m05_control_compile",
+      "reviewForm": "M5",
+      "role": "control",
+      "measured": false
+    },
+    {
+      "fixtureId": "gap_syntax_20261019_m06_compile",
+      "reviewForm": "M6",
+      "role": "candidate",
+      "measured": false
+    },
+    {
+      "fixtureId": "gap_syntax_20261019_m06_control_compile",
+      "reviewForm": "M6",
+      "role": "control",
+      "measured": false
+    },
+    {
+      "fixtureId": "gap_syntax_20261019_m07_compile",
+      "reviewForm": "M7",
+      "role": "candidate",
+      "measured": false
+    },
+    {
+      "fixtureId": "gap_syntax_20261019_m07_control_compile",
+      "reviewForm": "M7",
+      "role": "control",
+      "measured": false
+    },
+    {
+      "fixtureId": "gap_syntax_20261019_m08_compile",
+      "reviewForm": "M8",
+      "role": "candidate",
+      "measured": false
+    },
+    {
+      "fixtureId": "gap_syntax_20261019_m08_control_compile",
+      "reviewForm": "M8",
+      "role": "control",
+      "measured": false
+    },
+    {
+      "fixtureId": "gap_syntax_20261019_m09_compile",
+      "reviewForm": "M9",
+      "role": "candidate",
+      "measured": false
+    },
+    {
+      "fixtureId": "gap_syntax_20261019_m09_control_compile",
+      "reviewForm": "M9",
+      "role": "control",
+      "measured": false
+    },
+    {
+      "fixtureId": "gap_syntax_20261019_m10_compile",
+      "reviewForm": "M10",
+      "role": "candidate",
+      "measured": false
+    },
+    {
+      "fixtureId": "gap_syntax_20261019_m10_control_compile",
+      "reviewForm": "M10",
+      "role": "control",
+      "measured": false
+    },
+    {
+      "fixtureId": "gap_syntax_20261019_m11_compile",
+      "reviewForm": "M11",
+      "role": "candidate",
+      "measured": false
+    },
+    {
+      "fixtureId": "gap_syntax_20261019_m11_control_compile",
+      "reviewForm": "M11",
+      "role": "control",
+      "measured": false
+    }
+  ]
+}

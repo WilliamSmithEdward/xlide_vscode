@@ -119735,6 +119735,911 @@
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error",
       "source": "Option Explicit\r\nSub Main()\r\n    Dim x As Qwerty\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "rq17_member_print_times",
+      "description": "rq17 member_print_times: Excel Compile accepted; no runtime assertion (measured 2026-10-16, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_rq17_20261016.json).",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Foo(z As Long)\nEnd Sub\nSub Main()\n    Dim o As Object\n    If False Then Foo o.Print * 2\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "rq17_call_member_print_div",
+      "description": "rq17 call_member_print_div: Excel Compile accepted; no runtime assertion (measured 2026-10-16, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_rq17_20261016.json).",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Foo(z As Long)\nEnd Sub\nSub Main()\n    Dim o As Object\n    If False Then Call Foo(o.Print / 2)\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "rq17_dim_as_decimal",
+      "description": "rq17 dim_as_decimal: Excel Compile rejected: Syntax error (measured 2026-10-16, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_rq17_20261016.json).",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim d As Decimal\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rq17_proc_const_as_decimal",
+      "description": "rq17 proc_const_as_decimal: Excel Compile rejected: Syntax error (measured 2026-10-16, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_rq17_20261016.json).",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Const k As Decimal = 1\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rq17_public_as_decimal",
+      "description": "rq17 public_as_decimal: Excel Compile rejected: Expected: New or type name (measured 2026-10-16, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_rq17_20261016.json).",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nPublic d As Decimal\nSub Main()\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rq17_param_as_decimal",
+      "description": "rq17 param_as_decimal: Excel Compile rejected: Expected: type name (measured 2026-10-16, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_rq17_20261016.json).",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub F(d As Decimal)\nEnd Sub\nSub Main()\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rq17_function_as_decimal",
+      "description": "rq17 function_as_decimal: Excel Compile rejected: Expected: type name (measured 2026-10-16, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_rq17_20261016.json).",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nFunction F() As Decimal\nEnd Function\nSub Main()\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rq17_dim_as_tab",
+      "description": "rq17 dim_as_tab: Excel Compile rejected: Syntax error (measured 2026-10-16, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_rq17_20261016.json).",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim t As Tab\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rq17_function_no_parens_fixed_string",
+      "description": "rq17 function_no_parens_fixed_string: Excel Compile rejected: Expected: end of statement (measured 2026-10-16, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_rq17_20261016.json).",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nFunction F As String * 3\n    F = \"abc\"\nEnd Function\nSub Main()\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rq17_new_excel_application_parens",
+      "description": "rq17 new_excel_application_parens: Excel Compile rejected: Syntax error (measured 2026-10-16, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_rq17_20261016.json).",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim o As Object\n    If False Then Set o = New Excel.Application()\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rq17_new_class_parens",
+      "description": "rq17 new_class_parens: Excel Compile rejected: Syntax error (measured 2026-10-16, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_rq17_20261016.json).",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim o As Object\n    Set o = New Class1()\nEnd Sub\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rq17_typeof_is_double",
+      "description": "rq17 typeof_is_double: Excel Compile rejected: Syntax error (measured 2026-10-16, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_rq17_20261016.json).",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim o As Object\n    Debug.Print TypeOf o Is Double\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rq17_typeof_is_single",
+      "description": "rq17 typeof_is_single: Excel Compile rejected: Syntax error (measured 2026-10-16, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_rq17_20261016.json).",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim o As Object\n    Debug.Print TypeOf o Is Single\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rq17_typeof_is_date",
+      "description": "rq17 typeof_is_date: Excel Compile rejected: Syntax error (measured 2026-10-16, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_rq17_20261016.json).",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim o As Object\n    Debug.Print TypeOf o Is Date\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rq17_typeof_is_boolean",
+      "description": "rq17 typeof_is_boolean: Excel Compile rejected: Syntax error (measured 2026-10-16, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_rq17_20261016.json).",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim o As Object\n    Debug.Print TypeOf o Is Boolean\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rq17_typeof_is_byte",
+      "description": "rq17 typeof_is_byte: Excel Compile rejected: Syntax error (measured 2026-10-16, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_rq17_20261016.json).",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim o As Object\n    Debug.Print TypeOf o Is Byte\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rq17_typeof_is_currency",
+      "description": "rq17 typeof_is_currency: Excel Compile rejected: Syntax error (measured 2026-10-16, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_rq17_20261016.json).",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim o As Object\n    Debug.Print TypeOf o Is Currency\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rq17_typeof_is_longlong",
+      "description": "rq17 typeof_is_longlong: Excel Compile rejected: Syntax error (measured 2026-10-16, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_rq17_20261016.json).",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim o As Object\n    Debug.Print TypeOf o Is LongLong\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rq17_typeof_is_decimal",
+      "description": "rq17 typeof_is_decimal: Excel Compile rejected: Syntax error (measured 2026-10-16, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_rq17_20261016.json).",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim o As Object\n    Debug.Print TypeOf o Is Decimal\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rq17_typeof_is_object",
+      "description": "rq17 typeof_is_object: Excel Compile accepted; no runtime assertion (measured 2026-10-16, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_rq17_20261016.json).",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim o As Object\n    Debug.Print TypeOf o Is Object\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "rq17_next_index_date",
+      "description": "rq17 next_index_date: Excel Compile rejected: Expected array (measured 2026-10-16, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_rq17_20261016.json).",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim i As Date\n    For i = 1 To 2\n    Next i(1)\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rq17_next_index_byte",
+      "description": "rq17 next_index_byte: Excel Compile rejected: Expected array (measured 2026-10-16, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_rq17_20261016.json).",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim i As Byte\n    For i = 1 To 2\n    Next i(1)\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rq17_next_index_single",
+      "description": "rq17 next_index_single: Excel Compile rejected: Expected array (measured 2026-10-16, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_rq17_20261016.json).",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim i As Single\n    For i = 1 To 2\n    Next i(1)\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rq17_next_index_currency",
+      "description": "rq17 next_index_currency: Excel Compile rejected: Expected array (measured 2026-10-16, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_rq17_20261016.json).",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim i As Currency\n    For i = 1 To 2\n    Next i(1)\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rq17_next_index_boolean",
+      "description": "rq17 next_index_boolean: Excel Compile rejected: Type mismatch (measured 2026-10-16, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_rq17_20261016.json).",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim i As Boolean\n    For i = 1 To 2\n    Next i(1)\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rq17_next_index_string",
+      "description": "rq17 next_index_string: Excel Compile rejected: Type mismatch (measured 2026-10-16, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_rq17_20261016.json).",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim i As String\n    For i = 1 To 2\n    Next i(1)\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rq17_next_index_longlong",
+      "description": "rq17 next_index_longlong: Excel Compile rejected: Expected array (measured 2026-10-16, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_rq17_20261016.json).",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim i As LongLong\n    For i = 1 To 2\n    Next i(1)\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "rq17_instr_five",
+      "description": "rq17 instr_five: Excel Compile rejected: Syntax error (measured 2026-10-16, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_rq17_20261016.json).",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant\n    v = InStr(1, \"a\", \"b\", 1, 1)\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "gap_syntax_20261019_m01_compile",
+      "description": "Unmeasured gap-syntax review M1 candidate: conditioned Do across an inactive arm. No Excel outcome or message is asserted.",
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\nDo While True\n#If False Then\n#End If\nLoop While True\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "gap_syntax_20261019_m01_control_compile",
+      "description": "Unmeasured gap-syntax review M1 control: plain Do with a closing condition across an inactive arm. No Excel outcome or message is asserted.",
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\nDo\n#If False Then\n#End If\nLoop While True\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "gap_syntax_20261019_m02_compile",
+      "description": "Unmeasured gap-syntax review M2 candidate: Case after Case Else across an inactive arm. No Excel outcome or message is asserted.",
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\nSelect Case 1\nCase Else\n#If False Then\n#End If\nCase 2\nEnd Select\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "gap_syntax_20261019_m02_control_compile",
+      "description": "Unmeasured gap-syntax review M2 control: Case 2 before Case Else, followed by an inactive arm. No Excel outcome or message is asserted.",
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\nSelect Case 1\nCase 2\nCase Else\n#If False Then\n#End If\nEnd Select\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "gap_syntax_20261019_m03_compile",
+      "description": "Unmeasured gap-syntax review M3 candidate: dotted TypeOf operand and Decimal. No Excel outcome or message is asserted.",
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\nDim o As Object\nDebug.Print TypeOf o.Item Is Decimal\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "gap_syntax_20261019_m03_control_compile",
+      "description": "Unmeasured gap-syntax review M3 control: dotted TypeOf operand with Object type. No Excel outcome or message is asserted.",
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\nDim o As Object\nDebug.Print TypeOf o.Item Is Object\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "gap_syntax_20261019_m04_compile",
+      "description": "Unmeasured gap-syntax review M4 candidate: omitted AppActivate Title. No Excel outcome or message is asserted.",
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\nAppActivate , True\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "gap_syntax_20261019_m04_control_compile",
+      "description": "Unmeasured gap-syntax review M4 control: supplied AppActivate Title and Wait arguments. No Excel outcome or message is asserted.",
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\nAppActivate \"x\", True\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "gap_syntax_20261019_m05_compile",
+      "description": "Unmeasured gap-syntax review M5 candidate: omitted FileCopy Source. No Excel outcome or message is asserted.",
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\nFileCopy , \"b\"\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "gap_syntax_20261019_m05_control_compile",
+      "description": "Unmeasured gap-syntax review M5 control: supplied FileCopy Source and Destination arguments. No Excel outcome or message is asserted.",
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\nFileCopy \"a\", \"b\"\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "gap_syntax_20261019_m06_compile",
+      "description": "Unmeasured gap-syntax review M6 candidate: duplicate named AppActivate Title. No Excel outcome or message is asserted.",
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\nAppActivate Title:=\"a\", Title:=\"b\"\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "gap_syntax_20261019_m06_control_compile",
+      "description": "Unmeasured gap-syntax review M6 control: one named AppActivate Title argument. No Excel outcome or message is asserted.",
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\nAppActivate Title:=\"a\"\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "gap_syntax_20261019_m07_compile",
+      "description": "Unmeasured gap-syntax review M7 candidate: unfinished operand before inline Else. No Excel outcome or message is asserted.",
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\nDim x As Long\nIf True Then x = 1 + Else x = 2\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "gap_syntax_20261019_m07_control_compile",
+      "description": "Unmeasured gap-syntax review M7 control: complete assignment expressions around inline Else. No Excel outcome or message is asserted.",
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\nDim x As Long\nIf True Then x = 1 Else x = 2\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "gap_syntax_20261019_m08_compile",
+      "description": "Unmeasured gap-syntax review M8 candidate: implicit dot receiver assignment with a comma RHS. No Excel outcome or message is asserted.",
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\nDim o As Object\nWith o\n.Value = 1, 2\nEnd With\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "gap_syntax_20261019_m08_control_compile",
+      "description": "Unmeasured gap-syntax review M8 control: implicit dot receiver assignment with a single RHS expression. No Excel outcome or message is asserted.",
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\nDim o As Object\nWith o\n.Value = 1\nEnd With\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "gap_syntax_20261019_m09_compile",
+      "description": "Unmeasured gap-syntax review M9 candidate: implicit bang receiver assignment with a comma RHS. No Excel outcome or message is asserted.",
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\nDim o As Object\nWith o\n!Value = 1, 2\nEnd With\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "gap_syntax_20261019_m09_control_compile",
+      "description": "Unmeasured gap-syntax review M9 control: implicit bang receiver assignment with a single RHS expression. No Excel outcome or message is asserted.",
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\nDim o As Object\nWith o\n!Value = 1\nEnd With\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "gap_syntax_20261019_m10_compile",
+      "description": "Unmeasured gap-syntax review M10 candidate: indexed suffixed Next counter. No Excel outcome or message is asserted.",
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\nDim i As Long\nFor i = 1 To 2\nNext i&(1)\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "gap_syntax_20261019_m10_control_compile",
+      "description": "Unmeasured gap-syntax review M10 control: unindexed suffixed Next counter. No Excel outcome or message is asserted.",
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\nDim i As Long\nFor i = 1 To 2\nNext i&\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "gap_syntax_20261019_m11_compile",
+      "description": "Unmeasured gap-syntax review M11 candidate: indexed LongPtr Next counter. No Excel outcome or message is asserted.",
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\nDim i As LongPtr\nFor i = 1 To 2\nNext i(1)\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "gap_syntax_20261019_m11_control_compile",
+      "description": "Unmeasured gap-syntax review M11 control: unindexed LongPtr Next counter. No Excel outcome or message is asserted.",
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\nDim i As LongPtr\nFor i = 1 To 2\nNext i\nEnd Sub\n"
+        }
+      ],
+      "entryPoint": "Main",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
     }
   ]
 }

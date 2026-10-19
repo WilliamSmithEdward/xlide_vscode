@@ -386,3 +386,59 @@ observation:
 Oracle provenance is case-level. The file-level entry in
 `syntax_corpus/corpus_provenance.json` only records that this fixture file is
 owned by the oracle workflow.
+
+## Gap-syntax fixture follow-up (2026-10-19)
+
+This batch adds 50 Excel-only, **compile-only** fixtures. It does not add analyzer
+rules or assert that the analyzer matches every measured Excel outcome.
+
+The 28 `rq17_*` fixtures preserve the syntax portion of an existing measurement
+batch from 2026-10-16: 25 compile rejections and three compile acceptances on
+Microsoft 365 Apps for enterprise, x64, Excel build `16.0.20430.20182`. The portable
+[evidence bundle](evidence/gap_syntax_rq17_20261016.json) retains the exact original
+input document and result log with SHA-256 hashes, selected input/result pairs,
+per-case build/date information, and the ten probe IDs outside this fixture PR's
+scope. Original module names, kinds and source are preserved; probe module
+`kind` is translated to the oracle's `type`, including Class1. Explicit modules
+also retain the original single-source probe's Module1 name.
+
+The two accepted Print-member fixtures contain `If False Then` guards. Their
+passed historical runs do not establish that executing those expressions would
+succeed. `rq17_typeof_is_object` compiled successfully and then raised runtime
+error 91; its new fixture asserts compilation only. The old probe runner's exact
+revision, reference versions and selected VBE ranges were not recorded. No new
+Excel run, environment capture or range measurement was performed for this PR.
+
+The 22 `gap_syntax_20261019_mNN[_control]_compile` fixtures contain review forms
+M1-M11 and their paired controls. **None has been measured**, including the
+controls. They therefore use `expected: "observe"`, `diagnosticMeaning:
+"observation"`, and the repository's observe-case provenance classification
+`observed-not-asserted`; that classification does not claim these sources have
+already been observed in Excel. Descriptions carry no asserted error message.
+Their audit associations identify families to measure, not diagnostic ownership
+or analyzer conformance.
+
+The pairs cover inactive conditional-compilation boundaries in Do/Select,
+dotted TypeOf operands, omitted and repeated call arguments, unfinished operands
+before inline Else, implicit With assignment targets, and suffixed/LongPtr Next
+counters. All source text is a complete standard module. Every canonical fixture
+uses `mode: "compile"`; `entryPoint: "Main"` supports local source-transform
+sweeps without changing that mode. In particular, the M1 control has an endless
+loop, and other controls contain FileCopy, AppActivate or uninitialized objects.
+Do not change these fixtures to run mode.
+
+To measure an observation pair on Windows with Excel, run one sequential oracle
+invocation, for example:
+
+```powershell
+node syntax_corpus/oracle/run_vbe_oracle.mjs --case gap_syntax_20261019_m01_compile --case gap_syntax_20261019_m01_control_compile --checkpoint gap-syntax-m01-results.jsonl
+```
+
+Capture the actual outcome, dialog wording, Excel environment/build and selected
+text/range before promotion. Infrastructure failures supply no VBA verdict. Run
+pairs sequentially with known strict controls as described above. Once valid
+measurements exist, preserve their raw evidence and review any contradictory
+result before using `--promote-observed` on explicitly named cases. Promotion
+updates verdict/provenance/phase/meaning; it does not independently preserve the
+message, selection or environment evidence. Do not promote these observations
+from the review's inferred expectations or from analyzer results.
