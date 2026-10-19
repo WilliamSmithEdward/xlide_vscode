@@ -28,7 +28,7 @@ describe('gap-contexts fresh measurement provenance', () => {
             expect(fn.constraints.ordinary.outcome).toBe('accepted');
         }
     });
-    it.each(['review', 'validation', 'completion', 'qualified', 'comparison_neighbors', 'receiver_shadows'])('binds every %s result to exact harness, build, input and canonical outcome', (name) => {
+    it.each(['review', 'validation', 'completion', 'qualified', 'comparison_neighbors', 'receiver_shadows', 'ci_neighbors'])('binds every %s result to exact harness, build, input and canonical outcome', (name) => {
         const document = read(`evidence/gap_contexts_${name}_20261019.json`);
         const snapshots = read('evidence/gap_contexts_harness_20261019.json');
         const snapshot = snapshots.versions[document.harnessSnapshot.version];
@@ -79,7 +79,7 @@ describe('gap-contexts historical evidence', () => {
             );
         }
     });
-    it('keeps unmeasured review and designer proposals as compile observations', () => {
+    it('preserves original observe-only inputs for checkpoint reproducibility', () => {
         const proposals = [
             ...read('probes/gap_contexts_review_20261019.json').cases,
             ...read('probes/gap_contexts_designer_20261019.json').cases,

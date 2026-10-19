@@ -638,7 +638,8 @@
         "q6_other_module",
         "q6_other_unshadowed",
         "q6_math_current_module",
-        "q6_strings_current_module"
+        "q6_strings_current_module",
+        "ci7_qualified_missing_caption"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -1612,7 +1613,14 @@
         "q4_builtin_lbound_typeof",
         "q4_builtin_ubound_ordinary",
         "q4_builtin_ubound_is",
-        "q4_builtin_ubound_typeof"
+        "q4_builtin_ubound_typeof",
+        "ci7_library_selection_1",
+        "ci7_library_selection_2",
+        "ci7_library_selection_3",
+        "ci7_library_selection_4",
+        "ci7_library_selection_5",
+        "ci7_library_selection_6",
+        "ci7_library_selection_7"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],

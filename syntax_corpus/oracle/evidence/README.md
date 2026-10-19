@@ -25,6 +25,8 @@ The measured parity test checks compile verdicts and messages across the retaine
 
 `gap_contexts_qualified_20261019.json` retains all 168 VBA-qualified triplets and eight reserved-name designer controls. The matrix links these separately: qualified compiler productions differ from bare intrinsic productions, and VBA.LBound/VBA.UBound are unavailable members. Their ordinary rejection cannot establish a return constraint.
 
-`gap_contexts_comparison_neighbors_20261019.json` retains 90 bare/qualified InStr, InStrB and StrComp controls with String, Variant, Null and Object arguments. `gap_contexts_receiver_shadows_20261019.json` retains 14 source-module/library receiver controls. All six fresh batches contain 1,263 successful compile observations, with no infrastructure failures or skipped cases.
+`gap_contexts_comparison_neighbors_20261019.json` retains 90 bare/qualified InStr, InStrB and StrComp controls with String, Variant, Null and Object arguments. `gap_contexts_receiver_shadows_20261019.json` retains 14 source-module/library receiver controls. The first six fresh batches contain 1,263 successful compile observations, with no infrastructure failures or skipped cases.
 
 Existing duplicate-source fixtures remain as named matrix controls so historical IDs and audit references stay stable. The original worktree scratch manifests `oracle_added_cases.json` and `oracle_recheck.json` are not part of this change.
+
+`gap_contexts_ci_neighbors_20261019.json` retains eight exact neighbors from older assertions: seven VBA library member selections and a qualified source call missing its required caption argument. These confirm the dot/suffix selections and `Argument not optional` wording on the same Microsoft 365 build. Across all seven batches there are 1,271 successful compile observations (549 rejected, 722 accepted).

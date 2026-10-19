@@ -1,6 +1,8 @@
 // Diagnostics tests: member and name uses the VBE refuses (issue #369). Every
 // case was measured in Excel 16.0 (build 20326, 2026-10-01), compiled with
-// the VBE's Debug > Compile.
+// the VBE's Debug > Compile. Qualified-name post-dismissal selections were
+// remeasured on Microsoft 365 build 16.0.20430.20182, 2026-10-19; retained
+// in syntax_corpus/oracle/evidence/gap_contexts_ci_neighbors_20261019.json.
 
 import { describe, it, expect } from 'vitest';
 import { analyzeModule } from '../../src/analyzer';
@@ -81,19 +83,19 @@ describe('an Integer field of a Type passed ByRef to a Long', () => {
 
 describe('names after VBA.', () => {
 	it.each([
-		['Main = VBA.Nosuch', 'Nosuch'],
-		['Main = VBA.Strings.Nosuch', 'Nosuch'],
-		['Main = VBA.Global.Left$("ab", 1)', 'Left'],
-		['Main = VBA.VbMsgBoxResult.vbNosuch', 'vbNosuch'],
+		['Main = VBA.Nosuch', '.Nosuch'],
+		['Main = VBA.Strings.Nosuch', '.Nosuch'],
+		['Main = VBA.Global.Left$("ab", 1)', '.Left$'],
+		['Main = VBA.VbMsgBoxResult.vbNosuch', '.vbNosuch'],
 	])('reports %s', (line, span) => {
 		const src = source('', line);
 		expectDiagnostic(src, byCode(analyzeModule(src), 'member-not-found'), 'member-not-found', { span, message: 'Method or data member not found' });
 	});
 
 	it.each([
-		['Main = VBA.Asc$("a")', 'Asc'],
-		['Main = VBA.Strings.Asc$("a")', 'Asc'],
-		['Main = VBA.Len$("a")', 'Len'],
+		['Main = VBA.Asc$("a")', '.Asc$'],
+		['Main = VBA.Strings.Asc$("a")', '.Asc$'],
+		['Main = VBA.Len$("a")', '.Len$'],
 	])('reports the $ form %s', (line, span) => {
 		const src = source('', line);
 		expectDiagnostic(src, byCode(analyzeModule(src), 'member-not-found'), 'member-not-found', { span, message: 'Type-declaration character' });

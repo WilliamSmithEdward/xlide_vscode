@@ -1,0 +1,151 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "ci7_library_selection_1",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nFunction Main() As Variant\n    Main = VBA.Nosuch\nEnd Function\n"
+        }
+      ]
+    },
+    {
+      "id": "ci7_library_selection_2",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nFunction Main() As Variant\n    Main = VBA.Strings.Nosuch\nEnd Function\n"
+        }
+      ]
+    },
+    {
+      "id": "ci7_library_selection_3",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nFunction Main() As Variant\n    Main = VBA.Global.Left$(\"ab\", 1)\nEnd Function\n"
+        }
+      ]
+    },
+    {
+      "id": "ci7_library_selection_4",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nFunction Main() As Variant\n    Main = VBA.VbMsgBoxResult.vbNosuch\nEnd Function\n"
+        }
+      ]
+    },
+    {
+      "id": "ci7_library_selection_5",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nFunction Main() As Variant\n    Main = VBA.Asc$(\"a\")\nEnd Function\n"
+        }
+      ]
+    },
+    {
+      "id": "ci7_library_selection_6",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nFunction Main() As Variant\n    Main = VBA.Strings.Asc$(\"a\")\nEnd Function\n"
+        }
+      ]
+    },
+    {
+      "id": "ci7_library_selection_7",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nFunction Main() As Variant\n    Main = VBA.Len$(\"a\")\nEnd Function\n"
+        }
+      ]
+    },
+    {
+      "id": "ci7_qualified_missing_caption",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Caller.Main",
+      "modules": [
+        {
+          "name": "Caller",
+          "type": "standard",
+          "source": "Option Explicit\nPublic Sub Main()\n    ModuleA.AmbiguousProc 1\nEnd Sub\n"
+        },
+        {
+          "name": "ModuleA",
+          "type": "standard",
+          "source": "Option Explicit\n\nPublic Const SharedConst As Long = 1\n\nPublic Sub AmbiguousProc(ByVal value As Long, ByVal caption As String)\nEnd Sub\n"
+        },
+        {
+          "name": "ModuleB",
+          "type": "standard",
+          "source": "Option Explicit\n\nPublic Sub AmbiguousProc(ByVal value As Long)\nEnd Sub\n"
+        }
+      ]
+    }
+  ]
+}

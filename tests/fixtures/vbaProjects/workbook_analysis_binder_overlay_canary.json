@@ -110,7 +110,8 @@
           "severity": "error",
           "messageContains": [
             "ModuleA.AmbiguousProc",
-            "expected 2 arguments"
+            "Argument not optional",
+            "caption"
           ]
         },
         {
@@ -155,7 +156,8 @@
           "count": 1,
           "messagesContain": [
             "ModuleA.AmbiguousProc",
-            "expected 2 arguments"
+            "Argument not optional",
+            "caption"
           ]
         },
         {

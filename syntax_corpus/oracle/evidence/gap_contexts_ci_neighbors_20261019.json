@@ -1,0 +1,340 @@
+{
+  "version": 1,
+  "measuredDate": "2026-10-19",
+  "host": "excel",
+  "hostBuild": "16.0.20430.20182",
+  "failureCount": 0,
+  "oracleFailureCount": 0,
+  "skippedCount": 0,
+  "harnessSnapshot": {
+    "artifact": "gap_contexts_harness_20261019.json",
+    "version": "after-selection-rcw-cleanup",
+    "hash": "0472f6b17d45723c3672f8b80cdccc498da57c33bf3e5a0a8c357fd9eef848b8"
+  },
+  "cases": [
+    {
+      "id": "ci7_library_selection_1",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nFunction Main() As Variant\n    Main = VBA.Nosuch\nEnd Function\n"
+        }
+      ]
+    },
+    {
+      "id": "ci7_library_selection_2",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nFunction Main() As Variant\n    Main = VBA.Strings.Nosuch\nEnd Function\n"
+        }
+      ]
+    },
+    {
+      "id": "ci7_library_selection_3",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nFunction Main() As Variant\n    Main = VBA.Global.Left$(\"ab\", 1)\nEnd Function\n"
+        }
+      ]
+    },
+    {
+      "id": "ci7_library_selection_4",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nFunction Main() As Variant\n    Main = VBA.VbMsgBoxResult.vbNosuch\nEnd Function\n"
+        }
+      ]
+    },
+    {
+      "id": "ci7_library_selection_5",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nFunction Main() As Variant\n    Main = VBA.Asc$(\"a\")\nEnd Function\n"
+        }
+      ]
+    },
+    {
+      "id": "ci7_library_selection_6",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nFunction Main() As Variant\n    Main = VBA.Strings.Asc$(\"a\")\nEnd Function\n"
+        }
+      ]
+    },
+    {
+      "id": "ci7_library_selection_7",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nFunction Main() As Variant\n    Main = VBA.Len$(\"a\")\nEnd Function\n"
+        }
+      ]
+    },
+    {
+      "id": "ci7_qualified_missing_caption",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Caller.Main",
+      "modules": [
+        {
+          "name": "Caller",
+          "type": "standard",
+          "source": "Option Explicit\nPublic Sub Main()\n    ModuleA.AmbiguousProc 1\nEnd Sub\n"
+        },
+        {
+          "name": "ModuleA",
+          "type": "standard",
+          "source": "Option Explicit\n\nPublic Const SharedConst As Long = 1\n\nPublic Sub AmbiguousProc(ByVal value As Long, ByVal caption As String)\nEnd Sub\n"
+        },
+        {
+          "name": "ModuleB",
+          "type": "standard",
+          "source": "Option Explicit\n\nPublic Sub AmbiguousProc(ByVal value As Long)\nEnd Sub\n"
+        }
+      ]
+    }
+  ],
+  "checkpointRecords": [
+    {
+      "caseHash": "abb82368c16a6352a582a960d51a8fc1fe27449b711c750a7b98a0294b55108e",
+      "result": {
+        "caseId": "ci7_library_selection_1",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nMethod or data member not found",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 3,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = VBA.Nosuch\r\nEnd Function\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 3,
+          "endColumn": 22,
+          "startColumn": 15
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "21c03c7d73d0a1ba475cd47f0a8e219407e12c9d708238b8ec5e2b81631fa7f1",
+      "result": {
+        "caseId": "ci7_library_selection_2",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nMethod or data member not found",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 3,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = VBA.Strings.Nosuch\r\nEnd Function\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 3,
+          "endColumn": 30,
+          "startColumn": 23
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "f79bd0a208b39afa262f33e6de8f44d1e6fe6ea8150b5e7ef1af8a61a7435933",
+      "result": {
+        "caseId": "ci7_library_selection_3",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nMethod or data member not found",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 3,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = VBA.Global.Left$(\"ab\", 1)\r\nEnd Function\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 3,
+          "endColumn": 28,
+          "startColumn": 22
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "ce616f435bfa0d8dbf8d803217df690eabb910e6f3bd97e0d17316b09b844ab4",
+      "result": {
+        "caseId": "ci7_library_selection_4",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nMethod or data member not found",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 3,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = VBA.VbMsgBoxResult.vbNosuch\r\nEnd Function\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 3,
+          "endColumn": 39,
+          "startColumn": 30
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "958d989f7bc334498c405fea1f7b3c00921de68ede756bfc73c5ce24fef08650",
+      "result": {
+        "caseId": "ci7_library_selection_5",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nType-declaration character does not match declared data type",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 3,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = VBA.Asc$(\"a\")\r\nEnd Function\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 3,
+          "endColumn": 20,
+          "startColumn": 15
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "9d7da592471503fe78b9e0112a43f4a4da302f33934755862a08ec005cab33ea",
+      "result": {
+        "caseId": "ci7_library_selection_6",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nType-declaration character does not match declared data type",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 3,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = VBA.Strings.Asc$(\"a\")\r\nEnd Function\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 3,
+          "endColumn": 28,
+          "startColumn": 23
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "0553a2eca9f0dc3376e910f4c6b027689853b99be8317fc0cedf4bbcfc80430a",
+      "result": {
+        "caseId": "ci7_library_selection_7",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nType-declaration character does not match declared data type",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 3,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = VBA.Len$(\"a\")\r\nEnd Function\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 3,
+          "endColumn": 20,
+          "startColumn": 15
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "cecc07746b8fdd25145bfea3d4141aad0dd3017c6e221b4c02fabf5ded066935",
+      "result": {
+        "caseId": "ci7_qualified_missing_caption",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nArgument not optional",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 3,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    ModuleA.AmbiguousProc 1\r\nEnd Sub\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Caller",
+          "startLine": 3,
+          "endColumn": 26,
+          "startColumn": 12
+        },
+        "attempt": 1
+      }
+    }
+  ]
+}
