@@ -25,6 +25,8 @@ export interface VbaRuntimeFunction {
 	returns?: string;
 	/** Declared return type for compile constraints (Variant can hold objects). */
 	declaredReturns?: string;
+	/** Measured qualified-call compile shape; acceptance does not prove an exact subtype. */
+	qualifiedReturns?: 'Variant';
 	/** Measured non-object result constraint; Abs/Int/Fix also depend on the argument. */
 	scalarReturn?: boolean;
 	/** `function` returns a value; `statement` is invoked for effect only. */
@@ -87,7 +89,7 @@ function fn(
 	signature: string,
 	returns?: string,
 	params?: readonly VbaRuntimeParam[],
-	options?: Pick<VbaRuntimeFunction, 'explicitCall' | 'scalarReturn'>,
+	options?: Pick<VbaRuntimeFunction, 'explicitCall' | 'scalarReturn' | 'qualifiedReturns'>,
 ): VbaRuntimeFunction {
 	return { name, signature, returns, declaredReturns: returns, kind: 'function', source: 'verified', params, ...options };
 }
@@ -221,7 +223,7 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	fn('MacScript', 'MacScript(Script) As Variant', 'Variant', undefined, { scalarReturn: true }),
 
 	// -- String functions ---------------------------------------------------
-	fn('Len', 'Len(Expression) As Long', 'Long'),
+	fn('Len', 'Len(Expression) As Long', 'Long', undefined, { qualifiedReturns: 'Variant' }),
 	variantFn('Left', 'Left(String, Length) As String', 'String', LEFT_VARIANT_PARAMS),
 	fn('Left$', 'Left$(String, Length) As String', 'String', LEFT_PARAMS),
 	variantFn('Right', 'Right(String, Length) As String', 'String', RIGHT_VARIANT_PARAMS),
@@ -242,7 +244,7 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	fn('LCase$', 'LCase$(String) As String', 'String', NULL_RAISES_PARAM('String')),
 	fn('Replace', 'Replace(Expression, Find, Replace, [Start = 1], [Count = -1], [Compare As VbCompareMethod = vbBinaryCompare]) As String', 'String', REPLACE_PARAMS),
 	fn('Replace$', 'Replace$(Expression, Find, Replace, [Start = 1], [Count = -1], [Compare As VbCompareMethod = vbBinaryCompare]) As String', 'String', REPLACE_PARAMS),
-	fn('InStr', 'InStr([Start], String1, String2, [Compare As VbCompareMethod]) As Long', 'Long'),
+	fn('InStr', 'InStr([Start], String1, String2, [Compare As VbCompareMethod]) As Long', 'Long', undefined, { qualifiedReturns: 'Variant' }),
 	fn('InStrRev', 'InStrRev(StringCheck, StringMatch, [Start = -1], [Compare As VbCompareMethod = vbBinaryCompare]) As Long', 'Long'),
 	variantFn('Split', 'Split(Expression, [Delimiter], [Limit = -1], [Compare As VbCompareMethod = vbBinaryCompare]) As String()', 'String()', [
 		{ name: 'Expression', type: 'Variant', nullRaises: true },
@@ -251,7 +253,7 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 		{ name: 'Compare', type: 'VbCompareMethod', optional: true },
 	]),
 	fn('Join', 'Join(SourceArray, [Delimiter]) As String', 'String'),
-	fn('StrComp', 'StrComp(String1, String2, [Compare As VbCompareMethod]) As Integer', 'Integer'),
+	fn('StrComp', 'StrComp(String1, String2, [Compare As VbCompareMethod]) As Integer', 'Integer', undefined, { qualifiedReturns: 'Variant' }),
 	variantFn('StrConv', 'StrConv(String, Conversion As VbStrConv, [LCID]) As String', 'String'),
 	fn('String$', 'String$(Number, Character) As String', 'String', STRING_PARAMS),
 	variantFn('Space', 'Space(Number) As String', 'String', SPACE_PARAMS),
@@ -263,14 +265,14 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	fn('AscW', 'AscW(String) As Integer', 'Integer'),
 
 	// -- Byte-string functions (the ...B variants operate on byte positions) --
-	fn('LenB', 'LenB(Expression) As Long', 'Long'),
+	fn('LenB', 'LenB(Expression) As Long', 'Long', undefined, { qualifiedReturns: 'Variant' }),
 	variantFn('LeftB', 'LeftB(String, Length) As String', 'String'),
 	fn('LeftB$', 'LeftB$(String, Length) As String', 'String'),
 	variantFn('RightB', 'RightB(String, Length) As String', 'String'),
 	fn('RightB$', 'RightB$(String, Length) As String', 'String'),
 	variantFn('MidB', 'MidB(String, Start, [Length]) As String', 'String'),
 	fn('MidB$', 'MidB$(String, Start, [Length]) As String', 'String'),
-	fn('InStrB', 'InStrB([Start], String1, String2, [Compare As VbCompareMethod]) As Long', 'Long'),
+	fn('InStrB', 'InStrB([Start], String1, String2, [Compare As VbCompareMethod]) As Long', 'Long', undefined, { qualifiedReturns: 'Variant' }),
 	fn('AscB', 'AscB(String) As Integer', 'Integer'),
 	variantFn('ChrB', 'ChrB(CharCode) As String', 'String'),
 	fn('ChrB$', 'ChrB$(CharCode) As String', 'String'),
@@ -306,11 +308,11 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	variantFn('CVDate', 'CVDate(Expression) As Date', 'Date'),
 
 	// -- Math ---------------------------------------------------------------
-	fn('Abs', 'Abs(Number) As Variant', 'Variant', undefined, { scalarReturn: true }),
-	fn('Int', 'Int(Number) As Variant', 'Variant', undefined, { scalarReturn: true }),
-	fn('Fix', 'Fix(Number) As Variant', 'Variant', undefined, { scalarReturn: true }),
+	fn('Abs', 'Abs(Number) As Variant', 'Variant', undefined, { scalarReturn: true, qualifiedReturns: 'Variant' }),
+	fn('Int', 'Int(Number) As Variant', 'Variant', undefined, { scalarReturn: true, qualifiedReturns: 'Variant' }),
+	fn('Fix', 'Fix(Number) As Variant', 'Variant', undefined, { scalarReturn: true, qualifiedReturns: 'Variant' }),
 	// Sgn(Null) raises 94; Abs, Int and Hex pass Null through (issue #242).
-	fn('Sgn', 'Sgn(Number) As Integer', 'Integer', NULL_RAISES_PARAM('Number')),
+	fn('Sgn', 'Sgn(Number) As Integer', 'Integer', NULL_RAISES_PARAM('Number'), { qualifiedReturns: 'Variant' }),
 	// Sqr, Exp and Log raise 94 on Null (issue #332, measured in Excel 16.0).
 	fn('Sqr', 'Sqr(Number) As Double', 'Double', NULL_RAISES_PARAM('Number')),
 	fn('Exp', 'Exp(Number) As Double', 'Double', NULL_RAISES_PARAM('Number')),

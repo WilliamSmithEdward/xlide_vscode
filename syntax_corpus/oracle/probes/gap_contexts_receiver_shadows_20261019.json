@@ -1,0 +1,329 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "q6_strings_local",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\nDim Strings As Object\n    If False Then Debug.Print Strings.Foo() Is Nothing\nEnd Sub\n",
+          "entry": true
+        },
+        {
+          "name": "Strings",
+          "type": "standard",
+          "source": "Option Explicit\nPublic Function Foo(x As Long) As Long\nEnd Function\n",
+          "entry": false
+        }
+      ]
+    },
+    {
+      "id": "q6_strings_parameter",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main(ByVal Strings As Object)\n    If False Then Debug.Print Strings.Foo() Is Nothing\nEnd Sub\n",
+          "entry": true
+        },
+        {
+          "name": "Strings",
+          "type": "standard",
+          "source": "Option Explicit\nPublic Function Foo(x As Long) As Long\nEnd Function\n",
+          "entry": false
+        }
+      ]
+    },
+    {
+      "id": "q6_strings_module",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nPrivate Strings As Object\nSub Main()\n    If False Then Debug.Print Strings.Foo() Is Nothing\nEnd Sub\n",
+          "entry": true
+        },
+        {
+          "name": "Strings",
+          "type": "standard",
+          "source": "Option Explicit\nPublic Function Foo(x As Long) As Long\nEnd Function\n",
+          "entry": false
+        }
+      ]
+    },
+    {
+      "id": "q6_strings_unshadowed",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print Strings.Foo() Is Nothing\nEnd Sub\n",
+          "entry": true
+        },
+        {
+          "name": "Strings",
+          "type": "standard",
+          "source": "Option Explicit\nPublic Function Foo(x As Long) As Long\nEnd Function\n",
+          "entry": false
+        }
+      ]
+    },
+    {
+      "id": "q6_math_local",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\nDim Math As Object\n    If False Then Debug.Print Math.Foo() Is Nothing\nEnd Sub\n",
+          "entry": true
+        },
+        {
+          "name": "Math",
+          "type": "standard",
+          "source": "Option Explicit\nPublic Function Foo(x As Long) As Long\nEnd Function\n",
+          "entry": false
+        }
+      ]
+    },
+    {
+      "id": "q6_math_parameter",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main(ByVal Math As Object)\n    If False Then Debug.Print Math.Foo() Is Nothing\nEnd Sub\n",
+          "entry": true
+        },
+        {
+          "name": "Math",
+          "type": "standard",
+          "source": "Option Explicit\nPublic Function Foo(x As Long) As Long\nEnd Function\n",
+          "entry": false
+        }
+      ]
+    },
+    {
+      "id": "q6_math_module",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nPrivate Math As Object\nSub Main()\n    If False Then Debug.Print Math.Foo() Is Nothing\nEnd Sub\n",
+          "entry": true
+        },
+        {
+          "name": "Math",
+          "type": "standard",
+          "source": "Option Explicit\nPublic Function Foo(x As Long) As Long\nEnd Function\n",
+          "entry": false
+        }
+      ]
+    },
+    {
+      "id": "q6_math_unshadowed",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print Math.Foo() Is Nothing\nEnd Sub\n",
+          "entry": true
+        },
+        {
+          "name": "Math",
+          "type": "standard",
+          "source": "Option Explicit\nPublic Function Foo(x As Long) As Long\nEnd Function\n",
+          "entry": false
+        }
+      ]
+    },
+    {
+      "id": "q6_other_local",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\nDim Other As Object\n    If False Then Debug.Print Other.Foo() Is Nothing\nEnd Sub\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nPublic Function Foo(x As Long) As Long\nEnd Function\n",
+          "entry": false
+        }
+      ]
+    },
+    {
+      "id": "q6_other_parameter",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main(ByVal Other As Object)\n    If False Then Debug.Print Other.Foo() Is Nothing\nEnd Sub\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nPublic Function Foo(x As Long) As Long\nEnd Function\n",
+          "entry": false
+        }
+      ]
+    },
+    {
+      "id": "q6_other_module",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nPrivate Other As Object\nSub Main()\n    If False Then Debug.Print Other.Foo() Is Nothing\nEnd Sub\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nPublic Function Foo(x As Long) As Long\nEnd Function\n",
+          "entry": false
+        }
+      ]
+    },
+    {
+      "id": "q6_other_unshadowed",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print Other.Foo() Is Nothing\nEnd Sub\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nPublic Function Foo(x As Long) As Long\nEnd Function\n",
+          "entry": false
+        }
+      ]
+    },
+    {
+      "id": "q6_math_current_module",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Math",
+          "type": "standard",
+          "source": "Option Explicit\nPublic Function Foo(x As Long) As Long\nEnd Function\nSub Main()\n    Dim Math As Object\n    Set Math = New Collection\n    If False Then Debug.Print Math.Foo()\nEnd Sub\n",
+          "entry": true
+        }
+      ]
+    },
+    {
+      "id": "q6_strings_current_module",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Strings",
+          "type": "standard",
+          "source": "Option Explicit\nPublic Function Foo(x As Long) As Long\nEnd Function\nSub Main()\n    Dim Strings As Object\n    Set Strings = New Collection\n    If False Then Debug.Print Strings.Foo()\nEnd Sub\n",
+          "entry": true
+        }
+      ]
+    }
+  ]
+}

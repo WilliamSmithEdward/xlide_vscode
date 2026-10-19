@@ -6,7 +6,7 @@ import {procedureSymbolFor} from '../analysisContext';
 // validation for every callable form one statement can contain.
 
 import type { MemberCompletionContext } from '../../completion/memberAccess';
-import { VBA_LIBRARY_CONTAINERS } from '../../runtime/vbaLibraryNames';
+import { VBA_LIBRARY_CONTAINERS, VBA_LIBRARY_NAMES } from '../../runtime/vbaLibraryNames';
 import { resolveRuntimeFunction, VBA_RUNTIME_FUNCTIONS } from '../../runtime/vbaRuntime';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import {
@@ -44,6 +44,7 @@ import { matchParenFrom, statementAndBranchSpans, statementTokens, tokenName, ty
 import { splitTopLevelTokenGroups } from '../../lexer/tokenHelpers';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import { resolveHostGlobalMember } from '../../host/hostModel';
+import { syntaxErrorLineSpan } from '../../parser/physicalLineSpans';
 
 type ArityTables = {
 	sameModuleSignatures: ReadonlyMap<string, readonly CallableTypeSignature[]>;
@@ -109,7 +110,11 @@ export function checkArgumentCount(
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	memberCtx: MemberCompletionContext,
 	push: PushFn,
+	implicitMembers: MemberCompletionContext['implicitMembers'] = memberCtx.implicitMembers,
 ): ProcedureStatementVisitor {
+	// Binding precedence needs designer names without expanding the metadata
+	// used to validate ordinary host/control member invocations.
+	const bindingContext = { projectClassMembers: memberCtx.projectClassMembers, implicitMembers };
 	const baseSameModuleSignatures = sameModuleCallableSignatures(symbols);
 	const baseProjectSignatures = uniqueProjectTypeSignatures(projectProcedures);
 	const baseModuleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
@@ -128,7 +133,7 @@ export function checkArgumentCount(
 		}
 		for (const runtime of VBA_RUNTIME_FUNCTIONS) {
 			const signature = runtimeAritySignature(runtime);
-			if (!signature) { continue; }
+			if (!signature || !VBA_LIBRARY_NAMES.has(runtime.name.toLowerCase())) { continue; }
 			const keys = [qualifiedProcedureKey('VBA', runtime.name)];
 			for (const [container, members] of VBA_LIBRARY_CONTAINERS) {
 				if (members.has(runtime.name.toLowerCase())) {
@@ -150,20 +155,43 @@ export function checkArgumentCount(
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
 		const env = typeEnvironmentFor(symbols, member);
 		const shadowedQualifier = (name: string) => sourceNames.runtimeShadows.has(name)
-			|| qualifierValueBindings(memberCtx).has(name)
+			|| qualifierValueBindings(bindingContext).has(name)
 			|| name !== symbols.moduleName.toLowerCase() && projectQualifierNames(projectVisibleSymbols).has(name);
+		// One offset index per token snapshot, shared with branch call checks.
+		const tokenIndexes = new WeakMap<readonly VbaToken[], ReadonlyMap<number, number>>();
+		const tokenIndex = (tokens: readonly VbaToken[], offset: number): number => {
+			let indexes = tokenIndexes.get(tokens);
+			if (!indexes) {
+				indexes = new Map(tokens.map((token, index) => [token.start, index]));
+				tokenIndexes.set(tokens, indexes);
+			}
+			return indexes.get(offset) ?? -1;
+		};
 		const provenCall = (call: CallArguments | undefined, tokens: readonly VbaToken[], start: number): CallArguments | undefined => {
-			if (!call?.qualifier) { return call; }
+			if (!call) { return undefined; }
+			if (!call.qualifier) {
+				// Designer/default instances shadow runtime aliases, without mutating
+				// the shared source scope or scanning project bindings for other names.
+				if (!resolveRuntimeFunction(call.name) || baseSameModuleSignatures.has(call.name.toLowerCase())
+					|| sourceNames.runtimeShadows.has(call.name.toLowerCase())) { return call; }
+				const token = tokens[tokenIndex(tokens, call.nameSpan.start - start)];
+				if (token?.kind === 'keyword' && token.rawText.toLowerCase() === 'len') { return call; }
+				return qualifierValueBindings(bindingContext).has(call.name.toLowerCase()) ? undefined : call;
+			}
 			const qualifier = call.qualifier.toLowerCase();
 			const container = VBA_LIBRARY_CONTAINERS.has(qualifier);
-			if (qualifier !== 'vba' && qualifier !== symbols.moduleName.toLowerCase() && !container) { return call; }
-			const index = tokens.findIndex((token) => start + token.start === call.nameSpan.start);
+			const index = tokenIndex(tokens, call.nameSpan.start - start);
 			if (index < 2) { return undefined; }
 			if (container && tokens[index - 3]?.rawText === '.' && tokenName(tokens[index - 4])?.toLowerCase() === 'vba'
 				&& !['.', '!'].includes(tokens[index - 5]?.rawText) && !shadowedQualifier('vba')
 				&& VBA_LIBRARY_CONTAINERS.get(qualifier)?.has(call.name.toLowerCase())) {
 				return { ...call, qualifier: `VBA.${call.qualifier}`, lookupKey: `vba.${call.lookupKey}` };
 			}
+			// Declared receivers win over project module names, including library
+			// container collisions. runtimeShadows also contains module identities,
+			// so use the narrower value scope before accepting source signatures.
+			if (sourceNames.callableShadows.has(qualifier) || qualifierValueBindings(bindingContext).has(qualifier)) { return undefined; }
+			if (qualifier !== 'vba' && qualifier !== symbols.moduleName.toLowerCase() && !container) { return call; }
 			if (qualifier === symbols.moduleName.toLowerCase() && !baseSameModuleSignatures.has(call.name.toLowerCase())) { return undefined; }
 			if (['.', '!'].includes(tokens[index - 3]?.rawText)) { return undefined; }
 			// A proven source module retains its own signature resolution.
@@ -177,7 +205,7 @@ export function checkArgumentCount(
 				// Brackets and member qualification select that member instead.
 				if (tokens[i].kind === 'keyword' && tokens[i].rawText.toLowerCase() === 'len'
 					&& tokens[i + 1].rawText.toLowerCase() === 'is' && !['.', '!'].includes(tokens[i - 1]?.rawText ?? '')) {
-					push('argumentCount', "Len requires an expression. This is a VBE compile error: Syntax error.", { start: stmt.span.start + tokens[i].start, end: stmt.span.start + tokens[i].end });
+					push('argumentCount', "Len requires an expression. This is a VBE compile error: Syntax error.", syntaxErrorLineSpan(source, { start: stmt.span.start + tokens[i].start, end: stmt.span.start + tokens[i].end }));
 				}
 			}
 			const needsQualifiedTables = tokens.some((token, index) => token.rawText === '.'
@@ -381,14 +409,12 @@ function validateCallableArity(
 ): void {
 	const lower = call.lookupKey ?? call.name.toLowerCase();
 	const check = (signature: CallableTypeSignature, report: PushFn): void => {
-		const missing = signature.runtime
-			? signature.params.find((param, index) => index >= call.slots.length && !param.optional && !param.paramArray)
-			: undefined;
+		const missing = signature.params.find((param, index) => index >= call.slots.length && !param.optional && !param.paramArray);
 		validateArity(source, signature, call, (key, message, span, data) => {
 			if (key !== 'argumentCount' || !message.startsWith('Wrong number of arguments')) { report(key, message, span, data); return; }
-			if (missing && (call.qualifier || call.slots.length === 0 && BARE_RUNTIME_MISSING_ARGUMENT.has(signature.name.toLowerCase()))) {
-				// Reuse the required-parameter classification for proven runtime
-				// qualifiers. Qualified CLng() is the measured message/span control.
+			if (missing && (call.qualifier || signature.runtime && call.slots.length === 0 && BARE_RUNTIME_MISSING_ARGUMENT.has(signature.name.toLowerCase()))) {
+				// Qualified runtime and source calls share the measured required-
+				// parameter message and dot-prefixed selection (CLng and Foo).
 				const name = call.qualifier ? `${call.qualifier}.${signature.name}` : signature.name;
 				report(key, `Argument not optional: '${missing.name}' is required by '${name}'.`,
 					call.qualifier ? { start: source.lastIndexOf('.', call.nameSpan.start), end: call.nameSpan.end } : call.nameSpan, data);
@@ -398,7 +424,7 @@ function validateCallableArity(
 			if (signature.runtime && !call.qualifier && !call.slots.some(isNamedSlot)
 				&& BARE_INTRINSIC_SYNTAX_ARITIES.get(signature.name.toLowerCase())?.has(call.slots.length)
 				&& /^[ \t]*\(/.test(source.slice(call.nameSpan.end))) {
-				report(key, `The intrinsic '${signature.name}' requires its expression argument. This is a VBE compile error: Syntax error.`, span, data);
+				report(key, `The intrinsic '${signature.name}' requires its expression argument. This is a VBE compile error: Syntax error.`, syntaxErrorLineSpan(source, call.nameSpan), data);
 				return;
 			}
 			if (signature.runtime && call.qualifier && call.slots.length > signature.params.length && !signature.params.some((param) => param.paramArray)) {

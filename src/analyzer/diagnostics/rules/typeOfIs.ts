@@ -47,6 +47,7 @@ import {
 	typeEnvironmentFor,
 } from '../typeInference';
 import { tokenizeCached } from '../../lexer/tokenize';
+import { syntaxErrorLineSpan } from '../../parser/physicalLineSpans';
 import { expressionShapeResolver, type ExpressionShapeContext } from '../expressionShape';
 import type { ProcedureExpressionVisitor } from '../exprWalk';
 import { retainedExpressionText } from './binaryOperandScalar';
@@ -301,7 +302,7 @@ function compileOperandSpan(expr: ExprNode, member: ProcedureNode): Span {
 }
 
 /** Compile constraints of TypeOf, separate from the compatibility warning. */
-export function checkTypeOfExpression(symbols: ReturnType<typeof buildModuleSymbols>, push: PushFn, projectVisibleSymbols?: readonly VbaSymbol[], shapeContext?: ExpressionShapeContext): ProcedureExpressionVisitor {
+export function checkTypeOfExpression(symbols: ReturnType<typeof buildModuleSymbols>, push: PushFn, projectVisibleSymbols?: readonly VbaSymbol[], shapeContext?: ExpressionShapeContext, source?: string): ProcedureExpressionVisitor {
 	const forProcedure = expressionShapeResolver(symbols, projectVisibleSymbols, shapeContext);
 	const isEnum = enumTypeResolver(symbols, projectVisibleSymbols, shapeContext);
 	const intrinsicFor = measuredIntrinsicResolver(symbols, projectVisibleSymbols, shapeContext);
@@ -314,14 +315,14 @@ export function checkTypeOfExpression(symbols: ReturnType<typeof buildModuleSymb
 			const builtin = intrinsic(expr.operand);
 			// These measured comparison calls compile under TypeOf, despite
 			// their scalar constraints in binary Is. No return type is inferred.
-			const acceptedComparison = measuredComparisonCall(expr.operand, builtin);
+			const acceptedComparison = builtin !== undefined && TYPEOF_ACCEPTED_COMPARISONS.has(builtin);
 			const operandKind = expr.operand.exprKind;
 			const invalidSyntax = builtin && shape && TYPEOF_SYNTAX_INTRINSICS.has(builtin)
 				|| operandKind === 'ParenExpr' || operandKind === 'LiteralExpr'
 				|| operandKind === 'UnaryExpr' || operandKind === 'BinaryExpr'
 				|| isKnownScalarType(expr.typeName.toLowerCase()) || expr.typeName.toLowerCase() === 'variant';
 			if (invalidSyntax) {
-				push('typeOfInvalidExpression', "TypeOf requires an unparenthesised object expression and an object type after Is. This is a VBE compile error: Syntax error.", expr.span);
+				push('typeOfInvalidExpression', "TypeOf requires an unparenthesised object expression and an object type after Is. This is a VBE compile error: Syntax error.", syntaxErrorLineSpan(source, expr.span));
 			} else if (!acceptedComparison && (shape?.isArray || shape?.isScalar || shape?.asType && (isKnownScalarType(shape.asType.toLowerCase()) || isEnum(shape.asType.toLowerCase())))) {
 				push('typeOfInvalidExpression', "TypeOf requires an object expression. This is a VBE compile error: Type mismatch.", compileOperandSpan(expr.operand, member));
 			}
@@ -406,7 +407,7 @@ function measuredIsSpan(
 			return argument.span;
 		}
 		if (measuredComparisonCall(expr, intrinsic)) {
-			const commaIndex = intrinsic === 'instrb' ? 1 : 0;
+			const commaIndex = (intrinsic === 'instrb' || intrinsic === 'instr') && expr.args.length === 3 ? 1 : 0;
 			const second = expr.args[commaIndex].value!;
 			const third = expr.args[commaIndex + 1].value!;
 			const gap = retainedExpressionText(member.body, { start: second.span.end, end: third.span.start });
@@ -417,11 +418,13 @@ function measuredIsSpan(
 	return compileOperandSpan(expr, member);
 }
 
-// Exact positional arities observed in the three retained batches. Unmeasured
-// named/other-arity forms retain the ordinary conservative shape behavior.
-const TYPEOF_ACCEPTED_COMPARISONS = new Map([['instrb', 3], ['instr', 2], ['strcomp', 2]]);
+// Exact positional arities with retained compact Is selections. Other arities
+// retain the callable selection; TypeOf does not inherit the Is constraint.
+const TYPEOF_ACCEPTED_COMPARISONS = new Map([
+	['instrb', new Set([2, 3])], ['instr', new Set([2])], ['strcomp', new Set([2])],
+]);
 function measuredComparisonCall(expr: ExprNode, name: string | undefined): boolean {
 	return name !== undefined && expr.exprKind === 'IndexExpr'
-		&& expr.args.length === TYPEOF_ACCEPTED_COMPARISONS.get(name)
+		&& TYPEOF_ACCEPTED_COMPARISONS.get(name)?.has(expr.args.length) === true
 		&& expr.args.every(arg => !arg.name && arg.value);
 }

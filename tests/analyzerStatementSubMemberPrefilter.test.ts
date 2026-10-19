@@ -40,7 +40,8 @@ describe('statement-form class Sub candidate lookup', () => {
     it('preserves first member matching and does not flag a Function before a same-name Sub', () => {
         const diagnostics = run('result=c.DoIt()', { projectClassMembers: [type([{ ...sub, sub: false, returns: 'Long' }, sub])] });
         expect(diagnostics).toEqual([]);
-        expect(calls.resolve.mock.calls.length).toBe(1);
+        // The receiver's first matching member already proves this is a Function.
+        expect(calls.resolve.mock.calls.length).toBe(0);
     });
 
     it('does not scan unrelated class metadata for an already found Sub name', () => {

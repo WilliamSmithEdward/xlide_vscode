@@ -18,12 +18,12 @@ import { isDecimalLineNumber } from '../../lexer/tokenHelpers';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import { tokenizeCached } from '../../lexer/tokenize';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
-import type { VbaProcedureSignature } from '../../symbols/symbolModel';
+import type { VbaProcedureSignature, VbaProjectClassMembers, VbaProjectClassMember } from '../../symbols/symbolModel';
 import { forEachSubExpression, statementValueExpressions } from '../exprWalk';
 import { statementLabelDeclarations, statementLabelReferences } from '../../flow/procedureLabels';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
 import { createObjectDefaultQueries, argumentlessHostDefault, buildModuleTypeSignatures, isKnownScalarType, normalizeType, objectHoldingDefault, typeEnvironmentFor } from '../typeInference';
-import { projectClassMemberAt, type MemberCompletionContext } from '../../completion/memberAccess';
+import { projectClassMemberAt, projectTypeAt, projectClassMembersIndex, type MemberCompletionContext } from '../../completion/memberAccess';
 import { resolveHostAlias } from '../../host/hostModel';
 import {
 	activeModuleMembers,
@@ -90,6 +90,28 @@ export function checkStatementForms(
 	// its name. Read bare, `Main = F`, one is "Argument not optional" (issue
 	// #645, measured in Excel 16.0).
 	const needsArgument = new Map<string, string>();
+	// Resolve only the receiver's class. Keep its first-match member index lazy
+	// and query-owned: unrelated classes and repeated missing names cost no work.
+	const classMembers = new WeakMap<VbaProjectClassMembers, { cursor: number; names: Map<string, VbaProjectClassMember> }>();
+	const possibleClassSub = (toks: readonly VbaToken[], i: number, span: Span, env: ReadonlyMap<string, string>, name: string): boolean => {
+		const surfaces = memberCtx.projectClassMembers;
+		if (!surfaces?.length) { return false; }
+		const receiver = !['.', '!'].includes(toks[i - 3]?.rawText ?? '') ? tokenName(toks[i - 2]) : undefined;
+		const declared = receiver ? env.get(receiver.toLowerCase()) : undefined;
+		const direct = declared && !declared.includes('.') ? projectClassMembersIndex(surfaces).get(declared.toLowerCase()) : undefined;
+		if (!direct && declared && ['object', 'variant'].includes(declared.toLowerCase())) { return false; }
+		const type = direct ?? projectTypeAt(source, span.start + toks[i - 1].end, memberCtx);
+		if (type?.kind !== 'class') { return false; }
+		let query = classMembers.get(type);
+		if (!query) { classMembers.set(type, query = { cursor: 0, names: new Map() }); }
+		const lower = name.toLowerCase();
+		while (!query.names.has(lower) && query.cursor < type.members.length) {
+			const member = type.members[query.cursor++];
+			const key = member.name.toLowerCase();
+			if (!query.names.has(key)) { query.names.set(key, member); }
+		}
+		return query.names.get(lower)?.sub === true;
+	};
 	const required = (params: readonly { optional: boolean; paramArray: boolean }[]): boolean => params.some((p) => !p.optional && !p.paramArray);
 	const ownSignatures = buildModuleTypeSignatures(symbols);
 	for (const [lower, signature] of ownSignatures) {
@@ -233,6 +255,7 @@ export function checkStatementForms(
 						// The value test first: it is cheap, and `Debug.Print 1` names no
 						// value. Resolve the receiver before reading its class members.
 						&& isValue(i)
+						&& possibleClassSub(toks, i, span, env, name)
 						&& projectClassMemberAt(source, span.start + toks[i - 1].end, name, memberCtx)?.sub) {
 						push('subUsedAsValue', `'${name}' is a Sub of the class, which returns nothing, so it cannot be used as a value. This is a VBE compile error: Expected Function or variable.`, at(i));
 						continue;

@@ -1,0 +1,551 @@
+{
+  "version": 1,
+  "measuredDate": "2026-10-19",
+  "host": "excel",
+  "hostBuild": "16.0.20430.20182",
+  "failureCount": 0,
+  "oracleFailureCount": 0,
+  "skippedCount": 0,
+  "harnessSnapshot": {
+    "artifact": "gap_contexts_harness_20261019.json",
+    "version": "after-selection-rcw-cleanup",
+    "hash": "0472f6b17d45723c3672f8b80cdccc498da57c33bf3e5a0a8c357fd9eef848b8"
+  },
+  "cases": [
+    {
+      "id": "q6_strings_local",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\nDim Strings As Object\n    If False Then Debug.Print Strings.Foo() Is Nothing\nEnd Sub\n",
+          "entry": true
+        },
+        {
+          "name": "Strings",
+          "type": "standard",
+          "source": "Option Explicit\nPublic Function Foo(x As Long) As Long\nEnd Function\n",
+          "entry": false
+        }
+      ]
+    },
+    {
+      "id": "q6_strings_parameter",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main(ByVal Strings As Object)\n    If False Then Debug.Print Strings.Foo() Is Nothing\nEnd Sub\n",
+          "entry": true
+        },
+        {
+          "name": "Strings",
+          "type": "standard",
+          "source": "Option Explicit\nPublic Function Foo(x As Long) As Long\nEnd Function\n",
+          "entry": false
+        }
+      ]
+    },
+    {
+      "id": "q6_strings_module",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nPrivate Strings As Object\nSub Main()\n    If False Then Debug.Print Strings.Foo() Is Nothing\nEnd Sub\n",
+          "entry": true
+        },
+        {
+          "name": "Strings",
+          "type": "standard",
+          "source": "Option Explicit\nPublic Function Foo(x As Long) As Long\nEnd Function\n",
+          "entry": false
+        }
+      ]
+    },
+    {
+      "id": "q6_strings_unshadowed",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print Strings.Foo() Is Nothing\nEnd Sub\n",
+          "entry": true
+        },
+        {
+          "name": "Strings",
+          "type": "standard",
+          "source": "Option Explicit\nPublic Function Foo(x As Long) As Long\nEnd Function\n",
+          "entry": false
+        }
+      ]
+    },
+    {
+      "id": "q6_math_local",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\nDim Math As Object\n    If False Then Debug.Print Math.Foo() Is Nothing\nEnd Sub\n",
+          "entry": true
+        },
+        {
+          "name": "Math",
+          "type": "standard",
+          "source": "Option Explicit\nPublic Function Foo(x As Long) As Long\nEnd Function\n",
+          "entry": false
+        }
+      ]
+    },
+    {
+      "id": "q6_math_parameter",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main(ByVal Math As Object)\n    If False Then Debug.Print Math.Foo() Is Nothing\nEnd Sub\n",
+          "entry": true
+        },
+        {
+          "name": "Math",
+          "type": "standard",
+          "source": "Option Explicit\nPublic Function Foo(x As Long) As Long\nEnd Function\n",
+          "entry": false
+        }
+      ]
+    },
+    {
+      "id": "q6_math_module",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nPrivate Math As Object\nSub Main()\n    If False Then Debug.Print Math.Foo() Is Nothing\nEnd Sub\n",
+          "entry": true
+        },
+        {
+          "name": "Math",
+          "type": "standard",
+          "source": "Option Explicit\nPublic Function Foo(x As Long) As Long\nEnd Function\n",
+          "entry": false
+        }
+      ]
+    },
+    {
+      "id": "q6_math_unshadowed",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print Math.Foo() Is Nothing\nEnd Sub\n",
+          "entry": true
+        },
+        {
+          "name": "Math",
+          "type": "standard",
+          "source": "Option Explicit\nPublic Function Foo(x As Long) As Long\nEnd Function\n",
+          "entry": false
+        }
+      ]
+    },
+    {
+      "id": "q6_other_local",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\nDim Other As Object\n    If False Then Debug.Print Other.Foo() Is Nothing\nEnd Sub\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nPublic Function Foo(x As Long) As Long\nEnd Function\n",
+          "entry": false
+        }
+      ]
+    },
+    {
+      "id": "q6_other_parameter",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main(ByVal Other As Object)\n    If False Then Debug.Print Other.Foo() Is Nothing\nEnd Sub\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nPublic Function Foo(x As Long) As Long\nEnd Function\n",
+          "entry": false
+        }
+      ]
+    },
+    {
+      "id": "q6_other_module",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nPrivate Other As Object\nSub Main()\n    If False Then Debug.Print Other.Foo() Is Nothing\nEnd Sub\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nPublic Function Foo(x As Long) As Long\nEnd Function\n",
+          "entry": false
+        }
+      ]
+    },
+    {
+      "id": "q6_other_unshadowed",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print Other.Foo() Is Nothing\nEnd Sub\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nPublic Function Foo(x As Long) As Long\nEnd Function\n",
+          "entry": false
+        }
+      ]
+    },
+    {
+      "id": "q6_math_current_module",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Math",
+          "type": "standard",
+          "source": "Option Explicit\nPublic Function Foo(x As Long) As Long\nEnd Function\nSub Main()\n    Dim Math As Object\n    Set Math = New Collection\n    If False Then Debug.Print Math.Foo()\nEnd Sub\n",
+          "entry": true
+        }
+      ]
+    },
+    {
+      "id": "q6_strings_current_module",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Strings",
+          "type": "standard",
+          "source": "Option Explicit\nPublic Function Foo(x As Long) As Long\nEnd Function\nSub Main()\n    Dim Strings As Object\n    Set Strings = New Collection\n    If False Then Debug.Print Strings.Foo()\nEnd Sub\n",
+          "entry": true
+        }
+      ]
+    }
+  ],
+  "checkpointRecords": [
+    {
+      "caseHash": "22ae9d62f2f194e4b00bdf562bac270f4be42373dbfaa3ee017d5a3537b5ad7c",
+      "result": {
+        "caseId": "q6_strings_local",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "32b29e8fada1d4422c9a607e9159ba34c53a2e69d6e03ca95617b9fef8fba1ce",
+      "result": {
+        "caseId": "q6_strings_parameter",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "ee86c42d79621c6ac76b66efdc549800abeac11f25b75706f24c3222b58087e8",
+      "result": {
+        "caseId": "q6_strings_module",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "c59a5599de2a10e9c603e2a4cba83e84706f1fbac19da609d13cdabc8b96da10",
+      "result": {
+        "caseId": "q6_strings_unshadowed",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nArgument not optional",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 3,
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Debug.Print Strings.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 3,
+          "endColumn": 42,
+          "startColumn": 38
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "943d100b8f74e920240f09c0e47a52a7f303da5763bbe14919990f6f2226b6c6",
+      "result": {
+        "caseId": "q6_math_local",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "1af7570ce06b14136c9a4b742bb6369e48bc4952a3bb169f5073c713ce916695",
+      "result": {
+        "caseId": "q6_math_parameter",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "2b040450d19648903ec9052d4d461943837c9ee7058c34fd9ee01bb98a5b82ca",
+      "result": {
+        "caseId": "q6_math_module",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "391ce00781216e031b99d97d4c31096fbc12742908570eac96e2445e26fb0ad1",
+      "result": {
+        "caseId": "q6_math_unshadowed",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nArgument not optional",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 3,
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Debug.Print Math.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 3,
+          "endColumn": 39,
+          "startColumn": 35
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "31da338548d06075a880d6701114764a742ab0c554bce98842faa9341b7f478d",
+      "result": {
+        "caseId": "q6_other_local",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "8ca5c544d5a4e182b067466fbcbeeb1f906a545e684e3704a2395335271a9b2b",
+      "result": {
+        "caseId": "q6_other_parameter",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "6a9476c8240860290a8296991ee91de27547ed3e2d1c368dc2798eea432d926a",
+      "result": {
+        "caseId": "q6_other_module",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "ff41ef4af9f7f69a11898ad3696b218c89e55884ddf68c1fe07bc43314288bf0",
+      "result": {
+        "caseId": "q6_other_unshadowed",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nArgument not optional",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 3,
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Debug.Print Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 3,
+          "endColumn": 40,
+          "startColumn": 36
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "fc715ce20c16ba1ea5be611ffa9e86441991184cfc2522848fde0fe9283086b1",
+      "result": {
+        "caseId": "q6_math_current_module",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "cdd6e68d71fd42e160ac270b95699a0c6bbfd7cb51c09027cdcc97601516dea0",
+      "result": {
+        "caseId": "q6_strings_current_module",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    }
+  ]
+}

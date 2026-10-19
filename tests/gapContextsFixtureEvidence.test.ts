@@ -14,19 +14,21 @@ describe('gap-contexts fresh measurement provenance', () => {
         const names = VBA_RUNTIME_FUNCTIONS.filter(fn => fn.kind === 'function').map(fn => fn.name.toLowerCase()).sort();
         expect(matrix.functions.map((fn: any) => fn.name.toLowerCase()).sort()).toEqual(names);
         for (const fn of matrix.functions) {
-            const document = read('evidence/' + fn.evidenceArtifact);
-            for (const form of ['ordinary', 'is', 'typeof']) {
-                const expected = fn.constraints[form];
-                const record = document.checkpointRecords.find((r: any) => r.result.caseId === expected.caseId);
-                expect(record, fn.name + ': ' + form).toBeDefined();
-                expect(record.result.outcome).toBe(expected.outcome);
-                expect(record.result.message).toBe(expected.message);
-                expect(record.result.stage).toBe(expected.stage);
+            for (const [artifact, constraints] of [[fn.evidenceArtifact, fn.constraints], [fn.qualifiedEvidenceArtifact, fn.qualifiedConstraints]]) {
+                const document = read('evidence/' + artifact);
+                for (const form of ['ordinary', 'is', 'typeof']) {
+                    const expected = constraints[form];
+                    const record = document.checkpointRecords.find((r: any) => r.result.caseId === expected.caseId);
+                    expect(record, fn.name + ': ' + form).toBeDefined();
+                    expect(record.result.outcome).toBe(expected.outcome);
+                    expect(record.result.message).toBe(expected.message);
+                    expect(record.result.stage).toBe(expected.stage);
+                }
             }
             expect(fn.constraints.ordinary.outcome).toBe('accepted');
         }
     });
-    it.each(['review', 'validation', 'completion'])('binds every %s result to exact harness, build, input and canonical outcome', (name) => {
+    it.each(['review', 'validation', 'completion', 'qualified', 'comparison_neighbors', 'receiver_shadows'])('binds every %s result to exact harness, build, input and canonical outcome', (name) => {
         const document = read(`evidence/gap_contexts_${name}_20261019.json`);
         const snapshots = read('evidence/gap_contexts_harness_20261019.json');
         const snapshot = snapshots.versions[document.harnessSnapshot.version];

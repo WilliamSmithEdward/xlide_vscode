@@ -73,7 +73,7 @@ describe('expression binding review contracts (Excel measurement pending)', () =
 		try {
 			const { shape } = resolver();
 			expect(shape('Mystery(1, 2)')?.asType).toBe('Long');
-			expect(shape('VBA.Mystery(1, 2)')?.asType).toBe('Long');
+			expect(shape('VBA.Mystery(1, 2)')).toBeUndefined();
 		} finally { spy.mockRestore(); }
 	});
 	it.each([

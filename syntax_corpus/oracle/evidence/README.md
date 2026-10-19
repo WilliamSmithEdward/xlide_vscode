@@ -19,6 +19,12 @@ Create `test-results` before these commands. Checkpoint records retain actual ou
 
 `gap_contexts_harness_20261019.json` preserves the exact coordinator and two worker snapshots used by the first two batches. The first snapshot predates selection RCW cleanup; the second includes it. Contract tests reproduce every checkpoint hash from the exact harness bytes, host build and original input, and compare promoted module sources and outcomes.
 
-The measured parity test checks compile verdicts and messages across the retained fresh inputs. Compact post-dismissal selections are compared for diagnostic codes changed here. Unchanged diagnostics can retain a narrower range than Excel; whole-line captures do not establish a narrow live-dialog highlight.
+The measured parity test checks compile verdicts and messages across the retained fresh inputs. Compact and whole-line post-dismissal selections are compared for diagnostic codes changed here. Unchanged diagnostics can retain a narrower range than Excel; no capture here establishes live-dialog highlighting.
 
 `gap_contexts_builtin_constraints_20261019.json` links all 168 current runtime functions to fresh ordinary, Is and TypeOf compile observations on build 16.0.20430.20182. The coverage test requires every catalog entry and checks the matrix against retained checkpoint outcomes/messages/stages. These constraints are deliberately separate; several intrinsic forms have different TypeOf grammar from Is.
+
+`gap_contexts_qualified_20261019.json` retains all 168 VBA-qualified triplets and eight reserved-name designer controls. The matrix links these separately: qualified compiler productions differ from bare intrinsic productions, and VBA.LBound/VBA.UBound are unavailable members. Their ordinary rejection cannot establish a return constraint.
+
+`gap_contexts_comparison_neighbors_20261019.json` retains 90 bare/qualified InStr, InStrB and StrComp controls with String, Variant, Null and Object arguments. `gap_contexts_receiver_shadows_20261019.json` retains 14 source-module/library receiver controls. All six fresh batches contain 1,263 successful compile observations, with no infrastructure failures or skipped cases.
+
+Existing duplicate-source fixtures remain as named matrix controls so historical IDs and audit references stay stable. The original worktree scratch manifests `oracle_added_cases.json` and `oracle_recheck.json` are not part of this change.

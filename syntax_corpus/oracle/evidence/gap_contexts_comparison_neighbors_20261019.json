@@ -1,0 +1,2745 @@
+{
+  "version": 1,
+  "measuredDate": "2026-10-19",
+  "host": "excel",
+  "hostBuild": "16.0.20430.20182",
+  "failureCount": 0,
+  "oracleFailureCount": 0,
+  "skippedCount": 0,
+  "harnessSnapshot": {
+    "artifact": "gap_contexts_harness_20261019.json",
+    "version": "after-selection-rcw-cleanup",
+    "hash": "0472f6b17d45723c3672f8b80cdccc498da57c33bf3e5a0a8c357fd9eef848b8"
+  },
+  "cases": [
+    {
+      "id": "q5_instr_strings_bare_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStr(\"a\", \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_strings_bare_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStr(\"a\", \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_strings_bare_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf InStr(\"a\", \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_strings_qualified_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStr(\"a\", \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_strings_qualified_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStr(\"a\", \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_strings_qualified_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf VBA.InStr(\"a\", \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_variant_bare_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStr(v, \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_variant_bare_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStr(v, \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_variant_bare_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf InStr(v, \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_variant_qualified_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStr(v, \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_variant_qualified_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStr(v, \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_variant_qualified_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf VBA.InStr(v, \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_null_bare_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStr(Null, \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_null_bare_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStr(Null, \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_null_bare_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf InStr(Null, \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_null_qualified_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStr(Null, \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_null_qualified_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStr(Null, \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_null_qualified_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf VBA.InStr(Null, \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_object_bare_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStr(obj, \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_object_bare_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStr(obj, \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_object_bare_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf InStr(obj, \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_object_qualified_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStr(obj, \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_object_qualified_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStr(obj, \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_object_qualified_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf VBA.InStr(obj, \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_second_variant_bare_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStr(\"a\", v)\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_second_variant_bare_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStr(\"a\", v) Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_second_variant_bare_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf InStr(\"a\", v) Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_second_variant_qualified_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStr(\"a\", v)\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_second_variant_qualified_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStr(\"a\", v) Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_second_variant_qualified_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf VBA.InStr(\"a\", v) Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_strings_bare_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStrB(\"a\", \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_strings_bare_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStrB(\"a\", \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_strings_bare_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf InStrB(\"a\", \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_strings_qualified_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStrB(\"a\", \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_strings_qualified_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStrB(\"a\", \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_strings_qualified_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf VBA.InStrB(\"a\", \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_variant_bare_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStrB(v, \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_variant_bare_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStrB(v, \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_variant_bare_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf InStrB(v, \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_variant_qualified_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStrB(v, \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_variant_qualified_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStrB(v, \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_variant_qualified_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf VBA.InStrB(v, \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_null_bare_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStrB(Null, \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_null_bare_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStrB(Null, \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_null_bare_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf InStrB(Null, \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_null_qualified_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStrB(Null, \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_null_qualified_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStrB(Null, \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_null_qualified_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf VBA.InStrB(Null, \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_object_bare_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStrB(obj, \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_object_bare_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStrB(obj, \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_object_bare_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf InStrB(obj, \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_object_qualified_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStrB(obj, \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_object_qualified_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStrB(obj, \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_object_qualified_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf VBA.InStrB(obj, \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_second_variant_bare_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStrB(\"a\", v)\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_second_variant_bare_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStrB(\"a\", v) Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_second_variant_bare_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf InStrB(\"a\", v) Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_second_variant_qualified_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStrB(\"a\", v)\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_second_variant_qualified_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStrB(\"a\", v) Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_second_variant_qualified_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf VBA.InStrB(\"a\", v) Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_strings_bare_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print StrComp(\"a\", \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_strings_bare_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print StrComp(\"a\", \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_strings_bare_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf StrComp(\"a\", \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_strings_qualified_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.StrComp(\"a\", \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_strings_qualified_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.StrComp(\"a\", \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_strings_qualified_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf VBA.StrComp(\"a\", \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_variant_bare_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print StrComp(v, \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_variant_bare_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print StrComp(v, \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_variant_bare_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf StrComp(v, \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_variant_qualified_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.StrComp(v, \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_variant_qualified_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.StrComp(v, \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_variant_qualified_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf VBA.StrComp(v, \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_null_bare_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print StrComp(Null, \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_null_bare_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print StrComp(Null, \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_null_bare_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf StrComp(Null, \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_null_qualified_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.StrComp(Null, \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_null_qualified_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.StrComp(Null, \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_null_qualified_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf VBA.StrComp(Null, \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_object_bare_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print StrComp(obj, \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_object_bare_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print StrComp(obj, \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_object_bare_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf StrComp(obj, \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_object_qualified_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.StrComp(obj, \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_object_qualified_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.StrComp(obj, \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_object_qualified_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf VBA.StrComp(obj, \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_second_variant_bare_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print StrComp(\"a\", v)\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_second_variant_bare_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print StrComp(\"a\", v) Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_second_variant_bare_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf StrComp(\"a\", v) Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_second_variant_qualified_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.StrComp(\"a\", v)\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_second_variant_qualified_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.StrComp(\"a\", v) Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_second_variant_qualified_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf VBA.StrComp(\"a\", v) Is Collection\nEnd Sub\n"
+        }
+      ]
+    }
+  ],
+  "checkpointRecords": [
+    {
+      "caseHash": "0cc2272a853e1726f390f5957a2d429cc29b4e63e3f2e43b92b2f11aa3e65a5d",
+      "result": {
+        "caseId": "q5_instr_strings_bare_ordinary",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "20360eb642e638aee39aee168190cc7481f130440c21ecd54b37a244b3f5ddba",
+      "result": {
+        "caseId": "q5_instr_strings_bare_is",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nType mismatch",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 4,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, obj As Object\r\n    If False Then Debug.Print InStr(\"a\", \"a\") Is Nothing\r\nEnd Sub\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 4,
+          "endColumn": 41,
+          "startColumn": 31
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "fe05fdb10dba2150084db149471752bf92066c01ba1b987a5a42fa350192b041",
+      "result": {
+        "caseId": "q5_instr_strings_bare_typeof",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "70babc3c4346cf8b3c99e7841d95a274601be25cd7e7f4cd65be74feff9c5519",
+      "result": {
+        "caseId": "q5_instr_strings_qualified_ordinary",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "06ed08db0c84bfcc7d2a38a6d1e43bff189e082287408667199102a4587e3dcd",
+      "result": {
+        "caseId": "q5_instr_strings_qualified_is",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "69be4b342061af10844766479cd27ce8a7a31e5cd334df87b2bbf1253561e8e4",
+      "result": {
+        "caseId": "q5_instr_strings_qualified_typeof",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "75cd27bc51a8051420ddb93c61dac0a7413d473ab03d5b5332d445d7f3a9862b",
+      "result": {
+        "caseId": "q5_instr_variant_bare_ordinary",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "fc0dc8e3518031f9590c1074f8dd0390768e98c68c3e569cf33a02b9469d5b6f",
+      "result": {
+        "caseId": "q5_instr_variant_bare_is",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "a50a9c6810e10272c1740569a126adcf674c97e67fc5645c789376c8c5d4e247",
+      "result": {
+        "caseId": "q5_instr_variant_bare_typeof",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "dc0cf80154e7434bdd1ad08ce5a177914b4385859ab17a0a2698ea07a38ed2c1",
+      "result": {
+        "caseId": "q5_instr_variant_qualified_ordinary",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "7c42a5654606a653b32c681dd0d0139ec675e9d3dfc32b80859a1e424337d888",
+      "result": {
+        "caseId": "q5_instr_variant_qualified_is",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "4cd6cc63cae1ad71e1ecd6f19444911ead8b76cbfd4109dc4a51e155af1efaec",
+      "result": {
+        "caseId": "q5_instr_variant_qualified_typeof",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "60ede85af70c07337e32d81a95be82448f50266cd9c290b85d68695fccc3345b",
+      "result": {
+        "caseId": "q5_instr_null_bare_ordinary",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "b2a62de04917f8fe692c13fd141471b01688ca01934e6ce70690b36d20ffb3b9",
+      "result": {
+        "caseId": "q5_instr_null_bare_is",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "6b520423e1e24b97b75166d6a6a8ccb082c353d55fa4b397c4f756bdc37db286",
+      "result": {
+        "caseId": "q5_instr_null_bare_typeof",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "c074a1df5b044c7383cd3d2ebeb3f82843cec285638d1f57636706e38ffde9fe",
+      "result": {
+        "caseId": "q5_instr_null_qualified_ordinary",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "c6d57d1c88d4879d460a2f9ad90872782b9a5cd8170f8bdc0581b3177c11e10a",
+      "result": {
+        "caseId": "q5_instr_null_qualified_is",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "9654241f458065ee4e5f7fe8d975f635b9c771fd0e5a282df8daa475aa124af3",
+      "result": {
+        "caseId": "q5_instr_null_qualified_typeof",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "cb061605a19c61a0e07d821295f76e61d17d7e9fa7fb58162680a415e7465b51",
+      "result": {
+        "caseId": "q5_instr_object_bare_ordinary",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "8252346b65320d7f456049c40949a56810163dc02cfafbdbab8eef0d541cc29d",
+      "result": {
+        "caseId": "q5_instr_object_bare_is",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "020dd091ecf98c86bc45eb63afce56ace378aa1b6f4408625a26989469f0a147",
+      "result": {
+        "caseId": "q5_instr_object_bare_typeof",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "b90eec298e884d3b5f4670580e5d631920bccbc0de1d322490f6e483486823f3",
+      "result": {
+        "caseId": "q5_instr_object_qualified_ordinary",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "66dbb56aa51efca841ce8990ac2ad5c5bfaa1f7f0ce0efaef41cdc804053f233",
+      "result": {
+        "caseId": "q5_instr_object_qualified_is",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "d2eaecb92e6e449b4961a69187137c12666ce85f86b3ac46664c2b82f710852a",
+      "result": {
+        "caseId": "q5_instr_object_qualified_typeof",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "06ded3adeb7bc9ecaa0fab135c1edfdb1a63b4814f6d01cda1eca70c128c55f9",
+      "result": {
+        "caseId": "q5_instr_second_variant_bare_ordinary",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "cc10f50ffa1e01a0cde89d8269ce6305a5542376b648f975e343d13f519382cf",
+      "result": {
+        "caseId": "q5_instr_second_variant_bare_is",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "675a96373b9dff415c5641df649f493561b4c48bfda31b84cfaed6f81c857a0f",
+      "result": {
+        "caseId": "q5_instr_second_variant_bare_typeof",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "693a62462b5e0eb6e160c6af18a1c4ba649f2abcdaf18989d85242602f9a3df2",
+      "result": {
+        "caseId": "q5_instr_second_variant_qualified_ordinary",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "79ecc5aa2dc4f7bbca5e2f6ef6ad3b87d3d4c0401d5b0435e6b9f427a11c2012",
+      "result": {
+        "caseId": "q5_instr_second_variant_qualified_is",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "d681e4c87f34b36994e4050af78a2e82405644735ecc2225007f763f7b8be1ce",
+      "result": {
+        "caseId": "q5_instr_second_variant_qualified_typeof",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "b5273874f4b29ee7cfeb0c195bdbe364b62ba9e7020572fedf169e4e1e778397",
+      "result": {
+        "caseId": "q5_instrb_strings_bare_ordinary",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "c76789e5d74b721eff65e8d94e33e0a7373da99ee69a6b28afb05d01653f9a0b",
+      "result": {
+        "caseId": "q5_instrb_strings_bare_is",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nType mismatch",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 4,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, obj As Object\r\n    If False Then Debug.Print InStrB(\"a\", \"a\") Is Nothing\r\nEnd Sub\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 4,
+          "endColumn": 42,
+          "startColumn": 31
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "229b2046d89c9f461c4b17e2ceeb039e730ab79f80431aecc5f20ef49c65b9b3",
+      "result": {
+        "caseId": "q5_instrb_strings_bare_typeof",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "5601a661d17a901da6a29cd2822199bde3a25fd5fc8d6c41fdc0a36e3e0dfbe5",
+      "result": {
+        "caseId": "q5_instrb_strings_qualified_ordinary",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "5bb4084a53bba9e5a18c852e2093995be7b6232bbccb726faae67bbd42641a6e",
+      "result": {
+        "caseId": "q5_instrb_strings_qualified_is",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "a3a9deae38cd09745e634cd8cdeb86149d0d6007967db2143794fcef18e65a64",
+      "result": {
+        "caseId": "q5_instrb_strings_qualified_typeof",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "91732e46dd6e53cb651906ba2f4003a43d2294649195ac6ed73eb87c7ec120bb",
+      "result": {
+        "caseId": "q5_instrb_variant_bare_ordinary",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "f351c264dbb635850a75802aae4effd701561a35d05519d847d96c1a2fdda58f",
+      "result": {
+        "caseId": "q5_instrb_variant_bare_is",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "e4464f95016b1a9400c4d30ea34effe7d79c953588c58b35b6efa1fec02151f2",
+      "result": {
+        "caseId": "q5_instrb_variant_bare_typeof",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "e1cbd637e0d022ea2ff9424316dce7006ad46e79b7ba4cca44c5e13f860cce11",
+      "result": {
+        "caseId": "q5_instrb_variant_qualified_ordinary",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "32f585c532e07b95278b1b89942f268e76228e401eb7df390391abd0806ac900",
+      "result": {
+        "caseId": "q5_instrb_variant_qualified_is",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "4c4f3b79116df17beef2ae393bcae912b750d307da5f18b70cee302a65ea4b1c",
+      "result": {
+        "caseId": "q5_instrb_variant_qualified_typeof",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "5c1d37e97c937c0795e9eef1dd4d7312ab22ee48dd596b27ca2b7eaaa29ab486",
+      "result": {
+        "caseId": "q5_instrb_null_bare_ordinary",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "e1a828233ba8643041fed4ed48ae8fc59b65501572f0cde55f18d87bceab3e71",
+      "result": {
+        "caseId": "q5_instrb_null_bare_is",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "4485598b087fc8e88f4db21f5734e7ad9c3d59b62fb38e7c0fbb23231446568f",
+      "result": {
+        "caseId": "q5_instrb_null_bare_typeof",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "64515da55683756b3fb2c28063303d28198be0c66ce2a033bd90f8192a52afbb",
+      "result": {
+        "caseId": "q5_instrb_null_qualified_ordinary",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "491d031aa3488f726560ae34bd1b66e96bcc6b0d2150bc3a84c4d3ca37fb6227",
+      "result": {
+        "caseId": "q5_instrb_null_qualified_is",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "9965c8ca150ddf6794eaf13e15dae4689b3d98f226e34bb900bf6ad293cc0b90",
+      "result": {
+        "caseId": "q5_instrb_null_qualified_typeof",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "2c39d9de3ac0de1834531977bb9771f795dd74288477b3d33cf2f503190bcf98",
+      "result": {
+        "caseId": "q5_instrb_object_bare_ordinary",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "4849236e179f1173c48036f42d9b799c2f63d5758292ce3dc63311864d251164",
+      "result": {
+        "caseId": "q5_instrb_object_bare_is",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "6069cd7055c6c22e1c5752285de8fbbe6e308d79583665bfe19b46df87c2fea6",
+      "result": {
+        "caseId": "q5_instrb_object_bare_typeof",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "688d6f4a7a71dc3257b180ce599a92b600b8ca0b25b2e710901c61f69322ec77",
+      "result": {
+        "caseId": "q5_instrb_object_qualified_ordinary",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "a9638a04ef0cab58c4af81b07d7b8b9d7c1420cb1f194095b87270741450171d",
+      "result": {
+        "caseId": "q5_instrb_object_qualified_is",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "89b205df0631b4d916e9ea45881bcc4b2ad1742842fc5ede309bd763399f783a",
+      "result": {
+        "caseId": "q5_instrb_object_qualified_typeof",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "97431e819de3dec3b10e98c6080009b8c688810cb13ebb02a4dfa6f50f02dad8",
+      "result": {
+        "caseId": "q5_instrb_second_variant_bare_ordinary",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "94af3303d3bd0e6a6ac34a5eee96915c1ee2c6ba9f677c569ce6dd6ac5992861",
+      "result": {
+        "caseId": "q5_instrb_second_variant_bare_is",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "451c6862645b5182cd02a01691d5e54355da7611948f2969dd1c485aaf947e40",
+      "result": {
+        "caseId": "q5_instrb_second_variant_bare_typeof",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "3075bf6f9dbabb4576659415c38fc4f825f063ca450c033da70118ababfbd510",
+      "result": {
+        "caseId": "q5_instrb_second_variant_qualified_ordinary",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "c2085f47b676bf000376cefd9bfc579474ca914c71a9b29160af8d8fdd9fba8f",
+      "result": {
+        "caseId": "q5_instrb_second_variant_qualified_is",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "75e6a383a0ad102787960a15b9eb39c88b787cc4d788326da5597d15d23899fd",
+      "result": {
+        "caseId": "q5_instrb_second_variant_qualified_typeof",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "cb594576c3fb33ef889c720ef32c17d1289b7a7e8553269cd1b625e1deeb7ee5",
+      "result": {
+        "caseId": "q5_strcomp_strings_bare_ordinary",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "573f33837596b339f51daab093c7ab2b0fec9ba88ca00987386001d68bd3abb2",
+      "result": {
+        "caseId": "q5_strcomp_strings_bare_is",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nType mismatch",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 4,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, obj As Object\r\n    If False Then Debug.Print StrComp(\"a\", \"a\") Is Nothing\r\nEnd Sub\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 4,
+          "endColumn": 43,
+          "startColumn": 31
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "47c7014a5f8c71e5c3b6037339f700b43a2f0b9407e3d52b9b87185d87a67b2c",
+      "result": {
+        "caseId": "q5_strcomp_strings_bare_typeof",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "2f45d2ca50af0bf3cd0ecd05cdc34bce78d6f90b232d7296d738a93ab91be5bc",
+      "result": {
+        "caseId": "q5_strcomp_strings_qualified_ordinary",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "55791d58e992ebec6f9ecc4627fa837058890094cbeb61f0e593064b15cc13fa",
+      "result": {
+        "caseId": "q5_strcomp_strings_qualified_is",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "10caadacb389a334c1e0adfabf601bdf9b3f2cf76b4e8ce7701842eb5be5561e",
+      "result": {
+        "caseId": "q5_strcomp_strings_qualified_typeof",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "40a3dbf5c7d6792b20db103e255139cfa27140928275bd2ada2ccefcf108e1bb",
+      "result": {
+        "caseId": "q5_strcomp_variant_bare_ordinary",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "ce4e485b36a2f5db57db99ce82c69d3fa1044c039ce95f0911221d296e943ec2",
+      "result": {
+        "caseId": "q5_strcomp_variant_bare_is",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "dd10d0765e3d3ccc70d60d4a5db1f57795abc1ef8c4e9078bdbec75107327de0",
+      "result": {
+        "caseId": "q5_strcomp_variant_bare_typeof",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "f6d11141b547be3528b26cd7eb673caae7841a88f409c843114a7764292b00be",
+      "result": {
+        "caseId": "q5_strcomp_variant_qualified_ordinary",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "4bbe77a2906288044f96a48511f462a2dc60cbcf7b81cac0f7846da5a542b4ca",
+      "result": {
+        "caseId": "q5_strcomp_variant_qualified_is",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "717fe0d35db7d462fd75ecae39deb88f6f43f8579d553efaededf00b7c189682",
+      "result": {
+        "caseId": "q5_strcomp_variant_qualified_typeof",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "a9939b020634afff70cc1123abff4806a4fe0bd591b9a29df9abf05b54f32dec",
+      "result": {
+        "caseId": "q5_strcomp_null_bare_ordinary",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "fda35d8d3bdc7204e4fd5f1eef1e6bcccadb01cdc300488f77dc7c2dbf6310be",
+      "result": {
+        "caseId": "q5_strcomp_null_bare_is",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "4eb9095c49347e7b138a4272b3686040759bea6eefed3f62f6d0747ae0937b22",
+      "result": {
+        "caseId": "q5_strcomp_null_bare_typeof",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "ef9e035a3d2c20659ad2b02eedbd189ec82eeedea893db1d5f8362e039b6b0d3",
+      "result": {
+        "caseId": "q5_strcomp_null_qualified_ordinary",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "964dad36b3dce4fa52b446f14df5817b941bb5ac3c26fdc574f2583b71b65674",
+      "result": {
+        "caseId": "q5_strcomp_null_qualified_is",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "5399c9194229482a3952b7f6786ff11ed5a68b897698c0f4165b67c74f73b938",
+      "result": {
+        "caseId": "q5_strcomp_null_qualified_typeof",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "96659e20aa09ad11e4023946b71da1f086731d2dfbc163131813647c2223498d",
+      "result": {
+        "caseId": "q5_strcomp_object_bare_ordinary",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "8dbb695832e31f34e62ac5973438ff10338f474f290caa31e09153359dfbbf67",
+      "result": {
+        "caseId": "q5_strcomp_object_bare_is",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "28a301203708ea59fa2693d427d0535801a68650ea5c027b020d7b6d4c7cb6fd",
+      "result": {
+        "caseId": "q5_strcomp_object_bare_typeof",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "adb8a19bfc568e354410742dc947c06d53ee88606fb4dc99d3e7645c87551df8",
+      "result": {
+        "caseId": "q5_strcomp_object_qualified_ordinary",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "6c02af5b7e329722e1907364f3352d01a1f43c116a1281e7578f801df58748aa",
+      "result": {
+        "caseId": "q5_strcomp_object_qualified_is",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "06fefd18151aa3f64e96d900eb491831601a1eb8210c16baf4589a1181645615",
+      "result": {
+        "caseId": "q5_strcomp_object_qualified_typeof",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "bd204f7f5e01ddb0e47108d0dddcd87dd9da3caac8f4f2fef664507b7a2b7cf8",
+      "result": {
+        "caseId": "q5_strcomp_second_variant_bare_ordinary",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "e5792b5ec2a6725593f5a53cbf024588a0d9b9f227b7dd8930c13399ea26e92c",
+      "result": {
+        "caseId": "q5_strcomp_second_variant_bare_is",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "93a6b711dad1028ec91dc02d904929a01d86e5a723394ab60c9db678ab066011",
+      "result": {
+        "caseId": "q5_strcomp_second_variant_bare_typeof",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "f50a97175db609ad1ff5ab8e900e9a0440e1db2eb79c92cba443e2ed8949b369",
+      "result": {
+        "caseId": "q5_strcomp_second_variant_qualified_ordinary",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "5de31557ce85ba7f91eef0f7e088c9d0382ae2786f465cd94e587787d5cb2fb2",
+      "result": {
+        "caseId": "q5_strcomp_second_variant_qualified_is",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "b00279a3790ac1249957b1bb649693f2aac70ca8e9f38af112632e93031016d8",
+      "result": {
+        "caseId": "q5_strcomp_second_variant_qualified_typeof",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    }
+  ]
+}

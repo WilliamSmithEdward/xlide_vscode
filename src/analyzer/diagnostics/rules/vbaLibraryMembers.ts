@@ -66,7 +66,7 @@ export function checkVbaLibraryMembers(
 						continue;
 					}
 					if (!VBA_LIBRARY_NAMES.has(first.lower)) {
-						push('memberNotFound', missing(first, 'the VBA library', VBA_LIBRARY_NAMES), at(i + 2));
+						push('memberNotFound', missing(first, 'the VBA library', VBA_LIBRARY_NAMES), { start: at(i + 1).start, end: at(first.next - 1).end });
 						continue;
 					}
 					if (toks[first.next]?.rawText !== '.') {
@@ -78,7 +78,7 @@ export function checkVbaLibraryMembers(
 					}
 					const container = VBA_LIBRARY_CONTAINERS.get(first.lower);
 					if (container && !container.has(second.lower)) {
-						push('memberNotFound', missing(second, `VBA.${first.shown}`, container), at(first.next + 1));
+						push('memberNotFound', missing(second, `VBA.${first.shown}`, container), { start: at(first.next).start, end: at(second.next - 1).end });
 						continue;
 					}
 					// `VBA.Err.LastDllError = 5`, the assignment's target.

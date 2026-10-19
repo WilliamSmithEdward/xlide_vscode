@@ -5,7 +5,7 @@ import { qualifiedProcedureKey, type VbaSymbol, type VbaProcedureSignature } fro
 import type { buildModuleSymbols } from '../symbols/buildModuleSymbols';
 import { resolveRuntimeConstant, resolveRuntimeFunction, resolveRuntimeObject, type VbaRuntimeFunction } from '../runtime/vbaRuntime';
 import { isNumericType, moduleSignatureFromSymbol, uniqueProjectTypeSignatures, runtimeAritySignature, declarationShapeEnvironmentFor, defTypeOf, typeEnvironmentFor, sourceNameScopeFor, type SourceNameScope, type DeclaredValueShape } from './typeInference';
-import { VBA_LIBRARY_CONTAINERS } from '../runtime/vbaLibraryNames';
+import { VBA_LIBRARY_CONTAINERS, VBA_LIBRARY_NAMES } from '../runtime/vbaLibraryNames';
 import type { CallableTypeSignature } from './callExtraction';
 import type { MemberCompletionContext } from '../completion/memberAccess';
 import { resolveHostConstant, resolveHostGlobal, resolveHostGlobalMember } from '../host/hostModel';
@@ -68,10 +68,21 @@ export function expressionShapeResolver(symbols: ReturnType<typeof buildModuleSy
 	};
 	const signatures = new WeakMap<VbaSymbol, CallableTypeSignature>();
 	const runtimeSignatures = new WeakMap<VbaRuntimeFunction, CallableTypeSignature | undefined>();
-	const runtimeShape = (runtime: VbaRuntimeFunction, args: readonly Argument[], scalarArgument: (expr: ExprNode) => boolean): DeclaredValueShape | undefined => {
+	const runtimeShape = (runtime: VbaRuntimeFunction, args: readonly Argument[], scalarArgument: (expr: ExprNode) => boolean, qualified = false): DeclaredValueShape | undefined => {
 		if (!runtimeSignatures.has(runtime)) { runtimeSignatures.set(runtime, runtimeAritySignature(runtime)); }
 		const signature = runtimeSignatures.get(runtime);
 		if (signature && !acceptsArguments(signature, args)) { return undefined; }
+		// Qualified library calls use ordinary call grammar, separately measured
+		// from the bare intrinsic productions; do not carry their scalar flag.
+		if (qualified && runtime.qualifiedReturns) {
+			return { asType: runtime.qualifiedReturns, isArray: false, isFixedArray: false };
+		}
+		// The measured bare comparison productions constrain known scalar
+		// inputs. Variant, Null and Object arguments keep object-capable shapes.
+		if (/^(instr|instrb|strcomp)$/i.test(runtime.name)
+			&& !args.every(arg => !!arg.value && scalarArgument(arg.value))) {
+			return { asType: 'Variant', isArray: false, isFixedArray: false };
+		}
 		// Abs/Int/Fix constrain numeric/String arguments, while Null, Variant and
 		// Object inputs compiled in the 2026-10-19 Excel probes. This is an
 		// invocation constraint, not proof of an exact return declaration.
@@ -139,8 +150,8 @@ export function expressionShapeResolver(symbols: ReturnType<typeof buildModuleSy
 			if (qualifier === 'module') { return callableShape(name, args, '', true); }
 			if (qualifier === 'project' && expr.object?.exprKind === 'IdentifierExpr') { return projectShape(qualifiedProcedureKey(expr.object.name, name), args); }
 			const runtime = resolveRuntimeFunction(expr.member);
-			if (runtime?.kind !== 'function') { return undefined; }
-			return runtimeShape(runtime, args, scalarArgument);
+			if (runtime?.kind !== 'function' || !VBA_LIBRARY_NAMES.has(expr.member.toLowerCase())) { return undefined; }
+			return runtimeShape(runtime, args, scalarArgument, true);
 		};
 		const resolve = (expr: ExprNode): DeclaredValueShape | undefined => {
 			if (expr.exprKind === 'ParenExpr') { return resolve(expr.inner); }

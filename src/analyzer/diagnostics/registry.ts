@@ -1073,6 +1073,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 			ctx.opts.projectVisibleSymbols,
 			ctx.memberCtx,
 			push,
+			ctx.opts.implicitMembers,
 		),
 	},
 	{
@@ -1151,7 +1152,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'typeOfInvalidExpression',
 		expressionKinds: ['TypeOfIsExpr'],
-		procedureExpressions: (ctx, push) => checkTypeOfExpression(ctx.symbols, push, ctx.opts.projectVisibleSymbols, ctx.opts),
+		procedureExpressions: (ctx, push) => checkTypeOfExpression(ctx.symbols, push, ctx.opts.projectVisibleSymbols, ctx.opts, ctx.source),
 	},
 	{
 		name: 'typeofMissingOperand',

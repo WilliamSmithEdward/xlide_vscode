@@ -552,7 +552,7 @@ describe('analyzeModule - argument count', () => {
 			}),
 			'argument-count',
 		);
-		expectDiagnostic(caller, hits, 'argument-count', { span: 'PrintTotal' });
+		expectDiagnostic(caller, hits, 'argument-count', { span: '.PrintTotal' });
 	});
 
 	it('keeps module-qualified project diagnostics stable under module order changes', () => {

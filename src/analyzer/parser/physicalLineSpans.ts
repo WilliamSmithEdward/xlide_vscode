@@ -1,5 +1,13 @@
 import type { Span } from './nodes';
 
+/** The measured syntax-error selection for a single physical source line. */
+export function syntaxErrorLineSpan(source: string | undefined, span: Span): Span {
+	if (!source || /[\r\n]/.test(source.slice(span.start, span.end))) { return span; }
+	const start = Math.max(source.lastIndexOf('\n', span.start - 1), source.lastIndexOf('\r', span.start - 1)) + 1;
+	const lineBreak = firstLineBreakAtOrAfter(source, span.end);
+	return { start, end: lineBreak < 0 ? source.length : lineBreak };
+}
+
 export function firstLineBreakAtOrAfter(source: string, start: number): number {
 	for (let i = start; i < source.length; i++) {
 		const ch = source[i];
