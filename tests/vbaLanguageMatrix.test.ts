@@ -1,13 +1,15 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import { TextDecoder } from 'util';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import { codePageLabel, decodeCodePage, encodeCodePage, supportedCodePages } from '../src/vba/codePages';
 import { Cfb } from '../src/vba/cfb';
 import { compress, decompress } from '../src/vba/ovba';
 import { XlsxWorkbook } from '../src/vba/xlsx';
 import * as svc from '../src/vba/projectService';
+import { makeTempDir, removeTempDirs } from './helpers/tempDirs';
+
+afterAll(removeTempDirs);
 
 // One native-language sample per supported code page. Each runs the REAL
 // engine end to end: a workbook whose PROJECTCODEPAGE is that page, a module
@@ -41,7 +43,7 @@ const REC_PROJECTCODEPAGE = 0x0003;
 const TEMPLATE = path.join(__dirname, '..', 'assets', 'templates', 'blank.xlsm');
 
 function makeWorkbookWithCodePage(codePage: number): string {
-	const dir = fs.mkdtempSync(path.join(os.tmpdir(), `xlide-cp${codePage}-`));
+	const dir = makeTempDir(`xlide-cp${codePage}-`);
 	const target = path.join(dir, 'Book.xlsm');
 	const xlsx = XlsxWorkbook.fromBuffer(fs.readFileSync(TEMPLATE));
 	const cfb = Cfb.fromBytes(xlsx.readVbaProject());

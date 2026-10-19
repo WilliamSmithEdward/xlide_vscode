@@ -1,6 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import { Cfb } from '../src/vba/cfb';
 import { compress, decompress } from '../src/vba/ovba';
@@ -8,6 +7,9 @@ import { VbaProject, detectSignature } from '../src/vba/vbaProject';
 import { ZipArchive } from '../src/vba/zip';
 import { XlsxWorkbook } from '../src/vba/xlsx';
 import * as svc from '../src/vba/projectService';
+import { makeTempDir, removeTempDirs } from './helpers/tempDirs';
+
+afterAll(removeTempDirs);
 
 // The bundled blank workbook is a real macro-enabled package (OOXML ZIP + a
 // vbaProject.bin CFB), so these run the whole native stack without needing any
@@ -16,7 +18,7 @@ const TEMPLATE_DIR = path.join(__dirname, '..', 'assets', 'templates');
 const TEMPLATE = path.join(TEMPLATE_DIR, 'blank.xlsm');
 
 function tempCopy(): string {
-	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-native-'));
+	const dir = makeTempDir('xlide-native-');
 	const target = path.join(dir, 'Book.xlsm');
 	fs.copyFileSync(TEMPLATE, target);
 	return target;
@@ -491,7 +493,7 @@ describe('createProject template dispatch', () => {
 		['Book.xlsb', 'blank.xlsb'],
 		['AddIn.xlam', 'blank.xlam'],
 	])('seeds %s from %s', (targetName, templateFile) => {
-		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-create-'));
+		const dir = makeTempDir('xlide-create-');
 		const target = path.join(dir, targetName);
 		svc.createProject(target, path.join(TEMPLATE_DIR, templateFile));
 
@@ -501,7 +503,7 @@ describe('createProject template dispatch', () => {
 	it('produces an add-in whose VBA project accepts a module and reads it back', () => {
 		// The end-to-end shape the issue cares about: create the add-in, write a
 		// macro into it, read it back through the same engine an editor uses.
-		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-create-'));
+		const dir = makeTempDir('xlide-create-');
 		const target = path.join(dir, 'SentinelAddIn.xlam');
 		svc.createProject(target, path.join(TEMPLATE_DIR, 'blank.xlam'));
 

@@ -1,6 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import { decodeCodePage, encodeCodePage } from '../src/vba/codePages';
 import { Cfb } from '../src/vba/cfb';
@@ -9,6 +8,9 @@ import { VbaProject } from '../src/vba/vbaProject';
 import { XlsxWorkbook } from '../src/vba/xlsx';
 import * as svc from '../src/vba/projectService';
 import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
+import { makeTempDir, removeTempDirs } from './helpers/tempDirs';
+
+afterAll(removeTempDirs);
 
 // The regression from issue #6: cp1251 bytes for 'Модуль' read back as
 // 'Ìîäóëü' because every non-1252 page fell back to latin1.
@@ -81,7 +83,7 @@ describe('cp1251 project end to end', () => {
 
 	/** Copy the template and rewrite its PROJECTCODEPAGE dir record to cp1251. */
 	function makeCp1251Workbook(): string {
-		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-cp1251-'));
+		const dir = makeTempDir('xlide-cp1251-');
 		const target = path.join(dir, 'Russian.xlsm');
 		const xlsx = XlsxWorkbook.fromBuffer(fs.readFileSync(TEMPLATE));
 		const cfb = Cfb.fromBytes(xlsx.readVbaProject());
@@ -139,7 +141,7 @@ describe('non-ASCII module and procedure names (the wider bug class)', () => {
 	const REC_PROJECTCODEPAGE = 0x0003;
 
 	function makeCp1251Workbook(): string {
-		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-cp1251n-'));
+		const dir = makeTempDir('xlide-cp1251n-');
 		const target = path.join(dir, 'Russian.xlsm');
 		const xlsx = XlsxWorkbook.fromBuffer(fs.readFileSync(TEMPLATE));
 		const cfb = Cfb.fromBytes(xlsx.readVbaProject());
