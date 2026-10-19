@@ -135,3 +135,36 @@ it.each([true, false])('continues after a skip and excludes it from checkpoints 
         expect(output.join('\n')).toContain('1 skipped case(s)');
     }
 });
+
+
+describe('VBE oracle invocation evidence', () => {
+    it.each([
+        ['excel', -2146233087, 'Exception calling "Run": "Value does not fall within the expected range."'],
+        ['word', -2147024809, 'Value does not fall within the expected range.'],
+        ['powerpoint', -2147023170, 'The remote procedure call failed.'],
+        ['access', -2147024809, 'Value does not fall within the expected range.'],
+    ])('does not promote a failed %s invocation or partially promote its batch', (host, hresult, message) => {
+        const document = { cases: [
+            { id: 'control', expected: 'observe', provenance: 'observed-not-asserted' },
+            { id: 'invocation', expected: 'observe', provenance: 'observed-not-asserted' },
+        ] };
+        const before = JSON.stringify(document);
+        const failed = { caseId: 'invocation', host, hostBuild: build, outcome: 'worker_error', stage: 'run', hresult, message };
+        expect(policy.isOracleInfrastructureFailure(failed.outcome)).toBe(true);
+        expect(policy.expectedMatches('accepted', failed.outcome)).toBe(false);
+        expect(policy.expectedMatches('observe', failed.outcome)).toBe(false);
+        expect(policy.promoteObservedCases(document, [
+            { caseId: 'control', outcome: 'accepted', stage: 'run' }, failed,
+        ])).toEqual({ promoted: 0, errors: ["invocation: outcome 'worker_error' cannot be promoted"] });
+        expect(JSON.stringify(document)).toBe(before);
+    });
+
+    it.each(['issue609_13_runtime', 'issue609_17_runtime'])('keeps %s as an observation after the invocation recheck', id => {
+        const corpus = JSON.parse(readFileSync(join(process.cwd(), 'syntax_corpus/oracle/vbe_oracle_cases.json'), 'utf8'));
+        const fixture = corpus.cases.find((kase: { id: string }) => kase.id === id);
+        expect(fixture).toMatchObject({ expected: 'observe', provenance: 'observed-not-asserted', evidencePhase: 'runtime', diagnosticMeaning: 'observation' });
+        const before = JSON.stringify(fixture);
+        expect(policy.promoteObservedCases({ cases: [fixture] }, [{ caseId: id, outcome: 'worker_error', stage: 'run' }]).promoted).toBe(0);
+        expect(JSON.stringify(fixture)).toBe(before);
+    });
+});

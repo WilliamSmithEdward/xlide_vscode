@@ -94757,9 +94757,9 @@
     },
     {
       "id": "issue609_13_runtime",
-      "description": "Issue #609 a parameterless Function called then indexed, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> None.",
-      "provenance": "vbe-oracle-verified",
-      "expected": "accepted",
+      "description": "Issue #609 case 13: a parameterless Variant Function invoked with an argument as a statement. Rechecked independently in Excel 16.0.20430.20182: direct Application.Run fails with E_INVALIDARG (0x80070057). Kept as an observation; this invocation failure does not establish a runtime verdict.",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
       "mode": "run",
       "entryPoint": "Main",
       "modules": [
@@ -94781,7 +94781,7 @@
         }
       ],
       "evidencePhase": "runtime",
-      "diagnosticMeaning": "runtime-valid"
+      "diagnosticMeaning": "observation"
     },
     {
       "id": "issue609_14_compile",
@@ -94867,9 +94867,9 @@
     },
     {
       "id": "issue609_17_runtime",
-      "description": "Issue #609 a parameterless Function called then indexed, case 17, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> None.",
-      "provenance": "vbe-oracle-verified",
-      "expected": "accepted",
+      "description": "Issue #609 case 17: a parameterless Variant Function invoked with an argument as a statement. Rechecked independently in Excel 16.0.20430.20182: direct Application.Run fails with E_INVALIDARG (0x80070057). Kept as an observation; this invocation failure does not establish a runtime verdict.",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
       "mode": "run",
       "entryPoint": "Main",
       "modules": [
@@ -94891,7 +94891,7 @@
         }
       ],
       "evidencePhase": "runtime",
-      "diagnosticMeaning": "runtime-valid"
+      "diagnosticMeaning": "observation"
     },
     {
       "id": "issue346b_01_runtime",
