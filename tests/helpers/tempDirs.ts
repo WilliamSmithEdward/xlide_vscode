@@ -13,8 +13,17 @@ export function makeTempDir(prefix: string): string {
 }
 
 export function removeTempDirs(): void {
+	const errors: unknown[] = [];
 	for (const dir of made.splice(0)) {
 		// Windows can hold a file a moment after it is closed.
-		fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+		try {
+			fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+		} catch (error) {
+			made.push(dir);
+			errors.push(error);
+		}
+	}
+	if (errors.length) {
+		throw new AggregateError(errors, `Failed to remove ${errors.length} temporary director${errors.length === 1 ? 'y' : 'ies'}`);
 	}
 }
