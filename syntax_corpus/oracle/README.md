@@ -386,3 +386,71 @@ observation:
 Oracle provenance is case-level. The file-level entry in
 `syntax_corpus/corpus_provenance.json` only records that this fixture file is
 owned by the oracle workflow.
+
+### Gap-semantics measurements (2026-10-19)
+
+The 22 `gap_review_20261019_*` cases were measured in Microsoft 365 Apps
+Excel x64, build `16.0.20430.20182`, on 2026-10-19. Three strict controls
+passed first; all 22 distinct candidate results completed without an oracle
+infrastructure failure. There was one successful run, 15 compile-dialog
+rejections and six runtime-dialog error-91 failures. The seven runtime
+observations followed accepted compilation in the original `compile_then_run`
+probes. The fixtures now use their measured outcomes, phases and meanings,
+with `mode: "compile"` for compile rejections and `mode: "run"` for runtime
+evidence. A verified Excel result does not establish analyzer coverage.
+
+All cases preserve their original explicit module names, sources and entry
+points. M5 uses the same project with six different entry points; each entry
+resets the object before reading it. These are six separate runtime
+experiments. Compile-only cases still name their Main entry point so the
+wrapped-in-If regression sweep exercises them; compile mode never executes it.
+
+Portable measurement evidence is retained in
+[`evidence/gap_review_20261019.json`](evidence/gap_review_20261019.json):
+original candidate inputs, control results, raw candidate results, environment,
+harness hashes, selection results and the supplementary capture-only worker
+change. The full original local checkpoints and logs remain in
+`~/dev/xlide-plans/data/2026-10-19-gap-fixtures/`. An initial command-launch
+failure occurred before any oracle case ran; the successful retry used an
+external PowerShell driver. Environment evidence separately confirms x64,
+default references VBA, Excel, stdole and Office, and no Outlook reference.
+
+The standard worker does not capture VBE selection ranges. An external copy
+with capture-only instrumentation measured both Declare selections separately;
+the portable evidence records the instrumentation, normalized stored source
+and results; the full scripts and checkpoints remain with the local artifacts. After dialog dismissal,
+VBE selected the whole stored Declare line in Module1, line 2: columns 1-69
+for the spaced type and 1-87 for the repeated type spelling in Lib (1-based,
+end exclusive). VBE removed spaces around the spaced type's dot. These are
+observed VBE selections, not analyzer spans or an inferred token highlight.
+Other error ranges were not measured by this batch.
+
+To rerun all 22 fixtures sequentially from the repository root:
+
+```powershell
+$document = Get-Content syntax_corpus/oracle/vbe_oracle_cases.json -Raw | ConvertFrom-Json
+$caseArgs = @()
+foreach ($case in $document.cases) {
+    if ($case.id.StartsWith('gap_review_20261019_')) {
+        $caseArgs += @('--case', $case.id)
+    }
+}
+if ($caseArgs.Count -ne 44) { throw 'Expected exactly 22 review fixtures' }
+node syntax_corpus/oracle/run_excel_vbe_oracle.mjs @caseArgs --json --checkpoint gap-review-20261019-results.jsonl
+```
+
+Use 64-bit Excel with those same references, confirming them separately:
+the worker does not enforce bitness or validate references. Preserve result
+and checkpoint artifacts with the Excel build. Do not promote from inferred
+messages, a timeout or an anomalous dialog stage.
+
+Nine audit notes retain the 27 diagnostic/case associations as coverage gaps
+from the reviewed gap-semantics snapshot (`ab53d08b` plus its uncommitted rule
+fixes). No asserted associations claim parity for missing, competing or
+incorrectly ranged diagnostics. Those historical analyzer observations are
+not assertions about current main. In that snapshot, the runtime-valid
+shadowed own-module receiver exposes an `object-variable-not-set` false
+positive; its measured acceptance must remain intact. This PR supplies
+fixtures and evidence; analyzer fixes are separate work. The older rq19
+import remains separate, and the root-level oracle snapshots in the original
+review worktree duplicate existing canonical cases.

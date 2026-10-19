@@ -1,0 +1,1374 @@
+{
+  "version": 1,
+  "measuredDate": "2026-10-19",
+  "scope": "Microsoft Excel only; measured outcomes do not assert analyzer parity. The reviewed analyzer snapshot was ab53d08b plus uncommitted rule fixes.",
+  "environment": {
+    "capturedAtUtc": "2026-10-19T04:34:35.4950830Z",
+    "excelVersion": "16.0",
+    "excelBuild": "16.0.20430.20182",
+    "executable": "C:\\Program Files\\Microsoft Office\\Root\\Office16\\EXCEL.EXE",
+    "peMachine": "0x8664",
+    "bitness": "x64",
+    "productReleaseIds": "O365ProPlusRetail,ProjectProRetail,VisioProRetail",
+    "references": [
+      {
+        "name": "VBA",
+        "guid": "{000204EF-0000-0000-C000-000000000046}",
+        "major": 4,
+        "minor": 2,
+        "path": "C:\\Program Files\\Common Files\\Microsoft Shared\\VBA\\VBA7.1\\VBE7.DLL",
+        "broken": false
+      },
+      {
+        "name": "Excel",
+        "guid": "{00020813-0000-0000-C000-000000000046}",
+        "major": 1,
+        "minor": 9,
+        "path": "C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE",
+        "broken": false
+      },
+      {
+        "name": "stdole",
+        "guid": "{00020430-0000-0000-C000-000000000046}",
+        "major": 2,
+        "minor": 0,
+        "path": "C:\\Windows\\System32\\stdole2.tlb",
+        "broken": false
+      },
+      {
+        "name": "Office",
+        "guid": "{2DF8D04C-5BFA-101B-BDE5-00AA0044DE52}",
+        "major": 2,
+        "minor": 8,
+        "path": "C:\\Program Files\\Common Files\\Microsoft Shared\\OFFICE16\\MSO.DLL",
+        "broken": false
+      }
+    ]
+  },
+  "harness": {
+    "capturedAtUtc": "2026-10-19T04:32:35.493625+00:00",
+    "files": {
+      "syntax_corpus/oracle/run_excel_vbe_oracle.mjs": "879bc899fed9fb78ec19663936ef8c705048ffa718fd648955031bef97484cf8",
+      "syntax_corpus/oracle/excel_vbe_oracle_worker.ps1": "28cd7198ffbc1474f4a9414448feb3217a4a96a11fc28d2419dcdef925b8881b"
+    },
+    "head": "ab53d08bce3c764a120217a2dbbeadd87fd4200f",
+    "branch": "fix/declaration-and-property-gaps",
+    "windowsProject": "gap-semantics-7dc8d6",
+    "productionTestDiffSha256": "898f47abfbbfe4b4ddfa921a1c19dbc7251a1ede9c03d177e6733995850d9d73",
+    "windowsRetryCommand": "~/.claude/skills/windows-tests/win-test.sh --setup \"echo the oracle needs no npm packages\" -- powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File C:/Users/win11/gap-review-20261019-run.ps1",
+    "launchFailure": {
+      "exit": 125,
+      "detail": "Initial inline cmd command never reached the runner log or oracle; generated command and wrapper log preserved. Retried with a separate PowerShell driver."
+    },
+    "supplementarySelectionWorkerSha256": "acba7b948a5229c95966f920b0b1843a72d709fcd599126e5d51ed623cc93f62",
+    "supplementarySelectionChange": "Read-only ActiveCodePane.GetSelection in worker cleanup; outcome/stage/dialog logic unchanged. Local repository worker unmodified."
+  },
+  "controlInputs": {
+    "version": 1,
+    "cases": [
+      {
+        "id": "missing_trailing_required_argument",
+        "description": "A trailing comma omits the required second positional argument. VBE Compile rejects this as a syntax error.",
+        "provenance": "vbe-oracle-verified",
+        "expected": "rejected",
+        "mode": "compile",
+        "source": "Public Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n    InvoiceTotal = Subtotal + (Subtotal * TaxRate)\nEnd Function\n\nPublic Sub XlideOracleEntry()\n    Dim total As Double\n    Dim total2 As Double\n    total = 100\n    total2 = InvoiceTotal(total, )\nEnd Sub\n",
+        "evidencePhase": "compile",
+        "diagnosticMeaning": "compile-error"
+      },
+      {
+        "id": "bare_variable_statement",
+        "description": "A bare local variable statement is rejected by VBE Compile as Expected Sub, Function, or Property.",
+        "provenance": "vbe-oracle-verified",
+        "expected": "rejected",
+        "mode": "compile",
+        "source": "Public Sub XlideOracleEntry()\n    Dim testStr As String\n    testStr = \"hello\"\n    testStr\nEnd Sub\n",
+        "evidencePhase": "compile",
+        "diagnosticMeaning": "compile-error"
+      },
+      {
+        "id": "number_to_string_assignment",
+        "description": "VBA can coerce a numeric literal into a String variable.",
+        "provenance": "vbe-oracle-verified",
+        "expected": "accepted",
+        "mode": "compile",
+        "source": "Public Sub XlideOracleEntry()\n    Dim testStr As String\n    testStr = 123\nEnd Sub\n",
+        "evidencePhase": "compile",
+        "diagnosticMeaning": "compile-valid"
+      }
+    ]
+  },
+  "controls": {
+    "results": [
+      {
+        "caseId": "missing_trailing_required_argument",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nSyntax error",
+        "hresult": null,
+        "excelBuild": "16.0.20430.20182",
+        "attempt": 1,
+        "expected": "rejected",
+        "matched": true,
+        "description": "A trailing comma omits the required second positional argument. VBE Compile rejects this as a syntax error."
+      },
+      {
+        "caseId": "bare_variable_statement",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nExpected Sub, Function, or Property",
+        "hresult": null,
+        "excelBuild": "16.0.20430.20182",
+        "attempt": 1,
+        "expected": "rejected",
+        "matched": true,
+        "description": "A bare local variable statement is rejected by VBE Compile as Expected Sub, Function, or Property."
+      },
+      {
+        "caseId": "number_to_string_assignment",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "excelBuild": "16.0.20430.20182",
+        "attempt": 1,
+        "expected": "accepted",
+        "matched": true,
+        "description": "VBA can coerce a numeric literal into a String variable."
+      }
+    ],
+    "failureCount": 0,
+    "oracleFailureCount": 0
+  },
+  "candidateInputs": {
+    "version": 1,
+    "cases": [
+      {
+        "id": "gap_review_20261019_shadowed_own_module_receiver",
+        "description": "Unmeasured review candidate M1: A local C instance named Module1 is assigned Nothing through its g field while the module g stays initialized. No Excel outcome or message is asserted.",
+        "provenance": "observed-not-asserted",
+        "expected": "observe",
+        "mode": "compile_then_run",
+        "entryPoint": "Main",
+        "modules": [
+          {
+            "name": "Module1",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic g As Collection\r\nSub Main()\r\nDim Module1 As New C\r\nSet g = New Collection\r\nSet Module1.g = Nothing\r\ng.Add 1\r\nEnd Sub\r\n",
+            "entry": true
+          },
+          {
+            "name": "C",
+            "type": "class",
+            "source": "Option Explicit\r\nPublic g As Collection\r\n"
+          }
+        ],
+        "evidencePhase": "compile",
+        "diagnosticMeaning": "observation"
+      },
+      {
+        "id": "gap_review_20261019_redim_project_collection_library_qualification",
+        "description": "Unmeasured review candidate M2a: ReDim changes from a project class named Collection to VBA.Collection. No Excel outcome or message is asserted.",
+        "provenance": "observed-not-asserted",
+        "expected": "observe",
+        "mode": "compile",
+        "entryPoint": "Main",
+        "modules": [
+          {
+            "name": "Module1",
+            "type": "standard",
+            "source": "Option Explicit\r\nSub Main()\r\nDim a() As Collection\r\nReDim a(2) As VBA.Collection\r\nEnd Sub\r\n",
+            "entry": true
+          },
+          {
+            "name": "Collection",
+            "type": "class",
+            "source": "Option Explicit\r\nPublic Value As Long\r\n"
+          }
+        ],
+        "evidencePhase": "compile",
+        "diagnosticMeaning": "observation"
+      },
+      {
+        "id": "gap_review_20261019_redim_project_range_library_qualification",
+        "description": "Unmeasured review candidate M2b: ReDim changes from a project class named Range to Excel.Range. No Excel outcome or message is asserted.",
+        "provenance": "observed-not-asserted",
+        "expected": "observe",
+        "mode": "compile",
+        "entryPoint": "Main",
+        "modules": [
+          {
+            "name": "Module1",
+            "type": "standard",
+            "source": "Option Explicit\r\nSub Main()\r\nDim a() As Range\r\nReDim a(2) As Excel.Range\r\nEnd Sub\r\n",
+            "entry": true
+          },
+          {
+            "name": "Range",
+            "type": "class",
+            "source": "Option Explicit\r\nPublic Value As Long\r\n"
+          }
+        ],
+        "evidencePhase": "compile",
+        "diagnosticMeaning": "observation"
+      },
+      {
+        "id": "gap_review_20261019_dim_long_literal_overflow_explicit_lower",
+        "description": "Unmeasured review candidate M3a: An explicit lower bound accompanies an out-of-range Long-suffixed upper literal. No Excel outcome or message is asserted.",
+        "provenance": "observed-not-asserted",
+        "expected": "observe",
+        "mode": "compile",
+        "entryPoint": "Main",
+        "modules": [
+          {
+            "name": "Module1",
+            "type": "standard",
+            "source": "Option Explicit\r\nSub Main()\r\nDim a(0 To 2147483648&) As Long\r\nEnd Sub\r\n",
+            "entry": true
+          }
+        ],
+        "evidencePhase": "compile",
+        "diagnosticMeaning": "observation"
+      },
+      {
+        "id": "gap_review_20261019_redim_long_literal_overflow",
+        "description": "Unmeasured review candidate M3b: ReDim contains an out-of-range Long-suffixed bound; compile first and run only if compilation succeeds. No Excel outcome or message is asserted.",
+        "provenance": "observed-not-asserted",
+        "expected": "observe",
+        "mode": "compile_then_run",
+        "entryPoint": "Main",
+        "modules": [
+          {
+            "name": "Module1",
+            "type": "standard",
+            "source": "Option Explicit\r\nSub Main()\r\nDim a() As Long\r\nReDim a(2147483648&)\r\nEnd Sub\r\n",
+            "entry": true
+          }
+        ],
+        "evidencePhase": "compile",
+        "diagnosticMeaning": "observation"
+      },
+      {
+        "id": "gap_review_20261019_declare_spaced_type",
+        "description": "Unmeasured review candidate M4a: A Declare return type uses spaces around Outlook qualification. No Excel outcome or message is asserted.",
+        "provenance": "observed-not-asserted",
+        "expected": "observe",
+        "mode": "compile",
+        "entryPoint": "Main",
+        "modules": [
+          {
+            "name": "Module1",
+            "type": "standard",
+            "source": "Option Explicit\r\nPrivate Declare PtrSafe Function X Lib \"y\" () As Outlook . Application\r\nSub Main()\r\nEnd Sub\r\n",
+            "entry": true
+          }
+        ],
+        "evidencePhase": "compile",
+        "diagnosticMeaning": "observation"
+      },
+      {
+        "id": "gap_review_20261019_declare_type_text_in_lib",
+        "description": "Unmeasured review candidate M4b: A Declare Lib string repeats its Outlook return type spelling. No Excel outcome or message is asserted.",
+        "provenance": "observed-not-asserted",
+        "expected": "observe",
+        "mode": "compile",
+        "entryPoint": "Main",
+        "modules": [
+          {
+            "name": "Module1",
+            "type": "standard",
+            "source": "Option Explicit\r\nPrivate Declare PtrSafe Function X Lib \"Outlook.Application\" () As Outlook.Application\r\nSub Main()\r\nEnd Sub\r\n",
+            "entry": true
+          }
+        ],
+        "evidencePhase": "compile",
+        "diagnosticMeaning": "observation"
+      },
+      {
+        "id": "gap_review_20261019_qualified_nothing_read_print",
+        "description": "Unmeasured review candidate M5/MainPrint: Run MainPrint after it explicitly resets Module2.g to Nothing. No Excel outcome or message is asserted.",
+        "provenance": "observed-not-asserted",
+        "expected": "observe",
+        "mode": "compile_then_run",
+        "entryPoint": "MainPrint",
+        "modules": [
+          {
+            "name": "Module2",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic g As Collection\r\n"
+          },
+          {
+            "name": "Module1",
+            "type": "standard",
+            "source": "Option Explicit\r\nSub MainPrint()\r\nSet Module2.g = Nothing\r\nDebug.Print Module2.g.Count\r\nEnd Sub\r\nSub MainCall()\r\nSet Module2.g = Nothing\r\nCall Module2.g.Add(1)\r\nEnd Sub\r\nSub MainLabel()\r\nSet Module2.g = Nothing\r\n10 Module2.g.Add 1\r\nEnd Sub\r\nSub MainWith()\r\nSet Module2.g = Nothing\r\nWith Module2.g\r\n.Add 1\r\nEnd With\r\nEnd Sub\r\nSub MainIf()\r\nSet Module2.g = Nothing\r\nIf Module2.g.Count = 0 Then Debug.Print 1\r\nEnd Sub\r\nSub MainAssign()\r\nDim n As Long\r\nSet Module2.g = Nothing\r\nn = Module2.g.Count\r\nDebug.Print n\r\nEnd Sub\r\n",
+            "entry": true
+          }
+        ],
+        "evidencePhase": "compile",
+        "diagnosticMeaning": "observation"
+      },
+      {
+        "id": "gap_review_20261019_qualified_nothing_read_call",
+        "description": "Unmeasured review candidate M5/MainCall: Run MainCall after it explicitly resets Module2.g to Nothing. No Excel outcome or message is asserted.",
+        "provenance": "observed-not-asserted",
+        "expected": "observe",
+        "mode": "compile_then_run",
+        "entryPoint": "MainCall",
+        "modules": [
+          {
+            "name": "Module2",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic g As Collection\r\n"
+          },
+          {
+            "name": "Module1",
+            "type": "standard",
+            "source": "Option Explicit\r\nSub MainPrint()\r\nSet Module2.g = Nothing\r\nDebug.Print Module2.g.Count\r\nEnd Sub\r\nSub MainCall()\r\nSet Module2.g = Nothing\r\nCall Module2.g.Add(1)\r\nEnd Sub\r\nSub MainLabel()\r\nSet Module2.g = Nothing\r\n10 Module2.g.Add 1\r\nEnd Sub\r\nSub MainWith()\r\nSet Module2.g = Nothing\r\nWith Module2.g\r\n.Add 1\r\nEnd With\r\nEnd Sub\r\nSub MainIf()\r\nSet Module2.g = Nothing\r\nIf Module2.g.Count = 0 Then Debug.Print 1\r\nEnd Sub\r\nSub MainAssign()\r\nDim n As Long\r\nSet Module2.g = Nothing\r\nn = Module2.g.Count\r\nDebug.Print n\r\nEnd Sub\r\n",
+            "entry": true
+          }
+        ],
+        "evidencePhase": "compile",
+        "diagnosticMeaning": "observation"
+      },
+      {
+        "id": "gap_review_20261019_qualified_nothing_read_label",
+        "description": "Unmeasured review candidate M5/MainLabel: Run MainLabel after it explicitly resets Module2.g to Nothing. No Excel outcome or message is asserted.",
+        "provenance": "observed-not-asserted",
+        "expected": "observe",
+        "mode": "compile_then_run",
+        "entryPoint": "MainLabel",
+        "modules": [
+          {
+            "name": "Module2",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic g As Collection\r\n"
+          },
+          {
+            "name": "Module1",
+            "type": "standard",
+            "source": "Option Explicit\r\nSub MainPrint()\r\nSet Module2.g = Nothing\r\nDebug.Print Module2.g.Count\r\nEnd Sub\r\nSub MainCall()\r\nSet Module2.g = Nothing\r\nCall Module2.g.Add(1)\r\nEnd Sub\r\nSub MainLabel()\r\nSet Module2.g = Nothing\r\n10 Module2.g.Add 1\r\nEnd Sub\r\nSub MainWith()\r\nSet Module2.g = Nothing\r\nWith Module2.g\r\n.Add 1\r\nEnd With\r\nEnd Sub\r\nSub MainIf()\r\nSet Module2.g = Nothing\r\nIf Module2.g.Count = 0 Then Debug.Print 1\r\nEnd Sub\r\nSub MainAssign()\r\nDim n As Long\r\nSet Module2.g = Nothing\r\nn = Module2.g.Count\r\nDebug.Print n\r\nEnd Sub\r\n",
+            "entry": true
+          }
+        ],
+        "evidencePhase": "compile",
+        "diagnosticMeaning": "observation"
+      },
+      {
+        "id": "gap_review_20261019_qualified_nothing_read_with",
+        "description": "Unmeasured review candidate M5/MainWith: Run MainWith after it explicitly resets Module2.g to Nothing. No Excel outcome or message is asserted.",
+        "provenance": "observed-not-asserted",
+        "expected": "observe",
+        "mode": "compile_then_run",
+        "entryPoint": "MainWith",
+        "modules": [
+          {
+            "name": "Module2",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic g As Collection\r\n"
+          },
+          {
+            "name": "Module1",
+            "type": "standard",
+            "source": "Option Explicit\r\nSub MainPrint()\r\nSet Module2.g = Nothing\r\nDebug.Print Module2.g.Count\r\nEnd Sub\r\nSub MainCall()\r\nSet Module2.g = Nothing\r\nCall Module2.g.Add(1)\r\nEnd Sub\r\nSub MainLabel()\r\nSet Module2.g = Nothing\r\n10 Module2.g.Add 1\r\nEnd Sub\r\nSub MainWith()\r\nSet Module2.g = Nothing\r\nWith Module2.g\r\n.Add 1\r\nEnd With\r\nEnd Sub\r\nSub MainIf()\r\nSet Module2.g = Nothing\r\nIf Module2.g.Count = 0 Then Debug.Print 1\r\nEnd Sub\r\nSub MainAssign()\r\nDim n As Long\r\nSet Module2.g = Nothing\r\nn = Module2.g.Count\r\nDebug.Print n\r\nEnd Sub\r\n",
+            "entry": true
+          }
+        ],
+        "evidencePhase": "compile",
+        "diagnosticMeaning": "observation"
+      },
+      {
+        "id": "gap_review_20261019_qualified_nothing_read_if",
+        "description": "Unmeasured review candidate M5/MainIf: Run MainIf after it explicitly resets Module2.g to Nothing. No Excel outcome or message is asserted.",
+        "provenance": "observed-not-asserted",
+        "expected": "observe",
+        "mode": "compile_then_run",
+        "entryPoint": "MainIf",
+        "modules": [
+          {
+            "name": "Module2",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic g As Collection\r\n"
+          },
+          {
+            "name": "Module1",
+            "type": "standard",
+            "source": "Option Explicit\r\nSub MainPrint()\r\nSet Module2.g = Nothing\r\nDebug.Print Module2.g.Count\r\nEnd Sub\r\nSub MainCall()\r\nSet Module2.g = Nothing\r\nCall Module2.g.Add(1)\r\nEnd Sub\r\nSub MainLabel()\r\nSet Module2.g = Nothing\r\n10 Module2.g.Add 1\r\nEnd Sub\r\nSub MainWith()\r\nSet Module2.g = Nothing\r\nWith Module2.g\r\n.Add 1\r\nEnd With\r\nEnd Sub\r\nSub MainIf()\r\nSet Module2.g = Nothing\r\nIf Module2.g.Count = 0 Then Debug.Print 1\r\nEnd Sub\r\nSub MainAssign()\r\nDim n As Long\r\nSet Module2.g = Nothing\r\nn = Module2.g.Count\r\nDebug.Print n\r\nEnd Sub\r\n",
+            "entry": true
+          }
+        ],
+        "evidencePhase": "compile",
+        "diagnosticMeaning": "observation"
+      },
+      {
+        "id": "gap_review_20261019_qualified_nothing_read_assignment",
+        "description": "Unmeasured review candidate M5/MainAssign: Run MainAssign after it explicitly resets Module2.g to Nothing. No Excel outcome or message is asserted.",
+        "provenance": "observed-not-asserted",
+        "expected": "observe",
+        "mode": "compile_then_run",
+        "entryPoint": "MainAssign",
+        "modules": [
+          {
+            "name": "Module2",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic g As Collection\r\n"
+          },
+          {
+            "name": "Module1",
+            "type": "standard",
+            "source": "Option Explicit\r\nSub MainPrint()\r\nSet Module2.g = Nothing\r\nDebug.Print Module2.g.Count\r\nEnd Sub\r\nSub MainCall()\r\nSet Module2.g = Nothing\r\nCall Module2.g.Add(1)\r\nEnd Sub\r\nSub MainLabel()\r\nSet Module2.g = Nothing\r\n10 Module2.g.Add 1\r\nEnd Sub\r\nSub MainWith()\r\nSet Module2.g = Nothing\r\nWith Module2.g\r\n.Add 1\r\nEnd With\r\nEnd Sub\r\nSub MainIf()\r\nSet Module2.g = Nothing\r\nIf Module2.g.Count = 0 Then Debug.Print 1\r\nEnd Sub\r\nSub MainAssign()\r\nDim n As Long\r\nSet Module2.g = Nothing\r\nn = Module2.g.Count\r\nDebug.Print n\r\nEnd Sub\r\n",
+            "entry": true
+          }
+        ],
+        "evidencePhase": "compile",
+        "diagnosticMeaning": "observation"
+      },
+      {
+        "id": "gap_review_20261019_scalar_function_target_missing_argument_let",
+        "description": "Unmeasured review candidate M6/let: Scalar function assignment combines an omitted required argument with let syntax. No Excel outcome or message is asserted.",
+        "provenance": "observed-not-asserted",
+        "expected": "observe",
+        "mode": "compile",
+        "entryPoint": "Main",
+        "modules": [
+          {
+            "name": "Module2",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function F(i As Long) As Long\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Module1",
+            "type": "standard",
+            "source": "Option Explicit\r\nSub Main()\r\nLet F() = 2\r\nEnd Sub\r\n",
+            "entry": true
+          }
+        ],
+        "evidencePhase": "compile",
+        "diagnosticMeaning": "observation"
+      },
+      {
+        "id": "gap_review_20261019_scalar_function_target_missing_argument_qualified",
+        "description": "Unmeasured review candidate M6/qualified: Scalar function assignment combines an omitted required argument with qualified syntax. No Excel outcome or message is asserted.",
+        "provenance": "observed-not-asserted",
+        "expected": "observe",
+        "mode": "compile",
+        "entryPoint": "Main",
+        "modules": [
+          {
+            "name": "Module2",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function F(i As Long) As Long\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Module1",
+            "type": "standard",
+            "source": "Option Explicit\r\nSub Main()\r\nModule2.F() = 2\r\nEnd Sub\r\n",
+            "entry": true
+          }
+        ],
+        "evidencePhase": "compile",
+        "diagnosticMeaning": "observation"
+      },
+      {
+        "id": "gap_review_20261019_scalar_function_target_missing_argument_let_qualified",
+        "description": "Unmeasured review candidate M6/let_qualified: Scalar function assignment combines an omitted required argument with let qualified syntax. No Excel outcome or message is asserted.",
+        "provenance": "observed-not-asserted",
+        "expected": "observe",
+        "mode": "compile",
+        "entryPoint": "Main",
+        "modules": [
+          {
+            "name": "Module2",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function F(i As Long) As Long\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Module1",
+            "type": "standard",
+            "source": "Option Explicit\r\nSub Main()\r\nLet Module2.F() = 2\r\nEnd Sub\r\n",
+            "entry": true
+          }
+        ],
+        "evidencePhase": "compile",
+        "diagnosticMeaning": "observation"
+      },
+      {
+        "id": "gap_review_20261019_const_nothing_single",
+        "description": "Unmeasured review candidate M7/single: Compile a single Const initialized with Nothing. No Excel outcome or message is asserted.",
+        "provenance": "observed-not-asserted",
+        "expected": "observe",
+        "mode": "compile",
+        "entryPoint": "Main",
+        "modules": [
+          {
+            "name": "Module1",
+            "type": "standard",
+            "source": "Option Explicit\r\nSub Main()\r\nConst k As Single = Nothing\r\nDebug.Print k\r\nEnd Sub\r\n",
+            "entry": true
+          }
+        ],
+        "evidencePhase": "compile",
+        "diagnosticMeaning": "observation"
+      },
+      {
+        "id": "gap_review_20261019_const_nothing_single_suffix",
+        "description": "Unmeasured review candidate M7/single_suffix: Compile a single suffix Const initialized with Nothing. No Excel outcome or message is asserted.",
+        "provenance": "observed-not-asserted",
+        "expected": "observe",
+        "mode": "compile",
+        "entryPoint": "Main",
+        "modules": [
+          {
+            "name": "Module1",
+            "type": "standard",
+            "source": "Option Explicit\r\nSub Main()\r\nConst k! = Nothing\r\nDebug.Print k\r\nEnd Sub\r\n",
+            "entry": true
+          }
+        ],
+        "evidencePhase": "compile",
+        "diagnosticMeaning": "observation"
+      },
+      {
+        "id": "gap_review_20261019_const_nothing_double_parenthesized",
+        "description": "Unmeasured review candidate M7/double_parenthesized: Compile a double parenthesized Const initialized with Nothing. No Excel outcome or message is asserted.",
+        "provenance": "observed-not-asserted",
+        "expected": "observe",
+        "mode": "compile",
+        "entryPoint": "Main",
+        "modules": [
+          {
+            "name": "Module1",
+            "type": "standard",
+            "source": "Option Explicit\r\nSub Main()\r\nConst k As Double = (Nothing)\r\nDebug.Print k\r\nEnd Sub\r\n",
+            "entry": true
+          }
+        ],
+        "evidencePhase": "compile",
+        "diagnosticMeaning": "observation"
+      },
+      {
+        "id": "gap_review_20261019_const_nothing_long_double_parenthesized",
+        "description": "Unmeasured review candidate M7/long_double_parenthesized: Compile a long double parenthesized Const initialized with Nothing. No Excel outcome or message is asserted.",
+        "provenance": "observed-not-asserted",
+        "expected": "observe",
+        "mode": "compile",
+        "entryPoint": "Main",
+        "modules": [
+          {
+            "name": "Module1",
+            "type": "standard",
+            "source": "Option Explicit\r\nSub Main()\r\nConst k As Long = ((Nothing))\r\nDebug.Print k\r\nEnd Sub\r\n",
+            "entry": true
+          }
+        ],
+        "evidencePhase": "compile",
+        "diagnosticMeaning": "observation"
+      },
+      {
+        "id": "gap_review_20261019_const_nothing_longlong",
+        "description": "Unmeasured review candidate M7/longlong: Compile a longlong Const initialized with Nothing. No Excel outcome or message is asserted.",
+        "provenance": "observed-not-asserted",
+        "expected": "observe",
+        "mode": "compile",
+        "entryPoint": "Main",
+        "modules": [
+          {
+            "name": "Module1",
+            "type": "standard",
+            "source": "Option Explicit\r\nSub Main()\r\nConst k As LongLong = Nothing\r\nDebug.Print k\r\nEnd Sub\r\n",
+            "entry": true
+          }
+        ],
+        "evidencePhase": "compile",
+        "diagnosticMeaning": "observation"
+      },
+      {
+        "id": "gap_review_20261019_const_nothing_longptr",
+        "description": "Unmeasured review candidate M7/longptr: Compile a longptr Const initialized with Nothing. No Excel outcome or message is asserted.",
+        "provenance": "observed-not-asserted",
+        "expected": "observe",
+        "mode": "compile",
+        "entryPoint": "Main",
+        "modules": [
+          {
+            "name": "Module1",
+            "type": "standard",
+            "source": "Option Explicit\r\nSub Main()\r\nConst k As LongPtr = Nothing\r\nDebug.Print k\r\nEnd Sub\r\n",
+            "entry": true
+          }
+        ],
+        "evidencePhase": "compile",
+        "diagnosticMeaning": "observation"
+      }
+    ]
+  },
+  "candidates": {
+    "results": [
+      {
+        "caseId": "gap_review_20261019_shadowed_own_module_receiver",
+        "outcome": "accepted",
+        "stage": "run",
+        "message": "",
+        "hresult": null,
+        "excelBuild": "16.0.20430.20182",
+        "probeMode": "compile_then_run",
+        "compileResult": {
+          "outcome": "accepted",
+          "stage": "compile"
+        },
+        "evidencePhase": "runtime",
+        "attempt": 1,
+        "expected": "observe",
+        "matched": true,
+        "description": "Unmeasured review candidate M1: A local C instance named Module1 is assigned Nothing through its g field while the module g stays initialized. No Excel outcome or message is asserted."
+      },
+      {
+        "caseId": "gap_review_20261019_redim_project_collection_library_qualification",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nCan't change data types of array elements",
+        "hresult": null,
+        "excelBuild": "16.0.20430.20182",
+        "attempt": 1,
+        "expected": "observe",
+        "matched": true,
+        "description": "Unmeasured review candidate M2a: ReDim changes from a project class named Collection to VBA.Collection. No Excel outcome or message is asserted."
+      },
+      {
+        "caseId": "gap_review_20261019_redim_project_range_library_qualification",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nCan't change data types of array elements",
+        "hresult": null,
+        "excelBuild": "16.0.20430.20182",
+        "attempt": 1,
+        "expected": "observe",
+        "matched": true,
+        "description": "Unmeasured review candidate M2b: ReDim changes from a project class named Range to Excel.Range. No Excel outcome or message is asserted."
+      },
+      {
+        "caseId": "gap_review_20261019_dim_long_literal_overflow_explicit_lower",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nSyntax error",
+        "hresult": null,
+        "excelBuild": "16.0.20430.20182",
+        "attempt": 1,
+        "expected": "observe",
+        "matched": true,
+        "description": "Unmeasured review candidate M3a: An explicit lower bound accompanies an out-of-range Long-suffixed upper literal. No Excel outcome or message is asserted."
+      },
+      {
+        "caseId": "gap_review_20261019_redim_long_literal_overflow",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nSyntax error",
+        "hresult": null,
+        "excelBuild": "16.0.20430.20182",
+        "probeMode": "compile_then_run",
+        "evidencePhase": "compile",
+        "attempt": 1,
+        "expected": "observe",
+        "matched": true,
+        "description": "Unmeasured review candidate M3b: ReDim contains an out-of-range Long-suffixed bound; compile first and run only if compilation succeeds. No Excel outcome or message is asserted."
+      },
+      {
+        "caseId": "gap_review_20261019_declare_spaced_type",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nUser-defined type not defined",
+        "hresult": null,
+        "excelBuild": "16.0.20430.20182",
+        "attempt": 1,
+        "expected": "observe",
+        "matched": true,
+        "description": "Unmeasured review candidate M4a: A Declare return type uses spaces around Outlook qualification. No Excel outcome or message is asserted."
+      },
+      {
+        "caseId": "gap_review_20261019_declare_type_text_in_lib",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nUser-defined type not defined",
+        "hresult": null,
+        "excelBuild": "16.0.20430.20182",
+        "attempt": 1,
+        "expected": "observe",
+        "matched": true,
+        "description": "Unmeasured review candidate M4b: A Declare Lib string repeats its Outlook return type spelling. No Excel outcome or message is asserted."
+      },
+      {
+        "caseId": "gap_review_20261019_qualified_nothing_read_print",
+        "outcome": "rejected",
+        "stage": "runtime_dialog",
+        "message": "Run-time error '91':\n\nObject variable or With block variable not set",
+        "hresult": null,
+        "excelBuild": "16.0.20430.20182",
+        "probeMode": "compile_then_run",
+        "compileResult": {
+          "outcome": "accepted",
+          "stage": "compile"
+        },
+        "evidencePhase": "runtime",
+        "attempt": 1,
+        "expected": "observe",
+        "matched": true,
+        "description": "Unmeasured review candidate M5/MainPrint: Run MainPrint after it explicitly resets Module2.g to Nothing. No Excel outcome or message is asserted."
+      },
+      {
+        "caseId": "gap_review_20261019_qualified_nothing_read_call",
+        "outcome": "rejected",
+        "stage": "runtime_dialog",
+        "message": "Run-time error '91':\n\nObject variable or With block variable not set",
+        "hresult": null,
+        "excelBuild": "16.0.20430.20182",
+        "probeMode": "compile_then_run",
+        "compileResult": {
+          "outcome": "accepted",
+          "stage": "compile"
+        },
+        "evidencePhase": "runtime",
+        "attempt": 1,
+        "expected": "observe",
+        "matched": true,
+        "description": "Unmeasured review candidate M5/MainCall: Run MainCall after it explicitly resets Module2.g to Nothing. No Excel outcome or message is asserted."
+      },
+      {
+        "caseId": "gap_review_20261019_qualified_nothing_read_label",
+        "outcome": "rejected",
+        "stage": "runtime_dialog",
+        "message": "Run-time error '91':\n\nObject variable or With block variable not set",
+        "hresult": null,
+        "excelBuild": "16.0.20430.20182",
+        "probeMode": "compile_then_run",
+        "compileResult": {
+          "outcome": "accepted",
+          "stage": "compile"
+        },
+        "evidencePhase": "runtime",
+        "attempt": 1,
+        "expected": "observe",
+        "matched": true,
+        "description": "Unmeasured review candidate M5/MainLabel: Run MainLabel after it explicitly resets Module2.g to Nothing. No Excel outcome or message is asserted."
+      },
+      {
+        "caseId": "gap_review_20261019_qualified_nothing_read_with",
+        "outcome": "rejected",
+        "stage": "runtime_dialog",
+        "message": "Run-time error '91':\n\nObject variable or With block variable not set",
+        "hresult": null,
+        "excelBuild": "16.0.20430.20182",
+        "probeMode": "compile_then_run",
+        "compileResult": {
+          "outcome": "accepted",
+          "stage": "compile"
+        },
+        "evidencePhase": "runtime",
+        "attempt": 1,
+        "expected": "observe",
+        "matched": true,
+        "description": "Unmeasured review candidate M5/MainWith: Run MainWith after it explicitly resets Module2.g to Nothing. No Excel outcome or message is asserted."
+      },
+      {
+        "caseId": "gap_review_20261019_qualified_nothing_read_if",
+        "outcome": "rejected",
+        "stage": "runtime_dialog",
+        "message": "Run-time error '91':\n\nObject variable or With block variable not set",
+        "hresult": null,
+        "excelBuild": "16.0.20430.20182",
+        "probeMode": "compile_then_run",
+        "compileResult": {
+          "outcome": "accepted",
+          "stage": "compile"
+        },
+        "evidencePhase": "runtime",
+        "attempt": 1,
+        "expected": "observe",
+        "matched": true,
+        "description": "Unmeasured review candidate M5/MainIf: Run MainIf after it explicitly resets Module2.g to Nothing. No Excel outcome or message is asserted."
+      },
+      {
+        "caseId": "gap_review_20261019_qualified_nothing_read_assignment",
+        "outcome": "rejected",
+        "stage": "runtime_dialog",
+        "message": "Run-time error '91':\n\nObject variable or With block variable not set",
+        "hresult": null,
+        "excelBuild": "16.0.20430.20182",
+        "probeMode": "compile_then_run",
+        "compileResult": {
+          "outcome": "accepted",
+          "stage": "compile"
+        },
+        "evidencePhase": "runtime",
+        "attempt": 1,
+        "expected": "observe",
+        "matched": true,
+        "description": "Unmeasured review candidate M5/MainAssign: Run MainAssign after it explicitly resets Module2.g to Nothing. No Excel outcome or message is asserted."
+      },
+      {
+        "caseId": "gap_review_20261019_scalar_function_target_missing_argument_let",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nFunction call on left-hand side of assignment must return Variant or Object",
+        "hresult": null,
+        "excelBuild": "16.0.20430.20182",
+        "attempt": 1,
+        "expected": "observe",
+        "matched": true,
+        "description": "Unmeasured review candidate M6/let: Scalar function assignment combines an omitted required argument with let syntax. No Excel outcome or message is asserted."
+      },
+      {
+        "caseId": "gap_review_20261019_scalar_function_target_missing_argument_qualified",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nFunction call on left-hand side of assignment must return Variant or Object",
+        "hresult": null,
+        "excelBuild": "16.0.20430.20182",
+        "attempt": 1,
+        "expected": "observe",
+        "matched": true,
+        "description": "Unmeasured review candidate M6/qualified: Scalar function assignment combines an omitted required argument with qualified syntax. No Excel outcome or message is asserted."
+      },
+      {
+        "caseId": "gap_review_20261019_scalar_function_target_missing_argument_let_qualified",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nFunction call on left-hand side of assignment must return Variant or Object",
+        "hresult": null,
+        "excelBuild": "16.0.20430.20182",
+        "attempt": 1,
+        "expected": "observe",
+        "matched": true,
+        "description": "Unmeasured review candidate M6/let_qualified: Scalar function assignment combines an omitted required argument with let qualified syntax. No Excel outcome or message is asserted."
+      },
+      {
+        "caseId": "gap_review_20261019_const_nothing_single",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nInvalid use of object",
+        "hresult": null,
+        "excelBuild": "16.0.20430.20182",
+        "attempt": 1,
+        "expected": "observe",
+        "matched": true,
+        "description": "Unmeasured review candidate M7/single: Compile a single Const initialized with Nothing. No Excel outcome or message is asserted."
+      },
+      {
+        "caseId": "gap_review_20261019_const_nothing_single_suffix",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nInvalid use of object",
+        "hresult": null,
+        "excelBuild": "16.0.20430.20182",
+        "attempt": 1,
+        "expected": "observe",
+        "matched": true,
+        "description": "Unmeasured review candidate M7/single_suffix: Compile a single suffix Const initialized with Nothing. No Excel outcome or message is asserted."
+      },
+      {
+        "caseId": "gap_review_20261019_const_nothing_double_parenthesized",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nInvalid use of object",
+        "hresult": null,
+        "excelBuild": "16.0.20430.20182",
+        "attempt": 1,
+        "expected": "observe",
+        "matched": true,
+        "description": "Unmeasured review candidate M7/double_parenthesized: Compile a double parenthesized Const initialized with Nothing. No Excel outcome or message is asserted."
+      },
+      {
+        "caseId": "gap_review_20261019_const_nothing_long_double_parenthesized",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nInvalid use of object",
+        "hresult": null,
+        "excelBuild": "16.0.20430.20182",
+        "attempt": 1,
+        "expected": "observe",
+        "matched": true,
+        "description": "Unmeasured review candidate M7/long_double_parenthesized: Compile a long double parenthesized Const initialized with Nothing. No Excel outcome or message is asserted."
+      },
+      {
+        "caseId": "gap_review_20261019_const_nothing_longlong",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nInvalid use of object",
+        "hresult": null,
+        "excelBuild": "16.0.20430.20182",
+        "attempt": 1,
+        "expected": "observe",
+        "matched": true,
+        "description": "Unmeasured review candidate M7/longlong: Compile a longlong Const initialized with Nothing. No Excel outcome or message is asserted."
+      },
+      {
+        "caseId": "gap_review_20261019_const_nothing_longptr",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nInvalid use of object",
+        "hresult": null,
+        "excelBuild": "16.0.20430.20182",
+        "attempt": 1,
+        "expected": "observe",
+        "matched": true,
+        "description": "Unmeasured review candidate M7/longptr: Compile a longptr Const initialized with Nothing. No Excel outcome or message is asserted."
+      }
+    ],
+    "failureCount": 0,
+    "oracleFailureCount": 0
+  },
+  "selections": {
+    "results": [
+      {
+        "caseId": "gap_review_20261019_declare_spaced_type",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nUser-defined type not defined",
+        "hresult": null,
+        "excelBuild": "16.0.20430.20182",
+        "selection": {
+          "moduleName": "Module1",
+          "startLine": 2,
+          "startColumn": 1,
+          "endLine": 2,
+          "endColumn": 69,
+          "lineText": "Private Declare PtrSafe Function X Lib \"y\" () As Outlook.Application",
+          "selectedText": "Private Declare PtrSafe Function X Lib \"y\" () As Outlook.Application",
+          "storedSource": "Option Explicit\r\nPrivate Declare PtrSafe Function X Lib \"y\" () As Outlook.Application\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        "attempt": 1,
+        "expected": "observe",
+        "matched": true,
+        "description": "Unmeasured review candidate M4a: A Declare return type uses spaces around Outlook qualification. No Excel outcome or message is asserted."
+      },
+      {
+        "caseId": "gap_review_20261019_declare_type_text_in_lib",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nUser-defined type not defined",
+        "hresult": null,
+        "excelBuild": "16.0.20430.20182",
+        "selection": {
+          "moduleName": "Module1",
+          "startLine": 2,
+          "startColumn": 1,
+          "endLine": 2,
+          "endColumn": 87,
+          "lineText": "Private Declare PtrSafe Function X Lib \"Outlook.Application\" () As Outlook.Application",
+          "selectedText": "Private Declare PtrSafe Function X Lib \"Outlook.Application\" () As Outlook.Application",
+          "storedSource": "Option Explicit\r\nPrivate Declare PtrSafe Function X Lib \"Outlook.Application\" () As Outlook.Application\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        "attempt": 1,
+        "expected": "observe",
+        "matched": true,
+        "description": "Unmeasured review candidate M4b: A Declare Lib string repeats its Outlook return type spelling. No Excel outcome or message is asserted."
+      }
+    ],
+    "failureCount": 0,
+    "oracleFailureCount": 0
+  },
+  "supplementarySelectionPatch": "--- excel_vbe_oracle_worker.ps1\n+++ selection-worker.ps1\n@@ -1045,6 +1045,27 @@\n     }\n     finally {\n         try { [XlideVbeDialogWatcher]::Stop() } catch { }\n+        # Supplementary evidence only: read the selection after a compile dialog.\n+        if ($result.stage -eq \"compile_dialog\" -and $null -ne $excel) {\n+            try {\n+                $pane = $excel.VBE.ActiveCodePane\n+                [int]$startLine = 0; [int]$startColumn = 0; [int]$endLine = 0; [int]$endColumn = 0\n+                $pane.GetSelection([ref]$startLine, [ref]$startColumn, [ref]$endLine, [ref]$endColumn)\n+                $selectedModule = $pane.CodeModule\n+                $lineText = [string]$selectedModule.Lines($startLine, 1)\n+                $selectedText = $null\n+                if ($startLine -eq $endLine -and $startColumn -ge 1 -and $endColumn -ge $startColumn -and $endColumn -le $lineText.Length + 1) {\n+                    $selectedText = $lineText.Substring($startColumn - 1, $endColumn - $startColumn)\n+                }\n+                $result.selection = [ordered]@{\n+                    moduleName = [string]$selectedModule.Parent.Name\n+                    startLine = $startLine; startColumn = $startColumn\n+                    endLine = $endLine; endColumn = $endColumn\n+                    lineText = $lineText; selectedText = $selectedText\n+                    storedSource = [string]$selectedModule.Lines(1, $selectedModule.CountOfLines)\n+                }\n+            } catch { $result.selectionError = $_.Exception.Message }\n+        }\n         $closed = $true\n         if ($null -ne $workbook) {\n             try { $workbook.Close($false) } catch { $closed = $false }\n",
+  "checkpoints": {
+    "controls.jsonl": [
+      {
+        "caseHash": "05fa7c237703cb14fda7b190dbc031c2f94b49193a1d5b1cfd9372123cf399b9",
+        "result": {
+          "caseId": "missing_trailing_required_argument",
+          "outcome": "rejected",
+          "stage": "compile_dialog",
+          "message": "Compile error:\n\nSyntax error",
+          "hresult": null,
+          "excelBuild": "16.0.20430.20182",
+          "attempt": 1
+        }
+      },
+      {
+        "caseHash": "8f374862ab639afd9503b7980af7798f8f6dd417b7b6eebdbeb65dd85998875f",
+        "result": {
+          "caseId": "bare_variable_statement",
+          "outcome": "rejected",
+          "stage": "compile_dialog",
+          "message": "Compile error:\n\nExpected Sub, Function, or Property",
+          "hresult": null,
+          "excelBuild": "16.0.20430.20182",
+          "attempt": 1
+        }
+      },
+      {
+        "caseHash": "937ad8f9f4f967f4ed3548471053db65fbc90c174866223c6bd93168c43d3919",
+        "result": {
+          "caseId": "number_to_string_assignment",
+          "outcome": "accepted",
+          "stage": "compile",
+          "message": "",
+          "hresult": null,
+          "excelBuild": "16.0.20430.20182",
+          "attempt": 1
+        }
+      }
+    ],
+    "candidates.jsonl": [
+      {
+        "caseHash": "d0a00a46ee1b85991eb991bc0382458e61d0b17c480a71731843aaa83ff5ed87",
+        "result": {
+          "caseId": "gap_review_20261019_shadowed_own_module_receiver",
+          "outcome": "accepted",
+          "stage": "run",
+          "message": "",
+          "hresult": null,
+          "excelBuild": "16.0.20430.20182",
+          "probeMode": "compile_then_run",
+          "compileResult": {
+            "outcome": "accepted",
+            "stage": "compile"
+          },
+          "evidencePhase": "runtime",
+          "attempt": 1
+        }
+      },
+      {
+        "caseHash": "7c8b866c4e447749e1e10281d58c236b4f2fa09b6ee5475752263cbaa21acf07",
+        "result": {
+          "caseId": "gap_review_20261019_redim_project_collection_library_qualification",
+          "outcome": "rejected",
+          "stage": "compile_dialog",
+          "message": "Compile error:\n\nCan't change data types of array elements",
+          "hresult": null,
+          "excelBuild": "16.0.20430.20182",
+          "attempt": 1
+        }
+      },
+      {
+        "caseHash": "24d92e50d0ba01d6ead2a418fdee4f12f2c286fab8a10f94f12cfd6a1f4fb471",
+        "result": {
+          "caseId": "gap_review_20261019_redim_project_range_library_qualification",
+          "outcome": "rejected",
+          "stage": "compile_dialog",
+          "message": "Compile error:\n\nCan't change data types of array elements",
+          "hresult": null,
+          "excelBuild": "16.0.20430.20182",
+          "attempt": 1
+        }
+      },
+      {
+        "caseHash": "685e6fd69bab92e6f1c715c9750aa54ced01e07f50476b87c3f6b0abd5463a31",
+        "result": {
+          "caseId": "gap_review_20261019_dim_long_literal_overflow_explicit_lower",
+          "outcome": "rejected",
+          "stage": "compile_dialog",
+          "message": "Compile error:\n\nSyntax error",
+          "hresult": null,
+          "excelBuild": "16.0.20430.20182",
+          "attempt": 1
+        }
+      },
+      {
+        "caseHash": "8f57c153b861988c95cf94844ad2b3e147179de6d6443c764bbb93d9cd81e7ca",
+        "result": {
+          "caseId": "gap_review_20261019_redim_long_literal_overflow",
+          "outcome": "rejected",
+          "stage": "compile_dialog",
+          "message": "Compile error:\n\nSyntax error",
+          "hresult": null,
+          "excelBuild": "16.0.20430.20182",
+          "probeMode": "compile_then_run",
+          "evidencePhase": "compile",
+          "attempt": 1
+        }
+      },
+      {
+        "caseHash": "58beffa21f848ff444324b54f74e40d526376403a9bbeab5171e93096f96c719",
+        "result": {
+          "caseId": "gap_review_20261019_declare_spaced_type",
+          "outcome": "rejected",
+          "stage": "compile_dialog",
+          "message": "Compile error:\n\nUser-defined type not defined",
+          "hresult": null,
+          "excelBuild": "16.0.20430.20182",
+          "attempt": 1
+        }
+      },
+      {
+        "caseHash": "2b30d5d7c9806662cc4bb5f22a30561a1d5587f39dd62eec390c0e2fa2d1d56b",
+        "result": {
+          "caseId": "gap_review_20261019_declare_type_text_in_lib",
+          "outcome": "rejected",
+          "stage": "compile_dialog",
+          "message": "Compile error:\n\nUser-defined type not defined",
+          "hresult": null,
+          "excelBuild": "16.0.20430.20182",
+          "attempt": 1
+        }
+      },
+      {
+        "caseHash": "abca59567e4782b72d482836cb6ee6332dd782359a9e82fc9a81318325620148",
+        "result": {
+          "caseId": "gap_review_20261019_qualified_nothing_read_print",
+          "outcome": "rejected",
+          "stage": "runtime_dialog",
+          "message": "Run-time error '91':\n\nObject variable or With block variable not set",
+          "hresult": null,
+          "excelBuild": "16.0.20430.20182",
+          "probeMode": "compile_then_run",
+          "compileResult": {
+            "outcome": "accepted",
+            "stage": "compile"
+          },
+          "evidencePhase": "runtime",
+          "attempt": 1
+        }
+      },
+      {
+        "caseHash": "ba5c507d91561aa78b01faa0ff8a1157a12908e6e8a66accdc2622d7c8c1d655",
+        "result": {
+          "caseId": "gap_review_20261019_qualified_nothing_read_call",
+          "outcome": "rejected",
+          "stage": "runtime_dialog",
+          "message": "Run-time error '91':\n\nObject variable or With block variable not set",
+          "hresult": null,
+          "excelBuild": "16.0.20430.20182",
+          "probeMode": "compile_then_run",
+          "compileResult": {
+            "outcome": "accepted",
+            "stage": "compile"
+          },
+          "evidencePhase": "runtime",
+          "attempt": 1
+        }
+      },
+      {
+        "caseHash": "f2af44fe82c224bc0726d07b925ac926c9cc4c31b361b31f6044380e07280eed",
+        "result": {
+          "caseId": "gap_review_20261019_qualified_nothing_read_label",
+          "outcome": "rejected",
+          "stage": "runtime_dialog",
+          "message": "Run-time error '91':\n\nObject variable or With block variable not set",
+          "hresult": null,
+          "excelBuild": "16.0.20430.20182",
+          "probeMode": "compile_then_run",
+          "compileResult": {
+            "outcome": "accepted",
+            "stage": "compile"
+          },
+          "evidencePhase": "runtime",
+          "attempt": 1
+        }
+      },
+      {
+        "caseHash": "4561034f33fec15589839b2ba548885a2bd114496999792c2ba61a4e8e4076d1",
+        "result": {
+          "caseId": "gap_review_20261019_qualified_nothing_read_with",
+          "outcome": "rejected",
+          "stage": "runtime_dialog",
+          "message": "Run-time error '91':\n\nObject variable or With block variable not set",
+          "hresult": null,
+          "excelBuild": "16.0.20430.20182",
+          "probeMode": "compile_then_run",
+          "compileResult": {
+            "outcome": "accepted",
+            "stage": "compile"
+          },
+          "evidencePhase": "runtime",
+          "attempt": 1
+        }
+      },
+      {
+        "caseHash": "e0d4e8ac824a557e2ebb9397a5b19ee855e9164192b91abc0a9eaa862b5760f0",
+        "result": {
+          "caseId": "gap_review_20261019_qualified_nothing_read_if",
+          "outcome": "rejected",
+          "stage": "runtime_dialog",
+          "message": "Run-time error '91':\n\nObject variable or With block variable not set",
+          "hresult": null,
+          "excelBuild": "16.0.20430.20182",
+          "probeMode": "compile_then_run",
+          "compileResult": {
+            "outcome": "accepted",
+            "stage": "compile"
+          },
+          "evidencePhase": "runtime",
+          "attempt": 1
+        }
+      },
+      {
+        "caseHash": "1b462276d1cee029aeeaefd4dc84c86b9551eaf1d31d7f7fb4df3df7aacccd21",
+        "result": {
+          "caseId": "gap_review_20261019_qualified_nothing_read_assignment",
+          "outcome": "rejected",
+          "stage": "runtime_dialog",
+          "message": "Run-time error '91':\n\nObject variable or With block variable not set",
+          "hresult": null,
+          "excelBuild": "16.0.20430.20182",
+          "probeMode": "compile_then_run",
+          "compileResult": {
+            "outcome": "accepted",
+            "stage": "compile"
+          },
+          "evidencePhase": "runtime",
+          "attempt": 1
+        }
+      },
+      {
+        "caseHash": "7b39603067e1365842c84919eb1f3cc83a889f8247b666870bcbcd74e4dcb955",
+        "result": {
+          "caseId": "gap_review_20261019_scalar_function_target_missing_argument_let",
+          "outcome": "rejected",
+          "stage": "compile_dialog",
+          "message": "Compile error:\n\nFunction call on left-hand side of assignment must return Variant or Object",
+          "hresult": null,
+          "excelBuild": "16.0.20430.20182",
+          "attempt": 1
+        }
+      },
+      {
+        "caseHash": "e26e621f2bf51c0e87d227993b5935cbebe8f43e8ebec8e6c08025ddfe9bc2e5",
+        "result": {
+          "caseId": "gap_review_20261019_scalar_function_target_missing_argument_qualified",
+          "outcome": "rejected",
+          "stage": "compile_dialog",
+          "message": "Compile error:\n\nFunction call on left-hand side of assignment must return Variant or Object",
+          "hresult": null,
+          "excelBuild": "16.0.20430.20182",
+          "attempt": 1
+        }
+      },
+      {
+        "caseHash": "149350034452d243f7a8907d9b42c16789b29abccecc1607e712eafc90a34a83",
+        "result": {
+          "caseId": "gap_review_20261019_scalar_function_target_missing_argument_let_qualified",
+          "outcome": "rejected",
+          "stage": "compile_dialog",
+          "message": "Compile error:\n\nFunction call on left-hand side of assignment must return Variant or Object",
+          "hresult": null,
+          "excelBuild": "16.0.20430.20182",
+          "attempt": 1
+        }
+      },
+      {
+        "caseHash": "39bc84bd7c9ba5362ca7ea6429618ed228513dd0cea3e8cdc0706eb33f676da9",
+        "result": {
+          "caseId": "gap_review_20261019_const_nothing_single",
+          "outcome": "rejected",
+          "stage": "compile_dialog",
+          "message": "Compile error:\n\nInvalid use of object",
+          "hresult": null,
+          "excelBuild": "16.0.20430.20182",
+          "attempt": 1
+        }
+      },
+      {
+        "caseHash": "8f8bd10285d8fd8731df6ee87b351e84b51abdfbe7677acee688100fd80b497a",
+        "result": {
+          "caseId": "gap_review_20261019_const_nothing_single_suffix",
+          "outcome": "rejected",
+          "stage": "compile_dialog",
+          "message": "Compile error:\n\nInvalid use of object",
+          "hresult": null,
+          "excelBuild": "16.0.20430.20182",
+          "attempt": 1
+        }
+      },
+      {
+        "caseHash": "b700fa223f019ac22386ef81a07fca65e1333a4afd0831c5fe5b75f9f2999770",
+        "result": {
+          "caseId": "gap_review_20261019_const_nothing_double_parenthesized",
+          "outcome": "rejected",
+          "stage": "compile_dialog",
+          "message": "Compile error:\n\nInvalid use of object",
+          "hresult": null,
+          "excelBuild": "16.0.20430.20182",
+          "attempt": 1
+        }
+      },
+      {
+        "caseHash": "2081ee785e5c9d1d58e3ebc06fad1524643d5d8a02ca2ce09febb6f294304e3d",
+        "result": {
+          "caseId": "gap_review_20261019_const_nothing_long_double_parenthesized",
+          "outcome": "rejected",
+          "stage": "compile_dialog",
+          "message": "Compile error:\n\nInvalid use of object",
+          "hresult": null,
+          "excelBuild": "16.0.20430.20182",
+          "attempt": 1
+        }
+      },
+      {
+        "caseHash": "403ef45dd784f14fbf6136ed89bcd313de3bee0d4f2ce22db77cfa7b3eb0cb85",
+        "result": {
+          "caseId": "gap_review_20261019_const_nothing_longlong",
+          "outcome": "rejected",
+          "stage": "compile_dialog",
+          "message": "Compile error:\n\nInvalid use of object",
+          "hresult": null,
+          "excelBuild": "16.0.20430.20182",
+          "attempt": 1
+        }
+      },
+      {
+        "caseHash": "26a57c8b89accb44ce0f380d12ab3f72afce62013b46f03a7c4effaead751099",
+        "result": {
+          "caseId": "gap_review_20261019_const_nothing_longptr",
+          "outcome": "rejected",
+          "stage": "compile_dialog",
+          "message": "Compile error:\n\nInvalid use of object",
+          "hresult": null,
+          "excelBuild": "16.0.20430.20182",
+          "attempt": 1
+        }
+      }
+    ],
+    "selections.jsonl": [
+      {
+        "caseHash": "34e896b08d9a2cc7a066925b596b93fd1946ce7f48ba60cc31bd6e0910a20288",
+        "result": {
+          "caseId": "gap_review_20261019_declare_spaced_type",
+          "outcome": "rejected",
+          "stage": "compile_dialog",
+          "message": "Compile error:\n\nUser-defined type not defined",
+          "hresult": null,
+          "excelBuild": "16.0.20430.20182",
+          "selection": {
+            "moduleName": "Module1",
+            "startLine": 2,
+            "startColumn": 1,
+            "endLine": 2,
+            "endColumn": 69,
+            "lineText": "Private Declare PtrSafe Function X Lib \"y\" () As Outlook.Application",
+            "selectedText": "Private Declare PtrSafe Function X Lib \"y\" () As Outlook.Application",
+            "storedSource": "Option Explicit\r\nPrivate Declare PtrSafe Function X Lib \"y\" () As Outlook.Application\r\nSub Main()\r\nEnd Sub\r\n"
+          },
+          "attempt": 1
+        }
+      },
+      {
+        "caseHash": "6e9fca52023610f50ef7df9a3370bde75f93139584edef0402ace34a2071f6e8",
+        "result": {
+          "caseId": "gap_review_20261019_declare_type_text_in_lib",
+          "outcome": "rejected",
+          "stage": "compile_dialog",
+          "message": "Compile error:\n\nUser-defined type not defined",
+          "hresult": null,
+          "excelBuild": "16.0.20430.20182",
+          "selection": {
+            "moduleName": "Module1",
+            "startLine": 2,
+            "startColumn": 1,
+            "endLine": 2,
+            "endColumn": 87,
+            "lineText": "Private Declare PtrSafe Function X Lib \"Outlook.Application\" () As Outlook.Application",
+            "selectedText": "Private Declare PtrSafe Function X Lib \"Outlook.Application\" () As Outlook.Application",
+            "storedSource": "Option Explicit\r\nPrivate Declare PtrSafe Function X Lib \"Outlook.Application\" () As Outlook.Application\r\nSub Main()\r\nEnd Sub\r\n"
+          },
+          "attempt": 1
+        }
+      }
+    ]
+  },
+  "originalArtifactSha256": {
+    "environment.json": "360e206373047f7049bc7a5423fc4b510e41340aed5760f90665875cafab361f",
+    "control-inputs.json": "896b5ee3ebdef9bb81bea0c1142c8410b2e818074f298e1e5b3a92a21ea84446",
+    "controls.json": "dc6d33f8302d227df0812ea5311ee80851ab3534364c799d07cfc2e444211c99",
+    "candidate-inputs.json": "a432fe252b46df29728456c0fc31bf7b8df44a8a1bb5f1e90a0446435149d726",
+    "candidates.json": "13ee1f64ef802ccd4365d381b042b1f28f1292e45ab4f2b50b3106244fea67d5",
+    "selections.json": "82d69c135331c3c97485d5d68e43d0310c55fa0757212be45d791a4da2016bdd",
+    "selection-worker.ps1": "acba7b948a5229c95966f920b0b1843a72d709fcd599126e5d51ed623cc93f62"
+  }
+}

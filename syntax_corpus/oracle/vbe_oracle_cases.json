@@ -119735,6 +119735,462 @@
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error",
       "source": "Option Explicit\r\nSub Main()\r\n    Dim x As Qwerty\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "gap_review_20261019_shadowed_own_module_receiver",
+      "description": "Review fixture M1: A local C instance named Module1 is assigned Nothing through its g field while the module g stays initialized. Measured 2026-10-19 in Microsoft 365 Apps Excel x64, build 16.0.20430.20182: accepted at run. Entry point returned successfully. The original compile_then_run probe accepted compilation before running. Portable measurement evidence: syntax_corpus/oracle/evidence/gap_review_20261019.json. This records Excel outcomes, not analyzer parity.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\nSub Main()\r\nDim Module1 As New C\r\nSet g = New Collection\r\nSet Module1.g = Nothing\r\ng.Add 1\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "C",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "gap_review_20261019_redim_project_collection_library_qualification",
+      "description": "Review fixture M2a: ReDim changes from a project class named Collection to VBA.Collection. Measured 2026-10-19 in Microsoft 365 Apps Excel x64, build 16.0.20430.20182: rejected at compile_dialog; Compile error: Can't change data types of array elements. Portable measurement evidence: syntax_corpus/oracle/evidence/gap_review_20261019.json. This records Excel outcomes, not analyzer parity.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nDim a() As Collection\r\nReDim a(2) As VBA.Collection\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "gap_review_20261019_redim_project_range_library_qualification",
+      "description": "Review fixture M2b: ReDim changes from a project class named Range to Excel.Range. Measured 2026-10-19 in Microsoft 365 Apps Excel x64, build 16.0.20430.20182: rejected at compile_dialog; Compile error: Can't change data types of array elements. Portable measurement evidence: syntax_corpus/oracle/evidence/gap_review_20261019.json. This records Excel outcomes, not analyzer parity.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nDim a() As Range\r\nReDim a(2) As Excel.Range\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Range",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "gap_review_20261019_dim_long_literal_overflow_explicit_lower",
+      "description": "Review fixture M3a: An explicit lower bound accompanies an out-of-range Long-suffixed upper literal. Measured 2026-10-19 in Microsoft 365 Apps Excel x64, build 16.0.20430.20182: rejected at compile_dialog; Compile error: Syntax error. Portable measurement evidence: syntax_corpus/oracle/evidence/gap_review_20261019.json. This records Excel outcomes, not analyzer parity.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nDim a(0 To 2147483648&) As Long\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "gap_review_20261019_redim_long_literal_overflow",
+      "description": "Review fixture M3b: ReDim contains an out-of-range Long-suffixed bound; compile first and run only if compilation succeeds. Measured 2026-10-19 in Microsoft 365 Apps Excel x64, build 16.0.20430.20182: rejected at compile_dialog; Compile error: Syntax error. Portable measurement evidence: syntax_corpus/oracle/evidence/gap_review_20261019.json. This records Excel outcomes, not analyzer parity.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nDim a() As Long\r\nReDim a(2147483648&)\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "gap_review_20261019_declare_spaced_type",
+      "description": "Review fixture M4a: A Declare return type uses spaces around Outlook qualification. Measured 2026-10-19 in Microsoft 365 Apps Excel x64, build 16.0.20430.20182: rejected at compile_dialog; Compile error: User-defined type not defined. Supplementary VBE GetSelection after dialog dismissal: Module1 line 2, columns 1-69 (1-based, end exclusive), the whole stored Declare line; storedSource records VBE formatting. Portable measurement evidence: syntax_corpus/oracle/evidence/gap_review_20261019.json. This records Excel outcomes, not analyzer parity.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function X Lib \"y\" () As Outlook . Application\r\nSub Main()\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "gap_review_20261019_declare_type_text_in_lib",
+      "description": "Review fixture M4b: A Declare Lib string repeats its Outlook return type spelling. Measured 2026-10-19 in Microsoft 365 Apps Excel x64, build 16.0.20430.20182: rejected at compile_dialog; Compile error: User-defined type not defined. Supplementary VBE GetSelection after dialog dismissal: Module1 line 2, columns 1-87 (1-based, end exclusive), the whole stored Declare line; storedSource records VBE formatting. Portable measurement evidence: syntax_corpus/oracle/evidence/gap_review_20261019.json. This records Excel outcomes, not analyzer parity.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function X Lib \"Outlook.Application\" () As Outlook.Application\r\nSub Main()\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "gap_review_20261019_qualified_nothing_read_print",
+      "description": "Review fixture M5/MainPrint: Run MainPrint after it explicitly resets Module2.g to Nothing. Measured 2026-10-19 in Microsoft 365 Apps Excel x64, build 16.0.20430.20182: rejected at runtime_dialog; Run-time error '91':: Object variable or With block variable not set. The original compile_then_run probe accepted compilation before running. Portable measurement evidence: syntax_corpus/oracle/evidence/gap_review_20261019.json. This records Excel outcomes, not analyzer parity.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "MainPrint",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub MainPrint()\r\nSet Module2.g = Nothing\r\nDebug.Print Module2.g.Count\r\nEnd Sub\r\nSub MainCall()\r\nSet Module2.g = Nothing\r\nCall Module2.g.Add(1)\r\nEnd Sub\r\nSub MainLabel()\r\nSet Module2.g = Nothing\r\n10 Module2.g.Add 1\r\nEnd Sub\r\nSub MainWith()\r\nSet Module2.g = Nothing\r\nWith Module2.g\r\n.Add 1\r\nEnd With\r\nEnd Sub\r\nSub MainIf()\r\nSet Module2.g = Nothing\r\nIf Module2.g.Count = 0 Then Debug.Print 1\r\nEnd Sub\r\nSub MainAssign()\r\nDim n As Long\r\nSet Module2.g = Nothing\r\nn = Module2.g.Count\r\nDebug.Print n\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "gap_review_20261019_qualified_nothing_read_call",
+      "description": "Review fixture M5/MainCall: Run MainCall after it explicitly resets Module2.g to Nothing. Measured 2026-10-19 in Microsoft 365 Apps Excel x64, build 16.0.20430.20182: rejected at runtime_dialog; Run-time error '91':: Object variable or With block variable not set. The original compile_then_run probe accepted compilation before running. Portable measurement evidence: syntax_corpus/oracle/evidence/gap_review_20261019.json. This records Excel outcomes, not analyzer parity.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "MainCall",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub MainPrint()\r\nSet Module2.g = Nothing\r\nDebug.Print Module2.g.Count\r\nEnd Sub\r\nSub MainCall()\r\nSet Module2.g = Nothing\r\nCall Module2.g.Add(1)\r\nEnd Sub\r\nSub MainLabel()\r\nSet Module2.g = Nothing\r\n10 Module2.g.Add 1\r\nEnd Sub\r\nSub MainWith()\r\nSet Module2.g = Nothing\r\nWith Module2.g\r\n.Add 1\r\nEnd With\r\nEnd Sub\r\nSub MainIf()\r\nSet Module2.g = Nothing\r\nIf Module2.g.Count = 0 Then Debug.Print 1\r\nEnd Sub\r\nSub MainAssign()\r\nDim n As Long\r\nSet Module2.g = Nothing\r\nn = Module2.g.Count\r\nDebug.Print n\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "gap_review_20261019_qualified_nothing_read_label",
+      "description": "Review fixture M5/MainLabel: Run MainLabel after it explicitly resets Module2.g to Nothing. Measured 2026-10-19 in Microsoft 365 Apps Excel x64, build 16.0.20430.20182: rejected at runtime_dialog; Run-time error '91':: Object variable or With block variable not set. The original compile_then_run probe accepted compilation before running. Portable measurement evidence: syntax_corpus/oracle/evidence/gap_review_20261019.json. This records Excel outcomes, not analyzer parity.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "MainLabel",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub MainPrint()\r\nSet Module2.g = Nothing\r\nDebug.Print Module2.g.Count\r\nEnd Sub\r\nSub MainCall()\r\nSet Module2.g = Nothing\r\nCall Module2.g.Add(1)\r\nEnd Sub\r\nSub MainLabel()\r\nSet Module2.g = Nothing\r\n10 Module2.g.Add 1\r\nEnd Sub\r\nSub MainWith()\r\nSet Module2.g = Nothing\r\nWith Module2.g\r\n.Add 1\r\nEnd With\r\nEnd Sub\r\nSub MainIf()\r\nSet Module2.g = Nothing\r\nIf Module2.g.Count = 0 Then Debug.Print 1\r\nEnd Sub\r\nSub MainAssign()\r\nDim n As Long\r\nSet Module2.g = Nothing\r\nn = Module2.g.Count\r\nDebug.Print n\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "gap_review_20261019_qualified_nothing_read_with",
+      "description": "Review fixture M5/MainWith: Run MainWith after it explicitly resets Module2.g to Nothing. Measured 2026-10-19 in Microsoft 365 Apps Excel x64, build 16.0.20430.20182: rejected at runtime_dialog; Run-time error '91':: Object variable or With block variable not set. The original compile_then_run probe accepted compilation before running. Portable measurement evidence: syntax_corpus/oracle/evidence/gap_review_20261019.json. This records Excel outcomes, not analyzer parity.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "MainWith",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub MainPrint()\r\nSet Module2.g = Nothing\r\nDebug.Print Module2.g.Count\r\nEnd Sub\r\nSub MainCall()\r\nSet Module2.g = Nothing\r\nCall Module2.g.Add(1)\r\nEnd Sub\r\nSub MainLabel()\r\nSet Module2.g = Nothing\r\n10 Module2.g.Add 1\r\nEnd Sub\r\nSub MainWith()\r\nSet Module2.g = Nothing\r\nWith Module2.g\r\n.Add 1\r\nEnd With\r\nEnd Sub\r\nSub MainIf()\r\nSet Module2.g = Nothing\r\nIf Module2.g.Count = 0 Then Debug.Print 1\r\nEnd Sub\r\nSub MainAssign()\r\nDim n As Long\r\nSet Module2.g = Nothing\r\nn = Module2.g.Count\r\nDebug.Print n\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "gap_review_20261019_qualified_nothing_read_if",
+      "description": "Review fixture M5/MainIf: Run MainIf after it explicitly resets Module2.g to Nothing. Measured 2026-10-19 in Microsoft 365 Apps Excel x64, build 16.0.20430.20182: rejected at runtime_dialog; Run-time error '91':: Object variable or With block variable not set. The original compile_then_run probe accepted compilation before running. Portable measurement evidence: syntax_corpus/oracle/evidence/gap_review_20261019.json. This records Excel outcomes, not analyzer parity.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "MainIf",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub MainPrint()\r\nSet Module2.g = Nothing\r\nDebug.Print Module2.g.Count\r\nEnd Sub\r\nSub MainCall()\r\nSet Module2.g = Nothing\r\nCall Module2.g.Add(1)\r\nEnd Sub\r\nSub MainLabel()\r\nSet Module2.g = Nothing\r\n10 Module2.g.Add 1\r\nEnd Sub\r\nSub MainWith()\r\nSet Module2.g = Nothing\r\nWith Module2.g\r\n.Add 1\r\nEnd With\r\nEnd Sub\r\nSub MainIf()\r\nSet Module2.g = Nothing\r\nIf Module2.g.Count = 0 Then Debug.Print 1\r\nEnd Sub\r\nSub MainAssign()\r\nDim n As Long\r\nSet Module2.g = Nothing\r\nn = Module2.g.Count\r\nDebug.Print n\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "gap_review_20261019_qualified_nothing_read_assignment",
+      "description": "Review fixture M5/MainAssign: Run MainAssign after it explicitly resets Module2.g to Nothing. Measured 2026-10-19 in Microsoft 365 Apps Excel x64, build 16.0.20430.20182: rejected at runtime_dialog; Run-time error '91':: Object variable or With block variable not set. The original compile_then_run probe accepted compilation before running. Portable measurement evidence: syntax_corpus/oracle/evidence/gap_review_20261019.json. This records Excel outcomes, not analyzer parity.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "MainAssign",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub MainPrint()\r\nSet Module2.g = Nothing\r\nDebug.Print Module2.g.Count\r\nEnd Sub\r\nSub MainCall()\r\nSet Module2.g = Nothing\r\nCall Module2.g.Add(1)\r\nEnd Sub\r\nSub MainLabel()\r\nSet Module2.g = Nothing\r\n10 Module2.g.Add 1\r\nEnd Sub\r\nSub MainWith()\r\nSet Module2.g = Nothing\r\nWith Module2.g\r\n.Add 1\r\nEnd With\r\nEnd Sub\r\nSub MainIf()\r\nSet Module2.g = Nothing\r\nIf Module2.g.Count = 0 Then Debug.Print 1\r\nEnd Sub\r\nSub MainAssign()\r\nDim n As Long\r\nSet Module2.g = Nothing\r\nn = Module2.g.Count\r\nDebug.Print n\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "gap_review_20261019_scalar_function_target_missing_argument_let",
+      "description": "Review fixture M6/let: Scalar function assignment combines an omitted required argument with let syntax. Measured 2026-10-19 in Microsoft 365 Apps Excel x64, build 16.0.20430.20182: rejected at compile_dialog; Compile error: Function call on left-hand side of assignment must return Variant or Object. Portable measurement evidence: syntax_corpus/oracle/evidence/gap_review_20261019.json. This records Excel outcomes, not analyzer parity.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function F(i As Long) As Long\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nLet F() = 2\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "gap_review_20261019_scalar_function_target_missing_argument_qualified",
+      "description": "Review fixture M6/qualified: Scalar function assignment combines an omitted required argument with qualified syntax. Measured 2026-10-19 in Microsoft 365 Apps Excel x64, build 16.0.20430.20182: rejected at compile_dialog; Compile error: Function call on left-hand side of assignment must return Variant or Object. Portable measurement evidence: syntax_corpus/oracle/evidence/gap_review_20261019.json. This records Excel outcomes, not analyzer parity.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function F(i As Long) As Long\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nModule2.F() = 2\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "gap_review_20261019_scalar_function_target_missing_argument_let_qualified",
+      "description": "Review fixture M6/let_qualified: Scalar function assignment combines an omitted required argument with let qualified syntax. Measured 2026-10-19 in Microsoft 365 Apps Excel x64, build 16.0.20430.20182: rejected at compile_dialog; Compile error: Function call on left-hand side of assignment must return Variant or Object. Portable measurement evidence: syntax_corpus/oracle/evidence/gap_review_20261019.json. This records Excel outcomes, not analyzer parity.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function F(i As Long) As Long\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nLet Module2.F() = 2\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "gap_review_20261019_const_nothing_single",
+      "description": "Review fixture M7/single: Compile a single Const initialized with Nothing. Measured 2026-10-19 in Microsoft 365 Apps Excel x64, build 16.0.20430.20182: rejected at compile_dialog; Compile error: Invalid use of object. Portable measurement evidence: syntax_corpus/oracle/evidence/gap_review_20261019.json. This records Excel outcomes, not analyzer parity.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nConst k As Single = Nothing\r\nDebug.Print k\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "gap_review_20261019_const_nothing_single_suffix",
+      "description": "Review fixture M7/single_suffix: Compile a single suffix Const initialized with Nothing. Measured 2026-10-19 in Microsoft 365 Apps Excel x64, build 16.0.20430.20182: rejected at compile_dialog; Compile error: Invalid use of object. Portable measurement evidence: syntax_corpus/oracle/evidence/gap_review_20261019.json. This records Excel outcomes, not analyzer parity.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nConst k! = Nothing\r\nDebug.Print k\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "gap_review_20261019_const_nothing_double_parenthesized",
+      "description": "Review fixture M7/double_parenthesized: Compile a double parenthesized Const initialized with Nothing. Measured 2026-10-19 in Microsoft 365 Apps Excel x64, build 16.0.20430.20182: rejected at compile_dialog; Compile error: Invalid use of object. Portable measurement evidence: syntax_corpus/oracle/evidence/gap_review_20261019.json. This records Excel outcomes, not analyzer parity.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nConst k As Double = (Nothing)\r\nDebug.Print k\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "gap_review_20261019_const_nothing_long_double_parenthesized",
+      "description": "Review fixture M7/long_double_parenthesized: Compile a long double parenthesized Const initialized with Nothing. Measured 2026-10-19 in Microsoft 365 Apps Excel x64, build 16.0.20430.20182: rejected at compile_dialog; Compile error: Invalid use of object. Portable measurement evidence: syntax_corpus/oracle/evidence/gap_review_20261019.json. This records Excel outcomes, not analyzer parity.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nConst k As Long = ((Nothing))\r\nDebug.Print k\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "gap_review_20261019_const_nothing_longlong",
+      "description": "Review fixture M7/longlong: Compile a longlong Const initialized with Nothing. Measured 2026-10-19 in Microsoft 365 Apps Excel x64, build 16.0.20430.20182: rejected at compile_dialog; Compile error: Invalid use of object. Portable measurement evidence: syntax_corpus/oracle/evidence/gap_review_20261019.json. This records Excel outcomes, not analyzer parity.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nConst k As LongLong = Nothing\r\nDebug.Print k\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "gap_review_20261019_const_nothing_longptr",
+      "description": "Review fixture M7/longptr: Compile a longptr Const initialized with Nothing. Measured 2026-10-19 in Microsoft 365 Apps Excel x64, build 16.0.20430.20182: rejected at compile_dialog; Compile error: Invalid use of object. Portable measurement evidence: syntax_corpus/oracle/evidence/gap_review_20261019.json. This records Excel outcomes, not analyzer parity.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nConst k As LongPtr = Nothing\r\nDebug.Print k\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }
