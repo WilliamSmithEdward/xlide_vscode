@@ -7,7 +7,8 @@ import { describe, expect, it } from 'vitest';
 // Exercise the coordinator's pure policy without starting PowerShell or Office.
 const source = readFileSync(join(process.cwd(), 'syntax_corpus/oracle/run_vbe_oracle.mjs'), 'utf8');
 const names = ['caseHost', 'validateCrashBuilds', 'hostsNeedingBuilds', 'knownHostCrashResult',
-    'expectedMatches', 'isOracleInfrastructureFailure', 'promoteObservedCases', 'formatCasesDocument'];
+    'expectedMatches', 'isOracleInfrastructureFailure', 'promoteObservedCases', 'formatCasesDocument',
+    'evidencePhaseForCase', 'evidencePhaseForResult', 'diagnosticMeaningForResult', 'phaseMatches'];
 const functions = names.map((name) => {
     const start = source.indexOf(`function ${name}(`);
     return source.slice(start, source.indexOf('\n}', start) + 2);
@@ -53,6 +54,66 @@ describe('VBE oracle known host crashes', () => {
 });
 
 describe('VBE oracle promotion writes', () => {
+    it.each(['excel', 'word', 'powerpoint', 'access'])('promotes %s through the coordinator writer without changing other fixtures', async (host) => {
+        for (const outcome of ['accepted', 'rejected', 'worker_error', 'timeout', 'skipped']) {
+            const target = { id: 'target', host, mode: 'compile', expected: 'observe',
+                source: 'n = 1\u00A0+ 1 \u00C9tat \uD83D\uDE00\u2028\u007F' };
+            const untouched = { id: 'untouched', expected: 'observe', source: '\u00E9',
+                provenance: 'observed-not-asserted' };
+            const document = { cases: [target, untouched] };
+            const before = JSON.stringify(document);
+            const writes: Array<{ file: string; text: string; encoding: string }> = [];
+            const ran: string[] = [];
+            const start = source.indexOf('async function main(');
+            const mainSource = source.slice(start, source.indexOf('\nprocess.exit(', start));
+            const main = runInNewContext(`${mainSource}\nmain`, {
+                ...policy,
+                parseArgs: () => ({ timeout: 30, timeoutRetries: 0, dialogHoldSeconds: 0,
+                    casesPerInstance: 40, caseIds: ['target'], cases: 'memory.json',
+                    promoteObserved: true, strict: true, json: true }),
+                process: Object.assign(new EventEmitter(), { platform: 'win32' }),
+                console: { log() {}, error() {} },
+                loadCasesDocument: () => document,
+                OFFICE_HOSTS: { [host]: { progId: `${host}.Application` } },
+                comRegistered: () => true,
+                // No real Office, registry, or filesystem effects in this test.
+                setDialogSounds() {},
+                OracleWorker: class { async close() {} },
+                caseHash: () => 'hash',
+                runCaseWithRetries: async (_worker: unknown, kase: { id: string }) => {
+                    ran.push(kase.id);
+                    return { caseId: kase.id, outcome, stage: 'compile' };
+                },
+                fs: { writeFileSync: (file: string, text: string, encoding: string) => {
+                    writes.push({ file, text, encoding });
+                } },
+            });
+
+            const exit = await main([]);
+            expect(ran).toEqual(['target']);
+            if (outcome !== 'accepted' && outcome !== 'rejected') {
+                expect(exit).toBe(1);
+                expect(writes).toEqual([]);
+                expect(JSON.stringify(document)).toBe(before);
+                continue;
+            }
+            expect(exit).toBe(0);
+            expect(writes).toHaveLength(1);
+            const { file, text, encoding } = writes[0];
+            expect(file).toBe('memory.json');
+            expect(encoding).toBe('utf8');
+            expect(/^[\n -~]*$/.test(text)).toBe(true);
+            expect(text).toContain('\\u00A0');
+            expect(text).toContain('\\uD83D\\uDE00');
+            const written = JSON.parse(text);
+            expect(written.cases[0]).toEqual({ ...JSON.parse(before).cases[0], expected: outcome,
+                provenance: 'vbe-oracle-verified', evidencePhase: 'compile',
+                diagnosticMeaning: outcome === 'accepted' ? 'compile-valid' : 'compile-error' });
+            expect(written.cases[1]).toEqual(JSON.parse(before).cases[1]);
+            expect(text.endsWith('\n')).toBe(true);
+        }
+    });
+
     it('rewrites the committed fixture file byte for byte', () => {
         // \r appears on autocrlf checkouts, never in the blob.
         const text = readFileSync(join(process.cwd(), 'syntax_corpus/oracle/vbe_oracle_cases.json'), 'utf8')
