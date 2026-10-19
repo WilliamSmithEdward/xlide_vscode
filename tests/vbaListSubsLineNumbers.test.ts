@@ -1,8 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import * as svc from '../src/vba/projectService';
+import { makeTempDir, removeTempDirs } from './helpers/tempDirs';
+
+afterAll(removeTempDirs);
 
 // Procedure line numbers used to be computed per match with
 // `body.slice(0, m.index).split('\n').length`, which re-walked the module from
@@ -14,7 +16,7 @@ import * as svc from '../src/vba/projectService';
 const TEMPLATE = path.join(__dirname, '..', 'assets', 'templates', 'blank.xlsm');
 
 function tempWorkbook(): string {
-	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-lines-'));
+	const dir = makeTempDir('xlide-lines-');
 	const target = path.join(dir, 'Book.xlsm');
 	fs.copyFileSync(TEMPLATE, target);
 	return target;

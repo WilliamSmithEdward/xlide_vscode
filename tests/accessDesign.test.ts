@@ -9,7 +9,7 @@
 // The load-bearing check is the round trip: a design that rebuilds byte for
 // byte from what was parsed is a design that was understood.
 
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import {
@@ -31,6 +31,9 @@ import {
 	readAccessVbaStreams,
 	readTableRows,
 } from '../src/vba/access/accessStorage';
+import { makeTempDir, removeTempDirs } from './helpers/tempDirs';
+
+afterAll(removeTempDirs);
 
 const BINARIES = path.join(__dirname, 'fixtures', 'binaries');
 const FORMS = fs.readFileSync(path.join(BINARIES, 'AccessFormFixture.accdb'));
@@ -804,7 +807,6 @@ describe('creating and deleting a design', () => {
 // form or report exactly as it does for a UserForm, so the designer, the
 // markup editor and the preview all work without knowing which host it is.
 
-import * as os from 'os';
 import {
 	addFormModule,
 	applyFormDesignerOp,
@@ -830,7 +832,7 @@ setExtensionAssetRoot(path.join(__dirname, '..'));
 /** A scratch copy, so a test that writes never touches the fixture. */
 function scratchCopy(name: string): string {
 	const target = path.join(
-		fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-access-')), name,
+		makeTempDir('xlide-access-'), name,
 	);
 	fs.copyFileSync(path.join(BINARIES, name), target);
 	return target;
