@@ -40,7 +40,7 @@ jobs:
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.12.14"
+          python-version: "3.12.15"
 
       - name: Work out the move
         id: prepare
@@ -71,7 +71,7 @@ jobs:
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.12.14"
+          python-version: "3.12.15"
 
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -80,7 +80,7 @@ jobs:
 
       - name: Create a token for this repository
         id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ vars.YARA_APP_CLIENT_ID }}
           private-key: ${{ secrets.YARA_APP_PRIVATE_KEY }}
