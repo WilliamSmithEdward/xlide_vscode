@@ -112998,69 +112998,69 @@
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
     },
-      {
-        "id": "implicit_library_receiver_assigned_audit",
-        "description": "An undeclared value assigned before a library-named property write.",
-        "mode": "compile_then_run",
-        "entryPoint": "Main",
-        "expected": "accepted",
-        "provenance": "vbe-oracle-verified",
-        "source": "Function Main() As Variant\nSet Word = ThisWorkbook.Worksheets(1)\nWord.EnableCalculation = True\nMain = 1\nEnd Function",
-        "evidencePhase": "runtime",
-        "diagnosticMeaning": "runtime-valid"
-      },
-      {
-        "id": "implicit_library_receiver_unassigned_audit",
-        "description": "An absent library qualifier in value context without Option Explicit.",
-        "mode": "compile_then_run",
-        "entryPoint": "Main",
-        "expected": "rejected",
-        "provenance": "vbe-oracle-verified",
-        "source": "Function Main() As Variant\nMain = Word.wdFormatPDF\nEnd Function",
-        "evidencePhase": "runtime",
-        "diagnosticMeaning": "runtime-error"
-      },
-      {
-        "id": "audit_function_result_index_bare",
-        "description": "Indexed default assignment through a zero-argument function.",
-        "mode": "compile_then_run",
-        "entryPoint": "Main",
-        "expected": "accepted",
-        "provenance": "vbe-oracle-verified",
-        "modules": [
-          {
-            "name": "Caller",
-            "type": "standard",
-            "entry": true,
-            "source": "Public Function Factory() As Collection\nDim c As Collection\nSet c = New Collection\nc.Add ThisWorkbook.Worksheets(1).Range(\"A1\")\nSet Factory = c\nEnd Function\nFunction Main() As Variant\nFactory(1) = 20\nMain = 1\nEnd Function"
-          }
-        ],
-        "evidencePhase": "runtime",
-        "diagnosticMeaning": "runtime-valid"
-      },
-      {
-        "id": "audit_function_result_index_member",
-        "description": "Indexed default assignment through a zero-argument function.",
-        "mode": "compile_then_run",
-        "entryPoint": "Main",
-        "expected": "accepted",
-        "provenance": "vbe-oracle-verified",
-        "modules": [
-          {
-            "name": "Widget",
-            "type": "class",
-            "source": "Public Function Factory() As Collection\nDim c As Collection\nSet c = New Collection\nc.Add ThisWorkbook.Worksheets(1).Range(\"A1\")\nSet Factory = c\nEnd Function"
-          },
-          {
-            "name": "Caller",
-            "type": "standard",
-            "entry": true,
-            "source": "Function Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Factory(1) = 20\nMain = 1\nEnd Function"
-          }
-        ],
-        "evidencePhase": "runtime",
-        "diagnosticMeaning": "runtime-valid"
-      },
+    {
+      "id": "implicit_library_receiver_assigned_audit",
+      "description": "An undeclared value assigned before a library-named property write.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "source": "Function Main() As Variant\nSet Word = ThisWorkbook.Worksheets(1)\nWord.EnableCalculation = True\nMain = 1\nEnd Function",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "implicit_library_receiver_unassigned_audit",
+      "description": "An absent library qualifier in value context without Option Explicit.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "source": "Function Main() As Variant\nMain = Word.wdFormatPDF\nEnd Function",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "audit_function_result_index_bare",
+      "description": "Indexed default assignment through a zero-argument function.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Function Factory() As Collection\nDim c As Collection\nSet c = New Collection\nc.Add ThisWorkbook.Worksheets(1).Range(\"A1\")\nSet Factory = c\nEnd Function\nFunction Main() As Variant\nFactory(1) = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "audit_function_result_index_member",
+      "description": "Indexed default assignment through a zero-argument function.",
+      "mode": "compile_then_run",
+      "entryPoint": "Main",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "modules": [
+        {
+          "name": "Widget",
+          "type": "class",
+          "source": "Public Function Factory() As Collection\nDim c As Collection\nSet c = New Collection\nc.Add ThisWorkbook.Worksheets(1).Range(\"A1\")\nSet Factory = c\nEnd Function"
+        },
+        {
+          "name": "Caller",
+          "type": "standard",
+          "entry": true,
+          "source": "Function Main() As Variant\nDim item As Widget\nSet item = New Widget\nitem.Factory(1) = 20\nMain = 1\nEnd Function"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
     {
       "id": "reserved_member_name_type_fields_compile",
       "description": "MS-VBAL 5.2.3.3 reserved-name-member-dcl: statement keywords, a reserved-name, a literal-identifier and a _-continued While, each with an As clause, as members of a Type. VBE Compile accepts it.",
@@ -115886,7 +115886,10 @@
     },
     {
       "id": "nothing_condition_skipped_const_nothing_compile",
-      "crashesHostBuilds": ["16.0.20430.20146", "16.0.20430.20182"],
+      "crashesHostBuilds": [
+        "16.0.20430.20146",
+        "16.0.20430.20182"
+      ],
       "description": "In a skipped #If False arm: #Const O = Nothing / #If O Then: compiles (issue #1351). Crashes the host, measured in Excel, Word, PowerPoint and Access 16.0 (build 20430).",
       "provenance": "vbe-oracle-verified",
       "expected": "accepted",
@@ -115937,7 +115940,10 @@
     },
     {
       "id": "nothing_condition_compiled_const_nothing_compile",
-      "crashesHostBuilds": ["16.0.20430.20146", "16.0.20430.20182"],
+      "crashesHostBuilds": [
+        "16.0.20430.20146",
+        "16.0.20430.20182"
+      ],
       "description": "#Const O = Nothing / #If O Then: compiles (issue #1351). Crashes the host, measured in Excel, Word, PowerPoint and Access 16.0 (build 20430).",
       "provenance": "vbe-oracle-verified",
       "expected": "accepted",
