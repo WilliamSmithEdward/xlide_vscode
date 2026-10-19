@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "scope": "Excel-only gap-syntax fixture draft. Historical compile measurements and unmeasured observation cases; no analyzer parity assertion.",
+  "scope": "Historical Excel-only rq17 compile measurements. Current M1-M11 measurements are preserved in gap_syntax_validation_20261019.json; no analyzer parity assertion.",
   "fixtureBase": "45f361db",
   "measuredDate": "2026-10-16",
   "environment": {
@@ -14,7 +14,6 @@
     "No measured VBE selection ranges are available.",
     "The two Print controls use dead-code guards; passed runs do not establish executing the member expressions.",
     "rq17_typeof_is_object compiled successfully, then raised runtime 91; the canonical fixture asserts compilation only.",
-    "M1-M11 and all controls have not been measured and remain observe-only.",
     "All canonical additions are compile-only; do not run the loop, filesystem or activation controls."
   ],
   "artifacts": {
@@ -574,139 +573,5 @@
     "rq17_case_list_array",
     "rq17_lineno_for_array",
     "rq17_enum_var_is_nothing"
-  ],
-  "observations": [
-    {
-      "fixtureId": "gap_syntax_20261019_m01_compile",
-      "reviewForm": "M1",
-      "role": "candidate",
-      "measured": false
-    },
-    {
-      "fixtureId": "gap_syntax_20261019_m01_control_compile",
-      "reviewForm": "M1",
-      "role": "control",
-      "measured": false
-    },
-    {
-      "fixtureId": "gap_syntax_20261019_m02_compile",
-      "reviewForm": "M2",
-      "role": "candidate",
-      "measured": false
-    },
-    {
-      "fixtureId": "gap_syntax_20261019_m02_control_compile",
-      "reviewForm": "M2",
-      "role": "control",
-      "measured": false
-    },
-    {
-      "fixtureId": "gap_syntax_20261019_m03_compile",
-      "reviewForm": "M3",
-      "role": "candidate",
-      "measured": false
-    },
-    {
-      "fixtureId": "gap_syntax_20261019_m03_control_compile",
-      "reviewForm": "M3",
-      "role": "control",
-      "measured": false
-    },
-    {
-      "fixtureId": "gap_syntax_20261019_m04_compile",
-      "reviewForm": "M4",
-      "role": "candidate",
-      "measured": false
-    },
-    {
-      "fixtureId": "gap_syntax_20261019_m04_control_compile",
-      "reviewForm": "M4",
-      "role": "control",
-      "measured": false
-    },
-    {
-      "fixtureId": "gap_syntax_20261019_m05_compile",
-      "reviewForm": "M5",
-      "role": "candidate",
-      "measured": false
-    },
-    {
-      "fixtureId": "gap_syntax_20261019_m05_control_compile",
-      "reviewForm": "M5",
-      "role": "control",
-      "measured": false
-    },
-    {
-      "fixtureId": "gap_syntax_20261019_m06_compile",
-      "reviewForm": "M6",
-      "role": "candidate",
-      "measured": false
-    },
-    {
-      "fixtureId": "gap_syntax_20261019_m06_control_compile",
-      "reviewForm": "M6",
-      "role": "control",
-      "measured": false
-    },
-    {
-      "fixtureId": "gap_syntax_20261019_m07_compile",
-      "reviewForm": "M7",
-      "role": "candidate",
-      "measured": false
-    },
-    {
-      "fixtureId": "gap_syntax_20261019_m07_control_compile",
-      "reviewForm": "M7",
-      "role": "control",
-      "measured": false
-    },
-    {
-      "fixtureId": "gap_syntax_20261019_m08_compile",
-      "reviewForm": "M8",
-      "role": "candidate",
-      "measured": false
-    },
-    {
-      "fixtureId": "gap_syntax_20261019_m08_control_compile",
-      "reviewForm": "M8",
-      "role": "control",
-      "measured": false
-    },
-    {
-      "fixtureId": "gap_syntax_20261019_m09_compile",
-      "reviewForm": "M9",
-      "role": "candidate",
-      "measured": false
-    },
-    {
-      "fixtureId": "gap_syntax_20261019_m09_control_compile",
-      "reviewForm": "M9",
-      "role": "control",
-      "measured": false
-    },
-    {
-      "fixtureId": "gap_syntax_20261019_m10_compile",
-      "reviewForm": "M10",
-      "role": "candidate",
-      "measured": false
-    },
-    {
-      "fixtureId": "gap_syntax_20261019_m10_control_compile",
-      "reviewForm": "M10",
-      "role": "control",
-      "measured": false
-    },
-    {
-      "fixtureId": "gap_syntax_20261019_m11_compile",
-      "reviewForm": "M11",
-      "role": "candidate",
-      "measured": false
-    },
-    {
-      "fixtureId": "gap_syntax_20261019_m11_control_compile",
-      "reviewForm": "M11",
-      "role": "control",
-      "measured": false
-    }
   ]
 }

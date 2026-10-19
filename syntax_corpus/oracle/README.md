@@ -389,56 +389,59 @@ owned by the oracle workflow.
 
 ## Gap-syntax fixture follow-up (2026-10-19)
 
-This batch adds 50 Excel-only, **compile-only** fixtures. It does not add analyzer
-rules or assert that the analyzer matches every measured Excel outcome.
+This batch adds 50 Excel-only, **compile-only** fixtures: 36 compile rejections
+and 14 compile acceptances. It does not add analyzer rules or claim diagnostic
+message/range conformance.
 
-The 28 `rq17_*` fixtures preserve the syntax portion of an existing measurement
-batch from 2026-10-16: 25 compile rejections and three compile acceptances on
-Microsoft 365 Apps for enterprise, x64, Excel build `16.0.20430.20182`. The portable
+The 28 `rq17_*` fixtures preserve the syntax portion of the 2026-10-16 batch:
+25 compile rejections and three compile acceptances on Microsoft 365 Apps for
+enterprise, x64, Excel build `16.0.20430.20182`. The historical
 [evidence bundle](evidence/gap_syntax_rq17_20261016.json) retains the exact original
-input document and result log with SHA-256 hashes, selected input/result pairs,
-per-case build/date information, and the ten probe IDs outside this fixture PR's
-scope. Original module names, kinds and source are preserved; probe module
-`kind` is translated to the oracle's `type`, including Class1. Explicit modules
-also retain the original single-source probe's Module1 name.
+input/log and hashes, selected input/result pairs, per-case build/date metadata,
+and the ten probe IDs outside this fixture PR's scope. Original module names,
+kinds and source are preserved; probe `kind` becomes oracle `type`, including
+Class1. Explicit modules retain the single-source probes' Module1 name.
 
 The two accepted Print-member fixtures contain `If False Then` guards. Their
-passed historical runs do not establish that executing those expressions would
-succeed. `rq17_typeof_is_object` compiled successfully and then raised runtime
-error 91; its new fixture asserts compilation only. The old probe runner's exact
-revision, reference versions and selected VBE ranges were not recorded. No new
-Excel run, environment capture or range measurement was performed for this PR.
+historical passed runs do not prove execution of those expressions succeeds.
+`rq17_typeof_is_object` compiled and then raised runtime error 91; its fixture
+asserts compilation only. The old probe runner revision, reference versions and
+selected VBE ranges were not recorded.
 
-The 22 `gap_syntax_20261019_mNN[_control]_compile` fixtures contain review forms
-M1-M11 and their paired controls. **None has been measured**, including the
-controls. They therefore use `expected: "observe"`, `diagnosticMeaning:
-"observation"`, and the repository's observe-case provenance classification
-`observed-not-asserted`; that classification does not claim these sources have
-already been observed in Excel. Descriptions carry no asserted error message.
-Their audit associations identify families to measure, not diagnostic ownership
-or analyzer conformance.
+All 50 fixtures were compiled again in real Excel on 2026-10-19 on the same
+Microsoft 365 x64 build. The 28 rq17 verdicts and exact dialog messages matched
+the historical evidence. The 22 `gap_syntax_20261019_mNN[_control]_compile` cases
+cover review forms M1-M11 and their controls: all eleven candidates were rejected,
+and all eleven controls compiled. These now assert the measured outcomes using
+`vbe-oracle-verified` provenance and compile-error/compile-valid meanings.
+
+The new [validation evidence](evidence/gap_syntax_validation_20261019.json)
+preserves the transported input snapshots, environment, corpus/harness hashes,
+runner, raw results and checkpoints. Known accepted/rejected strict controls ran
+before and after the batch. No cases were skipped or resumed, no retries were
+needed, and no infrastructure failures occurred. Messages and stages are
+measured; selected text/ranges and reference versions were not captured.
+Existing asserted audit links remain unchanged: corpus assertions do not assign
+these new forms to a diagnostic owner or prove analyzer conformance.
 
 The pairs cover inactive conditional-compilation boundaries in Do/Select,
 dotted TypeOf operands, omitted and repeated call arguments, unfinished operands
 before inline Else, implicit With assignment targets, and suffixed/LongPtr Next
-counters. All source text is a complete standard module. Every canonical fixture
-uses `mode: "compile"`; `entryPoint: "Main"` supports local source-transform
-sweeps without changing that mode. In particular, the M1 control has an endless
-loop, and other controls contain FileCopy, AppActivate or uninitialized objects.
-Do not change these fixtures to run mode.
+counters. Each source is a complete standard module. All fixtures use
+`mode: "compile"`; `entryPoint: "Main"` supports local transform sweeps without
+changing that mode. The M1 control contains an endless loop, and other controls
+contain FileCopy, AppActivate or uninitialized objects. Do not change them to run
+mode: compile acceptance is no runtime assertion.
 
-To measure an observation pair on Windows with Excel, run one sequential oracle
-invocation, for example:
+To recheck a pair on Windows with Excel, run one sequential invocation:
 
 ```powershell
-node syntax_corpus/oracle/run_vbe_oracle.mjs --case gap_syntax_20261019_m01_compile --case gap_syntax_20261019_m01_control_compile --checkpoint gap-syntax-m01-results.jsonl
+node syntax_corpus/oracle/run_vbe_oracle.mjs --case gap_syntax_20261019_m01_compile --case gap_syntax_20261019_m01_control_compile --strict --checkpoint gap-syntax-m01-results.jsonl
 ```
 
-Capture the actual outcome, dialog wording, Excel environment/build and selected
-text/range before promotion. Infrastructure failures supply no VBA verdict. Run
-pairs sequentially with known strict controls as described above. Once valid
-measurements exist, preserve their raw evidence and review any contradictory
-result before using `--promote-observed` on explicitly named cases. Promotion
-updates verdict/provenance/phase/meaning; it does not independently preserve the
-message, selection or environment evidence. Do not promote these observations
-from the review's inferred expectations or from analyzer results.
+Retain actual verdict, dialog wording, stage and environment for each run. Strict
+mode checks verdict and phase; exact message comparison is separate. A checkpoint
+may reuse valid evidence, so use a fresh path for a claimed fresh measurement.
+Infrastructure failures provide no VBA verdict and require investigation before
+continuing. Never infer a selection range from analyzer spans or the worker's
+initial code-pane selection.

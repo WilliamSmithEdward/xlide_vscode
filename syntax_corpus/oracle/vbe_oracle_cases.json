@@ -120247,10 +120247,10 @@
     },
     {
       "id": "gap_syntax_20261019_m01_compile",
-      "description": "Unmeasured gap-syntax review M1 candidate: conditioned Do across an inactive arm. No Excel outcome or message is asserted.",
+      "description": "gap-syntax review M1 candidate: conditioned Do across an inactive arm. Excel Compile rejected: Loop without Do (measured 2026-10-19, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_validation_20261019.json).",
       "host": "excel",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
       "mode": "compile",
       "modules": [
         {
@@ -120261,14 +120261,14 @@
       ],
       "entryPoint": "Main",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-error"
     },
     {
       "id": "gap_syntax_20261019_m01_control_compile",
-      "description": "Unmeasured gap-syntax review M1 control: plain Do with a closing condition across an inactive arm. No Excel outcome or message is asserted.",
+      "description": "gap-syntax review M1 control: plain Do with a closing condition across an inactive arm. Excel Compile accepted; no runtime assertion (measured 2026-10-19, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_validation_20261019.json).",
       "host": "excel",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
       "mode": "compile",
       "modules": [
         {
@@ -120279,14 +120279,14 @@
       ],
       "entryPoint": "Main",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-valid"
     },
     {
       "id": "gap_syntax_20261019_m02_compile",
-      "description": "Unmeasured gap-syntax review M2 candidate: Case after Case Else across an inactive arm. No Excel outcome or message is asserted.",
+      "description": "gap-syntax review M2 candidate: Case after Case Else across an inactive arm. Excel Compile rejected: Case without Select Case (measured 2026-10-19, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_validation_20261019.json).",
       "host": "excel",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
       "mode": "compile",
       "modules": [
         {
@@ -120297,14 +120297,14 @@
       ],
       "entryPoint": "Main",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-error"
     },
     {
       "id": "gap_syntax_20261019_m02_control_compile",
-      "description": "Unmeasured gap-syntax review M2 control: Case 2 before Case Else, followed by an inactive arm. No Excel outcome or message is asserted.",
+      "description": "gap-syntax review M2 control: Case 2 before Case Else, followed by an inactive arm. Excel Compile accepted; no runtime assertion (measured 2026-10-19, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_validation_20261019.json).",
       "host": "excel",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
       "mode": "compile",
       "modules": [
         {
@@ -120315,14 +120315,14 @@
       ],
       "entryPoint": "Main",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-valid"
     },
     {
       "id": "gap_syntax_20261019_m03_compile",
-      "description": "Unmeasured gap-syntax review M3 candidate: dotted TypeOf operand and Decimal. No Excel outcome or message is asserted.",
+      "description": "gap-syntax review M3 candidate: dotted TypeOf operand and Decimal. Excel Compile rejected: Syntax error (measured 2026-10-19, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_validation_20261019.json).",
       "host": "excel",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
       "mode": "compile",
       "modules": [
         {
@@ -120333,14 +120333,14 @@
       ],
       "entryPoint": "Main",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-error"
     },
     {
       "id": "gap_syntax_20261019_m03_control_compile",
-      "description": "Unmeasured gap-syntax review M3 control: dotted TypeOf operand with Object type. No Excel outcome or message is asserted.",
+      "description": "gap-syntax review M3 control: dotted TypeOf operand with Object type. Excel Compile accepted; no runtime assertion (measured 2026-10-19, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_validation_20261019.json).",
       "host": "excel",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
       "mode": "compile",
       "modules": [
         {
@@ -120351,14 +120351,14 @@
       ],
       "entryPoint": "Main",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-valid"
     },
     {
       "id": "gap_syntax_20261019_m04_compile",
-      "description": "Unmeasured gap-syntax review M4 candidate: omitted AppActivate Title. No Excel outcome or message is asserted.",
+      "description": "gap-syntax review M4 candidate: omitted AppActivate Title. Excel Compile rejected: Argument not optional (measured 2026-10-19, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_validation_20261019.json).",
       "host": "excel",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
       "mode": "compile",
       "modules": [
         {
@@ -120369,14 +120369,14 @@
       ],
       "entryPoint": "Main",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-error"
     },
     {
       "id": "gap_syntax_20261019_m04_control_compile",
-      "description": "Unmeasured gap-syntax review M4 control: supplied AppActivate Title and Wait arguments. No Excel outcome or message is asserted.",
+      "description": "gap-syntax review M4 control: supplied AppActivate Title and Wait arguments. Excel Compile accepted; no runtime assertion (measured 2026-10-19, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_validation_20261019.json).",
       "host": "excel",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
       "mode": "compile",
       "modules": [
         {
@@ -120387,14 +120387,14 @@
       ],
       "entryPoint": "Main",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-valid"
     },
     {
       "id": "gap_syntax_20261019_m05_compile",
-      "description": "Unmeasured gap-syntax review M5 candidate: omitted FileCopy Source. No Excel outcome or message is asserted.",
+      "description": "gap-syntax review M5 candidate: omitted FileCopy Source. Excel Compile rejected: Argument not optional (measured 2026-10-19, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_validation_20261019.json).",
       "host": "excel",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
       "mode": "compile",
       "modules": [
         {
@@ -120405,14 +120405,14 @@
       ],
       "entryPoint": "Main",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-error"
     },
     {
       "id": "gap_syntax_20261019_m05_control_compile",
-      "description": "Unmeasured gap-syntax review M5 control: supplied FileCopy Source and Destination arguments. No Excel outcome or message is asserted.",
+      "description": "gap-syntax review M5 control: supplied FileCopy Source and Destination arguments. Excel Compile accepted; no runtime assertion (measured 2026-10-19, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_validation_20261019.json).",
       "host": "excel",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
       "mode": "compile",
       "modules": [
         {
@@ -120423,14 +120423,14 @@
       ],
       "entryPoint": "Main",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-valid"
     },
     {
       "id": "gap_syntax_20261019_m06_compile",
-      "description": "Unmeasured gap-syntax review M6 candidate: duplicate named AppActivate Title. No Excel outcome or message is asserted.",
+      "description": "gap-syntax review M6 candidate: duplicate named AppActivate Title. Excel Compile rejected: Named argument already specified (measured 2026-10-19, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_validation_20261019.json).",
       "host": "excel",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
       "mode": "compile",
       "modules": [
         {
@@ -120441,14 +120441,14 @@
       ],
       "entryPoint": "Main",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-error"
     },
     {
       "id": "gap_syntax_20261019_m06_control_compile",
-      "description": "Unmeasured gap-syntax review M6 control: one named AppActivate Title argument. No Excel outcome or message is asserted.",
+      "description": "gap-syntax review M6 control: one named AppActivate Title argument. Excel Compile accepted; no runtime assertion (measured 2026-10-19, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_validation_20261019.json).",
       "host": "excel",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
       "mode": "compile",
       "modules": [
         {
@@ -120459,14 +120459,14 @@
       ],
       "entryPoint": "Main",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-valid"
     },
     {
       "id": "gap_syntax_20261019_m07_compile",
-      "description": "Unmeasured gap-syntax review M7 candidate: unfinished operand before inline Else. No Excel outcome or message is asserted.",
+      "description": "gap-syntax review M7 candidate: unfinished operand before inline Else. Excel Compile rejected: Syntax error (measured 2026-10-19, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_validation_20261019.json).",
       "host": "excel",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
       "mode": "compile",
       "modules": [
         {
@@ -120477,14 +120477,14 @@
       ],
       "entryPoint": "Main",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-error"
     },
     {
       "id": "gap_syntax_20261019_m07_control_compile",
-      "description": "Unmeasured gap-syntax review M7 control: complete assignment expressions around inline Else. No Excel outcome or message is asserted.",
+      "description": "gap-syntax review M7 control: complete assignment expressions around inline Else. Excel Compile accepted; no runtime assertion (measured 2026-10-19, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_validation_20261019.json).",
       "host": "excel",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
       "mode": "compile",
       "modules": [
         {
@@ -120495,14 +120495,14 @@
       ],
       "entryPoint": "Main",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-valid"
     },
     {
       "id": "gap_syntax_20261019_m08_compile",
-      "description": "Unmeasured gap-syntax review M8 candidate: implicit dot receiver assignment with a comma RHS. No Excel outcome or message is asserted.",
+      "description": "gap-syntax review M8 candidate: implicit dot receiver assignment with a comma RHS. Excel Compile rejected: Syntax error (measured 2026-10-19, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_validation_20261019.json).",
       "host": "excel",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
       "mode": "compile",
       "modules": [
         {
@@ -120513,14 +120513,14 @@
       ],
       "entryPoint": "Main",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-error"
     },
     {
       "id": "gap_syntax_20261019_m08_control_compile",
-      "description": "Unmeasured gap-syntax review M8 control: implicit dot receiver assignment with a single RHS expression. No Excel outcome or message is asserted.",
+      "description": "gap-syntax review M8 control: implicit dot receiver assignment with a single RHS expression. Excel Compile accepted; no runtime assertion (measured 2026-10-19, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_validation_20261019.json).",
       "host": "excel",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
       "mode": "compile",
       "modules": [
         {
@@ -120531,14 +120531,14 @@
       ],
       "entryPoint": "Main",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-valid"
     },
     {
       "id": "gap_syntax_20261019_m09_compile",
-      "description": "Unmeasured gap-syntax review M9 candidate: implicit bang receiver assignment with a comma RHS. No Excel outcome or message is asserted.",
+      "description": "gap-syntax review M9 candidate: implicit bang receiver assignment with a comma RHS. Excel Compile rejected: Syntax error (measured 2026-10-19, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_validation_20261019.json).",
       "host": "excel",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
       "mode": "compile",
       "modules": [
         {
@@ -120549,14 +120549,14 @@
       ],
       "entryPoint": "Main",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-error"
     },
     {
       "id": "gap_syntax_20261019_m09_control_compile",
-      "description": "Unmeasured gap-syntax review M9 control: implicit bang receiver assignment with a single RHS expression. No Excel outcome or message is asserted.",
+      "description": "gap-syntax review M9 control: implicit bang receiver assignment with a single RHS expression. Excel Compile accepted; no runtime assertion (measured 2026-10-19, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_validation_20261019.json).",
       "host": "excel",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
       "mode": "compile",
       "modules": [
         {
@@ -120567,14 +120567,14 @@
       ],
       "entryPoint": "Main",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-valid"
     },
     {
       "id": "gap_syntax_20261019_m10_compile",
-      "description": "Unmeasured gap-syntax review M10 candidate: indexed suffixed Next counter. No Excel outcome or message is asserted.",
+      "description": "gap-syntax review M10 candidate: indexed suffixed Next counter. Excel Compile rejected: Expected array (measured 2026-10-19, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_validation_20261019.json).",
       "host": "excel",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
       "mode": "compile",
       "modules": [
         {
@@ -120585,14 +120585,14 @@
       ],
       "entryPoint": "Main",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-error"
     },
     {
       "id": "gap_syntax_20261019_m10_control_compile",
-      "description": "Unmeasured gap-syntax review M10 control: unindexed suffixed Next counter. No Excel outcome or message is asserted.",
+      "description": "gap-syntax review M10 control: unindexed suffixed Next counter. Excel Compile accepted; no runtime assertion (measured 2026-10-19, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_validation_20261019.json).",
       "host": "excel",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
       "mode": "compile",
       "modules": [
         {
@@ -120603,14 +120603,14 @@
       ],
       "entryPoint": "Main",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-valid"
     },
     {
       "id": "gap_syntax_20261019_m11_compile",
-      "description": "Unmeasured gap-syntax review M11 candidate: indexed LongPtr Next counter. No Excel outcome or message is asserted.",
+      "description": "gap-syntax review M11 candidate: indexed LongPtr Next counter. Excel Compile rejected: Expected array (measured 2026-10-19, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_validation_20261019.json).",
       "host": "excel",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
       "mode": "compile",
       "modules": [
         {
@@ -120621,14 +120621,14 @@
       ],
       "entryPoint": "Main",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-error"
     },
     {
       "id": "gap_syntax_20261019_m11_control_compile",
-      "description": "Unmeasured gap-syntax review M11 control: unindexed LongPtr Next counter. No Excel outcome or message is asserted.",
+      "description": "gap-syntax review M11 control: unindexed LongPtr Next counter. Excel Compile accepted; no runtime assertion (measured 2026-10-19, Microsoft 365 Apps for enterprise, x64, 16.0.20430.20182; evidence/gap_syntax_validation_20261019.json).",
       "host": "excel",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
       "mode": "compile",
       "modules": [
         {
@@ -120639,7 +120639,7 @@
       ],
       "entryPoint": "Main",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-valid"
     }
   ]
 }
