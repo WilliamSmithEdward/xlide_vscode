@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { describe, expect, it } from 'vitest';
@@ -135,3 +136,87 @@ describe('VBE oracle worker', () => {
         expect(readOracle('run_excel_vbe_oracle.mjs')).toContain("await import('./run_vbe_oracle.mjs');");
     });
 });
+
+
+it.skipIf(process.platform !== 'win32')('distinguishes invocation failures from normal returns in the worker run path', () => {
+    const worker = readOracle('vbe_oracle_worker.ps1').replaceAll('\r\n', '\n');
+    const functions = ['Test-MacroNotFound', 'Assert-HostAlive', 'Resolve-DialogAfterStop', 'Set-DialogOutcome', 'Get-RunMacroNames']
+        .map(name => {
+            const start = worker.indexOf('function ' + name + '(');
+            expect(start, name).toBeGreaterThanOrEqual(0);
+            return worker.slice(start, worker.indexOf('\n}', start) + 2);
+        }).join('\n');
+    const runStart = worker.indexOf('        elseif ($mode -eq "run" -and $case.entryPoint) {');
+    const verdict = worker.indexOf('        if ($result.outcome -eq "setup_error")', runStart);
+    const cleanup = worker.indexOf('\n    finally {', verdict);
+    expect(runStart).toBeGreaterThan(0);
+    expect(verdict).toBeGreaterThan(runStart);
+    expect(cleanup).toBeGreaterThan(verdict);
+    // Run the production branch, acceptance fallback and outer catch. Only the
+    // COM host and dialog watcher are fakes; no Office application is started.
+    const flow = worker.slice(runStart, cleanup).trimStart().replace(/^elseif/, 'if');
+    const script = String.raw`
+$ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public class OracleInvocationProbe {
+    public string Mode;
+    public bool MacroExecuted;
+    public string Name { get { return "Probe"; } }
+    public void Run(string macro) {
+        if (Mode == "argument") throw new ArgumentException("Value does not fall within the expected range.");
+        if (Mode == "rpc") throw new COMException("The remote procedure call failed.", -2147023170);
+        if (Mode == "missing") throw new COMException("Cannot run the macro", -2146827284);
+        MacroExecuted = true;
+        if (Mode == "date") throw new ArgumentException("Not a legal OleAut date.");
+    }
+}
+public static class XlideVbeDialogWatcher {
+    public static bool DialogSeen = false;
+    public static void Start(int pid, object result, object stage, object seconds, object hold, bool end) {}
+    public static void Stop() {}
+}
+"@
+function Set-Stage($value) { $script:stage = $value }
+function Wait-ForRunDialogResult { return $script:dialog }
+function Read-DialogResult { return $script:dialog }
+` + functions + String.raw`
+$results = foreach ($hostName in @('excel', 'word', 'powerpoint', 'access')) {
+    foreach ($scenario in @('success', 'date', 'argument', 'rpc', 'missing', 'dialog')) {
+        $script:hostName = $hostName
+        $script:hostNoun = $hostName
+        $script:dialog = if ($scenario -eq 'dialog') { [pscustomobject]@{ kind='vbe_runtime_dialog'; message='Run-time error' } } else { $null }
+        $app = [OracleInvocationProbe]::new()
+        $app.Mode = if ($scenario -eq 'dialog') { 'argument' } else { $scenario }
+        $appPid = $PID
+        $container = [pscustomobject]@{ Name='Scratch' }
+        $component = [pscustomobject]@{ Name='Probe' }
+        $vbProject = [pscustomobject]@{ Name='Oracle' }
+        $case = [pscustomobject]@{ entryPoint='Main' }
+        $mode = 'run'
+        $result = @{ outcome='setup_error'; stage='setup'; message=''; hresult=$null }
+        try {
+` + flow + String.raw`
+        [pscustomobject]@{ host=$hostName; scenario=$scenario; outcome=$result.outcome; stage=$result.stage; macroExecuted=$app.MacroExecuted }
+    }
+}
+ConvertTo-Json -InputObject @($results) -Compress
+`;
+    // EncodedCommand handles CRLF and multiline definitions without relying on
+    // Windows PowerShell's interactive stdin parsing or interpolating values.
+    const run = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')], {
+        encoding: 'utf8', timeout: 15_000,
+    });
+    expect(run.error).toBeUndefined();
+    expect(run.status, run.stderr).toBe(0);
+    const results = JSON.parse(run.stdout.trim());
+    const expected = Object.keys(OFFICE_HOST_APPS).flatMap(host => [
+        { host, scenario: 'success', outcome: 'accepted', stage: 'run', macroExecuted: true },
+        { host, scenario: 'date', outcome: 'accepted', stage: 'run', macroExecuted: true },
+        ...['argument', 'rpc', 'missing'].map(scenario => ({ host, scenario, outcome: 'worker_error', stage: 'run', macroExecuted: false })),
+        { host, scenario: 'dialog', outcome: 'rejected', stage: 'runtime_dialog', macroExecuted: false },
+    ]);
+    expect(results).toEqual(expected);
+}, 20_000);
