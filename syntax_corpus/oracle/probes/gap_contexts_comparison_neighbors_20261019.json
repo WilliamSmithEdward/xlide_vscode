@@ -1,0 +1,1535 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "q5_instr_strings_bare_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStr(\"a\", \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_strings_bare_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStr(\"a\", \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_strings_bare_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf InStr(\"a\", \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_strings_qualified_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStr(\"a\", \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_strings_qualified_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStr(\"a\", \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_strings_qualified_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf VBA.InStr(\"a\", \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_variant_bare_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStr(v, \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_variant_bare_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStr(v, \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_variant_bare_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf InStr(v, \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_variant_qualified_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStr(v, \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_variant_qualified_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStr(v, \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_variant_qualified_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf VBA.InStr(v, \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_null_bare_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStr(Null, \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_null_bare_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStr(Null, \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_null_bare_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf InStr(Null, \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_null_qualified_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStr(Null, \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_null_qualified_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStr(Null, \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_null_qualified_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf VBA.InStr(Null, \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_object_bare_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStr(obj, \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_object_bare_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStr(obj, \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_object_bare_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf InStr(obj, \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_object_qualified_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStr(obj, \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_object_qualified_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStr(obj, \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_object_qualified_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf VBA.InStr(obj, \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_second_variant_bare_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStr(\"a\", v)\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_second_variant_bare_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStr(\"a\", v) Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_second_variant_bare_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf InStr(\"a\", v) Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_second_variant_qualified_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStr(\"a\", v)\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_second_variant_qualified_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStr(\"a\", v) Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instr_second_variant_qualified_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf VBA.InStr(\"a\", v) Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_strings_bare_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStrB(\"a\", \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_strings_bare_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStrB(\"a\", \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_strings_bare_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf InStrB(\"a\", \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_strings_qualified_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStrB(\"a\", \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_strings_qualified_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStrB(\"a\", \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_strings_qualified_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf VBA.InStrB(\"a\", \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_variant_bare_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStrB(v, \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_variant_bare_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStrB(v, \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_variant_bare_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf InStrB(v, \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_variant_qualified_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStrB(v, \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_variant_qualified_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStrB(v, \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_variant_qualified_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf VBA.InStrB(v, \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_null_bare_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStrB(Null, \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_null_bare_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStrB(Null, \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_null_bare_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf InStrB(Null, \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_null_qualified_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStrB(Null, \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_null_qualified_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStrB(Null, \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_null_qualified_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf VBA.InStrB(Null, \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_object_bare_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStrB(obj, \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_object_bare_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStrB(obj, \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_object_bare_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf InStrB(obj, \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_object_qualified_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStrB(obj, \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_object_qualified_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStrB(obj, \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_object_qualified_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf VBA.InStrB(obj, \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_second_variant_bare_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStrB(\"a\", v)\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_second_variant_bare_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print InStrB(\"a\", v) Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_second_variant_bare_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf InStrB(\"a\", v) Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_second_variant_qualified_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStrB(\"a\", v)\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_second_variant_qualified_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.InStrB(\"a\", v) Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_instrb_second_variant_qualified_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf VBA.InStrB(\"a\", v) Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_strings_bare_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print StrComp(\"a\", \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_strings_bare_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print StrComp(\"a\", \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_strings_bare_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf StrComp(\"a\", \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_strings_qualified_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.StrComp(\"a\", \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_strings_qualified_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.StrComp(\"a\", \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_strings_qualified_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf VBA.StrComp(\"a\", \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_variant_bare_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print StrComp(v, \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_variant_bare_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print StrComp(v, \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_variant_bare_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf StrComp(v, \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_variant_qualified_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.StrComp(v, \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_variant_qualified_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.StrComp(v, \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_variant_qualified_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf VBA.StrComp(v, \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_null_bare_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print StrComp(Null, \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_null_bare_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print StrComp(Null, \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_null_bare_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf StrComp(Null, \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_null_qualified_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.StrComp(Null, \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_null_qualified_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.StrComp(Null, \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_null_qualified_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf VBA.StrComp(Null, \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_object_bare_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print StrComp(obj, \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_object_bare_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print StrComp(obj, \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_object_bare_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf StrComp(obj, \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_object_qualified_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.StrComp(obj, \"a\")\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_object_qualified_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.StrComp(obj, \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_object_qualified_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf VBA.StrComp(obj, \"a\") Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_second_variant_bare_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print StrComp(\"a\", v)\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_second_variant_bare_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print StrComp(\"a\", v) Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_second_variant_bare_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf StrComp(\"a\", v) Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_second_variant_qualified_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.StrComp(\"a\", v)\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_second_variant_qualified_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print VBA.StrComp(\"a\", v) Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "q5_strcomp_second_variant_qualified_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant, obj As Object\n    If False Then Debug.Print TypeOf VBA.StrComp(\"a\", v) Is Collection\nEnd Sub\n"
+        }
+      ]
+    }
+  ]
+}

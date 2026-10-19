@@ -5,7 +5,7 @@ import { analyzeVbaModuleSource } from '../../src/vbaModuleAnalysis';
 import { buildVbaProjectIndex, effectiveModuleKind, projectAnalysisOptionsForModule, projectProcedureSignatures } from '../../src/vbaProjectAnalysis';
 import { oracleModuleInput } from '../helpers/oracleModuleInput';
 
-const documents = ['review', 'validation'].map(name => JSON.parse(readFileSync(`syntax_corpus/oracle/evidence/gap_contexts_${name}_20261019.json`, 'utf8')));
+const documents = ['review', 'validation', 'completion'].map(name => JSON.parse(readFileSync(`syntax_corpus/oracle/evidence/gap_contexts_${name}_20261019.json`, 'utf8')));
 const evidence = { cases: documents.flatMap(d => d.cases), checkpointRecords: documents.flatMap(d => d.checkpointRecords) };
 const results = new Map<string, any>(evidence.checkpointRecords.map((record: any) => [record.result.caseId, record.result]));
 const changedRangeCodes = new Set(['is-operator-non-object', 'typeof-invalid-expression', 'non-scalar-binary-operand', 'argument-count']);

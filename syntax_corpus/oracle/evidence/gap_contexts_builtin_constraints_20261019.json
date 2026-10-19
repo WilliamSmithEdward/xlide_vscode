@@ -1,0 +1,4212 @@
+{
+  "version": 1,
+  "host": "excel",
+  "hostBuild": "16.0.20430.20182",
+  "measuredDate": "2026-10-19",
+  "limitations": [
+    "Compile constraint observations establish these exact forms, not exact return declarations or runtime results.",
+    "TypeOf and Is are measured separately; accepted constraints do not imply one another."
+  ],
+  "functions": [
+    {
+      "name": "Abs",
+      "expression": "Abs(1)",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_abs_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_abs_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_abs_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nSyntax error",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Array",
+      "expression": "Array(1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_array_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_array_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_array_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nSyntax error",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Asc",
+      "expression": "Asc(\"a\")",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_asc_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_asc_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_asc_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "AscB",
+      "expression": "AscB(\"a\")",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_ascb_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_ascb_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_ascb_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "AscW",
+      "expression": "AscW(\"a\")",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_ascw_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_ascw_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_ascw_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Atn",
+      "expression": "Atn(1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_atn_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_atn_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_atn_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "CallByName",
+      "expression": "CallByName(o, \"Name\", VbGet)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_callbyname_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_callbyname_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_callbyname_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "CBool",
+      "expression": "CBool(1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_cbool_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_cbool_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_cbool_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nSyntax error",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "CByte",
+      "expression": "CByte(1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_cbyte_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_cbyte_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_cbyte_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nSyntax error",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "CCur",
+      "expression": "CCur(1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_ccur_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_ccur_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_ccur_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nSyntax error",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "CDate",
+      "expression": "CDate(1)",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_cdate_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_cdate_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_cdate_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nSyntax error",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "CDbl",
+      "expression": "CDbl(1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_cdbl_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_cdbl_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_cdbl_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nSyntax error",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "CDec",
+      "expression": "CDec(1)",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_cdec_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_cdec_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_cdec_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nSyntax error",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Choose",
+      "expression": "Choose(1, \"x\")",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_choose_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_choose_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_choose_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "Chr",
+      "expression": "Chr(65)",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_chr_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_chr_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_chr_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "ChrB",
+      "expression": "ChrB(65)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_chrb_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_chrb_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_chrb_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "ChrB$",
+      "expression": "ChrB$(65)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_chrb_dollar_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_chrb_dollar_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_chrb_dollar_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "ChrW",
+      "expression": "ChrW(65)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_chrw_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_chrw_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_chrw_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "CInt",
+      "expression": "CInt(1)",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_cint_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_cint_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_cint_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nSyntax error",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "CLng",
+      "expression": "CLng(1)",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_clng_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_clng_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_clng_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nSyntax error",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "CLngLng",
+      "expression": "CLngLng(1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_clnglng_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_clnglng_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_clnglng_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nSyntax error",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Command",
+      "expression": "Command",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_command_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_command_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_command_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "Command$",
+      "expression": "Command$",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_command_dollar_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_command_dollar_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_command_dollar_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Cos",
+      "expression": "Cos(1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_cos_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_cos_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_cos_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "CreateObject",
+      "expression": "CreateObject(\"Scripting.Dictionary\")",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_createobject_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_createobject_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_createobject_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "CSng",
+      "expression": "CSng(1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_csng_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_csng_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_csng_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nSyntax error",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "CStr",
+      "expression": "CStr(1)",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_cstr_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_cstr_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_cstr_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nSyntax error",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "CurDir",
+      "expression": "CurDir",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_curdir_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_curdir_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_curdir_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "CVar",
+      "expression": "CVar(1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_cvar_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_cvar_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_cvar_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nSyntax error",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "CVDate",
+      "expression": "CVDate(#1/1/2026#)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_cvdate_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_cvdate_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_cvdate_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "CVErr",
+      "expression": "CVErr(5)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_cverr_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_cverr_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_cverr_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nSyntax error",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "DateAdd",
+      "expression": "DateAdd(\"d\", 1, #1/1/2024#)",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_dateadd_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_dateadd_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_dateadd_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "DateDiff",
+      "expression": "DateDiff(\"d\", #1/1/2024#, #1/2/2024#)",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_datediff_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_datediff_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_datediff_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "DatePart",
+      "expression": "DatePart(\"d\", #1/1/2024#)",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_datepart_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_datepart_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_datepart_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "DateSerial",
+      "expression": "DateSerial(2024, 1, 1)",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_dateserial_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_dateserial_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_dateserial_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "DateValue",
+      "expression": "DateValue(\"1/1/2024\")",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_datevalue_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_datevalue_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_datevalue_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "Day",
+      "expression": "Day(#1/1/2024#)",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_day_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_day_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_day_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "DDB",
+      "expression": "DDB(10, 1, 2, 1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_ddb_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_ddb_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_ddb_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Dir",
+      "expression": "Dir(\"x\")",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_dir_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_dir_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_dir_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "DoEvents",
+      "expression": "DoEvents",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_doevents_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_doevents_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_doevents_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nSyntax error",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Environ",
+      "expression": "Environ(\"PATH\")",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_environ_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_environ_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_environ_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "EOF",
+      "expression": "EOF(1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_eof_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_eof_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_eof_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Erl",
+      "expression": "Erl",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_erl_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_erl_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_erl_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Error",
+      "expression": "Error(5)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_error_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_error_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_error_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "Error$",
+      "expression": "Error$(5)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_error_dollar_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_error_dollar_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_error_dollar_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Exp",
+      "expression": "Exp(1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_exp_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_exp_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_exp_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "FileAttr",
+      "expression": "FileAttr(1, 1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_fileattr_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_fileattr_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_fileattr_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "FileDateTime",
+      "expression": "FileDateTime(\"x\")",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_filedatetime_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_filedatetime_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_filedatetime_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "FileLen",
+      "expression": "FileLen(\"x\")",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_filelen_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_filelen_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_filelen_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Filter",
+      "expression": "Filter(Array(\"a\"), \"a\")",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_filter_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_filter_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_filter_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "Fix",
+      "expression": "Fix(1)",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_fix_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_fix_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_fix_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nSyntax error",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Format",
+      "expression": "Format(1)",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_format_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_format_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_format_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "FormatCurrency",
+      "expression": "FormatCurrency(1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_formatcurrency_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_formatcurrency_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_formatcurrency_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "FormatDateTime",
+      "expression": "FormatDateTime(#1/1/2026#)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_formatdatetime_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_formatdatetime_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_formatdatetime_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "FormatNumber",
+      "expression": "FormatNumber(1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_formatnumber_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_formatnumber_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_formatnumber_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "FormatPercent",
+      "expression": "FormatPercent(1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_formatpercent_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_formatpercent_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_formatpercent_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "FreeFile",
+      "expression": "FreeFile",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_freefile_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_freefile_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_freefile_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "FV",
+      "expression": "FV(0.1, 2, -1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_fv_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_fv_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_fv_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "GetAllSettings",
+      "expression": "GetAllSettings(\"XlideProbe\", \"Probe\")",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_getallsettings_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_getallsettings_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_getallsettings_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "GetAttr",
+      "expression": "GetAttr(\"x\")",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_getattr_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_getattr_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_getattr_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "GetObject",
+      "expression": "GetObject(, \"Excel.Application\")",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_getobject_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_getobject_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_getobject_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "GetSetting",
+      "expression": "GetSetting(\"XlideProbe\", \"Probe\", \"Key\", \"\")",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_getsetting_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_getsetting_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_getsetting_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Hex",
+      "expression": "Hex(1)",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_hex_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_hex_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_hex_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "Hex$",
+      "expression": "Hex$(1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_hex_dollar_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_hex_dollar_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_hex_dollar_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Hour",
+      "expression": "Hour(#1/1/2024#)",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_hour_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_hour_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_hour_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "IIf",
+      "expression": "IIf(True, 1, 2)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_iif_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_iif_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_iif_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "IMEStatus",
+      "expression": "IMEStatus",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_imestatus_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_imestatus_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_imestatus_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "InputBox",
+      "expression": "InputBox(\"x\")",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_inputbox_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_inputbox_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_inputbox_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "InStr",
+      "expression": "InStr(\"ab\", \"a\")",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_instr_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_instr_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_instr_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "InStrB",
+      "expression": "InStrB(1, \"ab\", \"a\")",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_instrb_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_instrb_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_instrb_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "InStrRev",
+      "expression": "InStrRev(\"ab\", \"a\")",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_instrrev_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_instrrev_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_instrrev_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Int",
+      "expression": "Int(1)",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_int_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_int_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_int_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nSyntax error",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "IPmt",
+      "expression": "IPmt(0.1, 1, 2, 1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_ipmt_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_ipmt_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_ipmt_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "IRR",
+      "expression": "IRR(cash)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_irr_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_irr_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_irr_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "IsArray",
+      "expression": "IsArray(v)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_isarray_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_isarray_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_isarray_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "IsDate",
+      "expression": "IsDate(v)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_isdate_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_isdate_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_isdate_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "IsEmpty",
+      "expression": "IsEmpty(v)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_isempty_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_isempty_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_isempty_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "IsError",
+      "expression": "IsError(v)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_iserror_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_iserror_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_iserror_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "IsMissing",
+      "expression": "IsMissing(missing)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_ismissing_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_ismissing_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_ismissing_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "IsNull",
+      "expression": "IsNull(v)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_isnull_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_isnull_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_isnull_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "IsNumeric",
+      "expression": "IsNumeric(1)",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_isnumeric_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_isnumeric_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_isnumeric_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "IsObject",
+      "expression": "IsObject(v)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_isobject_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_isobject_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_isobject_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Join",
+      "expression": "Join(Array(\"a\"), \",\")",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_join_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_join_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_join_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "LBound",
+      "expression": "LBound(a)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_lbound_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_lbound_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_lbound_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nSyntax error",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "LCase",
+      "expression": "LCase(\"X\")",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_lcase_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_lcase_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_lcase_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "LCase$",
+      "expression": "LCase$(\"X\")",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_lcase_dollar_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_lcase_dollar_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_lcase_dollar_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Left",
+      "expression": "Left(\"ab\", 1)",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_left_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_left_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_left_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "Left$",
+      "expression": "Left$(\"ab\", 1)",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_left_dollar_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_left_dollar_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_left_dollar_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "LeftB",
+      "expression": "LeftB(\"ab\", 2)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_leftb_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_leftb_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_leftb_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "LeftB$",
+      "expression": "LeftB$(\"ab\", 2)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_leftb_dollar_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_leftb_dollar_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_leftb_dollar_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Len",
+      "expression": "Len(\"x\")",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_len_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_len_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_len_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nSyntax error",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "LenB",
+      "expression": "LenB(\"a\")",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_lenb_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_lenb_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_lenb_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nSyntax error",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Loc",
+      "expression": "Loc(1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_loc_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_loc_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_loc_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "LOF",
+      "expression": "LOF(1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_lof_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_lof_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_lof_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Log",
+      "expression": "Log(1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_log_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_log_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_log_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "LTrim",
+      "expression": "LTrim(\" x\")",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_ltrim_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_ltrim_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_ltrim_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "LTrim$",
+      "expression": "LTrim$(\" x\")",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_ltrim_dollar_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_ltrim_dollar_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_ltrim_dollar_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "MacID",
+      "expression": "MacID(\"TEXT\")",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_macid_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_macid_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_macid_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "MacScript",
+      "expression": "MacScript(\"return 1\")",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_macscript_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_macscript_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_macscript_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Mid",
+      "expression": "Mid(\"ab\", 1, 1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_mid_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_mid_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_mid_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "Mid$",
+      "expression": "Mid$(\"ab\", 1, 1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_mid_dollar_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_mid_dollar_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_mid_dollar_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "MidB",
+      "expression": "MidB(\"ab\", 1, 2)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_midb_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_midb_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_midb_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "MidB$",
+      "expression": "MidB$(\"ab\", 1, 2)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_midb_dollar_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_midb_dollar_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_midb_dollar_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Minute",
+      "expression": "Minute(#1/1/2024#)",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_minute_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_minute_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_minute_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "MIRR",
+      "expression": "MIRR(cash, 0.1, 0.1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_mirr_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_mirr_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_mirr_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Month",
+      "expression": "Month(#1/1/2024#)",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_month_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_month_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_month_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "MonthName",
+      "expression": "MonthName(1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_monthname_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_monthname_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_monthname_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "MsgBox",
+      "expression": "MsgBox(\"x\")",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_msgbox_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_msgbox_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_msgbox_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Now",
+      "expression": "Now",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_now_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_now_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_now_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "NPer",
+      "expression": "NPer(0.1, -1, 1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_nper_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_nper_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_nper_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "NPV",
+      "expression": "NPV(0.1, cash)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_npv_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_npv_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_npv_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "ObjPtr",
+      "expression": "ObjPtr(o)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_objptr_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_objptr_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_objptr_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Oct",
+      "expression": "Oct(1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_oct_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_oct_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_oct_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "Oct$",
+      "expression": "Oct$(1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_oct_dollar_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_oct_dollar_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_oct_dollar_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Partition",
+      "expression": "Partition(1, 0, 10, 1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_partition_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_partition_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_partition_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "Pmt",
+      "expression": "Pmt(0.1, 2, 1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_pmt_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_pmt_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_pmt_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "PPmt",
+      "expression": "PPmt(0.1, 1, 2, 1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_ppmt_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_ppmt_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_ppmt_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "PV",
+      "expression": "PV(0.1, 2, -1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_pv_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_pv_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_pv_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "QBColor",
+      "expression": "QBColor(1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_qbcolor_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_qbcolor_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_qbcolor_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Rate",
+      "expression": "Rate(2, -1, 1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_rate_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_rate_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_rate_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Replace",
+      "expression": "Replace(\"a\", \"a\", \"b\")",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_replace_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_replace_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_replace_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Replace$",
+      "expression": "Replace$(\"a\", \"a\", \"b\")",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_replace_dollar_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_replace_dollar_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_replace_dollar_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "RGB",
+      "expression": "RGB(1, 2, 3)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_rgb_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_rgb_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_rgb_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Right",
+      "expression": "Right(\"ab\", 1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_right_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_right_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_right_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "Right$",
+      "expression": "Right$(\"ab\", 1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_right_dollar_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_right_dollar_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_right_dollar_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "RightB",
+      "expression": "RightB(\"ab\", 2)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_rightb_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_rightb_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_rightb_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "RightB$",
+      "expression": "RightB$(\"ab\", 2)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_rightb_dollar_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_rightb_dollar_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_rightb_dollar_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Rnd",
+      "expression": "Rnd",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_rnd_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_rnd_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_rnd_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Round",
+      "expression": "Round(1)",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_round_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_round_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_round_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "RTrim",
+      "expression": "RTrim(\"x \")",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_rtrim_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_rtrim_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_rtrim_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "RTrim$",
+      "expression": "RTrim$(\"x \")",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_rtrim_dollar_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_rtrim_dollar_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_rtrim_dollar_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Second",
+      "expression": "Second(#1/1/2024#)",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_second_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_second_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_second_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "Seek",
+      "expression": "Seek(1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_seek_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_seek_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_seek_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nSyntax error",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Sgn",
+      "expression": "Sgn(1)",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_sgn_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_sgn_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_sgn_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nSyntax error",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Shell",
+      "expression": "Shell(\"cmd.exe\")",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_shell_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_shell_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_shell_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Sin",
+      "expression": "Sin(1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_sin_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_sin_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_sin_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "SLN",
+      "expression": "SLN(10, 1, 2)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_sln_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_sln_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_sln_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Space",
+      "expression": "Space(1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_space_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_space_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_space_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "Space$",
+      "expression": "Space$(1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_space_dollar_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_space_dollar_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_space_dollar_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Split",
+      "expression": "Split(\"a,b\", \",\")",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_split_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_split_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_split_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "Sqr",
+      "expression": "Sqr(1)",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_sqr_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_sqr_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_sqr_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Str",
+      "expression": "Str(1)",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_str_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_str_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_str_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "Str$",
+      "expression": "Str$(1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_str_dollar_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_str_dollar_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_str_dollar_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "StrComp",
+      "expression": "StrComp(\"a\", \"b\")",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_strcomp_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_strcomp_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_strcomp_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "StrConv",
+      "expression": "StrConv(\"a\", vbUpperCase)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_strconv_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_strconv_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_strconv_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "String$",
+      "expression": "String$(1, \"x\")",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_string_dollar_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_string_dollar_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_string_dollar_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nSyntax error",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "StrPtr",
+      "expression": "StrPtr(s)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_strptr_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_strptr_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_strptr_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "StrReverse",
+      "expression": "StrReverse(\"ab\")",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_strreverse_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_strreverse_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_strreverse_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Switch",
+      "expression": "Switch(True, \"x\")",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_switch_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_switch_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_switch_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "SYD",
+      "expression": "SYD(10, 1, 2, 1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_syd_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_syd_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_syd_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Tan",
+      "expression": "Tan(1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_tan_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_tan_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_tan_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Time",
+      "expression": "Time",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_time_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_time_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_time_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "Time$",
+      "expression": "Time$",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_time_dollar_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_time_dollar_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_time_dollar_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Timer",
+      "expression": "Timer",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_timer_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_timer_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_timer_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "TimeSerial",
+      "expression": "TimeSerial(1, 2, 3)",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_timeserial_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_timeserial_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_timeserial_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "TimeValue",
+      "expression": "TimeValue(\"1:00\")",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_timevalue_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_timevalue_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_timevalue_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "Trim",
+      "expression": "Trim(\" x \")",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_trim_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_trim_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_trim_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "Trim$",
+      "expression": "Trim$(\" x \")",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_trim_dollar_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_trim_dollar_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_trim_dollar_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "TypeName",
+      "expression": "TypeName(1)",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_typename_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_typename_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_typename_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "UBound",
+      "expression": "UBound(a)",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_ubound_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_ubound_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_ubound_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nSyntax error",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "UCase",
+      "expression": "UCase(\"x\")",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_ucase_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_ucase_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_ucase_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "UCase$",
+      "expression": "UCase$(\"x\")",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_ucase_dollar_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_ucase_dollar_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_ucase_dollar_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Val",
+      "expression": "Val(\"1\")",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_val_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_val_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_val_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "VarPtr",
+      "expression": "VarPtr(v)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_varptr_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_varptr_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_varptr_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "VarType",
+      "expression": "VarType(1)",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_vartype_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_vartype_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_vartype_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Weekday",
+      "expression": "Weekday(#1/1/2024#)",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_weekday_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_weekday_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_weekday_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    },
+    {
+      "name": "WeekdayName",
+      "expression": "WeekdayName(1)",
+      "evidenceArtifact": "gap_contexts_review_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "contexts_review_builtin_weekdayname_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "contexts_review_builtin_weekdayname_is",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        },
+        "typeof": {
+          "caseId": "contexts_review_builtin_weekdayname_typeof",
+          "outcome": "rejected",
+          "message": "Compile error:\n\nType mismatch",
+          "stage": "compile_dialog"
+        }
+      }
+    },
+    {
+      "name": "Year",
+      "expression": "Year(#1/1/2024#)",
+      "evidenceArtifact": "gap_contexts_completion_20261019.json",
+      "constraints": {
+        "ordinary": {
+          "caseId": "r3_builtin_year_ordinary",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "is": {
+          "caseId": "r3_builtin_year_is",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        },
+        "typeof": {
+          "caseId": "r3_builtin_year_typeof",
+          "outcome": "accepted",
+          "message": "",
+          "stage": "compile"
+        }
+      }
+    }
+  ]
+}

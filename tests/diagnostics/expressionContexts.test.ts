@@ -503,18 +503,18 @@ describe('Excel 16.0 measured shape corrections', () => {
 		expect(compileErrors(measuredMain(`${declarations}\nIf TypeOf ${call} Is Collection Then Exit Sub`))).toEqual([]);
 	});
 	it.each([
-		'Val("1")', 'Asc("a")', 'CInt(1)', 'Sgn(1)', 'StrComp("a", "b")',
-		'Abs(1)', 'Int(1)', 'Fix(1)', 'Timer', 'CDate(1)', 'CStr(1)', 'CLng(1)',
-		'Len("a")', 'InStr("a", "a")', 'Left$("a", 1)',
-	])('preserves the measured scalar compile constraint of %s', (call) => {
-		for (const [body, code] of [
-			[`Debug.Print ${call} Is Nothing`, 'is-operator-non-object'],
-			[`If TypeOf ${call} Is Collection Then Exit Sub`, 'typeof-invalid-expression'],
-		]) {
-			const errors = compileErrors(measuredMain(body));
-			expect(errors.map((diag) => diag.code)).toEqual([code]);
-			expect(errors[0].message).toContain('VBE compile error: Type mismatch.');
-		}
+		['Val("1")', 'Type mismatch'], ['Asc("a")', 'Type mismatch'], ['CInt(1)', 'Syntax error'],
+		['Sgn(1)', 'Syntax error'], ['StrComp("a", "b")', undefined], ['Abs(1)', 'Syntax error'],
+		['Int(1)', 'Syntax error'], ['Fix(1)', 'Syntax error'], ['Timer', 'Type mismatch'],
+		['CDate(1)', 'Syntax error'], ['CStr(1)', 'Syntax error'], ['CLng(1)', 'Syntax error'],
+		['Len("a")', 'Syntax error'], ['InStr("a", "a")', undefined], ['Left$("a", 1)', 'Type mismatch'],
+	])('preserves separately measured Is and TypeOf constraints of %s', (call, typeOfMessage) => {
+		const isErrors = compileErrors(measuredMain(`Debug.Print ${call} Is Nothing`));
+		expect(isErrors.map(diag => diag.code)).toEqual(['is-operator-non-object']);
+		expect(isErrors[0].message).toContain('VBE compile error: Type mismatch.');
+		const typeOfErrors = compileErrors(measuredMain(`If TypeOf ${call} Is Collection Then Exit Sub`));
+		expect(typeOfErrors.map(diag => diag.code)).toEqual(typeOfMessage ? ['typeof-invalid-expression'] : []);
+		if (typeOfMessage) { expect(typeOfErrors[0].message).toContain(typeOfMessage); }
 		expect(compileErrors(measuredMain(`Debug.Print ${call}`))).toEqual([]);
 	});
 	it.each(['Case a', 'Case Is > a'])('rejects a whole array in %s', (clause) => {

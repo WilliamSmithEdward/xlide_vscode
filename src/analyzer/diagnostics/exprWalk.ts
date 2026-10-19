@@ -252,6 +252,14 @@ export function statementValueExpressions(source: string, stmt: LeafStatementNod
 				else if (head === 'input' || head === 'line' || head === 'get' && slot > 2) { parse(start, end, true); }
 				else { parse(start, end); }
 			});
+		} else if (head === 'close') {
+			split(first + 1, new Set([',']), toks.length, fileNumber);
+		} else if (head === 'lock' || head === 'unlock') {
+			let slot = 0;
+			split(first + 1, new Set([',', 'to']), toks.length, (start, end) => {
+				if (slot++ === 0) { fileNumber(start, end); }
+				else { parse(start, end); }
+			});
 		} else if (head === 'open') {
 			// Open path For mode [Access ...] [Lock ...] As [#]file [Len = size].
 			let depth = 0, forIndex = -1, asIndex = -1, lenIndex = -1;

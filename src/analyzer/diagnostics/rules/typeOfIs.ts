@@ -25,6 +25,7 @@ import type {
 	ExprNode,
 	IdentifierExpr,
 	Span,
+	ProcedureNode,
 	TypeOfIsExpr,
 } from '../../parser/nodes';
 import type { MemberCompletionContext } from '../../completion/memberAccess';
@@ -40,6 +41,7 @@ import {
 	isNumericType,
 	constantStringValue,
 	sourceIdentifierBinding,
+	sourceNameScopeFor,
 	type DeclaredValueShape,
 	objectAssignmentIncompatibilityReason,
 	typeEnvironmentFor,
@@ -47,6 +49,7 @@ import {
 import { tokenizeCached } from '../../lexer/tokenize';
 import { expressionShapeResolver, type ExpressionShapeContext } from '../expressionShape';
 import type { ProcedureExpressionVisitor } from '../exprWalk';
+import { retainedExpressionText } from './binaryOperandScalar';
 
 /**
  * Rule: `TypeOf` requires an object expression before `Is` (`TypeOf x Is Y`). A
@@ -206,8 +209,10 @@ export function checkIsOperatorOperands(
 ): ProcedureExpressionVisitor {
 	const forProcedure = expressionShapeResolver(symbols, projectVisibleSymbols, shapeContext);
 	const isEnum = enumTypeResolver(symbols, projectVisibleSymbols, shapeContext);
+	const intrinsicFor = measuredIntrinsicResolver(symbols, projectVisibleSymbols, shapeContext);
 	return (member) => {
 		const declaredShape = forProcedure(member);
+		const intrinsic = intrinsicFor(member);
 		const procSym = procedureSymbolFor(symbols, member);
 		const values = new Map<string, DeclaredValueShape | undefined>();
 		const shapeOf = (expr: ExprNode): DeclaredValueShape | undefined => {
@@ -228,7 +233,7 @@ export function checkIsOperatorOperands(
 			if (expr.exprKind !== 'BinaryExpr' || expr.operator !== 'Is') {
 				return;
 			}
-			const offender = nonObjectOperand(expr.left, shapeOf, isEnum) ?? nonObjectOperand(expr.right, shapeOf, isEnum);
+			const offender = nonObjectOperand(expr.left, shapeOf, isEnum, intrinsic, member) ?? nonObjectOperand(expr.right, shapeOf, isEnum, intrinsic, member);
 			if (offender) {
 				push(
 					'isOperatorNonObject',
@@ -245,6 +250,8 @@ function nonObjectOperand(
 	expr: ExprNode,
 	shapeOf: ReturnType<ReturnType<typeof expressionShapeResolver>>,
 	isEnum: (name: string) => boolean,
+	intrinsic: (expr: ExprNode) => string | undefined,
+	member: ProcedureNode,
 ): { span: Span; detail: string } | undefined {
 	if (expr.exprKind === 'LiteralExpr') {
 		const k = expr.literalKind;
@@ -253,7 +260,7 @@ function nonObjectOperand(
 		}
 		return undefined; // Nothing / Null / Empty -> not provably scalar
 	}
-	if (expr.exprKind === 'ParenExpr') { return nonObjectOperand(expr.inner, shapeOf, isEnum); }
+	if (expr.exprKind === 'ParenExpr') { return nonObjectOperand(expr.inner, shapeOf, isEnum, intrinsic, member); }
 	// Only the measured arithmetic forms, with provably scalar inputs. An
 	// unknown/Variant operand remains unknown, including inside parentheses.
 	if ((expr.exprKind === 'UnaryExpr' || expr.exprKind === 'BinaryExpr') && numericIsOperand(expr, shapeOf)) {
@@ -263,7 +270,7 @@ function nonObjectOperand(
 	const declared = shape?.asType;
 	if (shape?.isArray || shape?.isScalar || declared && (isKnownScalarType(declared.trim().toLowerCase()) || isEnum(declared.toLowerCase()))) {
 		const name = expr.exprKind === 'IdentifierExpr' ? `'${expr.name}${expr.typeSuffix ?? ''}'` : 'the expression';
-		return { span: expr.span, detail: `${name} has ${shape?.isArray ? 'array type' : shape?.isScalar ? 'a scalar numeric type' : `type ${declared}`}` };
+		return { span: measuredIsSpan(expr, intrinsic(expr), shapeOf, member), detail: `${name} has ${shape?.isArray ? 'array type' : shape?.isScalar ? 'a scalar numeric type' : `type ${declared}`}` };
 	}
 	return undefined;
 }
@@ -277,61 +284,144 @@ function numericIsOperand(expr: ExprNode, shapeOf: ReturnType<ReturnType<typeof 
 	return !shape?.isArray && shape?.asType !== undefined && isNumericType(shape.asType.toLowerCase());
 }
 
+/** Excel selects the callable name (including its member dot), not its arguments. */
+function compileOperandSpan(expr: ExprNode, member: ProcedureNode): Span {
+	if (expr.exprKind === 'IndexExpr') { return compileOperandSpan(expr.callee, member); }
+	if (expr.exprKind === 'MemberAccessExpr' && expr.object && expr.accessKind !== 'bang') {
+		const gap = { start: expr.object.span.end, end: expr.memberSpan.start };
+		const text = retainedExpressionText(member.body, gap);
+		const dot = text?.match(/^\s*\./);
+		// Adjacent dots need no source lookup; otherwise prefer the exact name
+		// when this AST node does not retain the intervening source text.
+		const start = dot ? gap.start + dot[0].length - 1
+			: gap.end - gap.start === 1 ? gap.start : expr.memberSpan.start;
+		return { start, end: expr.memberSpan.end };
+	}
+	return expr.span;
+}
+
 /** Compile constraints of TypeOf, separate from the compatibility warning. */
 export function checkTypeOfExpression(symbols: ReturnType<typeof buildModuleSymbols>, push: PushFn, projectVisibleSymbols?: readonly VbaSymbol[], shapeContext?: ExpressionShapeContext): ProcedureExpressionVisitor {
 	const forProcedure = expressionShapeResolver(symbols, projectVisibleSymbols, shapeContext);
 	const isEnum = enumTypeResolver(symbols, projectVisibleSymbols, shapeContext);
+	const intrinsicFor = measuredIntrinsicResolver(symbols, projectVisibleSymbols, shapeContext);
 	return (member) => {
 		const shapeOf = forProcedure(member);
+		const intrinsic = intrinsicFor(member);
 		return (expr) => {
 			if (expr.exprKind !== 'TypeOfIsExpr') { return; }
 			const shape = shapeOf(expr.operand);
-			if (expr.operand.exprKind === 'ParenExpr' || isKnownScalarType(expr.typeName.toLowerCase()) || expr.typeName.toLowerCase() === 'variant') {
+			const builtin = intrinsic(expr.operand);
+			// These measured comparison calls compile under TypeOf, despite
+			// their scalar constraints in binary Is. No return type is inferred.
+			const acceptedComparison = measuredComparisonCall(expr.operand, builtin);
+			const operandKind = expr.operand.exprKind;
+			const invalidSyntax = builtin && shape && TYPEOF_SYNTAX_INTRINSICS.has(builtin)
+				|| operandKind === 'ParenExpr' || operandKind === 'LiteralExpr'
+				|| operandKind === 'UnaryExpr' || operandKind === 'BinaryExpr'
+				|| isKnownScalarType(expr.typeName.toLowerCase()) || expr.typeName.toLowerCase() === 'variant';
+			if (invalidSyntax) {
 				push('typeOfInvalidExpression', "TypeOf requires an unparenthesised object expression and an object type after Is. This is a VBE compile error: Syntax error.", expr.span);
-			} else if (shape?.isArray || shape?.isScalar || shape?.asType && (isKnownScalarType(shape.asType.toLowerCase()) || isEnum(shape.asType.toLowerCase()))) {
-				push('typeOfInvalidExpression', "TypeOf requires an object expression. This is a VBE compile error: Type mismatch.", expr.operand.span);
+			} else if (!acceptedComparison && (shape?.isArray || shape?.isScalar || shape?.asType && (isKnownScalarType(shape.asType.toLowerCase()) || isEnum(shape.asType.toLowerCase())))) {
+				push('typeOfInvalidExpression', "TypeOf requires an object expression. This is a VBE compile error: Type mismatch.", compileOperandSpan(expr.operand, member));
 			}
 		};
 	};
 }
 
-/** Resolve type identity once per query, retaining module qualification and
- * ambiguous source bindings. A matching enum spelling alone is insufficient. */
+/** Resolve valid Enum identity once per query, retaining ambiguous source
+ * bindings. A matching enum spelling alone is insufficient. */
 function enumTypeResolver(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	context: ExpressionShapeContext | undefined,
 ): (name: string) => boolean {
 	const cache = new Map<string, boolean>();
-	let qualified: Map<string, VbaSymbol[]> | undefined;
 	let classNames: Set<string> | undefined;
 	return (name) => {
 		const key = name.trim().toLowerCase();
 		const cached = cache.get(key);
 		if (cached !== undefined) { return cached; }
-		let definitions: readonly VbaSymbol[];
-		if (key.includes('.')) {
-			if (!qualified) {
-				qualified = new Map();
-				const seen = new Set<VbaSymbol>();
-				const local = new Set(symbols.root.children ?? []);
-				for (const symbol of [...symbols.root.children ?? [], ...projectVisibleSymbols ?? []]) {
-					if (seen.has(symbol) || !['enum', 'type'].includes(symbol.kind) || symbol.moduleName.toLowerCase() === symbols.moduleName.toLowerCase() && !local.has(symbol)) { continue; }
-					seen.add(symbol);
-					const qualifiedName = `${symbol.moduleName}.${symbol.name}`.toLowerCase();
-					const group = qualified.get(qualifiedName) ?? [];
-					group.push(symbol);
-					qualified.set(qualifiedName, group);
-				}
-			}
-			definitions = qualified.get(key) ?? [];
-		} else {
-			definitions = sourceIdentifierBinding(symbols, undefined, projectVisibleSymbols, key, 'typeName').definitions;
-		}
+		// Excel rejects module-qualified source Enum declarations (measured
+		// imported_enum_35/36). The declaration diagnostic owns that error;
+		// do not derive a secondary operand constraint from an invalid type.
+		if (key.includes('.')) { cache.set(key, false); return false; }
+		const definitions = sourceIdentifierBinding(symbols, undefined, projectVisibleSymbols, key, 'typeName').definitions;
 		classNames ??= new Set((context?.projectClassMembers ?? []).filter((type) => ['class', 'document', 'userform'].includes(type.kind)).map((type) => type.name.toLowerCase()));
 		const result = definitions.length === 1 && definitions[0].kind === 'enum'
 			&& (definitions[0].moduleName.toLowerCase() === symbols.moduleName.toLowerCase() || !classNames.has(key));
 		cache.set(key, result);
 		return result;
 	};
+}
+
+// Unqualified grammar observations from gap_contexts_review_20261019 and
+// gap_contexts_validation_20261019. Qualification is intentionally excluded:
+// VBA's qualified call grammar need not share these intrinsic productions.
+const TYPEOF_SYNTAX_INTRINSICS = new Set([
+	'string$', 'cdbl', 'doevents', 'lenb', 'lbound', 'seek', 'cbool',
+	'cbyte', 'ccur', 'clnglng', 'csng', 'cvar', 'array', 'cverr',
+	'abs', 'int', 'fix', 'len', 'cdate', 'cdec', 'cint', 'clng', 'cstr', 'sgn', 'ubound',
+]);
+
+function measuredIntrinsicResolver(
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	visible: readonly VbaSymbol[] | undefined,
+	context: ExpressionShapeContext | undefined,
+): (member: ProcedureNode) => (expr: ExprNode) => string | undefined {
+	let externalNames: Set<string> | undefined;
+	return member => {
+		let scope: ReturnType<typeof sourceNameScopeFor> | undefined;
+		return expr => {
+			const callee = expr.exprKind === 'IndexExpr' ? expr.callee : expr;
+			if (callee.exprKind !== 'IdentifierExpr') { return undefined; }
+			const name = callee.name.toLowerCase();
+			const spelling = name + (callee.typeSuffix ?? '');
+			if (!TYPEOF_SYNTAX_INTRINSICS.has(spelling) && !TYPEOF_ACCEPTED_COMPARISONS.has(spelling)) { return undefined; }
+			if ((scope ??= sourceNameScopeFor(symbols, member, visible)).runtimeShadows.has(name)) { return undefined; }
+			if (!externalNames) {
+				externalNames = new Set((context?.implicitMembers ?? []).map(item => item.name.toLowerCase()));
+				for (const type of context?.projectClassMembers ?? []) {
+					if (type.kind === 'document' || type.kind === 'userform' || type.kind === 'class' && type.predeclaredId !== false) {
+						externalNames.add(type.name.toLowerCase());
+					}
+				}
+			}
+			return externalNames.has(name) ? undefined : spelling;
+		};
+	};
+}
+
+function measuredIsSpan(
+	expr: ExprNode,
+	intrinsic: string | undefined,
+	shapeOf: ReturnType<ReturnType<typeof expressionShapeResolver>>,
+	member: ProcedureNode,
+): Span {
+	if (expr.exprKind === 'IndexExpr') {
+		const argument = expr.args[0]?.value;
+		// Numeric Int/Fix and CBool select the argument; the measured string
+		// Int/Fix forms select the name. Source functions retain callable spans.
+		if (argument && (intrinsic === 'cbool' || intrinsic === 'cint' || intrinsic === 'clng' || intrinsic === 'int' || intrinsic === 'fix') && numericIsOperand(argument, shapeOf)) {
+			return argument.span;
+		}
+		if (measuredComparisonCall(expr, intrinsic)) {
+			const commaIndex = intrinsic === 'instrb' ? 1 : 0;
+			const second = expr.args[commaIndex].value!;
+			const third = expr.args[commaIndex + 1].value!;
+			const gap = retainedExpressionText(member.body, { start: second.span.end, end: third.span.start });
+			const comma = gap?.match(/^\s*,/);
+			if (comma) { return { start: expr.span.start, end: second.span.end + comma[0].length }; }
+		}
+	}
+	return compileOperandSpan(expr, member);
+}
+
+// Exact positional arities observed in the three retained batches. Unmeasured
+// named/other-arity forms retain the ordinary conservative shape behavior.
+const TYPEOF_ACCEPTED_COMPARISONS = new Map([['instrb', 3], ['instr', 2], ['strcomp', 2]]);
+function measuredComparisonCall(expr: ExprNode, name: string | undefined): boolean {
+	return name !== undefined && expr.exprKind === 'IndexExpr'
+		&& expr.args.length === TYPEOF_ACCEPTED_COMPARISONS.get(name)
+		&& expr.args.every(arg => !arg.name && arg.value);
 }

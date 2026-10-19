@@ -6,11 +6,13 @@ import {procedureSymbolFor} from '../analysisContext';
 // validation for every callable form one statement can contain.
 
 import type { MemberCompletionContext } from '../../completion/memberAccess';
-import { resolveRuntimeFunction } from '../../runtime/vbaRuntime';
+import { VBA_LIBRARY_CONTAINERS } from '../../runtime/vbaLibraryNames';
+import { resolveRuntimeFunction, VBA_RUNTIME_FUNCTIONS } from '../../runtime/vbaRuntime';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
-import type {
-	VbaProcedureSignature,
-	VbaSymbol,
+import {
+	qualifiedProcedureKey,
+	type VbaProcedureSignature,
+	type VbaSymbol,
 } from '../../symbols/symbolModel';
 import type { PushFn } from '../analysisContext';
 import {
@@ -18,6 +20,7 @@ import {
 	type CallArguments,
 	extractCall,
 	extractQualifiedCall,
+	isNamedSlot,
 	validateArity,
 } from '../callExtraction';
 import {
@@ -41,6 +44,47 @@ import { matchParenFrom, statementAndBranchSpans, statementTokens, tokenName, ty
 import { splitTopLevelTokenGroups } from '../../lexer/tokenHelpers';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import { resolveHostGlobalMember } from '../../host/hostModel';
+
+type ArityTables = {
+	sameModuleSignatures: ReadonlyMap<string, readonly CallableTypeSignature[]>;
+	projectSignatures: ReadonlyMap<string, CallableTypeSignature>;
+	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>;
+};
+const QUALIFIED_ARITY_TABLES = new WeakMap<object, ArityTables>();
+const QUALIFIER_VALUE_BINDINGS = new WeakMap<object, WeakMap<object, ReadonlySet<string>>>();
+const PROJECT_QUALIFIER_NAMES = new WeakMap<object, ReadonlySet<string>>();
+function projectQualifierNames(symbols: readonly VbaSymbol[] | undefined): ReadonlySet<string> {
+	if (!symbols) { return EMPTY_QUALIFIER_NAMES; }
+	const cached = PROJECT_QUALIFIER_NAMES.get(symbols);
+	if (cached) { return cached; }
+	const names = new Set(symbols.map((symbol) => symbol.moduleName.toLowerCase()));
+	PROJECT_QUALIFIER_NAMES.set(symbols, names);
+	return names;
+}
+const EMPTY_QUALIFIER_NAMES = new Set<string>();
+// Exact bare intrinsic arities measured in the 2026-10-19 Excel batch.
+// Other spellings/counts retain the existing generic arity diagnostic.
+const BARE_INTRINSIC_SYNTAX_ARITIES: ReadonlyMap<string, ReadonlySet<number>> = new Map([
+	['clng', new Set([0, 2])], ['cint', new Set([0])], ['len', new Set([0])],
+]);
+const BARE_RUNTIME_MISSING_ARGUMENT = new Set(['left$']);
+const NO_CONTEXT_MEMBERS: readonly unknown[] = [];
+function qualifierValueBindings(context: MemberCompletionContext): ReadonlySet<string> {
+	const classes = context.projectClassMembers ?? NO_CONTEXT_MEMBERS;
+	const implicit = context.implicitMembers ?? NO_CONTEXT_MEMBERS;
+	let byImplicit = QUALIFIER_VALUE_BINDINGS.get(classes);
+	if (!byImplicit) { QUALIFIER_VALUE_BINDINGS.set(classes, byImplicit = new WeakMap()); }
+	const cached = byImplicit.get(implicit);
+	if (cached) { return cached; }
+	const names = new Set<string>();
+	for (const member of context.implicitMembers ?? []) { names.add(member.name.toLowerCase()); }
+	for (const type of context.projectClassMembers ?? []) {
+		const kind = type.kind;
+		if (kind === 'document' || kind === 'userform' || kind === 'class' && type.predeclaredId !== false) { names.add(type.name.toLowerCase()); }
+	}
+	byImplicit.set(implicit, names);
+	return names;
+}
 
 /**
  * Rule: a call to a known Sub/Function/Declare must supply an argument count the
@@ -66,13 +110,82 @@ export function checkArgumentCount(
 	memberCtx: MemberCompletionContext,
 	push: PushFn,
 ): ProcedureStatementVisitor {
-	const sameModuleSignatures = sameModuleCallableSignatures(symbols);
-	const projectSignatures = uniqueProjectTypeSignatures(projectProcedures);
-	const moduleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
+	const baseSameModuleSignatures = sameModuleCallableSignatures(symbols);
+	const baseProjectSignatures = uniqueProjectTypeSignatures(projectProcedures);
+	const baseModuleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
+	const qualifiedTables = () => {
+		const cached = QUALIFIED_ARITY_TABLES.get(baseModuleSignatures);
+		if (cached) { return cached; }
+		const sameModuleSignatures = new Map(baseSameModuleSignatures);
+		const projectSignatures = new Map(baseProjectSignatures);
+		const moduleSignatures = new Map(baseModuleSignatures);
+		if (symbols.moduleKind === 'standard') {
+			for (const [name, signatures] of baseSameModuleSignatures) {
+				const key = qualifiedProcedureKey(symbols.moduleName, name);
+				moduleSignatures.set(key, signatures[0]);
+				sameModuleSignatures.set(key, signatures);
+			}
+		}
+		for (const runtime of VBA_RUNTIME_FUNCTIONS) {
+			const signature = runtimeAritySignature(runtime);
+			if (!signature) { continue; }
+			const keys = [qualifiedProcedureKey('VBA', runtime.name)];
+			for (const [container, members] of VBA_LIBRARY_CONTAINERS) {
+				if (members.has(runtime.name.toLowerCase())) {
+					keys.push(qualifiedProcedureKey(container, runtime.name), `vba.${qualifiedProcedureKey(container, runtime.name)}`);
+				}
+			}
+			for (const key of keys) {
+				if (!moduleSignatures.has(key)) {
+					moduleSignatures.set(key, signature);
+					projectSignatures.set(key, signature);
+				}
+			}
+		}
+		const tables = { sameModuleSignatures, projectSignatures, moduleSignatures };
+		QUALIFIED_ARITY_TABLES.set(baseModuleSignatures, tables);
+		return tables;
+	};
 	return (member) => {
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
 		const env = typeEnvironmentFor(symbols, member);
+		const shadowedQualifier = (name: string) => sourceNames.runtimeShadows.has(name)
+			|| qualifierValueBindings(memberCtx).has(name)
+			|| name !== symbols.moduleName.toLowerCase() && projectQualifierNames(projectVisibleSymbols).has(name);
+		const provenCall = (call: CallArguments | undefined, tokens: readonly VbaToken[], start: number): CallArguments | undefined => {
+			if (!call?.qualifier) { return call; }
+			const qualifier = call.qualifier.toLowerCase();
+			const container = VBA_LIBRARY_CONTAINERS.has(qualifier);
+			if (qualifier !== 'vba' && qualifier !== symbols.moduleName.toLowerCase() && !container) { return call; }
+			const index = tokens.findIndex((token) => start + token.start === call.nameSpan.start);
+			if (index < 2) { return undefined; }
+			if (container && tokens[index - 3]?.rawText === '.' && tokenName(tokens[index - 4])?.toLowerCase() === 'vba'
+				&& !['.', '!'].includes(tokens[index - 5]?.rawText) && !shadowedQualifier('vba')
+				&& VBA_LIBRARY_CONTAINERS.get(qualifier)?.has(call.name.toLowerCase())) {
+				return { ...call, qualifier: `VBA.${call.qualifier}`, lookupKey: `vba.${call.lookupKey}` };
+			}
+			if (qualifier === symbols.moduleName.toLowerCase() && !baseSameModuleSignatures.has(call.name.toLowerCase())) { return undefined; }
+			if (['.', '!'].includes(tokens[index - 3]?.rawText)) { return undefined; }
+			// A proven source module retains its own signature resolution.
+			if (container && baseModuleSignatures.has(call.lookupKey!)) { return call; }
+			return shadowedQualifier(qualifier) ? undefined : call;
+		};
 		return (stmt) => {
+			const tokens = statementTokens(source, stmt.span);
+			for (let i = 0; i + 1 < tokens.length; i++) {
+				// Len is reserved syntax even when a designer exposes a Len member.
+				// Brackets and member qualification select that member instead.
+				if (tokens[i].kind === 'keyword' && tokens[i].rawText.toLowerCase() === 'len'
+					&& tokens[i + 1].rawText.toLowerCase() === 'is' && !['.', '!'].includes(tokens[i - 1]?.rawText ?? '')) {
+					push('argumentCount', "Len requires an expression. This is a VBE compile error: Syntax error.", { start: stmt.span.start + tokens[i].start, end: stmt.span.start + tokens[i].end });
+				}
+			}
+			const needsQualifiedTables = tokens.some((token, index) => token.rawText === '.'
+				&& (tokenName(tokens[index - 1])?.toLowerCase() === 'vba'
+					|| tokenName(tokens[index - 1])?.toLowerCase() === symbols.moduleName.toLowerCase()
+					|| VBA_LIBRARY_CONTAINERS.has(tokenName(tokens[index - 1])?.toLowerCase() ?? '')));
+			const { sameModuleSignatures, projectSignatures, moduleSignatures } = needsQualifiedTables ? qualifiedTables()
+				: { sameModuleSignatures: baseSameModuleSignatures, projectSignatures: baseProjectSignatures, moduleSignatures: baseModuleSignatures };
 			for (const span of statementAndBranchSpans(stmt)) {
 				checkUnmodelledArity(source, span, env, sourceNames, memberCtx, push);
 			}
@@ -82,7 +195,7 @@ export function checkArgumentCount(
 			const qualifiedStatementCall = statementCall
 				? undefined
 				: extractQualifiedCall(source, stmt.span, moduleSignatures);
-			const effectiveStatementCall = statementCall ?? qualifiedStatementCall;
+			const effectiveStatementCall = provenCall(statementCall ?? qualifiedStatementCall, tokens, stmt.span.start);
 			if (effectiveStatementCall) {
 				validateCallableArity(
 					source,
@@ -95,7 +208,9 @@ export function checkArgumentCount(
 				recordProjectQualifiedCallSpan(effectiveStatementCall, projectQualifiedCallSpans);
 			}
 			const expressionCallList = expressionCalls(source, stmt.span, moduleSignatures, sourceNames);
-			for (const call of expressionCallList) {
+			for (const extracted of expressionCallList) {
+				const call = provenCall(extracted, tokens, stmt.span.start);
+				if (!call) { continue; }
 				if (setterNames.has(call.nameSpan.start) || sameCallTarget(call, effectiveStatementCall)) {
 					continue;
 				}
@@ -128,8 +243,8 @@ export function checkArgumentCount(
 			// branches: the expression scans above already cover the whole line, and
 			// running them again would report the same call twice.
 			for (const branch of statementAndBranchSpans(stmt).slice(1)) {
-				const branchCall = extractCall(source, branch)
-					?? extractQualifiedCall(source, branch, moduleSignatures);
+				const branchCall = provenCall(extractCall(source, branch)
+					?? extractQualifiedCall(source, branch, moduleSignatures), statementTokens(source, branch), branch.start);
 				if (branchCall && !projectQualifiedCallSpans.has(callTargetSpanKey(branchCall))) {
 					validateCallableArity(
 						source,
@@ -265,13 +380,39 @@ function validateCallableArity(
 	push: PushFn,
 ): void {
 	const lower = call.lookupKey ?? call.name.toLowerCase();
-	const check = (signature: CallableTypeSignature, report: PushFn): void => validateArity(source, signature, call, report);
+	const check = (signature: CallableTypeSignature, report: PushFn): void => {
+		const missing = signature.runtime
+			? signature.params.find((param, index) => index >= call.slots.length && !param.optional && !param.paramArray)
+			: undefined;
+		validateArity(source, signature, call, (key, message, span, data) => {
+			if (key !== 'argumentCount' || !message.startsWith('Wrong number of arguments')) { report(key, message, span, data); return; }
+			if (missing && (call.qualifier || call.slots.length === 0 && BARE_RUNTIME_MISSING_ARGUMENT.has(signature.name.toLowerCase()))) {
+				// Reuse the required-parameter classification for proven runtime
+				// qualifiers. Qualified CLng() is the measured message/span control.
+				const name = call.qualifier ? `${call.qualifier}.${signature.name}` : signature.name;
+				report(key, `Argument not optional: '${missing.name}' is required by '${name}'.`,
+					call.qualifier ? { start: source.lastIndexOf('.', call.nameSpan.start), end: call.nameSpan.end } : call.nameSpan, data);
+				return;
+			}
+			// Bare intrinsic grammar has separately measured syntax verdicts.
+			if (signature.runtime && !call.qualifier && !call.slots.some(isNamedSlot)
+				&& BARE_INTRINSIC_SYNTAX_ARITIES.get(signature.name.toLowerCase())?.has(call.slots.length)
+				&& /^[ \t]*\(/.test(source.slice(call.nameSpan.end))) {
+				report(key, `The intrinsic '${signature.name}' requires its expression argument. This is a VBE compile error: Syntax error.`, span, data);
+				return;
+			}
+			if (signature.runtime && call.qualifier && call.slots.length > signature.params.length && !signature.params.some((param) => param.paramArray)) {
+				report(key, `Wrong number of arguments or invalid property assignment. ${message}`,
+					{ start: source.lastIndexOf('.', call.nameSpan.start), end: call.nameSpan.end }, data);
+				return;
+			}
+			report(key, message, span, data);
+		});
+	};
 	if (!call.qualifier && bareCallableSourceShadowed(call.name, sourceNames)) {
 		return;
 	}
-	const candidates = call.qualifier
-		? undefined
-		: sameModuleSignatures.get(call.name.toLowerCase());
+	const candidates = sameModuleSignatures.get(lower);
 	if (candidates) {
 		if (candidates.length === 1) {
 			check(candidates[0], push);
@@ -305,7 +446,7 @@ function validateCallableArity(
 		const runtime = resolveRuntimeFunction(call.name);
 		const runtimeSignature = runtime ? runtimeAritySignature(runtime) : undefined;
 		if (runtimeSignature) {
-			validateArity(source, runtimeSignature, call, push);
+			check(runtimeSignature, push);
 		}
 	}
 }

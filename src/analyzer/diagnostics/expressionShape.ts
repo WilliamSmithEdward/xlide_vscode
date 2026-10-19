@@ -1,15 +1,19 @@
 // Conservative declaration shapes for operands. Resolve only declarations we
 // own; Object, Variant, unresolved members and ambiguous call results stay unknown.
 import type { Argument, ExprNode, ProcedureNode } from '../parser/nodes';
-import type { VbaSymbol } from '../symbols/symbolModel';
+import { qualifiedProcedureKey, type VbaSymbol, type VbaProcedureSignature } from '../symbols/symbolModel';
 import type { buildModuleSymbols } from '../symbols/buildModuleSymbols';
 import { resolveRuntimeConstant, resolveRuntimeFunction, resolveRuntimeObject, type VbaRuntimeFunction } from '../runtime/vbaRuntime';
-import { moduleSignatureFromSymbol, runtimeAritySignature, declarationShapeEnvironmentFor, defTypeOf, typeEnvironmentFor, sourceNameScopeFor, type SourceNameScope, type DeclaredValueShape } from './typeInference';
+import { isNumericType, moduleSignatureFromSymbol, uniqueProjectTypeSignatures, runtimeAritySignature, declarationShapeEnvironmentFor, defTypeOf, typeEnvironmentFor, sourceNameScopeFor, type SourceNameScope, type DeclaredValueShape } from './typeInference';
+import { VBA_LIBRARY_CONTAINERS } from '../runtime/vbaLibraryNames';
 import type { CallableTypeSignature } from './callExtraction';
 import type { MemberCompletionContext } from '../completion/memberAccess';
 import { resolveHostConstant, resolveHostGlobal, resolveHostGlobalMember } from '../host/hostModel';
 
-export type ExpressionShapeContext = Pick<MemberCompletionContext, 'projectClassMembers' | 'implicitMembers'>;
+export type ExpressionShapeContext = Pick<MemberCompletionContext, 'projectClassMembers' | 'implicitMembers'> & {
+	/** Caller-supplied exported signatures, with declaring-module effective returns. */
+	projectProcedures?: ReadonlyMap<string, readonly VbaProcedureSignature[]>;
+};
 
 type ShapeFactory = (proc: ProcedureNode) => (expr: ExprNode) => DeclaredValueShape | undefined;
 const factories = new WeakMap<ReturnType<typeof buildModuleSymbols>, { visible: readonly VbaSymbol[] | undefined; context: ExpressionShapeContext | undefined; factory: ShapeFactory }>();
@@ -37,6 +41,7 @@ export function expressionShapeResolver(symbols: ReturnType<typeof buildModuleSy
 				nonLocalNames.add(name);
 				valueBindings.add(name);
 			}
+			for (const key of context?.projectProcedures?.keys() ?? []) { if (key.includes('.')) { nonLocalNames.add(key.split('.')[0]); } }
 			for (const symbol of projectVisibleSymbols ?? []) { nonLocalNames.add(symbol.moduleName.toLowerCase()); }
 		}
 		return nonLocalNames.has(name);
@@ -54,13 +59,26 @@ export function expressionShapeResolver(symbols: ReturnType<typeof buildModuleSy
 		const readers = group.filter((symbol) => symbol.kind !== 'propertyLet' && symbol.kind !== 'propertySet');
 		if (readers.length === 1 && (group.length === 1 || readers[0].kind === 'propertyGet')) { readDeclarations.set(name, readers[0]); }
 	}
+	const projectSignatures = uniqueProjectTypeSignatures(context?.projectProcedures);
+	const projectShape = (key: string, args: readonly Argument[]): DeclaredValueShape | undefined => {
+		const signature = projectSignatures.get(key);
+		if (!signature?.valued || !acceptsArguments(signature, args)) { return undefined; }
+		const isArray = /\(\s*\)\s*$/.test(signature.returnType ?? '');
+		return { asType: signature.returnType, isArray, isFixedArray: false };
+	};
 	const signatures = new WeakMap<VbaSymbol, CallableTypeSignature>();
 	const runtimeSignatures = new WeakMap<VbaRuntimeFunction, CallableTypeSignature | undefined>();
-	const runtimeShape = (runtime: VbaRuntimeFunction, args: readonly Argument[]): DeclaredValueShape | undefined => {
+	const runtimeShape = (runtime: VbaRuntimeFunction, args: readonly Argument[], scalarArgument: (expr: ExprNode) => boolean): DeclaredValueShape | undefined => {
 		if (!runtimeSignatures.has(runtime)) { runtimeSignatures.set(runtime, runtimeAritySignature(runtime)); }
 		const signature = runtimeSignatures.get(runtime);
 		if (signature && !acceptsArguments(signature, args)) { return undefined; }
-		return { asType: runtime.declaredReturns, isScalar: runtime.scalarReturn, isArray: false, isFixedArray: false };
+		// Abs/Int/Fix constrain numeric/String arguments, while Null, Variant and
+		// Object inputs compiled in the 2026-10-19 Excel probes. This is an
+		// invocation constraint, not proof of an exact return declaration.
+		const conditionalScalar = /^(abs|int|fix)$/i.test(runtime.name);
+		const argument = args[0]?.value;
+		const isScalar = runtime.scalarReturn && (!conditionalScalar || !!argument && scalarArgument(argument));
+		return { asType: runtime.declaredReturns, isScalar, isArray: false, isFixedArray: false };
 	};
 	const fields = new WeakMap<VbaSymbol, ReadonlyMap<string, VbaSymbol>>();
 	const procedures = new WeakMap<ProcedureNode, ReturnType<ShapeFactory>>();
@@ -70,6 +88,13 @@ export function expressionShapeResolver(symbols: ReturnType<typeof buildModuleSy
 		let scope: SourceNameScope | undefined;
 		const shapes = declarationShapeEnvironmentFor(symbols, proc);
 		let types: ReturnType<typeof typeEnvironmentFor> | undefined;
+		const scalarArgument = (expr: ExprNode): boolean => {
+			if (expr.exprKind === 'ParenExpr') { return scalarArgument(expr.inner); }
+			if (expr.exprKind === 'UnaryExpr' && (expr.operator === '+' || expr.operator === '-')) { return scalarArgument(expr.operand); }
+			if (expr.exprKind === 'LiteralExpr') { return expr.literalKind === 'integer' || expr.literalKind === 'float' || expr.literalKind === 'string'; }
+			const shape = resolve(expr);
+			return !shape?.isArray && !!shape?.asType && (isNumericType(shape.asType.toLowerCase()) || shape.asType.toLowerCase() === 'string');
+		};
 		const callableShape = (name: string, args: readonly Argument[] = [], suffix = '', moduleQualified = false): DeclaredValueShape | undefined => {
 			if (!moduleQualified && shapes.has(name)) { return undefined; }
 			const definitions = declarations.get(name);
@@ -80,24 +105,42 @@ export function expressionShapeResolver(symbols: ReturnType<typeof buildModuleSy
 				if (!acceptsArguments(signature, args)) { return undefined; }
 				return { asType: signature.returnType, isArray: fn.isArray === true, isFixedArray: false };
 			}
+			if (!definitions && !moduleQualified && context?.projectProcedures?.has(name)) {
+				return isNonLocalName(name) && valueBindings.has(name) ? undefined : projectShape(name, args);
+			}
 			if (definitions || moduleQualified || isNonLocalName(name) && valueBindings.has(name)) { return undefined; }
 			const runtime = resolveRuntimeFunction(name + suffix);
 			if (runtime?.kind !== 'function' || (scope ??= sourceNameScopeFor(symbols, proc, projectVisibleSymbols)).runtimeShadows.has(name)) { return undefined; }
-			return runtimeShape(runtime, args);
+			return runtimeShape(runtime, args, scalarArgument);
 		};
-		const callableQualifier = (expr: ExprNode): 'module' | 'vba' | undefined => {
-			if (expr.exprKind !== 'MemberAccessExpr' || expr.accessKind === 'bang' || expr.object?.exprKind !== 'IdentifierExpr') { return undefined; }
-			const name = expr.object.name.toLowerCase();
+		const callableQualifier = (expr: ExprNode): 'module' | 'vba' | 'project' | undefined => {
+			if (expr.exprKind !== 'MemberAccessExpr' || expr.accessKind === 'bang') { return undefined; }
+			const object = expr.object;
+			if (object?.exprKind === 'MemberAccessExpr' && object.accessKind !== 'bang'
+				&& object.object?.exprKind === 'IdentifierExpr' && object.object.name.toLowerCase() === 'vba'
+				&& symbols.moduleName.toLowerCase() !== 'vba'
+				&& !shapes.has('vba') && !declarations.has('vba') && !(isNonLocalName('vba') && valueBindings.has('vba'))
+				&& !(scope ??= sourceNameScopeFor(symbols, proc, projectVisibleSymbols)).runtimeShadows.has('vba')
+				&& VBA_LIBRARY_CONTAINERS.get(object.member.toLowerCase())?.has(expr.member.toLowerCase())) { return 'vba'; }
+			if (object?.exprKind !== 'IdentifierExpr') { return undefined; }
+			const name = object.name.toLowerCase();
 			if (shapes.has(name) || declarations.has(name) || isNonLocalName(name) && valueBindings.has(name)) { return undefined; }
 			if (symbols.moduleKind === 'standard' && name === symbols.moduleName.toLowerCase()) { return 'module'; }
+			if (context?.projectProcedures?.has(qualifiedProcedureKey(name, expr.member.replace(/[$%&!#@^]$/, '')))
+				&& !(scope ??= sourceNameScopeFor(symbols, proc, projectVisibleSymbols)).runtimeShadows.has(name)) { return 'project'; }
+			if (!isNonLocalName(name) && VBA_LIBRARY_CONTAINERS.get(name)?.has(expr.member.toLowerCase())
+				&& !(scope ??= sourceNameScopeFor(symbols, proc, projectVisibleSymbols)).runtimeShadows.has(name)) { return 'vba'; }
 			if (name === 'vba' && !(scope ??= sourceNameScopeFor(symbols, proc, projectVisibleSymbols)).runtimeShadows.has(name)) { return 'vba'; }
 			return undefined;
 		};
-		const qualifiedCallableShape = (expr: Extract<ExprNode, { exprKind: 'MemberAccessExpr' }>, qualifier: 'module' | 'vba', args: readonly Argument[] = []): DeclaredValueShape | undefined => {
-			if (qualifier === 'module') { return callableShape(expr.member.toLowerCase(), args, '', true); }
+		const qualifiedCallableShape = (expr: Extract<ExprNode, { exprKind: 'MemberAccessExpr' }>, qualifier: 'module' | 'vba' | 'project', args: readonly Argument[] = []): DeclaredValueShape | undefined => {
+			// Member syntax retains its suffix and span; declaration keys omit it.
+			const name = expr.member.replace(/[$%&!#@^]$/, '').toLowerCase();
+			if (qualifier === 'module') { return callableShape(name, args, '', true); }
+			if (qualifier === 'project' && expr.object?.exprKind === 'IdentifierExpr') { return projectShape(qualifiedProcedureKey(expr.object.name, name), args); }
 			const runtime = resolveRuntimeFunction(expr.member);
 			if (runtime?.kind !== 'function') { return undefined; }
-			return runtimeShape(runtime, args);
+			return runtimeShape(runtime, args, scalarArgument);
 		};
 		const resolve = (expr: ExprNode): DeclaredValueShape | undefined => {
 			if (expr.exprKind === 'ParenExpr') { return resolve(expr.inner); }

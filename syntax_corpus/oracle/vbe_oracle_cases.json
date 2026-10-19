@@ -135284,6 +135284,4623 @@
         "artifact": "evidence/gap_contexts_validation_20261019.json",
         "caseId": "r2_intrinsic_fix_null_typeof"
       }
+    },
+    {
+      "id": "r3_builtin_msgbox_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print MsgBox(\"x\")\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "MsgBox",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_msgbox_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_msgbox_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print MsgBox(\"x\") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "MsgBox",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_msgbox_is"
+      }
+    },
+    {
+      "id": "r3_builtin_msgbox_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf MsgBox(\"x\") Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "MsgBox",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_msgbox_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_environ_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Environ(\"PATH\")\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Environ",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_environ_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_environ_is",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Environ(\"PATH\") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Environ",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_environ_is"
+      }
+    },
+    {
+      "id": "r3_builtin_environ_typeof",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Environ(\"PATH\") Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Environ",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_environ_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_len_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Len(\"x\")\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Len",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_len_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_len_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Len(\"x\") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Len",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_len_is"
+      }
+    },
+    {
+      "id": "r3_builtin_len_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Len(\"x\") Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Len",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Syntax error.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_len_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_left_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Left(\"ab\", 1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Left",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_left_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_left_is",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Left(\"ab\", 1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Left",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_left_is"
+      }
+    },
+    {
+      "id": "r3_builtin_left_typeof",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Left(\"ab\", 1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Left",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_left_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_left_dollar_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Left$(\"ab\", 1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Left$",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_left_dollar_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_left_dollar_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Left$(\"ab\", 1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Left$",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_left_dollar_is"
+      }
+    },
+    {
+      "id": "r3_builtin_left_dollar_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Left$(\"ab\", 1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Left$",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_left_dollar_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_trim_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Trim(\" x \")\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Trim",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_trim_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_trim_is",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Trim(\" x \") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Trim",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_trim_is"
+      }
+    },
+    {
+      "id": "r3_builtin_trim_typeof",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Trim(\" x \") Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Trim",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_trim_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_ucase_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print UCase(\"x\")\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "UCase",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_ucase_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_ucase_is",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print UCase(\"x\") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "UCase",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_ucase_is"
+      }
+    },
+    {
+      "id": "r3_builtin_ucase_typeof",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf UCase(\"x\") Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "UCase",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_ucase_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_replace_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Replace(\"a\", \"a\", \"b\")\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Replace",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_replace_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_replace_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Replace(\"a\", \"a\", \"b\") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Replace",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_replace_is"
+      }
+    },
+    {
+      "id": "r3_builtin_replace_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Replace(\"a\", \"a\", \"b\") Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Replace",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_replace_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_instr_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print InStr(\"ab\", \"a\")\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "InStr",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_instr_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_instr_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print InStr(\"ab\", \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "InStr",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_instr_is"
+      }
+    },
+    {
+      "id": "r3_builtin_instr_typeof",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf InStr(\"ab\", \"a\") Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "InStr",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_instr_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_split_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Split(\"a,b\", \",\")\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Split",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_split_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_split_is",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Split(\"a,b\", \",\") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Split",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_split_is"
+      }
+    },
+    {
+      "id": "r3_builtin_split_typeof",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Split(\"a,b\", \",\") Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Split",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_split_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_join_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Join(Array(\"a\"), \",\")\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Join",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_join_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_join_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Join(Array(\"a\"), \",\") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Join",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_join_is"
+      }
+    },
+    {
+      "id": "r3_builtin_join_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Join(Array(\"a\"), \",\") Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Join",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_join_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_strcomp_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print StrComp(\"a\", \"b\")\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "StrComp",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_strcomp_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_strcomp_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print StrComp(\"a\", \"b\") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "StrComp",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_strcomp_is"
+      }
+    },
+    {
+      "id": "r3_builtin_strcomp_typeof",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf StrComp(\"a\", \"b\") Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "StrComp",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_strcomp_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_format_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Format(1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Format",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_format_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_format_is",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Format(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Format",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_format_is"
+      }
+    },
+    {
+      "id": "r3_builtin_format_typeof",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Format(1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Format",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_format_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_chr_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Chr(65)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Chr",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_chr_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_chr_is",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Chr(65) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Chr",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_chr_is"
+      }
+    },
+    {
+      "id": "r3_builtin_chr_typeof",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Chr(65) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Chr",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_chr_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_asc_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Asc(\"a\")\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Asc",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_asc_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_asc_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Asc(\"a\") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Asc",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_asc_is"
+      }
+    },
+    {
+      "id": "r3_builtin_asc_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Asc(\"a\") Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Asc",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_asc_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_cdate_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print CDate(1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "CDate",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_cdate_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_cdate_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print CDate(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "CDate",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_cdate_is"
+      }
+    },
+    {
+      "id": "r3_builtin_cdate_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf CDate(1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "CDate",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Syntax error.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_cdate_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_cdec_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print CDec(1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "CDec",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_cdec_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_cdec_is",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print CDec(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "CDec",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_cdec_is"
+      }
+    },
+    {
+      "id": "r3_builtin_cdec_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf CDec(1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "CDec",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Syntax error.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_cdec_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_cint_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print CInt(1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "CInt",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_cint_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_cint_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print CInt(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "CInt",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_cint_is"
+      }
+    },
+    {
+      "id": "r3_builtin_cint_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf CInt(1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "CInt",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Syntax error.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_cint_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_clng_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print CLng(1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "CLng",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_clng_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_clng_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print CLng(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "CLng",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_clng_is"
+      }
+    },
+    {
+      "id": "r3_builtin_clng_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf CLng(1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "CLng",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Syntax error.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_clng_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_cstr_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print CStr(1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "CStr",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_cstr_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_cstr_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print CStr(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "CStr",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_cstr_is"
+      }
+    },
+    {
+      "id": "r3_builtin_cstr_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf CStr(1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "CStr",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Syntax error.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_cstr_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_val_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Val(\"1\")\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Val",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_val_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_val_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Val(\"1\") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Val",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_val_is"
+      }
+    },
+    {
+      "id": "r3_builtin_val_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Val(\"1\") Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Val",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_val_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_hex_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Hex(1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Hex",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_hex_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_hex_is",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Hex(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Hex",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_hex_is"
+      }
+    },
+    {
+      "id": "r3_builtin_hex_typeof",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Hex(1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Hex",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_hex_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_abs_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Abs(1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Abs",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_abs_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_abs_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Abs(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Abs",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_abs_is"
+      }
+    },
+    {
+      "id": "r3_builtin_abs_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Abs(1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Abs",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Syntax error.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_abs_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_int_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Int(1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Int",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_int_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_int_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Int(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Int",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_int_is"
+      }
+    },
+    {
+      "id": "r3_builtin_int_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Int(1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Int",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Syntax error.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_int_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_fix_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Fix(1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Fix",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_fix_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_fix_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Fix(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Fix",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_fix_is"
+      }
+    },
+    {
+      "id": "r3_builtin_fix_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Fix(1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Fix",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Syntax error.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_fix_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_sgn_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Sgn(1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Sgn",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_sgn_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_sgn_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Sgn(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Sgn",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_sgn_is"
+      }
+    },
+    {
+      "id": "r3_builtin_sgn_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Sgn(1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Sgn",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Syntax error.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_sgn_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_sqr_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Sqr(1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Sqr",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_sqr_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_sqr_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Sqr(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Sqr",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_sqr_is"
+      }
+    },
+    {
+      "id": "r3_builtin_sqr_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Sqr(1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Sqr",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_sqr_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_round_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Round(1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Round",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_round_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_round_is",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Round(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Round",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_round_is"
+      }
+    },
+    {
+      "id": "r3_builtin_round_typeof",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Round(1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Round",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_round_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_rnd_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Rnd\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Rnd",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_rnd_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_rnd_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Rnd Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Rnd",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_rnd_is"
+      }
+    },
+    {
+      "id": "r3_builtin_rnd_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Rnd Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Rnd",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_rnd_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_now_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Now\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Now",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_now_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_now_is",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Now Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Now",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_now_is"
+      }
+    },
+    {
+      "id": "r3_builtin_now_typeof",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Now Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Now",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_now_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_time_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Time\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Time",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_time_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_time_is",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Time Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Time",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_time_is"
+      }
+    },
+    {
+      "id": "r3_builtin_time_typeof",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Time Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Time",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_time_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_timer_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Timer\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Timer",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_timer_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_timer_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Timer Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Timer",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_timer_is"
+      }
+    },
+    {
+      "id": "r3_builtin_timer_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Timer Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Timer",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_timer_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_year_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Year(#1/1/2024#)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Year",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_year_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_year_is",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Year(#1/1/2024#) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Year",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_year_is"
+      }
+    },
+    {
+      "id": "r3_builtin_year_typeof",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Year(#1/1/2024#) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Year",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_year_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_month_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Month(#1/1/2024#)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Month",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_month_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_month_is",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Month(#1/1/2024#) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Month",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_month_is"
+      }
+    },
+    {
+      "id": "r3_builtin_month_typeof",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Month(#1/1/2024#) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Month",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_month_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_day_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Day(#1/1/2024#)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Day",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_day_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_day_is",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Day(#1/1/2024#) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Day",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_day_is"
+      }
+    },
+    {
+      "id": "r3_builtin_day_typeof",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Day(#1/1/2024#) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Day",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_day_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_hour_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Hour(#1/1/2024#)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Hour",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_hour_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_hour_is",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Hour(#1/1/2024#) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Hour",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_hour_is"
+      }
+    },
+    {
+      "id": "r3_builtin_hour_typeof",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Hour(#1/1/2024#) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Hour",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_hour_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_minute_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Minute(#1/1/2024#)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Minute",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_minute_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_minute_is",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Minute(#1/1/2024#) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Minute",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_minute_is"
+      }
+    },
+    {
+      "id": "r3_builtin_minute_typeof",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Minute(#1/1/2024#) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Minute",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_minute_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_second_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Second(#1/1/2024#)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Second",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_second_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_second_is",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Second(#1/1/2024#) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Second",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_second_is"
+      }
+    },
+    {
+      "id": "r3_builtin_second_typeof",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Second(#1/1/2024#) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Second",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_second_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_weekday_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Weekday(#1/1/2024#)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Weekday",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_weekday_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_weekday_is",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Weekday(#1/1/2024#) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Weekday",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_weekday_is"
+      }
+    },
+    {
+      "id": "r3_builtin_weekday_typeof",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Weekday(#1/1/2024#) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Weekday",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_weekday_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_dateadd_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print DateAdd(\"d\", 1, #1/1/2024#)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "DateAdd",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_dateadd_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_dateadd_is",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print DateAdd(\"d\", 1, #1/1/2024#) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "DateAdd",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_dateadd_is"
+      }
+    },
+    {
+      "id": "r3_builtin_dateadd_typeof",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf DateAdd(\"d\", 1, #1/1/2024#) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "DateAdd",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_dateadd_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_datediff_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print DateDiff(\"d\", #1/1/2024#, #1/2/2024#)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "DateDiff",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_datediff_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_datediff_is",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print DateDiff(\"d\", #1/1/2024#, #1/2/2024#) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "DateDiff",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_datediff_is"
+      }
+    },
+    {
+      "id": "r3_builtin_datediff_typeof",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf DateDiff(\"d\", #1/1/2024#, #1/2/2024#) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "DateDiff",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_datediff_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_datepart_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print DatePart(\"d\", #1/1/2024#)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "DatePart",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_datepart_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_datepart_is",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print DatePart(\"d\", #1/1/2024#) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "DatePart",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_datepart_is"
+      }
+    },
+    {
+      "id": "r3_builtin_datepart_typeof",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf DatePart(\"d\", #1/1/2024#) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "DatePart",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_datepart_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_dateserial_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print DateSerial(2024, 1, 1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "DateSerial",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_dateserial_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_dateserial_is",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print DateSerial(2024, 1, 1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "DateSerial",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_dateserial_is"
+      }
+    },
+    {
+      "id": "r3_builtin_dateserial_typeof",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf DateSerial(2024, 1, 1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "DateSerial",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_dateserial_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_timeserial_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TimeSerial(1, 2, 3)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "TimeSerial",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_timeserial_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_timeserial_is",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TimeSerial(1, 2, 3) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "TimeSerial",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_timeserial_is"
+      }
+    },
+    {
+      "id": "r3_builtin_timeserial_typeof",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf TimeSerial(1, 2, 3) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "TimeSerial",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_timeserial_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_datevalue_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print DateValue(\"1/1/2024\")\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "DateValue",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_datevalue_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_datevalue_is",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print DateValue(\"1/1/2024\") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "DateValue",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_datevalue_is"
+      }
+    },
+    {
+      "id": "r3_builtin_datevalue_typeof",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf DateValue(\"1/1/2024\") Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "DateValue",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_datevalue_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_timevalue_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TimeValue(\"1:00\")\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "TimeValue",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_timevalue_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_timevalue_is",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TimeValue(\"1:00\") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "TimeValue",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_timevalue_is"
+      }
+    },
+    {
+      "id": "r3_builtin_timevalue_typeof",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf TimeValue(\"1:00\") Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "TimeValue",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_timevalue_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_ubound_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print UBound(a)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "UBound",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_ubound_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_ubound_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print UBound(a) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "UBound",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_ubound_is"
+      }
+    },
+    {
+      "id": "r3_builtin_ubound_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf UBound(a) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "UBound",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Syntax error.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_ubound_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_isnumeric_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print IsNumeric(1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "IsNumeric",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_isnumeric_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_isnumeric_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print IsNumeric(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "IsNumeric",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_isnumeric_is"
+      }
+    },
+    {
+      "id": "r3_builtin_isnumeric_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf IsNumeric(1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "IsNumeric",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_isnumeric_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_vartype_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print VarType(1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "VarType",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_vartype_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_vartype_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print VarType(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "VarType",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_vartype_is"
+      }
+    },
+    {
+      "id": "r3_builtin_vartype_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf VarType(1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "VarType",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_vartype_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_typename_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeName(1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "TypeName",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_typename_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_typename_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeName(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "TypeName",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_typename_is"
+      }
+    },
+    {
+      "id": "r3_builtin_typename_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf TypeName(1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "TypeName",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_typename_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_str_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Str(1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Str",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_str_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_str_is",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Str(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Str",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_str_is"
+      }
+    },
+    {
+      "id": "r3_builtin_str_typeof",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Str(1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Str",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_str_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_dir_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Dir(\"x\")\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Dir",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_dir_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_dir_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Dir(\"x\") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Dir",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_dir_is"
+      }
+    },
+    {
+      "id": "r3_builtin_dir_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Dir(\"x\") Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Dir",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_dir_typeof"
+      }
+    },
+    {
+      "id": "r3_builtin_freefile_ordinary",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print FreeFile\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "FreeFile",
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_freefile_ordinary"
+      }
+    },
+    {
+      "id": "r3_builtin_freefile_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print FreeFile Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "FreeFile",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_freefile_is"
+      }
+    },
+    {
+      "id": "r3_builtin_freefile_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf FreeFile Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "FreeFile",
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_builtin_freefile_typeof"
+      }
+    },
+    {
+      "id": "r3_crossmodule_declaring_long_bare_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nDefObj A-Z\nSub Main()\n    If False Then Debug.Print Foo() Is Nothing\nEnd Sub\n"
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nDefLng A-Z\nPublic Function Foo()\nEnd Function\n"
+        }
+      ],
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_crossmodule_declaring_long_bare_is"
+      }
+    },
+    {
+      "id": "r3_crossmodule_declaring_long_bare_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nDefObj A-Z\nSub Main()\n    If False Then Debug.Print TypeOf Foo() Is Collection\nEnd Sub\n"
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nDefLng A-Z\nPublic Function Foo()\nEnd Function\n"
+        }
+      ],
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_crossmodule_declaring_long_bare_typeof"
+      }
+    },
+    {
+      "id": "r3_crossmodule_declaring_long_qualified_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nDefObj A-Z\nSub Main()\n    If False Then Debug.Print Other.Foo() Is Nothing\nEnd Sub\n"
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nDefLng A-Z\nPublic Function Foo()\nEnd Function\n"
+        }
+      ],
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_crossmodule_declaring_long_qualified_is"
+      }
+    },
+    {
+      "id": "r3_crossmodule_declaring_long_qualified_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nDefObj A-Z\nSub Main()\n    If False Then Debug.Print TypeOf Other.Foo() Is Collection\nEnd Sub\n"
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nDefLng A-Z\nPublic Function Foo()\nEnd Function\n"
+        }
+      ],
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_crossmodule_declaring_long_qualified_typeof"
+      }
+    },
+    {
+      "id": "r3_crossmodule_declaring_object_bare_is",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nDefLng A-Z\nSub Main()\n    If False Then Debug.Print Foo() Is Nothing\nEnd Sub\n"
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nDefObj A-Z\nPublic Function Foo()\nEnd Function\n"
+        }
+      ],
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_crossmodule_declaring_object_bare_is"
+      }
+    },
+    {
+      "id": "r3_crossmodule_declaring_object_bare_typeof",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nDefLng A-Z\nSub Main()\n    If False Then Debug.Print TypeOf Foo() Is Collection\nEnd Sub\n"
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nDefObj A-Z\nPublic Function Foo()\nEnd Function\n"
+        }
+      ],
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_crossmodule_declaring_object_bare_typeof"
+      }
+    },
+    {
+      "id": "r3_crossmodule_declaring_object_qualified_is",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nDefLng A-Z\nSub Main()\n    If False Then Debug.Print Other.Foo() Is Nothing\nEnd Sub\n"
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nDefObj A-Z\nPublic Function Foo()\nEnd Function\n"
+        }
+      ],
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_crossmodule_declaring_object_qualified_is"
+      }
+    },
+    {
+      "id": "r3_crossmodule_declaring_object_qualified_typeof",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nDefLng A-Z\nSub Main()\n    If False Then Debug.Print TypeOf Other.Foo() Is Collection\nEnd Sub\n"
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nDefObj A-Z\nPublic Function Foo()\nEnd Function\n"
+        }
+      ],
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_crossmodule_declaring_object_qualified_typeof"
+      }
+    },
+    {
+      "id": "r3_crossmodule_explicit_variant_bare_is",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nDefLng A-Z\nSub Main()\n    If False Then Debug.Print Foo() Is Nothing\nEnd Sub\n"
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nDefLng A-Z\nPublic Function Foo() As Variant\nEnd Function\n"
+        }
+      ],
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_crossmodule_explicit_variant_bare_is"
+      }
+    },
+    {
+      "id": "r3_crossmodule_explicit_variant_bare_typeof",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nDefLng A-Z\nSub Main()\n    If False Then Debug.Print TypeOf Foo() Is Collection\nEnd Sub\n"
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nDefLng A-Z\nPublic Function Foo() As Variant\nEnd Function\n"
+        }
+      ],
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_crossmodule_explicit_variant_bare_typeof"
+      }
+    },
+    {
+      "id": "r3_crossmodule_explicit_variant_qualified_is",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nDefLng A-Z\nSub Main()\n    If False Then Debug.Print Other.Foo() Is Nothing\nEnd Sub\n"
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nDefLng A-Z\nPublic Function Foo() As Variant\nEnd Function\n"
+        }
+      ],
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_crossmodule_explicit_variant_qualified_is"
+      }
+    },
+    {
+      "id": "r3_crossmodule_explicit_variant_qualified_typeof",
+      "host": "excel",
+      "expected": "accepted",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nDefLng A-Z\nSub Main()\n    If False Then Debug.Print TypeOf Other.Foo() Is Collection\nEnd Sub\n"
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nDefLng A-Z\nPublic Function Foo() As Variant\nEnd Function\n"
+        }
+      ],
+      "description": "Measured Excel compile accepted on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_crossmodule_explicit_variant_qualified_typeof"
+      }
+    },
+    {
+      "id": "r3_crossmodule_explicit_long_bare_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nDefObj A-Z\nSub Main()\n    If False Then Debug.Print Foo() Is Nothing\nEnd Sub\n"
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nDefObj A-Z\nPublic Function Foo() As Long\nEnd Function\n"
+        }
+      ],
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_crossmodule_explicit_long_bare_is"
+      }
+    },
+    {
+      "id": "r3_crossmodule_explicit_long_bare_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nDefObj A-Z\nSub Main()\n    If False Then Debug.Print TypeOf Foo() Is Collection\nEnd Sub\n"
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nDefObj A-Z\nPublic Function Foo() As Long\nEnd Function\n"
+        }
+      ],
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_crossmodule_explicit_long_bare_typeof"
+      }
+    },
+    {
+      "id": "r3_crossmodule_explicit_long_qualified_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nDefObj A-Z\nSub Main()\n    If False Then Debug.Print Other.Foo() Is Nothing\nEnd Sub\n"
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nDefObj A-Z\nPublic Function Foo() As Long\nEnd Function\n"
+        }
+      ],
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_crossmodule_explicit_long_qualified_is"
+      }
+    },
+    {
+      "id": "r3_crossmodule_explicit_long_qualified_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nDefObj A-Z\nSub Main()\n    If False Then Debug.Print TypeOf Other.Foo() Is Collection\nEnd Sub\n"
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nDefObj A-Z\nPublic Function Foo() As Long\nEnd Function\n"
+        }
+      ],
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Type mismatch.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_crossmodule_explicit_long_qualified_typeof"
+      }
+    },
+    {
+      "id": "r3_invalid_cint_ordinary",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print CInt()\nEnd Sub\n"
+        }
+      ],
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Syntax error.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_invalid_cint_ordinary"
+      }
+    },
+    {
+      "id": "r3_invalid_cint_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print CInt() Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Syntax error.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_invalid_cint_is"
+      }
+    },
+    {
+      "id": "r3_invalid_cint_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print TypeOf CInt() Is Collection\nEnd Sub\n"
+        }
+      ],
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Syntax error.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_invalid_cint_typeof"
+      }
+    },
+    {
+      "id": "r3_invalid_vba_cint_ordinary",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print VBA.CInt()\nEnd Sub\n"
+        }
+      ],
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Argument not optional.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_invalid_vba_cint_ordinary"
+      }
+    },
+    {
+      "id": "r3_invalid_vba_cint_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print VBA.CInt() Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Argument not optional.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_invalid_vba_cint_is"
+      }
+    },
+    {
+      "id": "r3_invalid_vba_cint_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print TypeOf VBA.CInt() Is Collection\nEnd Sub\n"
+        }
+      ],
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Argument not optional.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_invalid_vba_cint_typeof"
+      }
+    },
+    {
+      "id": "r3_invalid_left_dollar_ordinary",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print Left$()\nEnd Sub\n"
+        }
+      ],
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Argument not optional.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_invalid_left_dollar_ordinary"
+      }
+    },
+    {
+      "id": "r3_invalid_left_dollar_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print Left$() Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Argument not optional.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_invalid_left_dollar_is"
+      }
+    },
+    {
+      "id": "r3_invalid_left_dollar_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print TypeOf Left$() Is Collection\nEnd Sub\n"
+        }
+      ],
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Argument not optional.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_invalid_left_dollar_typeof"
+      }
+    },
+    {
+      "id": "r3_invalid_vba_left_dollar_ordinary",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print VBA.Left$()\nEnd Sub\n"
+        }
+      ],
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Argument not optional.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_invalid_vba_left_dollar_ordinary"
+      }
+    },
+    {
+      "id": "r3_invalid_vba_left_dollar_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print VBA.Left$() Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Argument not optional.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_invalid_vba_left_dollar_is"
+      }
+    },
+    {
+      "id": "r3_invalid_vba_left_dollar_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print TypeOf VBA.Left$() Is Collection\nEnd Sub\n"
+        }
+      ],
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Argument not optional.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_invalid_vba_left_dollar_typeof"
+      }
+    },
+    {
+      "id": "r3_invalid_clng_extra_ordinary",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print CLng(1, 2)\nEnd Sub\n"
+        }
+      ],
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Syntax error.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_invalid_clng_extra_ordinary"
+      }
+    },
+    {
+      "id": "r3_invalid_clng_extra_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print CLng(1, 2) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Syntax error.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_invalid_clng_extra_is"
+      }
+    },
+    {
+      "id": "r3_invalid_clng_extra_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print TypeOf CLng(1, 2) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Syntax error.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_invalid_clng_extra_typeof"
+      }
+    },
+    {
+      "id": "r3_invalid_vba_clng_extra_ordinary",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print VBA.CLng(1, 2)\nEnd Sub\n"
+        }
+      ],
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Wrong number of arguments or invalid property assignment.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_invalid_vba_clng_extra_ordinary"
+      }
+    },
+    {
+      "id": "r3_invalid_vba_clng_extra_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print VBA.CLng(1, 2) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Wrong number of arguments or invalid property assignment.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_invalid_vba_clng_extra_is"
+      }
+    },
+    {
+      "id": "r3_invalid_vba_clng_extra_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print TypeOf VBA.CLng(1, 2) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Wrong number of arguments or invalid property assignment.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_invalid_vba_clng_extra_typeof"
+      }
+    },
+    {
+      "id": "r3_invalid_len_ordinary",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print Len()\nEnd Sub\n"
+        }
+      ],
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Syntax error.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_invalid_len_ordinary"
+      }
+    },
+    {
+      "id": "r3_invalid_len_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print Len() Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Syntax error.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_invalid_len_is"
+      }
+    },
+    {
+      "id": "r3_invalid_len_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print TypeOf Len() Is Collection\nEnd Sub\n"
+        }
+      ],
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Syntax error.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_invalid_len_typeof"
+      }
+    },
+    {
+      "id": "r3_invalid_vba_len_ordinary",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print VBA.Len()\nEnd Sub\n"
+        }
+      ],
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Argument not optional.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_invalid_vba_len_ordinary"
+      }
+    },
+    {
+      "id": "r3_invalid_vba_len_is",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print VBA.Len() Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Argument not optional.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_invalid_vba_len_is"
+      }
+    },
+    {
+      "id": "r3_invalid_vba_len_typeof",
+      "host": "excel",
+      "expected": "rejected",
+      "provenance": "vbe-oracle-verified",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print TypeOf VBA.Len() Is Collection\nEnd Sub\n"
+        }
+      ],
+      "description": "Measured Excel compile rejected on Microsoft 365 Apps x64 16.0.20430.20182, 2026-10-19: Compile error:  Argument not optional.",
+      "evidence": {
+        "artifact": "evidence/gap_contexts_completion_20261019.json",
+        "caseId": "r3_invalid_vba_len_typeof"
+      }
     }
   ]
 }

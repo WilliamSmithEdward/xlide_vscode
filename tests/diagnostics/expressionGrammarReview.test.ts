@@ -45,20 +45,26 @@ describe('expression grammar review recovery', () => {
 		}
 	});
 
-	it.each(['1', '-1', '1 + 2', '"x"', 'True', 'Nothing', 'Empty', 'Null'])('recovers TypeOf %s without asserting an unmeasured literal error', (operand) => {
+	it.each(['1', '-1', '1 + 2', '(1 + 2)', '"x"', 'True', 'Nothing', 'Empty', 'Null'])('reports measured TypeOf %s syntax errors', (operand) => {
 		const source = `TypeOf ${operand} Is Collection`;
 		const tokens = tokenize(source);
 		const result = parseExpression(tokens);
 		expect(result.endIndex).toBe(tokens.length);
 		expect(result.diagnostics).toEqual([]);
 		expect(result.expr?.exprKind).toBe('TypeOfIsExpr');
-		expect(analyzeModule(wrap(`Debug.Print ${source}`)).filter((d) => d.code === 'typeof-invalid-expression')).toEqual([]);
+		const diagnostics = analyzeModule(wrap(`Debug.Print ${source}`)).filter((d) => d.code === 'typeof-invalid-expression');
+		expect(diagnostics).toHaveLength(1);
+		expect(diagnostics[0].message).toContain('Syntax error');
 	});
 
 	it.each([
 		['Print #(a + 1), Tab(b + 2); Spc(c + 3); f(1, 2)', ['(a + 1)', 'b + 2', 'c + 3', 'f(1, 2)']],
 		['Write #(a + 1), f(1, 2), n Is Nothing', ['(a + 1)', 'f(1, 2)', 'n Is Nothing']],
 		['Seek #f(1, 2), a + 1', ['f(1, 2)', 'a + 1']],
+		['Close #(a + 1), #f(1, 2)', ['(a + 1)', 'f(1, 2)']],
+		['Close', []],
+		['Lock #f(1, 2), a + 1 To b + 2', ['f(1, 2)', 'a + 1', 'b + 2']],
+		['Unlock #1, a + 1', ['1', 'a + 1']],
 		['Open f("x", 1) For Random Access Read Write Lock Read As #(a + 1) Len = b + 2', ['f("x", 1)', '(a + 1)', 'b + 2']],
 		['Put #1, a + 1, v', ['1', 'a + 1', 'v']],
 		['Put #1, , v', ['1', 'v']],
@@ -95,7 +101,7 @@ describe('expression grammar review recovery', () => {
 
 describe('imported Enum operand identity', () => {
 	const imported = { moduleName: 'Types', source: 'Public Enum E\nFirst = 1\nEnd Enum\n' };
-	it.each(['E', 'Types.E'])('classifies imported %s in Is and TypeOf', (type) => {
+	it.each(['E'])('classifies imported %s in Is and TypeOf', (type) => {
 		const source = wrap(`Dim n As ${type}\nDebug.Print n Is Nothing\nDebug.Print TypeOf n Is Collection`);
 		const hits = analyzeProjectModule(source, [imported], 'MainModule');
 		expect(hits.filter((d) => d.code === 'is-operator-non-object')).toHaveLength(1);
@@ -113,10 +119,11 @@ describe('imported Enum operand identity', () => {
 		const hits = analyzeProjectModule(source, [imported, { ...imported, moduleName: 'Other' }], 'MainModule');
 		expect(hits.filter((d) => ['is-operator-non-object', 'typeof-invalid-expression'].includes(d.code))).toEqual([]);
 	});
-	it('uses module qualification to disambiguate imported Enums', () => {
+	it('leaves invalid module-qualified Enum declarations to the type diagnostic', () => {
 		const source = wrap('Dim n As Types.E\nDebug.Print n Is Nothing\nDebug.Print TypeOf n Is Collection');
 		const hits = analyzeProjectModule(source, [imported, { ...imported, moduleName: 'Other' }], 'MainModule');
-		expect(hits.filter((d) => ['is-operator-non-object', 'typeof-invalid-expression'].includes(d.code))).toHaveLength(2);
+		expect(hits.filter((d) => ['is-operator-non-object', 'typeof-invalid-expression'].includes(d.code))).toEqual([]);
+		expect(hits.some(d => d.message.includes('User-defined type not defined'))).toBe(true);
 	});
 	it('keeps a local UDT type binding ahead of an imported Enum', () => {
 		const source = 'Private Type E\nvalue As Long\nEnd Type\n' + wrap('Dim n As E\nDebug.Print n Is Nothing\nDebug.Print TypeOf n Is Collection');

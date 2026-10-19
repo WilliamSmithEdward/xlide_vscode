@@ -242,7 +242,8 @@ export function checkStatementForms(
 					const bareLower = name?.toLowerCase();
 					const home = bareLower === undefined ? undefined : needsArgument.get(bareLower);
 					const qualifier = toks[i - 1]?.rawText === '.' ? tokenName(toks[i - 2])?.toLowerCase() : undefined;
-					if (name && home && !['(', '.', '!', ':='].includes(toks[i + 1]?.rawText ?? '')
+					const nextNameToken = toks[i + 1]?.kind === 'unknown' && /^[$%&!#@^]$/.test(toks[i + 1].rawText) && toks[i + 1].start === toks[i].end ? i + 2 : i + 1;
+					if (name && home && !['(', '.', '!', ':='].includes(toks[nextNameToken]?.rawText ?? '')
 						&& toks[i - 1]?.rawText !== '!' && isValue(i) && (toks[i - 1]?.rawText !== '.' || (qualifier === home && toks[i - 3]?.rawText !== '.'))
 						&& tokenText(toks[i - 1]) !== 'addressof' && !(qualifier && tokenText(toks[i - 3]) === 'addressof') && !locals.has(bareLower!) && !env.has(bareLower!) && bareLower !== member.name.toLowerCase()) {
 						push('argumentCount', `'${name}' needs an argument, and is read here with none. This is a VBE compile error: Argument not optional.`, at(i));

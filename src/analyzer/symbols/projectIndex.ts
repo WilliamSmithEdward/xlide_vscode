@@ -395,6 +395,18 @@ function projectObjectMemberReturnType(symbol: VbaSymbol, mod: ModuleSymbols): s
 	return symbol.asType ?? (['function', 'propertyGet', 'moduleVariable'].includes(symbol.kind) ? mod.defTypes?.get(symbol.name[0]?.toLowerCase()) : undefined);
 }
 
+/** Export the declaring module's effective types, never the caller's DefType. */
+function effectiveProcedureSignature(symbol: VbaSymbol, mod: ModuleSymbols): VbaProcedureSignature | undefined {
+	const signature = procedureSignatureFromSymbol(symbol);
+	if (!signature || symbol.kind === 'declare' || !mod.defTypes) { return signature; }
+	signature.returnType = projectObjectMemberReturnType(symbol, mod);
+	signature.params = signature.params.map(param => param.type || param.paramArray ? param : {
+		...param, type: mod.defTypes?.get(param.name[0]?.toLowerCase()),
+	});
+	signature.signature = procedureSignatureLabel(signature);
+	return signature;
+}
+
 function projectObjectMemberDefinition(symbol: VbaSymbol): VbaProjectClassMemberDefinition {
 	return {
 		moduleName: symbol.moduleName,
@@ -999,7 +1011,7 @@ export class ProjectIndex {
 					) {
 						continue;
 					}
-					const signature = procedureSignatureFromSymbol(symbol);
+					const signature = effectiveProcedureSignature(symbol, mod);
 					if (signature) {
 						part.push(signature);
 					}
@@ -1169,7 +1181,7 @@ export class ProjectIndex {
 					) {
 						continue;
 					}
-					const sig = procedureSignatureFromSymbol(symbol);
+					const sig = effectiveProcedureSignature(symbol, mod);
 					if (sig) {
 						addProcedureSignature(signatures, symbol.name.toLowerCase(), sig);
 						addProcedureSignature(

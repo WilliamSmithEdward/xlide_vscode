@@ -5,6 +5,7 @@
 
 import type {
 	BinaryOperator,
+	BodyNode,
 	ExprNode,
 	Span,
 } from '../../parser/nodes';
@@ -76,7 +77,10 @@ export function checkBinaryOperandScalar(
 				push(
 					'nonScalarBinaryOperand',
 					`The '${expr.operator}' operator requires a scalar operand, but ${offender.detail}. This will fail to compile with 'Type mismatch'.`,
-					offender.span,
+					// Measured file-slot array addition selects the operator. Keep
+					// other operators/UDTs on their established operand spans.
+					expr.operator === '+' && shapeOf(expr.left)?.isArray
+						? additionOperatorSpan(member.body, expr) ?? offender.span : offender.span,
 				);
 			}
 		};
@@ -106,4 +110,31 @@ function nonScalarOperand(
 		};
 	}
 	return undefined; // scalar / Variant / Object / class / cross-module UDT / undeclared -> quiet
+}
+
+/** Read only the containing raw statement, using ordered AST spans. This avoids
+ * a backwards source/module scan for each diagnostic. Structured expressions
+ * without retained source deliberately return undefined. */
+export function retainedExpressionText(body: readonly BodyNode[], span: Span): string | undefined {
+	let low = 0;
+	let high = body.length;
+	while (low < high) {
+		const mid = (low + high) >>> 1;
+		if (body[mid].span.end <= span.start) { low = mid + 1; } else { high = mid; }
+	}
+	const node = body[low];
+	if (!node || node.span.start > span.start || node.span.end < span.end) { return undefined; }
+	if (node.kind === 'Statement') { return node.raw.slice(span.start - node.span.start, span.end - node.span.start); }
+	if ('body' in node) { return retainedExpressionText(node.body, span); }
+	return undefined;
+}
+
+function additionOperatorSpan(body: readonly BodyNode[], expr: Extract<ExprNode, { exprKind: 'BinaryExpr' }>): Span | undefined {
+	const gap = { start: expr.left.span.end, end: expr.right.span.start };
+	const text = retainedExpressionText(body, gap);
+	// Whitespace and explicit line continuations can separate the operands.
+	const match = text?.match(/^(?:\s|_\r?\n)*([+])(?:\s|_\r?\n)*$/);
+	if (!match) { return undefined; }
+	const start = gap.start + text!.indexOf('+');
+	return { start, end: start + 1 };
 }
