@@ -112,7 +112,7 @@ jobs:
       # No package cache: a release runs this workflow (see malware-scan.yml).
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '20.20.2'
+          node-version: '24.22.0'
           package-manager-cache: false
       # Production and development dependencies both: the build and test
       # toolchain runs on the maintainer's machine and in CI.

@@ -1,8 +1,9 @@
 name: CI
 
 # Everything a run depends on is pinned: actions to commit SHAs, runners to an
-# OS release, Node to 20.20.2 (the last Node 20, the runtime of the oldest VS
-# Code XLIDE supports), and npm packages through the lockfile.
+# OS release, tooling Node to 24.22.0 LTS, and npm packages through the
+# lockfile. The build matrix also checks Node 20 for the oldest supported
+# VS Code; extension API types and bundle targets still track that runtime.
 
 "on":
   push:
@@ -16,15 +17,19 @@ permissions:
 
 jobs:
   build:
-    name: Build and test
+    name: Build and test (Node ${{ matrix.node }})
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['24.22.0', '20.20.2']
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '20.20.2'
+          node-version: ${{ matrix.node }}
           cache: npm
       - name: Install dependencies
         run: npm ci
@@ -52,7 +57,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '20.20.2'
+          node-version: '24.22.0'
           cache: npm
       - name: Install dependencies
         run: npm ci
@@ -87,7 +92,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '20.20.2'
+          node-version: '24.22.0'
           cache: npm
       - name: Install dependencies
         run: npm ci
@@ -110,7 +115,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '20.20.2'
+          node-version: '24.22.0'
           cache: npm
       - name: Install dependencies
         run: npm ci
