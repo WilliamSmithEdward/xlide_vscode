@@ -1,0 +1,3628 @@
+{
+  "version": 1,
+  "description": "Fresh constraint triplets for the 53 historical runtime names, plus declaring-module DefType controls.",
+  "cases": [
+    {
+      "id": "r3_builtin_msgbox_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print MsgBox(\"x\")\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "MsgBox"
+    },
+    {
+      "id": "r3_builtin_msgbox_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print MsgBox(\"x\") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "MsgBox"
+    },
+    {
+      "id": "r3_builtin_msgbox_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf MsgBox(\"x\") Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "MsgBox"
+    },
+    {
+      "id": "r3_builtin_environ_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Environ(\"PATH\")\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Environ"
+    },
+    {
+      "id": "r3_builtin_environ_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Environ(\"PATH\") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Environ"
+    },
+    {
+      "id": "r3_builtin_environ_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Environ(\"PATH\") Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Environ"
+    },
+    {
+      "id": "r3_builtin_len_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Len(\"x\")\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Len"
+    },
+    {
+      "id": "r3_builtin_len_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Len(\"x\") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Len"
+    },
+    {
+      "id": "r3_builtin_len_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Len(\"x\") Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Len"
+    },
+    {
+      "id": "r3_builtin_left_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Left(\"ab\", 1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Left"
+    },
+    {
+      "id": "r3_builtin_left_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Left(\"ab\", 1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Left"
+    },
+    {
+      "id": "r3_builtin_left_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Left(\"ab\", 1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Left"
+    },
+    {
+      "id": "r3_builtin_left_dollar_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Left$(\"ab\", 1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Left$"
+    },
+    {
+      "id": "r3_builtin_left_dollar_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Left$(\"ab\", 1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Left$"
+    },
+    {
+      "id": "r3_builtin_left_dollar_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Left$(\"ab\", 1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Left$"
+    },
+    {
+      "id": "r3_builtin_trim_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Trim(\" x \")\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Trim"
+    },
+    {
+      "id": "r3_builtin_trim_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Trim(\" x \") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Trim"
+    },
+    {
+      "id": "r3_builtin_trim_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Trim(\" x \") Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Trim"
+    },
+    {
+      "id": "r3_builtin_ucase_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print UCase(\"x\")\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "UCase"
+    },
+    {
+      "id": "r3_builtin_ucase_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print UCase(\"x\") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "UCase"
+    },
+    {
+      "id": "r3_builtin_ucase_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf UCase(\"x\") Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "UCase"
+    },
+    {
+      "id": "r3_builtin_replace_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Replace(\"a\", \"a\", \"b\")\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Replace"
+    },
+    {
+      "id": "r3_builtin_replace_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Replace(\"a\", \"a\", \"b\") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Replace"
+    },
+    {
+      "id": "r3_builtin_replace_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Replace(\"a\", \"a\", \"b\") Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Replace"
+    },
+    {
+      "id": "r3_builtin_instr_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print InStr(\"ab\", \"a\")\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "InStr"
+    },
+    {
+      "id": "r3_builtin_instr_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print InStr(\"ab\", \"a\") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "InStr"
+    },
+    {
+      "id": "r3_builtin_instr_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf InStr(\"ab\", \"a\") Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "InStr"
+    },
+    {
+      "id": "r3_builtin_split_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Split(\"a,b\", \",\")\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Split"
+    },
+    {
+      "id": "r3_builtin_split_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Split(\"a,b\", \",\") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Split"
+    },
+    {
+      "id": "r3_builtin_split_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Split(\"a,b\", \",\") Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Split"
+    },
+    {
+      "id": "r3_builtin_join_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Join(Array(\"a\"), \",\")\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Join"
+    },
+    {
+      "id": "r3_builtin_join_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Join(Array(\"a\"), \",\") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Join"
+    },
+    {
+      "id": "r3_builtin_join_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Join(Array(\"a\"), \",\") Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Join"
+    },
+    {
+      "id": "r3_builtin_strcomp_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print StrComp(\"a\", \"b\")\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "StrComp"
+    },
+    {
+      "id": "r3_builtin_strcomp_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print StrComp(\"a\", \"b\") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "StrComp"
+    },
+    {
+      "id": "r3_builtin_strcomp_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf StrComp(\"a\", \"b\") Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "StrComp"
+    },
+    {
+      "id": "r3_builtin_format_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Format(1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Format"
+    },
+    {
+      "id": "r3_builtin_format_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Format(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Format"
+    },
+    {
+      "id": "r3_builtin_format_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Format(1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Format"
+    },
+    {
+      "id": "r3_builtin_chr_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Chr(65)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Chr"
+    },
+    {
+      "id": "r3_builtin_chr_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Chr(65) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Chr"
+    },
+    {
+      "id": "r3_builtin_chr_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Chr(65) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Chr"
+    },
+    {
+      "id": "r3_builtin_asc_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Asc(\"a\")\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Asc"
+    },
+    {
+      "id": "r3_builtin_asc_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Asc(\"a\") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Asc"
+    },
+    {
+      "id": "r3_builtin_asc_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Asc(\"a\") Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Asc"
+    },
+    {
+      "id": "r3_builtin_cdate_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print CDate(1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "CDate"
+    },
+    {
+      "id": "r3_builtin_cdate_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print CDate(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "CDate"
+    },
+    {
+      "id": "r3_builtin_cdate_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf CDate(1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "CDate"
+    },
+    {
+      "id": "r3_builtin_cdec_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print CDec(1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "CDec"
+    },
+    {
+      "id": "r3_builtin_cdec_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print CDec(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "CDec"
+    },
+    {
+      "id": "r3_builtin_cdec_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf CDec(1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "CDec"
+    },
+    {
+      "id": "r3_builtin_cint_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print CInt(1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "CInt"
+    },
+    {
+      "id": "r3_builtin_cint_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print CInt(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "CInt"
+    },
+    {
+      "id": "r3_builtin_cint_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf CInt(1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "CInt"
+    },
+    {
+      "id": "r3_builtin_clng_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print CLng(1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "CLng"
+    },
+    {
+      "id": "r3_builtin_clng_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print CLng(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "CLng"
+    },
+    {
+      "id": "r3_builtin_clng_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf CLng(1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "CLng"
+    },
+    {
+      "id": "r3_builtin_cstr_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print CStr(1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "CStr"
+    },
+    {
+      "id": "r3_builtin_cstr_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print CStr(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "CStr"
+    },
+    {
+      "id": "r3_builtin_cstr_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf CStr(1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "CStr"
+    },
+    {
+      "id": "r3_builtin_val_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Val(\"1\")\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Val"
+    },
+    {
+      "id": "r3_builtin_val_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Val(\"1\") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Val"
+    },
+    {
+      "id": "r3_builtin_val_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Val(\"1\") Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Val"
+    },
+    {
+      "id": "r3_builtin_hex_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Hex(1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Hex"
+    },
+    {
+      "id": "r3_builtin_hex_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Hex(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Hex"
+    },
+    {
+      "id": "r3_builtin_hex_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Hex(1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Hex"
+    },
+    {
+      "id": "r3_builtin_abs_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Abs(1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Abs"
+    },
+    {
+      "id": "r3_builtin_abs_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Abs(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Abs"
+    },
+    {
+      "id": "r3_builtin_abs_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Abs(1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Abs"
+    },
+    {
+      "id": "r3_builtin_int_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Int(1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Int"
+    },
+    {
+      "id": "r3_builtin_int_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Int(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Int"
+    },
+    {
+      "id": "r3_builtin_int_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Int(1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Int"
+    },
+    {
+      "id": "r3_builtin_fix_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Fix(1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Fix"
+    },
+    {
+      "id": "r3_builtin_fix_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Fix(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Fix"
+    },
+    {
+      "id": "r3_builtin_fix_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Fix(1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Fix"
+    },
+    {
+      "id": "r3_builtin_sgn_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Sgn(1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Sgn"
+    },
+    {
+      "id": "r3_builtin_sgn_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Sgn(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Sgn"
+    },
+    {
+      "id": "r3_builtin_sgn_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Sgn(1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Sgn"
+    },
+    {
+      "id": "r3_builtin_sqr_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Sqr(1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Sqr"
+    },
+    {
+      "id": "r3_builtin_sqr_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Sqr(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Sqr"
+    },
+    {
+      "id": "r3_builtin_sqr_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Sqr(1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Sqr"
+    },
+    {
+      "id": "r3_builtin_round_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Round(1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Round"
+    },
+    {
+      "id": "r3_builtin_round_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Round(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Round"
+    },
+    {
+      "id": "r3_builtin_round_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Round(1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Round"
+    },
+    {
+      "id": "r3_builtin_rnd_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Rnd\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Rnd"
+    },
+    {
+      "id": "r3_builtin_rnd_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Rnd Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Rnd"
+    },
+    {
+      "id": "r3_builtin_rnd_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Rnd Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Rnd"
+    },
+    {
+      "id": "r3_builtin_now_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Now\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Now"
+    },
+    {
+      "id": "r3_builtin_now_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Now Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Now"
+    },
+    {
+      "id": "r3_builtin_now_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Now Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Now"
+    },
+    {
+      "id": "r3_builtin_time_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Time\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Time"
+    },
+    {
+      "id": "r3_builtin_time_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Time Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Time"
+    },
+    {
+      "id": "r3_builtin_time_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Time Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Time"
+    },
+    {
+      "id": "r3_builtin_timer_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Timer\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Timer"
+    },
+    {
+      "id": "r3_builtin_timer_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Timer Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Timer"
+    },
+    {
+      "id": "r3_builtin_timer_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Timer Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Timer"
+    },
+    {
+      "id": "r3_builtin_year_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Year(#1/1/2024#)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Year"
+    },
+    {
+      "id": "r3_builtin_year_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Year(#1/1/2024#) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Year"
+    },
+    {
+      "id": "r3_builtin_year_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Year(#1/1/2024#) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Year"
+    },
+    {
+      "id": "r3_builtin_month_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Month(#1/1/2024#)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Month"
+    },
+    {
+      "id": "r3_builtin_month_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Month(#1/1/2024#) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Month"
+    },
+    {
+      "id": "r3_builtin_month_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Month(#1/1/2024#) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Month"
+    },
+    {
+      "id": "r3_builtin_day_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Day(#1/1/2024#)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Day"
+    },
+    {
+      "id": "r3_builtin_day_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Day(#1/1/2024#) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Day"
+    },
+    {
+      "id": "r3_builtin_day_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Day(#1/1/2024#) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Day"
+    },
+    {
+      "id": "r3_builtin_hour_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Hour(#1/1/2024#)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Hour"
+    },
+    {
+      "id": "r3_builtin_hour_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Hour(#1/1/2024#) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Hour"
+    },
+    {
+      "id": "r3_builtin_hour_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Hour(#1/1/2024#) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Hour"
+    },
+    {
+      "id": "r3_builtin_minute_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Minute(#1/1/2024#)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Minute"
+    },
+    {
+      "id": "r3_builtin_minute_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Minute(#1/1/2024#) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Minute"
+    },
+    {
+      "id": "r3_builtin_minute_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Minute(#1/1/2024#) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Minute"
+    },
+    {
+      "id": "r3_builtin_second_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Second(#1/1/2024#)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Second"
+    },
+    {
+      "id": "r3_builtin_second_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Second(#1/1/2024#) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Second"
+    },
+    {
+      "id": "r3_builtin_second_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Second(#1/1/2024#) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Second"
+    },
+    {
+      "id": "r3_builtin_weekday_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Weekday(#1/1/2024#)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Weekday"
+    },
+    {
+      "id": "r3_builtin_weekday_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Weekday(#1/1/2024#) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Weekday"
+    },
+    {
+      "id": "r3_builtin_weekday_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Weekday(#1/1/2024#) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Weekday"
+    },
+    {
+      "id": "r3_builtin_dateadd_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print DateAdd(\"d\", 1, #1/1/2024#)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "DateAdd"
+    },
+    {
+      "id": "r3_builtin_dateadd_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print DateAdd(\"d\", 1, #1/1/2024#) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "DateAdd"
+    },
+    {
+      "id": "r3_builtin_dateadd_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf DateAdd(\"d\", 1, #1/1/2024#) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "DateAdd"
+    },
+    {
+      "id": "r3_builtin_datediff_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print DateDiff(\"d\", #1/1/2024#, #1/2/2024#)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "DateDiff"
+    },
+    {
+      "id": "r3_builtin_datediff_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print DateDiff(\"d\", #1/1/2024#, #1/2/2024#) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "DateDiff"
+    },
+    {
+      "id": "r3_builtin_datediff_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf DateDiff(\"d\", #1/1/2024#, #1/2/2024#) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "DateDiff"
+    },
+    {
+      "id": "r3_builtin_datepart_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print DatePart(\"d\", #1/1/2024#)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "DatePart"
+    },
+    {
+      "id": "r3_builtin_datepart_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print DatePart(\"d\", #1/1/2024#) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "DatePart"
+    },
+    {
+      "id": "r3_builtin_datepart_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf DatePart(\"d\", #1/1/2024#) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "DatePart"
+    },
+    {
+      "id": "r3_builtin_dateserial_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print DateSerial(2024, 1, 1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "DateSerial"
+    },
+    {
+      "id": "r3_builtin_dateserial_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print DateSerial(2024, 1, 1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "DateSerial"
+    },
+    {
+      "id": "r3_builtin_dateserial_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf DateSerial(2024, 1, 1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "DateSerial"
+    },
+    {
+      "id": "r3_builtin_timeserial_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TimeSerial(1, 2, 3)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "TimeSerial"
+    },
+    {
+      "id": "r3_builtin_timeserial_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TimeSerial(1, 2, 3) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "TimeSerial"
+    },
+    {
+      "id": "r3_builtin_timeserial_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf TimeSerial(1, 2, 3) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "TimeSerial"
+    },
+    {
+      "id": "r3_builtin_datevalue_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print DateValue(\"1/1/2024\")\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "DateValue"
+    },
+    {
+      "id": "r3_builtin_datevalue_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print DateValue(\"1/1/2024\") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "DateValue"
+    },
+    {
+      "id": "r3_builtin_datevalue_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf DateValue(\"1/1/2024\") Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "DateValue"
+    },
+    {
+      "id": "r3_builtin_timevalue_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TimeValue(\"1:00\")\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "TimeValue"
+    },
+    {
+      "id": "r3_builtin_timevalue_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TimeValue(\"1:00\") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "TimeValue"
+    },
+    {
+      "id": "r3_builtin_timevalue_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf TimeValue(\"1:00\") Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "TimeValue"
+    },
+    {
+      "id": "r3_builtin_ubound_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print UBound(a)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "UBound"
+    },
+    {
+      "id": "r3_builtin_ubound_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print UBound(a) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "UBound"
+    },
+    {
+      "id": "r3_builtin_ubound_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf UBound(a) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "UBound"
+    },
+    {
+      "id": "r3_builtin_isnumeric_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print IsNumeric(1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "IsNumeric"
+    },
+    {
+      "id": "r3_builtin_isnumeric_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print IsNumeric(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "IsNumeric"
+    },
+    {
+      "id": "r3_builtin_isnumeric_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf IsNumeric(1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "IsNumeric"
+    },
+    {
+      "id": "r3_builtin_vartype_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print VarType(1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "VarType"
+    },
+    {
+      "id": "r3_builtin_vartype_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print VarType(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "VarType"
+    },
+    {
+      "id": "r3_builtin_vartype_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf VarType(1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "VarType"
+    },
+    {
+      "id": "r3_builtin_typename_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeName(1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "TypeName"
+    },
+    {
+      "id": "r3_builtin_typename_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeName(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "TypeName"
+    },
+    {
+      "id": "r3_builtin_typename_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf TypeName(1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "TypeName"
+    },
+    {
+      "id": "r3_builtin_str_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Str(1)\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Str"
+    },
+    {
+      "id": "r3_builtin_str_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Str(1) Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Str"
+    },
+    {
+      "id": "r3_builtin_str_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Str(1) Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Str"
+    },
+    {
+      "id": "r3_builtin_dir_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Dir(\"x\")\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Dir"
+    },
+    {
+      "id": "r3_builtin_dir_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print Dir(\"x\") Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Dir"
+    },
+    {
+      "id": "r3_builtin_dir_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf Dir(\"x\") Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "Dir"
+    },
+    {
+      "id": "r3_builtin_freefile_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print FreeFile\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "FreeFile"
+    },
+    {
+      "id": "r3_builtin_freefile_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print FreeFile Is Nothing\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "FreeFile"
+    },
+    {
+      "id": "r3_builtin_freefile_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Debug.Print TypeOf FreeFile Is Collection\nEnd Sub\n"
+        }
+      ],
+      "runtimeFunction": "FreeFile"
+    },
+    {
+      "id": "r3_crossmodule_declaring_long_bare_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nDefObj A-Z\nSub Main()\n    If False Then Debug.Print Foo() Is Nothing\nEnd Sub\n"
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nDefLng A-Z\nPublic Function Foo()\nEnd Function\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_crossmodule_declaring_long_bare_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nDefObj A-Z\nSub Main()\n    If False Then Debug.Print TypeOf Foo() Is Collection\nEnd Sub\n"
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nDefLng A-Z\nPublic Function Foo()\nEnd Function\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_crossmodule_declaring_long_qualified_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nDefObj A-Z\nSub Main()\n    If False Then Debug.Print Other.Foo() Is Nothing\nEnd Sub\n"
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nDefLng A-Z\nPublic Function Foo()\nEnd Function\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_crossmodule_declaring_long_qualified_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nDefObj A-Z\nSub Main()\n    If False Then Debug.Print TypeOf Other.Foo() Is Collection\nEnd Sub\n"
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nDefLng A-Z\nPublic Function Foo()\nEnd Function\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_crossmodule_declaring_object_bare_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nDefLng A-Z\nSub Main()\n    If False Then Debug.Print Foo() Is Nothing\nEnd Sub\n"
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nDefObj A-Z\nPublic Function Foo()\nEnd Function\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_crossmodule_declaring_object_bare_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nDefLng A-Z\nSub Main()\n    If False Then Debug.Print TypeOf Foo() Is Collection\nEnd Sub\n"
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nDefObj A-Z\nPublic Function Foo()\nEnd Function\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_crossmodule_declaring_object_qualified_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nDefLng A-Z\nSub Main()\n    If False Then Debug.Print Other.Foo() Is Nothing\nEnd Sub\n"
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nDefObj A-Z\nPublic Function Foo()\nEnd Function\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_crossmodule_declaring_object_qualified_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nDefLng A-Z\nSub Main()\n    If False Then Debug.Print TypeOf Other.Foo() Is Collection\nEnd Sub\n"
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nDefObj A-Z\nPublic Function Foo()\nEnd Function\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_crossmodule_explicit_variant_bare_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nDefLng A-Z\nSub Main()\n    If False Then Debug.Print Foo() Is Nothing\nEnd Sub\n"
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nDefLng A-Z\nPublic Function Foo() As Variant\nEnd Function\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_crossmodule_explicit_variant_bare_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nDefLng A-Z\nSub Main()\n    If False Then Debug.Print TypeOf Foo() Is Collection\nEnd Sub\n"
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nDefLng A-Z\nPublic Function Foo() As Variant\nEnd Function\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_crossmodule_explicit_variant_qualified_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nDefLng A-Z\nSub Main()\n    If False Then Debug.Print Other.Foo() Is Nothing\nEnd Sub\n"
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nDefLng A-Z\nPublic Function Foo() As Variant\nEnd Function\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_crossmodule_explicit_variant_qualified_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nDefLng A-Z\nSub Main()\n    If False Then Debug.Print TypeOf Other.Foo() Is Collection\nEnd Sub\n"
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nDefLng A-Z\nPublic Function Foo() As Variant\nEnd Function\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_crossmodule_explicit_long_bare_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nDefObj A-Z\nSub Main()\n    If False Then Debug.Print Foo() Is Nothing\nEnd Sub\n"
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nDefObj A-Z\nPublic Function Foo() As Long\nEnd Function\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_crossmodule_explicit_long_bare_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nDefObj A-Z\nSub Main()\n    If False Then Debug.Print TypeOf Foo() Is Collection\nEnd Sub\n"
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nDefObj A-Z\nPublic Function Foo() As Long\nEnd Function\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_crossmodule_explicit_long_qualified_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nDefObj A-Z\nSub Main()\n    If False Then Debug.Print Other.Foo() Is Nothing\nEnd Sub\n"
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nDefObj A-Z\nPublic Function Foo() As Long\nEnd Function\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_crossmodule_explicit_long_qualified_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nDefObj A-Z\nSub Main()\n    If False Then Debug.Print TypeOf Other.Foo() Is Collection\nEnd Sub\n"
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\nDefObj A-Z\nPublic Function Foo() As Long\nEnd Function\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_invalid_cint_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print CInt()\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_invalid_cint_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print CInt() Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_invalid_cint_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print TypeOf CInt() Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_invalid_vba_cint_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print VBA.CInt()\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_invalid_vba_cint_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print VBA.CInt() Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_invalid_vba_cint_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print TypeOf VBA.CInt() Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_invalid_left_dollar_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print Left$()\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_invalid_left_dollar_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print Left$() Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_invalid_left_dollar_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print TypeOf Left$() Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_invalid_vba_left_dollar_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print VBA.Left$()\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_invalid_vba_left_dollar_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print VBA.Left$() Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_invalid_vba_left_dollar_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print TypeOf VBA.Left$() Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_invalid_clng_extra_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print CLng(1, 2)\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_invalid_clng_extra_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print CLng(1, 2) Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_invalid_clng_extra_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print TypeOf CLng(1, 2) Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_invalid_vba_clng_extra_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print VBA.CLng(1, 2)\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_invalid_vba_clng_extra_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print VBA.CLng(1, 2) Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_invalid_vba_clng_extra_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print TypeOf VBA.CLng(1, 2) Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_invalid_len_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print Len()\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_invalid_len_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print Len() Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_invalid_len_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print TypeOf Len() Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_invalid_vba_len_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print VBA.Len()\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_invalid_vba_len_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print VBA.Len() Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r3_invalid_vba_len_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print TypeOf VBA.Len() Is Collection\nEnd Sub\n"
+        }
+      ]
+    }
+  ]
+}

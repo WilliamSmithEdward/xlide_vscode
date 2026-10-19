@@ -7,6 +7,32 @@ const read = (name: string) => JSON.parse(readFileSync(root + name, 'utf8'));
 const historical = read('evidence/gap_contexts_historical_20261016.json');
 const corpus = read('vbe_oracle_cases.json');
 
+describe('gap-contexts fresh measurement provenance', () => {
+    it.each(['review', 'validation'])('binds every %s result to exact harness, build, input and canonical outcome', (name) => {
+        const document = read(`evidence/gap_contexts_${name}_20261019.json`);
+        const snapshots = read('evidence/gap_contexts_harness_20261019.json');
+        const snapshot = snapshots.versions[document.harnessSnapshot.version];
+        const hash = createHash('sha256').update(snapshots.coordinatorText).update(snapshot.workerText).digest('hex');
+        expect(hash).toBe(document.harnessSnapshot.hash);
+        expect(document.oracleFailureCount).toBe(0);
+        expect(document.skippedCount).toBe(0);
+        expect(document.checkpointRecords).toHaveLength(document.cases.length);
+        const canonical = new Map(corpus.cases.map((c: any) => [c.id, c]));
+        for (const c of document.cases) {
+            const record = document.checkpointRecords.find((r: any) => r.result.caseId === c.id);
+            expect(record, c.id).toBeDefined();
+            expect(record.result.hostBuild).toBe(document.hostBuild);
+            expect(['accepted', 'rejected']).toContain(record.result.outcome);
+            expect(createHash('sha256').update(hash).update(JSON.stringify([document.hostBuild, c])).digest('hex'), c.id).toBe(record.caseHash);
+            const promoted: any = canonical.get(c.id);
+            expect(promoted.expected, c.id).toBe(record.result.outcome);
+            expect(promoted.modules, c.id).toEqual(c.modules);
+            expect(promoted.provenance).toBe('vbe-oracle-verified');
+            expect(promoted.evidencePhase).toBe('compile');
+        }
+    });
+});
+
 describe('gap-contexts historical evidence', () => {
     it('retains the original input and result bytes with matching hashes', () => {
         for (const artifact of Object.values(historical.artifacts) as Record<string, string>[]) {

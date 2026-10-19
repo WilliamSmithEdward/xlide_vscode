@@ -25,7 +25,7 @@ export interface VbaRuntimeFunction {
 	returns?: string;
 	/** Declared return type for compile constraints (Variant can hold objects). */
 	declaredReturns?: string;
-	/** Intrinsic numeric result with no single declared subtype (Abs/Int/Fix). */
+	/** Measured non-object result constraint; Abs/Int/Fix also depend on the argument. */
 	scalarReturn?: boolean;
 	/** `function` returns a value; `statement` is invoked for effect only. */
 	kind: 'function' | 'statement';
@@ -216,7 +216,9 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	// the language reference either way, and a Windows-only analyzer reporting
 	// them as undeclared is a false positive on portable code (issue #41).
 	fn('MacID', 'MacID(Constant) As Long', 'Long'),
-	fn('MacScript', 'MacScript(Script) As Variant', 'Variant'),
+	// Windows Excel rejects both Is/TypeOf result constraints (2026-10-19).
+	// Preserve the documented value metadata without inferring an exact subtype.
+	fn('MacScript', 'MacScript(Script) As Variant', 'Variant', undefined, { scalarReturn: true }),
 
 	// -- String functions ---------------------------------------------------
 	fn('Len', 'Len(Expression) As Long', 'Long'),
@@ -419,7 +421,7 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	fn('Seek', 'Seek(FileNumber) As Long', 'Long'),
 	fn('FileLen', 'FileLen(PathName) As Long', 'Long'),
 	variantFn('FileDateTime', 'FileDateTime(PathName) As Date', 'Date'),
-	fn('GetAttr', 'GetAttr(PathName) As VbFileAttribute', 'VbFileAttribute'),
+	fn('GetAttr', 'GetAttr(PathName) As VbFileAttribute', 'VbFileAttribute', undefined, { scalarReturn: true }),
 	fn('FileAttr', 'FileAttr(FileNumber, ReturnType) As Long', 'Long'),
 	variantFn('CurDir', 'CurDir([Drive]) As String', 'String'),
 	stmt('ChDir', 'ChDir Path'),

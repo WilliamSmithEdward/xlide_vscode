@@ -1,0 +1,1722 @@
+{
+  "version": 1,
+  "measuredDate": "2026-10-19",
+  "host": "excel",
+  "hostBuild": "16.0.20430.20182",
+  "failureCount": 0,
+  "oracleFailureCount": 0,
+  "skippedCount": 0,
+  "cases": [
+    {
+      "id": "binding_control_Timer",
+      "mode": "compile",
+      "inferredExpectedCompile": "accepted; verify designer binding",
+      "why": "An object-valued designer member should shadow the unqualified runtime function.",
+      "expected": "observe",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Form1",
+          "type": "userform",
+          "entry": true,
+          "source": "Option Explicit\nSub Main()\n    If Timer Is Nothing Then Exit Sub\nEnd Sub\n",
+          "designerControls": [
+            {
+              "name": "Timer",
+              "progId": "Forms.CommandButton.1"
+            }
+          ],
+          "implicitMembers": [
+            {
+              "name": "Timer",
+              "type": "MSForms.CommandButton"
+            }
+          ]
+        }
+      ],
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "binding_control_Rnd",
+      "mode": "compile",
+      "inferredExpectedCompile": "accepted; verify designer binding",
+      "why": "An object-valued designer member should shadow the unqualified runtime function.",
+      "expected": "observe",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Form1",
+          "type": "userform",
+          "entry": true,
+          "source": "Option Explicit\nSub Main()\n    If Rnd Is Nothing Then Exit Sub\nEnd Sub\n",
+          "designerControls": [
+            {
+              "name": "Rnd",
+              "progId": "Forms.CommandButton.1"
+            }
+          ],
+          "implicitMembers": [
+            {
+              "name": "Rnd",
+              "type": "MSForms.CommandButton"
+            }
+          ]
+        }
+      ],
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "binding_control_Len",
+      "mode": "compile",
+      "inferredExpectedCompile": "accepted; verify designer binding",
+      "why": "An object-valued designer member should shadow the unqualified runtime function.",
+      "expected": "observe",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Form1",
+          "type": "userform",
+          "entry": true,
+          "source": "Option Explicit\nSub Main()\n    If Len Is Nothing Then Exit Sub\nEnd Sub\n",
+          "designerControls": [
+            {
+              "name": "Len",
+              "progId": "Forms.CommandButton.1"
+            }
+          ],
+          "implicitMembers": [
+            {
+              "name": "Len",
+              "type": "MSForms.CommandButton"
+            }
+          ]
+        }
+      ],
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "binding_control_InputBox",
+      "mode": "compile",
+      "inferredExpectedCompile": "accepted; verify designer binding",
+      "why": "An object-valued designer member should shadow the unqualified runtime function.",
+      "expected": "observe",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Form1",
+          "type": "userform",
+          "entry": true,
+          "source": "Option Explicit\nSub Main()\n    If InputBox Is Nothing Then Exit Sub\nEnd Sub\n",
+          "designerControls": [
+            {
+              "name": "InputBox",
+              "progId": "Forms.CommandButton.1"
+            }
+          ],
+          "implicitMembers": [
+            {
+              "name": "InputBox",
+              "type": "MSForms.CommandButton"
+            }
+          ]
+        }
+      ],
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "binding_control_explicit_vba_timer",
+      "mode": "compile",
+      "inferredExpectedCompile": "rejected; inferred Type mismatch",
+      "why": "Explicit qualification should retain the runtime function even with a Timer control.",
+      "expected": "observe",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Form1",
+          "type": "userform",
+          "entry": true,
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print VBA.Timer Is Nothing\nEnd Sub\n",
+          "designerControls": [
+            {
+              "name": "Timer",
+              "progId": "Forms.CommandButton.1"
+            }
+          ],
+          "implicitMembers": [
+            {
+              "name": "Timer",
+              "type": "MSForms.CommandButton"
+            }
+          ]
+        }
+      ],
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "binding_assigned_picker",
+      "mode": "compile",
+      "inferredExpectedCompile": "accepted; verify default-member assignment",
+      "why": "The first assignment should set the ComboBox default Value rather than introduce a DefLng local.",
+      "expected": "observe",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Form1",
+          "type": "userform",
+          "entry": true,
+          "source": "DefLng A-Z\nSub Main()\n    Picker = 1\n    If Picker Is Nothing Then Exit Sub\nEnd Sub\n",
+          "designerControls": [
+            {
+              "name": "Picker",
+              "progId": "Forms.ComboBox.1"
+            }
+          ],
+          "implicitMembers": [
+            {
+              "name": "Picker",
+              "type": "MSForms.ComboBox"
+            }
+          ]
+        }
+      ],
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "binding_assigned_picker_explicit_value",
+      "mode": "compile",
+      "inferredExpectedCompile": "accepted",
+      "why": "Explicit Value spelling is the binding control.",
+      "expected": "observe",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Form1",
+          "type": "userform",
+          "entry": true,
+          "source": "DefLng A-Z\nSub Main()\n    Picker.Value = 1\n    If Picker Is Nothing Then Exit Sub\nEnd Sub\n",
+          "designerControls": [
+            {
+              "name": "Picker",
+              "progId": "Forms.ComboBox.1"
+            }
+          ],
+          "implicitMembers": [
+            {
+              "name": "Picker",
+              "type": "MSForms.ComboBox"
+            }
+          ]
+        }
+      ],
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "binding_predeclared_timer",
+      "mode": "compile",
+      "inferredExpectedCompile": "accepted; verify predeclared binding",
+      "why": "A usable project predeclared object should shadow the runtime function.",
+      "expected": "observe",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Timer",
+          "predeclaredId": true,
+          "source": "Attribute VB_Name = \"Timer\"\nAttribute VB_PredeclaredId = True\nOption Explicit\n",
+          "type": "class"
+        },
+        {
+          "name": "Module1",
+          "source": "Option Explicit\nSub Main()\n    If Timer Is Nothing Then Exit Sub\nEnd Sub\n",
+          "type": "standard",
+          "entry": true
+        }
+      ],
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "binding_picker_readonly",
+      "mode": "compile",
+      "inferredExpectedCompile": "accepted; verify designer/default-member binding",
+      "why": "Neighbor control for the inherited assigned-Picker classification; not a newly measured Excel verdict.",
+      "expected": "observe",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Form1",
+          "type": "userform",
+          "entry": true,
+          "source": "DefLng A-Z\nSub Main()\n    If Picker Is Nothing Then Exit Sub\nEnd Sub\n",
+          "designerControls": [
+            {
+              "name": "Picker",
+              "progId": "Forms.ComboBox.1"
+            }
+          ],
+          "implicitMembers": [
+            {
+              "name": "Picker",
+              "type": "MSForms.ComboBox"
+            }
+          ]
+        }
+      ],
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "binding_picker_me",
+      "mode": "compile",
+      "inferredExpectedCompile": "accepted; verify designer/default-member binding",
+      "why": "Neighbor control for the inherited assigned-Picker classification; not a newly measured Excel verdict.",
+      "expected": "observe",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Form1",
+          "type": "userform",
+          "entry": true,
+          "source": "DefLng A-Z\nSub Main()\n    Me.Picker = 1\n    If Picker Is Nothing Then Exit Sub\nEnd Sub\n",
+          "designerControls": [
+            {
+              "name": "Picker",
+              "progId": "Forms.ComboBox.1"
+            }
+          ],
+          "implicitMembers": [
+            {
+              "name": "Picker",
+              "type": "MSForms.ComboBox"
+            }
+          ]
+        }
+      ],
+      "host": "excel",
+      "provenance": "observed-not-asserted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "r2_close_array",
+      "description": "Pending follow-up Excel compile observation: r2_close_array",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Close #(a + 1)\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_close_scalar",
+      "description": "Pending follow-up Excel compile observation: r2_close_scalar",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a As Long\n    If False Then Close #(a + 1)\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_lock_array",
+      "description": "Pending follow-up Excel compile observation: r2_lock_array",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Lock #1, a + 1\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_lock_scalar",
+      "description": "Pending follow-up Excel compile observation: r2_lock_scalar",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a As Long\n    If False Then Lock #1, a + 1\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_unlock_array",
+      "description": "Pending follow-up Excel compile observation: r2_unlock_array",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Unlock #1, a + 1\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_unlock_scalar",
+      "description": "Pending follow-up Excel compile observation: r2_unlock_scalar",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a As Long\n    If False Then Unlock #1, a + 1\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_lock_file_array",
+      "description": "Pending follow-up Excel compile observation: r2_lock_file_array",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Lock #(a + 1)\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_lock_file_scalar",
+      "description": "Pending follow-up Excel compile observation: r2_lock_file_scalar",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a As Long\n    If False Then Lock #(a + 1)\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_unlock_file_array",
+      "description": "Pending follow-up Excel compile observation: r2_unlock_file_array",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Unlock #(a + 1)\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_unlock_file_scalar",
+      "description": "Pending follow-up Excel compile observation: r2_unlock_file_scalar",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a As Long\n    If False Then Unlock #(a + 1)\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_lock_end_array",
+      "description": "Pending follow-up Excel compile observation: r2_lock_end_array",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Lock #1, 1 To a + 1\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_lock_end_scalar",
+      "description": "Pending follow-up Excel compile observation: r2_lock_end_scalar",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a As Long\n    If False Then Lock #1, 1 To a + 1\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_source_suffix_ordinary",
+      "description": "Pending follow-up Excel compile observation: r2_source_suffix_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nFunction Foo$()\n    Foo = \"x\"\nEnd Function\nSub Main()\n    If False Then Debug.Print Module1.Foo$()\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_source_suffix_is",
+      "description": "Pending follow-up Excel compile observation: r2_source_suffix_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nFunction Foo$()\n    Foo = \"x\"\nEnd Function\nSub Main()\n    If False Then Debug.Print Module1.Foo$() Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_source_suffix_typeof",
+      "description": "Pending follow-up Excel compile observation: r2_source_suffix_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nFunction Foo$()\n    Foo = \"x\"\nEnd Function\nSub Main()\n    If False Then Debug.Print TypeOf Module1.Foo$() Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_library_qualifier_VBA_Strings",
+      "description": "Pending follow-up Excel compile observation: r2_library_qualifier_VBA_Strings",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print VBA.Strings.Left$(\"x\", 1) Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_library_qualifier_VBA_Math",
+      "description": "Pending follow-up Excel compile observation: r2_library_qualifier_VBA_Math",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print VBA.Math.Left$(\"x\", 1) Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_library_qualifier_Strings",
+      "description": "Pending follow-up Excel compile observation: r2_library_qualifier_Strings",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print Strings.Left$(\"x\", 1) Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_intrinsic_abs_number",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    \n    If False Then Debug.Print Abs(1) Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_intrinsic_abs_long",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim n As Long\n    If False Then Debug.Print Abs(n) Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_intrinsic_abs_string",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    \n    If False Then Debug.Print Abs(\"1\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_intrinsic_abs_variant_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant\n    If False Then Debug.Print TypeOf Abs(v) Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_intrinsic_abs_null_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    \n    If False Then Debug.Print TypeOf Abs(Null) Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_intrinsic_int_number",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    \n    If False Then Debug.Print Int(1) Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_intrinsic_int_long",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim n As Long\n    If False Then Debug.Print Int(n) Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_intrinsic_int_string",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    \n    If False Then Debug.Print Int(\"1\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_intrinsic_int_variant_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant\n    If False Then Debug.Print TypeOf Int(v) Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_intrinsic_int_null_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    \n    If False Then Debug.Print TypeOf Int(Null) Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_intrinsic_fix_number",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    \n    If False Then Debug.Print Fix(1) Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_intrinsic_fix_long",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim n As Long\n    If False Then Debug.Print Fix(n) Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_intrinsic_fix_string",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    \n    If False Then Debug.Print Fix(\"1\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_intrinsic_fix_variant_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant\n    If False Then Debug.Print TypeOf Fix(v) Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_intrinsic_fix_null_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    \n    If False Then Debug.Print TypeOf Fix(Null) Is Collection\nEnd Sub\n"
+        }
+      ]
+    }
+  ],
+  "checkpointRecords": [
+    {
+      "caseHash": "662feaf10a807619c3b5973170deaad09f1bc98ef19a5bebf4b6370ccb6a72ae",
+      "result": {
+        "caseId": "binding_control_Timer",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "0196f73b800746ce7c034f0f812ab6b6eb569bac4c9630121b25d9693771d083",
+      "result": {
+        "caseId": "binding_control_Rnd",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "67d96184dd6497e75a5b7495739a005083e5884b84b98b683974ebac383fb308",
+      "result": {
+        "caseId": "binding_control_Len",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nSyntax error",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 3,
+          "source": "Option Explicit\r\nSub Main()\r\n    If Len Is Nothing Then Exit Sub\r\nEnd Sub\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Form1",
+          "startLine": 3,
+          "endColumn": 36,
+          "startColumn": 1
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "ede91fb4a364a53ddee0a90024647d4baca428859b3f7c3c39b7cabd8a5db77e",
+      "result": {
+        "caseId": "binding_control_InputBox",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "a4082ee45eaffd0abaf4ddb0093018f869781236d2fa4d29d2997a59f8cd6aef",
+      "result": {
+        "caseId": "binding_control_explicit_vba_timer",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nType mismatch",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 3,
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Debug.Print VBA.Timer Is Nothing\r\nEnd Sub\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Form1",
+          "startLine": 3,
+          "endColumn": 40,
+          "startColumn": 34
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "aa21f0497ae0cd986e45c49c3696fe55446b6e7298cdf022e0a52caaf3d52f4b",
+      "result": {
+        "caseId": "binding_assigned_picker",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "fc458ae6a9a575a7819de92fefe96a0af7b1cbb012662395e2c21839625816d1",
+      "result": {
+        "caseId": "binding_assigned_picker_explicit_value",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "3714e174dc562dba88bef487d9ec17e5375477f8d8a2f221e4764696091021d1",
+      "result": {
+        "caseId": "binding_predeclared_timer",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "d97c27dece50f0aa4b70afb38a2120bb6038a165c619cf1e73b58afe59eb2595",
+      "result": {
+        "caseId": "binding_picker_readonly",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "532ee3c9e2833e4b13c0bc8ad5c07cafd16fc4e5f70d142b04275b77bc088874",
+      "result": {
+        "caseId": "binding_picker_me",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "81951624eb6c638d7cfcd218bc60139f28066ec279b3d2cdc3a0a0f95b473d10",
+      "result": {
+        "caseId": "r2_close_array",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nType mismatch",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 4,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long\r\n    If False Then Close #(a + 1)\r\nEnd Sub\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 4,
+          "endColumn": 30,
+          "startColumn": 29
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "4897351be0f68fb6f28c397d4675bf732719b3d79b05a35ca4254a675b2413f7",
+      "result": {
+        "caseId": "r2_close_scalar",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "aa1b7c8a53f509fa47605590be594629ee3756a0d0f633a5f7753b37fc604dba",
+      "result": {
+        "caseId": "r2_lock_array",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nType mismatch",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 4,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long\r\n    If False Then Lock #1, a + 1\r\nEnd Sub\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 4,
+          "endColumn": 31,
+          "startColumn": 30
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "cd69ec7b54aab5c39ccdfad4f7006de979f1fb734d09d8c8a9e3df13ebc00980",
+      "result": {
+        "caseId": "r2_lock_scalar",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "4411aa97b540392f36bf9be43668262ebc52bf84042ba7c1c152ffc50ec69bd6",
+      "result": {
+        "caseId": "r2_unlock_array",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nType mismatch",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 4,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long\r\n    If False Then Unlock #1, a + 1\r\nEnd Sub\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 4,
+          "endColumn": 33,
+          "startColumn": 32
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "f6370bfa11f60cd5b2875fbe13d97a9d3526f6f16c82e569891b66a64b3bd0f4",
+      "result": {
+        "caseId": "r2_unlock_scalar",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "a6d1f40a707e7a544e190f0091fbccdeb78d0795f658709d6e62026ec4f97a0e",
+      "result": {
+        "caseId": "r2_lock_file_array",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nType mismatch",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 4,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long\r\n    If False Then Lock #(a + 1)\r\nEnd Sub\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 4,
+          "endColumn": 29,
+          "startColumn": 28
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "cc6778daa7bee72e8ae2aeccb0de490b35bd3d82f4348b3d63e33b9073c8e534",
+      "result": {
+        "caseId": "r2_lock_file_scalar",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "8256ceeed12e2239436099992574eb11f1e465d44d388c1b30a1cddff24b2d75",
+      "result": {
+        "caseId": "r2_unlock_file_array",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nType mismatch",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 4,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long\r\n    If False Then Unlock #(a + 1)\r\nEnd Sub\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 4,
+          "endColumn": 31,
+          "startColumn": 30
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "9a9fbbef7eb360f0152f00e0c1f9cfe81bf72623a63faad680978e64e89d13cd",
+      "result": {
+        "caseId": "r2_unlock_file_scalar",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "c9d509d27bc1be2448283f9ef233d3b0fade54b75219f7547a8e406ff5039d9a",
+      "result": {
+        "caseId": "r2_lock_end_array",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nType mismatch",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 4,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long\r\n    If False Then Lock #1, 1 To a + 1\r\nEnd Sub\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 4,
+          "endColumn": 36,
+          "startColumn": 35
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "b49dbbf66aeff21c63c01c965381cb3aadce4edd56620fb45864da1b39be3220",
+      "result": {
+        "caseId": "r2_lock_end_scalar",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "bfb524108a6acce4ea9def5617e108dfabaeb0d03400b5c0121f39e3888cbbf5",
+      "result": {
+        "caseId": "r2_source_suffix_ordinary",
+        "outcome": "accepted",
+        "stage": "compile",
+        "message": "",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "089c1933432643238bf61e0fda54ea26ef3d7c6e3731561aa9ba3499be3851fd",
+      "result": {
+        "caseId": "r2_source_suffix_is",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nType mismatch",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 6,
+          "source": "Option Explicit\r\nFunction Foo$()\r\n    Foo = \"x\"\r\nEnd Function\r\nSub Main()\r\n    If False Then Debug.Print Module1.Foo$() Is Nothing\r\nEnd Sub\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 6,
+          "endColumn": 43,
+          "startColumn": 38
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "3fc763c83527ccde6f630afcb2a5070c21c6e4612897a8b10b9930c2492afe3e",
+      "result": {
+        "caseId": "r2_source_suffix_typeof",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nType mismatch",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 6,
+          "source": "Option Explicit\r\nFunction Foo$()\r\n    Foo = \"x\"\r\nEnd Function\r\nSub Main()\r\n    If False Then Debug.Print TypeOf Module1.Foo$() Is Collection\r\nEnd Sub\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 6,
+          "endColumn": 50,
+          "startColumn": 45
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "4825d7c99bebc592c66ca1eedc865a8a9eac68b16344e773eee90f4a1c428be9",
+      "result": {
+        "caseId": "r2_library_qualifier_VBA_Strings",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nType mismatch",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 3,
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Debug.Print VBA.Strings.Left$(\"x\", 1) Is Nothing\r\nEnd Sub\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 3,
+          "endColumn": 48,
+          "startColumn": 42
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "5969503d0e316d0dc8ee1a60fc90e91aa8d84199e8c10826d8e36e005f02d1d6",
+      "result": {
+        "caseId": "r2_library_qualifier_VBA_Math",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nMethod or data member not found",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 3,
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Debug.Print VBA.Math.Left$(\"x\", 1) Is Nothing\r\nEnd Sub\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 3,
+          "endColumn": 45,
+          "startColumn": 39
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "e82ac2e095123970ac1df39f0c80b12be02b5f8a8035784710807ed0dce26ae1",
+      "result": {
+        "caseId": "r2_library_qualifier_Strings",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nType mismatch",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 3,
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Debug.Print Strings.Left$(\"x\", 1) Is Nothing\r\nEnd Sub\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 3,
+          "endColumn": 44,
+          "startColumn": 38
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "9eda45cb41b68a888b9dab36bc4e1c8647391cff00316cc9579cb9c0e68df213",
+      "result": {
+        "caseId": "r2_intrinsic_abs_number",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nType mismatch",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 4,
+          "source": "Option Explicit\r\nSub Main()\r\n    \r\n    If False Then Debug.Print Abs(1) Is Nothing\r\nEnd Sub\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 4,
+          "endColumn": 34,
+          "startColumn": 31
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "20d70060f43f8e14be06615fbb67bd54da4b422edfb7ce0d0e1bb82e15eaf660",
+      "result": {
+        "caseId": "r2_intrinsic_abs_long",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nType mismatch",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 4,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long\r\n    If False Then Debug.Print Abs(n) Is Nothing\r\nEnd Sub\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 4,
+          "endColumn": 34,
+          "startColumn": 31
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "63dd29671944f182be6ee22cb26d0bee79875973703886456f083ed765b5cd5d",
+      "result": {
+        "caseId": "r2_intrinsic_abs_string",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nType mismatch",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 4,
+          "source": "Option Explicit\r\nSub Main()\r\n    \r\n    If False Then Debug.Print Abs(\"1\") Is Nothing\r\nEnd Sub\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 4,
+          "endColumn": 34,
+          "startColumn": 31
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "d3db4719302d3887fadaf352cad1d964e4efbd4f96e636bd0e814b03f33cc325",
+      "result": {
+        "caseId": "r2_intrinsic_abs_variant_typeof",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nSyntax error",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 4,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If False Then Debug.Print TypeOf Abs(v) Is Collection\r\nEnd Sub\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 4,
+          "endColumn": 58,
+          "startColumn": 1
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "49d82d05e407e9838f23e8cbaf0fc984fcd5e6fec553d6fefc626919b3d5ded6",
+      "result": {
+        "caseId": "r2_intrinsic_abs_null_typeof",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nSyntax error",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 4,
+          "source": "Option Explicit\r\nSub Main()\r\n    \r\n    If False Then Debug.Print TypeOf Abs(Null) Is Collection\r\nEnd Sub\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 4,
+          "endColumn": 61,
+          "startColumn": 1
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "a9cf65918236f45bd6c22efc0f6f2de15a68fc2cb7bd07ebeadf0c655bad7ea3",
+      "result": {
+        "caseId": "r2_intrinsic_int_number",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nType mismatch",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 4,
+          "source": "Option Explicit\r\nSub Main()\r\n    \r\n    If False Then Debug.Print Int(1) Is Nothing\r\nEnd Sub\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 4,
+          "endColumn": 36,
+          "startColumn": 35
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "d1b5bf99bef3ad068f2e810a660556b0d6f68bd3bedc965d915cb42707f4258f",
+      "result": {
+        "caseId": "r2_intrinsic_int_long",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nType mismatch",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 4,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long\r\n    If False Then Debug.Print Int(n) Is Nothing\r\nEnd Sub\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 4,
+          "endColumn": 36,
+          "startColumn": 35
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "39346a5fc3ce54531b70c90a6bfebcc1999ac0f19edce99b01caffd07c945aba",
+      "result": {
+        "caseId": "r2_intrinsic_int_string",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nType mismatch",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 4,
+          "source": "Option Explicit\r\nSub Main()\r\n    \r\n    If False Then Debug.Print Int(\"1\") Is Nothing\r\nEnd Sub\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 4,
+          "endColumn": 34,
+          "startColumn": 31
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "b592bd9571b9f9f7bc0f8e4e3ef9538118e8014dc73fb8e949c52f66159e8b82",
+      "result": {
+        "caseId": "r2_intrinsic_int_variant_typeof",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nSyntax error",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 4,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If False Then Debug.Print TypeOf Int(v) Is Collection\r\nEnd Sub\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 4,
+          "endColumn": 58,
+          "startColumn": 1
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "27da680b7b85373b435b68c358ed197409632f1e127e11969a7cbae1c3555d0d",
+      "result": {
+        "caseId": "r2_intrinsic_int_null_typeof",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nSyntax error",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 4,
+          "source": "Option Explicit\r\nSub Main()\r\n    \r\n    If False Then Debug.Print TypeOf Int(Null) Is Collection\r\nEnd Sub\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 4,
+          "endColumn": 61,
+          "startColumn": 1
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "a637a746b9a1e069043662f0fd1928a91275c2a1c56cf356363747abe5be7507",
+      "result": {
+        "caseId": "r2_intrinsic_fix_number",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nType mismatch",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 4,
+          "source": "Option Explicit\r\nSub Main()\r\n    \r\n    If False Then Debug.Print Fix(1) Is Nothing\r\nEnd Sub\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 4,
+          "endColumn": 36,
+          "startColumn": 35
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "c5e68e7e8f040af12b99d29a0ef85e70b6d962f0cb9983ae4df0eaf12d746a31",
+      "result": {
+        "caseId": "r2_intrinsic_fix_long",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nType mismatch",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 4,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long\r\n    If False Then Debug.Print Fix(n) Is Nothing\r\nEnd Sub\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 4,
+          "endColumn": 36,
+          "startColumn": 35
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "856035d341d82955fc3665b7455c570c83ff1681b4df6eca9103be986d00ee0d",
+      "result": {
+        "caseId": "r2_intrinsic_fix_string",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nType mismatch",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 4,
+          "source": "Option Explicit\r\nSub Main()\r\n    \r\n    If False Then Debug.Print Fix(\"1\") Is Nothing\r\nEnd Sub\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 4,
+          "endColumn": 34,
+          "startColumn": 31
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "3670510aab1bcedf1b96a78ac6839e0da90ce013a05e33d9d1afc4497d920aa3",
+      "result": {
+        "caseId": "r2_intrinsic_fix_variant_typeof",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nSyntax error",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 4,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If False Then Debug.Print TypeOf Fix(v) Is Collection\r\nEnd Sub\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 4,
+          "endColumn": 58,
+          "startColumn": 1
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "caseHash": "3244e2b1db5797dae9f485ee4d1e5f14266bdf6e9338b05a74cb07731f54b19d",
+      "result": {
+        "caseId": "r2_intrinsic_fix_null_typeof",
+        "outcome": "rejected",
+        "stage": "compile_dialog",
+        "message": "Compile error:\n\nSyntax error",
+        "hresult": null,
+        "host": "excel",
+        "hostBuild": "16.0.20430.20182",
+        "selection": {
+          "endLine": 4,
+          "source": "Option Explicit\r\nSub Main()\r\n    \r\n    If False Then Debug.Print TypeOf Fix(Null) Is Collection\r\nEnd Sub\r\n",
+          "capturePhase": "after_compile_dialog_dismissal",
+          "moduleName": "Module1",
+          "startLine": 4,
+          "endColumn": 61,
+          "startColumn": 1
+        },
+        "attempt": 1
+      }
+    }
+  ],
+  "harnessSnapshot": {
+    "artifact": "gap_contexts_harness_20261019.json",
+    "version": "after-selection-rcw-cleanup",
+    "hash": "0472f6b17d45723c3672f8b80cdccc498da57c33bf3e5a0a8c357fd9eef848b8"
+  }
+}

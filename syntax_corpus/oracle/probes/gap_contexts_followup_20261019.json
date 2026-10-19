@@ -1,0 +1,584 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "r2_close_array",
+      "description": "Pending follow-up Excel compile observation: r2_close_array",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Close #(a + 1)\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_close_scalar",
+      "description": "Pending follow-up Excel compile observation: r2_close_scalar",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a As Long\n    If False Then Close #(a + 1)\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_lock_array",
+      "description": "Pending follow-up Excel compile observation: r2_lock_array",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Lock #1, a + 1\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_lock_scalar",
+      "description": "Pending follow-up Excel compile observation: r2_lock_scalar",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a As Long\n    If False Then Lock #1, a + 1\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_unlock_array",
+      "description": "Pending follow-up Excel compile observation: r2_unlock_array",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Unlock #1, a + 1\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_unlock_scalar",
+      "description": "Pending follow-up Excel compile observation: r2_unlock_scalar",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a As Long\n    If False Then Unlock #1, a + 1\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_lock_file_array",
+      "description": "Pending follow-up Excel compile observation: r2_lock_file_array",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Lock #(a + 1)\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_lock_file_scalar",
+      "description": "Pending follow-up Excel compile observation: r2_lock_file_scalar",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a As Long\n    If False Then Lock #(a + 1)\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_unlock_file_array",
+      "description": "Pending follow-up Excel compile observation: r2_unlock_file_array",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Unlock #(a + 1)\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_unlock_file_scalar",
+      "description": "Pending follow-up Excel compile observation: r2_unlock_file_scalar",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a As Long\n    If False Then Unlock #(a + 1)\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_lock_end_array",
+      "description": "Pending follow-up Excel compile observation: r2_lock_end_array",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a(1) As Long\n    If False Then Lock #1, 1 To a + 1\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_lock_end_scalar",
+      "description": "Pending follow-up Excel compile observation: r2_lock_end_scalar",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim a As Long\n    If False Then Lock #1, 1 To a + 1\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_source_suffix_ordinary",
+      "description": "Pending follow-up Excel compile observation: r2_source_suffix_ordinary",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nFunction Foo$()\n    Foo = \"x\"\nEnd Function\nSub Main()\n    If False Then Debug.Print Module1.Foo$()\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_source_suffix_is",
+      "description": "Pending follow-up Excel compile observation: r2_source_suffix_is",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nFunction Foo$()\n    Foo = \"x\"\nEnd Function\nSub Main()\n    If False Then Debug.Print Module1.Foo$() Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_source_suffix_typeof",
+      "description": "Pending follow-up Excel compile observation: r2_source_suffix_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nFunction Foo$()\n    Foo = \"x\"\nEnd Function\nSub Main()\n    If False Then Debug.Print TypeOf Module1.Foo$() Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_library_qualifier_VBA_Strings",
+      "description": "Pending follow-up Excel compile observation: r2_library_qualifier_VBA_Strings",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print VBA.Strings.Left$(\"x\", 1) Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_library_qualifier_VBA_Math",
+      "description": "Pending follow-up Excel compile observation: r2_library_qualifier_VBA_Math",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print VBA.Math.Left$(\"x\", 1) Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_library_qualifier_Strings",
+      "description": "Pending follow-up Excel compile observation: r2_library_qualifier_Strings",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    If False Then Debug.Print Strings.Left$(\"x\", 1) Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_intrinsic_abs_number",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    \n    If False Then Debug.Print Abs(1) Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_intrinsic_abs_long",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim n As Long\n    If False Then Debug.Print Abs(n) Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_intrinsic_abs_string",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    \n    If False Then Debug.Print Abs(\"1\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_intrinsic_abs_variant_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant\n    If False Then Debug.Print TypeOf Abs(v) Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_intrinsic_abs_null_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    \n    If False Then Debug.Print TypeOf Abs(Null) Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_intrinsic_int_number",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    \n    If False Then Debug.Print Int(1) Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_intrinsic_int_long",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim n As Long\n    If False Then Debug.Print Int(n) Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_intrinsic_int_string",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    \n    If False Then Debug.Print Int(\"1\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_intrinsic_int_variant_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant\n    If False Then Debug.Print TypeOf Int(v) Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_intrinsic_int_null_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    \n    If False Then Debug.Print TypeOf Int(Null) Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_intrinsic_fix_number",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    \n    If False Then Debug.Print Fix(1) Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_intrinsic_fix_long",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim n As Long\n    If False Then Debug.Print Fix(n) Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_intrinsic_fix_string",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    \n    If False Then Debug.Print Fix(\"1\") Is Nothing\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_intrinsic_fix_variant_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim v As Variant\n    If False Then Debug.Print TypeOf Fix(v) Is Collection\nEnd Sub\n"
+        }
+      ]
+    },
+    {
+      "id": "r2_intrinsic_fix_null_typeof",
+      "host": "excel",
+      "expected": "observe",
+      "provenance": "observed-not-asserted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation",
+      "entryPoint": "Module1.Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    \n    If False Then Debug.Print TypeOf Fix(Null) Is Collection\nEnd Sub\n"
+        }
+      ]
+    }
+  ]
+}
