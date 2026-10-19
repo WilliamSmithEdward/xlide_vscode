@@ -151,6 +151,7 @@ describe('VBE oracle worker', () => {
         ]);
     });
 
+    // Starting Windows PowerShell can take over five seconds on a busy CI runner.
     it.skipIf(process.platform !== 'win32')('tells a return error from any other Run error in PowerShell', () => {
         // A Windows checkout has CRLF lines; made LF here, the cut below ends
         // with the function's own line break, and PowerShell reading commands
@@ -178,11 +179,12 @@ describe('VBE oracle worker', () => {
             'function New-Wrapped($Inner) { [System.Management.Automation.MethodInvocationException]::new("Exception calling Run", $Inner) }',
             ...probes.map(([name, , exception]) => `"${name}=" + (Test-RunReturnError (${exception}))`),
         ].join('\n');
-        const run = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', '-'], { input: script, encoding: 'utf8' });
+        const run = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', '-'], { input: script, encoding: 'utf8', timeout: 12_000 });
+        expect(run.error).toBeUndefined();
         expect(run.stderr).toBe('');
         const lines = run.stdout.trim().split(/\r?\n/);
         expect(lines).toEqual(probes.map(([name, expected]) => `${name}=${expected ? 'True' : 'False'}`));
-    });
+    }, 15_000);
 
     it('keeps the old coordinator name working', () => {
         expect(readOracle('run_excel_vbe_oracle.mjs')).toContain("await import('./run_vbe_oracle.mjs');");
