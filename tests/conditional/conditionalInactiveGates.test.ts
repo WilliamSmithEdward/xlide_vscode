@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import * as lexer from '../src/analyzer/lexer/tokenize';
-import { conditionalActivityAtOffset, createConditionalActivityTracker, indexConditionalCompilation, nullConditionDirectives } from '../src/analyzer/conditional/conditionalCompilation';
-import { parseModule } from '../src/analyzer/parser/parseModule';
+import * as lexer from '../../src/analyzer/lexer/tokenize';
+import { conditionalActivityAtOffset, createConditionalActivityTracker, indexConditionalCompilation, nullConditionDirectives } from '../../src/analyzer/conditional/conditionalCompilation';
+import { parseModule } from '../../src/analyzer/parser/parseModule';
 
 const spanAt = (source: string,name: string) => {const start=source.indexOf(name);return {start,end:start+name.length};};
 

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { conditionalActivityAtOffset, createConditionalActivityTracker, indexConditionalCompilation, nullConditionDirectives } from '../src/analyzer/conditional/conditionalCompilation';
-import { parseModule } from '../src/analyzer/parser/parseModule';
+import { conditionalActivityAtOffset, createConditionalActivityTracker, indexConditionalCompilation, nullConditionDirectives } from '../../src/analyzer/conditional/conditionalCompilation';
+import { parseModule } from '../../src/analyzer/parser/parseModule';
 
 const at = (source: string) => {const start=source.indexOf('Public Taken');return {start,end:start+6};};
 describe('conditional compiler lookup reuse',()=>{
