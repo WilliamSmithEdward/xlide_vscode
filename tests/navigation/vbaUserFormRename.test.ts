@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as path from 'path';
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock());
 
-import { buildVbaProjectIndex, type VbaProjectModuleInput } from '../src/vbaProjectAnalysis';
-import type { VbaNavigationModule } from '../src/vbaNavigation';
-import { projectUserFormReferenceLocations } from '../src/vbaUserFormRename';
+import { buildVbaProjectIndex, type VbaProjectModuleInput } from '../../src/vbaProjectAnalysis';
+import type { VbaNavigationModule } from '../../src/vbaNavigation';
+import { projectUserFormReferenceLocations } from '../../src/vbaUserFormRename';
 
 // Renaming a UserForm from the tree rewrites every use of its name: as a type
 // (`As`, `New`, `TypeOf ... Is`) and as its default instance, which is a bare

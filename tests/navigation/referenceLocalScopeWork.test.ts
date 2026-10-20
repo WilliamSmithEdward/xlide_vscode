@@ -1,8 +1,8 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { collectSymbolReferences, projectClassMemberAtDefinition } from '../src/vbaReferenceResolution';
-import { buildVbaProjectIndex } from '../src/vbaProjectAnalysis';
-import * as lexer from '../src/analyzer/lexer/tokenize';
-import * as facts from '../src/analyzer/symbols/classMemberFacts';
+import { collectSymbolReferences, projectClassMemberAtDefinition } from '../../src/vbaReferenceResolution';
+import { buildVbaProjectIndex } from '../../src/vbaProjectAnalysis';
+import * as lexer from '../../src/analyzer/lexer/tokenize';
+import * as facts from '../../src/analyzer/symbols/classMemberFacts';
 
 afterEach(() => vi.restoreAllMocks());
 

@@ -12,7 +12,7 @@ const mock = vi.hoisted(() => ({
 }));
 
 vi.mock('vscode', async () => {
-    const base = await import('./helpers/vscodeMock');
+    const base = await import('../helpers/vscodeMock');
     mock.editorChanged = new base.EventEmitter<unknown>();
     mock.selectionChanged = new base.EventEmitter<unknown>();
     mock.documentChanged = new base.EventEmitter<unknown>();
@@ -28,7 +28,7 @@ vi.mock('vscode', async () => {
 
 // The URI codec has its own tests; this one is about the tracker, so the
 // document-to-module answer is stubbed rather than encoded.
-vi.mock('../src/vbaDocumentLocation', () => ({
+vi.mock('../../src/vbaDocumentLocation', () => ({
     moduleLocationOfDocument: (document: { uri: { scheme: string } }) =>
         (document.uri.scheme === 'xlide-vba'
             ? { projectPath: 'C:\\work\\Book.xlsm', moduleName: 'Helpers', native: false }
@@ -36,7 +36,7 @@ vi.mock('../src/vbaDocumentLocation', () => ({
 }));
 
 import * as vscode from 'vscode';
-import { VbaCaretProcedureTracker, type VbaCaretPosition } from '../src/vbaCaretProcedure';
+import { VbaCaretProcedureTracker, type VbaCaretPosition } from '../../src/vbaCaretProcedure';
 
 const SOURCE = [
     /* 0 */ 'Option Explicit',

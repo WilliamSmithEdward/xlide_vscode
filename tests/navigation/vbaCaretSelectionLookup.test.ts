@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const host = vi.hoisted(() => ({ selection: undefined as unknown, reads: 0 }));
 vi.mock('vscode', async () => {
-    const base = await import('./helpers/vscodeMock');
+    const base = await import('../helpers/vscodeMock');
     host.selection = new base.EventEmitter<unknown>();
     return base.vscodeMock({ window: {
         activeTextEditor: undefined,
@@ -9,9 +9,9 @@ vi.mock('vscode', async () => {
         onDidChangeTextEditorSelection: (host.selection as { event: unknown }).event,
     } });
 });
-vi.mock('../src/vbaDocumentLocation', () => ({ moduleLocationOfDocument: () => ({ projectPath: 'Book.xlsm', moduleName: 'M', native: false }) }));
-vi.mock('../src/vbaProcedureAtLine', async (importOriginal) => {
-    const real = await importOriginal<typeof import('../src/vbaProcedureAtLine')>();
+vi.mock('../../src/vbaDocumentLocation', () => ({ moduleLocationOfDocument: () => ({ projectPath: 'Book.xlsm', moduleName: 'M', native: false }) }));
+vi.mock('../../src/vbaProcedureAtLine', async (importOriginal) => {
+    const real = await importOriginal<typeof import('../../src/vbaProcedureAtLine')>();
     return { ...real, vbaProcedureRanges: (source: string) => real.vbaProcedureRanges(source).map(range => ({
         ...range,
         get firstLine() { host.reads++; return range.firstLine; },
@@ -19,8 +19,8 @@ vi.mock('../src/vbaProcedureAtLine', async (importOriginal) => {
     })) };
 });
 import * as vscode from 'vscode';
-import { VbaCaretProcedureTracker } from '../src/vbaCaretProcedure';
-import { vbaProcedureAtLine, vbaProcedureLabel, vbaProcedureRanges } from '../src/vbaProcedureAtLine';
+import { VbaCaretProcedureTracker } from '../../src/vbaCaretProcedure';
+import { vbaProcedureAtLine, vbaProcedureLabel, vbaProcedureRanges } from '../../src/vbaProcedureAtLine';
 let tracker: VbaCaretProcedureTracker | undefined;
 beforeEach(() => { host.reads = 0; });
 afterEach(() => { tracker?.dispose(); tracker = undefined; });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { ProjectIndex } from '../src/analyzer/symbols/projectIndex';
-import { tokenizeCached } from '../src/analyzer/lexer/tokenize';
-import { resolveMemberDefinitionsAt, type MemberCompletionContext } from '../src/analyzer/completion/memberAccess';
+import { ProjectIndex } from '../../src/analyzer/symbols/projectIndex';
+import { tokenizeCached } from '../../src/analyzer/lexer/tokenize';
+import { resolveMemberDefinitionsAt, type MemberCompletionContext } from '../../src/analyzer/completion/memberAccess';
 for(const eol of ['\n','\r\n','\r']) {
  describe('bracketed member definition '+JSON.stringify(eol),()=>{
   for(const body of ['Me.[Report] 1','Dim value As Target'+eol+'value.[Report] 1','With Me'+eol+'.[Report] 1'+eol+'End With']) {

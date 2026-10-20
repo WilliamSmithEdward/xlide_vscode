@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { classifyReferenceKinds } from '../src/analyzer/references/referenceKinds';
-import { tokenizeCached } from '../src/analyzer/lexer/tokenize';
+import { classifyReferenceKinds } from '../../src/analyzer/references/referenceKinds';
+import { tokenizeCached } from '../../src/analyzer/lexer/tokenize';
 
 describe.each(['If c Then ', 'ElseIf c Then '])('nested reference tails (%s)', prefix => {
     it.each(['terminal', 'all'])('bounds token reads for %s requested names', mode => {

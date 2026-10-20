@@ -3,8 +3,8 @@ import {
 	checkRenameName,
 	describeRenameCollision,
 	findRenameCollision,
-} from '../src/vbaRenameValidation';
-import { buildVbaProjectIndex } from '../src/vbaProjectAnalysis';
+} from '../../src/vbaRenameValidation';
+import { buildVbaProjectIndex } from '../../src/vbaProjectAnalysis';
 
 // Rule 7 of issue #9: the new name is checked before anything is written. A
 // rename edits several modules at once, so writing first and discovering the

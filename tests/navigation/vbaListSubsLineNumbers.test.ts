@@ -1,8 +1,8 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as svc from '../src/vba/projectService';
-import { makeTempDir, removeTempDirs } from './helpers/tempDirs';
+import * as svc from '../../src/vba/projectService';
+import { makeTempDir, removeTempDirs } from '../helpers/tempDirs';
 
 afterAll(removeTempDirs);
 
@@ -13,7 +13,7 @@ afterAll(removeTempDirs);
 // which the search itself was 1.5 ms. One forward pass counts each character
 // once. Widely separated procedures are what a broken running counter gets
 // wrong, so that is what this pins.
-const TEMPLATE = path.join(__dirname, '..', 'assets', 'templates', 'blank.xlsm');
+const TEMPLATE = path.join(__dirname, '..', '..', 'assets', 'templates', 'blank.xlsm');
 
 function tempWorkbook(): string {
 	const dir = makeTempDir('xlide-lines-');
