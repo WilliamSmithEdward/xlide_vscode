@@ -8,8 +8,8 @@ import {
     buildWordMacroLaunchScript,
     hostMacroReference,
     hostOpenOutcome,
-} from '../src/officeHostLauncher';
-import { encodedCommandArgs } from '../src/util/powershellNode';
+} from '../../src/officeHostLauncher';
+import { encodedCommandArgs } from '../../src/util/powershellNode';
 
 describe('Excel launcher script', () => {
     const openScript = buildExcelLaunchScript({

@@ -5,7 +5,7 @@ import {
     placeAssignmentLine,
     PLACE_REPORT_LINE,
     restorePlaceLines,
-} from '../src/officeViewPlace';
+} from '../../src/officeViewPlace';
 
 describe('a place in a copy of the file', () => {
     it('reads what each application calls a place', () => {

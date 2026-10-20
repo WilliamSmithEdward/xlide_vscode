@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
     officeComAvailabilityFromProbe,
     officeComProbePowerShellScript,
-} from '../src/officeComAvailability';
+} from '../../src/officeComAvailability';
 
 describe('Excel COM availability', () => {
     it('checks COM registration without creating an Excel instance', () => {
