@@ -4,16 +4,16 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { judgeClamscan, readClamscan, readVersion } from '../.github/scripts/clamav-sarif.mjs';
-import { judge, loadReviewed, partialResults, sarifResults, SCANS } from '../.github/scripts/sarif-gate.mjs';
-import { CANARY_RULE, EICAR_HEX, toSarif } from '../.github/scripts/scan-sarif.mjs';
+import { judgeClamscan, readClamscan, readVersion } from "../../.github/scripts/clamav-sarif.mjs";
+import { judge, loadReviewed, partialResults, sarifResults, SCANS } from "../../.github/scripts/sarif-gate.mjs";
+import { CANARY_RULE, EICAR_HEX, toSarif } from "../../.github/scripts/scan-sarif.mjs";
 import {
 	compileErrorCount,
 	countRules,
 	judgeYaraX,
 	readMatches,
 	scanErrors,
-} from '../.github/scripts/yara-x-sarif.mjs';
+} from "../../.github/scripts/yara-x-sarif.mjs";
 
 // The ClamAV and YARA-X jobs of the Malware scan workflow: what their
 // converters read from each scanner, what they refuse to trust, and that the
@@ -22,7 +22,7 @@ import {
 // EICAR test file this machine's antivirus reacts to.
 
 const CANARY = 'scan-canary/eicar.com';
-const repoRoot = path.join(__dirname, '..');
+const repoRoot = path.join(__dirname, '..', '..');
 const temporary: string[] = [];
 
 function tempDir(): string {

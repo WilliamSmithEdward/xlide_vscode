@@ -9,7 +9,7 @@ import { readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { describe, expect, it } from 'vitest';
 
-const ROOT = join(__dirname, '..', '.github');
+const ROOT = join(__dirname, '..', '..', '.github');
 
 /** Every workflow and composite-action file under .github. */
 function workflowFiles(dir: string): string[] {
