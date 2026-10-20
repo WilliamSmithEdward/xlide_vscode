@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const host=vi.hoisted(()=>({findFiles:vi.fn()}));
-vi.mock('vscode',async()=> (await import('./helpers/vscodeMock')).vscodeMock({workspace:{findFiles:host.findFiles,workspaceFolders:[{uri:{fsPath:'C:/work'}}]}}));
-import { ProjectExplorer, type XlideNode } from '../src/projectExplorer';
+vi.mock('vscode',async()=> (await import('../helpers/vscodeMock')).vscodeMock({workspace:{findFiles:host.findFiles,workspaceFolders:[{uri:{fsPath:'C:/work'}}]}}));
+import { ProjectExplorer, type XlideNode } from '../../src/projectExplorer';
 const BOOK='C:/work/App.vbp',OLD='C:/work/Old.vbp',NEW='C:/work/New.vbp';
 const files=(path:string)=>[{scheme:'file',fsPath:path}];
 const module=(name:string)=>[{name,type:'standard',folder:name+'Folder'}];

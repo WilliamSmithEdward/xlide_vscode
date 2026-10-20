@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const host = vi.hoisted(() => ({ findFiles: vi.fn(), showErrorMessage: vi.fn() }));
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock({
     workspace: { findFiles: host.findFiles, workspaceFolders: [{ uri: { fsPath: 'C:/work' } }] },
     window: { showErrorMessage: host.showErrorMessage },
 }));
-import { ProjectExplorer } from '../src/projectExplorer';
+import { ProjectExplorer } from '../../src/projectExplorer';
 const BOOK = 'C:/work/Book.xlsm';
 let explorers: ProjectExplorer[] = [];
 function create(call: ReturnType<typeof vi.fn>) {

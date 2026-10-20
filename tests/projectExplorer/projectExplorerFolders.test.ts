@@ -11,7 +11,7 @@ const vscodeMock = vi.hoisted(() => ({
     treeEvents: [] as unknown[],
 }));
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock({
     EventEmitter: class {
         event = vi.fn();
         dispose = vi.fn();
@@ -28,9 +28,9 @@ vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock(
     },
 }));
 
-import { ProjectExplorer, type XlideNode } from '../src/projectExplorer';
-import { AGENT_REVIEW_COLOR_ID, parseDecorationUri } from '../src/agentReviewDecorations';
-import { keepAgentChange, presentAgentModuleWrite } from '../src/xlideAgentDiff';
+import { ProjectExplorer, type XlideNode } from '../../src/projectExplorer';
+import { AGENT_REVIEW_COLOR_ID, parseDecorationUri } from '../../src/agentReviewDecorations';
+import { keepAgentChange, presentAgentModuleWrite } from '../../src/xlideAgentDiff';
 
 const BOOK = 'C:\\work\\Book.xlsm';
 

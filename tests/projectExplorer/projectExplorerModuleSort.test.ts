@@ -1,15 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const host = vi.hoisted(() => ({ compare: vi.fn(), findFiles: vi.fn() }));
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock({
     workspace: { findFiles: host.findFiles, workspaceFolders: [{ uri: { fsPath: 'C:/work' } }] },
 }));
-vi.mock('../src/moduleDisplay', async (importOriginal) => {
-    const real = await importOriginal<typeof import('../src/moduleDisplay')>();
+vi.mock('../../src/moduleDisplay', async (importOriginal) => {
+    const real = await importOriginal<typeof import('../../src/moduleDisplay')>();
     return { ...real, compareVbaModulesForTreeOrder: host.compare.mockImplementation(real.compareVbaModulesForTreeOrder) };
 });
-import { ProjectExplorer } from '../src/projectExplorer';
-import { compareVbaModulesForTreeOrder } from '../src/moduleDisplay';
+import { ProjectExplorer } from '../../src/projectExplorer';
+import { compareVbaModulesForTreeOrder } from '../../src/moduleDisplay';
 
 const BOOK = 'C:/work/App.vbp';
 const modules = Object.freeze(Array.from({ length: 1000 }, (_, i) => Object.freeze({
