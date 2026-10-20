@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as vscodeTypes from 'vscode';
 
 vi.mock('vscode', async () => {
-    const { vscodeMock, Position } = await import('./helpers/vscodeMock');
+    const { vscodeMock, Position } = await import('../helpers/vscodeMock');
     return vscodeMock({
         workspace: { onDidCloseTextDocument: vi.fn(() => ({ dispose() {} })) },
         CompletionItem: class { constructor(public label: string, public kind: number) {} },
@@ -19,19 +19,19 @@ vi.mock('vscode', async () => {
         },
     });
 });
-vi.mock('../src/analyzer/call/callContext', async () => {
-    const actual = await vi.importActual<typeof import('../src/analyzer/call/callContext')>('../src/analyzer/call/callContext');
+vi.mock('../../src/analyzer/call/callContext', async () => {
+    const actual = await vi.importActual<typeof import('../../src/analyzer/call/callContext')>('../../src/analyzer/call/callContext');
     return { ...actual, callableCompletionShouldInsertParens: vi.fn(actual.callableCompletionShouldInsertParens) };
 });
 
 import * as vscode from 'vscode';
-import { projectOptions } from './diagnostics/helpers';
-import * as lexer from '../src/analyzer/lexer/tokenize';
-import * as identifiers from '../src/analyzer/completion/identifierCompletion';
-import { VbaMemberCompletionProvider } from '../src/vbaCompletionProvider';
-import { callableCompletionShouldInsertParens } from '../src/analyzer/call/callContext';
-import { getWordObjectModel } from '../src/analyzer/host/wordObjectModel';
-import type { EditorProjectContext, VbaEditorProjectContextService } from '../src/vbaEditorProjectContext';
+import { projectOptions } from '../diagnostics/helpers';
+import * as lexer from '../../src/analyzer/lexer/tokenize';
+import * as identifiers from '../../src/analyzer/completion/identifierCompletion';
+import { VbaMemberCompletionProvider } from '../../src/vbaCompletionProvider';
+import { callableCompletionShouldInsertParens } from '../../src/analyzer/call/callContext';
+import { getWordObjectModel } from '../../src/analyzer/host/wordObjectModel';
+import type { EditorProjectContext, VbaEditorProjectContextService } from '../../src/vbaEditorProjectContext';
 
 function prepareRequest(line: string, context: EditorProjectContext = {}, column = line.length, prelude = 'Sub Demo()\n') {
     const source = prelude + line + '\nEnd Sub';

@@ -1,17 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as vscodeTypes from 'vscode';
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock({
     window: { activeTextEditor: undefined, onDidChangeTextEditorSelection: vi.fn(() => ({ dispose: vi.fn() })),
         onDidChangeActiveTextEditor: vi.fn(() => ({ dispose: vi.fn() })) },
     workspace: { onDidCloseTextDocument: vi.fn(() => ({ dispose() {} })) },
 }));
 
 import * as vscode from 'vscode';
-import * as lexer from '../src/analyzer/lexer/tokenize';
-import { hasMemberCompletions, resolveMemberCompletions } from '../src/analyzer';
-import { VbaMemberCompletionProvider } from '../src/vbaCompletionProvider';
-import type { EditorProjectContext, VbaEditorProjectContextService } from '../src/vbaEditorProjectContext';
+import * as lexer from '../../src/analyzer/lexer/tokenize';
+import { hasMemberCompletions, resolveMemberCompletions } from '../../src/analyzer';
+import { VbaMemberCompletionProvider } from '../../src/vbaCompletionProvider';
+import type { EditorProjectContext, VbaEditorProjectContextService } from '../../src/vbaEditorProjectContext';
 
 function deletion(line: string, options: { column?: number; prelude?: string } = {}) {
     const prelude = options.prelude ?? 'Sub Demo()\n';

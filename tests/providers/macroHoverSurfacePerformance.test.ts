@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { writeFileSync } from 'node:fs';
-import * as lexer from '../src/analyzer/lexer/tokenize';
-import { macroNameStringAt } from '../src/analyzer/completion/macroNames';
-import { hoverMayResolveAt, resolveHover } from '../src/analyzer/hover/resolveHover';
-import { buildLiveVbaProjectIndex } from '../src/vbaProjectAnalysis';
+import * as lexer from '../../src/analyzer/lexer/tokenize';
+import { macroNameStringAt } from '../../src/analyzer/completion/macroNames';
+import { hoverMayResolveAt, resolveHover } from '../../src/analyzer/hover/resolveHover';
+import { buildLiveVbaProjectIndex } from '../../src/vbaProjectAnalysis';
 
 vi.mock('vscode', async () => ({
-    ...(await import('./helpers/vscodeMock')).vscodeMock(),
+    ...(await import('../helpers/vscodeMock')).vscodeMock(),
     Hover: class { constructor(public contents: unknown, public range: unknown) {} },
     MarkdownString: class {
         value = '';
@@ -15,7 +15,7 @@ vi.mock('vscode', async () => ({
     },
 }));
 import * as vscode from 'vscode';
-import { VbaHoverSignatureProvider } from '../src/vbaHoverSignatureProvider';
+import { VbaHoverSignatureProvider } from '../../src/vbaHoverSignatureProvider';
 
 afterEach(() => vi.restoreAllMocks());
 const prefix = Array.from({ length: 1200 }, (_, index) =>

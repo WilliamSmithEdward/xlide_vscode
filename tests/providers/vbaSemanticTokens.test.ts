@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getWordObjectModel } from '../src/analyzer/host/wordObjectModel';
+import { getWordObjectModel } from '../../src/analyzer/host/wordObjectModel';
 import {
 	collectHostGlobalTokens,
 	collectHostMemberMethodTokens,
@@ -8,7 +8,7 @@ import {
 	type HostMemberTokenContext,
 	type TypeCompletionContext,
 	type VbaProjectTypeName,
-} from '../src/analyzer';
+} from '../../src/analyzer';
 
 function tokenTexts(
 	source: string,

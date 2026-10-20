@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type * as vscodeTypes from 'vscode';
 
 vi.mock('vscode', async () => {
-	const { vscodeMock, Range } = await import('./helpers/vscodeMock');
+	const { vscodeMock, Range } = await import('../helpers/vscodeMock');
 	return vscodeMock({ Range,
 		Color: class { constructor(public red: number, public green: number, public blue: number, public alpha: number) {} },
 		ColorInformation: class { constructor(public range: unknown, public color: unknown) {} },
@@ -12,7 +12,7 @@ vi.mock('vscode', async () => {
 });
 
 import * as vscode from 'vscode';
-import { VbaColorProvider } from '../src/vbaColorProvider';
+import { VbaColorProvider } from '../../src/vbaColorProvider';
 
 function document(source: string) {
 	return {

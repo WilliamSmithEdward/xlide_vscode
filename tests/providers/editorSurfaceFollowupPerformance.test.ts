@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const semanticEvents = vi.hoisted(() => ({ close: [] as Array<(document: import('vscode').TextDocument) => void> }));
 
 vi.mock('vscode', async () => ({
-	...(await import('./helpers/vscodeMock')).vscodeMock({
+	...(await import('../helpers/vscodeMock')).vscodeMock({
         workspace: {
             onDidCloseTextDocument: (listener: (document: import('vscode').TextDocument) => void) => {
                 semanticEvents.close.push(listener);
@@ -33,11 +33,11 @@ vi.mock('vscode', async () => ({
 	},
 	ParameterInformation: class { constructor(public label: string) {} },
 }));
-vi.mock('../src/vbaDocumentLocation', () => ({
+vi.mock('../../src/vbaDocumentLocation', () => ({
 	moduleLocationOfDocument: (document: { uri: { path: string } }) => ({ projectPath: document.uri.path.split('/')[1], moduleName: 'Caller', native: false }),
 	moduleDocumentUri: vi.fn(),
 }));
-vi.mock('../src/vbaDocumentIdentity', () => ({
+vi.mock('../../src/vbaDocumentIdentity', () => ({
 	analysisSourceForDocument: (document: { getText(): string }) => document.getText(),
 	moduleNameFromDocument: () => 'Caller',
 	moduleKindFromDocument: () => 'standard',
@@ -45,14 +45,14 @@ vi.mock('../src/vbaDocumentIdentity', () => ({
 	isStandaloneVbaDocument: () => false,
 }));
 import * as vscode from 'vscode';
-import * as analyzer from '../src/analyzer';
-import { VbaTypeSemanticTokensProvider } from '../src/vbaSemanticTokensProvider';
-import { VbaHoverSignatureProvider } from '../src/vbaHoverSignatureProvider';
-import { VbaDocumentHighlightProvider } from '../src/vbaNavigationProviders';
-import { buildLiveVbaProjectIndex } from '../src/vbaProjectAnalysis';
-import { liveProjectIndexForDocument } from '../src/vbaDocumentIdentity';
-import * as references from '../src/vbaReferenceResolution';
-import { VbaCaretProcedureTracker } from '../src/vbaCaretProcedure';
+import * as analyzer from '../../src/analyzer';
+import { VbaTypeSemanticTokensProvider } from '../../src/vbaSemanticTokensProvider';
+import { VbaHoverSignatureProvider } from '../../src/vbaHoverSignatureProvider';
+import { VbaDocumentHighlightProvider } from '../../src/vbaNavigationProviders';
+import { buildLiveVbaProjectIndex } from '../../src/vbaProjectAnalysis';
+import { liveProjectIndexForDocument } from '../../src/vbaDocumentIdentity';
+import * as references from '../../src/vbaReferenceResolution';
+import { VbaCaretProcedureTracker } from '../../src/vbaCaretProcedure';
 
 function documentFor(source: string, scheme = 'xlide-vba', projectPath = 'Book.xlsm') {
 	const lines = source.split('\n');

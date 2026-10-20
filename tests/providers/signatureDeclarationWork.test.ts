@@ -1,8 +1,8 @@
 import { beforeEach, expect, it, vi } from 'vitest';
-import { resolveSignatureHelp } from '../src/analyzer/signature/signatureHelp';
+import { resolveSignatureHelp } from '../../src/analyzer/signature/signatureHelp';
 const work = vi.hoisted(() => ({ reads: 0 }));
-vi.mock('../src/analyzer/parser/parseModule', async () => {
-	const actual = await vi.importActual<typeof import('../src/analyzer/parser/parseModule')>('../src/analyzer/parser/parseModule');
+vi.mock('../../src/analyzer/parser/parseModule', async () => {
+	const actual = await vi.importActual<typeof import('../../src/analyzer/parser/parseModule')>('../../src/analyzer/parser/parseModule');
 	const views = new WeakMap<object, ReturnType<typeof actual.parseModule>>();
 	return { ...actual, parseModule(source: string) {
 		const module = actual.parseModule(source);

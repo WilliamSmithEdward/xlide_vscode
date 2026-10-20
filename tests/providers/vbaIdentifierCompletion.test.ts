@@ -5,8 +5,8 @@ import {
 	ProjectIndex,
 	resolveIdentifierCompletions,
 	IdentifierCompletionContext,
-} from '../src/analyzer';
-import { getWordObjectModel } from '../src/analyzer/host/wordObjectModel';
+} from '../../src/analyzer';
+import { getWordObjectModel } from '../../src/analyzer/host/wordObjectModel';
 
 /** Offset just after `marker` in `src`. */
 function at(src: string, marker: string): number {

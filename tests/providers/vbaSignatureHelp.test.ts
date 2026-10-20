@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ProjectIndex, resolveSignatureHelp, SignatureHelpContext } from '../src/analyzer';
+import { ProjectIndex, resolveSignatureHelp, SignatureHelpContext } from '../../src/analyzer';
 
 /** Resolves signature help with the caret at the `|` marker in `src`. */
 function help(src: string, ctx: SignatureHelpContext = {}) {

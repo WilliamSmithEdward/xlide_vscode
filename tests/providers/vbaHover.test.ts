@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { resolveHover, HoverContext, ProjectIndex } from '../src/analyzer';
-import { getWordObjectModel } from '../src/analyzer/host/wordObjectModel';
+import { resolveHover, HoverContext, ProjectIndex } from '../../src/analyzer';
+import { getWordObjectModel } from '../../src/analyzer/host/wordObjectModel';
 
 /** Offset of the first character of `marker` in `src`. */
 function at(src: string, marker: string, within = 0): number {

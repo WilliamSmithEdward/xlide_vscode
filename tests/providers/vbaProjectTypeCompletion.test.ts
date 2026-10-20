@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ProjectIndex, resolveMemberCompletions } from '../src/analyzer';
+import { ProjectIndex, resolveMemberCompletions } from '../../src/analyzer';
 
 // Issue #11: a project Type lost its member surface to a same-named class from
 // a referenced type library, and an Enum name offered nothing at all.

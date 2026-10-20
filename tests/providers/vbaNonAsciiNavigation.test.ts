@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { VBA_IDENTIFIER_RE, VBA_IDENTIFIER_NAME_RE, VBA_IDENTIFIER_PATTERN } from '../src/vbaSourceScan';
-import { detectSmartBlockOpener } from '../src/vbaSmartEnter';
-import { ProjectIndex, resolveMemberCompletions } from '../src/analyzer';
-import { identifierSpanEndingAt } from '../src/analyzer/completion/cursorContext';
+import { VBA_IDENTIFIER_RE, VBA_IDENTIFIER_NAME_RE, VBA_IDENTIFIER_PATTERN } from '../../src/vbaSourceScan';
+import { detectSmartBlockOpener } from '../../src/vbaSmartEnter';
+import { ProjectIndex, resolveMemberCompletions } from '../../src/analyzer';
+import { identifierSpanEndingAt } from '../../src/analyzer/completion/cursorContext';
 
 // The same bug class as issues #6 and #8, one layer out from the analyzer.
 // VS Code picks the word under the cursor with VBA_IDENTIFIER_RE, and it

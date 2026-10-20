@@ -12,8 +12,8 @@ import {
 	getHostMembers,
 	getHostType,
 	type HostObjectModel,
-} from '../src/analyzer';
-import { XLIDE_ASSERT_MODULE_SOURCE } from '../src/vbaTestSupportModule';
+} from '../../src/analyzer';
+import { XLIDE_ASSERT_MODULE_SOURCE } from '../../src/vbaTestSupportModule';
 
 /** Offset just after the dot in the first occurrence of `marker` in `src`. */
 function dotOffset(src: string, marker: string): number {

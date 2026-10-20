@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import * as host from '../src/analyzer/host/hostModel';
-import { collectHostGlobalTokens } from '../src/analyzer/semantic/typeSemanticTokens';
+import * as host from '../../src/analyzer/host/hostModel';
+import { collectHostGlobalTokens } from '../../src/analyzer/semantic/typeSemanticTokens';
 
 afterEach(() => vi.restoreAllMocks());
 describe('host global semantic position gates', () => {

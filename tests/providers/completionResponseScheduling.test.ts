@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 vi.mock('vscode', async () => ({
-    ...(await import('./helpers/vscodeMock')).vscodeMock(),
+    ...(await import('../helpers/vscodeMock')).vscodeMock(),
     Range: class {
         start: { line: number; character: number };
         end: { line: number; character: number };
@@ -16,9 +16,9 @@ vi.mock('vscode', async () => ({
     CompletionTriggerKind: { Invoke: 0, TriggerCharacter: 1, TriggerForIncompleteCompletions: 2 },
 }));
 import * as vscode from 'vscode';
-import * as projectAnalysis from '../src/vbaProjectAnalysis';
-import { VbaMemberCompletionProvider } from '../src/vbaCompletionProvider';
-import { VbaEditorProjectContextService } from '../src/vbaEditorProjectContext';
+import * as projectAnalysis from '../../src/vbaProjectAnalysis';
+import { VbaMemberCompletionProvider } from '../../src/vbaCompletionProvider';
+import { VbaEditorProjectContextService } from '../../src/vbaEditorProjectContext';
 
 const source = 'Sub Prompt()\nDim InstantValue As Long\ninstant\nEnd Sub';
 function documentFor(text = source) {

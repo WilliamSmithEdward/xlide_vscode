@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	EventHandlerCompletionContext,
 	resolveEventHandlerCompletions,
-} from '../src/analyzer';
+} from '../../src/analyzer';
 
 function at(src: string, marker: string): number {
 	const idx = src.indexOf(marker);

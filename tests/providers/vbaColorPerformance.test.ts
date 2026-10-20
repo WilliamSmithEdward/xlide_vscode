@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { collectVbaColors } from '../src/vbaColors';
-import * as symbols from '../src/analyzer/symbols/buildModuleSymbols';
-import * as cursor from '../src/analyzer/completion/cursorContext';
+import { collectVbaColors } from '../../src/vbaColors';
+import * as symbols from '../../src/analyzer/symbols/buildModuleSymbols';
+import * as cursor from '../../src/analyzer/completion/cursorContext';
 
 describe('color scan work bounds', () => {
 	it('scans thousands of numeric colors without per-color prefix or symbol analysis', () => {

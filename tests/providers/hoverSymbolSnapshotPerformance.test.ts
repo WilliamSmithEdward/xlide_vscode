@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { resolveHover } from '../src/analyzer/hover/resolveHover';
-import { resolveIdentifierCompletions } from '../src/analyzer/completion/identifierCompletion';
-import { buildModuleSymbols } from '../src/analyzer/symbols/buildModuleSymbols';
-import { DocRegistry } from '../src/analyzer/docs/docRegistry';
+import { resolveHover } from '../../src/analyzer/hover/resolveHover';
+import { resolveIdentifierCompletions } from '../../src/analyzer/completion/identifierCompletion';
+import { buildModuleSymbols } from '../../src/analyzer/symbols/buildModuleSymbols';
+import { DocRegistry } from '../../src/analyzer/docs/docRegistry';
 
-vi.mock('../src/analyzer/symbols/buildModuleSymbols', async () => {
-    const actual = await vi.importActual<typeof import('../src/analyzer/symbols/buildModuleSymbols')>('../src/analyzer/symbols/buildModuleSymbols');
+vi.mock('../../src/analyzer/symbols/buildModuleSymbols', async () => {
+    const actual = await vi.importActual<typeof import('../../src/analyzer/symbols/buildModuleSymbols')>('../../src/analyzer/symbols/buildModuleSymbols');
     return { ...actual, buildModuleSymbols: vi.fn(actual.buildModuleSymbols) };
 });
 beforeEach(() => { vi.mocked(buildModuleSymbols).mockClear(); });

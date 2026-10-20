@@ -1,8 +1,8 @@
 import { beforeEach, expect, it, vi } from 'vitest';
-import { resolveHover } from '../src/analyzer/hover/resolveHover';
+import { resolveHover } from '../../src/analyzer/hover/resolveHover';
 const work = vi.hoisted(() => ({ reads: 0 }));
-vi.mock('../src/analyzer/symbols/editorModuleSymbols', async () => {
- const actual = await vi.importActual<typeof import('../src/analyzer/symbols/editorModuleSymbols')>('../src/analyzer/symbols/editorModuleSymbols');
+vi.mock('../../src/analyzer/symbols/editorModuleSymbols', async () => {
+ const actual = await vi.importActual<typeof import('../../src/analyzer/symbols/editorModuleSymbols')>('../../src/analyzer/symbols/editorModuleSymbols');
  const views = new WeakMap<object, ReturnType<typeof actual.editorModuleSymbols>>();
  return { ...actual, editorModuleSymbols(...args: Parameters<typeof actual.editorModuleSymbols>) {
   const original = actual.editorModuleSymbols(...args);

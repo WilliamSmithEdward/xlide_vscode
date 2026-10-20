@@ -1,13 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import * as lexer from '../src/analyzer/lexer/tokenize';
-import * as callContext from '../src/analyzer/call/callContext';
-import * as projectAnalysis from '../src/vbaProjectAnalysis';
-import { collectTypeNameReferences, resolveTypeReferenceAt } from '../src/analyzer/semantic/typeSemanticTokens';
-import { resolveHover } from '../src/analyzer/hover/resolveHover';
-import { loopIteratorSyncMayApply } from '../src/vbaSmartEnter';
+import * as lexer from '../../src/analyzer/lexer/tokenize';
+import * as callContext from '../../src/analyzer/call/callContext';
+import * as projectAnalysis from '../../src/vbaProjectAnalysis';
+import { collectTypeNameReferences, resolveTypeReferenceAt } from '../../src/analyzer/semantic/typeSemanticTokens';
+import { resolveHover } from '../../src/analyzer/hover/resolveHover';
+import { loopIteratorSyncMayApply } from '../../src/vbaSmartEnter';
 
 vi.mock('vscode', async () => {
-	const base = (await import('./helpers/vscodeMock')).vscodeMock();
+	const base = (await import('../helpers/vscodeMock')).vscodeMock();
 	return {
 		...base,
 		Range: class extends base.Range {
@@ -23,9 +23,9 @@ vi.mock('vscode', async () => {
 	};
 });
 import * as vscode from 'vscode';
-import { VbaMemberCompletionProvider } from '../src/vbaCompletionProvider';
-import { VbaEditorProjectContextService } from '../src/vbaEditorProjectContext';
-import { registerVbaLoopIteratorSync } from '../src/vbaTypingAutomation';
+import { VbaMemberCompletionProvider } from '../../src/vbaCompletionProvider';
+import { VbaEditorProjectContextService } from '../../src/vbaEditorProjectContext';
+import { registerVbaLoopIteratorSync } from '../../src/vbaTypingAutomation';
 
 function documentFor(source: string) {
 	const lines = source.split('\n');

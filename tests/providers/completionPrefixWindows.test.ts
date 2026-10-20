@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { completionCursorContext, completionLineCursorContext, completionTypeTokens } from '../src/analyzer/completion/cursorContext';
-import { resolveHover } from '../src/analyzer/hover/resolveHover';
-import * as lexer from '../src/analyzer/lexer/tokenize';
-import { resolveTypeCompletions } from '../src/analyzer/completion/typeCompletion';
-import { resolveMemberCompletions } from '../src/analyzer/completion/memberAccess';
-import { resolveKeywordCompletions } from '../src/analyzer/completion/keywordCompletion';
+import { completionCursorContext, completionLineCursorContext, completionTypeTokens } from '../../src/analyzer/completion/cursorContext';
+import { resolveHover } from '../../src/analyzer/hover/resolveHover';
+import * as lexer from '../../src/analyzer/lexer/tokenize';
+import { resolveTypeCompletions } from '../../src/analyzer/completion/typeCompletion';
+import { resolveMemberCompletions } from '../../src/analyzer/completion/memberAccess';
+import { resolveKeywordCompletions } from '../../src/analyzer/completion/keywordCompletion';
 
 afterEach(() => vi.restoreAllMocks());
 

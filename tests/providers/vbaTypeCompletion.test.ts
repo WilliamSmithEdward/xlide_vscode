@@ -3,8 +3,8 @@ import {
 	resolveTypeCompletions,
 	type ProjectTypeName,
 	type TypeCompletionContext,
-} from '../src/analyzer';
-import { getWordObjectModel } from '../src/analyzer/host/wordObjectModel';
+} from '../../src/analyzer';
+import { getWordObjectModel } from '../../src/analyzer/host/wordObjectModel';
 
 /** Offset just past the end of the first occurrence of `marker`. */
 function endOf(src: string, marker: string): number {

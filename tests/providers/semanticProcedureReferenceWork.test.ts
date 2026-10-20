@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { parseModule } from '../src/analyzer/parser/parseModule';
-import * as helpers from '../src/analyzer/lexer/tokenHelpers';
-import { collectTypeNameReferences, resolveTypeSemanticTokens } from '../src/analyzer/semantic/typeSemanticTokens';
+import { parseModule } from '../../src/analyzer/parser/parseModule';
+import * as helpers from '../../src/analyzer/lexer/tokenHelpers';
+import { collectTypeNameReferences, resolveTypeSemanticTokens } from '../../src/analyzer/semantic/typeSemanticTokens';
 afterEach(() => vi.restoreAllMocks());
 
 describe('type references in unchanged procedure nodes', () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveMemberCompletions } from '../src/analyzer';
+import { resolveMemberCompletions } from '../../src/analyzer';
 
 /** Member names offered just after the dot in the first occurrence of `marker`. */
 function memberNames(src: string, marker: string): string[] {
