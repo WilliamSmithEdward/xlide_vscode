@@ -5,8 +5,8 @@
 // span accuracy, and error tolerance before any statement wiring consumes it.
 
 import { describe, expect, it } from 'vitest';
-import { tokenize } from '../src/analyzer/lexer/tokenize';
-import { parseExpression } from '../src/analyzer/parser/parseExpression';
+import { tokenize } from '../../src/analyzer/lexer/tokenize';
+import { parseExpression } from '../../src/analyzer/parser/parseExpression';
 import {
 	Argument,
 	BinaryExpr,
@@ -19,7 +19,7 @@ import {
 	ParenExpr,
 	TypeOfIsExpr,
 	UnaryExpr,
-} from '../src/analyzer/parser/nodes';
+} from '../../src/analyzer/parser/nodes';
 
 /** Tokenize a source fragment to the significant tokens an expression sees. */
 function exprTokens(src: string) {

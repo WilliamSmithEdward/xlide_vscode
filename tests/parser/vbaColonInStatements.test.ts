@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { analyzeVbaStructure } from '../src/vbaStructuralDiagnostics';
-import { toLogicalLines } from '../src/vbaSourceScan';
+import { analyzeVbaStructure } from '../../src/vbaStructuralDiagnostics';
+import { toLogicalLines } from '../../src/vbaSourceScan';
 
 // Issue #51, reported against 4.1.5: `If Range(Cell1:="a1") Is Nothing Then`
 // reported "'End If' has no matching 'If'".

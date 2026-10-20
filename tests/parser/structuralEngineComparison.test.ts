@@ -85,14 +85,14 @@
 //       module-declaration-in-procedure rule instead.
 
 import { describe, expect, it } from 'vitest';
-import { parseModule } from '../src/analyzer/parser/parseModule';
-import { lineStartOffsets, stripVba } from '../src/vbaSourceScan';
+import { parseModule } from '../../src/analyzer/parser/parseModule';
+import { lineStartOffsets, stripVba } from '../../src/vbaSourceScan';
 import {
     analyzeVbaStructure,
     matchCloser,
     matchOpener,
-} from '../src/vbaStructuralDiagnostics';
-import { allStructuralComparisonSamples } from './helpers/structuralCorpus';
+} from '../../src/vbaStructuralDiagnostics';
+import { allStructuralComparisonSamples } from '../helpers/structuralCorpus';
 
 interface BlockBalanceRecord {
     kind: 'missing' | 'unmatched';

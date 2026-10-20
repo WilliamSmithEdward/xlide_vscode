@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { incrementalModuleParse, incrementalModuleParseFromCache } from '../src/analyzer/parser/incrementalModuleParse';
-import { parseModule, parseModuleFreshForTests } from '../src/analyzer/parser/parseModule';
+import { incrementalModuleParse, incrementalModuleParseFromCache } from '../../src/analyzer/parser/incrementalModuleParse';
+import { parseModule, parseModuleFreshForTests } from '../../src/analyzer/parser/parseModule';
 
 const prefix = "Option Explicit\n" + "' Padding before the editable procedures\n".repeat(450);
 const body = 'Public Sub First(ByVal argument As Long)\nDim value As Long\nvalue = 1\nDebug.Print value\nEnd Sub\n';

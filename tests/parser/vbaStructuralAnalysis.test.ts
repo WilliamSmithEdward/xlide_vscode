@@ -6,8 +6,8 @@ import {
     stripVba,
     stripVbaLines,
     validateVbaModuleName,
-} from '../src/vbaSourceScan';
-import { analyzeVbaStructure } from '../src/vbaStructuralDiagnostics';
+} from '../../src/vbaSourceScan';
+import { analyzeVbaStructure } from '../../src/vbaStructuralDiagnostics';
 import {
     commentContinuationText,
     detectSmartBlockOpener,
@@ -20,7 +20,7 @@ import {
     smartBlockBodyText,
     smartBlockInsertion,
     withMemberContinuationText,
-} from '../src/vbaSmartEnter';
+} from '../../src/vbaSmartEnter';
 
 describe('analyzeVbaStructure', () => {
     it('reports no problems for a balanced Sub', () => {

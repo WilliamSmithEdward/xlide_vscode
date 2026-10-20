@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { parseModule, parseModuleFreshForTests } from '../src/analyzer/parser/parseModule';
-import { buildModuleSymbols } from '../src/analyzer/symbols/buildModuleSymbols';
-import { moduleHasConditionalDirectives } from '../src/analyzer/conditional/conditionalCompilation';
+import { parseModule, parseModuleFreshForTests } from '../../src/analyzer/parser/parseModule';
+import { buildModuleSymbols } from '../../src/analyzer/symbols/buildModuleSymbols';
+import { moduleHasConditionalDirectives } from '../../src/analyzer/conditional/conditionalCompilation';
 
 function fixture(name: string, eol = '\n') {
     return [

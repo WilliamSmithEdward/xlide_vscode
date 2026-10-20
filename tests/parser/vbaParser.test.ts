@@ -5,7 +5,7 @@
 // docs/spec/MS-VBAL.verification-map.md for the full Feature->Section->Status map.
 
 import { describe, expect, it } from 'vitest';
-import { parseModule } from '../src/analyzer/parser/parseModule';
+import { parseModule } from '../../src/analyzer/parser/parseModule';
 import {
 	ConditionalDirectiveNode,
 	EnumNode,
@@ -15,7 +15,7 @@ import {
 	ProcedureNode,
 	TypeNode,
 	VariableGroupNode,
-} from '../src/analyzer/parser/nodes';
+} from '../../src/analyzer/parser/nodes';
 
 function procedures(source: string): ProcedureNode[] {
 	return parseModule(source).members.filter(

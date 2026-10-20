@@ -6,7 +6,7 @@ import {
 	resolveProcedureLabelCompletions,
 	resolveProcedureLabelDefinitionAt,
 	type ProcedureNode,
-} from '../src/analyzer';
+} from '../../src/analyzer';
 
 function withCaret(marked: string): { source: string; offset: number } {
 	const offset = marked.indexOf('|');

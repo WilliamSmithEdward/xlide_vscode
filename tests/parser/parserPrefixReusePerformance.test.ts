@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseModule } from '../src/analyzer/parser/parseModule';
+import { parseModule } from '../../src/analyzer/parser/parseModule';
 let eviction = 0;
 function cold(source: string) {
     for (let i = 0; i < 12; i++) { parseModule("' cache eviction " + eviction++); }

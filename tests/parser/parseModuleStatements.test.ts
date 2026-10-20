@@ -8,13 +8,13 @@
 // boundary that preserves the no-regression contract.
 
 import { describe, expect, it } from 'vitest';
-import { parseModule } from '../src/analyzer/parser/parseModule';
+import { parseModule } from '../../src/analyzer/parser/parseModule';
 import {
 	AssignmentNode,
 	BodyNode,
 	CallNode,
 	ProcedureNode,
-} from '../src/analyzer/parser/nodes';
+} from '../../src/analyzer/parser/nodes';
 
 /** First body node of the single procedure in a one-line-body fixture. */
 function firstBodyNode(line: string): BodyNode {
