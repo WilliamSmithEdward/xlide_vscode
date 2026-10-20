@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { readAttributeAnnotations } from '../src/analyzer/annotations/attributeAnnotations';
-import { applyAttributeAnnotations } from '../src/analyzer/annotations/attributeRewriter';
-import { joinVbaSource } from '../src/vba/moduleSource';
+import { readAttributeAnnotations } from '../../src/analyzer/annotations/attributeAnnotations';
+import { applyAttributeAnnotations } from '../../src/analyzer/annotations/attributeRewriter';
+import { joinVbaSource } from '../../src/vba/moduleSource';
 
 const endings = [['LF', ['\n']], ['CRLF', ['\r\n']], ['CR', ['\r']], ['mixed', ['\r\n', '\r', '\n']]] as const;
 function text(lines: string[], separators: readonly string[]): string {

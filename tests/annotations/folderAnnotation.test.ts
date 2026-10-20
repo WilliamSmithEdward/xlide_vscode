@@ -3,7 +3,7 @@
 // read leniently: the four spellings below all name the same folder.
 
 import { describe, expect, it } from 'vitest';
-import { normalizeFolderPath, readFolderAnnotation } from '../src/vba/folderAnnotation';
+import { normalizeFolderPath, readFolderAnnotation } from '../../src/vba/folderAnnotation';
 
 const folderOf = (source: string): string | undefined =>
 	readFolderAnnotation(source).folder;

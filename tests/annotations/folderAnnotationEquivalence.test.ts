@@ -6,7 +6,7 @@
 // thinks to write down.
 
 import { describe, expect, it } from 'vitest';
-import { normalizeFolderPath, readFolderAnnotation } from '../src/vba/folderAnnotation';
+import { normalizeFolderPath, readFolderAnnotation } from '../../src/vba/folderAnnotation';
 
 const PROCEDURE_HEADER_RE =
 	/^[ \t]*(?:(?:Public|Private|Friend)[ \t]+)?(?:Static[ \t]+)?(?:Sub|Function|Property[ \t]+(?:Get|Let|Set))[ \t]+/i;

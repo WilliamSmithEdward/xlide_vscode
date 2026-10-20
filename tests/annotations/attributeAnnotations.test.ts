@@ -10,8 +10,8 @@ import { describe, expect, it } from 'vitest';
 import {
 	readAttributeAnnotations,
 	type AnnotationKind,
-} from '../src/analyzer/annotations/attributeAnnotations';
-import { applyAttributeAnnotations } from '../src/analyzer/annotations/attributeRewriter';
+} from '../../src/analyzer/annotations/attributeAnnotations';
+import { applyAttributeAnnotations } from '../../src/analyzer/annotations/attributeRewriter';
 
 const CLASS_HEADER = [
 	'VERSION 1.0 CLASS',
