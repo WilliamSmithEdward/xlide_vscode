@@ -1,8 +1,8 @@
-import {parseModule} from '../src/analyzer/parser/parseModule';
-import {collectModuleLiteralIntegerConstants} from '../src/analyzer/diagnostics/constExpr';
-import {ProjectIndex} from '../src/analyzer/symbols/projectIndex';
+import {parseModule} from '../../src/analyzer/parser/parseModule';
+import {collectModuleLiteralIntegerConstants} from '../../src/analyzer/diagnostics/constExpr';
+import {ProjectIndex} from '../../src/analyzer/symbols/projectIndex';
 import {describe, expect, it, vi} from 'vitest';
-import {resolveRawIntegerConstants, evaluateIntegerConstantExpression} from '../src/analyzer/constants/integerConstantExpression';
+import {resolveRawIntegerConstants, evaluateIntegerConstantExpression} from '../../src/analyzer/constants/integerConstantExpression';
 
 describe('constant dependency stack', () => {
 	it.each(['alias', 'arithmetic', 'cycle'] as const)('resolves 10,000 forward %s dependencies without native stack growth', mode => {

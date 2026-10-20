@@ -6,7 +6,7 @@ import {
 	parseVbaIntegerLiteral,
 	resolveRawIntegerConstants,
 	safeInteger,
-} from '../src/analyzer/constants/integerConstantExpression';
+} from '../../src/analyzer/constants/integerConstantExpression';
 
 const noConstants = new Map<string, number | undefined>();
 
