@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
-import { VBA_TEST_DIRECTIVE_DIAGNOSTIC_CODE } from '../src/vbaTestRunner';
+import { analyzeVbaModuleSource } from '../../src/vbaModuleAnalysis';
+import { VBA_TEST_DIRECTIVE_DIAGNOSTIC_CODE } from '../../src/vbaTestRunner';
 
 function diagnosticsByCode(
 	source: string,

@@ -14,7 +14,7 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock('vscode', async () => {
-    const helper = await import('./helpers/vscodeMock');
+    const helper = await import('../helpers/vscodeMock');
     class Range {
         constructor(..._args: unknown[]) {}
     }
@@ -66,9 +66,9 @@ vi.mock('vscode', async () => {
 });
 
 import * as vscode from 'vscode';
-import * as moduleAnalysis from '../src/vbaModuleAnalysis';
-import type { AnalysisWorker } from '../src/vbaProjectWideAnalysis';
-import { registerVbaDiagnostics } from '../src/vbaLiveDiagnostics';
+import * as moduleAnalysis from '../../src/vbaModuleAnalysis';
+import type { AnalysisWorker } from '../../src/vbaProjectWideAnalysis';
+import { registerVbaDiagnostics } from '../../src/vbaLiveDiagnostics';
 
 /** A module saved on disk that no project claims, the way an export leaves one. */
 function looseDocument(source: string, fileName = 'Module1.bas'): vscodeTypes.TextDocument {

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { AnalysisWorkerState } from '../src/analysisWorkerLogic';
-import * as analysis from '../src/vbaModuleAnalysis';
+import { AnalysisWorkerState } from '../../src/analysisWorkerLogic';
+import * as analysis from '../../src/vbaModuleAnalysis';
 
 const request = {
     kind: 'analyze' as const, requestId: 1, docKey: 'C', moduleName: 'C', moduleKind: 'class',

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { analyzeModuleRulesIncremental } from '../src/analyzer/diagnostics/incrementalRules';
-import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
+import { analyzeModuleRulesIncremental } from '../../src/analyzer/diagnostics/incrementalRules';
+import { analyzeVbaModuleSource } from '../../src/vbaModuleAnalysis';
 
 // Incremental rule re-analysis: body-only edits re-walk just the dirty
 // procedure and must produce diagnostics identical to a full pass. Ordinary

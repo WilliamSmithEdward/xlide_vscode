@@ -14,7 +14,7 @@ npm run check-types
 
 ## Where tests belong
 
-- `projectAnalysis/`: project-wide analysis/results, symbol graphs and indexes, contribution reuse, editor project context, multi-project isolation, and analysis worker lifecycle/cancellation/errors. File operations, protection, and stored reference metadata are separate concerns.
+- `projectAnalysis/`: project-wide analysis/results, symbol graphs and indexes, contribution reuse, editor project context, multi-project isolation, and analysis worker lifecycle/cancellation/errors, shared and incremental analysis, diagnostic snapshots, and live analysis across project boundaries. File operations, protection, and stored reference metadata are separate concerns.
 - `constants/`: integer literal parsing, constant-expression evaluation, dependency resolution, and stack-safety regressions.
 - `conditional/`: conditional compilation, compiler/project constants, constant replay, inactive arms, lookup reuse, and expression stack safety. Diagnostic-rule tests stay in `diagnostics/`.
 - `annotations/`: attribute annotation parsing/rewriting, duplicates, physical lines, and folder annotation parsing/equivalence.

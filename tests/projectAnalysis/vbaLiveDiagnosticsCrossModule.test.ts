@@ -15,7 +15,7 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock('vscode', async () => {
-    const helper = await import('./helpers/vscodeMock');
+    const helper = await import('../helpers/vscodeMock');
     class Diagnostic {
         source?: string;
         code?: unknown;
@@ -48,18 +48,18 @@ vi.mock('vscode', async () => {
 });
 
 import * as vscode from 'vscode';
-import { AnalysisWorkerTimeoutError } from '../src/analysisWorkerErrors';
-import * as moduleAnalysis from '../src/vbaModuleAnalysis';
-import * as projectAnalysis from '../src/vbaProjectAnalysis';
-import type { AnalysisWorker } from '../src/vbaProjectWideAnalysis';
-import { registerVbaDiagnostics } from '../src/vbaLiveDiagnostics';
-import { VbaSymbolIndex } from '../src/vbaSymbolIndex';
-import { VbaProjectIndexService } from '../src/vbaProjectIndexService';
-import { fakeProjectEngine, type FakeBridgeModule } from './helpers/fakeProjectEngine';
-import type { AnalysisWorkerClient, WorkerAnalyzeRequest } from '../src/analysisWorkerClient';
-import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
-import { AnalysisWorkerState } from '../src/analysisWorkerLogic';
-import type { WorkerSeedModule } from '../src/analysisWorkerProtocol';
+import { AnalysisWorkerTimeoutError } from '../../src/analysisWorkerErrors';
+import * as moduleAnalysis from '../../src/vbaModuleAnalysis';
+import * as projectAnalysis from '../../src/vbaProjectAnalysis';
+import type { AnalysisWorker } from '../../src/vbaProjectWideAnalysis';
+import { registerVbaDiagnostics } from '../../src/vbaLiveDiagnostics';
+import { VbaSymbolIndex } from '../../src/vbaSymbolIndex';
+import { VbaProjectIndexService } from '../../src/vbaProjectIndexService';
+import { fakeProjectEngine, type FakeBridgeModule } from '../helpers/fakeProjectEngine';
+import type { AnalysisWorkerClient, WorkerAnalyzeRequest } from '../../src/analysisWorkerClient';
+import { analyzeVbaModuleSource } from '../../src/vbaModuleAnalysis';
+import { AnalysisWorkerState } from '../../src/analysisWorkerLogic';
+import type { WorkerSeedModule } from '../../src/analysisWorkerProtocol';
 
 const BOOK = process.platform === 'win32' ? 'C:/Book.xlsm' : '/work/Book.xlsm';
 const BOOK_URI_PATH = BOOK.startsWith('/') ? BOOK : `/${BOOK}`;
