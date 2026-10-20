@@ -1,9 +1,9 @@
 import { expect, it } from 'vitest';
-import { readModule } from '../src/vba/projectService';
-import { parseModule } from '../src/analyzer/parser/parseModule';
-import { tokenizeCached } from '../src/analyzer/lexer/tokenize';
-import { forEachStatementWithHeaders } from '../src/analyzer/diagnostics/walker';
-import { statementTokensCached } from '../src/analyzer/lexer/tokenHelpers';
+import { readModule } from '../../src/vba/projectService';
+import { parseModule } from '../../src/analyzer/parser/parseModule';
+import { tokenizeCached } from '../../src/analyzer/lexer/tokenize';
+import { forEachStatementWithHeaders } from '../../src/analyzer/diagnostics/walker';
+import { statementTokensCached } from '../../src/analyzer/lexer/tokenHelpers';
 function spans(source: string) {
     const result: { start: number; end: number }[] = [];
     for (const member of parseModule(source).members) {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { analyzeModule } from '../src/analyzer';
-import { CONTEXTUAL_KEYWORDS } from '../src/analyzer/lexer/keywordTable';
+import { analyzeModule } from '../../src/analyzer';
+import { CONTEXTUAL_KEYWORDS } from '../../src/analyzer/lexer/keywordTable';
 
 // A CONTEXTUAL keyword is a word the VBE capitalizes in its statement context
 // but MS-VBAL 3.3.5.2 does not reserve, so `Dim Text As String` and

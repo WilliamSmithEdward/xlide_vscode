@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import * as lexer from '../src/analyzer/lexer/tokenize';
-import { statementTokensCached } from '../src/analyzer/lexer/tokenHelpers';
+import * as lexer from '../../src/analyzer/lexer/tokenize';
+import { statementTokensCached } from '../../src/analyzer/lexer/tokenHelpers';
 
 let eviction = 0;
 function evict() {

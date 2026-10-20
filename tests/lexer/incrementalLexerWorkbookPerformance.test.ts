@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
-import { readModule } from '../src/vba/projectService';
-import { tokenize, tokenizeCached } from '../src/analyzer/lexer/tokenize';
+import { readModule } from '../../src/vba/projectService';
+import { tokenize, tokenizeCached } from '../../src/analyzer/lexer/tokenize';
 
 it.skipIf(!process.env.XLIDE_PERF_WORKBOOK)('compares actual class lexing at early, middle and late edit positions', () => {
     const original = readModule(process.env.XLIDE_PERF_WORKBOOK!, 'ROneCOne').source;
