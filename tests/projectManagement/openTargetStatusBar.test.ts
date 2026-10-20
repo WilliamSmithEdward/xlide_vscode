@@ -7,7 +7,7 @@ const state = vi.hoisted(() => ({
     editorListeners: [] as Array<() => void>,
 }));
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock({
     StatusBarAlignment: { Left: 1, Right: 2 },
     window: {
         createStatusBarItem: vi.fn(() => {
@@ -31,24 +31,24 @@ vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock(
     },
 }));
 
-vi.mock('../src/macroContainerDiscovery', () => ({
+vi.mock('../../src/macroContainerDiscovery', () => ({
     findMacroContainerFiles: vi.fn(async () => state.projects),
 }));
 
-vi.mock('../src/xlideFileSystem', () => ({
+vi.mock('../../src/xlideFileSystem', () => ({
     XLIDE_SCHEME: 'xlide-vba',
     activeLocalVbaEditor: () => undefined,
     decodeModuleUri: () => ({ projectPath: undefined, moduleName: 'Module1' }),
 }));
 
-import { OpenTargetStatusBar, openTargetHint } from '../src/openTargetStatusBar';
+import { OpenTargetStatusBar, openTargetHint } from '../../src/openTargetStatusBar';
 import {
     forgetLastOpenedProject,
     noteProjectOpened,
     onDidChangeProjectTargetInputs,
     SELECTED_PROJECT_STATE_KEY,
     storeSelectedProject,
-} from '../src/projectTarget';
+} from '../../src/projectTarget';
 
 // Paths the machine running the tests would have: the hint reads a file name
 // by that machine's rules, and CI runs on Linux, where a backslash separates

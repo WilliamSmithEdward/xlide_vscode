@@ -5,7 +5,7 @@ import * as nodePath from 'path';
 import * as vscode from 'vscode';
 import type * as VscodeType from 'vscode';
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock());
 
 import {
     decodeModuleUri,
@@ -14,8 +14,8 @@ import {
     sameProjectPath,
     projectIdentityKey,
     XlideFileSystemProvider,
-} from '../src/xlideFileSystem';
-import { recordProjectWrite } from '../src/projectFileChanges';
+} from '../../src/xlideFileSystem';
+import { recordProjectWrite } from '../../src/projectFileChanges';
 
 /** Minimal stand-in - decodeModuleUri only reads uri.path */
 function fakeUri(uriPath: string): VscodeType.Uri {

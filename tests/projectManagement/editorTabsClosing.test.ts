@@ -8,11 +8,11 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock());
 
 import * as vscode from 'vscode';
-import { moduleLocationOfUri, modulesWithNoTabLeft, tabUris } from '../src/vbaDocumentLocation';
-import { encodeFormMarkupUri, encodeModuleUri } from '../src/xlideFileSystem';
+import { moduleLocationOfUri, modulesWithNoTabLeft, tabUris } from '../../src/vbaDocumentLocation';
+import { encodeFormMarkupUri, encodeModuleUri } from '../../src/xlideFileSystem';
 
 const BOOK = 'C:\\work\\Book.xlsm';
 const OTHER = 'C:\\work\\Other.xlsm';
