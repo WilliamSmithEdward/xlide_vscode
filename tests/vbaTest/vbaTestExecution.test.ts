@@ -2,8 +2,8 @@
 import {
     vbaTestRunItemFromHostResult,
     type OwnedReadOnlyHostTestResult,
-} from '../src/vbaTestExecution';
-import type { VbaTestCase } from '../src/vbaTestRunner';
+} from '../../src/vbaTestExecution';
+import type { VbaTestCase } from '../../src/vbaTestRunner';
 
 describe('VBA test execution result classification', () => {
     it('passes expected-error tests when the host reports the expected VBA error number', () => {

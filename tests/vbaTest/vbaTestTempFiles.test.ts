@@ -6,7 +6,7 @@ import {
     cleanupStaleVbaTestHostTempDirsAsync,
     createVbaTestHostTempDir,
     XLIDE_VBA_TEST_HOST_TEMP_PREFIX,
-} from '../src/vbaTestTempFiles';
+} from '../../src/vbaTestTempFiles';
 
 const tempRoots: string[] = [];
 

@@ -7,9 +7,9 @@ import {
     createVbaTestCiStatus,
     sanitizeVbaTestHostTraceForArtifacts,
     writeVbaTestRunArtifacts,
-} from '../src/vbaTestArtifacts';
-import type { VbaTestHostOracleEvent } from '../src/vbaTestHostOracle';
-import type { VbaTestCase, VbaTestRunItem, VbaTestRunReport, VbaTestStatus } from '../src/vbaTestRunner';
+} from '../../src/vbaTestArtifacts';
+import type { VbaTestHostOracleEvent } from '../../src/vbaTestHostOracle';
+import type { VbaTestCase, VbaTestRunItem, VbaTestRunReport, VbaTestStatus } from '../../src/vbaTestRunner';
 
 const tempRoots: string[] = [];
 

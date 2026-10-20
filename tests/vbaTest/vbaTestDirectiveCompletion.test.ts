@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveVbaTestDirectiveCompletions } from '../src/vbaTestDirectiveCompletion';
+import { resolveVbaTestDirectiveCompletions } from '../../src/vbaTestDirectiveCompletion';
 
 describe('VBA test directive completion', () => {
     it('offers @xlide-test directives from apostrophe comments', () => {

@@ -2,19 +2,19 @@ import { describe, expect, it } from 'vitest';
 import {
     buildOwnedReadOnlyTestHostScript,
     vbaTestHostPlanItems,
-} from '../src/vbaTestOfficeHost';
+} from '../../src/vbaTestOfficeHost';
 import {
     parseVbaTestHostEventLine,
     XLIDE_TEST_HOST_EVENT_PREFIX,
-} from '../src/vbaTestHostOracle';
+} from '../../src/vbaTestHostOracle';
 import {
     buildVbaTestDirectRunnerModule,
     buildVbaTestDispatchModule,
     XLIDE_TEST_DISPATCH_MODULE_NAME,
     XLIDE_TEST_RUNNER_MODULE_NAME,
-} from '../src/vbaTestRunnerModuleCodegen';
-import { XLIDE_ASSERT_MODULE_SOURCE } from '../src/vbaTestSupportModule';
-import type { VbaTestCase } from '../src/vbaTestRunner';
+} from '../../src/vbaTestRunnerModuleCodegen';
+import { XLIDE_ASSERT_MODULE_SOURCE } from '../../src/vbaTestSupportModule';
+import type { VbaTestCase } from '../../src/vbaTestRunner';
 
 describe('VBA test Excel host script', () => {
     it('builds a single owned read-only Excel host script without attaching to user Excel', () => {

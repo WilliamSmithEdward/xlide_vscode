@@ -1,9 +1,9 @@
 import * as vscode from 'vscode';
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock());
 
-import { openVbaTestsPanel, renderVbaTestsHtml, type VbaTestsPanelModel } from '../src/vbaTestsWebview';
+import { openVbaTestsPanel, renderVbaTestsHtml, type VbaTestsPanelModel } from '../../src/vbaTestsWebview';
 
 describe('VBA tests webview', () => {
     it('reuses an existing tests panel for the same workbook', () => {

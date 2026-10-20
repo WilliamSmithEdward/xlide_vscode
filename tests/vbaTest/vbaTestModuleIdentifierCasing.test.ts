@@ -20,17 +20,17 @@ import {
     VBA_RUNTIME_FUNCTIONS,
     VBA_RUNTIME_OBJECTS,
     type VbaSymbol,
-} from '../src/analyzer';
-import { getExcelObjectModel, type HostObjectModel } from '../src/analyzer/host/excelObjectModel';
-import { getWordObjectModel } from '../src/analyzer/host/wordObjectModel';
-import { getPowerPointObjectModel } from '../src/analyzer/host/powerpointObjectModel';
-import { getAccessObjectModel } from '../src/analyzer/host/accessObjectModel';
-import { XLIDE_ASSERT_MODULE_SOURCE } from '../src/vbaTestSupportModule';
+} from '../../src/analyzer';
+import { getExcelObjectModel, type HostObjectModel } from '../../src/analyzer/host/excelObjectModel';
+import { getWordObjectModel } from '../../src/analyzer/host/wordObjectModel';
+import { getPowerPointObjectModel } from '../../src/analyzer/host/powerpointObjectModel';
+import { getAccessObjectModel } from '../../src/analyzer/host/accessObjectModel';
+import { XLIDE_ASSERT_MODULE_SOURCE } from '../../src/vbaTestSupportModule';
 import {
     buildVbaTestDirectRunnerModule,
     buildVbaTestDispatchModule,
-} from '../src/vbaTestRunnerModuleCodegen';
-import type { VbaTestCase } from '../src/vbaTestRunner';
+} from '../../src/vbaTestRunnerModuleCodegen';
+import type { VbaTestCase } from '../../src/vbaTestRunner';
 
 /** Lowercased name -> every canonical spelling the models and runtime carry. */
 function canonicalSpellings(): Map<string, Set<string>> {

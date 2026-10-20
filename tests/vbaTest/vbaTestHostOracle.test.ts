@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
     validateVbaTestHostOracleTrace,
     type VbaTestHostOracleEvent,
-} from '../src/vbaTestHostOracle';
+} from '../../src/vbaTestHostOracle';
 
 describe('VBA test host oracle', () => {
     it('accepts one owned Excel instance, one read-only workbook, and normal cleanup', () => {

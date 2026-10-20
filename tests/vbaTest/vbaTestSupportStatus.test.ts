@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { ProjectEngine } from '../src/projectEngine';
-import { getVbaTestSupportStatus } from '../src/vbaTestSupportStatus';
-import { XLIDE_ASSERT_MODULE_SOURCE } from '../src/vbaTestSupportModule';
+import type { ProjectEngine } from '../../src/projectEngine';
+import { getVbaTestSupportStatus } from '../../src/vbaTestSupportStatus';
+import { XLIDE_ASSERT_MODULE_SOURCE } from '../../src/vbaTestSupportModule';
 
 function bridgeWithModules(
     modules: Array<{ name: string; type: string }>,

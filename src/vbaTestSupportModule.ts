@@ -10,7 +10,7 @@ export const XLIDE_ASSERT_MODULE_NAME = 'XlideAssert';
 // `Condition`, `MacroName`. A lowercase parameter re-spells every `.Value` and
 // `Err.Number` in the user's project the moment XlideAssert is installed, and
 // XlideAssert is installed permanently (issue #38).
-// tests/vbaTestModuleIdentifierCasing.test.ts enforces this mechanically.
+// tests/vbaTest/vbaTestModuleIdentifierCasing.test.ts enforces this mechanically.
 
 /**
  * JSON string-escaping helper shared by every generated VBA module that emits
