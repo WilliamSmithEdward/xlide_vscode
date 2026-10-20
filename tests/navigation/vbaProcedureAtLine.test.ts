@@ -8,7 +8,7 @@ import {
 	vbaProcedureLabelAtLine,
 	vbaProcedureRanges,
 	VBA_DECLARATIONS_LABEL,
-} from '../src/vbaProcedureAtLine';
+} from '../../src/vbaProcedureAtLine';
 
 /** Every line's answer, so a rule cannot pass on the lines it was written for. */
 function labels(source: string): string[] {
