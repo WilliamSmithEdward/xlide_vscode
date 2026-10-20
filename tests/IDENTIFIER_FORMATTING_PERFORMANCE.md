@@ -7,7 +7,7 @@ and metadata is read again on each request.
 Run the work-count and behavior regressions:
 
 ```powershell
-npx vitest run tests/formatting/identifierFormattingPerformance.test.ts tests/vbaIdentifierCompletion.test.ts tests/vbaCanonicalCaseSymbolReuse.test.ts
+npx vitest run tests/formatting/identifierFormattingPerformance.test.ts tests/providers/vbaIdentifierCompletion.test.ts tests/vbaCanonicalCaseSymbolReuse.test.ts
 ```
 
 Run the opt-in benchmark on an otherwise idle machine:

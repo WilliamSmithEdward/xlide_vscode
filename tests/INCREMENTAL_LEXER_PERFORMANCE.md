@@ -22,7 +22,7 @@ cache stays bounded. No response delay was added.
 Run the portable correctness checks:
 
 ```powershell
-npx vitest run tests/incrementalLexerPerformance.test.ts
+npx vitest run tests/lexer/incrementalLexerPerformance.test.ts
 ```
 
 The optional benchmark reads ROneCOne from the supplied workbook without modifying
@@ -31,7 +31,7 @@ and checks complete token equality at early, middle and late positions:
 
 ```powershell
 $env:XLIDE_PERF_WORKBOOK = 'F:\GitHub\xlide\xlide_vscode_testing\ROneCOne_Delegates_Demo.xlsm'
-npx vitest run tests/incrementalLexerWorkbookPerformance.test.ts
+npx vitest run tests/lexer/incrementalLexerWorkbookPerformance.test.ts
 ```
 
 The real editor harness copies the workbook into its disposable test workspace:

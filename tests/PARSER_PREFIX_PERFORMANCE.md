@@ -16,7 +16,7 @@ parsing. The cache still holds at most eight snapshots.
 
 ## Verification
 
-`npx vitest run tests/parserPrefixReusePerformance.test.ts` compares incremental
+`npx vitest run tests/parser/parserPrefixReusePerformance.test.ts` compares incremental
 results with cold full parses after insertions and deletions at every offset of
 a tail fixture. It checks all AST fields, diagnostics, spans, immutable earlier
 snapshots, member sharing, conditional directives, error recovery, CRLF edits,
@@ -28,7 +28,7 @@ full parse:
 
 ~~~powershell
 $env:XLIDE_PERF_WORKBOOK = 'F:\GitHub\xlide\xlide_vscode_testing\ROneCOne_Delegates_Demo.xlsm'
-npx vitest run tests/parserPrefixWorkbookPerformance.test.ts
+npx vitest run tests/parser/parserPrefixWorkbookPerformance.test.ts
 npm run compile
 npx vscode-test --code-version 1.139.1 --grep 'Actual large class latency'
 ~~~

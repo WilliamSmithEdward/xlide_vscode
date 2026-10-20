@@ -74,7 +74,7 @@ Progress (expression binder, sliced):
   value-expression parser (`src/analyzer/parser/parseExpression.ts`) implements
   the full §5.6 precedence ladder, member/index access, calls with positional
   arguments, `New`/`AddressOf`/`TypeOf...Is`, with span accuracy and recovery,
-  covered by `tests/parseExpression.test.ts`. Named arguments, omitted
+  covered by `tests/parser/parseExpression.test.ts`. Named arguments, omitted
   arguments, and bang (`!`) access are deferred to the statement-wiring slice.
 - [x] Slice 2 - statement wiring. `parseModule.parseBodyItem` now routes plain
   body statements through the expression parser into `Assignment`/`Call` nodes
@@ -82,7 +82,7 @@ Progress (expression binder, sliced):
   operands parse cleanly and fully; everything else keeps the raw `Statement`
   fallback. The diagnostics traversal was widened (`LeafStatementNode` /
   `isLeafStatement`) across ~10 walker/branch sites so no rule skips the new
-  nodes. Covered by `tests/parseModuleStatements.test.ts`; full suite green with
+  nodes. Covered by `tests/parser/parseModuleStatements.test.ts`; full suite green with
   zero regressions, and an adversarial review pass fixed two found defects
   (`MidB`/`MidB$` must stay raw; malformed operands must not leak into structured
   nodes). Still deferred to later slices: named/omitted arguments, bang access,
@@ -92,7 +92,7 @@ Progress (expression binder, sliced):
   condition and own statement body, while the flat `body` is retained so the
   generic walkers and `else-branch-order` diagnostics are unaffected
   (`startIfBranch`/`ifBranchMarker`/`parseThenCondition`/`finishIfBlock` in
-  `parseModule`). Covered by `tests/vbaParser.test.ts`; full suite green, zero
+  `parseModule`). Covered by `tests/parser/vbaParser.test.ts`; full suite green, zero
   regressions, and an adversarial review (nested Ifs, `#If` interleaving, empty
   arms, `Else If`, `Case Else`, unclosed Ifs, span/identity integrity) found no
   defects.
@@ -658,8 +658,8 @@ Keeping these out is what lets Priorities 1-4 reach a provable, auditable close.
 - `src/analyzer/parser/parseExpression.ts`
 - `tests/fixtures/vbaProjects/`
 - `tests/vbaDiagnostics.test.ts`
-- `tests/vbaParser.test.ts`
-- `tests/parseExpression.test.ts`
-- `tests/parseModuleStatements.test.ts`
+- `tests/parser/vbaParser.test.ts`
+- `tests/parser/parseExpression.test.ts`
+- `tests/parser/parseModuleStatements.test.ts`
 - `tests/vbaSymbolGraph.test.ts`
 - `tests/vbaRuntime.test.ts`

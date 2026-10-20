@@ -18,9 +18,9 @@ Cold, early, large and unrelated edits keep the original derivation path.
 ## Verification
 
 ~~~powershell
-npx vitest run tests/statementTokenPrefixPerformance.test.ts
+npx vitest run tests/lexer/statementTokenPrefixPerformance.test.ts
 $env:XLIDE_PERF_WORKBOOK = 'F:\GitHub\xlide\xlide_vscode_testing\ROneCOne_Delegates_Demo.xlsm'
-npx vitest run tests/statementTokenWorkbookPerformance.test.ts
+npx vitest run tests/lexer/statementTokenWorkbookPerformance.test.ts
 npm run compile
 npx vscode-test --code-version 1.139.1 --grep 'Actual large class latency'
 ~~~

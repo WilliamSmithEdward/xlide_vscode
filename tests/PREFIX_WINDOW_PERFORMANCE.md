@@ -6,9 +6,9 @@ The new helpers select their window before copying the cached token stream. Type
 
 ## Reproduction
 
-Run `npx vitest run tests/completionPrefixWindows.test.ts tests/vbaCursorContext.test.ts tests/typeLookbackPerformance.test.ts`. Tests compare token kind/text/spans at every offset against fresh truncated-prefix lexing, exercise continued chains and colon statements, and count token reads on a 1,201-procedure source (fewer than 100 per paired line/type query). Lexer trivia metadata is excluded, as it is in the existing full-prefix derivation test.
+Run `npx vitest run tests/providers/completionPrefixWindows.test.ts tests/vbaCursorContext.test.ts tests/typeLookbackPerformance.test.ts`. Tests compare token kind/text/spans at every offset against fresh truncated-prefix lexing, exercise continued chains and colon statements, and count token reads on a 1,201-procedure source (fewer than 100 per paired line/type query). Lexer trivia metadata is excluded, as it is in the existing full-prefix derivation test.
 
-Set `XLIDE_PREFIX_WINDOW_BENCH=1` and run `npx vitest run tests/completionPrefixWindows.test.ts -t "measures completion"`. The fixture has 44,768 characters and six distinct late caret positions (more than the four-entry cache). Each of 21 batches makes 60 queries. Median per-query batch times on this Windows host, compared with base 7b25e7b7:
+Set `XLIDE_PREFIX_WINDOW_BENCH=1` and run `npx vitest run tests/providers/completionPrefixWindows.test.ts -t "measures completion"`. The fixture has 44,768 characters and six distinct late caret positions (more than the four-entry cache). Each of 21 batches makes 60 queries. Median per-query batch times on this Windows host, compared with base 7b25e7b7:
 
 | Warm analyzer query | Before (ms) | After (ms) |
 | --- | ---: | ---: |

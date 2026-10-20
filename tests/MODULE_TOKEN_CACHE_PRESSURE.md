@@ -106,7 +106,7 @@ comparison of overall UI speed with earlier captures. Multi-line lexical
 fallback and repeated project-context construction remain follow-up targets.
 
 The public cache regressions can be run with
-`npx vitest run tests/moduleTokenCachePressure.test.ts`. The full unit suite uses
+`npx vitest run tests/lexer/moduleTokenCachePressure.test.ts`. The full unit suite uses
 `npx vitest run --maxWorkers 2`. For the optional workbook/renderer harness,
 compile first, provide a local large-class workbook in `XLIDE_PERF_WORKBOOK`,
 set `XLIDE_PERF_FRESH_SOURCES=1` and `XLIDE_PERF_RENDERER_CYCLES=1000`, and use
