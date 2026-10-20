@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { collectSymbolReferences, parameterDocNameSpans } from '../src/vbaReferenceResolution';
-import { buildVbaProjectIndex } from '../src/vbaProjectAnalysis';
-import { lineStartOffsets } from '../src/vbaSourceScan';
+import { collectSymbolReferences, parameterDocNameSpans } from '../../src/vbaReferenceResolution';
+import { buildVbaProjectIndex } from '../../src/vbaProjectAnalysis';
+import { lineStartOffsets } from '../../src/vbaSourceScan';
 
 interface Mod {
     moduleName: string;

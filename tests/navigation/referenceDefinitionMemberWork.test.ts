@@ -1,8 +1,8 @@
 import { expect, it } from 'vitest';
-import { collectSymbolReferences } from '../src/vbaReferenceResolution';
-import { buildVbaProjectIndex } from '../src/vbaProjectAnalysis';
-import { resolveMemberDefinitionsAt } from '../src/analyzer/completion/memberAccess';
-import type { HostMember, HostObjectModel } from '../src/analyzer/host/excelObjectModel';
+import { collectSymbolReferences } from '../../src/vbaReferenceResolution';
+import { buildVbaProjectIndex } from '../../src/vbaProjectAnalysis';
+import { resolveMemberDefinitionsAt } from '../../src/analyzer/completion/memberAccess';
+import type { HostMember, HostObjectModel } from '../../src/analyzer/host/excelObjectModel';
 
 it.each(['first', 'last'])('bounds metadata reads in actual collection (%s member)', position => {
     const count = 1000, name = position === 'first' ? 'P0' : 'P999';

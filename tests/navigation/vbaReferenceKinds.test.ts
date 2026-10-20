@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { classifyReferenceKinds } from '../src/analyzer';
-import { collectSymbolReferences } from '../src/vbaReferenceResolution';
-import { buildVbaProjectIndex } from '../src/vbaProjectAnalysis';
+import { classifyReferenceKinds } from '../../src/analyzer';
+import { collectSymbolReferences } from '../../src/vbaReferenceResolution';
+import { buildVbaProjectIndex } from '../../src/vbaProjectAnalysis';
 
 // Issue #55: every reference says whether it READS or WRITES. The rules are
 // syntactic - the assignment family writes its target's terminal name,

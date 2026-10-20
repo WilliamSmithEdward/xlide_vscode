@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest';
-import {classifyReferenceKinds} from '../src/analyzer/references/referenceKinds';
-import {tokenizeCached} from '../src/analyzer/lexer/tokenize';
+import {classifyReferenceKinds} from '../../src/analyzer/references/referenceKinds';
+import {tokenizeCached} from '../../src/analyzer/lexer/tokenize';
 
 describe('sparse reference statement work', () => {
 	it.each(['\n', '\r\n', '\r'].flatMap(eol => ['first', 'middle', 'last', 'separated'].map(position => ({eol, position}))))('skips unrelated token kinds at $position with EOL $eol', ({eol, position}) => {

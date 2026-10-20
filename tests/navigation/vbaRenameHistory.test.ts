@@ -7,7 +7,7 @@ import {
 	recordRename,
 	takeRenameForUndo,
 	type RenameSnapshot,
-} from '../src/vbaRenameHistory';
+} from '../../src/vbaRenameHistory';
 
 // Issue #9 rule 10. A rename edits several modules and an editor's undo stack
 // is per document, so undoing in the file you are looking at would reverse that

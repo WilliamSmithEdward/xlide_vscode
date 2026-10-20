@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as path from 'path';
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock());
 
-import { buildVbaProjectIndex, type VbaProjectModuleInput } from '../src/vbaProjectAnalysis';
-import type { VbaNavigationModule } from '../src/vbaNavigation';
-import { projectStandardModuleReferenceLocations } from '../src/vbaStandardModuleRename';
+import { buildVbaProjectIndex, type VbaProjectModuleInput } from '../../src/vbaProjectAnalysis';
+import type { VbaNavigationModule } from '../../src/vbaNavigation';
+import { projectStandardModuleReferenceLocations } from '../../src/vbaStandardModuleRename';
 
 // Renaming a standard module rewrites `Module.Member` qualifiers across the
 // project. The qualifier scan must only match the MODULE's name in qualifier

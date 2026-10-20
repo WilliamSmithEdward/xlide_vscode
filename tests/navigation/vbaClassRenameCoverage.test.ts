@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock());
 
-import { projectClassReferenceLocations } from '../src/vbaNavigation';
-import { buildVbaProjectIndex } from '../src/vbaProjectAnalysis';
+import { projectClassReferenceLocations } from '../../src/vbaNavigation';
+import { buildVbaProjectIndex } from '../../src/vbaProjectAnalysis';
 
 // Issue #9 rule 4: renaming an interface has to follow it into `Implements`,
 // into the `Interface_Member` prefix (which is a contract, not a coincidence),

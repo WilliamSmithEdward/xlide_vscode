@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { classifyReferenceKinds } from '../src/analyzer/references/referenceKinds';
-import { tokenizeCached } from '../src/analyzer/lexer/tokenize';
+import { classifyReferenceKinds } from '../../src/analyzer/references/referenceKinds';
+import { tokenizeCached } from '../../src/analyzer/lexer/tokenize';
 
 function counted(source: string) {
  let reads = 0;

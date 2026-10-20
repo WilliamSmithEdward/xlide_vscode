@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
-import { tokenizeCached } from '../src/analyzer/lexer/tokenize';
-import { buildVbaProjectIndex } from '../src/vbaProjectAnalysis';
-import { collectSymbolReferences } from '../src/vbaReferenceResolution';
+import { tokenizeCached } from '../../src/analyzer/lexer/tokenize';
+import { buildVbaProjectIndex } from '../../src/vbaProjectAnalysis';
+import { collectSymbolReferences } from '../../src/vbaReferenceResolution';
 
 function collect(caller: string, type?: string) {
     const modules = [
