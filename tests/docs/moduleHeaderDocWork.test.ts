@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { extractModuleHeaderDoc } from '../src/analyzer/docs/docComment';
-import { buildModuleSymbols } from '../src/analyzer/symbols/buildModuleSymbols';
-import { parseModule } from '../src/analyzer/parser/parseModule';
-import * as sourceScan from '../src/vbaSourceScan';
+import { extractModuleHeaderDoc } from '../../src/analyzer/docs/docComment';
+import { buildModuleSymbols } from '../../src/analyzer/symbols/buildModuleSymbols';
+import { parseModule } from '../../src/analyzer/parser/parseModule';
+import * as sourceScan from '../../src/vbaSourceScan';
 
 afterEach(() => vi.restoreAllMocks());
 const summary = "''' <summary>Module summary.</summary>";

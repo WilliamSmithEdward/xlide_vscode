@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { parseDocBody } from '../src/analyzer/docs/docComment';
-import { parseMetadataFile } from '../src/analyzer/docs/externalDoc';
+import { parseDocBody } from '../../src/analyzer/docs/docComment';
+import { parseMetadataFile } from '../../src/analyzer/docs/externalDoc';
 
 describe('documentation parser recovery', () => {
 	it('finds a later self-closing parameter after unclosed pairs', () => {

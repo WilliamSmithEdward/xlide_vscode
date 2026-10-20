@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { leadingDocLines, scanDocTags } from '../src/analyzer/docs/docComment';
+import { leadingDocLines, scanDocTags } from '../../src/analyzer/docs/docComment';
 
 function scan(source: string) {
 	return scanDocTags(leadingDocLines(source, source.indexOf('Sub P')))!;
