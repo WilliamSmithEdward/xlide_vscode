@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { formatVbaModule, tokenStreamDifference } from '../src/analyzer/format/formatModule';
-import { tokenize } from '../src/analyzer/lexer/tokenize';
+import { formatVbaModule, tokenStreamDifference } from '../../src/analyzer/format/formatModule';
+import { tokenize } from '../../src/analyzer/lexer/tokenize';
 
-vi.mock('../src/analyzer/lexer/tokenize', async () => {
-	const actual = await vi.importActual<typeof import('../src/analyzer/lexer/tokenize')>('../src/analyzer/lexer/tokenize');
+vi.mock('../../src/analyzer/lexer/tokenize', async () => {
+	const actual = await vi.importActual<typeof import('../../src/analyzer/lexer/tokenize')>('../../src/analyzer/lexer/tokenize');
 	return { ...actual, tokenize: vi.fn(actual.tokenize) };
 });
 

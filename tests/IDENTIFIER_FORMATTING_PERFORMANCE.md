@@ -7,7 +7,7 @@ and metadata is read again on each request.
 Run the work-count and behavior regressions:
 
 ```powershell
-npx vitest run tests/identifierFormattingPerformance.test.ts tests/vbaIdentifierCompletion.test.ts tests/vbaCanonicalCaseSymbolReuse.test.ts
+npx vitest run tests/formatting/identifierFormattingPerformance.test.ts tests/vbaIdentifierCompletion.test.ts tests/vbaCanonicalCaseSymbolReuse.test.ts
 ```
 
 Run the opt-in benchmark on an otherwise idle machine:
@@ -15,7 +15,7 @@ Run the opt-in benchmark on an otherwise idle machine:
 ```powershell
 New-Item -ItemType Directory -Force out | Out-Null
 $env:XLIDE_IDENTIFIER_BENCHMARK_OUTPUT = 'out/identifier-formatting.json'
-npx vitest run tests/identifierFormattingPerformance.test.ts -t 'measures prefix-filtered identifier and casing work'
+npx vitest run tests/formatting/identifierFormattingPerformance.test.ts -t 'measures prefix-filtered identifier and casing work'
 Remove-Item Env:XLIDE_IDENTIFIER_BENCHMARK_OUTPUT
 Get-Content out/identifier-formatting.json
 ```

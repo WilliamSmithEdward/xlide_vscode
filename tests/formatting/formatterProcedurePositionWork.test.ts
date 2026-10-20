@@ -1,5 +1,5 @@
 import {afterEach,describe,expect,it,vi} from 'vitest';
-import {formatVbaModule} from '../src/analyzer/format/formatModule';
+import {formatVbaModule} from '../../src/analyzer/format/formatModule';
 afterEach(()=>vi.restoreAllMocks());
 describe('formatter procedure position work',()=>{
  for(const eol of ['\n','\r\n','\r'])it.each([10,100,500])('avoids depth-sized procedure scans (%i, '+JSON.stringify(eol)+')',depth=>{

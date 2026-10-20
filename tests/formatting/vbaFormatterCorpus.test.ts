@@ -3,8 +3,8 @@
 // the formatter must never decline on real code.
 
 import { describe, expect, it } from 'vitest';
-import { formatVbaModule, tokenStreamDifference } from '../src/analyzer/format/formatModule';
-import { allStructuralComparisonSamples } from './helpers/structuralCorpus';
+import { formatVbaModule, tokenStreamDifference } from '../../src/analyzer/format/formatModule';
+import { allStructuralComparisonSamples } from '../helpers/structuralCorpus';
 
 const OPTIONS = { tabSize: 4, insertSpaces: true };
 
