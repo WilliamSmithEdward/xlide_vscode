@@ -2,7 +2,7 @@
 // VBE's spacing, and the things it must never touch.
 
 import { describe, expect, it } from 'vitest';
-import { formatVbaModule, tokenStreamDifference } from '../src/analyzer/format/formatModule';
+import { formatVbaModule, tokenStreamDifference } from '../../src/analyzer/format/formatModule';
 
 const SPACES = { tabSize: 4, insertSpaces: true };
 

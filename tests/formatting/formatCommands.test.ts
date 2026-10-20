@@ -14,7 +14,7 @@ const ui = vi.hoisted(() => ({
 	registerCommand: vi.fn(() => ({ dispose: () => undefined })),
 }));
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock({
 	WorkspaceEdit: class {
 		entries: Array<[unknown, unknown]> = [];
 		set(uri: unknown, edits: unknown): void { this.entries.push([uri, edits]); }
@@ -34,8 +34,8 @@ vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock(
 	},
 }));
 
-import { registerFormatCommands } from '../src/commands/formatCommands';
-import type { CommandDeps } from '../src/commands/shared';
+import { registerFormatCommands } from '../../src/commands/formatCommands';
+import type { CommandDeps } from '../../src/commands/shared';
 
 const PROJECT = process.platform === 'win32' ? 'C:\\work\\Book.xlsm' : '/work/Book.xlsm';
 

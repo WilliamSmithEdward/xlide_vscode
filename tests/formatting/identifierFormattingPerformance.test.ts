@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { writeFileSync } from 'node:fs';
-import { resolveIdentifierCompletions } from '../src/analyzer/completion/identifierCompletion';
-import { resolveCanonicalCaseEdits } from '../src/analyzer/completion/canonicalCasing';
-import * as docs from '../src/analyzer/docs/docModel';
-import * as symbols from '../src/analyzer/symbols/symbolModel';
-import * as runtimeDocs from '../src/analyzer/runtime/vbaRuntimeDocs';
-import type { VbaProcedureSignature } from '../src/analyzer/symbols/symbolModel';
+import { resolveIdentifierCompletions } from '../../src/analyzer/completion/identifierCompletion';
+import { resolveCanonicalCaseEdits } from '../../src/analyzer/completion/canonicalCasing';
+import * as docs from '../../src/analyzer/docs/docModel';
+import * as symbols from '../../src/analyzer/symbols/symbolModel';
+import * as runtimeDocs from '../../src/analyzer/runtime/vbaRuntimeDocs';
+import type { VbaProcedureSignature } from '../../src/analyzer/symbols/symbolModel';
 
 afterEach(() => vi.restoreAllMocks());
 function procedure(name: string): VbaProcedureSignature {
