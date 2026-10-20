@@ -12,7 +12,7 @@ interface FakeWatcher {
 
 const watchers = vi.hoisted(() => [] as FakeWatcher[]);
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock({
     workspace: {
         createFileSystemWatcher: (pattern: FakeWatcher['pattern']) => {
             const watcher: FakeWatcher = { pattern, disposed: false };
@@ -34,7 +34,7 @@ import {
     takeReportedProjectFileChange,
     watchProjectFile,
     watchWorkspaceProjectFiles,
-} from '../src/projectFileChanges';
+} from '../../src/projectFileChanges';
 
 describe('project file changes made outside XLIDE', () => {
     let tempDir: string;

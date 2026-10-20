@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock());
 
 // The notice asks Restart Manager who holds the file; no test here starts a
 // real PowerShell, and each one says what the lookup found.
 const lookup = vi.hoisted(() => ({ stdout: [] as string[], calls: 0 }));
-vi.mock('../src/util/powershell', async (importOriginal) => ({
-    ...(await importOriginal<typeof import('../src/util/powershell')>()),
+vi.mock('../../src/util/powershell', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('../../src/util/powershell')>()),
     runPowerShell: vi.fn(() => {
         lookup.calls += 1;
         return {
@@ -18,8 +18,8 @@ vi.mock('../src/util/powershell', async (importOriginal) => ({
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { annotateLockError } from '../src/fileLockHolders';
-import { isProjectLockedError, reportProjectLocked } from '../src/xlideFileSystem';
+import { annotateLockError } from '../../src/fileLockHolders';
+import { isProjectLockedError, reportProjectLocked } from '../../src/xlideFileSystem';
 
 /** The notice waits for the lookup, which settles in a few microtasks. */
 async function settled(): Promise<void> {

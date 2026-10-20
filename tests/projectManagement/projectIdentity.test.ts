@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { moduleIdentityKey, projectIdentityKey, sameProjectPath } from '../src/projectIdentity';
+import { moduleIdentityKey, projectIdentityKey, sameProjectPath } from '../../src/projectIdentity';
 
 // The key every surface compares projects by: the tree's active workbook, the
 // engine's caches, the agent-review rows. Two strings naming one file have to

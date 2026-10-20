@@ -2,18 +2,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({ window: { showInputBox: vi.fn() } }));
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock({ window: { showInputBox: vi.fn() } }));
 import * as vscode from 'vscode';
-import { openFileInHost, runHostMacro, showAccessDesign } from '../src/officeHostLauncher';
-import { runPowerShell } from '../src/util/powershell';
-vi.mock('../src/util/powershell', async original => ({ ...(await original<typeof import('../src/util/powershell')>()), runPowerShell: vi.fn() }));
-import { VbaProjectProtection, decodeProtectionRecord, clearVbaProjectAuthorizations } from '../src/vba/projectProtection';
-import * as svc from '../src/vba/projectService';
-import { ProjectEngine } from '../src/projectEngine';
-import { ensureProjectPassword } from '../src/projectPasswordPrompt';
-import { stageOwnedReadOnlyTestHost } from '../src/vbaTestHostStaging';
+import { openFileInHost, runHostMacro, showAccessDesign } from '../../src/officeHostLauncher';
+import { runPowerShell } from '../../src/util/powershell';
+vi.mock('../../src/util/powershell', async original => ({ ...(await original<typeof import('../../src/util/powershell')>()), runPowerShell: vi.fn() }));
+import { VbaProjectProtection, decodeProtectionRecord, clearVbaProjectAuthorizations } from '../../src/vba/projectProtection';
+import * as svc from '../../src/vba/projectService';
+import { ProjectEngine } from '../../src/projectEngine';
+import { ensureProjectPassword } from '../../src/projectPasswordPrompt';
+import { stageOwnedReadOnlyTestHost } from '../../src/vbaTestHostStaging';
 
-import { hashed, record, raw, protectFixture, FIXTURE_PASSWORD } from './helpers/projectProtectionFixture';
+import { hashed, record, raw, protectFixture, FIXTURE_PASSWORD } from '../helpers/projectProtectionFixture';
 let dir: string;
 let file: string;
 let moduleName: string;
@@ -22,7 +22,7 @@ beforeEach(() => {
     clearVbaProjectAuthorizations(); vi.clearAllMocks();
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-protected-'));
     file = path.join(dir, 'Book.xlsm');
-    fs.copyFileSync(path.join(__dirname, '../assets/templates/blank.xlsm'), file);
+    fs.copyFileSync(path.join(__dirname, '../../assets/templates/blank.xlsm'), file);
     moduleName = svc.listModules(file)[0].name;
 });
 afterEach(() => { clearVbaProjectAuthorizations(); fs.rmSync(dir, { recursive: true, force: true }); });
@@ -61,19 +61,19 @@ describe('MS-OVBA password verification', () => {
 
 describe('protected file access', () => {
     it('uses the permanent protected workbook fixture', () => {
-        const permanent = path.join(__dirname, 'fixtures/binaries/PasswordProtectedFixture.xlsm');
+        const permanent = path.join(__dirname, '../fixtures/binaries/PasswordProtectedFixture.xlsm');
         expect(svc.getProtectionInfo(permanent)).toMatchObject({ isPasswordProtected: true, isAccessLocked: true });
         expect(() => svc.readModule(permanent, 'Runner')).toThrow(/password-protected/);
         expect(svc.unlockProject(permanent, FIXTURE_PASSWORD)).toBe(true);
         expect(svc.getProtectionInfo(permanent)).toMatchObject({ isPasswordProtected: true, isAccessLocked: false });
         expect(svc.readModule(permanent, 'Runner').source).toContain('counter = 1');
-        const form = path.join(__dirname, 'fixtures/binaries/PasswordProtectedFormFixture.xlsm');
+        const form = path.join(__dirname, '../fixtures/binaries/PasswordProtectedFormFixture.xlsm');
         expect(svc.unlockProject(form, FIXTURE_PASSWORD)).toBe(true);
         expect(svc.readFormPreview(form, 'FrmPicker')).toBeDefined();
     });
     it.each(['SheetsFixture.xlsb', 'XlsFixture.xls', 'WordFixture.docm', 'WordFixture.doc', 'PowerPointFixture.pptm', 'PowerPointFixture.ppt', 'AccessFixture.accdb', 'AccessFixture.mdb'])('enforces the password for %s', name => {
         const target = path.join(dir, name);
-        fs.copyFileSync(path.join(__dirname, 'fixtures/binaries', name), target);
+        fs.copyFileSync(path.join(__dirname, '../fixtures/binaries', name), target);
         protect('Correct!', target);
         expect(() => svc.listModules(target)).toThrow(/password-protected/);
         expect(svc.unlockProject(target, 'wrong')).toBe(false);
@@ -116,7 +116,7 @@ describe('protected file access', () => {
             () => svc.readCells(file, 'Sheet1', 'A1'), () => svc.listSheets(file),
             () => svc.writeCells(file, 'Sheet1', 'A1', [[1]]),
             () => svc.listShapes(file), () => svc.shapeMacros(file),
-            () => svc.createProject(file, path.join(__dirname, '../assets/templates/blank.xlsm')),
+            () => svc.createProject(file, path.join(__dirname, '../../assets/templates/blank.xlsm')),
             () => svc.addReference(file, 'word'), () => svc.removeReference(file, 'Excel'),
         ];
         for (const operation of operations) { expect(operation).toThrow(/password-protected/); }
@@ -132,7 +132,7 @@ describe('protected file access', () => {
     });
     it('historical unprotected buffers do not revoke the live file authorization', () => {
         protect('Correct!'); expect(svc.unlockProject(file, 'Correct!')).toBe(true);
-        const history = fs.readFileSync(path.join(__dirname, '../assets/templates/blank.xlsm'));
+        const history = fs.readFileSync(path.join(__dirname, '../../assets/templates/blank.xlsm'));
         svc.readModulesFromBuffer(history, false, file);
         expect(svc.isProjectAccessLocked(file)).toBe(false);
     });

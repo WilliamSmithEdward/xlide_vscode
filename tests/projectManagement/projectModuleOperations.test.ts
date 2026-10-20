@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock());
 // Each write passes straight through: the real coordinator talks to whatever
 // Office application is running.
-vi.mock('../src/officeWriteCoordinator', () => ({
+vi.mock('../../src/officeWriteCoordinator', () => ({
     runWriteWithHostCoordination: vi.fn((_filePath: string, write: () => Promise<unknown>) => write()),
 }));
 
@@ -16,9 +16,9 @@ import {
     refreshProjectStateOnOutsideChange,
     renameProjectModule,
     writeProjectFormDesigner,
-} from '../src/projectModuleOperations';
-import { checkProjectFile } from '../src/projectFileChanges';
-import { encodeFormMarkupUri, encodeModuleUri } from '../src/xlideFileSystem';
+} from '../../src/projectModuleOperations';
+import { checkProjectFile } from '../../src/projectFileChanges';
+import { encodeFormMarkupUri, encodeModuleUri } from '../../src/xlideFileSystem';
 
 const PROJECT = process.platform === 'win32' ? 'C:\\work\\Book.xlsm' : '/work/Book.xlsm';
 

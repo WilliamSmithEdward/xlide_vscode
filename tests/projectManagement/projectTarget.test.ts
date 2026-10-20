@@ -6,15 +6,15 @@ const state = vi.hoisted(() => ({
     activeProject: undefined as string | undefined,
 }));
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock());
 
-vi.mock('../src/macroContainerDiscovery', () => ({
+vi.mock('../../src/macroContainerDiscovery', () => ({
     findMacroContainerFiles: vi.fn(async () => state.projects),
 }));
 
 // The module address encoding has its own tests; here it only has to name a
 // project, so the two readers are stubbed rather than a URI hand-built.
-vi.mock('../src/xlideFileSystem', () => ({
+vi.mock('../../src/xlideFileSystem', () => ({
     XLIDE_SCHEME: 'xlide-vba',
     activeLocalVbaEditor: () => (state.activeProject
         ? { document: { uri: { scheme: 'xlide-vba' } } }
@@ -27,7 +27,7 @@ import {
     noteProjectOpened,
     resolveProjectTarget,
     SELECTED_PROJECT_STATE_KEY,
-} from '../src/projectTarget';
+} from '../../src/projectTarget';
 
 // The ladder that decides which file a command with no argument acts on.
 // A keybinding carries no tree row and no editor, so this is the whole of
@@ -117,7 +117,7 @@ describe('which project a command with no argument acts on', () => {
     });
 
     it('uses the caller s own project list rather than globbing again', async () => {
-        const discovery = await import('../src/macroContainerDiscovery');
+        const discovery = await import('../../src/macroContainerDiscovery');
         vi.mocked(discovery.findMacroContainerFiles).mockClear();
         expect(await resolveProjectTarget({ projects: [uri(OTHER)] as never }))
             .toEqual({ filePath: OTHER, source: 'singleProject' });

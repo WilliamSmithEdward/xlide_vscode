@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkModuleContentToken, moduleContentToken } from '../src/moduleContentToken';
+import { checkModuleContentToken, moduleContentToken } from '../../src/moduleContentToken';
 
 // xlide_writeModule takes the FULL module source, so the blast radius of a
 // stale read is the whole module rather than the lines being changed. Nothing
