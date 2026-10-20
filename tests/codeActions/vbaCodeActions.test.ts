@@ -6,9 +6,9 @@ import {
 	type AnalyzeModuleOptions,
 	type VbaDiagnostic,
 	type VbaTextEdit,
-} from '../src/analyzer';
-import { analyzeVbaStructure, type VbaStructuralDiagnostic } from '../src/vbaStructuralDiagnostics';
-import { byCode } from './helpers/diagnostics';
+} from '../../src/analyzer';
+import { analyzeVbaStructure, type VbaStructuralDiagnostic } from '../../src/vbaStructuralDiagnostics';
+import { byCode } from '../helpers/diagnostics';
 
 function firstDiagnostic(
 	source: string,

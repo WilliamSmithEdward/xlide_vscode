@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { resolveDiagnosticCodeActions } from '../src/analyzer';
-import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
+import { resolveDiagnosticCodeActions } from '../../src/analyzer';
+import { analyzeVbaModuleSource } from '../../src/vbaModuleAnalysis';
 
 // Issue #52, found from xlide_vbide: the suppression quick fix offered
 // `disable-next-line` whatever the rule's scope, and for a MODULE-scoped rule

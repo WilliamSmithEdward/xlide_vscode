@@ -6,8 +6,8 @@
 // for a long time.
 
 import { describe, expect, it } from 'vitest';
-import { resolveDiagnosticCodeActions, type VbaDiagnostic } from '../src/analyzer';
-import { analyzeProjectModule } from './diagnostics/helpers';
+import { resolveDiagnosticCodeActions, type VbaDiagnostic } from '../../src/analyzer';
+import { analyzeProjectModule } from '../diagnostics/helpers';
 
 function undeclared(lines: string[]): { source: string; diagnostics: VbaDiagnostic[] } {
 	const source = lines.join('\r\n') + '\r\n';

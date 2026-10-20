@@ -1,5 +1,5 @@
 import {afterEach, expect, it, vi} from 'vitest';
-import {resolveDiagnosticCodeActions} from '../src/analyzer/codeActions/diagnosticCodeActions';
+import {resolveDiagnosticCodeActions} from '../../src/analyzer/codeActions/diagnosticCodeActions';
 
 afterEach(() => vi.restoreAllMocks());
 const boundaryPattern = /^(?:Public|Private|Friend|Static)?\s*(?:Sub|Function|Property\s+(?:Get|Let|Set))\b/i;
