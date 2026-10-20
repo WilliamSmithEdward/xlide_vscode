@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const lookup = vi.hoisted(() => ({ stdout: [] as string[], scripts: [] as string[] }));
-vi.mock('../src/util/powershell', async (importOriginal) => ({
-    ...(await importOriginal<typeof import('../src/util/powershell')>()),
+vi.mock('../../src/util/powershell', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('../../src/util/powershell')>()),
     runPowerShell: vi.fn((options: { script?: string }) => {
         lookup.scripts.push(options.script ?? '');
         return {
@@ -19,7 +19,7 @@ import {
     findFileLockHolders,
     lockHoldersOf,
     parseLockHolders,
-} from '../src/fileLockHolders';
+} from '../../src/fileLockHolders';
 
 const platform = Object.getOwnPropertyDescriptor(process, 'platform')!;
 const onWindows = (): void => { Object.defineProperty(process, 'platform', { ...platform, value: 'win32' }); };

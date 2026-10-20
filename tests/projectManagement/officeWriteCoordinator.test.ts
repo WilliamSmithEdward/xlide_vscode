@@ -1,23 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as vscode from 'vscode';
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
-vi.mock('../src/util/powershell', async (original) => ({
-    ...(await original<typeof import('../src/util/powershell')>()),
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock());
+vi.mock('../../src/util/powershell', async (original) => ({
+    ...(await original<typeof import('../../src/util/powershell')>()),
     runPowerShell: vi.fn(),
 }));
-vi.mock('../src/officeHostLauncher', async (original) => ({
-    ...(await original<typeof import('../src/officeHostLauncher')>()),
+vi.mock('../../src/officeHostLauncher', async (original) => ({
+    ...(await original<typeof import('../../src/officeHostLauncher')>()),
     openFileInHost: vi.fn(async () => ({})),
 }));
 
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { fakeConfig } from './helpers/fakeConfig';
-import { checkProjectFile } from '../src/projectFileChanges';
-import { runPowerShell } from '../src/util/powershell';
-import { openFileInHost } from '../src/officeHostLauncher';
+import { fakeConfig } from '../helpers/fakeConfig';
+import { checkProjectFile } from '../../src/projectFileChanges';
+import { runPowerShell } from '../../src/util/powershell';
+import { openFileInHost } from '../../src/officeHostLauncher';
 import {
     buildCloseFileScript,
     buildRefreshReadOnlyScript,
@@ -31,7 +31,7 @@ import {
     wasFileOpenedByXlide,
     withFileReopenSuppressed,
     type HostCoordinationSettings,
-} from '../src/officeWriteCoordinator';
+} from '../../src/officeWriteCoordinator';
 
 const settings = (over: Partial<HostCoordinationSettings> = {}): HostCoordinationSettings => ({
     mode: 'block',
