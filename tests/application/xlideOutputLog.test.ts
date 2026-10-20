@@ -4,7 +4,7 @@ import {
 	createRecordedOutputChannel,
 	recentXlideOutputLog,
 	redactSupportLogLine,
-} from '../src/xlideOutputLog';
+} from '../../src/xlideOutputLog';
 
 describe('XLIDE output log', () => {
 	beforeEach(() => {

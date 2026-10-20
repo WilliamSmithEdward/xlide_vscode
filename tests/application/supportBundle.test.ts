@@ -7,7 +7,7 @@ import {
 	supportBundleDisclosureText,
 	supportDiagnosticsText,
 	type SupportBundleInput,
-} from '../src/supportBundle';
+} from '../../src/supportBundle';
 
 function baseInput(overrides: Partial<SupportBundleInput> = {}): SupportBundleInput {
 	return {

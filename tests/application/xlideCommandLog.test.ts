@@ -4,7 +4,7 @@ import {
 	errorCategoryForSupportLog,
 	recentXlideCommands,
 	recordXlideCommand,
-} from '../src/xlideCommandLog';
+} from '../../src/xlideCommandLog';
 
 describe('XLIDE command log', () => {
 	beforeEach(() => {

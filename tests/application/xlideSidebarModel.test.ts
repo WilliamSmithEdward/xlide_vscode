@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildXlideSidebarModel, type XlideSidebarNode } from '../src/xlideSidebarModel';
+import { buildXlideSidebarModel, type XlideSidebarNode } from '../../src/xlideSidebarModel';
 
 /** A section by its id, so a new section does not shift every lookup. */
 function sectionOf(model: readonly XlideSidebarNode[], id: string): XlideSidebarNode {

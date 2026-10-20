@@ -2,11 +2,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const hoisted = vi.hoisted(() => ({ registerCommand: vi.fn() }));
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock({
     commands: { registerCommand: hoisted.registerCommand },
 }));
 
-import { registerXlideCommand } from '../src/xlideCommandRegistration';
+import { registerXlideCommand } from '../../src/xlideCommandRegistration';
 
 describe('registerXlideCommand', () => {
     beforeEach(() => {
