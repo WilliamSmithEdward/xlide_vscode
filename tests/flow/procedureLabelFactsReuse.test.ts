@@ -1,9 +1,9 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { parseModule } from '../src/analyzer/parser/parseModule';
-import { collectProcedureLabelDeclarations, collectProcedureLabelReferences } from '../src/analyzer/flow/procedureLabels';
-import * as helpers from '../src/analyzer/lexer/tokenHelpers';
-import type { ProcedureNode } from '../src/analyzer/parser/nodes';
-import { createConditionalActivityTracker } from '../src/analyzer/conditional/conditionalCompilation';
+import { parseModule } from '../../src/analyzer/parser/parseModule';
+import { collectProcedureLabelDeclarations, collectProcedureLabelReferences } from '../../src/analyzer/flow/procedureLabels';
+import * as helpers from '../../src/analyzer/lexer/tokenHelpers';
+import type { ProcedureNode } from '../../src/analyzer/parser/nodes';
+import { createConditionalActivityTracker } from '../../src/analyzer/conditional/conditionalCompilation';
 afterEach(() => vi.restoreAllMocks());
 for (const count of [10, 100, 1000]) it(`reuses label scans across ten readers of ${count} statements`, () => {
 	const source = 'Sub P()\nentry:\n' + 'Debug.Print 1\n'.repeat(count) + 'GoTo entry\nEnd Sub\n';

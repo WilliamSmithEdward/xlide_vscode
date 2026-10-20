@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { procedureHasUnstructuredFlow } from '../src/analyzer/flow/procedureUnstructured';
-import { collectProcedureLabelDeclarations, collectProcedureLabelReferences } from '../src/analyzer/flow/procedureLabels';
-import { createConditionalActivityTracker } from '../src/analyzer/conditional/conditionalCompilation';
-import { parseModule } from '../src/analyzer/parser/parseModule';
+import { procedureHasUnstructuredFlow } from '../../src/analyzer/flow/procedureUnstructured';
+import { collectProcedureLabelDeclarations, collectProcedureLabelReferences } from '../../src/analyzer/flow/procedureLabels';
+import { createConditionalActivityTracker } from '../../src/analyzer/conditional/conditionalCompilation';
+import { parseModule } from '../../src/analyzer/parser/parseModule';
 
 function procedure(source: string) {
 	const module = parseModule(source);
