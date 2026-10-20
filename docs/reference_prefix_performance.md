@@ -50,7 +50,7 @@ node scripts/benchmark-reference-prefixes.mjs --baseline=df1bc7ed
 node scripts/benchmark-reference-prefixes.mjs
 node scripts/benchmark-reference-prefixes.mjs
 node scripts/benchmark-reference-prefixes.mjs --baseline=df1bc7ed
-npm exec vitest run tests/referenceCollectorPrefixWork.test.ts tests/vbaReferenceResolution.test.ts tests/vbaBangAndBracketReferences.test.ts tests/vbaReferenceKinds.test.ts tests/vbaProjectReferences.test.ts tests/vbaFormReferenceWiring.test.ts
+npm exec vitest run tests/navigation/referenceCollectorPrefixWork.test.ts tests/navigation/vbaReferenceResolution.test.ts tests/vbaBangAndBracketReferences.test.ts tests/navigation/vbaReferenceKinds.test.ts tests/vbaProjectReferences.test.ts tests/vbaFormReferenceWiring.test.ts
 npm run check-types
 npm test -- --run
 ```
