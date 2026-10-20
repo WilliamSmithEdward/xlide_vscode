@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { emptyContinuedCommentMarkerStart, remainingBackspaceCleanup, smartBackspaceShouldClearIndent } from '../src/vbaSmartBackspace';
+import { emptyContinuedCommentMarkerStart, remainingBackspaceCleanup, smartBackspaceShouldClearIndent } from '../../src/vbaSmartBackspace';
 
 // Issue #43. XLIDE turns off `editor.trimAutoWhitespace` so a blank line keeps
 // the indent the editor gave it, matching the VBE. That alone would make an

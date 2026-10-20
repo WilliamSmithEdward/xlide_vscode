@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type * as VscodeType from 'vscode';
 import * as path from 'path';
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock());
 
 import {
 	applyOpenDocumentSources,
@@ -10,7 +10,7 @@ import {
 	openModuleSourceMapForProject,
 	openXlideModuleSources,
 	type VbaOpenDocumentLike,
-} from '../src/vbaOpenDocuments';
+} from '../../src/vbaOpenDocuments';
 
 function doc(path: string, source: string): VbaOpenDocumentLike {
 	return {

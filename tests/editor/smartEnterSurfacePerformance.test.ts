@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { writeFileSync } from 'node:fs';
-import { lexerStrippedLines } from '../src/analyzer/lexer/strippedLines';
-import { tokenizeCached } from '../src/analyzer/lexer/tokenize';
+import { lexerStrippedLines } from '../../src/analyzer/lexer/strippedLines';
+import { tokenizeCached } from '../../src/analyzer/lexer/tokenize';
 
 const selectionListeners = vi.hoisted(() => new Set<(event: import('vscode').TextEditorSelectionChangeEvent) => unknown>());
 
 vi.mock('vscode', async () => ({
-    ...(await import('./helpers/vscodeMock')).vscodeMock({ window: {
+    ...(await import('../helpers/vscodeMock')).vscodeMock({ window: {
         onDidChangeTextEditorSelection: vi.fn(listener => {
             selectionListeners.add(listener);
             return { dispose: () => selectionListeners.delete(listener) };
@@ -16,7 +16,7 @@ vi.mock('vscode', async () => ({
     Selection: class { constructor(public anchor: unknown, public active: unknown) {} },
 }));
 import * as vscode from 'vscode';
-import { registerVbaAutoBlock, registerVbaLoopIteratorSync } from '../src/vbaTypingAutomation';
+import { registerVbaAutoBlock, registerVbaLoopIteratorSync } from '../../src/vbaTypingAutomation';
 
 afterEach(async () => {
     if (vi.isFakeTimers()) { await vi.runOnlyPendingTimersAsync(); }

@@ -5,7 +5,7 @@ import {
 	resolveCanonicalCaseEdit,
 	resolveCanonicalCaseEdits,
 	type CanonicalCaseContext,
-} from '../src/analyzer';
+} from '../../src/analyzer';
 
 function editAtMarker(src: string, ctx: CanonicalCaseContext = {}) {
 	const offset = src.indexOf('|');

@@ -40,11 +40,11 @@
 // migration is still blocked by its own divergence classes.
 
 import { describe, expect, it } from 'vitest';
-import { lexerStrippedLine, lexerStrippedLines } from '../src/analyzer/lexer/strippedLines';
-import { tokenize } from '../src/analyzer/lexer/tokenize';
-import { openSmartBlockClosersBefore } from '../src/vbaSmartEnter';
-import { stripVba, stripVbaLines } from '../src/vbaSourceScan';
-import { allStructuralComparisonSamples } from './helpers/structuralCorpus';
+import { lexerStrippedLine, lexerStrippedLines } from '../../src/analyzer/lexer/strippedLines';
+import { tokenize } from '../../src/analyzer/lexer/tokenize';
+import { openSmartBlockClosersBefore } from '../../src/vbaSmartEnter';
+import { stripVba, stripVbaLines } from '../../src/vbaSourceScan';
+import { allStructuralComparisonSamples } from '../helpers/structuralCorpus';
 
 describe('smart-enter substrate regression gate (audit #74)', () => {
     const samples = allStructuralComparisonSamples();

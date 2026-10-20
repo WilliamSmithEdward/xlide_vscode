@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { smartTabShouldIndentLine } from '../src/vbaSmartTab';
+import { smartTabShouldIndentLine } from '../../src/vbaSmartTab';
 
 const LINE = '    XlideAssert.IsFalse False';
 

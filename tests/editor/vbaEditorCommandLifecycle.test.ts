@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as vscodeTypes from 'vscode';
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({ window: {
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock({ window: {
     onDidChangeActiveTextEditor: vi.fn(() => ({ dispose() {} })),
     onDidChangeTextEditorSelection: vi.fn(() => ({ dispose() {} })),
 } }));
 import * as vscode from 'vscode';
-import { registerVbaEditorCommands } from '../src/vbaEditorCommands';
+import { registerVbaEditorCommands } from '../../src/vbaEditorCommands';
 
 function editorFor(comment = false) {
     const lines = comment ? ["' note", "' "] : ['Sub Demo()', 'value'];

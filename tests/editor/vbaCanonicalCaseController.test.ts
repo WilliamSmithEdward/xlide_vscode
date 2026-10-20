@@ -14,12 +14,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as vscodeTypes from 'vscode';
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock({
 	window: { visibleTextEditors: [], activeTextEditor: undefined },
 }));
 
 import * as vscode from 'vscode';
-import { VbaCanonicalCaseController } from '../src/vbaCanonicalCaseController';
+import { VbaCanonicalCaseController } from '../../src/vbaCanonicalCaseController';
 
 const BOOK = process.platform === 'win32' ? '/C:/Book.xlsm' : '/work/Book.xlsm';
 const SOURCE = 'option explicit\nsub go()\nend sub\n';

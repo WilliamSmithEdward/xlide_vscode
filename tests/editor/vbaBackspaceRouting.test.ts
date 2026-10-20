@@ -2,12 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as vscodeTypes from 'vscode';
 import { readFileSync } from 'node:fs';
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({ window: {
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock({ window: {
     onDidChangeActiveTextEditor: vi.fn(() => ({ dispose() {} })),
     onDidChangeTextEditorSelection: vi.fn(() => ({ dispose() {} })),
 } }));
 import * as vscode from 'vscode';
-import { backspaceNeedsExtension, BACKSPACE_NEEDS_EXTENSION_CONTEXT, registerVbaEditorCommands } from '../src/vbaEditorCommands';
+import { backspaceNeedsExtension, BACKSPACE_NEEDS_EXTENSION_CONTEXT, registerVbaEditorCommands } from '../../src/vbaEditorCommands';
 
 function editorFor(lines: string[], line = lines.length - 1, character = lines[line].length) {
     const position = new vscode.Position(line, character);
@@ -54,7 +54,7 @@ describe('native Backspace routing', () => {
         expect(backspaceNeedsExtension(editor)).toBe(false);
     });
     it('gates the actual keybinding on the narrow cleanup context', () => {
-        const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+        const manifest = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8'));
         const binding = manifest.contributes.keybindings.find((row: {key: string; when?: string}) => row.key === 'backspace' && row.when?.includes(BACKSPACE_NEEDS_EXTENSION_CONTEXT));
         expect(binding.key).toBe('backspace');
         expect(binding.command).toBe('runCommands');
