@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { applyAttributeAnnotations } from '../src/analyzer/annotations/attributeRewriter';
-import { PROCEDURE_HEADER, readAttributeAnnotations } from '../src/analyzer/annotations/attributeAnnotations';
+import { applyAttributeAnnotations } from '../../src/analyzer/annotations/attributeRewriter';
+import { PROCEDURE_HEADER, readAttributeAnnotations } from '../../src/analyzer/annotations/attributeAnnotations';
 
 describe('attribute rewrite target index', () => {
     it('does not rescan all procedure headers for each annotation', () => {

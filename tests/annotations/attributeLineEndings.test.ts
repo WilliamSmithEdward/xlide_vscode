@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { readAttributeAnnotations } from '../src/analyzer/annotations/attributeAnnotations';
-import { applyAttributeAnnotations } from '../src/analyzer/annotations/attributeRewriter';
+import { readAttributeAnnotations } from '../../src/analyzer/annotations/attributeAnnotations';
+import { applyAttributeAnnotations } from '../../src/analyzer/annotations/attributeRewriter';
 
 const mixed = 'Attribute VB_Name = "M"\r\nAttribute VB_Description = "old"\n\'@ModuleDescription("old")\r\nSub P()\nEnd Sub\r\n';
 

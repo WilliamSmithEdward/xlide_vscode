@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { readAttributeAnnotations } from '../src/analyzer/annotations/attributeAnnotations';
+import { readAttributeAnnotations } from '../../src/analyzer/annotations/attributeAnnotations';
 
 function counted(source: string) {
     const push = Array.prototype.push;
