@@ -2,16 +2,16 @@ import { afterEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import type { ProjectEngine } from '../src/projectEngine';
-import { fakeProjectEngine } from './helpers/fakeProjectEngine';
-import { synthesizeClassHeader } from '../src/vba/vbaProject';
+import type { ProjectEngine } from '../../src/projectEngine';
+import { fakeProjectEngine } from '../helpers/fakeProjectEngine';
+import { synthesizeClassHeader } from '../../src/vba/vbaProject';
 import {
 	buildExportModuleSyncPlan,
 	buildImportModuleSyncPlan,
 	buildSideBySideDiff,
 	editorPreviewSource,
-} from '../src/moduleSyncPlan';
-import { classifyModuleType } from '../src/vba/projectService';
+} from '../../src/moduleSyncPlan';
+import { classifyModuleType } from '../../src/vba/projectService';
 
 interface FakeModule {
 	name: string;
@@ -417,10 +417,10 @@ describe('module sync preview stays responsive on huge modules', () => {
 	// rows in the DOM and skips rebuilds that cannot change what is displayed;
 	// these are the load-bearing pieces of that contract.
 	const script = fs.readFileSync(
-		path.join(__dirname, '..', 'assets', 'webview', 'moduleSync.js'), 'utf8',
+		path.join(__dirname, '..', '..', 'assets', 'webview', 'moduleSync.js'), 'utf8',
 	);
 	const styles = fs.readFileSync(
-		path.join(__dirname, '..', 'assets', 'webview', 'moduleSync.css'), 'utf8',
+		path.join(__dirname, '..', '..', 'assets', 'webview', 'moduleSync.css'), 'utf8',
 	);
 
 	it('renders only the visible diff rows', () => {

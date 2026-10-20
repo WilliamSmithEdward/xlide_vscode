@@ -6,10 +6,10 @@ import { afterAll, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import * as svc from '../src/vba/projectService';
-import type { ProjectEngine } from '../src/projectEngine';
-import { exportProjectModules } from '../src/moduleExport';
-import { buildImportModuleSyncPlan } from '../src/moduleSyncPlan';
+import * as svc from '../../src/vba/projectService';
+import type { ProjectEngine } from '../../src/projectEngine';
+import { exportProjectModules } from '../../src/moduleExport';
+import { buildImportModuleSyncPlan } from '../../src/moduleSyncPlan';
 
 /** The engine's dispatch for the calls export and the sync plan make. */
 function realBridge(): ProjectEngine {
@@ -34,7 +34,7 @@ afterAll(() => {
 async function exportedFixture(): Promise<{ project: string; repo: string; frmPath: string }> {
 	const dir = fs.mkdtempSync(path.join(tempRoot, 'case-'));
 	const project = path.join(dir, 'FormFixture.xlsm');
-	fs.copyFileSync(path.join(__dirname, 'fixtures', 'binaries', 'FormFixture.xlsm'), project);
+	fs.copyFileSync(path.join(__dirname, '..', 'fixtures', 'binaries', 'FormFixture.xlsm'), project);
 	const repo = path.join(dir, 'repo');
 	fs.mkdirSync(repo);
 	await exportProjectModules(realBridge(), { filePath: project, exportFolder: repo });
