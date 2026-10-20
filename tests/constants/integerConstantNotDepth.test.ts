@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { evaluateIntegerConstantExpression } from '../src/analyzer/constants/integerConstantExpression';
+import { evaluateIntegerConstantExpression } from '../../src/analyzer/constants/integerConstantExpression';
 
 const empty = new Map<string, number | undefined>();
 
