@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { operatorYieldsNull } from '../src/analyzer/diagnostics/nullOperators';
-import { tokenize } from '../src/analyzer/lexer/tokenize';
-import { tokenWord } from '../src/analyzer/lexer/tokenHelpers';
-import { analyzeModule } from '../src/analyzer/diagnostics/analyzeModule';
+import { operatorYieldsNull } from '../../src/analyzer/diagnostics/nullOperators';
+import { tokenize } from '../../src/analyzer/lexer/tokenize';
+import { tokenWord } from '../../src/analyzer/lexer/tokenHelpers';
+import { analyzeModule } from '../../src/analyzer/diagnostics/analyzeModule';
 const tokens = (expression: string) => tokenize('x='+expression).slice(2);
 const holdsNull = (token: ReturnType<typeof tokens>[number]) => tokenWord(token)==='null' || tokenWord(token)==='held';
 

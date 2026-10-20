@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { tokenize } from '../src/analyzer/lexer/tokenize';
-import { TokenKind, VbaToken } from '../src/analyzer/lexer/tokenKinds';
+import { tokenize } from '../../src/analyzer/lexer/tokenize';
+import { TokenKind, VbaToken } from '../../src/analyzer/lexer/tokenKinds';
 
 /** Reconstruct the source from a token stream to prove round-trippability. */
 function roundTrip(tokens: VbaToken[]): string {

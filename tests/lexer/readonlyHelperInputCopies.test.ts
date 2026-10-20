@@ -1,9 +1,9 @@
 import { expect, it } from 'vitest';
-import { checkRuntimeMemberNotFound } from '../src/analyzer/diagnostics/rules/lateBoundMembers';
-import { parseModule } from '../src/analyzer/parser/parseModule';
-import { buildModuleSymbols } from '../src/analyzer/symbols/buildModuleSymbols';
-import { statementTokensCached } from '../src/analyzer/lexer/tokenHelpers';
-import { analyzeModule } from '../src/analyzer/diagnostics/analyzeModule';
+import { checkRuntimeMemberNotFound } from '../../src/analyzer/diagnostics/rules/lateBoundMembers';
+import { parseModule } from '../../src/analyzer/parser/parseModule';
+import { buildModuleSymbols } from '../../src/analyzer/symbols/buildModuleSymbols';
+import { statementTokensCached } from '../../src/analyzer/lexer/tokenHelpers';
+import { analyzeModule } from '../../src/analyzer/diagnostics/analyzeModule';
 
 const message = 'CreateObject: "Dictionary" lacks its library: the ProgID is "scripting.dictionary". This will raise Run-time error \'429\': ActiveX component can\'t create object.';
 function fixture(extra = '', progId = 'Dictionary') {

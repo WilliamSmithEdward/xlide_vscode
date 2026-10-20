@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { tokenize, tokenizeCached, startTokenizeMissLogForTests, stopTokenizeMissLogForTests } from '../src/analyzer/lexer/tokenize';
+import { tokenize, tokenizeCached, startTokenizeMissLogForTests, stopTokenizeMissLogForTests } from '../../src/analyzer/lexer/tokenize';
 
 afterEach(() => { stopTokenizeMissLogForTests(); });
 

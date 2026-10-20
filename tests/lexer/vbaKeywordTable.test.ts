@@ -13,7 +13,7 @@ import {
 	SPECIAL_FORMS,
 	STATEMENT_KEYWORDS,
 	VBA_KEYWORDS,
-} from '../src/analyzer/lexer/keywordTable';
+} from '../../src/analyzer/lexer/keywordTable';
 
 describe('keyword table - names that are also Object.prototype properties (issue #148)', () => {
 	it('does not answer for constructor or any other prototype property', () => {

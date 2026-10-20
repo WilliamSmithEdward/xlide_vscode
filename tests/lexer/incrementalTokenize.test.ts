@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { tokenize, tokenizeCached, startTokenizeMissLogForTests, stopTokenizeMissLogForTests } from '../src/analyzer/lexer/tokenize';
+import { tokenize, tokenizeCached, startTokenizeMissLogForTests, stopTokenizeMissLogForTests } from '../../src/analyzer/lexer/tokenize';
 const prefix = "' A stable prefix for the large-module cache\n".repeat(420);
 const bodies = [
     'Sub Demo()\nDim value As Long\nvalue = 12\nEnd Sub\n',

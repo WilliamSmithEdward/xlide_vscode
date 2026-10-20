@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
-import { conditionValue, numberValue } from '../src/analyzer/diagnostics/conditionValue';
-import { statementLabelReferences, resolveProcedureLabelCompletions } from '../src/analyzer/flow/procedureLabels';
-import { tokenize } from '../src/analyzer/lexer/tokenize';
+import { conditionValue, numberValue } from '../../src/analyzer/diagnostics/conditionValue';
+import { statementLabelReferences, resolveProcedureLabelCompletions } from '../../src/analyzer/flow/procedureLabels';
+import { tokenize } from '../../src/analyzer/lexer/tokenize';
 const facts = { value: () => undefined };
 function chunked(n: number, value: (i: number) => string, separator: string) {
  return Array.from({length: Math.ceil(n / 100)}, (_, i) => Array.from({length: Math.min(100, n - i * 100)}, (_, j) => value(i * 100 + j)).join(separator)).join(separator + ' _\n');

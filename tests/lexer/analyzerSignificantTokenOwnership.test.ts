@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-vi.mock('../src/analyzer/lexer/tokenHelpers', async (importOriginal) => {
- const actual = await importOriginal<typeof import('../src/analyzer/lexer/tokenHelpers')>();
+vi.mock('../../src/analyzer/lexer/tokenHelpers', async (importOriginal) => {
+ const actual = await importOriginal<typeof import('../../src/analyzer/lexer/tokenHelpers')>();
  return { ...actual, statementTokensCached(source: string, span: { start: number; end: number }) {
   const tokens = actual.statementTokensCached(source, span);
   for (const token of tokens) Object.freeze(token);
@@ -8,7 +8,7 @@ vi.mock('../src/analyzer/lexer/tokenHelpers', async (importOriginal) => {
   return tokens;
  } };
 });
-import { analyzeModule } from '../src/analyzer/diagnostics/analyzeModule';
+import { analyzeModule } from '../../src/analyzer/diagnostics/analyzeModule';
 const cases = [
  ['labels and continuations', 'Sub P()\nDim n As Long\nL: n = _\n 40000 \' tail\n10 n = n + 1\nEnd Sub'],
  ['branches and file numbers', 'Sub P(ByVal flag As Boolean)\nIf flag Then Print #1,"a" Else Print #2,"b" \' comment\nEnd Sub'],

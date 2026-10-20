@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
     tokenize, tokenizeCached, startTokenizeMissLogForTests, stopTokenizeMissLogForTests,
-} from '../src/analyzer/lexer/tokenize';
+} from '../../src/analyzer/lexer/tokenize';
 import {
     resolveTypeSemanticTokens, collectHostGlobalTokens,
     collectImplicitMemberMethodTokens, collectHostMemberMethodTokens,
-} from '../src/analyzer/semantic/typeSemanticTokens';
+} from '../../src/analyzer/semantic/typeSemanticTokens';
 
 afterEach(() => { stopTokenizeMissLogForTests(); });
 

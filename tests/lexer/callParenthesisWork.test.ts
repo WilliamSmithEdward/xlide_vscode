@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import * as helpers from '../src/analyzer/lexer/tokenHelpers';
-import { standaloneEmptyParenthesizedCallStatement, standaloneMultiArgParenthesizedCallStatement } from '../src/analyzer/call/callContext';
+import * as helpers from '../../src/analyzer/lexer/tokenHelpers';
+import { standaloneEmptyParenthesizedCallStatement, standaloneMultiArgParenthesizedCallStatement } from '../../src/analyzer/call/callContext';
 
 const consumers = [standaloneEmptyParenthesizedCallStatement, standaloneMultiArgParenthesizedCallStatement] as const;
 describe('statement-ending parenthesis scan work', () => {
