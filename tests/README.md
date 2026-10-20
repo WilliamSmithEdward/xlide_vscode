@@ -7,11 +7,13 @@ Run the unit suite from the repository root with `npm test`. Vitest discovers
 npx vitest run tests/parser tests/lexer tests/providers
 npx vitest run tests/access
 npx vitest run tests/docs/ tests/annotations/
+npx vitest run tests/conditional/
 npm run check-types
 ```
 
 ## Where tests belong
 
+- `conditional/`: conditional compilation, compiler/project constants, constant replay, inactive arms, lookup reuse, and expression stack safety. Diagnostic-rule tests stay in `diagnostics/`.
 - `annotations/`: attribute annotation parsing/rewriting, duplicates, physical lines, and folder annotation parsing/equivalence.
 - `docs/`: VBA documentation comments, XML metadata parsing/recovery, tag source mapping, and documentation diagnostics. Word document shape tests belong with document/container behavior instead.
 - `access/`: Access database storage, VBA writes, container ordering, design metadata, and themes; shared inputs stay in `fixtures/`.

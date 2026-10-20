@@ -109,7 +109,7 @@ Spec source: see `MS-VBAL.version.md` (v20250520).
 | Const declarations | src/analyzer/parser/parseModule.ts | tests/parser/vbaParser.test.ts | 5.2.4 | Verified |
 | WithEvents / New declarators | src/analyzer/parser/parseModule.ts | tests/parser/vbaParser.test.ts | 5.2.3 | Verified |
 | Declare statements with PtrSafe/Lib/Alias/params/return metadata | src/analyzer/parser/parseModule.ts | tests/parser/vbaParser.test.ts | 5.2.3.5 | Verified |
-| Conditional-compilation directives (`#Const`, `#If`, `#ElseIf`, `#Else`, `#End If`) and branch activity for symbols/diagnostics | src/analyzer/parser/parseModule.ts + src/analyzer/conditional/conditionalCompilation.ts + src/analyzer/symbols/buildModuleSymbols.ts + src/analyzer/diagnostics/analyzeModule.ts | tests/parser/vbaParser.test.ts + tests/vbaConditionalCompilation.test.ts + tests/vbaSymbolGraph.test.ts + tests/vbaDiagnostics.test.ts | 3.4 | Verified |
+| Conditional-compilation directives (`#Const`, `#If`, `#ElseIf`, `#Else`, `#End If`) and branch activity for symbols/diagnostics | src/analyzer/parser/parseModule.ts + src/analyzer/conditional/conditionalCompilation.ts + src/analyzer/symbols/buildModuleSymbols.ts + src/analyzer/diagnostics/analyzeModule.ts | tests/parser/vbaParser.test.ts + tests/conditional/vbaConditionalCompilation.test.ts + tests/vbaSymbolGraph.test.ts + tests/vbaDiagnostics.test.ts | 3.4 | Verified |
 | Type ... End Type | src/analyzer/parser/parseModule.ts | tests/parser/vbaParser.test.ts | 5.2.3.3 | Verified |
 | Enum ... End Enum | src/analyzer/parser/parseModule.ts | tests/parser/vbaParser.test.ts | 5.2.3.4 | Verified |
 | Sub / Function procedures | src/analyzer/parser/parseModule.ts | tests/parser/vbaParser.test.ts | 5.3.1 | Verified |
