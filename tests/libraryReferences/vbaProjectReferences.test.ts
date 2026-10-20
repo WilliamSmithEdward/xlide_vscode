@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { Cfb } from '../src/vba/cfb';
-import { XlsxWorkbook } from '../src/vba/xlsx';
-import { decompress } from '../src/vba/ovba';
-import { readDirRecords, REC_PROJECTMODULES } from '../src/vba/vbaProject';
+import { Cfb } from '../../src/vba/cfb';
+import { XlsxWorkbook } from '../../src/vba/xlsx';
+import { decompress } from '../../src/vba/ovba';
+import { readDirRecords, REC_PROJECTMODULES } from '../../src/vba/vbaProject';
 import {
 	buildControlReference,
 	buildMsFormsReference,
@@ -14,7 +14,7 @@ import {
 	libid,
 	MSFORMS_TYPELIB_GUID,
 	readProjectReferences,
-} from '../src/vba/vbaProjectReferences';
+} from '../../src/vba/vbaProjectReferences';
 
 // A project holding a UserForm must reference the Microsoft Forms library or
 // the form cannot be instantiated, and Excel reports the workbook as broken

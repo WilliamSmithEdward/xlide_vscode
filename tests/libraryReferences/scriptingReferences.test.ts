@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { analyzeModule } from '../src/analyzer/diagnostics/analyzeModule';
-import { hostTokenForLibid, hostTokensForProject, referencedHostTokens } from '../src/analyzer/host/hostLibraries';
-import { hostObjectModelForTokens } from '../src/analyzer/host/hostRegistry';
-import { resolveMemberCompletions } from '../src/analyzer/completion/memberAccess';
-import { AnalysisWorkerState } from '../src/analysisWorkerLogic';
-import { resolveHover } from '../src/analyzer/hover/resolveHover';
+import { analyzeModule } from '../../src/analyzer/diagnostics/analyzeModule';
+import { hostTokenForLibid, hostTokensForProject, referencedHostTokens } from '../../src/analyzer/host/hostLibraries';
+import { hostObjectModelForTokens } from '../../src/analyzer/host/hostRegistry';
+import { resolveMemberCompletions } from '../../src/analyzer/completion/memberAccess';
+import { AnalysisWorkerState } from '../../src/analysisWorkerLogic';
+import { resolveHover } from '../../src/analyzer/hover/resolveHover';
 
 const refs = [
     { name: 'Scripting', libid: '*\\G{420B2830-E718-11CF-893D-00A0C9054228}#1.0#0#scrrun.dll#Microsoft Scripting Runtime' },

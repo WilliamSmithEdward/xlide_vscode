@@ -1,13 +1,13 @@
 import {expect,it,vi,beforeEach} from 'vitest';
 const handlers=vi.hoisted(()=>new Map<string,(...args:any[])=>Promise<unknown>>());
-vi.mock('vscode',async()=> (await import('./helpers/vscodeMock')).vscodeMock());
-vi.mock('../src/xlideCommandRegistration',()=>({registerXlideCommand:(name:string,handler:any)=>{handlers.set(name,handler);return {dispose(){}};}}));
-vi.mock('../src/officeWriteCoordinator',()=>({runWriteWithHostCoordination:async(_path:string,action:()=>unknown)=>action()}));
-vi.mock('../src/projectModuleOperations',()=>({refreshProjectState:vi.fn(),deleteProjectModule:vi.fn(),renameProjectModule:vi.fn(),writeProjectModule:vi.fn()}));
-vi.mock('../src/xlideWriteAudit',()=>({recordXlideWriteAuditEvent:vi.fn()}));
+vi.mock('vscode',async()=> (await import('../helpers/vscodeMock')).vscodeMock());
+vi.mock('../../src/xlideCommandRegistration',()=>({registerXlideCommand:(name:string,handler:any)=>{handlers.set(name,handler);return {dispose(){}};}}));
+vi.mock('../../src/officeWriteCoordinator',()=>({runWriteWithHostCoordination:async(_path:string,action:()=>unknown)=>action()}));
+vi.mock('../../src/projectModuleOperations',()=>({refreshProjectState:vi.fn(),deleteProjectModule:vi.fn(),renameProjectModule:vi.fn(),writeProjectModule:vi.fn()}));
+vi.mock('../../src/xlideWriteAudit',()=>({recordXlideWriteAuditEvent:vi.fn()}));
 import * as vscode from 'vscode';
-import {registerProjectCrudCommands} from '../src/commands/projectCrudCommands';
-import type {CommandDeps} from '../src/commands/shared';
+import {registerProjectCrudCommands} from '../../src/commands/projectCrudCommands';
+import type {CommandDeps} from '../../src/commands/shared';
 beforeEach(()=>{vi.clearAllMocks();handlers.clear();});
 function setup(modules:any[]){
  const call=vi.fn(async()=>({removed:true,name:'Word'}));

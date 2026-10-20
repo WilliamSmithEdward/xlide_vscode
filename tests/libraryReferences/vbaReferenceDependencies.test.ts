@@ -1,5 +1,5 @@
 import {expect,it} from 'vitest';
-import {projectLibraryDependencies} from '../src/vbaReferenceDependencies';
+import {projectLibraryDependencies} from '../../src/vbaReferenceDependencies';
 it('excludes an exported value bound across modules',async()=>{
  expect(await projectLibraryDependencies([{moduleName:'Globals',source:'Public Word As Worksheet'},{moduleName:'Caller',source:'Sub T()\nWord.EnableCalculation = True\nEnd Sub'}],'Word')).toEqual([]);
 });

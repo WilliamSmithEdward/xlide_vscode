@@ -14,8 +14,8 @@ import {
 	resolveRuntimeConstant,
 	resolveVbaLibraryQualifier,
 	VBA_RUNTIME_CONSTANTS,
-} from '../src/analyzer/runtime/vbaRuntime';
-import { analyzeModule, resolveMemberCompletions } from '../src/analyzer';
+} from '../../src/analyzer/runtime/vbaRuntime';
+import { analyzeModule, resolveMemberCompletions } from '../../src/analyzer';
 
 interface TypeLibrary {
 	enums: Record<string, Record<string, number>>;
