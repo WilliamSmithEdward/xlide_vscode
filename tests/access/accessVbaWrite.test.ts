@@ -16,15 +16,15 @@
 import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { AccessVbaWriter, applyAccessVbaProject } from '../src/vba/access/accessVbaWriter';
-import { readAccessCatalog, readAccessStorage } from '../src/vba/access/accessStorage';
-import { accessVbaCfb } from '../src/vba/accessDatabase';
-import { VbaProject } from '../src/vba/vbaProject';
-import { AccessPageStore } from '../src/vba/access/accessPageStore';
-import { AccessTable } from '../src/vba/access/accessTableWriter';
-import { decodeRowValues } from '../src/vba/access/accessFormat';
+import { AccessVbaWriter, applyAccessVbaProject } from '../../src/vba/access/accessVbaWriter';
+import { readAccessCatalog, readAccessStorage } from '../../src/vba/access/accessStorage';
+import { accessVbaCfb } from '../../src/vba/accessDatabase';
+import { VbaProject } from '../../src/vba/vbaProject';
+import { AccessPageStore } from '../../src/vba/access/accessPageStore';
+import { AccessTable } from '../../src/vba/access/accessTableWriter';
+import { decodeRowValues } from '../../src/vba/access/accessFormat';
 
-const BINARIES = path.join(__dirname, 'fixtures', 'binaries');
+const BINARIES = path.join(__dirname, '..', 'fixtures', 'binaries');
 const read = (name: string): Buffer => fs.readFileSync(path.join(BINARIES, name));
 
 /** Both engines and both shapes: with and without the compiled `__SRP_` rows. */

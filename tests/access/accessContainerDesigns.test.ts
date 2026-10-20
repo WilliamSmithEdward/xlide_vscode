@@ -7,8 +7,8 @@ import * as path from 'path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 let dropTypeInfo = false;
-vi.mock('../src/vba/access/accessVbaWriter', async (importOriginal) => {
-	const actual = await importOriginal<typeof import('../src/vba/access/accessVbaWriter')>();
+vi.mock('../../src/vba/access/accessVbaWriter', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('../../src/vba/access/accessVbaWriter')>();
 	return {
 		...actual,
 		readAccessDesignNames: (data: Buffer) => actual.readAccessDesignNames(data)
@@ -16,9 +16,9 @@ vi.mock('../src/vba/access/accessVbaWriter', async (importOriginal) => {
 	};
 });
 
-import { openMacroContainer } from '../src/vba/macroContainer';
+import { openMacroContainer } from '../../src/vba/macroContainer';
 
-const DATABASE = path.join(__dirname, 'fixtures', 'binaries', 'AccessBoundFormFixture.accdb');
+const DATABASE = path.join(__dirname, '..', 'fixtures', 'binaries', 'AccessBoundFormFixture.accdb');
 
 afterEach(() => {
 	dropTypeInfo = false;

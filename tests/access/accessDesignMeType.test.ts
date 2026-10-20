@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'fs';
 import * as path from 'path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock({
 	workspace: {
 		onDidCloseTextDocument: vi.fn(() => ({ dispose: () => undefined })),
 	},
@@ -15,26 +15,26 @@ import {
 	resolveEventHandlerCompletions,
 	resolveHover,
 	resolveMemberCompletions,
-} from '../src/analyzer';
-import { getAccessObjectModel } from '../src/analyzer/host/accessObjectModel';
+} from '../../src/analyzer';
+import { getAccessObjectModel } from '../../src/analyzer/host/accessObjectModel';
 import {
 	ACCESS_CONTROL_TYPES,
 	accessDesignMembers,
 	accessVbaIdentifier,
 	type AccessDesign,
-} from '../src/vba/access/accessDesign';
-import { listModules, readModules } from '../src/vba/projectService';
-import type { ProjectEngine } from '../src/projectEngine';
-import { memberNameAsWritten } from '../src/vbaCompletionProvider';
-import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
-import { buildVbaProjectIndex, projectAnalysisOptionsForModule } from '../src/vbaProjectAnalysis';
+} from '../../src/vba/access/accessDesign';
+import { listModules, readModules } from '../../src/vba/projectService';
+import type { ProjectEngine } from '../../src/projectEngine';
+import { memberNameAsWritten } from '../../src/vbaCompletionProvider';
+import { analyzeVbaModuleSource } from '../../src/vbaModuleAnalysis';
+import { buildVbaProjectIndex, projectAnalysisOptionsForModule } from '../../src/vbaProjectAnalysis';
 import {
 	toEventHandlerCompletionContext,
 	toMemberCompletionContext,
 	VbaEditorProjectContextService,
-} from '../src/vbaEditorProjectContext';
-import { VbaProjectIndexService } from '../src/vbaProjectIndexService';
-import { VbaSymbolIndex } from '../src/vbaSymbolIndex';
+} from '../../src/vbaEditorProjectContext';
+import { VbaProjectIndexService } from '../../src/vbaProjectIndexService';
+import { VbaSymbolIndex } from '../../src/vbaSymbolIndex';
 
 // `Me` in the code behind an Access form is an Access.Form, the way it is an
 // Excel.Worksheet behind a sheet and a Word.Document in ThisDocument. Before
@@ -42,7 +42,7 @@ import { VbaSymbolIndex } from '../src/vbaSymbolIndex';
 // nothing, a bare `Requery` was called undefined, and the form's controls
 // were unknown. Everything below starts from the real database bytes.
 
-const FIXTURES = path.join(__dirname, 'fixtures', 'binaries');
+const FIXTURES = path.join(__dirname, '..', 'fixtures', 'binaries');
 const DATABASE = path.join(FIXTURES, 'AccessFormFixture.accdb');
 const WORKBOOK = path.join(FIXTURES, 'FormFixture.xlsm');
 const FORM = 'Form_Calculator';
@@ -551,7 +551,7 @@ describe('every handler stub is the line Access writes', () => {
 		controls: Record<string, Record<string, string>>;
 	}
 	const oracle = JSON.parse(
-		readFileSync(path.join(__dirname, 'fixtures', 'access', 'eventHandlerOracle.json'), 'utf8'),
+		readFileSync(path.join(__dirname, '..', 'fixtures', 'access', 'eventHandlerOracle.json'), 'utf8'),
 	) as Record<'form' | 'report', DesignOracle>;
 	const model = getAccessObjectModel();
 	const codeOf = new Map(Object.entries(ACCESS_CONTROL_TYPES).map(([code, name]) => [name, Number(code)]));
@@ -655,7 +655,7 @@ describe('every handler stub is the line Access writes', () => {
 	// corpus, which is not committed; so, as tests/vbaHostConstantRoundTrip
 	// does, this runs where the corpus is - the machines that can regenerate -
 	// and the oracle above is what holds the committed model everywhere else.
-	const EVENT_SOURCES = path.join(__dirname, '..', 'reference', 'access', 'eventSources.json');
+	const EVENT_SOURCES = path.join(__dirname, '..', '..', 'reference', 'access', 'eventSources.json');
 
 	it.runIf(existsSync(EVENT_SOURCES))('carries in the model exactly the events the type library lists', () => {
 		// The model is generated; this holds a stale one to the file it came from.
