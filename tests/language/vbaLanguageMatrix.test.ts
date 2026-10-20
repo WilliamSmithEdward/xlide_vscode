@@ -2,12 +2,12 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { TextDecoder } from 'util';
 import * as fs from 'fs';
 import * as path from 'path';
-import { codePageLabel, decodeCodePage, encodeCodePage, supportedCodePages } from '../src/vba/codePages';
-import { Cfb } from '../src/vba/cfb';
-import { compress, decompress } from '../src/vba/ovba';
-import { XlsxWorkbook } from '../src/vba/xlsx';
-import * as svc from '../src/vba/projectService';
-import { makeTempDir, removeTempDirs } from './helpers/tempDirs';
+import { codePageLabel, decodeCodePage, encodeCodePage, supportedCodePages } from '../../src/vba/codePages';
+import { Cfb } from '../../src/vba/cfb';
+import { compress, decompress } from '../../src/vba/ovba';
+import { XlsxWorkbook } from '../../src/vba/xlsx';
+import * as svc from '../../src/vba/projectService';
+import { makeTempDir, removeTempDirs } from '../helpers/tempDirs';
 
 afterAll(removeTempDirs);
 
@@ -40,7 +40,7 @@ const LANGUAGE_MATRIX: Array<[number, string, string]> = [
 ];
 
 const REC_PROJECTCODEPAGE = 0x0003;
-const TEMPLATE = path.join(__dirname, '..', 'assets', 'templates', 'blank.xlsm');
+const TEMPLATE = path.join(__dirname, '..', '..', 'assets', 'templates', 'blank.xlsm');
 
 function makeWorkbookWithCodePage(codePage: number): string {
 	const dir = makeTempDir(`xlide-cp${codePage}-`);

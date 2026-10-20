@@ -9,9 +9,9 @@ import {
     renameModule,
     validateProject,
     writeModule,
-} from '../src/vba/projectService';
-import { openMacroContainer } from '../src/vba/macroContainer';
-import { VbaProject } from '../src/vba/vbaProject';
+} from '../../src/vba/projectService';
+import { openMacroContainer } from '../../src/vba/macroContainer';
+import { VbaProject } from '../../src/vba/vbaProject';
 
 // Module names beyond the project's ANSI code page are fully supported: the
 // unicode dir records and the CFB stream name carry the real name while the
@@ -23,7 +23,7 @@ import { VbaProject } from '../src/vba/vbaProject';
 // collide would declare the same name twice in the PROJECT stream, which
 // Excel treats as corruption.
 
-const FIXTURE = path.join(__dirname, 'fixtures', 'binaries', 'FormFixture.xlsm');
+const FIXTURE = path.join(__dirname, '..', 'fixtures', 'binaries', 'FormFixture.xlsm');
 
 let tempDir: string;
 let project: string;

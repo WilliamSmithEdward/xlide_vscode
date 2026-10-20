@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { tokenize } from '../src/analyzer/lexer/tokenize';
-import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
-import { matchOpener } from '../src/vbaStructuralDiagnostics';
+import { tokenize } from '../../src/analyzer/lexer/tokenize';
+import { analyzeVbaModuleSource } from '../../src/vbaModuleAnalysis';
+import { matchOpener } from '../../src/vbaStructuralDiagnostics';
 
 // Thai and Devanagari write a single letter as a base plus a tone mark, vowel
 // sign or matra. Those marks are Unicode Mn/Mc, not L, so identifier patterns

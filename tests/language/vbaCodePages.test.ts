@@ -1,14 +1,14 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { decodeCodePage, encodeCodePage } from '../src/vba/codePages';
-import { Cfb } from '../src/vba/cfb';
-import { compress, decompress } from '../src/vba/ovba';
-import { VbaProject } from '../src/vba/vbaProject';
-import { XlsxWorkbook } from '../src/vba/xlsx';
-import * as svc from '../src/vba/projectService';
-import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
-import { makeTempDir, removeTempDirs } from './helpers/tempDirs';
+import { decodeCodePage, encodeCodePage } from '../../src/vba/codePages';
+import { Cfb } from '../../src/vba/cfb';
+import { compress, decompress } from '../../src/vba/ovba';
+import { VbaProject } from '../../src/vba/vbaProject';
+import { XlsxWorkbook } from '../../src/vba/xlsx';
+import * as svc from '../../src/vba/projectService';
+import { analyzeVbaModuleSource } from '../../src/vbaModuleAnalysis';
+import { makeTempDir, removeTempDirs } from '../helpers/tempDirs';
 
 afterAll(removeTempDirs);
 
@@ -78,7 +78,7 @@ describe('code-page conversion', () => {
 });
 
 describe('cp1251 project end to end', () => {
-	const TEMPLATE = path.join(__dirname, '..', 'assets', 'templates', 'blank.xlsm');
+	const TEMPLATE = path.join(__dirname, '..', '..', 'assets', 'templates', 'blank.xlsm');
 	const REC_PROJECTCODEPAGE = 0x0003;
 
 	/** Copy the template and rewrite its PROJECTCODEPAGE dir record to cp1251. */
@@ -137,7 +137,7 @@ describe('cp1251 project end to end', () => {
 });
 
 describe('non-ASCII module and procedure names (the wider bug class)', () => {
-	const TEMPLATE = path.join(__dirname, '..', 'assets', 'templates', 'blank.xlsm');
+	const TEMPLATE = path.join(__dirname, '..', '..', 'assets', 'templates', 'blank.xlsm');
 	const REC_PROJECTCODEPAGE = 0x0003;
 
 	function makeCp1251Workbook(): string {
