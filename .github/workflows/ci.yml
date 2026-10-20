@@ -99,10 +99,10 @@ jobs:
       - name: Run the Access storage tests
         run: >
           npx vitest run
-          tests/accessStorage.test.ts
-          tests/accessStorageEngine.test.ts
-          tests/accessVbaWrite.test.ts
-          tests/accessDesign.test.ts
+          tests/access/accessStorage.test.ts
+          tests/access/accessStorageEngine.test.ts
+          tests/access/accessVbaWrite.test.ts
+          tests/access/accessDesign.test.ts
 
   # Execute generated recovery PowerShell against fake registry objects. No
   # Office installation or real registry changes are needed.

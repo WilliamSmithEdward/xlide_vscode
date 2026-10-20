@@ -5,11 +5,13 @@ Run the unit suite from the repository root with `npm test`. Vitest discovers
 
 ```sh
 npx vitest run tests/parser tests/lexer tests/providers
+npx vitest run tests/access
 npm run check-types
 ```
 
 ## Where tests belong
 
+- `access/`: Access database storage, VBA writes, container ordering, design metadata, and themes; shared inputs stay in `fixtures/`.
 - `parser/`: expression and module parsing, incremental parse reuse, and parser cache pressure.
 - `lexer/`: tokenization, keyword classification, incremental lexing, and token lookup/cache work.
 - `providers/`: editor completion, hover, signature help, navigation, colors, semantic tokens, and scheduling/latency regressions. Tests of the analyzer helpers behind those surfaces belong here too when the editor behavior is their main subject.
