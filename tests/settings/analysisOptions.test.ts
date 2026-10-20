@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { setAnalysisRuleTrackedInList } from '../src/analysisSettingsCore';
+import { setAnalysisRuleTrackedInList } from '../../src/analysisSettingsCore';
 
 describe('analysis rule tracking options', () => {
     it('adds a rule to the untracked list when tracking is disabled', () => {

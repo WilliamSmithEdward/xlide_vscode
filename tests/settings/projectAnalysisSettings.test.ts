@@ -10,7 +10,7 @@ const mockConfig = vi.hoisted(() => ({
 	machineKeys: new Set<string>(),
 }));
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock({
 	workspace: {
 		getConfiguration: () => ({
 			get: (key: string, fallback: unknown) => {
@@ -36,13 +36,13 @@ vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock(
 	},
 }));
 
-import { readProjectSettings, writeProjectSettings } from '../src/projectSettings';
+import { readProjectSettings, writeProjectSettings } from '../../src/projectSettings';
 import {
 	effectiveProjectAnalysisSettings,
 	effectiveProjectAnalysisSettingsFromConfig,
 	resetProjectAnalysisRuleTracking,
 	setProjectAnalysisRuleTracked,
-} from '../src/projectAnalysisSettings';
+} from '../../src/projectAnalysisSettings';
 
 const tempRoots: string[] = [];
 

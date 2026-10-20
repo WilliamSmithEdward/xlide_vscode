@@ -1,6 +1,6 @@
 import { readFileSync } from 'fs';
 import { describe, expect, it } from 'vitest';
-import { xlideGlobalSettingManifest } from '../src/globalSettings';
+import { xlideGlobalSettingManifest } from '../../src/globalSettings';
 
 function contributedConfigurationProperties(): Record<string, Record<string, unknown>> {
 	const manifest = JSON.parse(readFileSync('package.json', 'utf8')) as {

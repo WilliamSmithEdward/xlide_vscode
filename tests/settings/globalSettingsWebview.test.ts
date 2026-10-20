@@ -1,15 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as vscode from 'vscode';
-import { fakeConfig } from './helpers/fakeConfig';
+import { fakeConfig } from '../helpers/fakeConfig';
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock());
 
 import {
     applyXlideGlobalSettingsMessage,
     buildXlideGlobalSettingsModel,
     registerXlideGlobalSettingsWebview,
     renderXlideGlobalSettingsHtml,
-} from '../src/globalSettingsWebview';
+} from '../../src/globalSettingsWebview';
 
 const validSettings = {
     'officeIntegration.attachToRunning': true,

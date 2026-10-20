@@ -6,12 +6,12 @@ import {
 	effectiveProjectModuleSyncSettings,
 	setProjectModuleSyncExportMode,
 	updateProjectModuleSyncSettings,
-} from '../src/projectModuleSyncSettings';
+} from '../../src/projectModuleSyncSettings';
 import {
 	readProjectSettings,
 	settingsPathForProject,
 	writeProjectSettings,
-} from '../src/projectSettings';
+} from '../../src/projectSettings';
 
 const tempRoots: string[] = [];
 
