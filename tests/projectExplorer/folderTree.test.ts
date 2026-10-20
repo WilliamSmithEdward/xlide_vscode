@@ -2,7 +2,7 @@
 // annotation is read (github.com/WilliamSmithEdward/xlide_vscode/issues/66).
 
 import { describe, expect, it } from 'vitest';
-import { buildFolderTree, folderPathChain, type FolderTreeFolder } from '../src/folderTree';
+import { buildFolderTree, folderPathChain, type FolderTreeFolder } from '../../src/folderTree';
 
 interface Mod { name: string; folder?: string }
 

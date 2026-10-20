@@ -5,7 +5,7 @@ const host = vi.hoisted(() => ({
     activeEditorChanged: undefined as undefined | ((editor: unknown) => void),
 }));
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock({
     window: {
         onDidChangeActiveTextEditor: vi.fn((listener: (editor: unknown) => void) => {
             host.activeEditorChanged = listener;
@@ -22,10 +22,10 @@ vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock(
     },
 }));
 
-import { ExplorerFollow, FOLLOW_QUIET_MS, REVEAL_EVENT_GRACE_MS, type ExplorerFollowDeps } from '../src/explorerFollow';
-import type { XlideNode } from '../src/projectExplorer';
-import type { VbaCaretPosition } from '../src/vbaCaretProcedure';
-import { EventEmitter } from './helpers/vscodeMock';
+import { ExplorerFollow, FOLLOW_QUIET_MS, REVEAL_EVENT_GRACE_MS, type ExplorerFollowDeps } from '../../src/explorerFollow';
+import type { XlideNode } from '../../src/projectExplorer';
+import type { VbaCaretPosition } from '../../src/vbaCaretProcedure';
+import { EventEmitter } from '../helpers/vscodeMock';
 import * as vscode from 'vscode';
 
 const PROJECT = 'C:\\work\\Book.xlsm';

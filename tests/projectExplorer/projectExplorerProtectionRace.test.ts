@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const host = vi.hoisted(() => ({ findFiles: vi.fn() }));
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock({
     workspace: { findFiles: host.findFiles, workspaceFolders: [{ uri: { fsPath: 'C:/work' } }] },
 }));
 import * as vscode from 'vscode';
-import { ProjectExplorer, type XlideNode } from '../src/projectExplorer';
+import { ProjectExplorer, type XlideNode } from '../../src/projectExplorer';
 const BOOK = 'C:/work/Book.xlsm';
 const LOCKED = { isPasswordProtected: true, isSigned: true };
 const OPEN = { isPasswordProtected: false, isSigned: false };

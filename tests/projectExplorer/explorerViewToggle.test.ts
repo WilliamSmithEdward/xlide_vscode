@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createExplorerViewSetter } from '../src/explorerViewToggle';
+import { createExplorerViewSetter } from '../../src/explorerViewToggle';
 
 function harness(persist: (view: string) => Promise<unknown>) {
 	const applied: string[] = [];

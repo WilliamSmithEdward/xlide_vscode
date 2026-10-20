@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 const host = vi.hoisted(() => ({ findFiles: vi.fn() }));
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock({
     workspace: { findFiles: host.findFiles, workspaceFolders: [{ uri: { fsPath: '/work' } }] },
 }));
-import { ProjectExplorer } from '../src/projectExplorer';
+import { ProjectExplorer } from '../../src/projectExplorer';
 const BOOK = '/work/Book.xlsm';
 const explorers: ProjectExplorer[] = [];
 afterEach(() => { for (const explorer of explorers.splice(0)) { explorer.dispose(); } });

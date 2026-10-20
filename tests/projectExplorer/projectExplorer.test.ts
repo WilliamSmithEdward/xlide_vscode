@@ -6,7 +6,7 @@ const vscodeMock = vi.hoisted(() => ({
     treeEvents: [] as unknown[],
 }));
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock({
     EventEmitter: class {
         event = vi.fn();
         fire = vi.fn((node?: unknown) => {
@@ -22,8 +22,8 @@ vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock(
     },
 }));
 
-import { ProjectExplorer } from '../src/projectExplorer';
-import { MACRO_CONTAINER_GLOB } from '../src/macroContainerUi';
+import { ProjectExplorer } from '../../src/projectExplorer';
+import { MACRO_CONTAINER_GLOB } from '../../src/macroContainerUi';
 
 describe('a VB6 project in the explorer', () => {
     beforeEach(() => {
