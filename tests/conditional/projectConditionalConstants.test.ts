@@ -9,15 +9,15 @@
 import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { parseProjectConditionalConstants } from '../src/analyzer';
-import { readModules } from '../src/vba/projectService';
-import { AnalysisWorkerState } from '../src/analysisWorkerLogic';
-import { analyzeModule } from '../src/analyzer';
+import { parseProjectConditionalConstants } from '../../src/analyzer';
+import { readModules } from '../../src/vba/projectService';
+import { AnalysisWorkerState } from '../../src/analysisWorkerLogic';
+import { analyzeModule } from '../../src/analyzer';
 import {
 	buildVbaProjectIndex,
 	projectAnalysisOptionsForModule,
 	projectProcedureSignatures,
-} from '../src/vbaProjectAnalysis';
+} from '../../src/vbaProjectAnalysis';
 
 const CORPUS = path.resolve('..', 'xlide_vscode_testing');
 

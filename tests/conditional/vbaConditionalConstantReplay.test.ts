@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createConditionalActivityTracker, indexConditionalCompilation } from '../src/analyzer/conditional/conditionalCompilation';
-import { parseModule } from '../src/analyzer/parser/parseModule';
+import { createConditionalActivityTracker, indexConditionalCompilation } from '../../src/analyzer/conditional/conditionalCompilation';
+import { parseModule } from '../../src/analyzer/parser/parseModule';
 
 describe('conditional constant replay', () => {
 	it('does not copy preceding constants at each directive', () => {

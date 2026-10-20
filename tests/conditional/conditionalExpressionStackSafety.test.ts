@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { createConditionalActivityTracker, evaluateConditionalExpression, indexConditionalCompilation } from '../src/analyzer/conditional/conditionalCompilation';
-import { MAX_EXPRESSION_DEPTH } from '../src/analyzer/parser/expressionLimits';
-import { parseModule } from '../src/analyzer/parser/parseModule';
+import { createConditionalActivityTracker, evaluateConditionalExpression, indexConditionalCompilation } from '../../src/analyzer/conditional/conditionalCompilation';
+import { MAX_EXPRESSION_DEPTH } from '../../src/analyzer/parser/expressionLimits';
+import { parseModule } from '../../src/analyzer/parser/parseModule';
 
 describe('conditional expression stack safety', () => {
 	it.each([

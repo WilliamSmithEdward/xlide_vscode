@@ -11,9 +11,9 @@ import {
 	createConditionalActivityTracker,
 	parseModule,
 	type ConditionalCompilationEnvironment,
-} from '../src/analyzer';
-import { conditionalActivityAtOffset } from '../src/analyzer/conditional/conditionalCompilation';
-import { documentOutlineSymbolsForSource } from '../src/vbaSymbolPresentation';
+} from '../../src/analyzer';
+import { conditionalActivityAtOffset } from '../../src/analyzer/conditional/conditionalCompilation';
+import { documentOutlineSymbolsForSource } from '../../src/vbaSymbolPresentation';
 
 const module = (lines: string) =>
 	`${lines}\nSub Main()\n#If Win64 Then\n    Debug.Print 1\n#Else\n    Debug.Print 2\n#End If\nEnd Sub\n`;

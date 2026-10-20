@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { createConditionalActivityTracker } from '../src/analyzer/conditional/conditionalCompilation';
-import { parseModule } from '../src/analyzer/parser/parseModule';
-import { analyzeModule } from '../src/analyzer/diagnostics/analyzeModule';
+import { createConditionalActivityTracker } from '../../src/analyzer/conditional/conditionalCompilation';
+import { parseModule } from '../../src/analyzer/parser/parseModule';
+import { analyzeModule } from '../../src/analyzer/diagnostics/analyzeModule';
 
 function pair(source: string, exclusive: boolean): void {
  const tracker = createConditionalActivityTracker(parseModule(source));

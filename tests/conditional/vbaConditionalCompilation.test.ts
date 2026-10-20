@@ -5,8 +5,8 @@ import {
 	createConditionalActivityTracker,
 	evaluateConditionalExpression,
 	indexConditionalCompilation,
-} from '../src/analyzer/conditional/conditionalCompilation';
-import { parseModule } from '../src/analyzer/parser/parseModule';
+} from '../../src/analyzer/conditional/conditionalCompilation';
+import { parseModule } from '../../src/analyzer/parser/parseModule';
 
 describe('conditional compilation index', () => {
 	it('collects module and procedure directives in source order', () => {
