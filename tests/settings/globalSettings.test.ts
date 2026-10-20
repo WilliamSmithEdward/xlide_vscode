@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fakeConfig } from './helpers/fakeConfig';
+import { fakeConfig } from '../helpers/fakeConfig';
 import {
     clearXlideGlobalAnalysisRuleSeverityOverride,
     resetXlideGlobalSettingValue,
@@ -11,7 +11,7 @@ import {
     xlideAnalysisVisibleSeveritiesFromConfig,
     xlideDocsMetadataGlobFromConfig,
     validateXlideGlobalSettingsValues,
-} from '../src/globalSettings';
+} from '../../src/globalSettings';
 
 const validSettings = {
     'officeIntegration.attachToRunning': true,

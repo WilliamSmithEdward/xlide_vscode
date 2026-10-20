@@ -151,7 +151,7 @@ const DEFAULT_DOC_METADATA_GLOB = '**/*.vbref.xml';
 // Single source of truth for every xlide.* global setting, declared in
 // settings-page display order. The package.json contributes.configuration
 // block is asserted against xlideGlobalSettingManifest() by
-// tests/globalSettingsManifest.test.ts.
+// tests/settings/globalSettingsManifest.test.ts.
 const XLIDE_GLOBAL_SETTINGS: {
     [K in XlideGlobalSettingKey]: XlideGlobalSettingSchema<XlideGlobalSettingValues[K]>;
 } = {

@@ -5,7 +5,7 @@ import * as path from 'path';
 import {
 	effectiveProjectTestSettings,
 	effectiveProjectTestSettingsFromConfig,
-} from '../src/projectTestSettings';
+} from '../../src/projectTestSettings';
 
 const tempRoots: string[] = [];
 

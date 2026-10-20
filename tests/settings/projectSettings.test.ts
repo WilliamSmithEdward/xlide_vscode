@@ -9,7 +9,7 @@ import {
 	settingsPathForProject,
 	updateProjectSettings,
 	writeProjectSettings,
-} from '../src/projectSettings';
+} from '../../src/projectSettings';
 
 const tempRoots: string[] = [];
 
