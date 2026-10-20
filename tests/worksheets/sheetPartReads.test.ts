@@ -8,12 +8,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { ZipArchive } from '../src/vba/zip';
-import { openMacroContainer } from '../src/vba/macroContainer';
-import { readModulesFromBuffer } from '../src/vba/projectService';
+import { ZipArchive } from '../../src/vba/zip';
+import { openMacroContainer } from '../../src/vba/macroContainer';
+import { readModulesFromBuffer } from '../../src/vba/projectService';
 
-const FIXTURES = path.join(__dirname, 'fixtures', 'binaries');
-const TEMPLATES = path.join(__dirname, '..', 'assets', 'templates');
+const FIXTURES = path.join(__dirname, '..', 'fixtures', 'binaries');
+const TEMPLATES = path.join(__dirname, '..', '..', 'assets', 'templates');
 const SHEET1 = 'xl/worksheets/sheet1.xml';
 const SHEET2 = 'xl/worksheets/sheet2.xml';
 

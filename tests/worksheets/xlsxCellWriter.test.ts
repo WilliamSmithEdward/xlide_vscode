@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { XlsxError, XlsxWorkbook } from '../src/vba/xlsx';
-import { ZipArchive } from '../src/vba/zip';
+import { XlsxError, XlsxWorkbook } from '../../src/vba/xlsx';
+import { ZipArchive } from '../../src/vba/zip';
 
 // The fixtures were saved by Excel 16: CellWriterFixture has a formatted cell,
 // a formatted empty cell before a value, a shared formula and a calc chain;
 // CellStylesFixture a formatted column and row and a CSE array; and
 // DynamicArrayFixture spilling formulas with their cell metadata. Each case
 // here was also checked by having Excel open the file the engine wrote.
-const FIXTURES = path.join(__dirname, 'fixtures', 'binaries');
-const BLANK = path.join(__dirname, '..', 'assets', 'templates', 'blank.xlsm');
+const FIXTURES = path.join(__dirname, '..', 'fixtures', 'binaries');
+const BLANK = path.join(__dirname, '..', '..', 'assets', 'templates', 'blank.xlsm');
 const SHEET = 'xl/worksheets/sheet1.xml';
 
 const open = (name: string): XlsxWorkbook => XlsxWorkbook.fromBuffer(fs.readFileSync(path.join(FIXTURES, name)));

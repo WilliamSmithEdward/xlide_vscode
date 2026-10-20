@@ -1,13 +1,13 @@
 import * as path from 'path';
 import { describe, expect, it } from 'vitest';
-import { listWorkbookSheets, readModules } from '../src/vba/projectService';
+import { listWorkbookSheets, readModules } from '../../src/vba/projectService';
 
 // SheetsFixture.xlsm, .xlsb and .xls were saved by Excel 16.0 from one
 // workbook: Budget, whose module is Sheet1; Drawn, a sheet added through
 // automation, with a shape and no module; Trend, a chart sheet; Later, with
 // nothing; and Hidden, hidden. Excel reported the code names as it saved:
 // only Budget has one.
-const FIXTURES = path.join(__dirname, 'fixtures', 'binaries');
+const FIXTURES = path.join(__dirname, '..', 'fixtures', 'binaries');
 
 const SHEETS = [
     { name: 'Budget', codeName: 'Sheet1', kind: 'worksheet' },

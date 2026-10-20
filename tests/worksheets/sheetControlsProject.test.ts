@@ -5,10 +5,10 @@
 import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { ZipArchive } from '../src/vba/zip';
-import { readModulesFromBuffer } from '../src/vba/projectService';
+import { ZipArchive } from '../../src/vba/zip';
+import { readModulesFromBuffer } from '../../src/vba/projectService';
 
-const FIXTURE = path.join(__dirname, 'fixtures', 'binaries', 'ShapesFixture.xlsm');
+const FIXTURE = path.join(__dirname, '..', 'fixtures', 'binaries', 'ShapesFixture.xlsm');
 
 /** ShapesFixture with an ActiveX CommandButton1 added to Sheet1, in the layout Excel writes. */
 function withActiveX(): Buffer {

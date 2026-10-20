@@ -7,11 +7,11 @@ import {
 	formulaForFile,
 	shiftFormula,
 	type FormulaContext,
-} from '../src/vba/xlsxFormula';
+} from '../../src/vba/xlsxFormula';
 
 // The two recorded fixtures hold what Excel 16 itself did: which formulas its
 // parser accepted, and the text it stored for formulas typed into cells.
-const FIXTURES = path.join(__dirname, 'fixtures');
+const FIXTURES = path.join(__dirname, '..', 'fixtures');
 
 interface RecordedContext {
 	sheets: string[];
