@@ -14,24 +14,24 @@
 import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { decompress } from '../src/vba/ovba';
-import { Cfb } from '../src/vba/cfb';
-import { VbaProject } from '../src/vba/vbaProject';
-import { accessVbaCfbByScan, accessVbaCfbStructural } from '../src/vba/accessDatabase';
+import { decompress } from '../../src/vba/ovba';
+import { Cfb } from '../../src/vba/cfb';
+import { VbaProject } from '../../src/vba/vbaProject';
+import { accessVbaCfbByScan, accessVbaCfbStructural } from '../../src/vba/accessDatabase';
 import {
 	AccessColumnType,
 	decodeAccessText,
 	readTableDefinition,
 	MSYS_OBJECTS_PAGE,
-} from '../src/vba/access/accessFormat';
+} from '../../src/vba/access/accessFormat';
 import {
 	readAccessCatalog,
 	readAccessStorage,
 	readAccessVbaStreams,
 	type AccessStorageEntry,
-} from '../src/vba/access/accessStorage';
+} from '../../src/vba/access/accessStorage';
 
-const BINARIES = path.join(__dirname, 'fixtures', 'binaries');
+const BINARIES = path.join(__dirname, '..', 'fixtures', 'binaries');
 const read = (name: string): Buffer => fs.readFileSync(path.join(BINARIES, name));
 
 /** Both engines, so a layout that only works for one is caught. */

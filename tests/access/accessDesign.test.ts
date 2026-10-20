@@ -23,19 +23,19 @@ import {
 	buildAccessDesign,
 	isAccessDesignSection,
 	parseAccessDesign,
-} from '../src/vba/access/accessDesign';
+} from '../../src/vba/access/accessDesign';
 import {
 	readAccessCatalog,
 	readAccessDesigns,
 	readAccessStorage,
 	readAccessVbaStreams,
 	readTableRows,
-} from '../src/vba/access/accessStorage';
-import { makeTempDir, removeTempDirs } from './helpers/tempDirs';
+} from '../../src/vba/access/accessStorage';
+import { makeTempDir, removeTempDirs } from '../helpers/tempDirs';
 
 afterAll(removeTempDirs);
 
-const BINARIES = path.join(__dirname, 'fixtures', 'binaries');
+const BINARIES = path.join(__dirname, '..', 'fixtures', 'binaries');
 const FORMS = fs.readFileSync(path.join(BINARIES, 'AccessFormFixture.accdb'));
 
 describe('finding the designs', () => {
@@ -142,22 +142,22 @@ describe('what it refuses', () => {
 // lists the new controls and compiles Me against them, is not something CI can
 // host; it was run against Access 16.0.
 
-import { AccessVbaWriter } from '../src/vba/access/accessVbaWriter';
+import { AccessVbaWriter } from '../../src/vba/access/accessVbaWriter';
 import {
 	addDesignControl,
 	designPrototypes,
 	removeDesignControl,
 	setDesignProperty,
-} from '../src/vba/access/accessDesignEdit';
+} from '../../src/vba/access/accessDesignEdit';
 import {
 	buildTypeInfo,
 	readTypeInfo,
 	typeInfoCodePage,
 	typeInfoListedNames,
 	updateTypeInfo,
-} from '../src/vba/access/accessTypeInfo';
-import { PROPERTY_CODES, TYPE_INFO_CLSID_AT } from '../src/vba/access/accessDesignTable';
-import { codePageHolds } from '../src/vba/codePages';
+} from '../../src/vba/access/accessTypeInfo';
+import { PROPERTY_CODES, TYPE_INFO_CLSID_AT } from '../../src/vba/access/accessDesignTable';
+import { codePageHolds } from '../../src/vba/codePages';
 
 /** A property's record code, so a test names the property rather than a number. */
 const code = (name: string): number => PROPERTY_CODES.get(name)!;
@@ -817,17 +817,17 @@ import {
 	readFormPreview,
 	readModulesFromBuffer,
 	renameModule,
-} from '../src/vba/projectService';
-import { sceneOfAccessDesign } from '../src/vba/access/accessDesignScene';
+} from '../../src/vba/projectService';
+import { sceneOfAccessDesign } from '../../src/vba/access/accessDesignScene';
 import {
 	accessDesignProperties,
 	printAccessDesignMarkup,
-} from '../src/vba/access/accessDesignMarkup';
-import { PROPERTY_SLOTS } from '../src/vba/access/accessDesignTable';
-import { readTableDefinition } from '../src/vba/access/accessFormat';
-import { setExtensionAssetRoot } from '../src/extensionAssets';
+} from '../../src/vba/access/accessDesignMarkup';
+import { PROPERTY_SLOTS } from '../../src/vba/access/accessDesignTable';
+import { readTableDefinition } from '../../src/vba/access/accessFormat';
+import { setExtensionAssetRoot } from '../../src/extensionAssets';
 
-setExtensionAssetRoot(path.join(__dirname, '..'));
+setExtensionAssetRoot(path.join(__dirname, '..', '..'));
 
 /** A scratch copy, so a test that writes never touches the fixture. */
 function scratchCopy(name: string): string {

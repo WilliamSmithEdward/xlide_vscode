@@ -1,22 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { parseAccessDesign } from '../src/vba/access/accessDesign';
-import { CONTROL_TYPES } from '../src/vba/access/accessDesignTable';
+import { parseAccessDesign } from '../../src/vba/access/accessDesign';
+import { CONTROL_TYPES } from '../../src/vba/access/accessDesignTable';
 import {
 	accessDesignTemplate,
 	availablePrototypes,
 	rethemedAccessDesign,
 	rethemedAccessPrototypes,
 	withDesignGuid,
-} from '../src/vba/access/accessDesignTemplates';
+} from '../../src/vba/access/accessDesignTemplates';
 import {
 	accessTintedColor,
 	OFFICE_2023_THEME,
 	readAccessDesignTheme,
 	type AccessTheme,
-} from '../src/vba/access/accessThemes';
-import { AccessVbaWriter } from '../src/vba/access/accessVbaWriter';
+} from '../../src/vba/access/accessThemes';
+import { AccessVbaWriter } from '../../src/vba/access/accessVbaWriter';
 
 // Issue #151, from pyOpenVBA 6.3.0: Access draws a new form, report or
 // control in the theme its database keeps, and a database with none gets
@@ -24,7 +24,7 @@ import { AccessVbaWriter } from '../src/vba/access/accessVbaWriter';
 // the 2023 theme, so a design for a database on it needs no change, and one
 // for a database on another theme is worked out again from the theme.
 
-const FIXTURES = path.join(__dirname, 'fixtures');
+const FIXTURES = path.join(__dirname, '..', 'fixtures');
 const OFFICE_2007: AccessTheme = {
 	majorFont: 'Cambria',
 	minorFont: 'Calibri',

@@ -21,24 +21,24 @@ import {
 	AccessPageType,
 	pageCount,
 	readTableDefinition,
-} from '../src/vba/access/accessFormat';
-import { AccessDataPage, isLongValuePage } from '../src/vba/access/accessDataPage';
+} from '../../src/vba/access/accessFormat';
+import { AccessDataPage, isLongValuePage } from '../../src/vba/access/accessDataPage';
 import {
 	AccessPageStore,
 	GLOBAL_USAGE_MAP_PAGE,
 	GLOBAL_USAGE_MAP_ROW,
 	readUsageMap,
 	readUsageMapRef,
-} from '../src/vba/access/accessPageStore';
-import { allocatePage, releasePage } from '../src/vba/access/accessAlloc';
-import { AccessTable } from '../src/vba/access/accessTableWriter';
-import { leafPages } from '../src/vba/access/accessIndex';
-import { encodeIndexKey } from '../src/vba/access/accessIndexKey';
-import { splitRow } from '../src/vba/access/accessRow';
-import { encodeTextKey } from '../src/vba/access/accessCollation';
-import { readAccessCatalog } from '../src/vba/access/accessStorage';
+} from '../../src/vba/access/accessPageStore';
+import { allocatePage, releasePage } from '../../src/vba/access/accessAlloc';
+import { AccessTable } from '../../src/vba/access/accessTableWriter';
+import { leafPages } from '../../src/vba/access/accessIndex';
+import { encodeIndexKey } from '../../src/vba/access/accessIndexKey';
+import { splitRow } from '../../src/vba/access/accessRow';
+import { encodeTextKey } from '../../src/vba/access/accessCollation';
+import { readAccessCatalog } from '../../src/vba/access/accessStorage';
 
-const BINARIES = path.join(__dirname, 'fixtures', 'binaries');
+const BINARIES = path.join(__dirname, '..', 'fixtures', 'binaries');
 const read = (name: string): Buffer => fs.readFileSync(path.join(BINARIES, name));
 
 /** Both engines and three shapes of database, so a rule that holds for one file is not mistaken for a rule. */

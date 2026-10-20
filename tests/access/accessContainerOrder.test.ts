@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { readAccessStorage, readTableRows, type AccessStorageEntry } from '../src/vba/access/accessStorage';
-import { MSYS_OBJECTS_PAGE, readTableDefinition } from '../src/vba/access/accessFormat';
+import { readAccessStorage, readTableRows, type AccessStorageEntry } from '../../src/vba/access/accessStorage';
+import { MSYS_OBJECTS_PAGE, readTableDefinition } from '../../src/vba/access/accessFormat';
 import {
 	accessListOrder,
 	accessNameHash,
@@ -10,8 +10,8 @@ import {
 	nextFolderName,
 	refileInFolderList,
 	removeFromFolderList,
-} from '../src/vba/access/accessVbaStreams';
-import { AccessVbaWriter } from '../src/vba/access/accessVbaWriter';
+} from '../../src/vba/access/accessVbaStreams';
+import { AccessVbaWriter } from '../../src/vba/access/accessVbaWriter';
 
 // Issue #150, from pyOpenVBA 6.3.0, re-measured in Access 16.0 driven over
 // COM. AccessTwelveModulesFixture is what Access wrote after Module1 was
@@ -19,7 +19,7 @@ import { AccessVbaWriter } from '../src/vba/access/accessVbaWriter';
 // expected lists below are the ones Access wrote when it then deleted Macro3,
 // added NewOne and renamed Macro5 to Zeta, reopening the database between.
 
-const FIXTURE = path.join(__dirname, 'fixtures', 'binaries', 'AccessTwelveModulesFixture.accdb');
+const FIXTURE = path.join(__dirname, '..', 'fixtures', 'binaries', 'AccessTwelveModulesFixture.accdb');
 
 function find(entries: AccessStorageEntry[], name: string): AccessStorageEntry | undefined {
 	for (const entry of entries) {
