@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import * as parser from '../src/analyzer/parser/parseModule';
-import { resolveExpressionType } from '../src/analyzer/expression/resolveExpressionType';
+import * as parser from '../../src/analyzer/parser/parseModule';
+import { resolveExpressionType } from '../../src/analyzer/expression/resolveExpressionType';
 
 describe('expression enclosing procedure work', () => {
     it.each([100, 1000])('does not rescan %i preceding members on each warm query', count => {

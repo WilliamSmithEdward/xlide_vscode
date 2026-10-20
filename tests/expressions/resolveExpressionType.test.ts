@@ -7,7 +7,7 @@
 // does not parse.
 
 import { describe, expect, it } from 'vitest';
-import { resolveExpressionType } from '../src/analyzer';
+import { resolveExpressionType } from '../../src/analyzer';
 
 const HEADER = [
 	'Option Explicit',
