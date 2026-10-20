@@ -2,10 +2,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { XlsxWorkbook } from '../src/vba/xlsx';
-import { ZipArchive } from '../src/vba/zip';
-import { editShape, listShapes, shapeMacros, writeModule } from '../src/vba/projectService';
-import type { ShapeEdit, ShapeInfo } from '../src/vba/xlsxShapes';
+import { XlsxWorkbook } from '../../src/vba/xlsx';
+import { ZipArchive } from '../../src/vba/zip';
+import { editShape, listShapes, shapeMacros, writeModule } from '../../src/vba/projectService';
+import type { ShapeEdit, ShapeInfo } from '../../src/vba/xlsxShapes';
 
 // Excel 16 saved both fixtures. ShapesFixture has, on Sheet1, a rectangle
 // running DoIt, a rounded rectangle running Macros.Other, an oval with alt
@@ -14,8 +14,8 @@ import type { ShapeEdit, ShapeInfo } from '../src/vba/xlsxShapes';
 // $J$1:$J$3 into $H$11; Sheet2 has one rectangle. ShapesPictureChartFixture
 // has a picture and a chart that run DoIt. Every kind of edit here was also
 // checked by having Excel open the file the engine wrote and report its shapes.
-const FIXTURES = path.join(__dirname, 'fixtures', 'binaries');
-const BLANK = path.join(__dirname, '..', 'assets', 'templates', 'blank.xlsm');
+const FIXTURES = path.join(__dirname, '..', 'fixtures', 'binaries');
+const BLANK = path.join(__dirname, '..', '..', 'assets', 'templates', 'blank.xlsm');
 
 const open = (name: string): XlsxWorkbook => XlsxWorkbook.fromBuffer(fs.readFileSync(path.join(FIXTURES, name)));
 const reopen = (book: XlsxWorkbook): XlsxWorkbook => XlsxWorkbook.fromBuffer(book.toBytes());

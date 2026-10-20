@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
-import { ShapeRows } from '../src/shapeRows';
-import type { ProjectEngine } from '../src/projectEngine';
-import type { XlideNode } from '../src/projectExplorer';
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock());
+import { ShapeRows } from '../../src/shapeRows';
+import type { ProjectEngine } from '../../src/projectEngine';
+import type { XlideNode } from '../../src/projectExplorer';
 const BOOK = '/work/Book.xlsm';
 const project: XlideNode = { kind: 'project', label: 'Book', filePath: BOOK };
 function fixture() {

@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
-import { ShapeRows } from '../src/shapeRows';
-import type { ProjectEngine } from '../src/projectEngine';
-import type { XlideNode } from '../src/projectExplorer';
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock());
+import { ShapeRows } from '../../src/shapeRows';
+import type { ProjectEngine } from '../../src/projectEngine';
+import type { XlideNode } from '../../src/projectExplorer';
 const BOOK = 'C:/work/Book.xlsm';
 const folder = (): XlideNode => ({ kind: 'shapes', shapeFolder: 'surface', surface: 'Data', label: 'Shapes', filePath: BOOK });
 const listing = (name: string) => ({ surfaces: [{ surface: 'Data', shapes: [

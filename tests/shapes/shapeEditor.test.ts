@@ -4,24 +4,24 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock({
     window: { setStatusBarMessage: vi.fn() },
 }));
 // The coordination with a running Office application has tests of its own;
 // here the write simply runs.
-vi.mock('../src/officeWriteCoordinator', () => ({
+vi.mock('../../src/officeWriteCoordinator', () => ({
     runWriteWithHostCoordination: vi.fn((_filePath: string, write: () => Promise<unknown>) => write()),
 }));
 
-import { ProjectEngine } from '../src/projectEngine';
-import { openShapeEditor, type ShapeEditorDeps } from '../src/shapeEditor';
-import { editShape, listShapes } from '../src/vba/projectService';
-import type { ShapeEditorModel, ShapeFormValues } from '../src/shapeEditorModel';
-import type { ShapeInfo } from '../src/vba/shapes';
+import { ProjectEngine } from '../../src/projectEngine';
+import { openShapeEditor, type ShapeEditorDeps } from '../../src/shapeEditor';
+import { editShape, listShapes } from '../../src/vba/projectService';
+import type { ShapeEditorModel, ShapeFormValues } from '../../src/shapeEditorModel';
+import type { ShapeInfo } from '../../src/vba/shapes';
 
 // The editor tab end to end: the page it opens on, and what each button does
 // to a real file, with the webview itself stood in for.
-const FIXTURES = path.join(__dirname, 'fixtures', 'binaries');
+const FIXTURES = path.join(__dirname, '..', 'fixtures', 'binaries');
 
 interface FakePanel {
     webview: { html: string; postMessage: ReturnType<typeof vi.fn> };
@@ -57,7 +57,7 @@ let dir: string;
 let deck: string;
 let panel: FakePanel;
 let deps: ShapeEditorDeps & { explorer: { refreshShapes: ReturnType<typeof vi.fn> } };
-const context = { extensionUri: { fsPath: path.join(__dirname, '..') } } as unknown as vscode.ExtensionContext;
+const context = { extensionUri: { fsPath: path.join(__dirname, '..', '..') } } as unknown as vscode.ExtensionContext;
 
 beforeEach(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-shape-editor-'));

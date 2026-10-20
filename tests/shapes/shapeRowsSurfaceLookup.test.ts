@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
-import { ShapeRows } from '../src/shapeRows';
-import type { ProjectEngine } from '../src/projectEngine';
-import type { XlideNode } from '../src/projectExplorer';
-import type { ShapeSurface } from '../src/vba/projectService';
-import type { WorkbookSheet } from '../src/vba/workbookSheets';
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock());
+import { ShapeRows } from '../../src/shapeRows';
+import type { ProjectEngine } from '../../src/projectEngine';
+import type { XlideNode } from '../../src/projectExplorer';
+import type { ShapeSurface } from '../../src/vba/projectService';
+import type { WorkbookSheet } from '../../src/vba/workbookSheets';
 
 const project: XlideNode = { kind: 'project', label: 'Book', filePath: 'C:\\work\\Book.xlsm' };
 function setup(sheets: WorkbookSheet[], surfaces: ShapeSurface[]) {

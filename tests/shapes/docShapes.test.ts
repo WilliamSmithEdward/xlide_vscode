@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { ZipArchive } from '../src/vba/zip';
+import { ZipArchive } from '../../src/vba/zip';
 import {
 	defaultStory,
 	documentStories,
 	editStoryShape,
 	listStoryShapes,
 	requireStory,
-} from '../src/vba/docShapes';
-import type { ShapeEdit, ShapeInfo } from '../src/vba/shapes';
+} from '../../src/vba/docShapes';
+import type { ShapeEdit, ShapeInfo } from '../../src/vba/shapes';
 
 // Word 16 saved the fixture. The body has InlineOval (inline with the text),
 // AnchoredBox (floating, with text and alt text) and Board, a drawing canvas
@@ -17,7 +17,7 @@ import type { ShapeEdit, ShapeInfo } from '../src/vba/shapes';
 // header holds HeaderBadge - and Word put it in word/header2.xml, since
 // header1.xml is the EVEN-page header. Every edit here was also checked by
 // having Word open the file the engine wrote and report its shapes.
-const FIXTURES = path.join(__dirname, 'fixtures', 'binaries');
+const FIXTURES = path.join(__dirname, '..', 'fixtures', 'binaries');
 const FIXTURE = 'WordShapesFixture.docm';
 
 const open = (name = FIXTURE): ZipArchive => ZipArchive.read(fs.readFileSync(path.join(FIXTURES, name)));

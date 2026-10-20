@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { ZipArchive } from '../src/vba/zip';
-import { editSlideShape, listSlideShapes, presentationSlides, requireSlide } from '../src/vba/pptShapes';
-import type { ShapeEdit, ShapeInfo } from '../src/vba/shapes';
+import { ZipArchive } from '../../src/vba/zip';
+import { editSlideShape, listSlideShapes, presentationSlides, requireSlide } from '../../src/vba/pptShapes';
+import type { ShapeEdit, ShapeInfo } from '../../src/vba/shapes';
 
 // PowerPoint 16 saved the fixture. Slide 1 has ClickMe, a rectangle running
 // Macros.SayHello; Caption, a text box; and Badge, an oval. Slide 2 has one
 // rectangle, so per-slide addressing is exercised. Every edit here was also
 // checked by having PowerPoint open the file the engine wrote and report its
 // shapes (scripts in the session's verification run).
-const FIXTURES = path.join(__dirname, 'fixtures', 'binaries');
+const FIXTURES = path.join(__dirname, '..', 'fixtures', 'binaries');
 const FIXTURE = 'PowerPointShapesFixture.pptm';
 
 const open = (name = FIXTURE): ZipArchive => ZipArchive.read(fs.readFileSync(path.join(FIXTURES, name)));

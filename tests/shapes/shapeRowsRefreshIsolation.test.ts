@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
-import { ShapeRows } from '../src/shapeRows';
-import type { ProjectEngine } from '../src/projectEngine';
-import type { XlideNode } from '../src/projectExplorer';
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock());
+import { ShapeRows } from '../../src/shapeRows';
+import type { ProjectEngine } from '../../src/projectEngine';
+import type { XlideNode } from '../../src/projectExplorer';
 
 const TARGET = '/work/Target.pptm';
 const row = (filePath: string, surface: string): XlideNode => ({ kind: 'surface', label: surface, filePath, surface });

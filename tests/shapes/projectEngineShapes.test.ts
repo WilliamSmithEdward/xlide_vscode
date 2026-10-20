@@ -3,16 +3,16 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock());
 
-import { ProjectEngine } from '../src/projectEngine';
-import { listShapes } from '../src/vba/projectService';
+import { ProjectEngine } from '../../src/projectEngine';
+import { listShapes } from '../../src/vba/projectService';
 
 // The shape parameters as they arrive from the agent tool and the editor:
 // JSON, checked at the engine before anything reaches a file. The markup
 // each look writes is covered per host in xlsxShapes, pptShapes and
 // docShapes.
-const FIXTURES = path.join(__dirname, 'fixtures', 'binaries');
+const FIXTURES = path.join(__dirname, '..', 'fixtures', 'binaries');
 
 let dir: string;
 let deck: string;

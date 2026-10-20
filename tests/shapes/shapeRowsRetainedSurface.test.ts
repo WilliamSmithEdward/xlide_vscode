@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
-import { ShapeRows } from '../src/shapeRows';
-import type { ProjectEngine } from '../src/projectEngine';
-import type { XlideNode } from '../src/projectExplorer';
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock());
+import { ShapeRows } from '../../src/shapeRows';
+import type { ProjectEngine } from '../../src/projectEngine';
+import type { XlideNode } from '../../src/projectExplorer';
 
 describe('retained surface rows before their parent redraws', () => {
     it.each(['sheet', 'folder'] as const)('keeps shapes under a retained %s after a case-only rename', async target => {

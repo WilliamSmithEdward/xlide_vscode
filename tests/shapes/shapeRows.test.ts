@@ -8,7 +8,7 @@ const vscodeMock = vi.hoisted(() => ({
     fired: [] as unknown[],
 }));
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock({
     EventEmitter: class {
         event = vi.fn();
         fire = vi.fn((node?: unknown) => {
@@ -22,16 +22,16 @@ vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock(
     },
 }));
 
-import { ProjectExplorer, type XlideNode } from '../src/projectExplorer';
-import { ProjectEngine } from '../src/projectEngine';
-import { editShape, listShapes, writeModule } from '../src/vba/projectService';
+import { ProjectExplorer, type XlideNode } from '../../src/projectExplorer';
+import { ProjectEngine } from '../../src/projectEngine';
+import { editShape, listShapes, writeModule } from '../../src/vba/projectService';
 
 // The sheet and shape rows, drawn from files the applications saved and read
 // by the real engine: where each host's sheets and shapes hang, what each
 // row offers, and that a changed file shows through. SheetsFixture is one
 // workbook Excel saved three ways: Budget, whose module is Sheet1; Drawn,
 // with a shape and no module; Trend, a chart sheet; Later; and Hidden.
-const FIXTURES = path.join(__dirname, 'fixtures', 'binaries');
+const FIXTURES = path.join(__dirname, '..', 'fixtures', 'binaries');
 
 let dir: string;
 let engine: ProjectEngine;

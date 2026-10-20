@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { shapeEditFromForm, shapeEditorModel, shapeFormFields, type ShapeFormValues } from '../src/shapeEditorModel';
-import { listShapes } from '../src/vba/projectService';
-import type { ShapeInfo } from '../src/vba/shapes';
+import { shapeEditFromForm, shapeEditorModel, shapeFormFields, type ShapeFormValues } from '../../src/shapeEditorModel';
+import { listShapes } from '../../src/vba/projectService';
+import type { ShapeInfo } from '../../src/vba/shapes';
 
 // The editor's form, held to shapes as the engine lists them from files the
 // applications saved: which fields each shape gets, and that a Save sends
 // what changed and nothing else.
-const FIXTURES = path.join(__dirname, 'fixtures', 'binaries');
+const FIXTURES = path.join(__dirname, '..', 'fixtures', 'binaries');
 const shapeIn = (fixture: string, surface: string, name: string): ShapeInfo => {
 	const file = path.join(FIXTURES, fixture);
 	expect(fs.existsSync(file), fixture).toBe(true);

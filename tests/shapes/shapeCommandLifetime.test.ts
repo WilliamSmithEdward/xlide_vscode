@@ -1,18 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 const handlers = vi.hoisted(() => new Map<string, (node: unknown) => Promise<void>>());
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock({
     commands: { registerCommand: vi.fn((name: string, handler: (node: unknown) => Promise<void>) => {
         handlers.set(name, handler); return { dispose: vi.fn() };
     }) },
     window: { setStatusBarMessage: vi.fn(), showQuickPick: vi.fn() },
 }));
-vi.mock('../src/shapeEditor', () => ({ openShapeEditor: vi.fn(), writeShapeEdit: vi.fn(async () => 'Box') }));
+vi.mock('../../src/shapeEditor', () => ({ openShapeEditor: vi.fn(), writeShapeEdit: vi.fn(async () => 'Box') }));
 import * as vscode from 'vscode';
-import { ShapeRows } from '../src/shapeRows';
-import { registerShapeCommands } from '../src/commands/shapeCommands';
-import { writeShapeEdit } from '../src/shapeEditor';
-import type { ProjectEngine } from '../src/projectEngine';
-import type { XlideNode } from '../src/projectExplorer';
+import { ShapeRows } from '../../src/shapeRows';
+import { registerShapeCommands } from '../../src/commands/shapeCommands';
+import { writeShapeEdit } from '../../src/shapeEditor';
+import type { ProjectEngine } from '../../src/projectEngine';
+import type { XlideNode } from '../../src/projectExplorer';
 
 const BOOK = 'C:/work/Book.xlsm';
 const folder: XlideNode = { kind: 'shapes', shapeFolder: 'surface', surface: 'Data', label: 'Shapes', filePath: BOOK };
