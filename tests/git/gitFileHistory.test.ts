@@ -14,10 +14,10 @@ import {
 	gitFileRef,
 	gitRevisionLabel,
 	gitRunner,
-} from '../src/gitFileHistory';
-import { readModules, readModulesFromBuffer, writeModule } from '../src/vba/projectService';
+} from '../../src/gitFileHistory';
+import { readModules, readModulesFromBuffer, writeModule } from '../../src/vba/projectService';
 
-const FIXTURE = path.join(__dirname, 'fixtures', 'binaries', 'FormFixture.xlsm');
+const FIXTURE = path.join(__dirname, '..', 'fixtures', 'binaries', 'FormFixture.xlsm');
 
 function gitAvailable(): boolean {
 	try {

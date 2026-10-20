@@ -3,12 +3,12 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock());
 
-import type { GitRunResult } from '../src/gitFileHistory';
-import { GitChangeMarks, type GitChangeMarksDeps } from '../src/gitChangeMarks';
-import { changedCountBadge } from '../src/agentReviewDecorations';
-import type { ModuleSnapshot } from '../src/gitModuleCompare';
+import type { GitRunResult } from '../../src/gitFileHistory';
+import { GitChangeMarks, type GitChangeMarksDeps } from '../../src/gitChangeMarks';
+import { changedCountBadge } from '../../src/agentReviewDecorations';
+import type { ModuleSnapshot } from '../../src/gitModuleCompare';
 
 const PROJECT = process.platform === 'win32' ? 'C:\\work\\Book.xlsm' : '/work/Book.xlsm';
 const ROOT = process.platform === 'win32' ? 'C:\\work' : '/work';

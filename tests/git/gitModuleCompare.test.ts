@@ -14,7 +14,7 @@ const ui = vi.hoisted(() => ({
 		task({ report: () => undefined }, { isCancellationRequested: false })),
 }));
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock({
 	EndOfLine: { LF: 1, CRLF: 2 },
 	ProgressLocation: { Notification: 15 },
 	WorkspaceEdit: class {
@@ -36,7 +36,7 @@ vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock(
 }));
 
 import * as vscode from 'vscode';
-import type { GitRunResult } from '../src/gitFileHistory';
+import type { GitRunResult } from '../../src/gitFileHistory';
 import {
 	XLIDE_GIT_SCHEME,
 	gitChangesReport,
@@ -46,7 +46,7 @@ import {
 	resetGitSnapshotCacheForTests,
 	type GitModuleCompareDeps,
 	type ModuleSnapshot,
-} from '../src/gitModuleCompare';
+} from '../../src/gitModuleCompare';
 
 const PROJECT = process.platform === 'win32' ? 'C:\\work\\Book.xlsm' : '/work/Book.xlsm';
 const ROOT = process.platform === 'win32' ? 'C:\\work' : '/work';
@@ -193,7 +193,7 @@ describe('Compare Module with Git HEAD', () => {
 	});
 
 	it('warns when git itself cannot run', async () => {
-		const { GitUnavailableError } = await import('../src/gitFileHistory');
+		const { GitUnavailableError } = await import('../../src/gitFileHistory');
 		const broken = deps([], [], { run: vi.fn(async () => { throw new GitUnavailableError('git', 'ENOENT'); }) } as never);
 		await handlers(broken).handler('xlide.compareModuleWithHead')({ filePath: PROJECT, moduleName: 'M' });
 		expect(vi.mocked(vscode.window.showWarningMessage).mock.calls[0][0]).toContain('git.path');
