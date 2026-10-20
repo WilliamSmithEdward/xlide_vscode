@@ -20,7 +20,7 @@ vi.mock('vscode', async () => {
     vscodeMock.executeCommand = vi.fn();
     vscodeMock.showInformationMessage = vi.fn(async (): Promise<unknown> => undefined);
     vscodeMock.showWarningMessage = vi.fn(async (): Promise<unknown> => undefined);
-    return (await import('./helpers/vscodeMock')).vscodeMock({
+    return (await import('../helpers/vscodeMock')).vscodeMock({
         commands: {
             executeCommand: vscodeMock.executeCommand,
             registerCommand: vi.fn((name: string, handler: (...args: unknown[]) => unknown) => {
@@ -44,8 +44,8 @@ vi.mock('vscode', async () => {
 // The module each encoded URI names, so decoding one gives it back.
 const encodedModules = vi.hoisted(() => new Map<unknown, { projectPath: string; moduleName: string }>());
 
-vi.mock('../src/projectExplorer', () => ({ ProjectExplorer: class ProjectExplorer {} }));
-vi.mock('../src/xlideFileSystem', () => ({
+vi.mock('../../src/projectExplorer', () => ({ ProjectExplorer: class ProjectExplorer {} }));
+vi.mock('../../src/xlideFileSystem', () => ({
     XlideFileSystemProvider: class XlideFileSystemProvider {},
     XLIDE_SCHEME: 'xlide-vba',
     encodeModuleUri: vi.fn((filePath: string, moduleName: string) => {
@@ -72,43 +72,43 @@ vi.mock('../src/xlideFileSystem', () => ({
     moduleIdentityKey: (name: string) => name.toLowerCase(),
     projectIdentityKey: (filePath: string) => filePath.toLowerCase(),
 }));
-vi.mock('../src/vbaMemberCompletion', () => ({ invalidateVbaMemberCompletionCache: vi.fn() }));
+vi.mock('../../src/vbaMemberCompletion', () => ({ invalidateVbaMemberCompletionCache: vi.fn() }));
 // Each write passes straight through: the real coordinator talks to whatever
 // Office application is running.
-vi.mock('../src/officeWriteCoordinator', async (original) => ({
-    ...(await original<typeof import('../src/officeWriteCoordinator')>()),
+vi.mock('../../src/officeWriteCoordinator', async (original) => ({
+    ...(await original<typeof import('../../src/officeWriteCoordinator')>()),
     runWriteWithHostCoordination: vi.fn((_filePath: string, write: () => Promise<unknown>) => write()),
 }));
 // The export itself is not under test; what the import shares with it is.
-vi.mock('../src/moduleExport', async (original) => ({
-    ...(await original<typeof import('../src/moduleExport')>()),
+vi.mock('../../src/moduleExport', async (original) => ({
+    ...(await original<typeof import('../../src/moduleExport')>()),
     exportProjectModules: vi.fn(),
 }));
-vi.mock('../src/projectModuleSyncSettings', async (original) => ({
-    ...(await original<typeof import('../src/projectModuleSyncSettings')>()),
+vi.mock('../../src/projectModuleSyncSettings', async (original) => ({
+    ...(await original<typeof import('../../src/projectModuleSyncSettings')>()),
     setProjectModuleSyncExportMode: vi.fn(),
 }));
-vi.mock('../src/vbaProjectWideAnalysis', () => ({ analyzeProject: vi.fn() }));
-vi.mock('../src/vbaTestRunPipeline', () => ({ executeVbaTestRun: vi.fn() }));
-vi.mock('../src/agentVbaTestArtifacts', () => ({ agentVbaTestArtifactPayloadFromPipeline: vi.fn() }));
-vi.mock('../src/vbaTestRunner', () => ({
+vi.mock('../../src/vbaProjectWideAnalysis', () => ({ analyzeProject: vi.fn() }));
+vi.mock('../../src/vbaTestRunPipeline', () => ({ executeVbaTestRun: vi.fn() }));
+vi.mock('../../src/agentVbaTestArtifacts', () => ({ agentVbaTestArtifactPayloadFromPipeline: vi.fn() }));
+vi.mock('../../src/vbaTestRunner', () => ({
     describeVbaTestSelection: vi.fn(() => ''),
     summarizeVbaTestRun: vi.fn(),
 }));
 
 import * as vscode from 'vscode';
-import { registerAgentTools } from '../src/agentTools';
+import { registerAgentTools } from '../../src/agentTools';
 import {
     AGENT_REVIEW_SETTLE_MS,
     hasPendingAgentReview,
     pendingAgentReviewModules,
     resetAgentReviewPresenterForTests,
     trackModuleWriteForAgentReview,
-} from '../src/xlideAgentDiff';
-import { writeProjectModule } from '../src/projectModuleOperations';
-import { clearXlideWriteAudit, recentXlideWriteAudits } from '../src/xlideWriteAudit';
-import { runWriteWithHostCoordination } from '../src/officeWriteCoordinator';
-import { moduleContentToken } from '../src/moduleContentToken';
+} from '../../src/xlideAgentDiff';
+import { writeProjectModule } from '../../src/projectModuleOperations';
+import { clearXlideWriteAudit, recentXlideWriteAudits } from '../../src/xlideWriteAudit';
+import { runWriteWithHostCoordination } from '../../src/officeWriteCoordinator';
+import { moduleContentToken } from '../../src/moduleContentToken';
 
 /** The text a tool answered with. */
 function textOf(result: unknown): string {

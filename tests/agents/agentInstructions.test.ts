@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock({
     window: { activeTextEditor: undefined, visibleTextEditors: [] },
     workspace: { workspaceFolders: [] },
 }));
@@ -12,10 +12,10 @@ import {
     AGENT_INSTRUCTIONS_STEPS,
     MCP_EDIT_MIRROR_HINT,
     MCP_EDIT_MIRROR_LABEL,
-} from '../src/agentInstructions';
-import { fakeConfig } from './helpers/fakeConfig';
-import { renderXlideSidebarHtml, XlideSidebarProvider } from '../src/xlideSidebar';
-import { buildXlideSidebarModel } from '../src/xlideSidebarModel';
+} from '../../src/agentInstructions';
+import { fakeConfig } from '../helpers/fakeConfig';
+import { renderXlideSidebarHtml, XlideSidebarProvider } from '../../src/xlideSidebar';
+import { buildXlideSidebarModel } from '../../src/xlideSidebarModel';
 
 interface Manifest {
     contributes: {

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as vscode from 'vscode';
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock());
 
 import {
     AGENT_REVIEW_COLOR_ID,
@@ -11,8 +11,8 @@ import {
     parseDecorationUri,
     pendingCountBadge,
     projectDecorationUri,
-} from '../src/agentReviewDecorations';
-import { keepAgentChange, presentAgentModuleWrite } from '../src/xlideAgentDiff';
+} from '../../src/agentReviewDecorations';
+import { keepAgentChange, presentAgentModuleWrite } from '../../src/xlideAgentDiff';
 
 const WORKBOOK = 'C:\\Work\\Ledger Book.xlsm';
 

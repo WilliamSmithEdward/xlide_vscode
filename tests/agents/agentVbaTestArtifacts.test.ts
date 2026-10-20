@@ -2,10 +2,10 @@ import { afterEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { agentVbaTestArtifactPayloadFromPipeline } from '../src/agentVbaTestArtifacts';
-import { writeVbaTestRunPipelineArtifacts } from '../src/vbaTestRunPipeline';
-import type { VbaTestCase, VbaTestRunReport } from '../src/vbaTestRunner';
-import { writeProjectSettings } from '../src/projectSettings';
+import { agentVbaTestArtifactPayloadFromPipeline } from '../../src/agentVbaTestArtifacts';
+import { writeVbaTestRunPipelineArtifacts } from '../../src/vbaTestRunPipeline';
+import type { VbaTestCase, VbaTestRunReport } from '../../src/vbaTestRunner';
+import { writeProjectSettings } from '../../src/projectSettings';
 
 const tempRoots: string[] = [];
 
