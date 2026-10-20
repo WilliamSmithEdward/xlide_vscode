@@ -6,11 +6,13 @@ Run the unit suite from the repository root with `npm test`. Vitest discovers
 ```sh
 npx vitest run tests/parser tests/lexer tests/providers
 npx vitest run tests/access
+npx vitest run tests/docs/
 npm run check-types
 ```
 
 ## Where tests belong
 
+- `docs/`: VBA documentation comments, XML metadata parsing/recovery, tag source mapping, and documentation diagnostics. Word document shape tests belong with document/container behavior instead.
 - `access/`: Access database storage, VBA writes, container ordering, design metadata, and themes; shared inputs stay in `fixtures/`.
 - `parser/`: expression and module parsing, incremental parse reuse, and parser cache pressure.
 - `lexer/`: tokenization, keyword classification, incremental lexing, and token lookup/cache work.
