@@ -42,10 +42,10 @@ widget painting. They are descriptive samples, not CI thresholds.
 A fresh-start run still showed a 121.5397 ms slowest sample. A run concurrent
 with the full unit suite showed a 298.6757 ms slowest sample. Removing the
 budgeted wait does not establish nearly instantaneous latency for every cold
-or busy-host request; those spikes remain an investigation target.
+or busy-host request; those spikes remained an investigation target.
 
 ```powershell
 npm run compile
 npx vscode-test --code-version 1.139.1 --grep 'Immediate completion surfaces'
-npx vitest run tests/completionResponseScheduling.test.ts
+npx vitest run tests/providers/completionResponseScheduling.test.ts
 ```

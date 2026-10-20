@@ -108,7 +108,8 @@ interaction. The unchanged repeat passed and recorded foreground process
 changes during profiling; it does not identify the earlier focus loss's cause.
 Earlier focus-loss captures and the invalid-hook diagnostic are also retained.
 
-Remaining profile work includes casing, symbol construction and project
-context. Inclusive categories overlap and do not establish a slow frame's
-cause. This change removes confirmed parser eviction work. The broader
-latency investigation remains open.
+Remaining profile work includes casing, symbol construction and project context.
+Inclusive categories overlap and do not establish a slow frame's cause. This
+change removes confirmed parser eviction work. The broader latency investigation
+stayed open; issues #964 and #985 were closed as completed on 2026-10-05, after
+#1208 and this change.

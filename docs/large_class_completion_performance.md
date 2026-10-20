@@ -6,7 +6,7 @@ The owner reported a visible delay while editing the ROneCOne class in ROneCOne_
 
 Set `XLIDE_PERF_WORKBOOK` to the workbook path. Run `npm run compile`, then `npx vscode-test --code-version 1.139.1 --grep "Actual large class latency"`. The suite appends a probe procedure to the class in a copied workbook, types five actual characters and checks completion after each edit, then checks hover before and after changing a local declaration from Long to Double. It records edit-to-result timings and the extension's performance snapshot. Set `XLIDE_PERF_CPU_PROFILE=1` to additionally save an extension-host CPU profile to the disposable workspace. The clipboard is restored after reading the performance snapshot.
 
-For analyzer phases run `npx vitest run tests/roneconeLatencyProbe.test.ts` with XLIDE_PERF_WORKBOOK set. The opt-in fresh-source probe reports lexer, parser, symbol, index, context and member costs separately. The keyword benchmark warms six different source/caret positions, then reports the median per-request time across 21 batches of six requests. Ordinary CI skips these workbook-specific probes.
+For analyzer phases run `npx vitest run tests/providers/roneconeLatencyProbe.test.ts` with XLIDE_PERF_WORKBOOK set. The opt-in fresh-source probe reports lexer, parser, symbol, index, context and member costs separately. The keyword benchmark warms six different source/caret positions, then reports the median per-request time across 21 batches of six requests. Ordinary CI skips these workbook-specific probes.
 
 ## Findings and change
 
@@ -24,4 +24,4 @@ Compilation passed. The full unit suite passed: 685 test files passed, one inten
 
 Seventeen real VS Code 1.139.1 checks passed, including the actual class completion/hover probes and the existing editor, immediate completion, prefix-window, type-lookback and hover-snapshot suites. The final class run's five edit-to-completion samples were 152.35, 167.21, 96.41, 79.99 and 158.29 ms. Warm hover took 6.15 ms; edit-to-hover took 240.35 ms. These observations include other editor/background activity and do not establish an isolated before/after speedup for the full response.
 
-Issue #985 remains open: full lexing/parsing after edits and semantic-token/background work still leave noticeable delay. The fresh-source component probe measured lexing at roughly 27–68 ms and parsing at 37–58 ms. Menu and tooltip painting are not measured by these command timings; this patch does not claim nearly instantaneous behavior in the large class.
+Issue #985 stayed open at the time: full lexing/parsing after edits and semantic-token/background work still left noticeable delay. It was closed as completed on 2026-10-05, after #1208 and #1217. The fresh-source component probe measured lexing at roughly 27–68 ms and parsing at 37–58 ms. Menu and tooltip painting are not measured by these command timings; this patch does not claim nearly instantaneous behavior in the large class.

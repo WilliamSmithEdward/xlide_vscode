@@ -36,5 +36,6 @@ profile had no self samples in `stringLiteralWordsIn`.
 
 Compilation, 59 focused index/dead-code tests and all 14,500 unit tests across
 732 files passed, with 33 tests and seven files intentionally skipped. The
-137.66 ms command outlier remains recorded; issues #964/#985 and the intermittent
-latency goal remain open.
+137.66 ms command outlier remains recorded. The intermittent latency goal stayed
+open after this change; issues #964 and #985 were closed as completed on
+2026-10-05, after #1208 and #1217.

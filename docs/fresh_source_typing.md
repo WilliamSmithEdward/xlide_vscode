@@ -30,7 +30,7 @@ input/IPC/polling overhead, not GPU presentation times.
 The largest menu outlier occurred at cycle 601 after 30 ms idle. Menu maxima
 were 265/293/173/174 ms for 0/30/250/350 ms idle cadences. The built-in popup
 reveal timer accounts for 100 ms of a new show, but the remaining cold/slow
-work still needs profiling. These results establish sustained native editing,
+work still needed profiling. These results establish sustained native editing,
 recovery and resolved hovers; they do not establish nearly instantaneous menus
 or absence of future stalls.
 
@@ -45,5 +45,6 @@ workbook/native cases passed with 64 fresh-source cycles and four mouse hovers.
 Visible Backspace and typing maxima were 64/68 ms; popup maximum was 316 ms.
 Command-driven Backspace median/max were 5.69/132.40 ms, with a 103.17 ms host
 heartbeat maximum. Fresh declaration hover returned updated content in 32.95 ms.
-Those host-loop and popup outliers remain material and keep the latency goal
-open for profiling; a green correctness run alone does not close it.
+Those host-loop and popup outliers remained material and kept the latency goal
+(#964) open for profiling; a green correctness run alone did not close it. #964
+was closed as completed on 2026-10-05, after #1208 and #1217.

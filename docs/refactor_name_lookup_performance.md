@@ -16,9 +16,9 @@ delays are added. Inline Variable and Introduce Parameter share this helper.
 ## Reproduce
 
 ~~~powershell
-npx vitest run tests/refactorNameLookupPerformance.test.ts
+npx vitest run tests/refactor/refactorNameLookupPerformance.test.ts
 $env:XLIDE_PERF_WORKBOOK = 'F:\GitHub\xlide\xlide_vscode_testing\ROneCOne_Delegates_Demo.xlsm'
-npx vitest run tests/refactorNameWorkbookPerformance.test.ts
+npx vitest run tests/refactor/refactorNameWorkbookPerformance.test.ts
 npm run compile
 npx vscode-test --code-version 1.139.1 --grep 'Actual large class latency'
 ~~~
@@ -53,5 +53,6 @@ with two edit attempts took 33.57 ms in that run. The component improvement does
 not eliminate scheduling or editor-edit outliers.
 
 Completion outliers, other semantic collectors and background diagnostic work
-still require investigation under #985. Long individual physical lines retain
+still required investigation under #985, which was closed as completed on
+2026-10-05, after #1208 and #1217. Long individual physical lines retain
 line-sized lookup work.

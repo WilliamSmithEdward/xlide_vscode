@@ -5,12 +5,13 @@ module symbol graph on every request. The existing resolver shared that graph
 only between positions in one request, even though the lexer and parser already
 retain bounded snapshots for unchanged source.
 
-Read-only completion and hover resolvers share eight symbol projections, keyed by the complete
-source value, module name and module kind, with least recently used eviction.
-Projection remains lazy. An edit or module identity change rebuilds it; cursor
-scope is selected on every request. Completion records are freshly allocated and
-project/host context is merged anew. No other symbol-builder consumer receives
-these cached graphs.
+Read-only editor resolvers (completion, hover, and since #1034 and #1247 the
+editor project context and assignment-value enums) share eight symbol
+projections, keyed by the complete source value, module name and module kind,
+with least recently used eviction. Projection remains lazy. An edit or module
+identity change rebuilds it; cursor scope is selected on every request.
+Completion records are freshly allocated and project/host context is merged
+anew. No other symbol-builder consumer receives these cached graphs.
 
 ## Reproduce
 
@@ -18,7 +19,7 @@ PowerShell, from the repository root:
 
 ```powershell
 $env:XLIDE_IDENTIFIER_CACHE_BENCH='1'
-npx vitest run tests/identifierSymbolCachePerformance.test.ts -t 'measures repeated'
+npx vitest run tests/providers/identifierSymbolCachePerformance.test.ts -t 'measures repeated'
 Remove-Item Env:XLIDE_IDENTIFIER_CACHE_BENCH
 ```
 

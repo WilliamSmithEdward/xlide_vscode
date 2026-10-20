@@ -11,12 +11,15 @@ Reuse requires a source of at least 4,096 characters and a cached snapshot
 within 128 characters in length. Any previous conditional directive prevents
 reuse; diagnostics limit reuse to the prefix before the first diagnostic.
 Unclosed members and partially changed logical lines are not reused. Cold
-snapshots, early edits, large changes and unsupported boundaries retain full
-parsing. The cache still holds at most eight snapshots.
+snapshots always parse in full. Early edits, large changes and unsupported
+boundaries also retain full parsing, unless the single-procedure body reuse
+#1034 added applies (sources of at least 16,384 characters). The large-module
+cache still holds at most eight snapshots; since #1217, sources
+under 4,096 characters use a separate eight-entry cache.
 
 ## Verification
 
-`npx vitest run tests/parserPrefixReusePerformance.test.ts` compares incremental
+`npx vitest run tests/parser/parserPrefixReusePerformance.test.ts` compares incremental
 results with cold full parses after insertions and deletions at every offset of
 a tail fixture. It checks all AST fields, diagnostics, spans, immutable earlier
 snapshots, member sharing, conditional directives, error recovery, CRLF edits,
@@ -28,7 +31,7 @@ full parse:
 
 ~~~powershell
 $env:XLIDE_PERF_WORKBOOK = 'F:\GitHub\xlide\xlide_vscode_testing\ROneCOne_Delegates_Demo.xlsm'
-npx vitest run tests/parserPrefixWorkbookPerformance.test.ts
+npx vitest run tests/parser/parserPrefixWorkbookPerformance.test.ts
 npm run compile
 npx vscode-test --code-version 1.139.1 --grep 'Actual large class latency'
 ~~~
@@ -59,4 +62,5 @@ fresh declaration edit to hover took 48.16 ms. The preceding run observed
 not an isolated matched before/after comparison. Commands measure returned
 results, not completion-menu or mouse-tooltip painting. Background diagnostic
 traces still reached 760 ms, and semantic coloring reached 57 ms. Issue #985
-remains open for cold/early edits, other collectors and background scheduling.
+stayed open for cold/early edits, other collectors and background scheduling.
+It was closed as completed on 2026-10-05, after #1208 and #1217.

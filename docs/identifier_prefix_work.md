@@ -68,6 +68,7 @@ the recorded host-heartbeat maximum was 48.72 ms. Declaration edit-to-hover was
 an occupied host, including a forced stale cleanup context.
 
 The cycle-113 failure did not repeat in this run, but remains unclassified.
-The 651 ms popup outlier keeps the overall stalling/latency goal open. The
-component optimization is validated; the remaining outlier needs a longer
+The 651 ms popup outlier kept the overall stalling/latency goal open; issues
+#964 and #985 were closed as completed on 2026-10-05, after #1208 and #1217. The
+component optimization is validated; the remaining outlier needed a longer
 correlated CPU capture rather than attribution from these unprofiled timings.

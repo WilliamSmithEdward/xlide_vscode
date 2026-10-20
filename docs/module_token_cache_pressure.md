@@ -103,10 +103,12 @@ and resolved hovers on this workload. The controlled analyzer comparison
 establishes the cache-pressure improvement. Intervening main changes,
 profiling, renderer scheduling and the repaired hover navigation limit any
 comparison of overall UI speed with earlier captures. Multi-line lexical
-fallback and repeated project-context construction remain follow-up targets.
+fallback and repeated project-context construction remained follow-up targets.
+#1185 later kept nearby edits that preserve line breaks on the incremental
+lexer (see `multiline_lex_work.md`).
 
 The public cache regressions can be run with
-`npx vitest run tests/moduleTokenCachePressure.test.ts`. The full unit suite uses
+`npx vitest run tests/lexer/moduleTokenCachePressure.test.ts`. The full unit suite uses
 `npx vitest run --maxWorkers 2`. For the optional workbook/renderer harness,
 compile first, provide a local large-class workbook in `XLIDE_PERF_WORKBOOK`,
 set `XLIDE_PERF_FRESH_SOURCES=1` and `XLIDE_PERF_RENDERER_CYCLES=1000`, and use
