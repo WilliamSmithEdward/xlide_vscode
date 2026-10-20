@@ -10,7 +10,7 @@
 // Deliberate divergence from stripVba: the lexer recognizes `Rem` comments at
 // any statement start (MS-VBAL 3.3.5.2), so a trailing `: Rem ...` comment is
 // blanked here but leaks through stripVba, which only blanks whole-line Rem
-// comments. tests/smartEnterSubstrateComparison.test.ts diffs the two
+// comments. tests/editor/smartEnterSubstrateComparison.test.ts diffs the two
 // substrates over every VBA sample in the repository and pins that as the
 // only allowed difference.
 

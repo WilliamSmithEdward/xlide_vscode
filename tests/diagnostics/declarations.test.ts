@@ -1,5 +1,5 @@
 // Diagnostics tests: declarations rule family.
-// Split verbatim from tests/vbaDiagnostics.test.ts (audit #107).
+// Split verbatim from tests/diagnostics/vbaDiagnostics.test.ts (audit #107).
 
 import { describe, it, expect } from 'vitest';
 import { analyzeModule } from '../../src/analyzer';

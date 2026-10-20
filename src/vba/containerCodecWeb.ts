@@ -2,7 +2,7 @@
 // exist and the platform's own DecompressionStream is asynchronous.
 //
 // Reading is complete: inflate.ts is held byte-identical to zlib by
-// tests/inflate.test.ts. Writing stores entries rather than deflating them,
+// tests/containers/inflate.test.ts. Writing stores entries rather than deflating them,
 // which is valid ZIP and which Office reads. Only the parts an edit rewrites
 // grow, because ZipArchive carries untouched entries over compressed.
 

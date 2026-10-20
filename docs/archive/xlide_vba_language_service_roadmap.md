@@ -269,7 +269,7 @@ Establish `MS-VBAL.pdf` as the canonical verification source before implementing
 ## Phase 1: Lexer / Tokenizer
 
 > Status: DONE (core). Implemented in `src/analyzer/lexer/{tokenize,trivia,
-> tokenKinds}.ts`, fixtures in `tests/vbaLexer.test.ts`. Round-trippable and
+> tokenKinds}.ts`, fixtures in `tests/lexer/vbaLexer.test.ts`. Round-trippable and
 > spec-cited. Date-token inner grammar, non-Latin codepage ranges, and directive
 > block parsing remain Partial (see verification map).
 
@@ -344,7 +344,7 @@ interface VbaToken {
 ## Phase 2: Canonical Keyword Table
 
 > Status: DONE. Implemented in `src/analyzer/lexer/keywordTable.ts`, fixtures in
-> `tests/vbaKeywordTable.test.ts`. The seed table below was completed and
+> `tests/lexer/vbaKeywordTable.test.ts`. The seed table below was completed and
 > corrected against MS-VBAL 3.3.5.2 (added missing reserved-names such as
 > `CVErr`, `DoEvents`, `Abs`, `Fix`, `LenB`, special-forms, etc.) and split into
 > spec reserved identifiers vs VBE-convention contextual keywords.
@@ -558,7 +558,7 @@ On Error Resume Next
 ## Phase 3: Parser and AST
 
 > Status: DONE (structural). Implemented in `src/analyzer/parser/{nodes,
-> parserState,parseModule}.ts`, fixtures in `tests/vbaParser.test.ts`, verification
+> parserState,parseModule}.ts`, fixtures in `tests/parser/vbaParser.test.ts`, verification
 > rows in `docs/spec/MS-VBAL.verification-map.md`. Builds a
 > `ModuleNode` AST (attributes, options, conditional-compilation directives,
 > declarations, `Type`/`Enum`, procedures + parameters, nested block statements)
@@ -566,7 +566,7 @@ On Error Resume Next
 > never throws on malformed input; emits block-mismatch diagnostics. In progress:
 > the full expression AST (calls/member-access/operators, section 5.6) now has a
 > standalone, unit-tested parser (`src/analyzer/parser/parseExpression.ts`,
-> `tests/parseExpression.test.ts`), but `parseModule` does not yet route body
+> `tests/parser/parseExpression.test.ts`), but `parseModule` does not yet route body
 > statements through it - assignments/calls are still raw `Statement` nodes
 > pending the statement-wiring slice. Deferred: `If` branch modeling. Both remain
 > `Partial` in the verification map. See the sliced progress in
@@ -652,7 +652,7 @@ Recovery rules:
 > cross-module), and duplicate-procedure detection. Cross-module visibility
 > follows MS-VBAL (default-Public procedures exported; Private/Dim/Friend module
 > members stay private; enum members inherit the visibility of their containing
-> `Enum`). Covered by `tests/vbaSymbolGraph.test.ts` (59 tests).
+> `Enum`). Covered by `tests/projectAnalysis/vbaSymbolGraph.test.ts` (59 tests).
 > Verification-map rows added. The AST index now drives the live Go to
 > Definition, Find All References, and Rename providers in
 > `src/vbaLanguageProviders.ts` via `resolveDefinition`,
@@ -754,7 +754,7 @@ Where VBA name resolution has subtle rules, verify against `MS-VBAL.pdf` and/or 
 > (default true) gates live diagnostics, while guarded rule severity overrides
 > live under `xlide.analysis.ruleSeverityOverrides` globally or
 > `<workbook>.xlide_settings.json` per workbook. Settings changes re-run open
-> documents. Covered by `tests/vbaDiagnostics.test.ts`.
+> documents. Covered by `tests/diagnostics/vbaDiagnostics.test.ts`.
 >
 > Shipped semantic rules (all high-confidence, spec-referenced in
 > `ruleMetadata.ts` and `docs/spec/MS-VBAL.verification-map.md`):
@@ -938,7 +938,7 @@ Do not ship low-confidence diagnostics by default.
 > insertion, and bare-call diagnostics share one rule set. Resolved
 > type names (project, host, and primitive) also get semantic tokens and
 > type-position hover via `src/analyzer/semantic/typeSemanticTokens.ts`, covered by
-> `tests/vbaSemanticTokens.test.ts`. The completion slices are covered by
+> `tests/providers/vbaSemanticTokens.test.ts`. The completion slices are covered by
 > `tests/vba{MemberCompletion,TypeCompletion,IdentifierCompletion}.test.ts`.
 > Keyword/snippet completion is now implemented by
 > `src/analyzer/completion/keywordCompletion.ts`: additive block snippets at
@@ -1102,7 +1102,7 @@ Required behavior:
 > exported standard-module project procedures/Declares visible as bare calls,
 > and built-in constants,
 > wired through the `HoverProvider` in `src/vbaMemberCompletion.ts` and covered by
-> `tests/vbaHover.test.ts`. Signature Help is DONE -
+> `tests/providers/vbaHover.test.ts`. Signature Help is DONE -
 > `src/analyzer/signature/signatureHelp.ts` (pure) returns the active call tip
 > for host members (verified `Workbooks.Open`, `Range.Offset`, ...), user
 > procedures and external Declares (current-module AST plus exported standard-module project
@@ -1110,7 +1110,7 @@ Required behavior:
 > runtime incompatibilities suppressed through the same shared metadata used by
 > completion and diagnostics, wired through the
 > `SignatureHelpProvider` in `src/vbaMemberCompletion.ts` (triggers `(` `,`
-> space) and covered by `tests/vbaSignatureHelp.test.ts`. Go to Definition,
+> space) and covered by `tests/providers/vbaSignatureHelp.test.ts`. Go to Definition,
 > Find All References, and Rename are DONE - the live providers in
 > `src/vbaLanguageProviders.ts` now build an AST `ProjectIndex`
 > (`src/analyzer/symbols/projectIndex.ts`) per query: definitions use
@@ -1121,7 +1121,7 @@ Required behavior:
 > module-level binding rule here as Option Explicit visibility, while private
 > enum members shadow only their own module. Covered by the `referenceScope`,
 > `resolveDefinition`, and `resolveQualifiedDefinition` cases in
-> `tests/vbaSymbolGraph.test.ts`.
+> `tests/projectAnalysis/vbaSymbolGraph.test.ts`.
 
 ### Goal
 
@@ -1347,8 +1347,8 @@ Implemented in `src/analyzer/runtime/vbaRuntime.ts`.
 - **Signature help.** DONE - the verified runtime signatures (and host-member
   and user-procedure signatures) now drive the parameter-info call tip via
   `src/analyzer/signature/signatureHelp.ts`; see Phase 7 Signature Help.
-- Tests: `tests/vbaRuntime.test.ts` + runtime cases in `tests/vbaHover.test.ts`
-  + `tests/vbaSignatureHelp.test.ts`.
+- Tests: `tests/runtime/vbaRuntime.test.ts` + runtime cases in `tests/providers/vbaHover.test.ts`
+  + `tests/providers/vbaSignatureHelp.test.ts`.
 
 ---
 
@@ -1729,7 +1729,7 @@ The VBA language-service layer is ready for a first public preview when:
 > `src/analyzer/host/hostModel.ts` resolver +
 > `src/analyzer/completion/memberAccess.ts` receiver-chain resolution) and a VS
 > Code provider (`src/vbaMemberCompletion.ts`, trigger `.`). Covered by
-> `tests/vbaMemberCompletion.test.ts` (23 tests). Resolves host globals,
+> `tests/providers/vbaMemberCompletion.test.ts` (23 tests). Resolves host globals,
 > worksheet code names, `Me` by module kind, typed local/param/module variables,
 > and member-access chains through return types. Member metadata is transcribed
 > from the official Office VBA object-model reference (verified 2026-05-30), not

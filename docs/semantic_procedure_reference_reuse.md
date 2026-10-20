@@ -15,7 +15,7 @@ the existing readonly caller contract.
 ## Reproduction
 
 ```powershell
-npx vitest run tests/semanticProcedureReferenceWork.test.ts tests/vbaSemanticTokens.test.ts tests/incrementalModuleParse.test.ts
+npx vitest run tests/providers/semanticProcedureReferenceWork.test.ts tests/providers/vbaSemanticTokens.test.ts tests/parser/incrementalModuleParse.test.ts
 node scripts/benchmark-semantic-procedure-reuse.mjs --baseline=8e85b13f072af5440b68408140bacfd8c2e3ad61
 node scripts/benchmark-semantic-procedure-reuse.mjs
 ```

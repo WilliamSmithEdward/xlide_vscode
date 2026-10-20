@@ -6,7 +6,7 @@
 // of those lives behind one leaf module with a desktop and a web twin, and
 // this plugin is what swaps them.
 //
-// esbuild.js uses this for the web bundle; tests/webBundle.test.ts uses it to
+// esbuild.js uses this for the web bundle; tests/platform/webBundle.test.ts uses it to
 // assert the engine still bundles for a browser at all, so a stray `import *
 // as fs` in src/vba/ fails a test rather than the next browser release.
 

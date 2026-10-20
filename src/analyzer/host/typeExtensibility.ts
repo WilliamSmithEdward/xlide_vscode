@@ -117,7 +117,7 @@ export function hostTypeResolvesWhenCompiling(qualifiedName: string): boolean {
 /**
  * The other hosts, read the same way from their registered libraries (Word
  * 8.7, PowerPoint 2.12, Access 9.0) by the issue #127 sweep on 2026-09-26,
- * and held there by tests/hostTypeExtensibility.test.ts. Word Range,
+ * and held there by tests/hostModels/hostTypeExtensibility.test.ts. Word Range,
  * Selection, Paragraph and Table are closed and Document is open; PowerPoint
  * Slide, Shape and TextRange are closed; Access's controls (TextBox,
  * ComboBox, ...) are closed while Form, Report, Control and the project

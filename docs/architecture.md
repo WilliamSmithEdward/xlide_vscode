@@ -286,13 +286,13 @@ when the open editor belongs to the requested project. Completion, hover,
 signature help, live diagnostics, semantic tokens, definition/reference/rename,
 current-module analysis, and tree-level class and form rename all use that overlay path
 instead of carrying local workspace-document scans.
-`tests/vbaMultiProjectIsolation.test.ts` locks the shared overlay and
+`tests/projectAnalysis/vbaMultiProjectIsolation.test.ts` locks the shared overlay and
 project-analysis inputs with two same-named open projects so provider surfaces
 stay project-siloed by construction.
 Larger project-analysis regressions should use machine-readable project
 fixtures under `tests/fixtures/vbaProjects/*.json`, loaded by
 `tests/helpers/vbaProjectFixtures.ts` and asserted by
-`tests/vbaProjectWorkbookFixtures.test.ts`. Those fixtures carry module source
+`tests/projectAnalysis/vbaProjectWorkbookFixtures.test.ts`. Those fixtures carry module source
 plus expected project context, member/type/identifier completion, diagnostics,
 semantic-token, hover, and signature-help behavior so multi-surface project
 scenarios do not need bespoke one-off test wiring.
@@ -1133,7 +1133,7 @@ navigation, completion, hover, and signature help without crossing project
 boundaries.
 
 **Structural analysis** - `src/vbaStructuralDiagnostics.ts` is a pure, `vscode`-free module so it
-is unit-tested directly (`tests/vbaStructuralAnalysis.test.ts`). It strips strings/comments,
+is unit-tested directly (`tests/parser/vbaStructuralAnalysis.test.ts`). It strips strings/comments,
 joins `_` line continuations (via `src/vbaSourceScan.ts`), then walks a block stack to detect
 imbalance. Missing-block diagnostics carry stable codes plus the expected closer and
 deterministic insertion line, so quick fixes can insert `End Sub`, `End If`,
@@ -1142,10 +1142,10 @@ deterministic insertion line, so quick fixes can insert `End Sub`, `End If`,
 feature; its stripped-line substrate is derived from the analyzer lexer
 (`src/analyzer/lexer/strippedLines.ts`), not from `stripVba`.
 The planned convergence onto the token-based analyzer (audit #74) is tracked by
-two corpus-wide comparison harnesses: `tests/structuralEngineComparison.test.ts`
+two corpus-wide comparison harnesses: `tests/parser/structuralEngineComparison.test.ts`
 diffs this engine against the parser's block-balance recovery diagnostics (ten
 verified divergence classes, with regressions in both directions, so the legacy
-engine stays), and `tests/smartEnterSubstrateComparison.test.ts` pins Smart
+engine stays), and `tests/editor/smartEnterSubstrateComparison.test.ts` pins Smart
 Enter's now-production lexer substrate against `stripVba` (migrated; the single
 deliberate divergence is the lexer correctly blanking trailing `: Rem ...`
 comments per MS-VBAL 3.3.5.2, which `stripVba` leaks).
@@ -1237,8 +1237,8 @@ rule cites an MS-VBAL section; coverage and deviations are tracked in
 interim regex analyzer in `src/vbaStructuralDiagnostics.ts`; Smart Enter and
 keyword completion already sit on the lexer-derived substrate (audit #74,
 `src/analyzer/lexer/strippedLines.ts`, gated by
-`tests/smartEnterSubstrateComparison.test.ts`), while the
-`tests/structuralEngineComparison.test.ts` harness documents the exact
+`tests/editor/smartEnterSubstrateComparison.test.ts`), while the
+`tests/parser/structuralEngineComparison.test.ts` harness documents the exact
 behavioral gaps that must close before block-balance diagnostics can move
 without changing user-visible output.
 
@@ -2081,20 +2081,20 @@ TypeScript dev: `typescript`, `esbuild`, `vitest`, `@types/vscode`, `@types/node
 | Dependency added/removed | `package.json`, `README.md`, `docs/architecture.md` |
 | New VBA language feature | `src/vbaSymbolIndex.ts` (parsing/index), `src/vbaStructuralDiagnostics.ts` (structural analysis), the matching provider subsystem module registered in `src/vbaLanguageProviders.ts`, `syntaxes/vba.tmLanguage.json` (coloring), `language-configuration/vba-language-configuration.json` (brackets/indent/folding), `docs/architecture.md` |
 | New analyzer grammar rule | `src/analyzer/**` (lexer/parser), matching fixtures in `tests/`, an MS-VBAL section cite in code, a row in `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
-| New host object-model member/type/constant | `src/analyzer/host/excelObjectModel.ts` (or the word/powerpoint/access/vb6 model modules and their generated `*ObjectModelData.ts`, regenerated via `scripts/generate-host-object-model.mjs`; the vb6 dumps come from `scripts/dump-vb6-typelib.py` and `scripts/transcribe-vb6-docs.mjs`, see `docs/vb6_reference_data.md`), `tests/vbaMemberCompletion.test.ts` / `tests/vbaHostModels.test.ts`, `docs/spec/MS-VBAL.verification-map.md` (addendum table), `docs/architecture.md` |
-| New macro container format | `src/vba/macroContainer.ts` (detection + write policy), `src/vba/xlsx.ts` or a format module beside `pptContainer.ts`/`accessDatabase.ts`, `src/macroContainerUi.ts` (`MACRO_CONTAINER_EXTENSIONS`), `src/analyzer/host/hostRegistry.ts` (`hostTokenForFileName`), an Office-authored fixture in `tests/fixtures/binaries/` with `.gitignore`/`.vscodeignore` entries, `tests/vbaMacroContainers.test.ts`, `docs/architecture.md` |
-| VB6 project (manifest, module files) | `src/vba/vb6/vbpProject.ts` (manifest parse/print), `src/vba/vb6/vb6Project.ts` (module reads/writes), the `isVb6ProjectPath` guards in `src/vba/projectService.ts`, `src/macroContainerUi.ts`, `src/analyzer/host/hostRegistry.ts` (`vb6`), `src/projectExplorer.ts` (`moduleFilePath`), a licensed fixture under `tests/fixtures/vb6/<project>/` with its `LICENSE` and `NOTICE.md`, `tests/vb6Project.test.ts`, `docs/roadmap_vb6_support.md`, `docs/architecture.md` |
-| VB6 form designer | `src/vba/vb6/frmScene.ts` (header to scene, the pane's rows and vocabulary), `src/vba/vb6/frmDesignerOps.ts` (gestures as header rewrites), `src/vba/oforms/preview.ts` (the scene and its renderer, shared with OFORMS), `src/vba/projectService.ts` (`readVb6FormPreview`, `applyVb6FormDesignerOp`), `src/projectEngine.ts` (dispatch), `src/vb6FormDesigner.ts` (the custom editor), `package.json` (`customEditors`), `tests/vb6FormScene.test.ts`, `tests/vb6FrmDesignerOps.test.ts`, `docs/roadmap_vb6_support.md`, `docs/architecture.md` |
+| New host object-model member/type/constant | `src/analyzer/host/excelObjectModel.ts` (or the word/powerpoint/access/vb6 model modules and their generated `*ObjectModelData.ts`, regenerated via `scripts/generate-host-object-model.mjs`; the vb6 dumps come from `scripts/dump-vb6-typelib.py` and `scripts/transcribe-vb6-docs.mjs`, see `docs/vb6_reference_data.md`), `tests/providers/vbaMemberCompletion.test.ts` / `tests/hostModels/vbaHostModels.test.ts`, `docs/spec/MS-VBAL.verification-map.md` (addendum table), `docs/architecture.md` |
+| New macro container format | `src/vba/macroContainer.ts` (detection + write policy), `src/vba/xlsx.ts` or a format module beside `pptContainer.ts`/`accessDatabase.ts`, `src/macroContainerUi.ts` (`MACRO_CONTAINER_EXTENSIONS`), `src/analyzer/host/hostRegistry.ts` (`hostTokenForFileName`), an Office-authored fixture in `tests/fixtures/binaries/` with `.gitignore`/`.vscodeignore` entries, `tests/containers/vbaMacroContainers.test.ts`, `docs/architecture.md` |
+| VB6 project (manifest, module files) | `src/vba/vb6/vbpProject.ts` (manifest parse/print), `src/vba/vb6/vb6Project.ts` (module reads/writes), the `isVb6ProjectPath` guards in `src/vba/projectService.ts`, `src/macroContainerUi.ts`, `src/analyzer/host/hostRegistry.ts` (`vb6`), `src/projectExplorer.ts` (`moduleFilePath`), a licensed fixture under `tests/fixtures/vb6/<project>/` with its `LICENSE` and `NOTICE.md`, `tests/vb6/vb6Project.test.ts`, `docs/roadmap_vb6_support.md`, `docs/architecture.md` |
+| VB6 form designer | `src/vba/vb6/frmScene.ts` (header to scene, the pane's rows and vocabulary), `src/vba/vb6/frmDesignerOps.ts` (gestures as header rewrites), `src/vba/oforms/preview.ts` (the scene and its renderer, shared with OFORMS), `src/vba/projectService.ts` (`readVb6FormPreview`, `applyVb6FormDesignerOp`), `src/projectEngine.ts` (dispatch), `src/vb6FormDesigner.ts` (the custom editor), `package.json` (`customEditors`), `tests/vb6/vb6FormScene.test.ts`, `tests/vb6/vb6FrmDesignerOps.test.ts`, `docs/roadmap_vb6_support.md`, `docs/architecture.md` |
 | VB6 oracle evidence (twinBASIC) | `syntax_corpus/oracle/twinbasic/run_twinbasic_oracle.mjs` (runner), `Settings.template.json`, `tests/twinbasicOracleStaging.test.ts`; the surface side is `scripts/twinbasic-vb-surface.mjs` + `tests/twinbasicVbSurface.test.ts`, then `scripts/transcribe-vb6-docs.mjs` and `scripts/generate-host-object-model.mjs vb6`; records in `docs/vb6_reference_surface.md`, `docs/vb6_twinbasic_parity.md`, `docs/vb6_reference_data.md` |
-| New host-member call signature | `src/analyzer/host/excelObjectModel.ts` (`memberSignatures` entry, transcribed + source-verified), `tests/vbaSignatureHelp.test.ts`, `docs/spec/MS-VBAL.verification-map.md` (addendum table), `docs/architecture.md` |
-| New built-in VBA runtime function/statement | `src/analyzer/runtime/vbaRuntime.ts` (signature transcribed + source-verified), `tests/vbaRuntime.test.ts`, `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
-| New built-in VBA runtime constant | `src/analyzer/runtime/vbaRuntime.ts` (constant/type/value transcribed + source-verified), `tests/vbaRuntime.test.ts`, `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
-| New symbol-graph kind/resolution rule | `src/analyzer/symbols/**`, `tests/vbaSymbolGraph.test.ts`, `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
-| New definition/reference/rename scope rule | `src/analyzer/symbols/projectIndex.ts` (`resolveDefinition`/`resolveQualifiedDefinition`/`referenceScope`), `src/analyzer/index.ts` (barrel export), `src/vbaNavigation.ts` / `src/vbaNavigationProviders.ts` (provider wiring + span->range mapping), `tests/vbaSymbolGraph.test.ts`, `docs/architecture.md` |
+| New host-member call signature | `src/analyzer/host/excelObjectModel.ts` (`memberSignatures` entry, transcribed + source-verified), `tests/providers/vbaSignatureHelp.test.ts`, `docs/spec/MS-VBAL.verification-map.md` (addendum table), `docs/architecture.md` |
+| New built-in VBA runtime function/statement | `src/analyzer/runtime/vbaRuntime.ts` (signature transcribed + source-verified), `tests/runtime/vbaRuntime.test.ts`, `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
+| New built-in VBA runtime constant | `src/analyzer/runtime/vbaRuntime.ts` (constant/type/value transcribed + source-verified), `tests/runtime/vbaRuntime.test.ts`, `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
+| New symbol-graph kind/resolution rule | `src/analyzer/symbols/**`, `tests/projectAnalysis/vbaSymbolGraph.test.ts`, `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
+| New definition/reference/rename scope rule | `src/analyzer/symbols/projectIndex.ts` (`resolveDefinition`/`resolveQualifiedDefinition`/`referenceScope`), `src/analyzer/index.ts` (barrel export), `src/vbaNavigation.ts` / `src/vbaNavigationProviders.ts` (provider wiring + span->range mapping), `tests/projectAnalysis/vbaSymbolGraph.test.ts`, `docs/architecture.md` |
 | New active diagnostic rule | `src/analyzer/diagnostics/ruleMetadata.ts` plus the matching `src/analyzer/diagnostics/rules/<family>.ts` registered in `registry.ts` (rule + MS-VBAL `specReference`), the family's `tests/diagnostics/<family>.test.ts`, `src/vbaLiveDiagnostics.ts` (provider merge + any new config), `package.json` (settings), `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
-| New analyzer quick fix | `src/analyzer/codeActions/diagnosticCodeActions.ts`, `src/vbaCodeActions.ts` (`CodeActionProvider` adapter only when needed), `tests/vbaCodeActions.test.ts`, `docs/roadmap_version_2.x.md`, `docs/architecture.md` |
+| New analyzer quick fix | `src/analyzer/codeActions/diagnosticCodeActions.ts`, `src/vbaCodeActions.ts` (`CodeActionProvider` adapter only when needed), `tests/codeActions/vbaCodeActions.test.ts`, `docs/roadmap_version_2.x.md`, `docs/architecture.md` |
 | New editor source action | `src/vbaCodeActions.ts`, the matching per-domain module under `src/commands/`, `package.json` (`contributes.commands`/menus), focused tests when a pure helper is added, `docs/roadmap_version_2.x.md`, `docs/architecture.md` |
-| New analysis suppression directive behavior | `src/analyzer/diagnostics/analysisSuppressions.ts`, `src/vbaLiveDiagnostics.ts`, `src/vbaProjectWideAnalysis.ts`, `src/commands/analysisCommands.ts`, `tests/vbaAnalysisSuppressions.test.ts`, `docs/xlide_vba_analysis_suppression_comments.md`, `docs/roadmap_version_2.x.md`, `docs/architecture.md` |
+| New analysis suppression directive behavior | `src/analyzer/diagnostics/analysisSuppressions.ts`, `src/vbaLiveDiagnostics.ts`, `src/vbaProjectWideAnalysis.ts`, `src/commands/analysisCommands.ts`, `tests/diagnostics/vbaAnalysisSuppressions.test.ts`, `docs/xlide_vba_analysis_suppression_comments.md`, `docs/roadmap_version_2.x.md`, `docs/architecture.md` |
 | New completion/hover resolver or rule | `src/analyzer/completion/**` or `src/analyzer/hover/**`, `src/analyzer/index.ts` (barrel export), `src/vbaMemberCompletion.ts` (provider wiring), matching `tests/vba*.test.ts`, `docs/architecture.md` |
-| New signature-help rule/source | `src/analyzer/signature/signatureHelp.ts`, `src/analyzer/index.ts` (barrel export), `src/vbaMemberCompletion.ts` (`provideSignatureHelp` + `registerSignatureHelpProvider`), `tests/vbaSignatureHelp.test.ts`, `docs/architecture.md` |
-| New doc-comment tag or metadata behavior | `src/analyzer/docs/**`, `src/analyzer/index.ts` (barrel export), `src/vbaDocMetadata.ts` (loader/glob), `src/vbaMemberCompletion.ts` (context wiring), `package.json` (`xlide.docs.*` settings), `tests/vbaDocComments.test.ts`, `user_guides/vba-doc-comments.md`, `docs/architecture.md` |
+| New signature-help rule/source | `src/analyzer/signature/signatureHelp.ts`, `src/analyzer/index.ts` (barrel export), `src/vbaMemberCompletion.ts` (`provideSignatureHelp` + `registerSignatureHelpProvider`), `tests/providers/vbaSignatureHelp.test.ts`, `docs/architecture.md` |
+| New doc-comment tag or metadata behavior | `src/analyzer/docs/**`, `src/analyzer/index.ts` (barrel export), `src/vbaDocMetadata.ts` (loader/glob), `src/vbaMemberCompletion.ts` (context wiring), `package.json` (`xlide.docs.*` settings), `tests/docs/vbaDocComments.test.ts`, `user_guides/vba-doc-comments.md`, `docs/architecture.md` |

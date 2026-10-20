@@ -6,7 +6,7 @@
 // The stripped-line substrate (strings/comments blanked, columns preserved)
 // is derived from the analyzer lexer (src/analyzer/lexer/strippedLines.ts,
 // audit #74), so one lexer defines string/comment semantics for Smart Enter
-// and keyword completion. tests/smartEnterSubstrateComparison.test.ts pins
+// and keyword completion. tests/editor/smartEnterSubstrateComparison.test.ts pins
 // the substrate against the legacy stripVba scanner corpus-wide.
 
 import { lexerStrippedLine, lexerStrippedLines } from './analyzer/lexer/strippedLines';

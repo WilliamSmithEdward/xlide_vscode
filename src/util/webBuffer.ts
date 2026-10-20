@@ -6,7 +6,7 @@
 // identity. The browser build injects this class as `Buffer` instead (see
 // webBuild.js), so the engine runs unmodified.
 //
-// Node's own Buffer is the oracle: tests/webBuffer.test.ts asserts identical
+// Node's own Buffer is the oracle: tests/platform/webBuffer.test.ts asserts identical
 // results for every method and encoding here, over generated inputs. Two
 // details are easy to get wrong and are deliberate below:
 //

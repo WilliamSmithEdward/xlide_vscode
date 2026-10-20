@@ -245,4 +245,4 @@ wins over an external entry for the same symbol.
 | Call-tip integration | `src/analyzer/signature/signatureHelp.ts` |
 | Workspace file loader + watcher | `src/vbaDocMetadata.ts` |
 | Provider wiring | `src/vbaMemberCompletion.ts`, `src/vbaLanguageProviders.ts` |
-| Tests | `tests/vbaDocComments.test.ts`, `tests/diagnostics/docComments.test.ts` |
+| Tests | `tests/docs/vbaDocComments.test.ts`, `tests/diagnostics/docComments.test.ts` |

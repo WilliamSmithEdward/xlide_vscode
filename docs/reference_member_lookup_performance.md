@@ -79,7 +79,7 @@ node scripts/benchmark-reference-member-definitions.mjs --baseline=0f685d45
 node scripts/benchmark-reference-member-definitions.mjs
 node scripts/benchmark-reference-member-definitions.mjs
 node scripts/benchmark-reference-member-definitions.mjs --baseline=0f685d45
-npm exec vitest run tests/referenceDefinitionMemberWork.test.ts tests/referenceCollectorPrefixWork.test.ts tests/vbaReferenceResolution.test.ts tests/vbaBangAndBracketReferences.test.ts tests/vbaReferenceKinds.test.ts tests/vbaProjectReferences.test.ts tests/vbaFormReferenceWiring.test.ts
+npm exec vitest run tests/navigation/referenceDefinitionMemberWork.test.ts tests/navigation/referenceCollectorPrefixWork.test.ts tests/navigation/vbaReferenceResolution.test.ts tests/diagnostics/vbaBangAndBracketReferences.test.ts tests/navigation/vbaReferenceKinds.test.ts tests/libraryReferences/vbaProjectReferences.test.ts tests/forms/vbaFormReferenceWiring.test.ts
 npm run check-types
 npm test -- --run
 ```

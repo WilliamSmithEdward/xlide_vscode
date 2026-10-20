@@ -1503,7 +1503,7 @@ VBE raises or refuses are now reported.
   `src/vba/inflate.ts` replace `Buffer`, `path`, `crypto` and zlib's inflate
   for the browser. Node is the oracle for all four, and two of them also
   assert they implement every member the codebase calls.
-- `tests/webBundle.test.ts` bundles the extension for a browser, runs it
+- `tests/platform/webBundle.test.ts` bundles the extension for a browser, runs it
   with `Buffer`, `process`, `require`, `__dirname` and `__filename`
   unavailable, and reads and writes a real workbook through a stand-in
   `workspace.fs`.
@@ -3692,7 +3692,7 @@ it needs Excel running. F5 shows the form the way the VBE does.
 - **The host contract is documented and tested** (#50).
   `docs/host_contract.md` states which facts a host must supply, what each one
   costs when absent, and which of them have three states rather than two.
-  `tests/hostContract.test.ts` asserts every claim in it, so the document cannot
+  `tests/hostModels/hostContract.test.ts` asserts every claim in it, so the document cannot
   quietly stop being true.
 
 - **The default-instance field is `predeclaredId`** (#50), renamed from

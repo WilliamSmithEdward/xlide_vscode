@@ -158,7 +158,7 @@ export function withDesignGuid(
 
 /**
  * Whether `theme` is the one the templates were captured in. Recomputing them
- * on it gives them back byte for byte (tests/accessThemes.test.ts), so the
+ * on it gives them back byte for byte (tests/access/accessThemes.test.ts), so the
  * work is skipped.
  */
 function onCaptureTheme(theme: AccessTheme): boolean {

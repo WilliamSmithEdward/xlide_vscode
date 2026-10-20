@@ -5364,7 +5364,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Structural block-balance diagnostic emitted by analyzeVbaStructure (src/vbaStructuralDiagnostics.ts), surfaced through vbaModuleAnalysis; not a registry rule. Reports a block opener (procedure/If/For/Do/While/With/Select/Type/Enum) with no matching closer. Suppression boundary: block keywords inside strings and comments (including a `: Rem ...` trailing comment after the audit-#74 stripVba fix) are blanked before matching; single-line `If ... Then stmt`, `Declare Sub/Function`, line-continued headers, and inactive conditional-compilation headers do not open a block; colon one-liners are split. Verified against the dual-engine comparison harness (tests/structuralEngineComparison.test.ts) and tests/vbaStructuralAnalysis.test.ts.",
+      "notes": "Structural block-balance diagnostic emitted by analyzeVbaStructure (src/vbaStructuralDiagnostics.ts), surfaced through vbaModuleAnalysis; not a registry rule. Reports a block opener (procedure/If/For/Do/While/With/Select/Type/Enum) with no matching closer. Suppression boundary: block keywords inside strings and comments (including a `: Rem ...` trailing comment after the audit-#74 stripVba fix) are blanked before matching; single-line `If ... Then stmt`, `Declare Sub/Function`, line-continued headers, and inactive conditional-compilation headers do not open a block; colon one-liners are split. Verified against the dual-engine comparison harness (tests/parser/structuralEngineComparison.test.ts) and tests/parser/vbaStructuralAnalysis.test.ts.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -5385,7 +5385,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Structural block-balance diagnostic emitted by analyzeVbaStructure (src/vbaStructuralDiagnostics.ts), surfaced through vbaModuleAnalysis; not a registry rule. Reports a stray block closer with no matching opener. Suppression boundary: closers inside strings and comments are blanked - including a `: Rem ...` trailing comment, whose leak was a fixed false positive (audit #74: stripVba now blanks Rem at any statement start, pinned by tests/vbaStructuralAnalysis.test.ts and the convergence repro in tests/structuralEngineComparison.test.ts). Mismatched procedure closers are folded into a single repairable missing-block-closer instead.",
+      "notes": "Structural block-balance diagnostic emitted by analyzeVbaStructure (src/vbaStructuralDiagnostics.ts), surfaced through vbaModuleAnalysis; not a registry rule. Reports a stray block closer with no matching opener. Suppression boundary: closers inside strings and comments are blanked - including a `: Rem ...` trailing comment, whose leak was a fixed false positive (audit #74: stripVba now blanks Rem at any statement start, pinned by tests/parser/vbaStructuralAnalysis.test.ts and the convergence repro in tests/parser/structuralEngineComparison.test.ts). Mismatched procedure closers are folded into a single repairable missing-block-closer instead.",
       "diagnosticKind": "compile-error"
     },
     {

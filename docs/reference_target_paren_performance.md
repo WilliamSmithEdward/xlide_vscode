@@ -64,7 +64,7 @@ node scripts/benchmark-reference-target-parens.mjs --baseline=df1bc7ed
 node scripts/benchmark-reference-target-parens.mjs
 node scripts/benchmark-reference-target-parens.mjs
 node scripts/benchmark-reference-target-parens.mjs --baseline=df1bc7ed
-npm exec vitest run tests/referenceTargetParenWork.test.ts tests/vbaReferenceKinds.test.ts
+npm exec vitest run tests/navigation/referenceTargetParenWork.test.ts tests/navigation/vbaReferenceKinds.test.ts
 npm run check-types
 npm test -- --run
 ```

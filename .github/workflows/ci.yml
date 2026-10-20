@@ -67,11 +67,11 @@ jobs:
       - name: Run the VBA language tests
         run: >
           npx vitest run
-          tests/vbaLanguageMatrix.test.ts
-          tests/vbaCodePages.test.ts
-          tests/moduleExport.test.ts
-          tests/vbaCombiningMarks.test.ts
-          tests/vbaNonAsciiNavigation.test.ts
+          tests/language/vbaLanguageMatrix.test.ts
+          tests/language/vbaCodePages.test.ts
+          tests/moduleSync/moduleExport.test.ts
+          tests/language/vbaCombiningMarks.test.ts
+          tests/providers/vbaNonAsciiNavigation.test.ts
 
   # Reading and writing the VBA project of an Access database: the Jet/ACE
   # storage engine underneath it (data pages, usage maps, long values, B-tree
@@ -99,10 +99,10 @@ jobs:
       - name: Run the Access storage tests
         run: >
           npx vitest run
-          tests/accessStorage.test.ts
-          tests/accessStorageEngine.test.ts
-          tests/accessVbaWrite.test.ts
-          tests/accessDesign.test.ts
+          tests/access/accessStorage.test.ts
+          tests/access/accessStorageEngine.test.ts
+          tests/access/accessVbaWrite.test.ts
+          tests/access/accessDesign.test.ts
 
   # Execute generated recovery PowerShell against fake registry objects. No
   # Office installation or real registry changes are needed.

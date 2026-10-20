@@ -16,7 +16,7 @@ inclusive spans. No source/project cache or public API was added.
 ## Reproduction
 
 ```powershell
-npx vitest run tests/eventHandlerOpenProcedureWork.test.ts tests/vbaEventHandlerCompletion.test.ts
+npx vitest run tests/providers/eventHandlerOpenProcedureWork.test.ts tests/providers/vbaEventHandlerCompletion.test.ts
 node scripts/benchmark-event-open-procedures.mjs --baseline=1b445e849ef18382680c4d7bb71a49de7814447e
 node scripts/benchmark-event-open-procedures.mjs
 ```
