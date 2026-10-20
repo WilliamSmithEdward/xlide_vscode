@@ -8,8 +8,8 @@ import {
 	VBA_RUNTIME_FUNCTIONS,
 	VBA_RUNTIME_OBJECTS,
 	resolveIdentifierCompletions,
-} from '../src/analyzer';
-import { getWordObjectModel } from '../src/analyzer/host/wordObjectModel';
+} from '../../src/analyzer';
+import { getWordObjectModel } from '../../src/analyzer/host/wordObjectModel';
 
 describe('VBA runtime metadata', () => {
 	it('resolves built-ins case-insensitively', () => {

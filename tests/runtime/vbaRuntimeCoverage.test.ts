@@ -21,19 +21,19 @@ import {
     resolveRuntimeConstant,
     resolveRuntimeFunction,
     resolveRuntimeObject,
-} from '../src/analyzer';
-import { canonicalKeyword } from '../src/analyzer/lexer/keywordTable';
-import { vbaRuntimeDescription } from '../src/analyzer/runtime/vbaRuntimeDocs';
+} from '../../src/analyzer';
+import { canonicalKeyword } from '../../src/analyzer/lexer/keywordTable';
+import { vbaRuntimeDescription } from '../../src/analyzer/runtime/vbaRuntimeDocs';
 import {
     resolveEventHandlerCompletions,
     resolveHover,
     resolveIdentifierCompletions,
     resolveSignatureHelp,
-} from '../src/analyzer';
-import { getExcelObjectModel } from '../src/analyzer/host/excelObjectModel';
-import { getWordObjectModel } from '../src/analyzer/host/wordObjectModel';
-import { getPowerPointObjectModel } from '../src/analyzer/host/powerpointObjectModel';
-import { getAccessObjectModel } from '../src/analyzer/host/accessObjectModel';
+} from '../../src/analyzer';
+import { getExcelObjectModel } from '../../src/analyzer/host/excelObjectModel';
+import { getWordObjectModel } from '../../src/analyzer/host/wordObjectModel';
+import { getPowerPointObjectModel } from '../../src/analyzer/host/powerpointObjectModel';
+import { getAccessObjectModel } from '../../src/analyzer/host/accessObjectModel';
 
 const DOCUMENTED_FUNCTIONS: readonly string[] = [
     'Asc', 'Chr', 'CVErr', 'Format', 'Hex', 'Oct', 'Str', 'Val', 'Abs', 'Atn', 'Cos', 'Exp',
