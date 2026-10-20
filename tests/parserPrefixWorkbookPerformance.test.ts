@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { readModule } from '../src/vba/projectService';
 import { tokenizeCached } from '../src/analyzer/lexer/tokenize';
-import { parseModule } from '../src/analyzer/parser/parseModule';
+import { parseModule, parseModuleFreshForTests } from '../src/analyzer/parser/parseModule';
 
 it.skipIf(!process.env.XLIDE_PERF_WORKBOOK)('measures prefix parsing at early middle and late class positions', () => {
     const original = readModule(process.env.XLIDE_PERF_WORKBOOK!, 'ROneCOne').source;
@@ -16,9 +16,7 @@ it.skipIf(!process.env.XLIDE_PERF_WORKBOOK)('measures prefix parsing at early mi
             const start = performance.now();
             const result = parseModule(source);
             after.push(performance.now() - start);
-            // Evict large snapshots to verify against a cold full parse.
-            for (let j = 0; j < 12; j++) parseModule("' eviction " + j);
-            expect(result).toEqual(parseModule(source));
+            expect(result).toEqual(parseModuleFreshForTests(source));
         }
         const median = (values: number[]) => values.sort((a,b) => a-b)[7];
         results.push({ fraction, afterMs: median(after) });
