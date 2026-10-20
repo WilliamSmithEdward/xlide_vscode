@@ -1,0 +1,450 @@
+﻿import { afterEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock());
+
+import { analyzeProject, resetProjectAnalysisResultCacheForTests, setProjectAnalysisWorker, type ProjectAnalysisWorker } from '../../src/vbaProjectWideAnalysis';
+import { AnalysisWorkerTimeoutError } from '../../src/analysisWorkerErrors';
+import type { ProjectEngine } from '../../src/projectEngine';
+import { fakeProjectEngine } from '../helpers/fakeProjectEngine';
+import { deferred, flushPromises } from '../helpers/async';
+
+describe('analyzeProject metadata summary', () => {
+	it('loads project modules through the batch read endpoint', async () => {
+		const bridge = fakeProjectEngine([
+			{
+				name: 'Module1',
+				type: 'standard',
+				source: 'Option Explicit\nSub T()\nEnd Sub\n',
+			},
+		]);
+
+		const result = await analyzeProject(bridge, 'Book.xlsm');
+
+		expect(result.moduleCount).toBe(1);
+		expect(vi.mocked(bridge.call).mock.calls.map(([method]) => method)).toEqual(['readModules']);
+	});
+
+	it('attaches shared rule metadata to structural and semantic workbook problems', async () => {
+		const bridge = fakeProjectEngine([
+			{
+				name: 'BlockBroken',
+				type: 'standard',
+				source: 'Option Explicit\nSub Broken()\n\tMsgBox 1\n',
+			},
+			{
+				name: 'Declarations',
+				type: 'standard',
+				source: 'Option Explicit\nSub Assigns()\n\tNotDeclared = 1\nEnd Sub\n',
+			},
+			{
+				name: 'RuntimeRisk',
+				type: 'standard',
+				source: 'Option Explicit\nFunction NeedsReturn()\nEnd Function\n',
+			},
+		]);
+
+		const result = await analyzeProject(bridge, 'Book.xlsm');
+		const byCode = new Map(result.problems.map((problem) => [problem.code, problem]));
+
+		expect([...byCode.keys()].sort()).toEqual([
+			'missing-block-closer',
+			'missing-return-assignment',
+			'undeclared-variable',
+		]);
+		expect(byCode.get('missing-block-closer')).toMatchObject({
+			ruleTitle: 'Missing block closer',
+			category: 'syntax',
+			vbeCompileEquivalent: true,
+			diagnosticKind: 'compile-error',
+		});
+		expect(byCode.get('undeclared-variable')).toMatchObject({
+			category: 'project-symbol',
+			vbeCompileEquivalent: true,
+			diagnosticKind: 'compile-error',
+		});
+		expect(byCode.get('missing-return-assignment')).toMatchObject({
+			category: 'semantic',
+			vbeCompileEquivalent: false,
+			diagnosticKind: 'runtime-risk',
+		});
+		expect(result.summary.byCategory).toMatchObject({
+			'project-symbol': 1,
+			semantic: 1,
+			syntax: 1,
+		});
+		expect(result.summary.byDiagnosticKind).toMatchObject({
+			'compile-error': 2,
+			'runtime-risk': 1,
+		});
+		expect(result.summary.vbeCompileEquivalentCount).toBe(2);
+		expect(result.summary.nonVbeCompileEquivalentCount).toBe(1);
+	});
+
+	it('surfaces replacement quick fixes for mismatched procedure closers', async () => {
+		const bridge = fakeProjectEngine([
+			{
+				name: 'Performance',
+				type: 'class',
+				source:
+					'Public Property Get Measurement() As Double\n' +
+					'    Measurement = 1\n' +
+					'End Function\n',
+			},
+		]);
+
+		const result = await analyzeProject(bridge, 'Book.xlsm');
+		const problem = result.problems.find((item) => item.code === 'mismatched-end-keyword');
+
+		expect(problem).toMatchObject({
+			severity: 'warning',
+			expectedClose: 'End Property',
+			quickFixAvailable: true,
+			quickFixTitles: ["Replace 'End Function' with 'End Property'"],
+		});
+	});
+
+	it('uses project ByRef helper signatures for project return-assignment analysis', async () => {
+		const bridge = fakeProjectEngine([
+			{
+				name: 'Runner',
+				type: 'standard',
+				source:
+					'Option Explicit\n' +
+					'Public Function Run()\n' +
+					'    Helpers.CopyVariant Run, 1\n' +
+					'End Function\n',
+			},
+			{
+				name: 'Helpers',
+				type: 'standard',
+				source:
+					'Option Explicit\n' +
+					'Public Sub CopyVariant(ByRef dest As Variant, ByVal value As Variant)\n' +
+					'    dest = value\n' +
+					'End Sub\n',
+			},
+		]);
+
+		const result = await analyzeProject(bridge, 'Book.xlsm');
+
+		expect(result.problems.filter((item) => item.code === 'missing-return-assignment')).toEqual([]);
+	});
+
+	it('uses source bindings before host globals in project member diagnostics', async () => {
+		const bridge = fakeProjectEngine([
+			{
+				name: 'Caller',
+				type: 'standard',
+				source:
+					'Option Explicit\n' +
+					'Public Sub T()\n' +
+					'    Dim ActiveSheet\n' +
+					'    Set ActiveSheet = ThisWorkbook\n' +
+					'    ActiveSheet.DoesNotExist\n' +
+					'    Dim typedSheet As Person\n' +
+					'    typedSheet.Range\n' +
+					'End Sub\n',
+			},
+			{
+				name: 'Person',
+				type: 'class',
+				source:
+					'Option Explicit\n' +
+					'Public Sub Save()\n' +
+					'End Sub\n',
+			},
+		]);
+
+		const result = await analyzeProject(bridge, 'Book.xlsm');
+		const memberHits = result.problems.filter((item) => item.code === 'member-not-found');
+
+		expect(memberHits).toHaveLength(1);
+		expect(memberHits[0]).toMatchObject({
+			moduleName: 'Caller',
+			severity: 'error',
+		});
+		expect(memberHits[0].message).toContain('Person.Range');
+		expect(result.problems.map((item) => item.message).join('\n')).not.toContain('Excel.Worksheet.DoesNotExist');
+	});
+});
+
+describe('analyzeProject and the applications a project references', () => {
+	afterEach(() => {
+		resetProjectAnalysisResultCacheForTests();
+	});
+
+	const EXCEL_LIBID = '*\\G{00020813-0000-0000-C000-000000000046}#1.9#0#C:\\PROGRA~1\\'
+		+ 'MICROS~1\\Office16\\EXCEL.EXE#Microsoft Excel 16.0 Object Library';
+	const SOURCE = 'Option Explicit\nPublic Sub Bridge(wb As Excel.Workbook)\n\tDebug.Print wb.Name\nEnd Sub\n';
+
+	it('reports the missing reference when the project declares none', async () => {
+		const bridge = fakeProjectEngine([{ name: 'Bridge', type: 'standard', source: SOURCE }]);
+
+		const result = await analyzeProject(bridge, 'Report.docm');
+
+		expect(result.problems.map((problem) => problem.code)).toEqual(['missing-library-reference']);
+	});
+
+	it('resolves the referenced library, so the same module is clean', async () => {
+		// Analyze Project used to pass the host alone, so a module the editor
+		// called clean was reported here, and the other way round.
+		const bridge = fakeProjectEngine([{
+			name: 'Bridge',
+			type: 'standard',
+			source: SOURCE,
+			projectReferences: [{ name: 'Excel', libid: EXCEL_LIBID, kind: 'registered' }],
+		}]);
+
+		const result = await analyzeProject(bridge, 'Report.docm');
+
+		expect(result.problems.map((problem) => problem.code)).toEqual([]);
+	});
+
+	it('hands the worker the same reference list', async () => {
+		const seen: Array<readonly string[] | undefined> = [];
+		setProjectAnalysisWorker({
+			available: true,
+			ensureSeeded() { /* no seed needed for one module */ },
+			analyze(request) {
+				seen.push(request.referencedHosts);
+				return Promise.resolve({ diagnostics: [], suppressedDiagnostics: [] });
+			},
+		});
+		const bridge = fakeProjectEngine([{
+			name: 'Bridge',
+			type: 'standard',
+			source: SOURCE,
+			projectReferences: [{ name: 'Excel', libid: EXCEL_LIBID, kind: 'registered' }],
+		}]);
+
+		await analyzeProject(bridge, 'Report.docm');
+		setProjectAnalysisWorker(undefined);
+
+		expect(seen).toEqual([['excel']]);
+	});
+});
+
+describe('analyzeProject worker routing', () => {
+	afterEach(() => {
+		setProjectAnalysisWorker(undefined);
+		resetProjectAnalysisResultCacheForTests();
+	});
+
+	const MODULES = [
+		{ name: 'ModA', type: 'standard', source: 'Option Explicit\nSub A()\n\tmissingA = 1\nEnd Sub\n' },
+		{ name: 'ModB', type: 'standard', source: 'Option Explicit\nSub B()\n\tmissingB = 1\nEnd Sub\n' },
+	];
+
+	function cannedWorker() {
+		const analyzed: string[] = [];
+		const seeded: Array<{ key: string; generation: number; count: number; conditionalConstants?: string }> = [];
+		const worker: ProjectAnalysisWorker = {
+			available: true,
+			ensureSeeded(key, generation, modules, conditionalConstants) {
+				seeded.push({ key, generation, count: modules().length, conditionalConstants });
+			},
+			analyze(request) {
+				analyzed.push(request.moduleName);
+				return Promise.resolve({
+					diagnostics: [{
+						code: 'undeclared-variable',
+						message: `worker saw ${request.moduleName}`,
+						severity: 'error' as const,
+						span: { start: 0, end: 1 },
+					}],
+					suppressedDiagnostics: [{
+						code: 'undeclared-variable',
+						message: `worker suppressed ${request.moduleName}`,
+						severity: 'error' as const,
+						span: { start: 0, end: 1 },
+					}],
+				});
+			},
+		};
+		return { worker, analyzed, seeded };
+	}
+
+	it('routes every module through the worker and keeps suppressed findings', async () => {
+		const { worker, analyzed, seeded } = cannedWorker();
+		setProjectAnalysisWorker(worker);
+
+		const result = await analyzeProject(fakeProjectEngine(MODULES), 'Book.xlsm');
+
+		expect(analyzed.sort()).toEqual(['ModA', 'ModB']);
+		expect(seeded).toHaveLength(1);
+		expect(seeded[0].count).toBe(2);
+		expect(seeded[0].key).toContain('project-analysis:');
+		// The worker's findings are what the result reports - the in-host
+		// analyzer (which would say "missingA") never ran.
+		expect(result.problems.map((p) => p.message).sort()).toEqual([
+			'worker saw ModA',
+			'worker saw ModB',
+		]);
+		expect(result.suppressedProblems.map((p) => p.message).sort()).toEqual([
+			'worker suppressed ModA',
+			'worker suppressed ModB',
+		]);
+	});
+
+	it('does not retry timed-out worker analysis on the editor host', async () => {
+        const worker: ProjectAnalysisWorker = {
+            available: true, ensureSeeded() {},
+            analyze() { return Promise.reject(new AnalysisWorkerTimeoutError(100)); },
+        };
+        setProjectAnalysisWorker(worker);
+        await expect(analyzeProject(fakeProjectEngine(MODULES), 'HungWorker.xlsm'))
+            .rejects.toBeInstanceOf(AnalysisWorkerTimeoutError);
+    });
+
+	it('falls back to the identical in-host pass when the worker rejects', async () => {
+		const worker: ProjectAnalysisWorker = {
+			available: true,
+			ensureSeeded() { /* accepted */ },
+			analyze() { return Promise.reject(new Error('worker crashed')); },
+		};
+		setProjectAnalysisWorker(worker);
+
+		const result = await analyzeProject(fakeProjectEngine(MODULES), 'Book.xlsm');
+
+		// Real analysis findings, produced in-host.
+		expect(result.problems.some((p) => p.message.includes('missingA'))).toBe(true);
+		expect(result.problems.some((p) => p.message.includes('missingB'))).toBe(true);
+	});
+
+	it('never touches an unavailable worker', async () => {
+		const analyzed: string[] = [];
+		const worker: ProjectAnalysisWorker = {
+			available: false,
+			ensureSeeded() { analyzed.push('seed'); },
+			analyze(request) {
+				analyzed.push(request.moduleName);
+				return Promise.resolve({ diagnostics: [], suppressedDiagnostics: [] });
+			},
+		};
+		setProjectAnalysisWorker(worker);
+
+		const result = await analyzeProject(fakeProjectEngine(MODULES), 'Book.xlsm');
+
+		expect(analyzed).toEqual([]);
+		expect(result.problems.some((p) => p.message.includes('missingA'))).toBe(true);
+	});
+
+	it('returns the cached result for an unchanged project without re-analyzing', async () => {
+		const { worker, analyzed, seeded } = cannedWorker();
+		setProjectAnalysisWorker(worker);
+
+		const first = await analyzeProject(fakeProjectEngine(MODULES), 'CacheHit.xlsm');
+		const second = await analyzeProject(fakeProjectEngine(MODULES), 'CacheHit.xlsm');
+
+		// Identical content: one seed, one analysis per module, same result -
+		// the re-run must not occupy the worker at all.
+		expect(second).toBe(first);
+		expect(seeded).toHaveLength(1);
+		expect(analyzed).toHaveLength(MODULES.length);
+	});
+
+	it('re-analyzes when a module source changes, with a new seed generation', async () => {
+		const { worker, analyzed, seeded } = cannedWorker();
+		setProjectAnalysisWorker(worker);
+
+		await analyzeProject(fakeProjectEngine(MODULES), 'CacheMiss.xlsm');
+		const edited = MODULES.map((m) => m.name === 'ModA'
+			? { ...m, source: m.source.replace('missingA', 'missingEdited') }
+			: m);
+		await analyzeProject(fakeProjectEngine(edited), 'CacheMiss.xlsm');
+
+		expect(seeded).toHaveLength(2);
+		expect(seeded[0].generation).not.toBe(seeded[1].generation);
+		expect(analyzed).toHaveLength(MODULES.length * 2);
+	});
+
+	it('seeds the conditional compilation arguments and re-analyzes when only they change (issue #1319)', async () => {
+		const { worker, analyzed, seeded } = cannedWorker();
+		setProjectAnalysisWorker(worker);
+		const withArguments = (raw: string) => MODULES.map((m) => ({ ...m, projectConditionalConstants: raw }));
+
+		await analyzeProject(fakeProjectEngine(withArguments('Flag = 1')), 'Arguments.xlsm');
+		await analyzeProject(fakeProjectEngine(withArguments('Flag = 0')), 'Arguments.xlsm');
+
+		expect(seeded.map((s) => s.conditionalConstants)).toEqual(['Flag = 1', 'Flag = 0']);
+		expect(seeded[0].generation).not.toBe(seeded[1].generation);
+		expect(analyzed).toHaveLength(MODULES.length * 2);
+	});
+});
+
+describe('analyzeProject in-host with conditional compilation arguments (issue #1319)', () => {
+	afterEach(() => {
+		resetProjectAnalysisResultCacheForTests();
+	});
+
+	const SOURCE = 'Option Explicit\nSub T()\n#If Flag Then\n\tmissingInIf = 1\n#Else\n\tmissingInElse = 1\n#End If\nEnd Sub\n';
+
+	it.each([
+		['Flag = 1', 'missingInIf'],
+		['Flag = 0', 'missingInElse'],
+	])('analyzes only the arm %s selects', async (raw, expected) => {
+		const result = await analyzeProject(fakeProjectEngine([
+			{ name: 'Module1', type: 'standard', source: SOURCE, projectConditionalConstants: raw },
+		]), 'InHost.xlsm');
+
+		expect(result.problems.map((p) => p.message.match(/'(\w+)'/)?.[1])).toEqual([expected]);
+	});
+});
+
+describe('analyzeProject progress', () => {
+	afterEach(() => {
+		setProjectAnalysisWorker(undefined);
+		resetProjectAnalysisResultCacheForTests();
+	});
+
+	it('reports each module completion, forced past the start-report throttle', async () => {
+		// All start reports fire within milliseconds now that analysis is
+		// async, so the throttle drops them and only completion reports keep
+		// the notification moving.
+		const worker: ProjectAnalysisWorker = {
+			available: true,
+			ensureSeeded() { /* accepted */ },
+			analyze() { return Promise.resolve({ diagnostics: [], suppressedDiagnostics: [] }); },
+		};
+		setProjectAnalysisWorker(worker);
+		const messages: string[] = [];
+
+		await analyzeProject(fakeProjectEngine([
+			{ name: 'ModA', type: 'standard', source: 'Option Explicit\nSub A()\nEnd Sub\n' },
+			{ name: 'ModB', type: 'standard', source: 'Option Explicit\nSub B()\nEnd Sub\n' },
+		]), 'Book.xlsm', { progress: (message) => messages.push(message) });
+
+		const done = messages.filter((m) => m.startsWith('Analyzed '));
+		expect(done).toHaveLength(2);
+		expect(done.some((m) => m.includes('(1/2)'))).toBe(true);
+		expect(done.some((m) => m.includes('(2/2)'))).toBe(true);
+	});
+
+    it('names pending modules while a large worker analysis is still running', async () => {
+        const large = deferred<{ diagnostics: []; suppressedDiagnostics: [] }>();
+        const firstDone = deferred<void>();
+        setProjectAnalysisWorker({
+            available: true,
+            ensureSeeded() {},
+            analyze(request) {
+                return request.moduleName === 'Large' ? large.promise
+                    : Promise.resolve({ diagnostics: [], suppressedDiagnostics: [] });
+            },
+        });
+        const messages: string[] = [];
+        const run = analyzeProject(fakeProjectEngine([
+            { name: 'Small', type: 'standard', source: 'Sub A()\nEnd Sub' },
+            { name: 'Large', type: 'standard', source: 'Sub B()\nEnd Sub' },
+        ]), 'Progress.xlsm', { progress: message => {
+            messages.push(message);
+            if (message.startsWith('Analyzed ') && message.includes('(1/2)')) { firstDone.resolve(); }
+        } });
+        await firstDone.promise;
+        expect(messages.find(message => message.includes('(1/2)'))).toContain('remaining: Large');
+        large.resolve({ diagnostics: [], suppressedDiagnostics: [] });
+        await run;
+        expect(messages.find(message => message.startsWith('Analyzed ') && message.includes('(2/2)')))
+            .not.toContain('remaining:');
+    });
+
+});
