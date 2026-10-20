@@ -2,21 +2,21 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { FrmHeaderError, frmControls, frmProperty, parseFrmHeader } from '../src/vba/vb6/frmHeader';
-import { readFrxRecords } from '../src/vba/vb6/frx';
-import type { FrmControl, FrmHeader } from '../src/vba/vb6/frmHeader';
+import { FrmHeaderError, frmControls, frmProperty, parseFrmHeader } from '../../src/vba/vb6/frmHeader';
+import { readFrxRecords } from '../../src/vba/vb6/frx';
+import type { FrmControl, FrmHeader } from '../../src/vba/vb6/frmHeader';
 import {
 	applyFrmDesignerOp, frmDesignerOpOfGesture, twipsOfPt, vb6FormHandlerPrefix, vb6HeaderEndOf, vb6PendingRecordsToWrite,
-} from '../src/vba/vb6/frmDesignerOps';
-import type { FrmDesignerOp } from '../src/vba/vb6/frmDesignerOps';
-import { VB6_TOOLBOX, vb6CanvasKind, vb6ControlName } from '../src/vba/vb6/frmScene';
-import { appendVb6Sidecar, applyVb6FormDesignerOp, readVb6FormPreview, vb6SidecarFileFor } from '../src/vba/projectService';
+} from '../../src/vba/vb6/frmDesignerOps';
+import type { FrmDesignerOp } from '../../src/vba/vb6/frmDesignerOps';
+import { VB6_TOOLBOX, vb6CanvasKind, vb6ControlName } from '../../src/vba/vb6/frmScene';
+import { appendVb6Sidecar, applyVb6FormDesignerOp, readVb6FormPreview, vb6SidecarFileFor } from '../../src/vba/projectService';
 
 // Designer gestures as header rewrites, measured on the fixture forms: a
 // gesture that changes nothing returns the file's own bytes, a real gesture
 // is a header-only diff, and every result parses back.
 
-const ROOT = path.join(__dirname, 'fixtures', 'vb6');
+const ROOT = path.join(__dirname, '..', 'fixtures', 'vb6');
 const FORM1 = path.join(ROOT, 'RunAsTrustedInstaller', 'Form1.frm');
 const FRM_INFO = path.join(ROOT, 'polyworks', 'frmInfo.frm');
 const FRM_PREFERENCES = path.join(ROOT, 'polyworks', 'frmPreferences.frm');

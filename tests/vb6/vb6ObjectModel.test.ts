@@ -1,25 +1,25 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { getVb6ObjectModel } from '../src/analyzer/host/vb6ObjectModel';
-import { EMPTY_HOST_MODEL, hostObjectModelForToken } from '../src/analyzer/host/hostRegistry';
+import { getVb6ObjectModel } from '../../src/analyzer/host/vb6ObjectModel';
+import { EMPTY_HOST_MODEL, hostObjectModelForToken } from '../../src/analyzer/host/hostRegistry';
 import {
 	getHostEvents,
 	getHostMembers,
 	getHostType,
 	resolveHostConstant,
 	resolveHostGlobal,
-} from '../src/analyzer/host/hostModel';
+} from '../../src/analyzer/host/hostModel';
 import {
 	analyzeModule,
 	resolveEventHandlerCompletions,
 	resolveIdentifierCompletions,
 	resolveMemberCompletions,
 	resolveSignatureHelp,
-} from '../src/analyzer';
-import { readVb6Modules } from '../src/vba/vb6/vb6Project';
-import { frmMembers, parseFrmHeader } from '../src/vba/vb6/frmHeader';
-import { blankDesignerHeader } from '../src/vba/moduleSource';
+} from '../../src/analyzer';
+import { readVb6Modules } from '../../src/vba/vb6/vb6Project';
+import { frmMembers, parseFrmHeader } from '../../src/vba/vb6/frmHeader';
+import { blankDesignerHeader } from '../../src/vba/moduleSource';
 
 // Slice 3 of docs/roadmap_vb6_support.md: the vb6 host model. VBRUN is read
 // from the type library inside msvbvm60.dll; VB (App, Screen, Printer,
@@ -27,7 +27,7 @@ import { blankDesignerHeader } from '../src/vba/moduleSource';
 // twinBASIC's documentation because VB.OLB is not available. The model
 // offers and describes; it never produces a red on its own.
 
-const FIXTURES = path.join(__dirname, 'fixtures', 'vb6');
+const FIXTURES = path.join(__dirname, '..', 'fixtures', 'vb6');
 
 function members(source: string, marker: string, ctx: Record<string, unknown> = {}): string[] {
 	const model = getVb6ObjectModel();

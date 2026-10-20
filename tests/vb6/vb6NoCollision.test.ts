@@ -1,20 +1,20 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as path from 'path';
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock());
 
-import { hostTokenForFileName, hostObjectModelForToken, EMPTY_HOST_MODEL } from '../src/analyzer/host/hostRegistry';
+import { hostTokenForFileName, hostObjectModelForToken, EMPTY_HOST_MODEL } from '../../src/analyzer/host/hostRegistry';
 import {
 	containerAppNameForPath,
 	containerContextValue,
 	isVb6ProjectPath,
 	MACRO_CONTAINER_EXTENSIONS,
-} from '../src/macroContainerUi';
-import { officeHostForPath } from '../src/officeHostApps';
-import { decodeModuleUri, encodeModuleUri } from '../src/xlideFileSystem';
-import { analysisSourceForDocument, moduleDocumentUri, moduleLocationOfDocument } from '../src/vbaDocumentLocation';
-import { listModules, readModules, resetProjectCacheForTests } from '../src/vba/projectService';
-import { moduleKindFromType } from '../src/vbaProjectAnalysis';
+} from '../../src/macroContainerUi';
+import { officeHostForPath } from '../../src/officeHostApps';
+import { decodeModuleUri, encodeModuleUri } from '../../src/xlideFileSystem';
+import { analysisSourceForDocument, moduleDocumentUri, moduleLocationOfDocument } from '../../src/vbaDocumentLocation';
+import { listModules, readModules, resetProjectCacheForTests } from '../../src/vba/projectService';
+import { moduleKindFromType } from '../../src/vbaProjectAnalysis';
 
 // VB6 support arrived beside the workbook engine, never in front of it. This
 // file pins the VBA answers that every VB6 touch point could have moved: the
@@ -84,7 +84,7 @@ describe('the Office containers answer exactly as before VB6', () => {
 });
 
 describe('a project module still has no file of its own', () => {
-	const FIXTURE = path.join(__dirname, 'fixtures', 'binaries', 'FormFixtureVbide.xlsm');
+	const FIXTURE = path.join(__dirname, '..', 'fixtures', 'binaries', 'FormFixtureVbide.xlsm');
 
 	it('lists and reads project modules without a filePath', () => {
 		resetProjectCacheForTests();

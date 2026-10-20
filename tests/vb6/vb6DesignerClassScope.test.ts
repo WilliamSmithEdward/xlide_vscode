@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
+import { analyzeVbaModuleSource } from '../../src/vbaModuleAnalysis';
 
 // A VB6 form or UserControl IS the class its designer makes it. That class's
 // members are the module's own: `Me.Arrange` reaches the MDI form's, and a

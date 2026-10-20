@@ -5,7 +5,7 @@ import {
 	progIdFromNamedValue,
 	progIdsFromValueNames,
 	vb6ProjectAssociation,
-} from '../src/vb6ProjectAssociation';
+} from '../../src/vb6ProjectAssociation';
 
 // F5 on a VB6 project hands the .vbp to the shell. On a machine where
 // nothing claims the extension the shell fails with a bare "Application not

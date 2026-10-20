@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { manifestValue, parseVbpManifest, printVbpManifest } from '../src/vba/vb6/vbpProject';
-import { resetVb6ProjectCacheForTests } from '../src/vba/vb6/vb6Project';
+import { manifestValue, parseVbpManifest, printVbpManifest } from '../../src/vba/vb6/vbpProject';
+import { resetVb6ProjectCacheForTests } from '../../src/vba/vb6/vb6Project';
 import {
 	getProtectionInfo,
 	getProjectInfo,
@@ -13,9 +13,9 @@ import {
 	readModules,
 	validateProject,
 	writeModule,
-} from '../src/vba/projectService';
-import { hostTokenForFileName } from '../src/analyzer/host/hostRegistry';
-import { containerContextValue, MACRO_CONTAINER_GLOB } from '../src/macroContainerUi';
+} from '../../src/vba/projectService';
+import { hostTokenForFileName } from '../../src/analyzer/host/hostRegistry';
+import { containerContextValue, MACRO_CONTAINER_GLOB } from '../../src/macroContainerUi';
 
 // A VB6 project is a `.vbp` manifest over loose text files. The engine
 // answers the same module questions for it that it answers for a workbook,
@@ -23,7 +23,7 @@ import { containerContextValue, MACRO_CONTAINER_GLOB } from '../src/macroContain
 // container. The fixtures are real projects authored in Visual Basic 6
 // (tests/fixtures/vb6/*/NOTICE.md names their source and license).
 
-const FIXTURES = path.join(__dirname, 'fixtures', 'vb6');
+const FIXTURES = path.join(__dirname, '..', 'fixtures', 'vb6');
 const RUN_AS_TI = path.join(FIXTURES, 'RunAsTrustedInstaller', 'Project1.vbp');
 const DIABETES = path.join(FIXTURES, 'Diabetes-prediction-1.0', 'MCD_prj.vbp');
 

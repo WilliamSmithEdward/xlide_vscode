@@ -7,15 +7,15 @@ import { afterEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { decodeCodePage, encodeCodePage } from '../src/vba/codePages';
-import { hostPlatform, setHostPlatform, type HostPlatform } from '../src/vba/hostPlatform';
+import { decodeCodePage, encodeCodePage } from '../../src/vba/codePages';
+import { hostPlatform, setHostPlatform, type HostPlatform } from '../../src/vba/hostPlatform';
 import {
 	readVb6Modules,
 	resetVb6ProjectCacheForTests,
 	setVb6CodePage,
 	vb6CodePage,
 	writeVb6Module,
-} from '../src/vba/vb6/vb6Project';
+} from '../../src/vba/vb6/vb6Project';
 
 const CRLF = '\r\n';
 const MODULE = [

@@ -1,25 +1,25 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { frmControls, parseFrmHeader } from '../src/vba/vb6/frmHeader';
-import type { FrmHeader } from '../src/vba/vb6/frmHeader';
-import { readFrxRecords } from '../src/vba/vb6/frx';
-import { decodeCodePage } from '../src/vba/codePages';
+import { frmControls, parseFrmHeader } from '../../src/vba/vb6/frmHeader';
+import type { FrmHeader } from '../../src/vba/vb6/frmHeader';
+import { readFrxRecords } from '../../src/vba/vb6/frx';
+import { decodeCodePage } from '../../src/vba/codePages';
 import {
 	VB6_CONTROLS, VB6_DEFAULT_EVENTS, VB6_DESIGNER_ONLY_KEYS, VB6_DESIGN_PROPERTIES, VB6_TOOLBOX, listFrmProperties,
 	pictureDataUriOf, sceneOfFrmHeader, twipsToPt, vb6CanvasKind, vb6ControlSpec, vb6MenuCaptions, vb6PaneVocabulary,
-} from '../src/vba/vb6/frmScene';
-import { applyFrmDesignerOp } from '../src/vba/vb6/frmDesignerOps';
-import { getVb6ObjectModel } from '../src/analyzer/host/vb6ObjectModel';
-import { renderFormSceneHtml } from '../src/vba/oforms/preview';
-import type { SceneControl } from '../src/vba/oforms/preview';
-import { formatOleColor, parseOleColor } from '../src/vba/oforms/markup';
-import { frmDisplayValue } from '../src/vba/vb6/frmScene';
+} from '../../src/vba/vb6/frmScene';
+import { applyFrmDesignerOp } from '../../src/vba/vb6/frmDesignerOps';
+import { getVb6ObjectModel } from '../../src/analyzer/host/vb6ObjectModel';
+import { renderFormSceneHtml } from '../../src/vba/oforms/preview';
+import type { SceneControl } from '../../src/vba/oforms/preview';
+import { formatOleColor, parseOleColor } from '../../src/vba/oforms/markup';
+import { frmDisplayValue } from '../../src/vba/vb6/frmScene';
 
 // The VB6 scene adapter, measured on every fixture form: the canvas draws
 // each control the header holds, at the bounds the header states, in points.
 
-const FIXTURES = path.join(__dirname, 'fixtures', 'vb6');
+const FIXTURES = path.join(__dirname, '..', 'fixtures', 'vb6');
 const decode = (b: Buffer): string => decodeCodePage(b, 1252);
 
 function formFiles(dir = FIXTURES): string[] {

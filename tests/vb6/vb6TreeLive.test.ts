@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import * as path from 'path';
 import { readFileSync } from 'fs';
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock({
 	EventEmitter: class {
 		event = vi.fn();
 		fire = vi.fn();
@@ -14,15 +14,15 @@ vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock(
 	},
 }));
 
-import { ProjectExplorer } from '../src/projectExplorer';
-import * as service from '../src/vba/projectService';
+import { ProjectExplorer } from '../../src/projectExplorer';
+import * as service from '../../src/vba/projectService';
 
 // The tree over a real VB6 project on disk, driven through the same bridge
 // calls the extension makes. The engine's own listSubs is proven elsewhere;
 // what this pins is that the tree ASKS for the procedures of every module
 // kind a VB6 project has and turns them into rows.
 
-const PROJECT = path.join(__dirname, 'fixtures', 'vb6', 'RunAsTrustedInstaller', 'Project1.vbp');
+const PROJECT = path.join(__dirname, '..', 'fixtures', 'vb6', 'RunAsTrustedInstaller', 'Project1.vbp');
 
 /** A bridge that answers from the real engine, as the extension host does. */
 function engineBridge(): { call: <T>(method: string, params: Record<string, unknown>) => Promise<T> } {
@@ -84,11 +84,11 @@ describe('the tree over a VB6 project on disk', () => {
 		// URI, so a VB6 module, whose document is its own file, was never the
 		// active one and its row never opened. The tree follows the caret
 		// tracker now, which reads the module the same way for both.
-		const tracker = readFileSync(path.join(__dirname, '..', 'src', 'vbaCaretProcedure.ts'), 'utf8');
+		const tracker = readFileSync(path.join(__dirname, '..', '..', 'src', 'vbaCaretProcedure.ts'), 'utf8');
 		expect(tracker).toContain('moduleLocationOfDocument(editor.document)');
-		const follow = readFileSync(path.join(__dirname, '..', 'src', 'explorerFollow.ts'), 'utf8');
+		const follow = readFileSync(path.join(__dirname, '..', '..', 'src', 'explorerFollow.ts'), 'utf8');
 		expect(follow).toContain('caret.current');
-		const activation = readFileSync(path.join(__dirname, '..', 'src', 'extension.ts'), 'utf8');
+		const activation = readFileSync(path.join(__dirname, '..', '..', 'src', 'extension.ts'), 'utf8');
 		expect(activation).not.toContain('pending = decodeModuleUri(editor.document.uri);');
 
 		const explorer = new ProjectExplorer(engineBridge());

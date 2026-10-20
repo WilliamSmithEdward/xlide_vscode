@@ -11,11 +11,11 @@ import {
 	parseFrmHeader,
 	printFrmHeader,
 	type FrmHeader,
-} from '../src/vba/vb6/frmHeader';
-import { decodeFrxList, readFrxRecords } from '../src/vba/vb6/frx';
-import { decodeCodePage } from '../src/vba/codePages';
-import { readModules, readVb6FormHeaderForTests } from '../src/vba/projectService';
-import { resetVb6ProjectCacheForTests } from '../src/vba/vb6/vb6Project';
+} from '../../src/vba/vb6/frmHeader';
+import { decodeFrxList, readFrxRecords } from '../../src/vba/vb6/frx';
+import { decodeCodePage } from '../../src/vba/codePages';
+import { readModules, readVb6FormHeaderForTests } from '../../src/vba/projectService';
+import { resetVb6ProjectCacheForTests } from '../../src/vba/vb6/vb6Project';
 
 // A VB6 form's designer header and its .frx sidecar, measured on files Visual
 // Basic 6 wrote (tests/fixtures/vb6/*/NOTICE.md). Two oracles run on every
@@ -23,7 +23,7 @@ import { resetVb6ProjectCacheForTests } from '../src/vba/vb6/vb6Project';
 // REGENERATED from the model in the designer's layout is those same bytes -
 // so the layout rules are proven, not assumed.
 
-const ROOT = path.join(__dirname, 'fixtures', 'vb6');
+const ROOT = path.join(__dirname, '..', 'fixtures', 'vb6');
 const decode = (b: Buffer): string => decodeCodePage(b, 1252);
 
 function fixtureForms(): string[] {

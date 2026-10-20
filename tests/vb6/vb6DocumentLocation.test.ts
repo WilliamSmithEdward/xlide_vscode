@@ -2,27 +2,27 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock());
 
-import { blankDesignerHeader, designerHeaderEnd, listProcedures } from '../src/vba/moduleSource';
-import { vbaHeaderBlockEnd } from '../src/vbaSourceScan';
-import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
-import { ownersFromListings, setVb6ModuleOwnersForTests } from '../src/vb6ProjectLocator';
-import { moduleDocumentUri, moduleLocationOfDocument } from '../src/vbaDocumentLocation';
-import { projectIdentityKey } from '../src/projectIdentity';
+import { blankDesignerHeader, designerHeaderEnd, listProcedures } from '../../src/vba/moduleSource';
+import { vbaHeaderBlockEnd } from '../../src/vbaSourceScan';
+import { analyzeVbaModuleSource } from '../../src/vbaModuleAnalysis';
+import { ownersFromListings, setVb6ModuleOwnersForTests } from '../../src/vb6ProjectLocator';
+import { moduleDocumentUri, moduleLocationOfDocument } from '../../src/vbaDocumentLocation';
+import { projectIdentityKey } from '../../src/projectIdentity';
 import {
 	isStandaloneVbaDocument,
 	moduleKindFromDocument,
 	moduleNameFromDocument,
-} from '../src/vbaDocumentIdentity';
+} from '../../src/vbaDocumentIdentity';
 
 // A VB6 module is a file on disk, and the editor shows the whole file - the
 // designer block a form opens with included. The analyzer must see VBA only,
 // at the file's own offsets, and every surface must know which project the
 // file belongs to. These pin both halves.
 
-const FORM = path.join(__dirname, 'fixtures', 'vb6', 'RunAsTrustedInstaller', 'Form1.frm');
-const VBP = path.join(__dirname, 'fixtures', 'vb6', 'RunAsTrustedInstaller', 'Project1.vbp');
+const FORM = path.join(__dirname, '..', 'fixtures', 'vb6', 'RunAsTrustedInstaller', 'Form1.frm');
+const VBP = path.join(__dirname, '..', 'fixtures', 'vb6', 'RunAsTrustedInstaller', 'Project1.vbp');
 
 afterEach(() => {
 	setVb6ModuleOwnersForTests(new Map());
