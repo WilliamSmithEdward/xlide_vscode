@@ -83,5 +83,6 @@ Slow frames remain: the completed run's suggestion delay reached 1.9 seconds.
 The profile also records host heartbeat delays and repeated canonical casing,
 symbol and project-context work. Inclusive profile categories overlap; their
 presence during a slow frame does not prove its cause. The broader latency
-investigation remains open. This change preserves completion recovery when
-host work delays the caret update.
+investigation (#964) stayed open; it was closed as completed on 2026-10-05,
+after this change and #1217. This change preserves completion recovery when host
+work delays the caret update.

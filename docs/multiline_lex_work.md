@@ -102,7 +102,8 @@ build contains this guard over base commit `00e53764`; the source map and bundle
 were preserved before any further code changes. The original workbook was not
 modified, and private source and captures remain in ignored local artifacts.
 
-These runs verify recovery and responsiveness under the recorded workload;
-they are not a controlled UI comparison with earlier builds. The stalling goal
-remains open for the remaining slow frames, repeated context/symbol work and
-the initial small-fixture recovery failure.
+These runs verify recovery and responsiveness under the recorded workload; they
+are not a controlled UI comparison with earlier builds. The stalling goal (#964)
+stayed open for the remaining slow frames, repeated context/symbol work and the
+initial small-fixture recovery failure. #964 was closed as completed on
+2026-10-05, after #1208 and #1217.

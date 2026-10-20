@@ -49,5 +49,6 @@ samples were 43.74, 46.81, 61.86, 96.88 and 37.18 ms. Warm hover took 24.14 ms
 and fresh-edit hover 30.53 ms. Semantic-token provider traces still reached
 57 ms and full diagnostic traces 715 ms. These are command-result observations,
 not menu/tooltip paint measurements or a matched end-to-end comparison.
-Completion remains variable despite the component improvement; issue #985
-stays open for other collectors, cold/early edits and background scheduling.
+Completion remained variable despite the component improvement; issue #985
+stayed open for other collectors, cold/early edits and background scheduling
+until it was closed as completed on 2026-10-05, after #1208 and #1217.

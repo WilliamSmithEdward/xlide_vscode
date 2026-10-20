@@ -59,7 +59,8 @@ metadata showed the caret on the preceding synthetic statement at character
 nonce and preceding-row/focus diagnostics needed to distinguish a missed test
 predicate from an editing/rendering problem. Both profiles were retained.
 This capture is incomplete and is not counted as a passing long-run validation.
-Further diagnosis and sustained validation are required before making the draft PR ready for merge.
+Further diagnosis and sustained validation were needed before the draft PR was
+ready for merge; they follow below.
 
 The unprofiled repeat failed at Backspace cycle 729. Failure diagnostics showed
 the caret on the following line (26445, character 6), while the expected member
@@ -67,7 +68,7 @@ line was now 25 characters instead of the original expression. The preceding
 nonce was visible and focus remained on the native edit context. This is
 consistent with a preceding navigation/edit step operating on the wrong line;
 it does not establish a blocked Backspace command. This repeat is also not
-counted as a pass. Navigation diagnostics and partial sample retention are being
+counted as a pass. Navigation diagnostics and partial sample retention were
 added before changing the probe's behavior or attributing the failure.
 
 The opt-in XLIDE_PERF_NAV_DIAGNOSTICS capture records only caret-row matching,

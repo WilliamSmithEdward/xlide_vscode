@@ -5,12 +5,13 @@ and before falling back to host globals. Repeated mouse positions over one
 unchanged module paid that projection repeatedly, despite parser/lexer caches
 and the existing bounded identifier-completion symbol cache.
 
-The completion cache now lives in `symbols/editorModuleSymbols.ts`, shared with
-hover. Only these read-only editor resolvers borrow the graphs. Other symbol
-builder consumers retain their own graphs. Eight snapshots are retained, keyed
-by complete source, module name and module kind, with least recently used
-eviction. Hover records, scope selection and external documentation are fresh
-for every request.
+The completion cache now lives in `src/analyzer/symbols/editorModuleSymbols.ts`,
+shared with hover. Only read-only editor resolvers borrow the graphs; since
+#1034 and #1247 they include the editor project context and assignment-value
+enums. Other symbol builder consumers, some of which mutate their graphs, retain
+their own. Eight snapshots are retained, keyed by complete source, module name
+and module kind, with least recently used eviction. Hover records, scope
+selection and external documentation are fresh for every request.
 
 ## Reproduce
 

@@ -29,20 +29,22 @@ pure collector benchmark.
 
 ## Regression coverage
 
-- `referenceLocalScopeWork.test.ts` checks complete read/write results on six
-  fresh large-class revisions, bounds lexer/split inputs below 300 characters,
-  and proves zero member-surface/value-fact requests on the local path.
+- `tests/referenceLocalScopeWork.test.ts` checks complete read/write results on
+  six fresh large-class revisions, bounds lexer/split inputs below 300
+  characters, and proves zero member-surface/value-fact requests on the local
+  path.
 - The same test checks an unmatched qualified member through the whole
   collector, preserves the default declaration metadata, keeps cross-module
   Function result references, and verifies an indented Unicode parameter with
   mixed physical line endings.
-- `identifierOccurrenceRange.test.ts` verifies default cache reuse and both
-  single-name/multiple-name ephemeral scans, preserving continued comment
+- `tests/identifierOccurrenceRange.test.ts` verifies default cache reuse and
+  both single-name/multiple-name ephemeral scans, preserving continued comment
   context and absolute positions.
-- `editorSurfaces.test.ts` checks actual highlight declaration/read/write ranges
-  after six edits in a 700-method class and rejects semantic read/write highlights
-  for an unmatched member (VS Code can still supply its generic Text fallback). The native large-class harness checks physical keyboard
-  recovery and mouse hovers with fresh source revisions.
+- `src/test/editorSurfaces.test.ts` checks actual highlight
+  declaration/read/write ranges after six edits in a 700-method class and
+  rejects semantic read/write highlights for an unmatched member (VS Code can
+  still supply its generic Text fallback). The native large-class harness checks
+  physical keyboard recovery and mouse hovers with fresh source revisions.
 
 The private workload and all exported source, bundles, captures and observations
 stay local and ignored. Reproducible public regressions contain synthetic code.

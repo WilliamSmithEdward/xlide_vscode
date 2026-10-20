@@ -14,9 +14,10 @@ coloring use the same helper for declaration, Set-assignment and With lookup.
 Receiver declarations are indexed once per immutable procedure/module AST.
 Parameters still precede locals, locals precede module fields, and the existing
 first declaration/depth-first traversal wins. Untyped declarations still shadow
-host globals. Fresh source edits create new ASTs and therefore new indexes;
-WeakMaps follow AST lifetime without retaining older snapshots. No response
-waits were added.
+host globals. Fresh source edits create new ASTs and therefore new indexes
+(since #1021 and #1034, procedures the parser reuses unchanged keep their
+declaration index); WeakMaps follow AST lifetime without retaining older
+snapshots. No response waits were added.
 
 ## Reproduce
 
@@ -32,8 +33,8 @@ cases cover precedence, untyped shadows, duplicate declarations, invalid spans,
 source edits and unchanged earlier snapshots.
 
 The optional actual-workbook benchmark reads ROneCOne without modifying it.
-AST parsing is outside the timed region; scope/declaration indexes are fresh
-for every source snapshot:
+AST parsing is outside the timed region; scope/declaration indexes were fresh
+for every source snapshot when these results were recorded:
 
 ~~~powershell
 $env:XLIDE_PERF_WORKBOOK = 'F:\GitHub\xlide\xlide_vscode_testing\ROneCOne_Delegates_Demo.xlsm'
@@ -64,5 +65,6 @@ declaration edit to hover was 81.15 ms. Semantic-token provider traces remained
 50–64 ms. These command-result measurements are not menu/tooltip paint timings
 or an isolated end-to-end before/after comparison.
 
-Full parsing, other semantic collectors and background scheduling still need
-work under issue #985.
+Full parsing, other semantic collectors and background scheduling still needed
+work under issue #985, which was closed as completed on 2026-10-05, after #1208
+and #1217.

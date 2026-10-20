@@ -26,10 +26,11 @@ warm-up. The casing request verifies three edits on one line at the module end.
 | Warm non-type position check | 0.2993 | 0.0013 |
 | Warm line casing | 1.8767 | 0.8087 |
 
-These are analyzer component timings, not keyboard-to-paint measurements.
-The cached cursor context is warm; this change does not remove source lexing or
-prefix-array construction after an edit. Long runs of newline tokens still
-require skipping those tokens to preserve the existing detector's semantics.
+These are analyzer component timings, not keyboard-to-paint measurements. The
+cached cursor context is warm; this change does not remove source lexing or
+prefix-array construction after an edit (#976 later bounded the prefix arrays,
+and #993 and #1148 the lexing). Long runs of newline tokens still require
+skipping those tokens to preserve the existing detector's semantics.
 
 The work-count regression observed 6,001 prefix token reads before the change
 and seven afterwards for an ordinary expression. Behavioral coverage includes

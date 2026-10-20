@@ -1,8 +1,9 @@
 # Editor performance checks
 
-`editorSurfacePerformance.test.ts` checks work counts and behavior for completion,
-hover, local context reuse, and the loop synchronization typing listener. Timing
-is opt-in so ordinary CI checks do not depend on the host's load.
+`tests/editorSurfacePerformance.test.ts` checks work counts and behavior for
+completion, hover, local context reuse, and the loop synchronization typing
+listener. Timing is opt-in so ordinary CI checks do not depend on the host's
+load.
 
 Run the synthetic benchmark from the repository root in PowerShell:
 

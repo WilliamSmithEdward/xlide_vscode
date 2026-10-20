@@ -9,13 +9,16 @@ semantic coloring all consume the cached lexer.
 The cache now tries the newest source of a compatible size. Small expression
 lookups do not hide the active module. A small edit without physical newline
 changes re-lexes the surrounding logical line, verifies its terminating newline,
-and reuses the other tokens. Offset changes clone suffix tokens and trivia rather
+and reuses the other tokens. #1185 later extended reuse to nearby edits
+spanning several lines when they keep the same line breaks (see
+`multiline_lex_work.md`). Offset changes clone suffix tokens and trivia rather
 than mutating previous snapshots.
 
 Sources below 4 KiB, replacements over 128 characters, physical newline changes,
-split CRLF boundaries, logical windows over 16 KiB, and a lost terminating newline
-use the full lexer. Cold sources still use the full lexer. The existing eight-entry
-cache stays bounded. No response delay was added.
+split CRLF boundaries, logical windows over 16 KiB, and a lost terminating
+newline use the full lexer. Cold sources still use the full lexer. The existing
+eight-entry cache stays bounded (#1176 later split it into module and
+short-lookup pools of eight each). No response delay was added.
 
 ## Reproduce
 
@@ -56,13 +59,14 @@ Early insertions still clone most suffix tokens because their absolute offsets
 change. Equal-length replacements can reuse suffix tokens directly.
 
 The real VS Code 1.139.1 harness with compatible-source selection recorded
-edit-to-completion results of 162.65, 160.66, 93.66, 126.83 and 75.05 ms.
-Fresh declaration edit to hover took 95.86 ms. These are individual observations,
-not an isolated before/after comparison or a claim of instantaneous response.
-Provider traces still showed 43–82 ms completion work and 62–82 ms semantic-token
-work. A final run of all 17 editor checks recorded completion results of 166.44,
-110.12, 78.29, 141.08 and 69.07 ms, and fresh-edit hover of 111.77 ms.
-Full parsing and background work remain targets for issue #985.
+edit-to-completion results of 162.65, 160.66, 93.66, 126.83 and 75.05 ms. Fresh
+declaration edit to hover took 95.86 ms. These are individual observations, not
+an isolated before/after comparison or a claim of instantaneous response.
+Provider traces still showed 43–82 ms completion work and 62–82 ms
+semantic-token work. A final run of all 17 editor checks recorded completion
+results of 166.44, 110.12, 78.29, 141.08 and 69.07 ms, and fresh-edit hover of
+111.77 ms. Full parsing and background work were left to issue #985, closed as
+completed on 2026-10-05, after #1208 and #1217.
 
 Portable checks compare every insertion/deletion position in a lexical fixture
 against the full lexer, including canonical keywords, UTF-16 offsets, physical

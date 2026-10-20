@@ -55,7 +55,8 @@ declaration edit to hover took 71.84 ms. Completion provider traces were 17–65
 and semantic coloring still took 75–76 ms. These are individual observations,
 not an isolated end-to-end before/after comparison or menu-paint measurements.
 
-Full parsing and semantic/background work remain targets for issue #985.
+Full parsing and semantic/background work were left to issue #985, closed as
+completed on 2026-10-05, after #1208 and #1217.
 The optional hover harness can encounter automatic casing between computing and
 applying an edit. It now retries rejected edits with current positions, without
 sleeping, counts the attempts and includes all attempts in the measured latency.

@@ -24,13 +24,13 @@ constant work for every malformed source.
 
 ## Regression evidence
 
-`cursorLexerWindowWork.test.ts` compares complete token metadata and cursor
-decisions with the unchanged full-prefix API at every offset of public lexical
-fixtures under all three line endings. It checks fresh source revisions near
-both ends of a large synthetic module, positive declaration and qualified type
-positions, comments, continuations, sparse-tail fallback, absolute line numbers,
-and JSON serialization. The cold-query tests count actual lexer input and
-full-stream misses rather than warming that cache first.
+`tests/cursorLexerWindowWork.test.ts` compares complete token metadata and
+cursor decisions with the unchanged full-prefix API at every offset of public
+lexical fixtures under all three line endings. It checks fresh source revisions
+near both ends of a large synthetic module, positive declaration and qualified
+type positions, comments, continuations, sparse-tail fallback, absolute line
+numbers, and JSON serialization. The cold-query tests count actual lexer input
+and full-stream misses rather than warming that cache first.
 
 Additional local checks compared 47,272 complete cursor contexts and 6,770 type
 answers with frozen previous implementations. All agreed. The cursor checks

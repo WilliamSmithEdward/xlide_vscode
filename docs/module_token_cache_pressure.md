@@ -103,7 +103,9 @@ and resolved hovers on this workload. The controlled analyzer comparison
 establishes the cache-pressure improvement. Intervening main changes,
 profiling, renderer scheduling and the repaired hover navigation limit any
 comparison of overall UI speed with earlier captures. Multi-line lexical
-fallback and repeated project-context construction remain follow-up targets.
+fallback and repeated project-context construction remained follow-up targets.
+#1185 later kept nearby edits that preserve line breaks on the incremental
+lexer (see `multiline_lex_work.md`).
 
 The public cache regressions can be run with
 `npx vitest run tests/moduleTokenCachePressure.test.ts`. The full unit suite uses

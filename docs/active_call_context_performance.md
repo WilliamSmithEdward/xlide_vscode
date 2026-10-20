@@ -44,7 +44,8 @@ recorded no self samples in `findParenCall`, while index scans and GC remain.
 Run conditions vary, so these repeats establish correctness and remove known
 unbounded work, rather than proving all scheduling outliers are gone.
 
-The full unit suite passed 14,491 tests across 730 files, with 33 tests and seven
-files intentionally skipped. All 131 focused call/completion/signature cases
-passed; the optional private-corpus differential check passed all 18 cases.
-The intermittent latency goal and issues #964/#985 remain open.
+The full unit suite passed 14,491 tests across 730 files, with 33 tests and
+seven files intentionally skipped. All 131 focused call/completion/signature
+cases passed; the optional private-corpus differential check passed all 18
+cases. The intermittent latency goal stayed open after this change; issues #964
+and #985 were closed as completed on 2026-10-05, after #1208 and #1217.
