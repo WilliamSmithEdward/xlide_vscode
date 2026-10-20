@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { PushFn } from '../src/analyzer/diagnostics/analysisContext';
-import { checkDocComments } from '../src/analyzer/diagnostics/rules/docComments';
-import { parseModule } from '../src/analyzer/parser/parseModule';
+import type { PushFn } from '../../src/analyzer/diagnostics/analysisContext';
+import { checkDocComments } from '../../src/analyzer/diagnostics/rules/docComments';
+import { parseModule } from '../../src/analyzer/parser/parseModule';
 
 const counters = vi.hoisted(() => ({startReads: 0}));
-vi.mock('../src/analyzer/docs/docComment', async (importOriginal) => {
-	const actual = await importOriginal<typeof import('../src/analyzer/docs/docComment')>();
+vi.mock('../../src/analyzer/docs/docComment', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('../../src/analyzer/docs/docComment')>();
 	return {...actual, leadingDocLines: (...args: Parameters<typeof actual.leadingDocLines>) =>
 		actual.leadingDocLines(...args).map(line => {
 			const start = line.start;

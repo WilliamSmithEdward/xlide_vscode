@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseMetadataFile } from '../src/analyzer/docs/externalDoc';
+import { parseMetadataFile } from '../../src/analyzer/docs/externalDoc';
 
 describe('external documentation member recovery', () => {
 	it('returns no entries for a long suffix of unclosed members', () => {

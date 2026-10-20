@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { analyzeModule, extractLeadingDoc, extractModuleHeaderDoc, resolveDiagnosticCodeActions } from '../src/analyzer';
-import { attachedCommentsStart, leadingDocLines, scanDocTags } from '../src/analyzer/docs/docComment';
-import { moveToModule } from '../src/analyzer/refactor/moveToModule';
-import { encapsulateField } from '../src/analyzer/refactor/encapsulateField';
-import { applyVbaTextEdits } from '../src/analyzer/refactor/refactorTypes';
+import { analyzeModule, extractLeadingDoc, extractModuleHeaderDoc, resolveDiagnosticCodeActions } from '../../src/analyzer';
+import { attachedCommentsStart, leadingDocLines, scanDocTags } from '../../src/analyzer/docs/docComment';
+import { moveToModule } from '../../src/analyzer/refactor/moveToModule';
+import { encapsulateField } from '../../src/analyzer/refactor/encapsulateField';
+import { applyVbaTextEdits } from '../../src/analyzer/refactor/refactorTypes';
 
 const doc = "''' <summary>Preserved description.</summary>";
 const directive = "' @xlide-analysis-disable-next-member unused-procedure";

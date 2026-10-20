@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { scanAnalysisSuppressions } from '../src/analyzer';
-import { discoverVbaTestsFromModule } from '../src/vbaTestRunner';
+import { scanAnalysisSuppressions } from '../../src/analyzer';
+import { discoverVbaTestsFromModule } from '../../src/vbaTestRunner';
 import {
 	buildModuleSymbols,
 	DocRegistry,
@@ -11,7 +11,7 @@ import {
 	renderDocMarkdown,
 	resolveHover,
 	resolveSignatureHelp,
-} from '../src/analyzer';
+} from '../../src/analyzer';
 
 describe('parseDocBody', () => {
 	it('parses XML tags into a doc model', () => {

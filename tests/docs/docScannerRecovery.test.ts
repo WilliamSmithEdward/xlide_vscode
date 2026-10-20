@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { leadingDocLines, parseDocBody, scanDocTags } from '../src/analyzer/docs/docComment';
+import { leadingDocLines, parseDocBody, scanDocTags } from '../../src/analyzer/docs/docComment';
 
 function tagsOf(source: string) {
 	return scanDocTags(leadingDocLines(source, source.indexOf('Sub P')))!;

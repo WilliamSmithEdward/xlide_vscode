@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { leadingDocLines, scanDocTags } from '../src/analyzer/docs/docComment';
+import { leadingDocLines, scanDocTags } from '../../src/analyzer/docs/docComment';
 
 describe('documentation tag source mapping', () => {
     it.each(['\n', '\r\n'])('keeps physical spans across directives and multiline tags (%j)', (eol) => {
