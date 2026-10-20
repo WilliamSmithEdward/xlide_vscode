@@ -10,13 +10,15 @@ npx vitest run tests/docs/ tests/annotations/
 npx vitest run tests/conditional/ tests/constants/
 npx vitest run tests/projectAnalysis/
 npx vitest run tests/navigation/
+npx vitest run tests/projectManagement/
 npm run check-types
 ```
 
 ## Where tests belong
 
+- `projectManagement/`: project identity/selection, module file operations, external file changes, tab/URI handling, password protection, and lock reporting. Shared protection fixtures stay in `helpers/` and `fixtures/`.
 - `navigation/`: symbol references and their kinds, definition lookup, reference-collector work, rename validation, cross-module/class/form renames, rename undo history, current-procedure lookup, and caret/selection tracking. Project library references and reference-related diagnostic rules are separate concerns.
-- `projectAnalysis/`: project-wide analysis/results, symbol graphs and indexes, contribution reuse, editor project context, multi-project isolation, and analysis worker lifecycle/cancellation/errors, shared and incremental analysis, diagnostic snapshots, and live analysis across project boundaries. File operations, protection, and stored reference metadata are separate concerns.
+- `projectAnalysis/`: project-wide analysis/results, symbol graphs and indexes, contribution reuse, editor project context, multi-project isolation, and analysis worker lifecycle/cancellation/errors, shared and incremental analysis, diagnostic snapshots, and live analysis across project boundaries. File operations and protection belong in `projectManagement/`; stored reference metadata is a separate concern.
 - `constants/`: integer literal parsing, constant-expression evaluation, dependency resolution, and stack-safety regressions.
 - `conditional/`: conditional compilation, compiler/project constants, constant replay, inactive arms, lookup reuse, and expression stack safety. Diagnostic-rule tests stay in `diagnostics/`.
 - `annotations/`: attribute annotation parsing/rewriting, duplicates, physical lines, and folder annotation parsing/equivalence.
