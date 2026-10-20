@@ -1,5 +1,5 @@
 import {beforeEach, expect, it, vi} from 'vitest';
-import type {HostObjectModel} from '../src/analyzer/host/excelObjectModel';
+import type {HostObjectModel} from '../../src/analyzer/host/excelObjectModel';
 
 beforeEach(() => vi.resetModules());
 function model(version: string): HostObjectModel {
@@ -19,7 +19,7 @@ function merged(first: HostObjectModel, second: HostObjectModel): HostObjectMode
 }
 
 it.each([0, 1])('refreshes complete merged metadata when provider %i is replaced', async position => {
-	const registry = await import('../src/analyzer/host/hostRegistry');
+	const registry = await import('../../src/analyzer/host/hostRegistry');
 	const models = [model('Primary'), model('Secondary')];
 	registry.registerHostObjectModel('project', () => models[0]);
 	registry.registerHostObjectModel('visio', () => models[1]);
@@ -37,7 +37,7 @@ it.each([0, 1])('refreshes complete merged metadata when provider %i is replaced
 });
 
 it('invalidates every cached ordering that includes the replaced token', async () => {
-	const registry = await import('../src/analyzer/host/hostRegistry');
+	const registry = await import('../../src/analyzer/host/hostRegistry');
 	const old = model('Old'), other = model('Other'), next = model('Next');
 	registry.registerHostObjectModel('project', () => old);
 	registry.registerHostObjectModel('visio', () => other);
@@ -49,7 +49,7 @@ it('invalidates every cached ordering that includes the replaced token', async (
 });
 
 it('treats re-registration of the same factory as a refresh', async () => {
-	const registry = await import('../src/analyzer/host/hostRegistry');
+	const registry = await import('../../src/analyzer/host/hostRegistry');
 	let current = model('Old');
 	const provider = () => current;
 	registry.registerHostObjectModel('project', provider);
@@ -61,7 +61,7 @@ it('treats re-registration of the same factory as a refresh', async () => {
 });
 
 it('keeps unaffected merged models cached', async () => {
-	const registry = await import('../src/analyzer/host/hostRegistry');
+	const registry = await import('../../src/analyzer/host/hostRegistry');
 	registry.registerHostObjectModel('visio', () => model('Visio'));
 	registry.registerHostObjectModel('outlook', () => model('Outlook'));
 	const before = registry.hostObjectModelForTokens(['visio', 'outlook']);
@@ -70,7 +70,7 @@ it('keeps unaffected merged models cached', async () => {
 });
 
 it('includes newly registered tokens and retains absent/excel defaults', async () => {
-	const registry = await import('../src/analyzer/host/hostRegistry');
+	const registry = await import('../../src/analyzer/host/hostRegistry');
 	registry.registerHostObjectModel('visio', () => model('Visio'));
 	registry.registerHostObjectModel('outlook', () => model('Outlook'));
 	registry.hostObjectModelForTokens(['project', 'visio', 'outlook']);

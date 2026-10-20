@@ -6,7 +6,7 @@
 // pinned the fault to the procedure path rather than to the name.
 
 import { describe, expect, it } from 'vitest';
-import { analyzeModule } from '../src/analyzer';
+import { analyzeModule } from '../../src/analyzer';
 
 /** The reported member-not-found messages, which is all this is about. */
 function memberNotFound(source: string, moduleType: 'class' | 'standard' | 'document' = 'class'): string[] {

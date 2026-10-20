@@ -11,11 +11,11 @@
 // the VBE on all seven receivers tried.
 
 import { describe, expect, it } from 'vitest';
-import { analyzeModule } from '../src/analyzer/diagnostics/analyzeModule';
+import { analyzeModule } from '../../src/analyzer/diagnostics/analyzeModule';
 import {
 	EXCEL_CLOSED_TYPE_NAMES,
 	hostTypeResolvesWhenCompiling,
-} from '../src/analyzer/host/typeExtensibility';
+} from '../../src/analyzer/host/typeExtensibility';
 
 const found = (body: string): string[] => analyzeModule(
 	['Option Explicit', '', 'Public Sub P(ws As Worksheet, rng As Range, wb As Workbook)',

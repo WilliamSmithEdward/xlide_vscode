@@ -1,7 +1,7 @@
 import {expect, it} from 'vitest';
-import {EMPTY_HOST_MODEL, hostObjectModelForTokens} from '../src/analyzer/host/hostRegistry';
-import {withResolvedHostModel} from '../src/analyzer/diagnostics/analyzeModule';
-import {analyzeModule} from '../src/analyzer';
+import {EMPTY_HOST_MODEL, hostObjectModelForTokens} from '../../src/analyzer/host/hostRegistry';
+import {withResolvedHostModel} from '../../src/analyzer/diagnostics/analyzeModule';
+import {analyzeModule} from '../../src/analyzer';
 
 const cases = [['word', 'excel'], ['excel', 'word'], ['word', 'excel', 'powerpoint']].flatMap(tokens => ['upper', 'spaces', 'mixed'].map(mode => ({tokens, mode})));
 it.each(cases)('normalizes $tokens using $mode before selecting and caching merged providers', ({tokens, mode}) => {

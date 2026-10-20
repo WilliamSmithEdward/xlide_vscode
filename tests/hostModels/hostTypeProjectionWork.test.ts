@@ -1,7 +1,7 @@
 import {expect, it} from 'vitest';
-import {typeCompletionCandidates} from '../src/analyzer/completion/typeCompletion';
-import {checkMissingLibraryReference} from '../src/analyzer/diagnostics/rules/missingReference';
-import type {HostObjectModel, HostType} from '../src/analyzer/host/excelObjectModel';
+import {typeCompletionCandidates} from '../../src/analyzer/completion/typeCompletion';
+import {checkMissingLibraryReference} from '../../src/analyzer/diagnostics/rules/missingReference';
+import type {HostObjectModel, HostType} from '../../src/analyzer/host/excelObjectModel';
 
 function measuredModel(hostName = 'Excel') {
     let keyScans = 0, typeReads = 0;

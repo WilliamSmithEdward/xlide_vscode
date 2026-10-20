@@ -1,21 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { getWordObjectModel } from '../src/analyzer/host/wordObjectModel';
-import { getPowerPointObjectModel } from '../src/analyzer/host/powerpointObjectModel';
-import { getAccessObjectModel } from '../src/analyzer/host/accessObjectModel';
-import { getExcelObjectModel, type HostObjectModel } from '../src/analyzer/host/excelObjectModel';
+import { getWordObjectModel } from '../../src/analyzer/host/wordObjectModel';
+import { getPowerPointObjectModel } from '../../src/analyzer/host/powerpointObjectModel';
+import { getAccessObjectModel } from '../../src/analyzer/host/accessObjectModel';
+import { getExcelObjectModel, type HostObjectModel } from '../../src/analyzer/host/excelObjectModel';
 import {
 	getHostMembers,
 	resolveHostAlias,
 	resolveHostConstant,
 	resolveHostGlobal,
 	resolveMemberReturnType,
-} from '../src/analyzer/host/hostModel';
+} from '../../src/analyzer/host/hostModel';
 import {
 	analyzeModule,
 	resolveIdentifierCompletions,
 	resolveMemberCompletions,
 	resolveSignatureHelp,
-} from '../src/analyzer';
+} from '../../src/analyzer';
 
 // Issue #25. The measured number this replaces: Word's ThisDocument answered
 // 1 member - the Sub in its own module - because the only model that existed

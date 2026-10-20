@@ -1,6 +1,6 @@
 import {describe, expect, it, vi} from 'vitest';
-import {libraryTypeNames} from '../src/analyzer/host/libraryTypeNames';
-import {analyzeModule} from '../src/analyzer';
+import {libraryTypeNames} from '../../src/analyzer/host/libraryTypeNames';
+import {analyzeModule} from '../../src/analyzer';
 
 describe('referenced library type lookup', () => {
 	it.each(['constructor', 'CONSTRUCTOR', '__proto__'])('treats inherited name %s as an unknown library', name => {

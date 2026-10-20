@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { getHostMembers } from '../src/analyzer/host/hostModel';
-import { hostObjectModelForToken } from '../src/analyzer/host/hostRegistry';
-import { applicationMemberNames } from '../src/analyzer/diagnostics/analysisContext';
-import { analyzeModule, resolveMemberCompletions } from '../src/analyzer';
-import { byCode } from './helpers/diagnostics';
-import { analyzeProjectModule } from './diagnostics/helpers';
+import { getHostMembers } from '../../src/analyzer/host/hostModel';
+import { hostObjectModelForToken } from '../../src/analyzer/host/hostRegistry';
+import { applicationMemberNames } from '../../src/analyzer/diagnostics/analysisContext';
+import { analyzeModule, resolveMemberCompletions } from '../../src/analyzer';
+import { byCode } from '../helpers/diagnostics';
+import { analyzeProjectModule } from '../diagnostics/helpers';
 
 // Issue #56: the model carries the type library's plumbing, and until now
 // nothing marked it. A member is now flagged when the library says hidden or

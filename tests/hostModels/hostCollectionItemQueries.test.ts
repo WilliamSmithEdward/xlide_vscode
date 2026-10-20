@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { checkRuntimeMemberNotFound } from '../src/analyzer/diagnostics/rules/lateBoundMembers';
-import { getExcelObjectModel, type HostMember } from '../src/analyzer/host/excelObjectModel';
-import { getHostMembers } from '../src/analyzer/host/hostModel';
-import { parseModule } from '../src/analyzer/parser/parseModule';
-import { buildModuleSymbols } from '../src/analyzer/symbols/buildModuleSymbols';
+import { checkRuntimeMemberNotFound } from '../../src/analyzer/diagnostics/rules/lateBoundMembers';
+import { getExcelObjectModel, type HostMember } from '../../src/analyzer/host/excelObjectModel';
+import { getHostMembers } from '../../src/analyzer/host/hostModel';
+import { parseModule } from '../../src/analyzer/parser/parseModule';
+import { buildModuleSymbols } from '../../src/analyzer/symbols/buildModuleSymbols';
 
 function fixture(members: HostMember[], n = 2, collection = 'Worksheets') {
 	const base = getExcelObjectModel();

@@ -17,14 +17,14 @@
 import { describe, expect, it } from 'vitest';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { getWordObjectModel } from '../src/analyzer/host/wordObjectModel';
-import { getPowerPointObjectModel } from '../src/analyzer/host/powerpointObjectModel';
-import { getAccessObjectModel } from '../src/analyzer/host/accessObjectModel';
-import { getExcelObjectModel, type HostObjectModel } from '../src/analyzer/host/excelObjectModel';
-import { OFFICE_REFERENCE_ENUM_CONSTANTS } from '../src/analyzer/host/officeReferenceConstants';
-import { DAO_REFERENCE_ENUM_CONSTANTS } from '../src/analyzer/host/daoReferenceConstants';
-import { MSFORMS_REFERENCE_ENUM_CONSTANTS } from '../src/analyzer/host/msformsReferenceMembers';
-import { getHostConstants, resolveHostConstant } from '../src/analyzer/host/hostModel';
+import { getWordObjectModel } from '../../src/analyzer/host/wordObjectModel';
+import { getPowerPointObjectModel } from '../../src/analyzer/host/powerpointObjectModel';
+import { getAccessObjectModel } from '../../src/analyzer/host/accessObjectModel';
+import { getExcelObjectModel, type HostObjectModel } from '../../src/analyzer/host/excelObjectModel';
+import { OFFICE_REFERENCE_ENUM_CONSTANTS } from '../../src/analyzer/host/officeReferenceConstants';
+import { DAO_REFERENCE_ENUM_CONSTANTS } from '../../src/analyzer/host/daoReferenceConstants';
+import { MSFORMS_REFERENCE_ENUM_CONSTANTS } from '../../src/analyzer/host/msformsReferenceMembers';
+import { getHostConstants, resolveHostConstant } from '../../src/analyzer/host/hostModel';
 
 interface EnumDump {
 	kind: string;
@@ -33,7 +33,7 @@ interface EnumDump {
 }
 
 function dumpDirectory(host: string): string {
-	return join(__dirname, '..', 'reference', host, 'json');
+	return join(__dirname, '..', '..', 'reference', host, 'json');
 }
 
 /** Lowercased name -> the values and enum types the host's dumps carry for it. */

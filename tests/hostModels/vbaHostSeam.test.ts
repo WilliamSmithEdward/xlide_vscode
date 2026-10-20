@@ -4,10 +4,10 @@ import {
 	hostObjectModelForToken,
 	hostTokenForFileName,
 	registerHostObjectModel,
-} from '../src/analyzer/host/hostRegistry';
-import { getExcelObjectModel } from '../src/analyzer/host/excelObjectModel';
-import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
-import { AnalysisWorkerState } from '../src/analysisWorkerLogic';
+} from '../../src/analyzer/host/hostRegistry';
+import { getExcelObjectModel } from '../../src/analyzer/host/excelObjectModel';
+import { analyzeVbaModuleSource } from '../../src/vbaModuleAnalysis';
+import { AnalysisWorkerState } from '../../src/analysisWorkerLogic';
 
 // Issue #24. The resolvers have always accepted any HostObjectModel and
 // defaulted to Excel; this is the seam that lets a caller choose, with the

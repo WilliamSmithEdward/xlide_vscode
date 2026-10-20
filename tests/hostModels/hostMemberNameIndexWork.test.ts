@@ -1,6 +1,6 @@
 import {describe, expect, it, vi} from 'vitest';
-import {isHostMemberName, isHostMemberNameAnywhere} from '../src/analyzer/host/hostModel';
-import type {HostObjectModel, HostType} from '../src/analyzer/host/excelObjectModel';
+import {isHostMemberName, isHostMemberNameAnywhere} from '../../src/analyzer/host/hostModel';
+import type {HostObjectModel, HostType} from '../../src/analyzer/host/excelObjectModel';
 
 function modelWith(count: number): HostObjectModel {
 	const types: Record<string, HostType> = {};

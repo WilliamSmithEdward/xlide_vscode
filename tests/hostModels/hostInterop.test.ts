@@ -9,26 +9,26 @@ import {
 	readModules,
 	readModulesFromBuffer,
 	removeReference,
-} from '../src/vba/projectService';
+} from '../../src/vba/projectService';
 import {
 	buildRegisteredReference,
 	HOST_LIBRARIES,
 	insertReferenceRecords,
 	removeReferenceRecords,
-} from '../src/vba/vbaProjectReferences';
-import { decompress } from '../src/vba/ovba';
-import { librariesNamedIn } from '../src/analyzer/diagnostics/rules/missingReference';
-import { openMacroContainer } from '../src/vba/macroContainer';
-import { analyzeModule } from '../src/analyzer/diagnostics/analyzeModule';
-import { resolveMemberCompletions } from '../src/analyzer/completion/memberAccess';
-import { resolveTypeCompletions } from '../src/analyzer/completion/typeCompletion';
-import { resolveHover } from '../src/analyzer/hover/resolveHover';
+} from '../../src/vba/vbaProjectReferences';
+import { decompress } from '../../src/vba/ovba';
+import { librariesNamedIn } from '../../src/analyzer/diagnostics/rules/missingReference';
+import { openMacroContainer } from '../../src/vba/macroContainer';
+import { analyzeModule } from '../../src/analyzer/diagnostics/analyzeModule';
+import { resolveMemberCompletions } from '../../src/analyzer/completion/memberAccess';
+import { resolveTypeCompletions } from '../../src/analyzer/completion/typeCompletion';
+import { resolveHover } from '../../src/analyzer/hover/resolveHover';
 import {
 	hostTokenForLibid,
 	hostTokensForProject,
 	libraryGuidOf,
-} from '../src/analyzer/host/hostLibraries';
-import { hostObjectModelForTokens } from '../src/analyzer/host/hostRegistry';
+} from '../../src/analyzer/host/hostLibraries';
+import { hostObjectModelForTokens } from '../../src/analyzer/host/hostRegistry';
 
 // A project can reference another application's library and name its types:
 // a Word document with a reference to Excel compiles `Dim xl As
@@ -140,7 +140,7 @@ describe('a real document that references another application', () => {
 	// write a real reference record, so the fixture is authored by it; the
 	// engine reads it natively from here on.
 	const modules = readModulesFromBuffer(
-		fs.readFileSync(path.join(__dirname, 'fixtures', 'binaries', 'WordExcelInteropFixture.docm')),
+		fs.readFileSync(path.join(__dirname, '..', 'fixtures', 'binaries', 'WordExcelInteropFixture.docm')),
 		true,
 	);
 	const bridge = modules.find((one) => one.name === 'Bridge')!;
@@ -193,7 +193,7 @@ describe('a real document that references another application', () => {
 });
 
 describe('listing a project references', () => {
-	const fixture = path.join(__dirname, 'fixtures', 'binaries', 'WordExcelInteropFixture.docm');
+	const fixture = path.join(__dirname, '..', 'fixtures', 'binaries', 'WordExcelInteropFixture.docm');
 
 	it('reports each one as Tools > References shows it', () => {
 		const refs = listReferences(fixture);
@@ -205,7 +205,7 @@ describe('listing a project references', () => {
 	});
 
 	it('answers for a project that references nothing unusual', () => {
-		const plain = path.join(__dirname, 'fixtures', 'binaries', 'ShapesFixture.xlsm');
+		const plain = path.join(__dirname, '..', 'fixtures', 'binaries', 'ShapesFixture.xlsm');
 
 		expect(listReferences(plain).map((one) => one.name)).toEqual(['stdole', 'Office']);
 	});
@@ -277,7 +277,7 @@ describe('adding a reference the project is missing', () => {
 	let dir: string;
 	const copy = (fixture: string): string => {
 		const target = path.join(dir, fixture);
-		fs.copyFileSync(path.join(__dirname, 'fixtures', 'binaries', fixture), target);
+		fs.copyFileSync(path.join(__dirname, '..', 'fixtures', 'binaries', fixture), target);
 		return target;
 	};
 	/** The compiled cache Office keeps beside the source. */
@@ -388,7 +388,7 @@ describe('adding a reference the project is missing', () => {
 		}
 		// The fourth, from the other side: a document gaining Excel.
 		const doc = path.join(dir, 'WordExcelInteropFixture.docm');
-		fs.copyFileSync(path.join(__dirname, 'fixtures', 'binaries', 'WordExcelInteropFixture.docm'), doc);
+		fs.copyFileSync(path.join(__dirname, '..', 'fixtures', 'binaries', 'WordExcelInteropFixture.docm'), doc);
 		expect(hostTokensForProject('word', listReferences(doc))).toContain('excel');
 	});
 
@@ -447,7 +447,7 @@ describe('taking a reference away again', () => {
 	let dir: string;
 	const copy = (fixture: string): string => {
 		const target = path.join(dir, fixture);
-		fs.copyFileSync(path.join(__dirname, 'fixtures', 'binaries', fixture), target);
+		fs.copyFileSync(path.join(__dirname, '..', 'fixtures', 'binaries', fixture), target);
 		return target;
 	};
 	/** The reference records themselves, as the host reads them. */

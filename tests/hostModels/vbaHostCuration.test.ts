@@ -6,24 +6,24 @@ import fs from 'node:fs';
 // took 5 to 10 seconds and failed on the 5-second default.
 vi.setConfig({ testTimeout: 30_000 });
 import path from 'node:path';
-import { getExcelObjectModel, type HostObjectModel } from '../src/analyzer/host/excelObjectModel';
-import { getWordObjectModel } from '../src/analyzer/host/wordObjectModel';
-import { getPowerPointObjectModel } from '../src/analyzer/host/powerpointObjectModel';
-import { getAccessObjectModel } from '../src/analyzer/host/accessObjectModel';
+import { getExcelObjectModel, type HostObjectModel } from '../../src/analyzer/host/excelObjectModel';
+import { getWordObjectModel } from '../../src/analyzer/host/wordObjectModel';
+import { getPowerPointObjectModel } from '../../src/analyzer/host/powerpointObjectModel';
+import { getAccessObjectModel } from '../../src/analyzer/host/accessObjectModel';
 import {
 	getHostMembers,
 	resolveHostConstant,
 	resolveHostEnum,
 	resolveMemberReturnType,
-} from '../src/analyzer/host/hostModel';
-import { derivedConstantDoc, derivedMemberDoc } from '../src/analyzer/host/hostMemberDocs';
+} from '../../src/analyzer/host/hostModel';
+import { derivedConstantDoc, derivedMemberDoc } from '../../src/analyzer/host/hostMemberDocs';
 import {
 	analyzeModule,
 	resolveArgumentValueCompletion,
 	resolveHover,
 	resolveMemberCompletions,
 	resolveTypeCompletions,
-} from '../src/analyzer';
+} from '../../src/analyzer';
 
 // The type libraries are faithful but lossy: an accessor that hands
 // back a real object is declared `As Object`, a property's declared type never
@@ -50,7 +50,7 @@ describe('generic Object returns are repaired', () => {
 		// from the corpus instead; disagreeing with a transcribed answer is the
 		// failure this guards, and the count guards silent shrinkage of the rules.
 		const { readDumps, createCurator, classNamesIn, CLASS_KINDS } =
-			await import('../scripts/reference-curation.mjs');
+			await import("../../scripts/reference-curation.mjs");
 		const dumps = readDumps(CORPUS);
 		const curator = createCurator({
 			dumps,
@@ -146,7 +146,7 @@ describe('generic Object returns are repaired', () => {
 		// existed nowhere at all. Completion offered every one of them. The dump is
 		// introspected from the type library, so it decides what a type has - and
 		// anything it omits has to be justified in the set above.
-		const { readDumps } = await import('../scripts/reference-curation.mjs');
+		const { readDumps } = await import("../../scripts/reference-curation.mjs");
 		const dumps = readDumps(CORPUS) as Map<string, Record<string, Array<{ name: string }>>>;
 		// The dumps come from the documentation, which leaves out the members
 		// the library marks hidden - `Workbook.Title`, `Worksheet.OnEntry` -

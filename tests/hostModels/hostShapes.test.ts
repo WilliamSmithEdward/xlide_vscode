@@ -2,12 +2,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { editShape, listShapes, shapeMacros } from '../src/vba/projectService';
-import { PRESET_GEOMETRY, PRESET_LABELS } from '../src/vba/shapes';
+import { editShape, listShapes, shapeMacros } from '../../src/vba/projectService';
+import { PRESET_GEOMETRY, PRESET_LABELS } from '../../src/vba/shapes';
 
 /** The shape types the agent tool's schema offers. */
 const toolTypes = (): string[] => {
-	const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
+	const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'package.json'), 'utf8'));
 	const tool = manifest.contributes.languageModelTools
 		.find((one: { name: string }) => one.name === 'xlide_editShape');
 	return tool.inputSchema.properties.type.enum;
@@ -18,7 +18,7 @@ const toolTypes = (): string[] => {
 // here is that a file reaches the right one, that a macro is validated
 // against the project before it is written, and that each host refuses what
 // it cannot do in its own words.
-const FIXTURES = path.join(__dirname, 'fixtures', 'binaries');
+const FIXTURES = path.join(__dirname, '..', 'fixtures', 'binaries');
 
 let dir: string;
 const copy = (fixture: string, as = fixture): string => {

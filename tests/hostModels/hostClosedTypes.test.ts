@@ -7,12 +7,12 @@
 // whatever is named on them.
 
 import { describe, expect, it } from 'vitest';
-import { analyzeModule } from '../src/analyzer';
-import { getAccessObjectModel } from '../src/analyzer/host/accessObjectModel';
-import { getPowerPointObjectModel } from '../src/analyzer/host/powerpointObjectModel';
-import { getWordObjectModel } from '../src/analyzer/host/wordObjectModel';
-import { hostTypeResolvesWhenCompiling } from '../src/analyzer/host/typeExtensibility';
-import { byCode } from './helpers/diagnostics';
+import { analyzeModule } from '../../src/analyzer';
+import { getAccessObjectModel } from '../../src/analyzer/host/accessObjectModel';
+import { getPowerPointObjectModel } from '../../src/analyzer/host/powerpointObjectModel';
+import { getWordObjectModel } from '../../src/analyzer/host/wordObjectModel';
+import { hostTypeResolvesWhenCompiling } from '../../src/analyzer/host/typeExtensibility';
+import { byCode } from '../helpers/diagnostics';
 
 const found = (src: string, hostModel: ReturnType<typeof getWordObjectModel>): string[] =>
 	byCode(analyzeModule(src, { hostModel, moduleKind: 'standard' }), 'member-not-found').map((one) => one.message);

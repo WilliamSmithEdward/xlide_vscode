@@ -1,9 +1,9 @@
-import {resolveAssignmentValueCompletion} from '../src/analyzer/completion/assignmentValueCompletion';
-import {buildModuleSymbols} from '../src/analyzer/symbols/buildModuleSymbols';
-import {getExcelObjectModel} from '../src/analyzer/host/excelObjectModel';
+import {resolveAssignmentValueCompletion} from '../../src/analyzer/completion/assignmentValueCompletion';
+import {buildModuleSymbols} from '../../src/analyzer/symbols/buildModuleSymbols';
+import {getExcelObjectModel} from '../../src/analyzer/host/excelObjectModel';
 import {expect,it} from 'vitest';
-import {analyzeProjectModule} from './diagnostics/helpers';
-import {checkMissingLibraryReference,librariesNamedIn} from '../src/analyzer/diagnostics/rules/missingReference';
+import {analyzeProjectModule} from '../diagnostics/helpers';
+import {checkMissingLibraryReference,librariesNamedIn} from '../../src/analyzer/diagnostics/rules/missingReference';
 const missing=(source:string)=>analyzeProjectModule(source,[],'Caller').filter(d=>d.code==='missing-library-reference');
 it.each([
  'Sub T()\nDim Word As Range\nWord.HorizontalAlignment = xlHAlignCenter\nEnd Sub',

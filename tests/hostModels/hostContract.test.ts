@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { analyzeModule } from '../src/analyzer';
-import { moduleKindFromType } from '../src/vbaProjectAnalysis';
-import { hostObjectModelForToken, EMPTY_HOST_MODEL } from '../src/analyzer/host/hostRegistry';
-import { getWordObjectModel } from '../src/analyzer/host/wordObjectModel';
+import { analyzeModule } from '../../src/analyzer';
+import { moduleKindFromType } from '../../src/vbaProjectAnalysis';
+import { hostObjectModelForToken, EMPTY_HOST_MODEL } from '../../src/analyzer/host/hostRegistry';
+import { getWordObjectModel } from '../../src/analyzer/host/wordObjectModel';
 
 // Guards the claims in docs/host_contract.md. That document tells a host
 // outside this repo - the VBE add-in, whose CodeModule returns code and nothing
