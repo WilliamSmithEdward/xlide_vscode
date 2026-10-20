@@ -1,10 +1,10 @@
 import * as vscode from 'vscode';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock());
 
-import { openVbaTestResults, renderVbaTestResultsHtml, setVbaTestResultsRunning } from '../src/vbaTestResultsWebview';
-import type { VbaTestRunReport } from '../src/vbaTestRunner';
+import { openVbaTestResults, renderVbaTestResultsHtml, setVbaTestResultsRunning } from '../../src/vbaTestResultsWebview';
+import type { VbaTestRunReport } from '../../src/vbaTestRunner';
 
 describe('VBA test results webview', () => {
     beforeEach(() => {

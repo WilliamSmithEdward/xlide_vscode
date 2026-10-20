@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { ProjectEngine } from '../src/projectEngine';
-import { fakeProjectEngine } from './helpers/fakeProjectEngine';
+import type { ProjectEngine } from '../../src/projectEngine';
+import { fakeProjectEngine } from '../helpers/fakeProjectEngine';
 import {
     createVbaTestRunReport,
     describeVbaTestSelection,
@@ -10,7 +10,7 @@ import {
     summarizeVbaTestTags,
     summarizeVbaTestRun,
     validateVbaTestDirectivesFromModule,
-} from '../src/vbaTestRunner';
+} from '../../src/vbaTestRunner';
 
 describe('VBA test runner discovery', () => {
     it('discovers only explicitly annotated no-argument standard-module Subs', () => {

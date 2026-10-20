@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { vbaTestFailureMessage } from '../src/vbaTestFailureMessages';
+import { vbaTestFailureMessage } from '../../src/vbaTestFailureMessages';
 
 describe('VBA test failure messages', () => {
     it('strips host protocol prefixes and keeps plain messages intact', () => {

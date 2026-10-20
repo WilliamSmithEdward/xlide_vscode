@@ -3,22 +3,22 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 
-vi.mock('../src/vbaTestSupportStatus', () => ({ getVbaTestSupportStatus: vi.fn() }));
-vi.mock('../src/officeComAvailability', () => ({ checkOfficeComAvailability: vi.fn() }));
-vi.mock('../src/vbaTestExecution', () => ({ runProjectVbaTests: vi.fn() }));
-vi.mock('../src/vbaTestArtifacts', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('../src/vbaTestArtifacts')>();
+vi.mock('../../src/vbaTestSupportStatus', () => ({ getVbaTestSupportStatus: vi.fn() }));
+vi.mock('../../src/officeComAvailability', () => ({ checkOfficeComAvailability: vi.fn() }));
+vi.mock('../../src/vbaTestExecution', () => ({ runProjectVbaTests: vi.fn() }));
+vi.mock('../../src/vbaTestArtifacts', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('../../src/vbaTestArtifacts')>();
     return { ...actual, writeVbaTestRunArtifacts: vi.fn(actual.writeVbaTestRunArtifacts) };
 });
 
-import type { ProjectEngine } from '../src/projectEngine';
-import { checkOfficeComAvailability, type OfficeComAvailabilityStatus } from '../src/officeComAvailability';
-import { getVbaTestSupportStatus, type VbaTestSupportStatus } from '../src/vbaTestSupportStatus';
-import { runProjectVbaTests, type VbaTestRunExecution } from '../src/vbaTestExecution';
-import { writeVbaTestRunArtifacts } from '../src/vbaTestArtifacts';
-import { executeVbaTestRun, type VbaTestRunPipelineRunner } from '../src/vbaTestRunPipeline';
-import type { VbaTestCase, VbaTestRunReport } from '../src/vbaTestRunner';
-import { writeProjectSettings } from '../src/projectSettings';
+import type { ProjectEngine } from '../../src/projectEngine';
+import { checkOfficeComAvailability, type OfficeComAvailabilityStatus } from '../../src/officeComAvailability';
+import { getVbaTestSupportStatus, type VbaTestSupportStatus } from '../../src/vbaTestSupportStatus';
+import { runProjectVbaTests, type VbaTestRunExecution } from '../../src/vbaTestExecution';
+import { writeVbaTestRunArtifacts } from '../../src/vbaTestArtifacts';
+import { executeVbaTestRun, type VbaTestRunPipelineRunner } from '../../src/vbaTestRunPipeline';
+import type { VbaTestCase, VbaTestRunReport } from '../../src/vbaTestRunner';
+import { writeProjectSettings } from '../../src/projectSettings';
 
 const tempRoots: string[] = [];
 

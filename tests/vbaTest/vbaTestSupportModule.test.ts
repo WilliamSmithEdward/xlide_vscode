@@ -4,7 +4,7 @@ import {
     XLIDE_ASSERT_MODULE_NAME,
     XLIDE_ASSERT_MODULE_REVISION,
     XLIDE_ASSERT_MODULE_SOURCE,
-} from '../src/vbaTestSupportModule';
+} from '../../src/vbaTestSupportModule';
 
 describe('VBA test support module', () => {
     it('exports a standard-module assertion API callable as XlideAssert.*', () => {
