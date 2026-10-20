@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
-import { readModule } from '../src/vba/projectService';
-import { tokenizeCached } from '../src/analyzer/lexer/tokenize';
-import { parseModule } from '../src/analyzer/parser/parseModule';
+import { readModule } from '../../src/vba/projectService';
+import { tokenizeCached } from '../../src/analyzer/lexer/tokenize';
+import { parseModule } from '../../src/analyzer/parser/parseModule';
 
 it.skipIf(!process.env.XLIDE_PERF_WORKBOOK)('measures prefix parsing at early middle and late class positions', () => {
     const original = readModule(process.env.XLIDE_PERF_WORKBOOK!, 'ROneCOne').source;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseModule } from '../src/analyzer/parser/parseModule';
+import { parseModule } from '../../src/analyzer/parser/parseModule';
 
 // The recursive-descent expression parser documents a "Never throws" contract.
 // Pathological nesting must not overflow the JS stack with a RangeError.
