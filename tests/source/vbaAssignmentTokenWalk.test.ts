@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
-import { topLevelEqualsIndex } from '../src/analyzer/lexer/tokenHelpers';
-import { tokenize } from '../src/analyzer/lexer/tokenize';
+import { topLevelEqualsIndex } from '../../src/analyzer/lexer/tokenHelpers';
+import { tokenize } from '../../src/analyzer/lexer/tokenize';
 
 it.each([
 	['target = Call(x = 1)', 1],

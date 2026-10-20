@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { moduleNamePositionKind } from '../src/vbaModuleNamePosition';
+import { moduleNamePositionKind } from '../../src/vbaModuleNamePosition';
 
 // Issue #9 rule 3. The caller supplies "nothing else resolved here"; this
 // answers "and it stands where only a module can".

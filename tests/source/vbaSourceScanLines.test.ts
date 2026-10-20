@@ -11,7 +11,7 @@ import {
 	offsetToLineColumn,
 	physicalLineSpanAtOffset,
 	wholeLineSpan,
-} from '../src/vbaSourceScan';
+} from '../../src/vbaSourceScan';
 
 const SOURCE = 'Sub A()\r\n    x = 1\r\nEnd Sub';
 

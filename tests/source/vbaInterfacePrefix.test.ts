@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { interfacePrefixHits, renameInterfacePrefixes } from '../src/vbaInterfacePrefix';
+import { interfacePrefixHits, renameInterfacePrefixes } from '../../src/vbaInterfacePrefix';
 
 // Issue #9 rule 4: `Private Sub IShape_Draw()` binds the implementation to the
 // interface named by `Implements IShape`. The prefix is a contract - rename the

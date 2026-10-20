@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyModuleEdits, readModuleParts, splitModuleLines } from '../src/moduleParts';
+import { applyModuleEdits, readModuleParts, splitModuleLines } from '../../src/moduleParts';
 
 // Line numbers, 1-based, as xlide_readModule shows them:
 //  1 '@Folder("X")          10     Value = m

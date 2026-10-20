@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { lineStartAtAnyBreak, wholeLineSpanAnyBreak } from '../src/vbaSourceScan';
+import { lineStartAtAnyBreak, wholeLineSpanAnyBreak } from '../../src/vbaSourceScan';
 describe('wholeLineSpanAnyBreak', () => {
     it.each(['\n', '\r\n', '\r'])('includes one complete physical line and its break (%j)', eol => {
         const first = 'before' + eol, target = '    Dim one As Long', source = first + target + eol + 'after';

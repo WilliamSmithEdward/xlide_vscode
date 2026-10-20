@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock());
 
-import { parseModule } from '../src/analyzer/parser/parseModule';
-import { requiredParameterNames } from '../src/commands/shared';
+import { parseModule } from '../../src/analyzer/parser/parseModule';
+import { requiredParameterNames } from '../../src/commands/shared';
 
 function firstProcedure(src: string) {
     const proc = parseModule(src).members.find((member) => member.kind === 'Procedure');

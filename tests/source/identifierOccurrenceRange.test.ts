@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { findIdentifierOccurrences, findIdentifierOccurrencesForNames } from '../src/vbaSourceScan';
+import { findIdentifierOccurrences, findIdentifierOccurrencesForNames } from '../../src/vbaSourceScan';
 
 describe('identifier occurrence range', () => {
 	it.each(['\n', '\r\n', '\r'])('retains source positions and comment context for %j', eol => {

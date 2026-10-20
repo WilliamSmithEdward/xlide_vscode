@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { listModuleMembers, listProcedures } from '../src/vba/moduleSource';
-import { memberThemeIconName, orderModuleMembers, type ModuleMemberEntry } from '../src/moduleDisplay';
+import { listModuleMembers, listProcedures } from '../../src/vba/moduleSource';
+import { memberThemeIconName, orderModuleMembers, type ModuleMemberEntry } from '../../src/moduleDisplay';
 
 // Issue #1341: the explorer lists a module's Enums and Types beside its
 // procedures, in an order the user picks.
