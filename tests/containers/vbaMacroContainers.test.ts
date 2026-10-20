@@ -14,15 +14,15 @@ import {
 	validateProject,
 	writeCells,
 	writeModule,
-} from '../src/vba/projectService';
-import { openMacroContainer } from '../src/vba/macroContainer';
+} from '../../src/vba/projectService';
+import { openMacroContainer } from '../../src/vba/macroContainer';
 
 // Issues #24/#25, engine half: every macro container Office writes, read (and
 // written where the write path is sound) natively. Each fixture here was
 // authored by the live application itself through pyVBAharness, so the bytes
 // are Office ground truth, not synthetic approximations.
 
-const FIXTURES = path.join(__dirname, 'fixtures', 'binaries');
+const FIXTURES = path.join(__dirname, '..', 'fixtures', 'binaries');
 const fixture = (name: string): string => path.join(FIXTURES, name);
 
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-containers-'));
@@ -168,7 +168,7 @@ describe('the containers behave as their formats require', () => {
 		// "Entry not found: xl/workbook.xml" and getProjectInfo threw
 		// outright instead of answering the modules.
 		const target = path.join(tempRoot, 'BinaryBook.xlsb');
-		fs.copyFileSync(path.join(__dirname, '..', 'assets', 'templates', 'blank.xlsb'), target);
+		fs.copyFileSync(path.join(__dirname, '..', '..', 'assets', 'templates', 'blank.xlsb'), target);
 
 		expect(() => readCells(target, 'Sheet1', 'A1'))
 			.toThrow(/binary Excel workbook \(\.xlsb\).*VBA editing is unaffected/);
@@ -278,9 +278,9 @@ describe('Access databases take writes through their own storage', () => {
 // through a minimal bridge shim (the plan layer is bridge-driven and never
 // looks at the container itself).
 
-import type { ProjectEngine } from '../src/projectEngine';
-import { buildExportModuleSyncPlan, buildImportModuleSyncPlan } from '../src/moduleSyncPlan';
-import * as svc from '../src/vba/projectService';
+import type { ProjectEngine } from '../../src/projectEngine';
+import { buildExportModuleSyncPlan, buildImportModuleSyncPlan } from '../../src/moduleSyncPlan';
+import * as svc from '../../src/vba/projectService';
 
 function realServiceBridge(): ProjectEngine {
 	return {
@@ -344,8 +344,8 @@ describe('the module sync plans cover the non-Excel containers', () => {
 // The unit-test staging pipeline over a non-Excel container: the same staging
 // the Run VBA Tests command performs, against a real Word fixture.
 
-import { discoverVbaTestsFromModule } from '../src/vbaTestRunner';
-import { stageOwnedReadOnlyTestHost } from '../src/vbaTestHostStaging';
+import { discoverVbaTestsFromModule } from '../../src/vbaTestRunner';
+import { stageOwnedReadOnlyTestHost } from '../../src/vbaTestHostStaging';
 
 describe('test staging covers Word containers', () => {
 	it('stages assert, runner and dispatcher modules into a .docm copy', async () => {
@@ -396,8 +396,8 @@ describe('test staging covers Word containers', () => {
 // container-agnostic, and this fixture (a form authored by Word's own VBE,
 // with two controls and code-behind) proves it outside Excel.
 
-import { readFormExport, writeFormDesigner } from '../src/vba/projectService';
-import { parseFormFrx } from '../src/vba/formDesigner';
+import { readFormExport, writeFormDesigner } from '../../src/vba/projectService';
+import { parseFormFrx } from '../../src/vba/formDesigner';
 
 describe('a Word document with a UserForm', () => {
 	it('classifies the form and reads its designer-declared controls', () => {
@@ -431,8 +431,8 @@ describe('a Word document with a UserForm', () => {
 // ---------------------------------------------------------------------------
 // Malformed input stays graceful: honest errors, never hangs or crashes.
 
-import { accessVbaCfb, isAccessDatabase } from '../src/vba/accessDatabase';
-import { MacroContainerError } from '../src/vba/macroContainer';
+import { accessVbaCfb, isAccessDatabase } from '../../src/vba/accessDatabase';
+import { MacroContainerError } from '../../src/vba/macroContainer';
 
 describe('malformed containers fail honestly', () => {
 	it('rejects non-container bytes with a clear message', () => {
@@ -540,7 +540,7 @@ describe('the remaining containers nothing had exercised', () => {
 		['blank.pptm', ['Module1']],
 		['blank.potm', ['Module1']],
 	])('the %s template parses and accepts a module write', (template, expected) => {
-		const source = path.join(__dirname, '..', 'assets', 'templates', template);
+		const source = path.join(__dirname, '..', '..', 'assets', 'templates', template);
 		const target = path.join(tempRoot, `seeded-${template}`);
 		fs.copyFileSync(source, target);
 		expect(listModules(target).map((module) => module.name))
@@ -555,7 +555,7 @@ describe('the remaining containers nothing had exercised', () => {
 // The export APPLY over a Word form: the same writer the export command uses,
 // producing a real .frm/.frx pair on disk from a non-Excel container.
 
-import { exportProjectModules } from '../src/moduleExport';
+import { exportProjectModules } from '../../src/moduleExport';
 
 describe('exporting a Word document with a form writes the pair to disk', () => {
 	it('lands FrmNotice.frm and FrmNotice.frx beside the .bas/.cls files', async () => {

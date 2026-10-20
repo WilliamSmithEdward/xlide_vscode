@@ -1,20 +1,20 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { Cfb } from '../src/vba/cfb';
-import { compress, decompress } from '../src/vba/ovba';
-import { VbaProject, detectSignature } from '../src/vba/vbaProject';
-import { ZipArchive } from '../src/vba/zip';
-import { XlsxWorkbook } from '../src/vba/xlsx';
-import * as svc from '../src/vba/projectService';
-import { makeTempDir, removeTempDirs } from './helpers/tempDirs';
+import { Cfb } from '../../src/vba/cfb';
+import { compress, decompress } from '../../src/vba/ovba';
+import { VbaProject, detectSignature } from '../../src/vba/vbaProject';
+import { ZipArchive } from '../../src/vba/zip';
+import { XlsxWorkbook } from '../../src/vba/xlsx';
+import * as svc from '../../src/vba/projectService';
+import { makeTempDir, removeTempDirs } from '../helpers/tempDirs';
 
 afterAll(removeTempDirs);
 
 // The bundled blank workbook is a real macro-enabled package (OOXML ZIP + a
 // vbaProject.bin CFB), so these run the whole native stack without needing any
 // workbook from outside the repo.
-const TEMPLATE_DIR = path.join(__dirname, '..', 'assets', 'templates');
+const TEMPLATE_DIR = path.join(__dirname, '..', '..', 'assets', 'templates');
 const TEMPLATE = path.join(TEMPLATE_DIR, 'blank.xlsm');
 
 function tempCopy(): string {
@@ -431,7 +431,7 @@ describe('packaged assets', () => {
 		expect(fs.existsSync(path.join(TEMPLATE_DIR, file))).toBe(true);
 
 		const ignore = fs.readFileSync(
-			path.join(__dirname, '..', ignoreFile), 'utf8',
+			path.join(__dirname, '..', '..', ignoreFile), 'utf8',
 		).split(/\r?\n/).map((line) => line.trim());
 
 		const excluded = ignore.indexOf(`${prefix}${ext}`);

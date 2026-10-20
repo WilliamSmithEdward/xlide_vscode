@@ -12,9 +12,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { describe, expect, it } from 'vitest';
-import { Cfb } from '../src/vba/cfb';
+import { Cfb } from '../../src/vba/cfb';
 
-const FIXTURE = path.join(__dirname, 'fixtures', 'binaries', 'Version4Storage.cfb');
+const FIXTURE = path.join(__dirname, '..', 'fixtures', 'binaries', 'Version4Storage.cfb');
 
 /** The bytes the fixture's streams were written with; they differ sector to sector. */
 function pattern(seed: number, length: number): Buffer {

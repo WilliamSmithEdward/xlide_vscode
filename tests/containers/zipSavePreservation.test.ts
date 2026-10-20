@@ -1,9 +1,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { containerCodec, setContainerCodec } from '../src/vba/containerCodec';
-import { openMacroContainer } from '../src/vba/macroContainer';
-import { ZipArchive } from '../src/vba/zip';
+import { containerCodec, setContainerCodec } from '../../src/vba/containerCodec';
+import { openMacroContainer } from '../../src/vba/macroContainer';
+import { ZipArchive } from '../../src/vba/zip';
 
 const codec = containerCodec();
 afterEach(() => setContainerCodec(codec));
@@ -13,7 +13,7 @@ afterEach(() => setContainerCodec(codec));
 describe('Office saves retain untouched compressed parts', () => {
     it.each(['SheetsFixture.xlsm', 'WordFixture.docm', 'PowerPointFixture.pptm'])(
         '%s compresses only the VBA project, including on repeated saves', (file) => {
-            const seed = ZipArchive.read(fs.readFileSync(path.join(__dirname, 'fixtures', 'binaries', file)));
+            const seed = ZipArchive.read(fs.readFileSync(path.join(__dirname, '..', 'fixtures', 'binaries', file)));
             const attachment = Buffer.from('<row><cell>untouched content</cell></row>'.repeat(100000));
             seed.write('attachment.xml', attachment);
             const original = seed.toBytes();

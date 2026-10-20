@@ -2,10 +2,10 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { AddVbaProjectError, addVbaProjectToPackage } from '../src/vba/addVbaProject';
-import { addVbaProject, hasVbaProject, listModules, readModule, writeModule } from '../src/vba/projectService';
-import { Cfb } from '../src/vba/cfb';
-import { ZipArchive } from '../src/vba/zip';
+import { AddVbaProjectError, addVbaProjectToPackage } from '../../src/vba/addVbaProject';
+import { addVbaProject, hasVbaProject, listModules, readModule, writeModule } from '../../src/vba/projectService';
+import { Cfb } from '../../src/vba/cfb';
+import { ZipArchive } from '../../src/vba/zip';
 
 // "Add VBA Project" on a file saved in a macro-enabled format before its
 // first macro. Every expectation below is what the application itself wrote
@@ -13,8 +13,8 @@ import { ZipArchive } from '../src/vba/zip';
 // Excel's code names, module order, module headers and PROJECT lines, and
 // each application's content type and relationship for the part.
 
-const FIXTURES = path.join(__dirname, 'fixtures', 'binaries');
-const TEMPLATES = path.join(__dirname, '..', 'assets', 'templates');
+const FIXTURES = path.join(__dirname, '..', 'fixtures', 'binaries');
+const TEMPLATES = path.join(__dirname, '..', '..', 'assets', 'templates');
 
 const dirs: string[] = [];
 function scratch(fixture: string, name = fixture): string {

@@ -1,13 +1,13 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { describe, expect, it } from 'vitest';
-import { ZipArchive } from '../src/vba/zip';
-import { sheetsOfOoxml } from '../src/vba/workbookSheets';
+import { ZipArchive } from '../../src/vba/zip';
+import { sheetsOfOoxml } from '../../src/vba/workbookSheets';
 
 // A sheet part far larger than the head that is read for its properties:
 // the prefix read decodes only the first bytes of the deflate stream, and
 // the sheet list still finds the code name at the top of the part.
-const FIXTURES = path.join(__dirname, 'fixtures', 'binaries');
+const FIXTURES = path.join(__dirname, '..', 'fixtures', 'binaries');
 
 function withLargeBudgetSheet(): ZipArchive {
     const zip = ZipArchive.read(fs.readFileSync(path.join(FIXTURES, 'SheetsFixture.xlsm')));

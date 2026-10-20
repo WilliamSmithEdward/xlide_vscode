@@ -19,12 +19,12 @@ import {
 	validateProject,
 	writeCells,
 	writeModule,
-} from '../src/vba/projectService';
+} from '../../src/vba/projectService';
 import {
 	MacroContainerError,
 	NoVbaProjectError,
 	openMacroContainer,
-} from '../src/vba/macroContainer';
+} from '../../src/vba/macroContainer';
 
 // A macro-enabled file with no macros in it is an ordinary state, not a
 // failure to read one: Excel writes no xl/vbaProject.bin part at all into a
@@ -36,7 +36,7 @@ import {
 // Every fixture below was saved by the live application itself and never had
 // any VBA in it, so the bytes are Office ground truth for the empty state.
 
-const FIXTURES = path.join(__dirname, 'fixtures', 'binaries');
+const FIXTURES = path.join(__dirname, '..', 'fixtures', 'binaries');
 const fixture = (name: string): string => path.join(FIXTURES, name);
 
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-novba-'));

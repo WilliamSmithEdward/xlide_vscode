@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { compress, decompress } from '../src/vba/ovba';
-import { openMacroContainer } from '../src/vba/macroContainer';
-import { VbaProject } from '../src/vba/vbaProject';
-import type { Cfb } from '../src/vba/cfb';
+import { compress, decompress } from '../../src/vba/ovba';
+import { openMacroContainer } from '../../src/vba/macroContainer';
+import { VbaProject } from '../../src/vba/vbaProject';
+import type { Cfb } from '../../src/vba/cfb';
 
 // Issue #149, from pyOpenVBA 6.3.0: Office chooses its copy tokens as the
 // LZNT1 engine in ntdll does, and writes one extra empty flag byte when a
 // chunk's last token fills its flag byte. compress() follows the same rule,
 // so a stream Office wrote compresses back to exactly its own bytes.
 
-const FIXTURES = path.join(__dirname, 'fixtures', 'binaries');
+const FIXTURES = path.join(__dirname, '..', 'fixtures', 'binaries');
 
 const hex = (b: Buffer): string => [...b].map((x) => x.toString(16).padStart(2, '0')).join(' ');
 

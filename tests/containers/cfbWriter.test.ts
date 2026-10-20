@@ -2,7 +2,7 @@
 // and the timestamps of storages it creates (issue #137).
 
 import { describe, expect, it } from 'vitest';
-import { Cfb } from '../src/vba/cfb';
+import { Cfb } from '../../src/vba/cfb';
 
 const SECTOR = 512;
 

@@ -2,14 +2,14 @@ import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as zlib from 'zlib';
-import { InflateError, inflate, inflateRaw } from '../src/vba/inflate';
+import { InflateError, inflate, inflateRaw } from '../../src/vba/inflate';
 
 // zlib is the oracle: every case below deflates with Node and asserts that
 // the pure-TS inflate returns bytes identical to inflateRawSync's. The web
 // extension host has no zlib, so this is what stands between a browser build
 // and silently corrupting someone's workbook.
 
-const FIXTURE_DIR = path.join(__dirname, 'fixtures', 'binaries');
+const FIXTURE_DIR = path.join(__dirname, '..', 'fixtures', 'binaries');
 
 /** Every deflate level, including 0 (stored blocks) and 9 (deepest search). */
 const LEVELS = [0, 1, 2, 4, 6, 9];

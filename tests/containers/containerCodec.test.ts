@@ -1,18 +1,18 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { ZipArchive } from '../src/vba/zip';
-import { containerCodec, setContainerCodec } from '../src/vba/containerCodec';
-import { platformCodec as nodeCodec } from '../src/vba/containerCodecNode';
-import { platformCodec as webCodec } from '../src/vba/containerCodecWeb';
-import { openMacroContainer } from '../src/vba/macroContainer';
+import { ZipArchive } from '../../src/vba/zip';
+import { containerCodec, setContainerCodec } from '../../src/vba/containerCodec';
+import { platformCodec as nodeCodec } from '../../src/vba/containerCodecNode';
+import { platformCodec as webCodec } from '../../src/vba/containerCodecWeb';
+import { openMacroContainer } from '../../src/vba/macroContainer';
 
 // The web extension host runs the whole container engine through
 // containerCodecWeb. These hold the two codecs to the same bytes on real
 // containers, which is the difference between a browser build that works and
 // one that quietly writes files Office will not open.
 
-const FIXTURE_DIR = path.join(__dirname, 'fixtures', 'binaries');
+const FIXTURE_DIR = path.join(__dirname, '..', 'fixtures', 'binaries');
 
 /** OOXML packages: the ZIP-based containers, which is where the codec runs. */
 const ZIP_FIXTURES = fs

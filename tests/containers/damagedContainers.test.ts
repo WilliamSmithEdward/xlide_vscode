@@ -1,5 +1,5 @@
-import { VbaProject } from '../src/vba/vbaProject';
-import { openMacroContainer } from '../src/vba/macroContainer';
+import { VbaProject } from '../../src/vba/vbaProject';
+import { openMacroContainer } from '../../src/vba/macroContainer';
 // Damaged compound files and ZIP packages, as the property tests in
 // tests/properties found them. Each reader refuses with its own error; none
 // reads past the end of the file or keeps allocating.
@@ -7,11 +7,11 @@ import { openMacroContainer } from '../src/vba/macroContainer';
 import * as fs from 'fs';
 import * as path from 'path';
 import { describe, expect, it } from 'vitest';
-import { Cfb, CfbError } from '../src/vba/cfb';
-import { ZipArchive, ZipError } from '../src/vba/zip';
-import { readModulesFromBuffer } from '../src/vba/projectService';
+import { Cfb, CfbError } from '../../src/vba/cfb';
+import { ZipArchive, ZipError } from '../../src/vba/zip';
+import { readModulesFromBuffer } from '../../src/vba/projectService';
 
-const FIXTURES = path.join(__dirname, 'fixtures', 'binaries');
+const FIXTURES = path.join(__dirname, '..', 'fixtures', 'binaries');
 const SECTOR = 512;
 
 /** An empty compound file: the header, a FAT sector and a directory sector. */
