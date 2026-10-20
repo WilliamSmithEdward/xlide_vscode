@@ -286,13 +286,13 @@ when the open editor belongs to the requested project. Completion, hover,
 signature help, live diagnostics, semantic tokens, definition/reference/rename,
 current-module analysis, and tree-level class and form rename all use that overlay path
 instead of carrying local workspace-document scans.
-`tests/vbaMultiProjectIsolation.test.ts` locks the shared overlay and
+`tests/projectAnalysis/vbaMultiProjectIsolation.test.ts` locks the shared overlay and
 project-analysis inputs with two same-named open projects so provider surfaces
 stay project-siloed by construction.
 Larger project-analysis regressions should use machine-readable project
 fixtures under `tests/fixtures/vbaProjects/*.json`, loaded by
 `tests/helpers/vbaProjectFixtures.ts` and asserted by
-`tests/vbaProjectWorkbookFixtures.test.ts`. Those fixtures carry module source
+`tests/projectAnalysis/vbaProjectWorkbookFixtures.test.ts`. Those fixtures carry module source
 plus expected project context, member/type/identifier completion, diagnostics,
 semantic-token, hover, and signature-help behavior so multi-surface project
 scenarios do not need bespoke one-off test wiring.
@@ -2089,8 +2089,8 @@ TypeScript dev: `typescript`, `esbuild`, `vitest`, `@types/vscode`, `@types/node
 | New host-member call signature | `src/analyzer/host/excelObjectModel.ts` (`memberSignatures` entry, transcribed + source-verified), `tests/providers/vbaSignatureHelp.test.ts`, `docs/spec/MS-VBAL.verification-map.md` (addendum table), `docs/architecture.md` |
 | New built-in VBA runtime function/statement | `src/analyzer/runtime/vbaRuntime.ts` (signature transcribed + source-verified), `tests/vbaRuntime.test.ts`, `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
 | New built-in VBA runtime constant | `src/analyzer/runtime/vbaRuntime.ts` (constant/type/value transcribed + source-verified), `tests/vbaRuntime.test.ts`, `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
-| New symbol-graph kind/resolution rule | `src/analyzer/symbols/**`, `tests/vbaSymbolGraph.test.ts`, `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
-| New definition/reference/rename scope rule | `src/analyzer/symbols/projectIndex.ts` (`resolveDefinition`/`resolveQualifiedDefinition`/`referenceScope`), `src/analyzer/index.ts` (barrel export), `src/vbaNavigation.ts` / `src/vbaNavigationProviders.ts` (provider wiring + span->range mapping), `tests/vbaSymbolGraph.test.ts`, `docs/architecture.md` |
+| New symbol-graph kind/resolution rule | `src/analyzer/symbols/**`, `tests/projectAnalysis/vbaSymbolGraph.test.ts`, `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
+| New definition/reference/rename scope rule | `src/analyzer/symbols/projectIndex.ts` (`resolveDefinition`/`resolveQualifiedDefinition`/`referenceScope`), `src/analyzer/index.ts` (barrel export), `src/vbaNavigation.ts` / `src/vbaNavigationProviders.ts` (provider wiring + span->range mapping), `tests/projectAnalysis/vbaSymbolGraph.test.ts`, `docs/architecture.md` |
 | New active diagnostic rule | `src/analyzer/diagnostics/ruleMetadata.ts` plus the matching `src/analyzer/diagnostics/rules/<family>.ts` registered in `registry.ts` (rule + MS-VBAL `specReference`), the family's `tests/diagnostics/<family>.test.ts`, `src/vbaLiveDiagnostics.ts` (provider merge + any new config), `package.json` (settings), `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
 | New analyzer quick fix | `src/analyzer/codeActions/diagnosticCodeActions.ts`, `src/vbaCodeActions.ts` (`CodeActionProvider` adapter only when needed), `tests/vbaCodeActions.test.ts`, `docs/roadmap_version_2.x.md`, `docs/architecture.md` |
 | New editor source action | `src/vbaCodeActions.ts`, the matching per-domain module under `src/commands/`, `package.json` (`contributes.commands`/menus), focused tests when a pure helper is added, `docs/roadmap_version_2.x.md`, `docs/architecture.md` |

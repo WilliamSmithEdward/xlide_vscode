@@ -661,5 +661,5 @@ Keeping these out is what lets Priorities 1-4 reach a provable, auditable close.
 - `tests/parser/vbaParser.test.ts`
 - `tests/parser/parseExpression.test.ts`
 - `tests/parser/parseModuleStatements.test.ts`
-- `tests/vbaSymbolGraph.test.ts`
+- `tests/projectAnalysis/vbaSymbolGraph.test.ts`
 - `tests/vbaRuntime.test.ts`

@@ -652,7 +652,7 @@ Recovery rules:
 > cross-module), and duplicate-procedure detection. Cross-module visibility
 > follows MS-VBAL (default-Public procedures exported; Private/Dim/Friend module
 > members stay private; enum members inherit the visibility of their containing
-> `Enum`). Covered by `tests/vbaSymbolGraph.test.ts` (59 tests).
+> `Enum`). Covered by `tests/projectAnalysis/vbaSymbolGraph.test.ts` (59 tests).
 > Verification-map rows added. The AST index now drives the live Go to
 > Definition, Find All References, and Rename providers in
 > `src/vbaLanguageProviders.ts` via `resolveDefinition`,
@@ -1121,7 +1121,7 @@ Required behavior:
 > module-level binding rule here as Option Explicit visibility, while private
 > enum members shadow only their own module. Covered by the `referenceScope`,
 > `resolveDefinition`, and `resolveQualifiedDefinition` cases in
-> `tests/vbaSymbolGraph.test.ts`.
+> `tests/projectAnalysis/vbaSymbolGraph.test.ts`.
 
 ### Goal
 

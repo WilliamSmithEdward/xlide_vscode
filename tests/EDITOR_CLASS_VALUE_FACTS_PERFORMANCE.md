@@ -21,7 +21,7 @@ diagnostic facts in either cache order, unchanged signatures/documentation,
 immutable existing snapshots, and refresh after edits:
 
 ~~~powershell
-npx vitest run tests/editorClassValueFactsPerformance.test.ts
+npx vitest run tests/projectAnalysis/editorClassValueFactsPerformance.test.ts
 ~~~
 
 The optional benchmark reads the real workbook without writing it. Each fresh
@@ -31,7 +31,7 @@ removing only diagnostic knownValue metadata:
 
 ~~~powershell
 $env:XLIDE_PERF_WORKBOOK = 'F:\GitHub\xlide\xlide_vscode_testing\ROneCOne_Delegates_Demo.xlsm'
-npx vitest run tests/memberFactWorkbookPerformance.test.ts
+npx vitest run tests/projectAnalysis/memberFactWorkbookPerformance.test.ts
 ~~~
 
 For real editor completion and hover, the harness uses a disposable workbook
