@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import * as nodeCrypto from 'crypto';
-import { createHash, randomBytes } from '../src/util/webCrypto';
+import { createHash, randomBytes } from '../../src/util/webCrypto';
 
 // node:crypto is the oracle. These digests name module content tokens and
 // backup files, so a web build that computed them differently from the

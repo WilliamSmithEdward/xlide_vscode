@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { isWindows, osPlatform } from '../src/util/osPlatform';
+import { isWindows, osPlatform } from '../../src/util/osPlatform';
 
 // osPlatform() has to READ process.platform on every call, not capture it at
 // import time. `process.platform` never changes in production, so a constant

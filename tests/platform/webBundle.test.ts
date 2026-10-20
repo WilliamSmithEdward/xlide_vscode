@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import * as esbuild from 'esbuild';
 import * as fs from 'fs';
 import * as path from 'path';
-import { raw } from './helpers/projectProtectionFixture';
-import { readModulesFromBuffer } from '../src/vba/projectService';
+import { raw } from '../helpers/projectProtectionFixture';
+import { readModulesFromBuffer } from '../../src/vba/projectService';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { webLeafSwap, webInject, FORBIDDEN_BUILTINS, ROOT } = require('../webBuild.js');
+const { webLeafSwap, webInject, FORBIDDEN_BUILTINS, ROOT } = require("../../webBuild.js");
 
 // A tripwire, not a build step. XLIDE's container engine is dependency-free
 // TypeScript that reaches Node only through the leaf modules webBuild.js
@@ -239,7 +239,7 @@ describe('the container engine bundles for a browser', () => {
 });
 
 describe('the browser bundle actually runs', () => {
-	const FIXTURE = path.join(__dirname, 'fixtures', 'binaries', 'ShapesFixture.xlsm');
+	const FIXTURE = path.join(__dirname, '..', 'fixtures', 'binaries', 'ShapesFixture.xlsm');
 
 	it('reads a real workbook with no Node globals available', async () => {
 		const result = await bundleSource(
@@ -312,7 +312,7 @@ describe('the browser reads and writes a workbook through workspace.fs', () => {
 	// The whole point of the port: load the container through the editor's
 	// filesystem, run the synchronous engine over it, and write back what it
 	// produced. Nothing here touches a real disk except to seed the fixture.
-	const FIXTURE = path.join(__dirname, 'fixtures', 'binaries', 'ShapesFixture.xlsm');
+	const FIXTURE = path.join(__dirname, '..', 'fixtures', 'binaries', 'ShapesFixture.xlsm');
 	const WORKSPACE_PATH = '/repo/Book.xlsm';
 
 	async function loadEngine(files: Map<string, Buffer>) {

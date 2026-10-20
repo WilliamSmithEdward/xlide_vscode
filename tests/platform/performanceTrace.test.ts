@@ -7,7 +7,7 @@ import {
     measurePerformanceSync,
     recentPerformanceTraceEntries,
     recordPerformanceTrace,
-} from '../src/performanceTrace';
+} from '../../src/performanceTrace';
 
 describe('performanceTrace', () => {
     beforeEach(() => {

@@ -16,7 +16,7 @@ vi.mock('child_process', () => ({
     }),
 }));
 
-import { encodedCommandArgs, runPowerShell } from '../src/util/powershellNode';
+import { encodedCommandArgs, runPowerShell } from '../../src/util/powershellNode';
 
 const decode = (base64: string): string => Buffer.from(base64, 'base64').toString('utf16le');
 

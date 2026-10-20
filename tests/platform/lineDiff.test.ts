@@ -1,7 +1,7 @@
 // The line diff: a correct edit script, and the unified text git would print.
 
 import { describe, expect, it } from 'vitest';
-import { diffLines, splitLines, unifiedDiff } from '../src/util/lineDiff';
+import { diffLines, splitLines, unifiedDiff } from '../../src/util/lineDiff';
 
 /** Applies an edit script to `before` and hands back the lines it yields. */
 function apply(before: readonly string[], ops: ReturnType<typeof diffLines>): string[] {

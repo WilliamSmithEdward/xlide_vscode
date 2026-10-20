@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createKeyedAsyncLock } from '../src/util/keyedAsyncLock';
+import { createKeyedAsyncLock } from '../../src/util/keyedAsyncLock';
 
 const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 

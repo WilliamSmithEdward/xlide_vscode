@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { setHostPlatform } from '../src/vba/hostPlatform';
-import { platformHost as nodeHost } from '../src/vba/hostPlatformNode';
+import { setHostPlatform } from '../../src/vba/hostPlatform';
+import { platformHost as nodeHost } from '../../src/vba/hostPlatformNode';
 import {
 	HostFileNotPrimedError,
 	forgetHostFiles,
@@ -10,13 +10,13 @@ import {
 	primeHostFile,
 	primeHostFileAbsent,
 	takeHostFileWrites,
-} from '../src/vba/hostPlatformWeb';
+} from '../../src/vba/hostPlatformWeb';
 import {
 	listModules,
 	readModule,
 	resetProjectCacheForTests,
 	writeModule,
-} from '../src/vba/projectService';
+} from '../../src/vba/projectService';
 
 // The web extension host runs the engine against hostPlatformWeb's in-memory
 // filesystem, primed by the extension layer before each call and drained
@@ -24,7 +24,7 @@ import {
 // the difference - and, at the end, that a workbook edited entirely through
 // it is a workbook the ordinary desktop path reads back.
 
-const FIXTURE = path.join(__dirname, 'fixtures', 'binaries', 'ShapesFixture.xlsm');
+const FIXTURE = path.join(__dirname, '..', 'fixtures', 'binaries', 'ShapesFixture.xlsm');
 
 /** Loads a file into the web platform the way the extension layer will. */
 function prime(filePath: string): void {
@@ -102,7 +102,7 @@ describe('priming', () => {
 	});
 
 	it('reports a file primed as absent the way the real platform does', () => {
-		const missing = path.join(__dirname, 'fixtures', 'binaries', 'NoSuchFile.frx');
+		const missing = path.join(__dirname, '..', 'fixtures', 'binaries', 'NoSuchFile.frx');
 		expect(nodeHost.exists(missing)).toBe(false);
 		expect(nodeHost.statIfPresent(missing)).toBeUndefined();
 		expect(nodeHost.readFileIfPresent(missing)).toBeUndefined();
@@ -143,7 +143,7 @@ describe('a workbook edited entirely in memory', () => {
 
 		// Land it as a real file and read it back with no web pieces involved.
 		const out = path.join(
-			__dirname,
+			__dirname, '..',
 			'fixtures',
 			'binaries',
 			`.hostPlatform-roundtrip-${process.pid}.xlsm`,

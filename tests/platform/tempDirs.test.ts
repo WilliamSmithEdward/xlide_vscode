@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { makeTempDir, removeTempDirs } from './helpers/tempDirs';
+import { makeTempDir, removeTempDirs } from '../helpers/tempDirs';
 
 vi.mock('fs', () => ({ mkdtempSync: vi.fn(), rmSync: vi.fn() }));
 
