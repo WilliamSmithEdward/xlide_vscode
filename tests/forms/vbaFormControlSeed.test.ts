@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { analyzeModule } from '../src/analyzer';
+import { analyzeModule } from '../../src/analyzer';
 
 // Issue #48. A form's controls are declared by its DESIGNER, not its text, so
 // the host seeds them. That seed has three states, and only two were honoured:

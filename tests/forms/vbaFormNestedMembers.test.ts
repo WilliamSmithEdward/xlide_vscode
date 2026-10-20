@@ -4,9 +4,9 @@ import {
 	listModules,
 	readModule,
 	resetProjectCacheForTests,
-} from '../src/vba/projectService';
-import { buildVbaProjectIndex, projectAnalysisOptionsForModule } from '../src/vbaProjectAnalysis';
-import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
+} from '../../src/vba/projectService';
+import { buildVbaProjectIndex, projectAnalysisOptionsForModule } from '../../src/vbaProjectAnalysis';
+import { analyzeVbaModuleSource } from '../../src/vbaModuleAnalysis';
 
 // VBA exposes EVERY control as a member of the form, however deeply it nests:
 // `Me.PickAir` works when PickAir sits inside a Frame, and `Me.Agree` works
@@ -18,7 +18,7 @@ import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
 // FormFixture.xlsm, which pins the flat reader, has no containers at all, so
 // nesting went unexercised. This file uses the nested fixture.
 
-const FIXTURE = path.join(__dirname, 'fixtures', 'binaries', 'FormFixtureVbide.xlsm');
+const FIXTURE = path.join(__dirname, '..', 'fixtures', 'binaries', 'FormFixtureVbide.xlsm');
 
 /** Top level, then the Frame's children, then the MultiPage's; with a MultiPage's pages and an unbound list's empty start (#315). */
 const EXPECTED = [

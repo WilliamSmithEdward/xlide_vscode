@@ -12,7 +12,7 @@ import {
 	readModules,
 	resetProjectCacheForTests,
 	restoreFormDesignerSnapshot,
-} from '../src/vba/projectService';
+} from '../../src/vba/projectService';
 
 // Canvas gestures: the same mutations the markup diff performs, addressed by
 // control name (VBA requires names unique form-wide) and applied one gesture

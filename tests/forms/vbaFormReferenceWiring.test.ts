@@ -2,12 +2,12 @@ import { afterEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { Cfb } from '../src/vba/cfb';
-import { openMacroContainer } from '../src/vba/macroContainer';
-import { compress, decompress } from '../src/vba/ovba';
-import { readDirRecords, REC_PROJECTMODULES } from '../src/vba/vbaProject';
-import { addFormModule, createProject, listModules, readFormMarkup, validateProject } from '../src/vba/projectService';
-import { hasMsFormsReference, readProjectReferences } from '../src/vba/vbaProjectReferences';
+import { Cfb } from '../../src/vba/cfb';
+import { openMacroContainer } from '../../src/vba/macroContainer';
+import { compress, decompress } from '../../src/vba/ovba';
+import { readDirRecords, REC_PROJECTMODULES } from '../../src/vba/vbaProject';
+import { addFormModule, createProject, listModules, readFormMarkup, validateProject } from '../../src/vba/projectService';
+import { hasMsFormsReference, readProjectReferences } from '../../src/vba/vbaProjectReferences';
 
 // Creating the first UserForm in a project used to leave it without the
 // Microsoft Forms library: the form and its designer storage were written and

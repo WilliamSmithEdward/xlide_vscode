@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { XlsxWorkbook } from '../src/vba/xlsx';
-import { ZipArchive } from '../src/vba/zip';
+import { XlsxWorkbook } from '../../src/vba/xlsx';
+import { ZipArchive } from '../../src/vba/zip';
 
 // Excel 16 authored ControlsFixture.xlsm with one of every form control,
 // each wired to the cell or list it drives, plus one plain AutoShape so the
@@ -15,7 +15,7 @@ import { ZipArchive } from '../src/vba/zip';
 // spinner loses its maximum. XLIDE splices the existing formControlPr
 // instead - it sets the attributes an edit names and leaves every other byte
 // alone - and these tests are what say so.
-const FIXTURE = path.join(__dirname, 'fixtures', 'binaries', 'ControlsFixture.xlsm');
+const FIXTURE = path.join(__dirname, '..', 'fixtures', 'binaries', 'ControlsFixture.xlsm');
 
 const open = (): XlsxWorkbook => XlsxWorkbook.fromBuffer(fs.readFileSync(FIXTURE));
 const reopen = (book: XlsxWorkbook): XlsxWorkbook => XlsxWorkbook.fromBuffer(book.toBytes());

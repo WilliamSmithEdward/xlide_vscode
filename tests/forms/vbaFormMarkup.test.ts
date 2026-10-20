@@ -9,9 +9,9 @@ import {
 	readModules,
 	readFormExport,
 	resetProjectCacheForTests,
-} from '../src/vba/projectService';
-import { parseFormFrx, parseFormDesignerStreams } from '../src/vba/formDesigner';
-import { parseFormMarkup, formatOleColor, parseOleColor } from '../src/vba/oforms/markup';
+} from '../../src/vba/projectService';
+import { parseFormFrx, parseFormDesignerStreams } from '../../src/vba/formDesigner';
+import { parseFormMarkup, formatOleColor, parseOleColor } from '../../src/vba/oforms/markup';
 
 // The form-as-text projection, whole loop: print a real Excel-authored form
 // to markup, edit the document, apply it back as a name-keyed diff, and
@@ -276,9 +276,9 @@ describe('spoken font and tab edits land', () => {
 
 describe('pages and tabs, structurally', () => {
 	it('round-trips the x bookkeeping byte-identically', async () => {
-		const { Cfb } = await import('../src/vba/cfb');
-		const { XlsxWorkbook } = await import('../src/vba/xlsx');
-		const { parsePageBookkeeping, serializePageBookkeeping } = await import('../src/vba/oforms/pageBookkeeping');
+		const { Cfb } = await import('../../src/vba/cfb');
+		const { XlsxWorkbook } = await import('../../src/vba/xlsx');
+		const { parsePageBookkeeping, serializePageBookkeeping } = await import('../../src/vba/oforms/pageBookkeeping');
 		const cfb = Cfb.fromBytes(XlsxWorkbook.fromBuffer(fs.readFileSync(FIXTURE)).readVbaProject());
 		const x = cfb.getStreamAtPath(['EntryForm', 'i10'], 'x');
 		expect(serializePageBookkeeping(parsePageBookkeeping(x)).equals(x)).toBe(true);
@@ -371,9 +371,9 @@ describe('what live Excel taught the authoring, pinned', () => {
 			`<Page Name="Page2" Caption="Page2" />${CRLF}        <Page Name="Details" Caption="Details">${CRLF}            <TextBox Name="NotesBox" Left="8" Top="8" Width="120" Height="60" />${CRLF}        </Page>`,
 		));
 		resetProjectCacheForTests();
-		const { Cfb } = await import('../src/vba/cfb');
-		const { XlsxWorkbook } = await import('../src/vba/xlsx');
-		const { parseFormPackage, walkPackages } = await import('../src/vba/oforms/formPackage');
+		const { Cfb } = await import('../../src/vba/cfb');
+		const { XlsxWorkbook } = await import('../../src/vba/xlsx');
+		const { parseFormPackage, walkPackages } = await import('../../src/vba/oforms/formPackage');
 		const cfb = Cfb.fromBytes(XlsxWorkbook.fromBuffer(fs.readFileSync(wb)).readVbaProject());
 		const pkg = parseFormPackage(cfb, ['EntryForm']);
 		const ids: number[] = [];
@@ -399,9 +399,9 @@ describe('what live Excel taught the authoring, pinned', () => {
 			`<Form$1>${CRLF}    <TextBox Name="T1" Left="8" Top="8" Width="72" Height="18" />${CRLF}</Form>`,
 		));
 		resetProjectCacheForTests();
-		const { Cfb } = await import('../src/vba/cfb');
-		const { XlsxWorkbook } = await import('../src/vba/xlsx');
-		const { parseFormStream, parseObjectStream } = await import('../src/vba/oforms/formStream');
+		const { Cfb } = await import('../../src/vba/cfb');
+		const { XlsxWorkbook } = await import('../../src/vba/xlsx');
+		const { parseFormStream, parseObjectStream } = await import('../../src/vba/oforms/formStream');
 		const cfb = Cfb.fromBytes(XlsxWorkbook.fromBuffer(fs.readFileSync(wb)).readVbaProject());
 		const m = parseFormStream(cfb.getStreamAtPath(['FrmFresh'], 'f'));
 		const [entry] = parseObjectStream(cfb.getStreamAtPath(['FrmFresh'], 'o'), m.sites);
@@ -421,9 +421,9 @@ describe('what live Excel taught the authoring, pinned', () => {
 		const wb = project();
 		addFormModule(wb, 'FrmFresh', `Option Explicit${CRLF}`);
 		resetProjectCacheForTests();
-		const { Cfb } = await import('../src/vba/cfb');
-		const { XlsxWorkbook } = await import('../src/vba/xlsx');
-		const { parseFormStream } = await import('../src/vba/oforms/formStream');
+		const { Cfb } = await import('../../src/vba/cfb');
+		const { XlsxWorkbook } = await import('../../src/vba/xlsx');
+		const { parseFormStream } = await import('../../src/vba/oforms/formStream');
 		const cfb = Cfb.fromBytes(XlsxWorkbook.fromBuffer(fs.readFileSync(wb)).readVbaProject());
 		const m = parseFormStream(cfb.getStreamAtPath(['FrmFresh'], 'f'));
 		expect(m.classTablePresent).toBe(true);

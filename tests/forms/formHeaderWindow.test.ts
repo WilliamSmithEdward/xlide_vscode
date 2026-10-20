@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { parseUserFormControls, hasAuthoritativeDesignerHeader } from '../src/vbaUserFormControls';
+import { parseUserFormControls, hasAuthoritativeDesignerHeader } from '../../src/vbaUserFormControls';
 
 afterEach(() => vi.restoreAllMocks());
 describe('form header allocation work', () => {

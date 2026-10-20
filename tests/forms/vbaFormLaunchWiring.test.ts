@@ -6,7 +6,7 @@ import {
 	launcherSubExists,
 	launcherSubName,
 	LAUNCHER_MODULE,
-} from '../src/vbaFormLauncher';
+} from '../../src/vbaFormLauncher';
 
 // F5 shows a form by running a macro XLIDE adds with consent. One sub per
 // form, all in one module: running a second form must not cost the first its
@@ -125,7 +125,7 @@ describe('the F5 launcher module', () => {
 // is pinned at the source: both halves of the launch must sit inside the
 // reopen suppression, the write must be skipped when the sub is already
 // there, and the prompt must be skipped for an installed launcher.
-const LAUNCH_SOURCE = readFileSync(path.join(__dirname, '..', 'src', 'vbaFormPreview.ts'), 'utf8');
+const LAUNCH_SOURCE = readFileSync(path.join(__dirname, '..', '..', 'src', 'vbaFormPreview.ts'), 'utf8');
 
 describe('the F5 form launch', () => {
 	it('suppresses the reopen across BOTH the write and the macro run', () => {
@@ -192,10 +192,10 @@ describe('the F5 form launch', () => {
 // XLIDE neither builds nor runs the project (Slice 6 of the VB6 roadmap),
 // and nothing here knows about twinBASIC.
 describe('F5 on a VB6 form', () => {
-	const PACKAGE = JSON.parse(readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')) as {
+	const PACKAGE = JSON.parse(readFileSync(path.join(__dirname, '..', '..', 'package.json'), 'utf8')) as {
 		contributes: { keybindings: { command: string; key: string; when: string }[] };
 	};
-	const DESIGNER_SOURCE = readFileSync(path.join(__dirname, '..', 'src', 'vb6FormDesigner.ts'), 'utf8');
+	const DESIGNER_SOURCE = readFileSync(path.join(__dirname, '..', '..', 'src', 'vb6FormDesigner.ts'), 'utf8');
 
 	it('is bound in the VB6 designer and on a VB6 module document', () => {
 		const f5 = PACKAGE.contributes.keybindings.filter((k) => k.command === 'xlide.launchFormHost' && k.key === 'F5');

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { parseUserFormControls } from '../src/vbaUserFormControls';
-import { buildVbaProjectIndex, projectAnalysisOptionsForModule, projectEditorSymbolContextForModule } from '../src/vbaProjectAnalysis';
-import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
-import { collectImplicitMemberMethodTokens, resolveMemberCompletions, resolveHover, resolveSignatureHelp } from '../src/analyzer';
-import { resolveMemberSurfaceAt } from '../src/analyzer/completion/memberAccess';
+import { parseUserFormControls } from '../../src/vbaUserFormControls';
+import { buildVbaProjectIndex, projectAnalysisOptionsForModule, projectEditorSymbolContextForModule } from '../../src/vbaProjectAnalysis';
+import { analyzeVbaModuleSource } from '../../src/vbaModuleAnalysis';
+import { collectImplicitMemberMethodTokens, resolveMemberCompletions, resolveHover, resolveSignatureHelp } from '../../src/analyzer';
+import { resolveMemberSurfaceAt } from '../../src/analyzer/completion/memberAccess';
 
 // Issue #17. A form's controls are members of the form's class, declared by the
 // designer rather than by any line of code, so code-behind referring to them is

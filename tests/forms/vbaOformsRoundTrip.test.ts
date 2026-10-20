@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { Cfb } from '../src/vba/cfb';
-import { XlsxWorkbook } from '../src/vba/xlsx';
+import { Cfb } from '../../src/vba/cfb';
+import { XlsxWorkbook } from '../../src/vba/xlsx';
 import {
 	parseFormStream,
 	serializeFormStream,
 	parseObjectStream,
 	serializeObjectStream,
 	siteName,
-} from '../src/vba/oforms/formStream';
-import { parseFormPackage, writeFormPackage } from '../src/vba/oforms/formPackage';
-import { himetricToPoints, pointsToHimetric } from '../src/vba/oforms/bytes';
+} from '../../src/vba/oforms/formStream';
+import { parseFormPackage, writeFormPackage } from '../../src/vba/oforms/formPackage';
+import { himetricToPoints, pointsToHimetric } from '../../src/vba/oforms/bytes';
 
 // The [MS-OFORMS] engine's contract is BYTE IDENTITY: parse a form Office
 // wrote, serialize it back, get the same bytes. Padding inside a DataBlock is

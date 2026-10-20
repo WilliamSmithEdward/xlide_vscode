@@ -7,7 +7,7 @@ import {
 	readFormMarkup,
 	removeFormControls,
 	resetProjectCacheForTests,
-} from '../src/vba/projectService';
+} from '../../src/vba/projectService';
 
 // Copy, paste, and deleting a multi-selection. All three are MARKUP
 // transforms: a clone travels the same authoring path a hand-typed control

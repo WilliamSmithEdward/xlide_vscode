@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { Cfb } from '../src/vba/cfb';
-import { XlsxWorkbook } from '../src/vba/xlsx';
-import { parseFormPackage } from '../src/vba/oforms/formPackage';
-import { renderFormPreviewHtml } from '../src/vba/oforms/preview';
-import { readFormPreview } from '../src/vba/projectService';
+import { Cfb } from '../../src/vba/cfb';
+import { XlsxWorkbook } from '../../src/vba/xlsx';
+import { parseFormPackage } from '../../src/vba/oforms/formPackage';
+import { renderFormPreviewHtml } from '../../src/vba/oforms/preview';
+import { readFormPreview } from '../../src/vba/projectService';
 
 // The preview is a RENDERER of the same projection the markup edits: real
 // bounds, captions, colors and fonts from the binary, with honest hatched

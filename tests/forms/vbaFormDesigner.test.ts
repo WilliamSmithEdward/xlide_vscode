@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { parseFormDesignerStreams, parseFormFrx, splitFrmSource, type DesignerControl } from '../src/vba/formDesigner';
+import { parseFormDesignerStreams, parseFormFrx, splitFrmSource, type DesignerControl } from '../../src/vba/formDesigner';
 import {
 	addFormModule,
 	deleteModule,
@@ -15,19 +15,19 @@ import {
 	resetProjectCacheForTests,
 	writeFormDesigner,
 	writeModule,
-} from '../src/vba/projectService';
-import { readModules as readModulesFull } from '../src/vba/projectService';
-import { Cfb } from '../src/vba/cfb';
-import { buildExportModuleSyncPlan, buildImportModuleSyncPlan } from '../src/moduleSyncPlan';
-import { XlsxWorkbook } from '../src/vba/xlsx';
-import { buildVbaProjectIndex, projectAnalysisOptionsForModule, projectEditorSymbolContextForModule } from '../src/vbaProjectAnalysis';
-import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
-import { resolveMemberCompletions } from '../src/analyzer';
+} from '../../src/vba/projectService';
+import { readModules as readModulesFull } from '../../src/vba/projectService';
+import { Cfb } from '../../src/vba/cfb';
+import { buildExportModuleSyncPlan, buildImportModuleSyncPlan } from '../../src/moduleSyncPlan';
+import { XlsxWorkbook } from '../../src/vba/xlsx';
+import { buildVbaProjectIndex, projectAnalysisOptionsForModule, projectEditorSymbolContextForModule } from '../../src/vbaProjectAnalysis';
+import { analyzeVbaModuleSource } from '../../src/vbaModuleAnalysis';
+import { resolveMemberCompletions } from '../../src/analyzer';
 
 // A real Excel-authored workbook: a four-control UserForm built through the
 // VBE and saved by Excel itself. The designer reader's claims are pinned to
 // what Excel actually wrote, not to bytes this repo synthesized.
-const FIXTURE = path.join(__dirname, 'fixtures', 'binaries', 'FormFixture.xlsm');
+const FIXTURE = path.join(__dirname, '..', 'fixtures', 'binaries', 'FormFixture.xlsm');
 
 const EXPECTED: DesignerControl[] = [
 	{ name: 'RegionPick', type: 'MSForms.ComboBox' },
@@ -263,7 +263,7 @@ describe('sync plan symmetry over the real form project', () => {
 				default: throw new Error(`unexpected: ${method}`);
 			}
 		},
-	} as unknown as import('../src/projectEngine').ProjectEngine;
+	} as unknown as import('../../src/projectEngine').ProjectEngine;
 
 	it('a fresh export leaves the form unchanged in the next plan', async () => {
 		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-form-plan-'));
@@ -306,7 +306,7 @@ describe('sync plan symmetry over the real form project', () => {
 // the VBE refuses the import outright and their contents die (hunt eight,
 // proven against the VBE's own export and import of the same form).
 describe('the .frx carries containers whole', () => {
-	const CONTAINER_FIXTURE = path.join(__dirname, 'fixtures', 'binaries', 'FormFixtureVbide.xlsm');
+	const CONTAINER_FIXTURE = path.join(__dirname, '..', 'fixtures', 'binaries', 'FormFixtureVbide.xlsm');
 
 	function tempCopy(name: string): string {
 		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-frx-'));
@@ -398,7 +398,7 @@ describe('renaming or deleting a form takes its designer along', () => {
 		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-legacy-form-'));
 		tempDirs.push(dir);
 		const copy = path.join(dir, fixture);
-		fs.copyFileSync(path.join(__dirname, 'fixtures', 'binaries', fixture), copy);
+		fs.copyFileSync(path.join(__dirname, '..', 'fixtures', 'binaries', fixture), copy);
 		const storages = (): string[] => {
 			const cfb = Cfb.fromBytes(fs.readFileSync(copy));
 			return cfb.listStoragesAtPath([]).flatMap((s) => [s, ...cfb.listStoragesAtPath([s]).map((c) => `${s}/${c}`)]).sort();

@@ -8,12 +8,12 @@ import { afterEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { readFormMarkup, applyFormMarkup, resetProjectCacheForTests } from '../src/vba/projectService';
-import { Cfb } from '../src/vba/cfb';
-import { XlsxWorkbook } from '../src/vba/xlsx';
-import { parseFormPackage, walkPackages, type FormPackage } from '../src/vba/oforms/formPackage';
-import { siteName, siteId } from '../src/vba/oforms/formStream';
-import type { ParsedRecord } from '../src/vba/oforms/records';
+import { readFormMarkup, applyFormMarkup, resetProjectCacheForTests } from '../../src/vba/projectService';
+import { Cfb } from '../../src/vba/cfb';
+import { XlsxWorkbook } from '../../src/vba/xlsx';
+import { parseFormPackage, walkPackages, type FormPackage } from '../../src/vba/oforms/formPackage';
+import { siteName, siteId } from '../../src/vba/oforms/formStream';
+import type { ParsedRecord } from '../../src/vba/oforms/records';
 
 const FIXTURE = path.join('tests', 'fixtures', 'binaries', 'FormFixtureVbide.xlsm');
 const CRLF = '\r\n';

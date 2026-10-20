@@ -4,7 +4,7 @@ import {
 	lastFormLaunchTarget,
 	resetFormLaunchTargetForTests,
 	setActiveFormDesigner,
-} from '../src/vbaFormLaunchTarget';
+} from '../../src/vbaFormLaunchTarget';
 
 // F5 belongs to the designer on screen. VS Code keeps reporting the last text
 // editor the user touched while a webview has focus, so the canvas has to say

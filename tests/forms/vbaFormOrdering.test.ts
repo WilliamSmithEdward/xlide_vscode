@@ -7,7 +7,7 @@ import {
 	applyFormMarkup,
 	readFormMarkup,
 	resetProjectCacheForTests,
-} from '../src/vba/projectService';
+} from '../../src/vba/projectService';
 
 // The two orders a form carries that geometry does not show.
 //

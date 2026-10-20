@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { analyzeModule } from '../src/analyzer';
+import { analyzeModule } from '../../src/analyzer';
 import {
     buildVbaProjectIndex,
     projectAnalysisOptionsForModule,
     type VbaProjectModuleInput,
-} from '../src/vbaProjectAnalysis';
+} from '../../src/vbaProjectAnalysis';
 
 // Issue #26: `EntryForm.NoSuchControl` compiles nowhere - the VBE refuses an
 // unknown member on an early-bound form receiver - yet the analyzer said
