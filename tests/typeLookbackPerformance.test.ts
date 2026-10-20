@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import * as cursor from '../src/analyzer/completion/cursorContext';
+import * as lexer from '../src/analyzer/lexer/tokenize';
 import { resolveTypeCompletions } from '../src/analyzer/completion/typeCompletion';
 import { resolveCanonicalCaseEdits } from '../src/analyzer/completion/canonicalCasing';
 
@@ -8,17 +8,28 @@ afterEach(() => { vi.restoreAllMocks(); });
 describe('type-position lookback work', () => {
     it('reads only the trailing grammar tokens in a large ordinary expression', () => {
         const source = 'Debug.Print 1\n'.repeat(1200) + 'ordinaryValue';
-        const actual = cursor.completionTypeTokens(source, source.length);
         let reads = 0;
-        const tokens = new Proxy(actual, {
+        let lexedCharacters = 0;
+        const countReads = (tokens: ReturnType<typeof lexer.tokenize>) => new Proxy(tokens, {
             get(target, property, receiver) {
                 if (typeof property === 'string' && /^\d+$/.test(property)) { reads++; }
                 return Reflect.get(target, property, receiver);
             },
         });
-        vi.spyOn(cursor, 'completionTypeTokens').mockReturnValue(tokens);
+        // Observe the real bounded lexer inputs as well as cached-stream reads:
+        // spying only on completionTypeTokens misses the ordinary chunk path.
+        const tokenize = lexer.tokenize;
+        const tokenizeCached = lexer.tokenizeCached;
+        vi.spyOn(lexer, 'tokenize').mockImplementation(text => {
+            lexedCharacters += text.length;
+            return countReads(tokenize(text));
+        });
+        vi.spyOn(lexer, 'tokenizeCached').mockImplementation(text => countReads(tokenizeCached(text)));
         expect(resolveTypeCompletions(source, source.length)).toEqual([]);
+        expect(reads).toBeGreaterThan(0);
         expect(reads).toBeLessThanOrEqual(7);
+        expect(lexedCharacters).toBeGreaterThan(0);
+        expect(lexedCharacters).toBeLessThan(100);
     });
 
     it('retains As New mode for the longest qualified suffix', () => {
