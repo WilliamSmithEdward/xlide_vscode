@@ -555,6 +555,8 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     }
 
     /** The view that draws this tree; set once, right after it is created. */
+    get selectedNode(): XlideNode | undefined { return this._treeView?.selection[0]; }
+
     attachTreeView(treeView: vscode.TreeView<XlideNode>): void {
         this._treeView = treeView;
     }

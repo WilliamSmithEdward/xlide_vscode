@@ -334,6 +334,12 @@
     },
     "commands": [
       {
+        "command": "xlide.findInTree",
+        "title": "Find / Replace in XLIDE",
+        "category": "XLIDE",
+        "icon": "$(search)"
+      },
+      {
         "command": "xlide.showOutput",
         "title": "Show Output Channel",
         "category": "XLIDE"
@@ -748,6 +754,11 @@
     "menus": {
       "view/title": [
         {
+          "command": "xlide.findInTree",
+          "when": "view == xlide.explorer",
+          "group": "navigation@0"
+        },
+        {
           "command": "xlide.explorer.showTree",
           "when": "view == xlide.explorer && xlide.explorerView == 'folders'",
           "group": "navigation@0"
@@ -784,6 +795,11 @@
         }
       ],
       "view/item/context": [
+        {
+          "command": "xlide.findInTree",
+          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument|accessDatabase|vb6Project|module-|sub$)/",
+          "group": "4_search@1"
+        },
         {
           "command": "xlide.addShape",
           "when": "view == xlide.explorer && viewItem =~ /^shape(Folder|Surface)-add$/",
@@ -1204,6 +1220,18 @@
       ]
     },
     "keybindings": [
+      {
+        "command": "xlide.findInTree",
+        "key": "ctrl+f",
+        "mac": "cmd+f",
+        "when": "focusedView == xlide.explorer && !inputFocus"
+      },
+      {
+        "command": "xlide.findInTree",
+        "key": "ctrl+h",
+        "mac": "cmd+alt+f",
+        "when": "focusedView == xlide.explorer && !inputFocus"
+      },
       {
         "command": "xlide.openInOfficeApp",
         "key": "ctrl+alt+o",

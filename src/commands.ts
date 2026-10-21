@@ -11,6 +11,9 @@ import { registerRefactorCommands } from './commands/refactorCommands';
 import { registerFormatCommands } from './commands/formatCommands';
 import { registerShapeCommands } from './commands/shapeCommands';
 import { platformFeatures } from './platformFeatures';
+import { registerXlideCommand } from './xlideCommandRegistration';
+import { ModuleSearchPanel } from './moduleSearchPanel';
+import type { XlideNode } from './projectExplorer';
 
 /**
  * Composition root for the XLIDE command palette/explorer commands.
@@ -30,8 +33,14 @@ export function registerCommands(
     vbaIndex: VbaSymbolIndex,
 ): vscode.Disposable[] {
     const deps: CommandDeps = { context, bridge, explorer, fsProvider, out, vbaIndex };
+    let search: ModuleSearchPanel | undefined;
 
     return [
+        registerXlideCommand('xlide.findInTree', (node?: XlideNode) => {
+            search?.dispose();
+            search = new ModuleSearchPanel(deps, node ?? explorer.selectedNode);
+        }),
+        new vscode.Disposable(() => search?.dispose()),
         ...registerMiscCommands(deps),
         ...registerProjectCrudCommands(deps),
         ...registerAnalysisCommands(deps),
