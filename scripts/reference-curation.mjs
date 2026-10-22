@@ -454,7 +454,15 @@ export function memberDoc(raw, maxSummary = 300, hostApp = undefined, index = un
 export function typeDoc(dump, maxSummary = 300, hostApp = undefined, index = undefined) {
 	const summary = truncate(localizeHostName(collapseWhitespace(dump.description), hostApp, index), maxSummary);
 	const remarks = truncate(localizeHostName(collapseWhitespace(dump.remarks), hostApp, index), 600);
-	const example = typeof dump.example === 'string' && dump.example.trim() ? dump.example.trim() : undefined;
+	let example = typeof dump.example === 'string' && dump.example.trim() ? dump.example.trim() : undefined;
+	// The PowerPoint chart reference republishes Word examples. Correct only
+	// their known opening receiver; preserve the original reference dumps and
+	// leave other hosts (including valid Word automation) untouched.
+	if (hostApp === 'PowerPoint' && /^With ActiveDocument\.InlineShapes\(1\)(?=\.|\s|$)/.test(example ?? '')) {
+		example = "' Requires a chart as shape 1 on slide 1 of the active presentation.\n"
+			+ example.replace(/^With ActiveDocument\.InlineShapes\(1\)(?=\.|\s|$)/,
+				'With ActivePresentation.Slides(1).Shapes(1)');
+	}
 	if (!summary && !remarks && !example) {
 		return undefined;
 	}
