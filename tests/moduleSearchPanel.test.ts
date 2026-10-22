@@ -43,7 +43,7 @@ vi.mock('vscode', () => ({
 vi.mock('../src/xlideFileSystem', () => ({ encodeModuleUri: (project: string, name: string) => uri(`${project}/${name}`),
     XLIDE_SCHEME: 'xlide-vba', decodeModuleUri: () => { throw new Error('Not a virtual test URI'); } }));
 vi.mock('../src/util/workspaceUris', () => ({ workspaceUriFor: (file: string) => uri(file) }));
-vi.mock('../src/extensionAssets', () => ({ readExtensionTextAsset: (file: string) => readFileSync(file, 'utf8') }));
+vi.mock('../src/extensionAssets', () => ({ readExtensionTextAsset: (file: string) => readFileSync(file, 'utf8').replace(/\r\n/g, '\n') }));
 import { ModuleSearchPanel } from '../src/moduleSearchPanel';
 
 function uri(key: string) { return { toString: () => key }; }

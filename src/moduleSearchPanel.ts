@@ -63,7 +63,7 @@ export class ModuleSearchPanel implements vscode.Disposable {
 
     constructor(private readonly deps: CommandDeps, private readonly origin?: XlideNode) {
         this.panel = vscode.window.createWebviewPanel('xlide.moduleSearch', 'XLIDE Find / Replace',
-            vscode.ViewColumn.Beside, { enableScripts: true, localResourceRoots: [] });
+            vscode.ViewColumn.Beside, { enableScripts: true, localResourceRoots: [], retainContextWhenHidden: true });
         const nonce = randomNonce();
         const worker = readExtensionTextAsset('assets/webview/moduleSearchWorker.js');
         const ui = readExtensionTextAsset('assets/webview/moduleSearch.js');

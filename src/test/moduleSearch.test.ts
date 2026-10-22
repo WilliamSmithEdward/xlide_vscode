@@ -40,14 +40,26 @@ suite('XLIDE Find / Replace panel', () => {
             const panel = new ModuleSearchPanel({ bridge: engine, fsProvider: provider,
                 explorer: { getChildren: async () => [node] } } as unknown as CommandDeps, node);
             const state = panel as unknown as { panel: vscode.WebviewPanel; plan: PlannedModule[];
-                send(message: any): void };
+                send(message: any): void; receive(message: any): Promise<void> };
             const messages: any[] = [];
             const originalSend = state.send.bind(panel);
             state.send = message => { messages.push(message); originalSend(message); };
             try {
                 // Drive production controls inside the real webview. All matching
                 // still passes through the shipped worker and message handlers.
-                const html = state.panel.webview.html;
+                const snapshots: any[] = [];
+                const snapshotListener = state.panel.webview.onDidReceiveMessage(message => {
+                    if (message.type === 'testSnapshotResult') { snapshots.push(message); }
+                });
+                const html = state.panel.webview.html.replace("send({ type: 'ready' });", `
+window.addEventListener('message', event => {
+    if (event.origin === window.origin && event.data.type === 'testSnapshot') {
+        send({ type: 'testSnapshotResult', pattern: el('pattern').value, replacement: el('replacement').value,
+            rows: rows.size, previewRows: document.querySelectorAll('.diff-line').length,
+            applyVisible: !el('apply').hidden });
+    }
+});
+send({ type: 'ready' });`);
                 const nonce = /script-src 'nonce-([^']+)'/.exec(html)![1];
                 state.panel.webview.html = html.replace('</body>', `<script nonce="${nonce}">
 window.addEventListener('message', event => {
@@ -66,6 +78,20 @@ document.getElementById('search').click();
                 }, `real panel should produce a replacement preview (${label})`, 25000);
                 assert.equal(state.plan.length, 2);
                 assert.equal(state.plan.reduce((n, m) => n + m.edits.length, 0), 3, 'includes the unsaved extra match');
+                state.send({ type: 'testSnapshot' });
+                await until(() => snapshots.length === 1 ? true : undefined, 'preview DOM should be ready');
+                await state.receive({ type: 'open', id: 0 });
+                await until(() => !state.panel.visible ? true : undefined, 'following a result should hide the pane');
+                state.panel.reveal();
+                await until(() => state.panel.visible ? true : undefined, 'search pane should be visible again');
+                state.send({ type: 'testSnapshot' });
+                await until(() => snapshots.length === 2 ? true : undefined, 'retained webview should respond');
+                assert.deepEqual(snapshots[1], snapshots[0], 'query, results and preview survive result navigation');
+                assert.equal(snapshots[1].pattern, 'XlideNeedle');
+                assert.equal(snapshots[1].rows, 3);
+                assert.equal(snapshots[1].previewRows, 6);
+                assert.equal(snapshots[1].applyVisible, true);
+                snapshotListener.dispose();
                 assert.equal(readModule(file, 'SearchUnopened').source, original);
                 assert.ok(dirty.getText().includes('unsaved'));
                 await applyModuleSearchPlan(state.plan);
