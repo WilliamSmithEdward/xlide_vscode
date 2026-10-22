@@ -8,6 +8,7 @@ import { applyImportModuleSyncPlan, selectedModuleSyncItems } from './moduleImpo
 import { buildImportModuleSyncPlan, type ImportMode, type ModuleSyncPlan } from './moduleSyncPlan';
 import { effectiveProjectModuleSyncSettings } from './projectModuleSyncSettings';
 import { errorMessage } from './util/errors';
+import { isInWorkspaceFolder } from './util/workspaceUris';
 import { ProjectEngine } from './projectEngine';
 import { ProjectExplorer } from './projectExplorer';
 import { XlideFileSystemProvider } from './xlideFileSystem';
@@ -122,6 +123,34 @@ function textResult(value: string): vscode.LanguageModelToolResult {
     return new vscode.LanguageModelToolResult([
         new vscode.LanguageModelTextPart(value),
     ]);
+}
+
+/** `text` as an inline code span, fenced past any backticks it holds. */
+function codeSpan(text: string): string {
+    const longest = Math.max(0, ...(text.match(/`+/g) ?? []).map((run) => run.length));
+    const fence = '`'.repeat(longest + 1);
+    return `${fence} ${text} ${fence}`;
+}
+
+/**
+ * The prepareInvocation of a tool that only reads. A file in the workspace
+ * is read without asking. Anything else asks first. An agent following
+ * instructions planted in a module or a cell could otherwise pull code and
+ * data from any Office file the user can open into the chat.
+ */
+function confirmReadOutsideWorkspace(filePath: unknown): vscode.PreparedToolInvocation | undefined {
+    if (typeof filePath === 'string' && isInWorkspaceFolder(filePath)) {
+        return undefined;
+    }
+    const shown = typeof filePath === 'string' ? codeSpan(filePath) : 'a file';
+    return {
+        confirmationMessages: {
+            title: 'Read a File Outside the Workspace',
+            message: new vscode.MarkdownString(
+                `Let the agent read ${shown}?\n\nIt is not in any folder of this workspace.`,
+            ),
+        },
+    };
 }
 
 /**
@@ -414,6 +443,7 @@ export function registerAgentTools(
         // xlide_listModules
         // ----------------------------------------------------------------
         vscode.lm.registerTool<ListModulesInput>('xlide_listModules', {
+            prepareInvocation: (options) => confirmReadOutsideWorkspace(options.input.filePath),
             async invoke(options, token) {
                 const modules = await bridge.call<Array<{ name: string; type: string }>>(
                     'listModules',
@@ -429,6 +459,7 @@ export function registerAgentTools(
         // xlide_listSubs
         // ----------------------------------------------------------------
         vscode.lm.registerTool<ListSubsInput>('xlide_listSubs', {
+            prepareInvocation: (options) => confirmReadOutsideWorkspace(options.input.filePath),
             async invoke(options, token) {
                 const subs = await bridge.call<Array<{ name: string; kind: string; line: number }>>(
                     'listSubs',
@@ -443,6 +474,7 @@ export function registerAgentTools(
         // xlide_searchModules
         // ----------------------------------------------------------------
         vscode.lm.registerTool<SearchModulesInput>('xlide_searchModules', {
+            prepareInvocation: (options) => confirmReadOutsideWorkspace(options.input.filePath),
             async invoke(options, token) {
                 const { filePath, query, isRegex, matchCase, maxResults } = options.input;
                 const cap = Math.max(1, maxResults ?? 200);
@@ -488,6 +520,7 @@ export function registerAgentTools(
         // xlide_readModule
         // ----------------------------------------------------------------
         vscode.lm.registerTool<ReadModuleInput>('xlide_readModule', {
+            prepareInvocation: (options) => confirmReadOutsideWorkspace(options.input.filePath),
             async invoke(options, token) {
                 const { filePath, moduleName, startLine, endLine, ranges, procedures } = options.input;
                 if (ranges !== undefined && !Array.isArray(ranges)) {
@@ -771,6 +804,7 @@ export function registerAgentTools(
         // xlide_listSheets
         // ----------------------------------------------------------------
         vscode.lm.registerTool<ListSheetsInput>('xlide_listSheets', {
+            prepareInvocation: (options) => confirmReadOutsideWorkspace(options.input.filePath),
             async invoke(options, token) {
                 const result = await bridge.call<{ sheets: Array<{ name: string; dimensions: string }> }>(
                     'listSheets',
@@ -785,6 +819,7 @@ export function registerAgentTools(
         // xlide_getProjectInfo
         // ----------------------------------------------------------------
         vscode.lm.registerTool<GetProjectInfoInput>('xlide_getProjectInfo', {
+            prepareInvocation: (options) => confirmReadOutsideWorkspace(options.input.filePath),
             async invoke(options, token) {
                 const result = await bridge.call<{
                     modules: Array<{ name: string; type: string }>;
@@ -802,6 +837,7 @@ export function registerAgentTools(
         // xlide_validateProject
         // ----------------------------------------------------------------
         vscode.lm.registerTool<ValidateProjectInput>('xlide_validateProject', {
+            prepareInvocation: (options) => confirmReadOutsideWorkspace(options.input.filePath),
             async invoke(options, token) {
                 const result = await bridge.call<{ issues: string[] }>(
                     'validateProject',
@@ -816,6 +852,7 @@ export function registerAgentTools(
         // xlide_analyzeProject
         // ----------------------------------------------------------------
         vscode.lm.registerTool<AnalyzeProjectInput>('xlide_analyzeProject', {
+            prepareInvocation: (options) => confirmReadOutsideWorkspace(options.input.filePath),
             async invoke(options, token) {
                 const { filePath, moduleName } = options.input;
                 const result = await analyzeProject(bridge, filePath, { token });
@@ -966,6 +1003,7 @@ export function registerAgentTools(
         // xlide_readCells
         // ----------------------------------------------------------------
         vscode.lm.registerTool<ReadCellsInput>('xlide_readCells', {
+            prepareInvocation: (options) => confirmReadOutsideWorkspace(options.input.filePath),
             async invoke(options, token) {
                 const { filePath, sheet, range } = options.input;
                 const result = await bridge.call<{ data: unknown[][] }>(
@@ -981,6 +1019,7 @@ export function registerAgentTools(
         // xlide_readFormulas
         // ----------------------------------------------------------------
         vscode.lm.registerTool<ReadFormulasInput>('xlide_readFormulas', {
+            prepareInvocation: (options) => confirmReadOutsideWorkspace(options.input.filePath),
             async invoke(options, token) {
                 const { filePath, sheet, range } = options.input;
                 const result = await bridge.call<{ data: unknown[][] }>(
@@ -1040,6 +1079,7 @@ export function registerAgentTools(
         // xlide_listReferences
         // ----------------------------------------------------------------
         vscode.lm.registerTool<ListReferencesInput>('xlide_listReferences', {
+            prepareInvocation: (options) => confirmReadOutsideWorkspace(options.input.filePath),
             async invoke(options, token) {
                 const result = await bridge.call<{ references: unknown[] }>(
                     'listReferences',
@@ -1143,6 +1183,7 @@ export function registerAgentTools(
         // xlide_listShapes
         // ----------------------------------------------------------------
         vscode.lm.registerTool<ListShapesInput>('xlide_listShapes', {
+            prepareInvocation: (options) => confirmReadOutsideWorkspace(options.input.filePath),
             async invoke(options, token) {
                 const { filePath } = options.input;
                 const surface = options.input.surface ?? options.input.sheet;
@@ -1367,6 +1408,7 @@ export function registerAgentTools(
         // Refusals (no repository, untracked) come back as a report, so the
         // agent can read the reason instead of catching an error.
         vscode.lm.registerTool<GitChangesInput>('xlide_gitChanges', {
+            prepareInvocation: (options) => confirmReadOutsideWorkspace(options.input.filePath),
             async invoke(options, _token) {
                 const { filePath, revision, moduleName } = options.input;
                 const report = await gitChangesReport(gitDeps, filePath, revision || 'HEAD', moduleName);
