@@ -50,3 +50,4 @@ import './projectAnalysisPerformance.test';
 import './liveDiagnosticsPerformance.test';
 
 import './runtimeAssignment.test';
+import './moduleSearch.test';

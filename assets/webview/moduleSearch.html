@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-{{nonce}}'; style-src 'nonce-{{nonce}}'; worker-src blob:;">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>XLIDE Find / Replace</title>
+<style nonce="{{nonce}}">
+body { font-family: var(--vscode-font-family); color: var(--vscode-foreground); background: var(--vscode-editor-background); margin: 16px; }
+header { position: sticky; top: 0; background: var(--vscode-editor-background); padding-bottom: 12px; z-index: 1; }
+h1 { font-size: 20px; font-weight: 500; } .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+input[type=text], select { color: var(--vscode-input-foreground); background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border, transparent); padding: 6px; }
+input[type=text] { flex: 1; min-width: 150px; } button { cursor: pointer; border: 0; padding: 6px 10px; color: var(--vscode-button-foreground); background: var(--vscode-button-background); }
+button:disabled { opacity: .45; cursor: default; } button:hover:enabled { background: var(--vscode-button-hoverBackground); }
+button.link { background: none; color: var(--vscode-textLink-foreground); padding: 2px; text-align: left; }
+:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 2px; }
+.match { border-bottom: 1px solid var(--vscode-panel-border); padding: 7px 0; } .snippet, .replacement { font-family: var(--vscode-editor-font-family, monospace); white-space: pre-wrap; overflow-wrap: anywhere; margin: 4px 0 4px 24px; }
+.diff-line { display: flex; gap: 12px; padding: 6px 8px; border-left: 3px solid; }
+.diff-label { flex: 0 0 70px; font-family: var(--vscode-font-family); font-weight: 600; user-select: none; }
+.diff-line code { font-family: inherit; min-width: 0; }
+.before { background: var(--vscode-diffEditor-removedLineBackground, #ff000018); border-color: var(--vscode-gitDecoration-deletedResourceForeground, #e66); }
+.after { background: var(--vscode-diffEditor-insertedLineBackground, #00ff0018); border-color: var(--vscode-gitDecoration-addedResourceForeground, #6b6); }
+del { background: var(--vscode-diffEditor-removedTextBackground, #ff000055); text-decoration: line-through; }
+ins { background: var(--vscode-diffEditor-insertedTextBackground, #00ff0055); text-decoration: none; }
+.empty-change { font-style: italic; text-decoration: none; }
+summary { cursor: pointer; padding: 8px 0; } .muted { color: var(--vscode-descriptionForeground); font-size: 12px; }
+details details { margin-left: 16px; } mark { color: inherit; background: var(--vscode-editor-findMatchHighlightBackground, #725c00); }
+#status { white-space: pre-wrap; } #errors { color: var(--vscode-errorForeground); white-space: pre-wrap; }
+</style></head><body>
+<header><h1>Find / Replace in XLIDE</h1>
+<div class="row"><label for="scope">Search in</label><select id="scope"><option value="all">All projects in the XLIDE tree</option><option value="project">Selected project</option><option value="module">Selected module</option></select></div>
+<div class="row"><input id="pattern" type="text" maxlength="1024" placeholder="Find" aria-label="Find"><button id="search">Search</button><button id="stop" disabled>Stop</button></div>
+<div class="row"><label><input id="matchCase" type="checkbox">Match case</label><label><input id="wholeWord" type="checkbox">Whole word</label><label><input id="regex" type="checkbox">Regular expression</label></div>
+<div class="row"><input id="replacement" type="text" maxlength="100000" placeholder="Replace with" aria-label="Replace with"><button id="selected" disabled>Preview selected</button><button id="all" disabled>Preview Replace All</button></div>
+<div class="row"><button id="apply" hidden>Apply preview</button><span class="muted">Edits use normal Save / Auto Save settings. Use Undo to revert.</span></div>
+<div id="status" role="status" aria-live="polite">Includes unopened modules and unsaved editor text.</div><div id="errors" role="alert"></div>
+</header><main id="results" aria-label="Search results"></main>
+<script nonce="{{nonce}}">const searchWorkerSource = {{worker}};
+{{script}}
+</script></body></html>

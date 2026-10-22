@@ -85,6 +85,16 @@ reviewable, testable, and collaborative.
    search, save, rename, Go to Definition, Find All References, hover,
    signature help, formatting-friendly indentation, and semantic coloring.
 
+   Use the search button above the XLIDE tree, or **Find / Replace in XLIDE**
+   on a project or module, to search unopened modules as well as unsaved editor
+   text. Choose one module, one project, or every project in the tree; match
+   case, whole words, or regular expressions. Preview one match, selected
+   matches, or Replace All before applying edits. Each preview shows labeled
+   Before and After rows with deletions and additions highlighted in context.
+   Normal Save / Auto Save
+   settings apply, and Undo reverts the document edits. **Ctrl+F** with the tree
+   focused opens this panel; Ctrl+F in an editor keeps its normal behavior.
+
 5. **Refactor without breaking VBA's rules**
    Extract Method, Extract Variable, Inline Variable, Encapsulate Field,
    Implement Interface, Move to Module, Introduce Parameter, and Rename. Each
