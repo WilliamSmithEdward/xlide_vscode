@@ -7,7 +7,7 @@ import { workspaceUriFor } from './util/workspaceUris';
 import { errorMessage } from './util/errors';
 import { readExtensionTextAsset } from './extensionAssets';
 import { randomNonce, scriptJson } from './webview/html';
-import { moduleSearchPreviewer, moduleSearchReplacement, validateModuleSearchMatches,
+import { moduleSearchChangePreview, moduleSearchPreviewer, moduleSearchReplacement, validateModuleSearchMatches,
     type ModuleSearchMatch, type ModuleSearchQuery } from './moduleSearchModel';
 
 const MAX_MATCHES = 5000;
@@ -253,7 +253,7 @@ export class ModuleSearchPanel implements vscode.Disposable {
                 size += text.length;
                 if (size > MAX_SEARCH_LENGTH) { throw new Error('Replacement size limit reached. Narrow the scope.'); }
                 module.edits.push({ hit, text });
-                rows.push({ id: hit.id, text: text.length > 300 ? `${text.slice(0, 300)}…` : text });
+                rows.push({ id: hit.id, ...moduleSearchChangePreview(hit.source, hit.match, text) });
             }
             if (generation !== this.generation || previewGeneration !== this.previewGeneration) { return; }
             this.plan = [...plan.values()];

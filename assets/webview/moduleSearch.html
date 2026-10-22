@@ -13,7 +13,14 @@ button:disabled { opacity: .45; cursor: default; } button:hover:enabled { backgr
 button.link { background: none; color: var(--vscode-textLink-foreground); padding: 2px; text-align: left; }
 :focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 2px; }
 .match { border-bottom: 1px solid var(--vscode-panel-border); padding: 7px 0; } .snippet, .replacement { font-family: var(--vscode-editor-font-family, monospace); white-space: pre-wrap; overflow-wrap: anywhere; margin: 4px 0 4px 24px; }
-.replacement { border-left: 3px solid var(--vscode-diffEditor-insertedLineBackground, #397); padding-left: 8px; }
+.diff-line { display: flex; gap: 12px; padding: 6px 8px; border-left: 3px solid; }
+.diff-label { flex: 0 0 70px; font-family: var(--vscode-font-family); font-weight: 600; user-select: none; }
+.diff-line code { font-family: inherit; min-width: 0; }
+.before { background: var(--vscode-diffEditor-removedLineBackground, #ff000018); border-color: var(--vscode-gitDecoration-deletedResourceForeground, #e66); }
+.after { background: var(--vscode-diffEditor-insertedLineBackground, #00ff0018); border-color: var(--vscode-gitDecoration-addedResourceForeground, #6b6); }
+del { background: var(--vscode-diffEditor-removedTextBackground, #ff000055); text-decoration: line-through; }
+ins { background: var(--vscode-diffEditor-insertedTextBackground, #00ff0055); text-decoration: none; }
+.empty-change { font-style: italic; text-decoration: none; }
 summary { cursor: pointer; padding: 8px 0; } .muted { color: var(--vscode-descriptionForeground); font-size: 12px; }
 details details { margin-left: 16px; } mark { color: inherit; background: var(--vscode-editor-findMatchHighlightBackground, #725c00); }
 #status { white-space: pre-wrap; } #errors { color: var(--vscode-errorForeground); white-space: pre-wrap; }

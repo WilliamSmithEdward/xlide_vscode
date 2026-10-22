@@ -67,6 +67,25 @@ export function moduleSearchReplacement(source: string, match: ModuleSearchMatch
     });
 }
 
+/** Bounded context around the entire edit, including multiline and zero-width matches. */
+export function moduleSearchChangePreview(source: string, match: ModuleSearchMatch, replacement: string) {
+    const prefixWindow = source.slice(Math.max(0, match.start - 100), match.start);
+    const prefix = prefixWindow.slice(prefixWindow.lastIndexOf('\n') + 1);
+    const suffixWindow = source.slice(match.end, match.end + 120);
+    const nextLine = suffixWindow.indexOf('\n');
+    const suffix = (nextLine < 0 ? suffixWindow : suffixWindow.slice(0, nextLine)).replace(/\r$/, '');
+    const prefixStart = match.start - prefix.length;
+    const suffixEnd = match.end + (nextLine < 0 ? suffixWindow.length : nextLine);
+    const clip = (text: string) => ({ text: text.slice(0, 500), truncated: text.length > 500 });
+    return {
+        prefix,
+        suffix,
+        before: clip(source.slice(match.start, match.end)),
+        after: clip(replacement),
+        contextTruncated: prefixStart > 0 && source[prefixStart - 1] !== '\n' || suffixEnd < source.length && source[suffixEnd] !== '\n',
+    };
+}
+
 export function moduleSearchPreviewer(source: string): (match: ModuleSearchMatch) => {
     line: number; text: string; highlightStart: number; highlightEnd: number;
 } {

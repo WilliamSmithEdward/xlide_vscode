@@ -9,7 +9,7 @@
         if (url) { URL.revokeObjectURL(url); url = undefined; }
     }
     function clearPreview() {
-        for (const row of rows.values()) { row.after.remove(); }
+        for (const row of rows.values()) { row.after.remove(); row.snippet.hidden = false; }
         el('apply').hidden = true;
     }
     function controls() {
@@ -96,7 +96,7 @@
                     document.createTextNode(match.text.slice(match.highlightEnd)));
                 const after = document.createElement('div'); after.className = 'replacement';
                 row.append(check, open, document.createTextNode(' '), one, snippet); group.append(row);
-                rows.set(match.id, { check, after, row }); count++;
+                rows.set(match.id, { check, after, row, snippet }); count++;
             }
             el('status').textContent = `${count} match(es) found; searching…`;
         }
@@ -109,7 +109,30 @@
             busy = false;
             for (const change of data.rows) {
                 const row = rows.get(change.id);
-                if (row) { row.after.textContent = `Replace match with: ${change.text || '(empty text)'}`; row.row.append(row.after); }
+                if (row) {
+                    row.after.replaceChildren(); row.snippet.hidden = true;
+                    for (const [key, label, sign] of [['before', 'Before', '−'], ['after', 'After', '+']]) {
+                        const line = document.createElement('div'); line.className = `diff-line ${key}`;
+                        const heading = document.createElement('span'); heading.className = 'diff-label'; heading.textContent = `${sign} ${label}`;
+                        const code = document.createElement('code');
+                        const changed = document.createElement(key === 'before' ? 'del' : 'ins');
+                        changed.textContent = change[key].text;
+                        if (!change[key].text) {
+                            changed.textContent = key === 'before' ? '(insertion point)' : '(deleted)';
+                            changed.className = 'empty-change';
+                        }
+                        code.append(document.createTextNode(change.prefix), changed);
+                        if (change[key].truncated) {
+                            const omitted = document.createElement('span'); omitted.className = 'muted'; omitted.textContent = ' … [change truncated]'; code.append(omitted);
+                        }
+                        code.append(document.createTextNode(change.suffix));
+                        line.append(heading, code); row.after.append(line);
+                    }
+                    if (change.contextTruncated) {
+                        const note = document.createElement('div'); note.className = 'muted'; note.textContent = 'Surrounding context shortened.'; row.after.append(note);
+                    }
+                    row.row.append(row.after);
+                }
             }
             el('status').textContent = `Preview: ${data.count} replacement(s) in ${data.modules} module(s). Review before applying.`;
             el('apply').hidden = false;

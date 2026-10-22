@@ -89,7 +89,9 @@ reviewable, testable, and collaborative.
    on a project or module, to search unopened modules as well as unsaved editor
    text. Choose one module, one project, or every project in the tree; match
    case, whole words, or regular expressions. Preview one match, selected
-   matches, or Replace All before applying edits. Normal Save / Auto Save
+   matches, or Replace All before applying edits. Each preview shows labeled
+   Before and After rows with deletions and additions highlighted in context.
+   Normal Save / Auto Save
    settings apply, and Undo reverts the document edits. **Ctrl+F** with the tree
    focused opens this panel; Ctrl+F in an editor keeps its normal behavior.
 

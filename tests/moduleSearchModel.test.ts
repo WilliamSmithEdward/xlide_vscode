@@ -1,10 +1,33 @@
 import { describe, expect, it } from 'vitest';
-import { moduleSearchPreviewer, moduleSearchReplacement, validateModuleSearchMatches } from '../src/moduleSearchModel';
+import { moduleSearchChangePreview, moduleSearchPreviewer, moduleSearchReplacement, validateModuleSearchMatches } from '../src/moduleSearchModel';
 
 const { searchModule } = require('../assets/webview/moduleSearchWorker.js');
 const query = (pattern: string, extra = {}) => ({ pattern, regex: false, wholeWord: false, matchCase: false, ...extra });
 
 describe('module search matching and edits', () => {
+    it('previews deletion with unchanged context and multiline replacement with complete matched text', () => {
+        const source = 'MsgBox "Passed", vbInformation\r\nnext';
+        const match = searchModule(source, query('MsgBox'), 5).matches[0];
+        expect(moduleSearchChangePreview(source, match, '')).toEqual({
+            prefix: '', suffix: ' "Passed", vbInformation', before: { text: 'MsgBox', truncated: false },
+            after: { text: '', truncated: false }, contextTruncated: false,
+        });
+        const multiline = searchModule('a\r\nb\r\nc', query('a\\r\\nb', { regex: true }), 5).matches[0];
+        expect(moduleSearchChangePreview('a\r\nb\r\nc', multiline, '<tag>\n$&')).toMatchObject({
+            before: { text: 'a\r\nb' }, after: { text: '<tag>\n$&' },
+        });
+    });
+
+    it('previews zero-width insertions at the start and explicitly bounds long changes', () => {
+        const match = { start: 0, end: 0, captures: [''], named: {} };
+        expect(moduleSearchChangePreview('\nnext', match, 'added')).toMatchObject({ prefix: '', before: { text: '' }, after: { text: 'added' } });
+        const long = moduleSearchChangePreview('a'.repeat(2000), { ...match, start: 200, end: 1000 }, 'b'.repeat(800));
+        expect(long.before).toEqual({ text: 'a'.repeat(500), truncated: true });
+        expect(long.after).toEqual({ text: 'b'.repeat(500), truncated: true });
+        expect(long.prefix).toHaveLength(100); expect(long.suffix).toHaveLength(120);
+        expect(long.contextTruncated).toBe(true);
+    });
+
     it('matches literal punctuation and preserves UTF-16 positions across CRLF and emoji', () => {
         const source = '😀 a.b\r\nA.B';
         const result = searchModule(source, query('a.b'), 50);
