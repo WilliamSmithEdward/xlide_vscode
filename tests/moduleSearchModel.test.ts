@@ -1,10 +1,22 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { runInNewContext } from 'node:vm';
 import { moduleSearchChangePreview, moduleSearchPreviewer, moduleSearchReplacement, validateModuleSearchMatches } from '../src/moduleSearchModel';
 
 const { searchModule } = require('../assets/webview/moduleSearchWorker.js');
 const query = (pattern: string, extra = {}) => ({ pattern, regex: false, wholeWord: false, matchCase: false, ...extra });
 
 describe('module search matching and edits', () => {
+    it('accepts dedicated-worker messages and rejects messages bearing a foreign origin', () => {
+        const responses: any[] = [];
+        const self = { onmessage: undefined as any, postMessage: (message: any) => responses.push(message) };
+        runInNewContext(readFileSync('assets/webview/moduleSearchWorker.js', 'utf8'), { self });
+        const data = { id: 7, text: 'needle', query: query('needle'), limit: 5 };
+        self.onmessage({ origin: 'https://foreign.invalid', data });
+        expect(responses).toHaveLength(0);
+        self.onmessage({ origin: '', data });
+        expect(responses).toMatchObject([{ id: 7, result: { matches: [{ start: 0, end: 6 }] } }]);
+    });
     it('previews deletion with unchanged context and multiline replacement with complete matched text', () => {
         const source = 'MsgBox "Passed", vbInformation\r\nnext';
         const match = searchModule(source, query('MsgBox'), 5).matches[0];

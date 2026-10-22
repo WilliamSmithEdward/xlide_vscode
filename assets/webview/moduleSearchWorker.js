@@ -30,7 +30,9 @@ function searchModule(text, query, limit) {
 }
 
 if (typeof self !== 'undefined') {
-    self.onmessage = ({ data }) => {
+    self.onmessage = event => {
+        if (event.origin !== '') { return; }
+        const { data } = event;
         try { self.postMessage({ id: data.id, result: searchModule(data.text, data.query, data.limit) }); }
         catch (error) { self.postMessage({ id: data.id, error: error.message }); }
     };
