@@ -2,6 +2,31 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.2.0] - 2026-10-21
+
+Find and replace across modules and projects directly from the XLIDE tree.
+
+- Add **Find / Replace in XLIDE** for Excel, Word, PowerPoint, Access and VB6
+  projects, including unopened modules and unsaved editor text. Search a module,
+  a project or the whole tree with case, whole-word and regular-expression
+  options, and navigate to results grouped by project and module (#1436).
+- Preview individual, selected or all replacements with labeled Before and
+  After rows and highlighted deletions/additions. Refuse stale previews and
+  incomplete Replace All operations; respect normal Save / Auto Save and Undo.
+  Keep the query, results and preview when following a result link and returning
+  to the panel. Ctrl+F / Ctrl+H open the panel while the tree has focus (#1436).
+- Correct the Word-specific receivers in 36 PowerPoint chart reference examples
+  and state the required slide/shape setup (#1437).
+- Keep promoted VBE oracle fixtures escaped to ASCII, preserve ambiguous
+  invocation outcomes as unpromotable, and expand coordinator/promotion
+  regressions (#1398, contributed by Sam, @swsammy; #1401, #1402, #1408).
+- Improve temporary-directory cleanup in storage tests and continue cleanup
+  after individual deletion failures (#1403, contributed by Sam, @swsammy;
+  #1410).
+- Update pinned build tooling to Node 24 while retaining Node 20 compatibility
+  checks; refresh action, Vite, Vitest and YARA rules pins (#1409, #1420, #1434,
+  #1407, #1436, #1437).
+
 ## [11.1.23] - 2026-10-18
 
 Clean new template defaults and make VBE oracle runs safer and more reliable.
