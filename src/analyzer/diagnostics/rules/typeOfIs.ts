@@ -32,7 +32,7 @@ import type {
 import type { MemberCompletionContext } from '../../completion/memberAccess';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
-import type { PushFn } from '../analysisContext';
+import { procedureSymbolFor, type PushFn } from '../analysisContext';
 import { qualifiedProcedureKey, type VbaProcedureSignature, type VbaSymbol } from '../../symbols/symbolModel';
 import type { CallableTypeSignature } from '../callExtraction';
 import {
@@ -43,6 +43,7 @@ import {
 	createProjectInterfaceSharingLookup,
 	isKnownScalarType,
 	objectAssignmentIncompatibilityReason,
+	sourceIdentifierBound,
 	sourceNameScopeFor,
 	type SourceNameScope,
 	typeEnvironmentFor,
@@ -214,15 +215,23 @@ export function checkIsOperatorOperands(
 	push: PushFn,
 	projectProcedures?: ReadonlyMap<string, readonly VbaProcedureSignature[]>,
 	projectVisibleSymbols?: readonly VbaSymbol[],
+	objectNames: ReadonlySet<string> = new Set(),
 ): ProcedureExpressionVisitor {
 	const moduleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
 	let enums: ReadonlySet<string> | undefined;
 	const enumNames = (): ReadonlySet<string> => enums ??= enumTypeNames(symbols, projectVisibleSymbols);
 	return (member) => {
-		const env = typeEnvironmentFor(symbols, member);
+		const env = withoutControlLocals(typeEnvironmentFor(symbols, member), symbols.implicitLocals?.get(member.span.start), objectNames);
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
+		const procSym = procedureSymbolFor(symbols, member);
+		// A VBA function's name answers the source, or the module's own
+		// object, before VBA: a control or a predeclared class named Timer
+		// makes `Timer` that object (issue #1419, measured in all four hosts).
+		const shadowed = (name: string): boolean => env.has(name.toLowerCase())
+			|| objectNames.has(name.toLowerCase())
+			|| sourceIdentifierBound(symbols, procSym, projectVisibleSymbols, name, 'expression');
 		const resultOf = (form: OperandForm) => (expr: ExprNode): CallResult | undefined =>
-			callResultType(expr, env, moduleSignatures, sourceNames) ?? runtimeValueResult(expr, form, env, sourceNames);
+			callResultType(expr, env, moduleSignatures, sourceNames) ?? runtimeValueResult(expr, form, env, shadowed);
 		const calls = resultOf('is');
 		const typeOfCalls = resultOf('typeof');
 		const operand = (side: ExprNode, results: (expr: ExprNode) => CallResult | undefined) =>
@@ -344,21 +353,42 @@ function enumOperand(
 		: undefined;
 }
 
+/**
+ * The environment without the implicit locals a control's name takes. With
+ * DefLng and no Option Explicit, `Picker = 1` in a form whose ComboBox is
+ * Picker assigns the control's Value; it declares no Long (issue #1419).
+ */
+function withoutControlLocals(
+	env: ReadonlyMap<string, string>,
+	implicitLocals: ReadonlySet<string> | undefined,
+	objectNames: ReadonlySet<string>,
+): ReadonlyMap<string, string> {
+	const controls = [...implicitLocals ?? []].filter((name) => objectNames.has(name));
+	if (controls.length === 0) {
+		return env;
+	}
+	const out = new Map(env);
+	for (const name of controls) {
+		out.delete(name);
+	}
+	return out;
+}
+
 /** Whether a call stands under `Is` or under `TypeOf`, which judge some calls differently. */
 type OperandForm = 'is' | 'typeof';
 
 /**
  * A call to one of VBA's own functions whose result is a value under `Is`
  * or `TypeOf` (vbaValueResults.ts, issue #1416): `CDbl(1)`, `VBA.Mid$(s, 1)`,
- * `Erl`. Undefined when a source name takes the function's name or `VBA`'s,
- * and for a bare keyword-named TypeOf operand, which is a Syntax error
- * reported in expressions.ts.
+ * `Erl`. Undefined when `shadowed` says a source or object name takes the
+ * function's name or `VBA`'s, and for a bare keyword-named TypeOf operand,
+ * which is a Syntax error reported in expressions.ts.
  */
 function runtimeValueResult(
 	expr: ExprNode,
 	form: OperandForm,
 	env: ReadonlyMap<string, string>,
-	sourceNames: SourceNameScope,
+	shadowed: (name: string) => boolean,
 ): CallResult | undefined {
 	const target = expr.exprKind === 'IndexExpr' ? expr.callee : expr;
 	const args = expr.exprKind === 'IndexExpr' ? expr.args : [];
@@ -366,7 +396,7 @@ function runtimeValueResult(
 	let display: string;
 	let qualified: boolean;
 	if (target.exprKind === 'IdentifierExpr') {
-		if (env.has(target.name.toLowerCase()) || bareCallableSourceShadowed(target.name, sourceNames)) {
+		if (shadowed(target.name)) {
 			return undefined;
 		}
 		name = target.name;
@@ -379,7 +409,7 @@ function runtimeValueResult(
 	} else if (
 		target.exprKind === 'MemberAccessExpr' && target.accessKind !== 'bang'
 		&& target.object?.exprKind === 'IdentifierExpr' && target.object.name.toLowerCase() === 'vba'
-		&& !env.has('vba') && !sourceNames.callableShadows.has('vba')
+		&& !shadowed('VBA')
 	) {
 		if (target.typeSuffix && target.typeSuffix !== '$') {
 			return undefined;
@@ -397,7 +427,7 @@ function runtimeValueResult(
 	const value = VALUE_RESULT_FUNCTIONS.has(lower)
 		|| (!qualified && BARE_VALUE_RESULT_FUNCTIONS.has(lower))
 		|| (!qualified && form === 'is' && ARGUMENT_TYPED_FUNCTIONS.has(lower) && args.length > 0
-			&& args.every((arg) => arg.value !== undefined && arg.value !== null && provablyScalar(arg.value, env, sourceNames)));
+			&& args.every((arg) => arg.value !== undefined && arg.value !== null && provablyScalar(arg.value, env, shadowed)));
 	return value ? { type: 'value', display: `${display}${args.length > 0 || expr.exprKind === 'IndexExpr' ? '(...)' : ''}` } : undefined;
 }
 
@@ -405,17 +435,17 @@ function runtimeValueResult(
 const SCALAR_OPERATORS: ReadonlySet<string> = new Set(['+', '-', '*', '/', '\\', '^', 'Mod', '&']);
 
 /** An argument that is provably a value: a literal, a typed variable or element, a value call, or arithmetic on those. */
-function provablyScalar(expr: ExprNode, env: ReadonlyMap<string, string>, sourceNames: SourceNameScope): boolean {
+function provablyScalar(expr: ExprNode, env: ReadonlyMap<string, string>, shadowed: (name: string) => boolean): boolean {
 	if (expr.exprKind === 'ParenExpr') {
-		return provablyScalar(expr.inner, env, sourceNames);
+		return provablyScalar(expr.inner, env, shadowed);
 	}
 	if (expr.exprKind === 'UnaryExpr' && expr.operator === '-') {
-		return provablyScalar(expr.operand, env, sourceNames);
+		return provablyScalar(expr.operand, env, shadowed);
 	}
 	if (expr.exprKind === 'BinaryExpr') {
-		return SCALAR_OPERATORS.has(expr.operator) && provablyScalar(expr.left, env, sourceNames) && provablyScalar(expr.right, env, sourceNames);
+		return SCALAR_OPERATORS.has(expr.operator) && provablyScalar(expr.left, env, shadowed) && provablyScalar(expr.right, env, shadowed);
 	}
-	return nonObjectOperand(expr, env, (inner) => runtimeValueResult(inner, 'is', env, sourceNames)) !== undefined;
+	return nonObjectOperand(expr, env, (inner) => runtimeValueResult(inner, 'is', env, shadowed)) !== undefined;
 }
 
 /**
@@ -431,8 +461,9 @@ export function checkIsOperandsInConditions(
 	push: PushFn,
 	projectProcedures?: ReadonlyMap<string, readonly VbaProcedureSignature[]>,
 	projectVisibleSymbols?: readonly VbaSymbol[],
+	objectNames?: ReadonlySet<string>,
 ): void {
-	const checkOperands = checkIsOperatorOperands(symbols, push, projectProcedures, projectVisibleSymbols);
+	const checkOperands = checkIsOperatorOperands(symbols, push, projectProcedures, projectVisibleSymbols, objectNames);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;

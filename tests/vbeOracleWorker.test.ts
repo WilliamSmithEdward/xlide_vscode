@@ -135,6 +135,52 @@ describe('VBE oracle worker', () => {
     it('keeps the old coordinator name working', () => {
         expect(readOracle('run_excel_vbe_oracle.mjs')).toContain("await import('./run_vbe_oracle.mjs');");
     });
+
+    // Issue #1419: what a designer or an attribute must declare is read back
+    // after setup, and a read-back that fails is a setup error, never evidence.
+    const body = (worker: string, name: string): string => {
+        const start = worker.indexOf(`function ${name}(`);
+        expect(start, name).toBeGreaterThanOrEqual(0);
+        return worker.slice(start, worker.indexOf('\nfunction ', start));
+    };
+
+    it('reads back every designer control by name and measured type', () => {
+        const worker = readOracle('vbe_oracle_worker.ps1');
+        const controls = body(worker, 'Add-DesignerControls');
+        expect(controls).toContain('$designer.Controls.Add(');
+        expect(controls).toContain('$designer.Controls.Item(');
+        expect(controls).toContain('[Microsoft.VisualBasic.Information]::TypeName($found)');
+        expect(controls.match(/throw "/g)?.length).toBeGreaterThanOrEqual(4);
+        // Only ProgIDs whose read-back type was measured are taken.
+        const table = /\$DesignerControlInterfaces = @\{([\s\S]*?)\n\}/.exec(worker)?.[1] ?? '';
+        expect([...table.matchAll(/"(Forms\.\w+\.\d+)" = "(\w+)"/g)].map((m) => [m[1], m[2]])).toEqual([
+            ['Forms.CommandButton.1', 'ICommandButton'],
+            ['Forms.ComboBox.1', 'IMdcCombo'],
+        ]);
+        expect(body(worker, 'Add-OracleComponent')).toContain('Add-DesignerControls $component $ModuleSpec');
+    });
+
+    it('imports module attributes and reads every attribute line back', () => {
+        const worker = readOracle('vbe_oracle_worker.ps1');
+        const component = body(worker, 'Add-OracleComponent');
+        expect(component).toMatch(/\$moduleAttributes = \$source -match/);
+        expect(component).toContain('Assert-ImportedAttributes $imported $source $extension');
+        const readBack = body(worker, 'Assert-ImportedAttributes');
+        expect(readBack).toContain('$Component.Export($readBack)');
+        expect(readBack).toContain('throw "The imported module');
+        expect(readBack).toContain('Remove-Item -LiteralPath $readBack');
+    });
+
+    it('records the selection only after a compile dialog, and never fails a case on it', () => {
+        const worker = readOracle('vbe_oracle_worker.ps1');
+        const selection = body(worker, 'Get-SelectionAfterDialog');
+        expect(selection).toContain('$pane.GetSelection([ref]$startLine, [ref]$startColumn, [ref]$endLine, [ref]$endColumn)');
+        expect(selection).toMatch(/catch \{\s*return \$null\s*\}/);
+        const lines = worker.split(/\r?\n/).map((line) => line.trim());
+        const at = lines.indexOf('$selection = Get-SelectionAfterDialog $app');
+        expect(lines.filter((line) => line.includes('Get-SelectionAfterDialog $app'))).toHaveLength(1);
+        expect(lines[at - 1]).toBe('Set-DialogOutcome $dialog $true');
+    });
 });
 
 

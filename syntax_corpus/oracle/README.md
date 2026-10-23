@@ -294,6 +294,31 @@ report, gives it a module and saves it, then takes the case's code. A
 `userform` entry adds a UserForm, whose module holds the case's code. This lets the oracle verify class-module member behavior
 without changing production code.
 
+A module entry can also carry what its designer or attributes declare
+(issue #1419). Each field is read back after setup, and a read-back that
+fails ends the case as a `worker_error`, never as evidence:
+
+- `designerControls` on a `userform` entry: `[{ "name", "progId" }]`. The
+  worker adds each control to the form's designer, then finds it by name
+  and checks its type. Only ProgIDs whose read-back type has been measured
+  are taken: `Forms.CommandButton.1` and `Forms.ComboBox.1`, listed in the
+  worker's `$DesignerControlInterfaces`. An empty array is a form with no
+  controls, which tells the analyzer the control list is complete.
+- `Attribute` lines in a module's source, such as
+  `Attribute VB_PredeclaredId = True`. The module is imported rather than
+  typed in, as procedure attributes already were. It is then exported again,
+  and every attribute line of the case must be in the export.
+- `implicitMembers`, `designerClass` and `predeclaredId` are the analyzer's
+  side of the same facts. `tests/helpers/oracleModuleInput.ts` hands them,
+  and the controls `designerControls` names, to the analyzer, and every
+  corpus sweep goes through it.
+
+After a compile dialog, the worker records the code pane's selection as
+`selectionAfterDialog`: the module, and the 1-based start and end lines and
+columns. It is read after the dialog closes, so it is where the VBE left the
+selection, not proof of what it highlighted while the dialog was up. A
+selection that cannot be read is left out and fails nothing.
+
 Use `mode: "compile_then_run"` for discovery cases where the failure phase is
 not known yet. The coordinator invokes compile first. If compile rejects, the
 case records compile rejection and does not run. If compile accepts, the

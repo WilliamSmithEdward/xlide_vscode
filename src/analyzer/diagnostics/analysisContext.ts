@@ -443,6 +443,48 @@ export function ownObjectMemberNames(opts: AnalyzeModuleOptions): ReadonlySet<st
 	return names;
 }
 
+/**
+ * Every object name the module answers bare: its designer's controls, its
+ * object's members and its designer class's, and the project's object
+ * modules with a default instance. A VBA function of one of these names is
+ * shadowed in the module: a control or a predeclared class named Timer makes
+ * `Timer` that object (issue #1419, measured in all four hosts). A class not
+ * known to lack VB_PredeclaredId counts, as in issue #47.
+ */
+export function bareObjectNames(opts: AnalyzeModuleOptions): ReadonlySet<string> {
+	const inputs = [opts.implicitMembers, opts.projectClassMembers, opts.designerClass, opts.hostModel, opts.moduleKind, opts.moduleName];
+	const cached = BARE_OBJECT_NAMES.get(opts);
+	if (cached && cached.inputs.every((input, i) => input === inputs[i])) {
+		return cached.names;
+	}
+	const names = computeBareObjectNames(opts);
+	BARE_OBJECT_NAMES.set(opts, { inputs, names });
+	return names;
+}
+
+/**
+ * One analysis's answer: three rules ask, and each read every project
+ * surface. It is kept only while the options it was read from are the same.
+ */
+const BARE_OBJECT_NAMES = new WeakMap<AnalyzeModuleOptions, { inputs: readonly unknown[]; names: ReadonlySet<string> }>();
+
+function computeBareObjectNames(opts: AnalyzeModuleOptions): ReadonlySet<string> {
+	const controls = opts.implicitMembers ?? [];
+	const own = ownObjectMemberNames(opts);
+	const designer = designerClassMemberNames(opts.designerClass, opts.hostModel);
+	const instances = (opts.projectClassMembers ?? []).filter((surface) => surface.kind === 'document' || surface.kind === 'userform'
+		|| (surface.kind === 'class' && surface.predeclaredId !== false));
+	if (controls.length === 0 && designer.size === 0 && instances.length === 0) {
+		return own;
+	}
+	return new Set([
+		...controls.map((member) => member.name.toLowerCase()),
+		...own,
+		...designer,
+		...instances.map((surface) => surface.name.toLowerCase()),
+	]);
+}
+
 export function designerClassMemberNames(
 	designerClass: string | undefined,
 	model: HostObjectModel | undefined,
