@@ -125551,6 +125551,1815 @@
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid",
       "host": "access"
+    },
+    {
+      "id": "issue1412_r_project_collection_to_vba_compile",
+      "description": "Issue #1412: Dim a() As Collection, then ReDim a(2) As VBA.Collection, with a project class named Collection, is rejected: Compile error: Can't change data types of array elements. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Collection\r\n    ReDim a(2) As VBA.Collection\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1412_r_vba_collection_to_project_compile",
+      "description": "Issue #1412: Dim a() As VBA.Collection, then ReDim a(2) As Collection, with a project class named Collection, is rejected: Compile error: Can't change data types of array elements. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As VBA.Collection\r\n    ReDim a(2) As Collection\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1412_r_project_collection_same_compile",
+      "description": "Issue #1412: Dim a() As Collection, then ReDim a(2) As Collection, with a project class named Collection, compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Collection\r\n    ReDim a(2) As Collection\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1412_r_collection_to_vba_no_class_compile",
+      "description": "Issue #1412: Dim a() As Collection, then ReDim a(2) As VBA.Collection, with no project class of that name, compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Collection\r\n    ReDim a(2) As VBA.Collection\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1412_r_long_to_integer_compile",
+      "description": "Issue #1412: Dim a() As Long, then ReDim a(2) As Integer, is rejected: Compile error: Can't change data types of array elements. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(2) As Integer\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1412_r_project_range_to_excel_compile",
+      "description": "Issue #1412: Dim a() As Range, then ReDim a(2) As Excel.Range, with a project class named Range, is rejected: Compile error: Can't change data types of array elements. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Range\r\n    ReDim a(2) As Excel.Range\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Range",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1412_r_range_to_excel_no_class_compile",
+      "description": "Issue #1412: Dim a() As Range, then ReDim a(2) As Excel.Range, with no project class of that name, compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Range\r\n    ReDim a(2) As Excel.Range\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1412_l_dim_explicit_lower_long_overflow_compile",
+      "description": "Issue #1412: Dim a(0 To 2147483648&) As Long is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(0 To 2147483648&) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1412_l_dim_upper_long_overflow_compile",
+      "description": "Issue #1412: Dim a(2147483648&) As Long is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(2147483648&) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1412_l_redim_long_overflow_compile",
+      "description": "Issue #1412: ReDim a(2147483648&) is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(2147483648&)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1412_l_redim_explicit_lower_long_overflow_compile",
+      "description": "Issue #1412: ReDim a(0 To 2147483648&) is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(0 To 2147483648&)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1412_l_dim_integer_suffix_overflow_compile",
+      "description": "Issue #1412: Dim a(0 To 32768%) As Long is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(0 To 32768%) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1412_l_redim_double_overflow_runtime",
+      "description": "Issue #1412: ReDim a(2147483648#) is rejected: Run-time error '6': Overflow. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(2147483648#)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue1412_l_redim_unsuffixed_overflow_runtime",
+      "description": "Issue #1412: ReDim a(2147483648) is rejected: Run-time error '6': Overflow. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(2147483648)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue1412_l_dim_long_max_compile",
+      "description": "Issue #1412: Dim a(0 To 2147483647&) As Byte compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(0 To 2147483647&) As Byte\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1412_b_is_nothing_bound_compile",
+      "description": "Issue #1412: ReDim a(n Is Nothing) for a local n As Long is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long, n As Long\r\n    ReDim a(n Is Nothing)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1412_b_array_bound_compile",
+      "description": "Issue #1412: ReDim d(a) for a fixed array a is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long\r\n    ReDim d(a)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1412_b_element_bound_runtime",
+      "description": "Issue #1412: ReDim d(a(0)) for an element of a fixed Long array runs. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long\r\n    a(0) = 3\r\n    ReDim d(a(0))\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1412_b_long_bound_runtime",
+      "description": "Issue #1412: ReDim d(n) for a local n As Long runs. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d() As Long, n As Long\r\n    n = 3\r\n    ReDim d(n)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1412_word_r_project_collection_to_vba_compile",
+      "description": "Issue #1412: Dim a() As Collection, then ReDim a(2) As VBA.Collection, with a project class named Collection, is rejected: Compile error: Can't change data types of array elements. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Collection\r\n    ReDim a(2) As VBA.Collection\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_r_vba_collection_to_project_compile",
+      "description": "Issue #1412: Dim a() As VBA.Collection, then ReDim a(2) As Collection, with a project class named Collection, is rejected: Compile error: Can't change data types of array elements. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As VBA.Collection\r\n    ReDim a(2) As Collection\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_r_project_collection_same_compile",
+      "description": "Issue #1412: Dim a() As Collection, then ReDim a(2) As Collection, with a project class named Collection, compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Collection\r\n    ReDim a(2) As Collection\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_r_collection_to_vba_no_class_compile",
+      "description": "Issue #1412: Dim a() As Collection, then ReDim a(2) As VBA.Collection, with no project class of that name, compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Collection\r\n    ReDim a(2) As VBA.Collection\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_r_long_to_integer_compile",
+      "description": "Issue #1412: Dim a() As Long, then ReDim a(2) As Integer, is rejected: Compile error: Can't change data types of array elements. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(2) As Integer\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_r_project_range_to_word_compile",
+      "description": "Issue #1412: Dim a() As Range, then ReDim a(2) As Word.Range, with a project class named Range, is rejected: Compile error: Can't change data types of array elements. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Range\r\n    ReDim a(2) As Word.Range\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Range",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_r_range_to_word_no_class_compile",
+      "description": "Issue #1412: Dim a() As Range, then ReDim a(2) As Word.Range, with no project class of that name, compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Range\r\n    ReDim a(2) As Word.Range\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_l_dim_explicit_lower_long_overflow_compile",
+      "description": "Issue #1412: Dim a(0 To 2147483648&) As Long is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(0 To 2147483648&) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_l_dim_upper_long_overflow_compile",
+      "description": "Issue #1412: Dim a(2147483648&) As Long is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(2147483648&) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_l_redim_long_overflow_compile",
+      "description": "Issue #1412: ReDim a(2147483648&) is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(2147483648&)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_l_redim_explicit_lower_long_overflow_compile",
+      "description": "Issue #1412: ReDim a(0 To 2147483648&) is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(0 To 2147483648&)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_l_dim_integer_suffix_overflow_compile",
+      "description": "Issue #1412: Dim a(0 To 32768%) As Long is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(0 To 32768%) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_l_redim_double_overflow_runtime",
+      "description": "Issue #1412: ReDim a(2147483648#) is rejected: Run-time error '6': Overflow. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(2147483648#)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_l_redim_unsuffixed_overflow_runtime",
+      "description": "Issue #1412: ReDim a(2147483648) is rejected: Run-time error '6': Overflow. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(2147483648)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_l_dim_long_max_compile",
+      "description": "Issue #1412: Dim a(0 To 2147483647&) As Byte compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(0 To 2147483647&) As Byte\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_b_is_nothing_bound_compile",
+      "description": "Issue #1412: ReDim a(n Is Nothing) for a local n As Long is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long, n As Long\r\n    ReDim a(n Is Nothing)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_b_array_bound_compile",
+      "description": "Issue #1412: ReDim d(a) for a fixed array a is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long\r\n    ReDim d(a)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_b_element_bound_runtime",
+      "description": "Issue #1412: ReDim d(a(0)) for an element of a fixed Long array runs. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long\r\n    a(0) = 3\r\n    ReDim d(a(0))\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_b_long_bound_runtime",
+      "description": "Issue #1412: ReDim d(n) for a local n As Long runs. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d() As Long, n As Long\r\n    n = 3\r\n    ReDim d(n)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_powerpoint_r_project_collection_to_vba_compile",
+      "description": "Issue #1412: Dim a() As Collection, then ReDim a(2) As VBA.Collection, with a project class named Collection, is rejected: Compile error: Can't change data types of array elements. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Collection\r\n    ReDim a(2) As VBA.Collection\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_r_vba_collection_to_project_compile",
+      "description": "Issue #1412: Dim a() As VBA.Collection, then ReDim a(2) As Collection, with a project class named Collection, is rejected: Compile error: Can't change data types of array elements. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As VBA.Collection\r\n    ReDim a(2) As Collection\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_r_project_collection_same_compile",
+      "description": "Issue #1412: Dim a() As Collection, then ReDim a(2) As Collection, with a project class named Collection, compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Collection\r\n    ReDim a(2) As Collection\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_r_collection_to_vba_no_class_compile",
+      "description": "Issue #1412: Dim a() As Collection, then ReDim a(2) As VBA.Collection, with no project class of that name, compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Collection\r\n    ReDim a(2) As VBA.Collection\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_r_long_to_integer_compile",
+      "description": "Issue #1412: Dim a() As Long, then ReDim a(2) As Integer, is rejected: Compile error: Can't change data types of array elements. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(2) As Integer\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_l_dim_explicit_lower_long_overflow_compile",
+      "description": "Issue #1412: Dim a(0 To 2147483648&) As Long is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(0 To 2147483648&) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_l_dim_upper_long_overflow_compile",
+      "description": "Issue #1412: Dim a(2147483648&) As Long is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(2147483648&) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_l_redim_long_overflow_compile",
+      "description": "Issue #1412: ReDim a(2147483648&) is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(2147483648&)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_l_redim_explicit_lower_long_overflow_compile",
+      "description": "Issue #1412: ReDim a(0 To 2147483648&) is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(0 To 2147483648&)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_l_dim_integer_suffix_overflow_compile",
+      "description": "Issue #1412: Dim a(0 To 32768%) As Long is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(0 To 32768%) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_l_redim_double_overflow_runtime",
+      "description": "Issue #1412: ReDim a(2147483648#) is rejected: Run-time error '6': Overflow. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(2147483648#)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_l_redim_unsuffixed_overflow_runtime",
+      "description": "Issue #1412: ReDim a(2147483648) is rejected: Run-time error '6': Overflow. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(2147483648)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_l_dim_long_max_compile",
+      "description": "Issue #1412: Dim a(0 To 2147483647&) As Byte compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(0 To 2147483647&) As Byte\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_b_is_nothing_bound_compile",
+      "description": "Issue #1412: ReDim a(n Is Nothing) for a local n As Long is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long, n As Long\r\n    ReDim a(n Is Nothing)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_b_array_bound_compile",
+      "description": "Issue #1412: ReDim d(a) for a fixed array a is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long\r\n    ReDim d(a)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_b_element_bound_runtime",
+      "description": "Issue #1412: ReDim d(a(0)) for an element of a fixed Long array runs. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long\r\n    a(0) = 3\r\n    ReDim d(a(0))\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_b_long_bound_runtime",
+      "description": "Issue #1412: ReDim d(n) for a local n As Long runs. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d() As Long, n As Long\r\n    n = 3\r\n    ReDim d(n)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_access_r_project_collection_to_vba_compile",
+      "description": "Issue #1412: Dim a() As Collection, then ReDim a(2) As VBA.Collection, with a project class named Collection, is rejected: Compile error: Can't change data types of array elements. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Collection\r\n    ReDim a(2) As VBA.Collection\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_r_vba_collection_to_project_compile",
+      "description": "Issue #1412: Dim a() As VBA.Collection, then ReDim a(2) As Collection, with a project class named Collection, is rejected: Compile error: Can't change data types of array elements. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As VBA.Collection\r\n    ReDim a(2) As Collection\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_r_project_collection_same_compile",
+      "description": "Issue #1412: Dim a() As Collection, then ReDim a(2) As Collection, with a project class named Collection, compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Collection\r\n    ReDim a(2) As Collection\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_r_collection_to_vba_no_class_compile",
+      "description": "Issue #1412: Dim a() As Collection, then ReDim a(2) As VBA.Collection, with no project class of that name, compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Collection\r\n    ReDim a(2) As VBA.Collection\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_r_long_to_integer_compile",
+      "description": "Issue #1412: Dim a() As Long, then ReDim a(2) As Integer, is rejected: Compile error: Can't change data types of array elements. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(2) As Integer\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_l_dim_explicit_lower_long_overflow_compile",
+      "description": "Issue #1412: Dim a(0 To 2147483648&) As Long is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(0 To 2147483648&) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_l_dim_upper_long_overflow_compile",
+      "description": "Issue #1412: Dim a(2147483648&) As Long is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(2147483648&) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_l_redim_long_overflow_compile",
+      "description": "Issue #1412: ReDim a(2147483648&) is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(2147483648&)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_l_redim_explicit_lower_long_overflow_compile",
+      "description": "Issue #1412: ReDim a(0 To 2147483648&) is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(0 To 2147483648&)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_l_dim_integer_suffix_overflow_compile",
+      "description": "Issue #1412: Dim a(0 To 32768%) As Long is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(0 To 32768%) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_l_redim_double_overflow_runtime",
+      "description": "Issue #1412: ReDim a(2147483648#) is rejected: Run-time error '6': Overflow. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(2147483648#)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_l_redim_unsuffixed_overflow_runtime",
+      "description": "Issue #1412: ReDim a(2147483648) is rejected: Run-time error '6': Overflow. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(2147483648)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_l_dim_long_max_compile",
+      "description": "Issue #1412: Dim a(0 To 2147483647&) As Byte compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(0 To 2147483647&) As Byte\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_b_is_nothing_bound_compile",
+      "description": "Issue #1412: ReDim a(n Is Nothing) for a local n As Long is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long, n As Long\r\n    ReDim a(n Is Nothing)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_b_array_bound_compile",
+      "description": "Issue #1412: ReDim d(a) for a fixed array a is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long\r\n    ReDim d(a)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_b_element_bound_runtime",
+      "description": "Issue #1412: ReDim d(a(0)) for an element of a fixed Long array runs. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long\r\n    a(0) = 3\r\n    ReDim d(a(0))\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_b_long_bound_runtime",
+      "description": "Issue #1412: ReDim d(n) for a local n As Long runs. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d() As Long, n As Long\r\n    n = 3\r\n    ReDim d(n)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_l_redim_explicit_upper_double_overflow_runtime",
+      "description": "Issue #1412: ReDim a(0 To 2147483648#) is rejected: Run-time error '6': Overflow. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(0 To 2147483648#)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue1412_l_redim_negative_lower_double_overflow_runtime",
+      "description": "Issue #1412: ReDim a(-2147483649# To 0) is rejected: Run-time error '6': Overflow. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(-2147483649# To 0)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue1412_l_redim_const_overflow_runtime",
+      "description": "Issue #1412: ReDim a(N) for Const N As Double = 2147483648# is rejected: Run-time error '6': Overflow. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nConst N As Double = 2147483648#\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(N)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue1412_l_redim_expression_overflow_runtime",
+      "description": "Issue #1412: ReDim a(2147483647# + 1) is rejected: Run-time error '6': Overflow. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(2147483647# + 1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue1412_l_dim_double_overflow_compile",
+      "description": "Issue #1412: Dim a(2147483648#) As Long is rejected: Compile error: Overflow. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(2147483648#) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1412_l_redim_double_in_range_runtime",
+      "description": "Issue #1412: ReDim a(10#) runs. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(10#)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1412_word_l_redim_explicit_upper_double_overflow_runtime",
+      "description": "Issue #1412: ReDim a(0 To 2147483648#) is rejected: Run-time error '6': Overflow. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(0 To 2147483648#)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_l_redim_negative_lower_double_overflow_runtime",
+      "description": "Issue #1412: ReDim a(-2147483649# To 0) is rejected: Run-time error '6': Overflow. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(-2147483649# To 0)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_l_redim_const_overflow_runtime",
+      "description": "Issue #1412: ReDim a(N) for Const N As Double = 2147483648# is rejected: Run-time error '6': Overflow. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nConst N As Double = 2147483648#\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(N)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_l_redim_expression_overflow_runtime",
+      "description": "Issue #1412: ReDim a(2147483647# + 1) is rejected: Run-time error '6': Overflow. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(2147483647# + 1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_l_dim_double_overflow_compile",
+      "description": "Issue #1412: Dim a(2147483648#) As Long is rejected: Compile error: Overflow. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(2147483648#) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_l_redim_double_in_range_runtime",
+      "description": "Issue #1412: ReDim a(10#) runs. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(10#)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_powerpoint_l_redim_explicit_upper_double_overflow_runtime",
+      "description": "Issue #1412: ReDim a(0 To 2147483648#) is rejected: Run-time error '6': Overflow. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(0 To 2147483648#)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_l_redim_negative_lower_double_overflow_runtime",
+      "description": "Issue #1412: ReDim a(-2147483649# To 0) is rejected: Run-time error '6': Overflow. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(-2147483649# To 0)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_l_redim_const_overflow_runtime",
+      "description": "Issue #1412: ReDim a(N) for Const N As Double = 2147483648# is rejected: Run-time error '6': Overflow. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nConst N As Double = 2147483648#\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(N)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_l_redim_expression_overflow_runtime",
+      "description": "Issue #1412: ReDim a(2147483647# + 1) is rejected: Run-time error '6': Overflow. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(2147483647# + 1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_l_dim_double_overflow_compile",
+      "description": "Issue #1412: Dim a(2147483648#) As Long is rejected: Compile error: Overflow. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(2147483648#) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_l_redim_double_in_range_runtime",
+      "description": "Issue #1412: ReDim a(10#) runs. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(10#)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_access_l_redim_explicit_upper_double_overflow_runtime",
+      "description": "Issue #1412: ReDim a(0 To 2147483648#) is rejected: Run-time error '6': Overflow. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(0 To 2147483648#)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_l_redim_negative_lower_double_overflow_runtime",
+      "description": "Issue #1412: ReDim a(-2147483649# To 0) is rejected: Run-time error '6': Overflow. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(-2147483649# To 0)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_l_redim_const_overflow_runtime",
+      "description": "Issue #1412: ReDim a(N) for Const N As Double = 2147483648# is rejected: Run-time error '6': Overflow. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nConst N As Double = 2147483648#\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(N)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_l_redim_expression_overflow_runtime",
+      "description": "Issue #1412: ReDim a(2147483647# + 1) is rejected: Run-time error '6': Overflow. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(2147483647# + 1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_l_dim_double_overflow_compile",
+      "description": "Issue #1412: Dim a(2147483648#) As Long is rejected: Compile error: Overflow. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(2147483648#) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_l_redim_double_in_range_runtime",
+      "description": "Issue #1412: ReDim a(10#) runs. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(10#)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "access"
     }
   ]
 }

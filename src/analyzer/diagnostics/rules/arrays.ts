@@ -14,6 +14,8 @@ import {
 	type IntegerConstantLookup,
 } from '../../constants/integerConstantExpression';
 import type { HostObjectModel } from '../../host/excelObjectModel';
+import { libraryTypeNames } from '../../host/libraryTypeNames';
+import type { ProjectTypeName } from '../../completion/typeCompletion';
 import { numericStringReadings } from '../stringConversion';
 import { tokenize } from '../../lexer/tokenize';
 import type { VbaToken } from '../../lexer/tokenKinds';
@@ -569,7 +571,11 @@ export function checkRedimTypeChange(
 	mod: ModuleNode,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	symbols?: ReturnType<typeof buildModuleSymbols>,
+	projectTypes?: readonly ProjectTypeName[],
+	model?: HostObjectModel,
 ): ProcedureStatementVisitor {
+	const identity = elementTypeIdentityResolver(symbols, projectTypes, model);
 	const moduleArrays = new Map<string, string | undefined>();
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind === 'VariableGroup' && !member.isConst) {
@@ -598,7 +604,14 @@ export function checkRedimTypeChange(
 					continue;
 				}
 				const declared = localArrays.has(key) ? localArrays.get(key) : moduleArrays.get(key);
-				if (declared === undefined || declared === target.asType.name.toLowerCase()) {
+				if (declared === undefined) {
+					continue;
+				}
+				// The same type spelled two ways, `Collection` and
+				// `VBA.Collection`, is no change (issue #1412).
+				const before = identity(declared);
+				const after = identity(target.asType.name);
+				if (before === undefined || after === undefined || before === after) {
 					continue;
 				}
 				push(
@@ -608,6 +621,56 @@ export function checkRedimTypeChange(
 				);
 			}
 		};
+	};
+}
+
+/** The intrinsic types a ReDim can name, lowercased. */
+const INTRINSIC_ELEMENT_TYPES: ReadonlySet<string> = new Set([
+	'byte', 'boolean', 'integer', 'long', 'longlong', 'longptr', 'currency', 'single', 'double', 'date', 'string', 'object', 'variant', 'decimal',
+]);
+
+/**
+ * Which type an element type names, as a key two spellings of one type
+ * share: a project's own Collection is not VBA.Collection, and an unqualified
+ * Collection is the project's when the project has one, VBA's otherwise
+ * (issue #1412, measured in Excel, Word, PowerPoint and Access 16.0). An
+ * unqualified name resolves the way VBA does: the project's types, then its
+ * intrinsic ones, then VBA's library, the host's, DAO in Access, Office and
+ * stdole. A name qualified by anything else gives undefined, and the
+ * comparison is not made; a name none of those knows keys on its spelling.
+ */
+function elementTypeIdentityResolver(
+	symbols: ReturnType<typeof buildModuleSymbols> | undefined,
+	projectTypes: readonly ProjectTypeName[] | undefined,
+	model: HostObjectModel | undefined,
+): (type: string) => string | undefined {
+	const own = new Set<string>();
+	for (const type of projectTypes ?? []) {
+		own.add(type.name.toLowerCase());
+	}
+	for (const child of symbols?.root.children ?? []) {
+		if (child.kind === 'type' || child.kind === 'enum') {
+			own.add(child.name.toLowerCase());
+		}
+	}
+	const host = (model?.hostName ?? 'Excel').toLowerCase();
+	const libraries = ['vba', host, ...(host === 'access' ? ['dao'] : []), 'office', 'stdole'];
+	return (type) => {
+		const lower = type.replace(/\s+/g, '').toLowerCase();
+		const dot = lower.lastIndexOf('.');
+		if (dot >= 0) {
+			const library = lower.slice(0, dot);
+			const name = lower.slice(dot + 1);
+			return libraries.includes(library) && libraryTypeNames(library)?.has(name) ? `${library}.${name}` : undefined;
+		}
+		if (own.has(lower)) {
+			return `project.${lower}`;
+		}
+		if (INTRINSIC_ELEMENT_TYPES.has(lower)) {
+			return lower;
+		}
+		const library = libraries.find((candidate) => libraryTypeNames(candidate)?.has(lower));
+		return library ? `${library}.${lower}` : `unresolved.${lower}`;
 	};
 }
 
@@ -744,6 +807,15 @@ export function checkRedimImpossibleBounds(
 					continue;
 				}
 				target.dimensions.forEach((dimension, index) => {
+					const outside = boundOutsideLong(source, dimension.span, lookup());
+					if (outside !== undefined) {
+						push(
+							'arithmeticOverflow',
+							`ReDim bound ${outside} for dimension ${index + 1} of '${target.name}' is outside the range of a Long; this will raise Run-time error '6': Overflow.`,
+							dimension.span,
+						);
+						return;
+					}
 					// `ReDim a(-1)`: the lower bound is Option Base, 0 by default,
 					// and an upper bound below it is the same impossibility as
 					// `ReDim a(5 To 1)` (issue #120, measured in Excel 16.0).
@@ -839,12 +911,16 @@ function moduleIntegerConstants(
  * refused and `2.5 To 2` is not (issue #209). Undefined when either bound is
  * unknown or the bounds are fine.
  */
-function impossibleBounds(
-	source: string,
-	span: Span,
-	lookup: IntegerConstantLookup,
-	optionBase: number,
-): { lowerText: string; upper: number } | undefined {
+/** One dimension's bounds where they are known: the lower one only when it is written. */
+interface DimensionBounds {
+	lower?: number;
+	upper?: number;
+	explicitLower: boolean;
+	/** A bound holds a type-suffixed literal its type cannot hold, a compile error of its own. */
+	malformedLiteral: boolean;
+}
+
+function dimensionBounds(source: string, span: Span, lookup: IntegerConstantLookup): DimensionBounds {
 	const text = source.slice(span.start, span.end);
 	const toks = tokenize(text).filter((tok) => tok.kind !== 'comment' && tok.kind !== 'newline');
 	let depth = 0;
@@ -869,12 +945,57 @@ function impossibleBounds(
 		}
 		return evaluateIntegerConstantExpression(text.slice(part[0].start, part[part.length - 1].end), lookup);
 	};
-	const upper = side(to < 0 ? toks : toks.slice(to + 1));
-	const lower = to < 0 ? optionBase : side(toks.slice(0, to));
+	return {
+		upper: side(to < 0 ? toks : toks.slice(to + 1)),
+		lower: to < 0 ? undefined : side(toks.slice(0, to)),
+		explicitLower: to >= 0,
+		malformedLiteral: toks.some(suffixedLiteralOutOfRange),
+	};
+}
+
+function impossibleBounds(
+	source: string,
+	span: Span,
+	lookup: IntegerConstantLookup,
+	optionBase: number,
+): { lowerText: string; upper: number } | undefined {
+	const { upper, lower: written, explicitLower } = dimensionBounds(source, span, lookup);
+	const lower = explicitLower ? written : optionBase;
 	if (upper === undefined || lower === undefined || lower <= upper) {
 		return undefined;
 	}
-	return { lowerText: to < 0 ? `${lower} (Option Base ${lower})` : String(lower), upper };
+	return { lowerText: explicitLower ? String(lower) : `${lower} (Option Base ${lower})`, upper };
+}
+
+const LONG_MIN = -2147483648;
+const LONG_MAX = 2147483647;
+const SUFFIX_RANGES: Readonly<Record<string, readonly [number, number]>> = {
+	'%': [-32768, 32767],
+	'&': [LONG_MIN, LONG_MAX],
+};
+
+/** `2147483648&`: an Integer or Long literal its type cannot hold, which the VBE refuses to parse. */
+function suffixedLiteralOutOfRange(tok: VbaToken): boolean {
+	const range = tok.kind === 'integerLiteral' ? SUFFIX_RANGES[tok.rawText.slice(-1)] : undefined;
+	if (!range || /^&[hHoO]/.test(tok.rawText)) {
+		return false;
+	}
+	const value = Number(tok.rawText.slice(0, -1));
+	return Number.isFinite(value) && (value < range[0] || value > range[1]);
+}
+
+/**
+ * A bound a Long cannot hold: `ReDim a(2147483648#)`, from a Double literal,
+ * a Const or an expression, raises 6 (issue #1412, measured in Excel, Word,
+ * PowerPoint and Access 16.0). A Long- or Integer-suffixed literal out of
+ * range is a compile error first, suffixed-literal-overflow's.
+ */
+function boundOutsideLong(source: string, span: Span, lookup: IntegerConstantLookup): number | undefined {
+	const bounds = dimensionBounds(source, span, lookup);
+	if (bounds.malformedLiteral) {
+		return undefined;
+	}
+	return [bounds.lower, bounds.upper].find((value) => value !== undefined && (value < LONG_MIN || value > LONG_MAX));
 }
 
 function inspectArrayDeclaration(
