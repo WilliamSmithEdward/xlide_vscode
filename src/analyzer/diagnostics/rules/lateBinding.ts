@@ -209,17 +209,13 @@ function friendOnlyMemberNames(
 	const friendOwners = new Map<string, string[]>();
 	const disqualified = new Set<string>();
 	for (const owner of projectClassMembers ?? []) {
-		// Only plain class modules are source-exhaustive. Document modules and
-		// UserForms also expose host/designer members we cannot enumerate.
-		const exhaustiveClass = owner.kind === 'class' && owner.exhaustive !== false;
-		for (const member of owner.members) {
-			const lower = member.name.toLowerCase();
-			if (member.visibility === 'Friend' && exhaustiveClass) {
-				const owners = friendOwners.get(lower);
-				if (owners) { owners.push(owner.name); } else { friendOwners.set(lower, [owner.name]); }
-			} else {
-				disqualified.add(lower);
-			}
+		const { friends, others } = ownerMemberNames(owner);
+		for (const lower of friends) {
+			const owners = friendOwners.get(lower);
+			if (owners) { owners.push(owner.name); } else { friendOwners.set(lower, [owner.name]); }
+		}
+		for (const lower of others) {
+			disqualified.add(lower);
 		}
 	}
 	const out = new Map<string, string[]>();
@@ -230,6 +226,26 @@ function friendOnlyMemberNames(
 		out.set(lower, owners);
 	}
 	return out;
+}
+
+// The project index keeps a class's surface object until that class changes,
+// so its names are read once per object, not once per keystroke (issue #1418).
+const OWNER_MEMBER_NAMES = new WeakMap<VbaProjectClassMembers, { friends: string[]; others: string[] }>();
+
+/** One owner's lowercase member names: Friend members of an exhaustive class, and the rest. */
+function ownerMemberNames(owner: VbaProjectClassMembers): { friends: string[]; others: string[] } {
+	let names = OWNER_MEMBER_NAMES.get(owner);
+	if (!names) {
+		// Only plain class modules are source-exhaustive. Document modules and
+		// UserForms also expose host/designer members we cannot enumerate.
+		const exhaustiveClass = owner.kind === 'class' && owner.exhaustive !== false;
+		names = { friends: [], others: [] };
+		for (const member of owner.members) {
+			(member.visibility === 'Friend' && exhaustiveClass ? names.friends : names.others).push(member.name.toLowerCase());
+		}
+		OWNER_MEMBER_NAMES.set(owner, names);
+	}
+	return names;
 }
 
 const RUNTIME_OBJECT_MEMBER_NAMES = new Set<string>();
