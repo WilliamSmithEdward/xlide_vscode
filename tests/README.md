@@ -38,4 +38,4 @@ A path or folder narrows to those files; `-t` narrows to matching test names. So
 
 ## Opt-in benchmarks
 
-Workbook benchmarks are skipped unless their variable names a workbook, for example `XLIDE_PERF_WORKBOOK`, `XLIDE_ANALYSIS_PERF_WORKBOOK` or `XLIDE_PERF_MODULE`. Others are gated by a `XLIDE_*_BENCH` variable or write samples to a `XLIDE_*_BENCHMARK_OUTPUT` file. The suite itself names its variable. Benchmarks report typical and slow samples; the work-count guards beside them are what CI holds.
+Workbook benchmarks are skipped unless their variable names a workbook, for example `XLIDE_PERF_WORKBOOK`, `XLIDE_ANALYSIS_PERF_WORKBOOK` or `XLIDE_PERF_MODULE`. Others are gated by a `XLIDE_*_BENCH` variable or write samples to a `XLIDE_*_BENCHMARK_OUTPUT` file. The suite itself names its variable. Benchmarks report typical and slow samples; the work-count guards beside them are what CI holds. The measurements behind them are written up in `docs/`, for example `docs/editor_performance.md` and `docs/intermittent_typing_stalls.md`.
