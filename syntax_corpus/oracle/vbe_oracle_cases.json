@@ -204351,6 +204351,1000 @@
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid",
       "host": "word"
+    },
+    {
+      "id": "issue1412_rb_is_nothing_compile",
+      "description": "Issue #1412: ReDim d(n Is Nothing), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(n Is Nothing)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1412_rb_array_upper_compile",
+      "description": "Issue #1412: ReDim d(a), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(a)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1412_rb_array_lower_compile",
+      "description": "Issue #1412: ReDim d(a To 2), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(a To 2)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1412_rb_array_paren_compile",
+      "description": "Issue #1412: ReDim d((a)), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d((a))\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1412_rb_array_preserve_compile",
+      "description": "Issue #1412: ReDim Preserve d(1 To a), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim Preserve d(1 To a)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1412_rb_array_second_dim_compile",
+      "description": "Issue #1412: ReDim d(1, a), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(1, a)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1412_rb_array_plus_compile",
+      "description": "Issue #1412: ReDim d(a + 1), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(a + 1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1412_rb_cdbl_is_compile",
+      "description": "Issue #1412: ReDim d(CDbl(1) Is Nothing), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(CDbl(1) Is Nothing)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1412_rb_typeof_n_compile",
+      "description": "Issue #1412: ReDim d(TypeOf n Is Collection), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(TypeOf n Is Collection)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1412_rb_element_ok_compile",
+      "description": "Issue #1412: ReDim d(a(0)), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(a(0))\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1412_rb_ubound_ok_compile",
+      "description": "Issue #1412: ReDim d(UBound(a)), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(UBound(a))\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1412_rb_variant_ok_compile",
+      "description": "Issue #1412: ReDim d(v), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(v)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1412_rb_object_is_ok_compile",
+      "description": "Issue #1412: ReDim d(o Is Nothing), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(o Is Nothing)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1412_rb_two_dims_ok_compile",
+      "description": "Issue #1412: ReDim d(1 To 2, 0 To n), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(1 To 2, 0 To n)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1412_word_rb_is_nothing_compile",
+      "description": "Issue #1412: ReDim d(n Is Nothing), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(n Is Nothing)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_rb_array_upper_compile",
+      "description": "Issue #1412: ReDim d(a), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(a)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_rb_array_lower_compile",
+      "description": "Issue #1412: ReDim d(a To 2), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(a To 2)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_rb_array_paren_compile",
+      "description": "Issue #1412: ReDim d((a)), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d((a))\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_rb_array_preserve_compile",
+      "description": "Issue #1412: ReDim Preserve d(1 To a), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim Preserve d(1 To a)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_rb_array_second_dim_compile",
+      "description": "Issue #1412: ReDim d(1, a), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(1, a)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_rb_array_plus_compile",
+      "description": "Issue #1412: ReDim d(a + 1), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(a + 1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_rb_cdbl_is_compile",
+      "description": "Issue #1412: ReDim d(CDbl(1) Is Nothing), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(CDbl(1) Is Nothing)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_rb_typeof_n_compile",
+      "description": "Issue #1412: ReDim d(TypeOf n Is Collection), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(TypeOf n Is Collection)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_rb_element_ok_compile",
+      "description": "Issue #1412: ReDim d(a(0)), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(a(0))\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_rb_ubound_ok_compile",
+      "description": "Issue #1412: ReDim d(UBound(a)), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(UBound(a))\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_rb_variant_ok_compile",
+      "description": "Issue #1412: ReDim d(v), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(v)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_rb_object_is_ok_compile",
+      "description": "Issue #1412: ReDim d(o Is Nothing), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(o Is Nothing)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_rb_two_dims_ok_compile",
+      "description": "Issue #1412: ReDim d(1 To 2, 0 To n), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(1 To 2, 0 To n)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_powerpoint_rb_is_nothing_compile",
+      "description": "Issue #1412: ReDim d(n Is Nothing), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(n Is Nothing)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_rb_array_upper_compile",
+      "description": "Issue #1412: ReDim d(a), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(a)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_rb_array_lower_compile",
+      "description": "Issue #1412: ReDim d(a To 2), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(a To 2)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_rb_array_paren_compile",
+      "description": "Issue #1412: ReDim d((a)), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d((a))\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_rb_array_preserve_compile",
+      "description": "Issue #1412: ReDim Preserve d(1 To a), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim Preserve d(1 To a)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_rb_array_second_dim_compile",
+      "description": "Issue #1412: ReDim d(1, a), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(1, a)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_rb_array_plus_compile",
+      "description": "Issue #1412: ReDim d(a + 1), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(a + 1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_rb_cdbl_is_compile",
+      "description": "Issue #1412: ReDim d(CDbl(1) Is Nothing), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(CDbl(1) Is Nothing)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_rb_typeof_n_compile",
+      "description": "Issue #1412: ReDim d(TypeOf n Is Collection), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(TypeOf n Is Collection)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_rb_element_ok_compile",
+      "description": "Issue #1412: ReDim d(a(0)), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(a(0))\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_rb_ubound_ok_compile",
+      "description": "Issue #1412: ReDim d(UBound(a)), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(UBound(a))\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_rb_variant_ok_compile",
+      "description": "Issue #1412: ReDim d(v), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(v)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_rb_object_is_ok_compile",
+      "description": "Issue #1412: ReDim d(o Is Nothing), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(o Is Nothing)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_rb_two_dims_ok_compile",
+      "description": "Issue #1412: ReDim d(1 To 2, 0 To n), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(1 To 2, 0 To n)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_access_rb_is_nothing_compile",
+      "description": "Issue #1412: ReDim d(n Is Nothing), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(n Is Nothing)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_rb_array_upper_compile",
+      "description": "Issue #1412: ReDim d(a), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(a)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_rb_array_lower_compile",
+      "description": "Issue #1412: ReDim d(a To 2), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(a To 2)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_rb_array_paren_compile",
+      "description": "Issue #1412: ReDim d((a)), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d((a))\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_rb_array_preserve_compile",
+      "description": "Issue #1412: ReDim Preserve d(1 To a), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim Preserve d(1 To a)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_rb_array_second_dim_compile",
+      "description": "Issue #1412: ReDim d(1, a), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(1, a)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_rb_array_plus_compile",
+      "description": "Issue #1412: ReDim d(a + 1), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(a + 1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_rb_cdbl_is_compile",
+      "description": "Issue #1412: ReDim d(CDbl(1) Is Nothing), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(CDbl(1) Is Nothing)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_rb_typeof_n_compile",
+      "description": "Issue #1412: ReDim d(TypeOf n Is Collection), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(TypeOf n Is Collection)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_rb_element_ok_compile",
+      "description": "Issue #1412: ReDim d(a(0)), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(a(0))\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_rb_ubound_ok_compile",
+      "description": "Issue #1412: ReDim d(UBound(a)), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(UBound(a))\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_rb_variant_ok_compile",
+      "description": "Issue #1412: ReDim d(v), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(v)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_rb_object_is_ok_compile",
+      "description": "Issue #1412: ReDim d(o Is Nothing), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(o Is Nothing)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_rb_two_dims_ok_compile",
+      "description": "Issue #1412: ReDim d(1 To 2, 0 To n), with a Long array a(1), a dynamic Long array d, a Long n, a Variant v and an Object o, compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, d() As Long, n As Long, v As Variant, o As Object\r\n    ReDim d(1 To 2, 0 To n)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
     }
   ]
 }

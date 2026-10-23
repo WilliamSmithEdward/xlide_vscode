@@ -49,11 +49,18 @@
 //    or not, as a For start, end or Step value, "Type mismatch", whatever the
 //    counter's type. An element, UBound(a) and a Variant that is not declared
 //    as an array take.
+//
+// Issue #1412, measured the same way (2026-10-23):
+//
+//  - redim-bound-array: an array variable as a ReDim bound, lower or upper,
+//    in parentheses or not, with Preserve or not, in any dimension, "Type
+//    mismatch". An element, UBound(a) and a Variant take.
 
 import { uncheckedAggregateOperators } from './typeMembers';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import type { VbaToken } from '../../lexer/tokenKinds';
-import type { BodyNode, ModuleNode, ProcedureNode, Span } from '../../parser/nodes';
+import type { BodyNode, ExprNode, ModuleNode, ProcedureNode, Span } from '../../parser/nodes';
+import { statementOperandRoots } from '../statementOperands';
 import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { VbaSymbol } from '../../symbols/symbolModel';
 import type { ProjectTypeName } from '../../completion/typeCompletion';
@@ -253,6 +260,9 @@ function walkBody(
 			case 'Statement':
 			case 'Assignment':
 			case 'Call':
+				if (node.kind === 'Statement') {
+					checkRedimBounds(ctx, procSym, node);
+				}
 				// A single-line If's branches are statements of their own, and
 				// its condition is read up to Then.
 				for (const span of conditionAndBranchSpans(ctx.source, node)) {
@@ -264,6 +274,32 @@ function walkBody(
 		}
 		if ('body' in node && Array.isArray((node as { body?: unknown }).body)) {
 			walkBody(ctx, member, procSym, (node as { body: BodyNode[] }).body, inner);
+		}
+	}
+}
+
+/** The name of the array variable `expr` is, bare or in parentheses, or undefined. */
+function arrayVariableValue(ctx: Context, procSym: VbaSymbol | undefined, expr: ExprNode): string | undefined {
+	let value = expr;
+	while (value.exprKind === 'ParenExpr') {
+		value = value.inner;
+	}
+	return value.exprKind === 'IdentifierExpr' && variableNamed(ctx, procSym, value.name)?.isArray ? value.name : undefined;
+}
+
+/** `ReDim d(a)`, `ReDim d(1 To (a))`: an array variable as a bound (issue #1412). */
+function checkRedimBounds(ctx: Context, procSym: VbaSymbol | undefined, node: Extract<BodyNode, { kind: 'Statement' }>): void {
+	if (node.singleLineIfBranches?.length || !/^\s*(?:\d+\s+)?ReDim\b/i.test(node.raw)) {
+		return;
+	}
+	for (const bound of statementOperandRoots(node)) {
+		const array = arrayVariableValue(ctx, procSym, bound);
+		if (array) {
+			ctx.push(
+				'redimBoundArray',
+				`'${array}' is an array, and a ReDim bound must be a single number. This is a VBE compile error: Type mismatch.`,
+				bound.span,
+			);
 		}
 	}
 }
@@ -291,14 +327,11 @@ function checkFor(
 	}
 	const variable = variableNamed(ctx, procSym, name);
 	for (const bound of node.boundExpressions ?? []) {
-		let value = bound;
-		while (value.exprKind === 'ParenExpr') {
-			value = value.inner;
-		}
-		if (value.exprKind === 'IdentifierExpr' && variableNamed(ctx, procSym, value.name)?.isArray) {
+		const array = arrayVariableValue(ctx, procSym, bound);
+		if (array) {
 			ctx.push(
 				'forBoundArray',
-				`'${value.name}' is an array, and a For start, end or Step value must be a single value. This is a VBE compile error: Type mismatch.`,
+				`'${array}' is an array, and a For start, end or Step value must be a single value. This is a VBE compile error: Type mismatch.`,
 				bound.span,
 			);
 		}
