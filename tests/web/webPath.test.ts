@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as nodePath from 'path';
-import * as webPath from '../src/util/webPath';
+import * as webPath from '../../src/util/webPath';
 
 // node:path's posix implementation is the oracle. The browser build aliases
 // `path` to src/util/webPath.ts, so any disagreement here is a path the web
@@ -58,7 +58,7 @@ describe('the shim covers what the codebase actually calls', () => {
 	// against @types/node, not against this file, so a path function the
 	// shim lacks compiles fine and fails only in a browser.
 	it('implements every path member src/ uses', () => {
-		const srcDir = path.join(__dirname, '..', 'src');
+		const srcDir = path.join(__dirname, '..', '..', 'src');
 		const used = new Set<string>();
 
 		const walk = (dir: string): void => {

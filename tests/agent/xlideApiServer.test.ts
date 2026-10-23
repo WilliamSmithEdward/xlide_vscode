@@ -12,7 +12,7 @@ import {
     type AgentEditReport,
     type XlideApiHandlers,
     type XlideApiRecord,
-} from '../src/xlideApiServer';
+} from '../../src/xlideApiServer';
 
 const ANSWER = { shown: true, review: 'pending' as const };
 

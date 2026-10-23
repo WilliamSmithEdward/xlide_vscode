@@ -193,7 +193,7 @@ export interface AnalysisWorker extends ProjectAnalysisWorker {
      * The full request the live-diagnostics path sends, which carries more
      * than a project-wide pass needs. Imported as a type only, so naming it
      * here does not pull worker_threads into a build that has none -
-     * tests/webBundle.test.ts holds that.
+     * tests/web/webBundle.test.ts holds that.
      */
     analyze(request: WorkerAnalyzeRequest): Promise<WorkerAnalyzeResult>;
     /** Drops a document's cached analysis when its editor closes. */

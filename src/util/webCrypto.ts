@@ -6,7 +6,7 @@
 // inline while building a string. Making them async would ripple through
 // their callers for no gain, so SHA-256 and SHA-1 are implemented directly.
 // They are ~150 lines of fully specified arithmetic, and node:crypto is the
-// oracle: tests/webCrypto.test.ts asserts identical digests.
+// oracle: tests/web/webCrypto.test.ts asserts identical digests.
 //
 // These are identity hashes, not security boundaries: they name a cached
 // token or a backup file. They still have to agree with the desktop build's
