@@ -268,9 +268,14 @@ function callResultType(
 	const callee = expr.callee;
 	if (callee.exprKind === 'IdentifierExpr') {
 		const lower = callee.name.toLowerCase();
-		const type = env.has(lower) || bareCallableSourceShadowed(callee.name, sourceNames)
-			? undefined
-			: moduleSignatures.get(lower)?.returnType;
+		if (env.has(lower) || bareCallableSourceShadowed(callee.name, sourceNames)) {
+			return undefined;
+		}
+		// VBA's own functions are left out: the runtime table types `Right`,
+		// `Mid`, `InStr`, `Split` and others as values where the VBE treats
+		// their result as a Variant (issue #1416's measurements), so only a
+		// source declaration says what a call returns here.
+		const type = moduleSignatures.get(lower)?.returnType;
 		return type ? { type, display: callee.name } : undefined;
 	}
 	if (callee.exprKind === 'MemberAccessExpr' && callee.accessKind !== 'bang' && callee.object?.exprKind === 'IdentifierExpr') {
@@ -350,10 +355,24 @@ export function checkIsOperandsInConditions(
 
 /** Describes a provably non-object (scalar) operand of `Is`, or undefined. */
 function nonObjectOperand(
-	expr: ExprNode,
+	operand: ExprNode,
 	env: ReadonlyMap<string, string>,
 	callResult?: (expr: ExprNode) => CallResult | undefined,
 ): { span: Span; detail: string } | undefined {
+	// `(n) Is Nothing` is the same Type mismatch (issue #1415, measured in
+	// Excel, Word, PowerPoint and Access 16.0).
+	let expr = operand;
+	while (expr.exprKind === 'ParenExpr') {
+		expr = expr.inner;
+	}
+	// `a(0) Is Nothing` for a Long array: its element is a Long (issue #1415).
+	if (expr.exprKind === 'IndexExpr' && expr.callee.exprKind === 'IdentifierExpr') {
+		const declared = env.get(expr.callee.name.toLowerCase());
+		const element = declared?.replace(/\s*\(\s*\)\s*$/, '').trim();
+		if (element && isKnownScalarType(element.toLowerCase())) {
+			return { span: expr.span, detail: `an element of '${expr.callee.name}' is ${/^[aeiou]/i.test(element) ? 'an' : 'a'} ${element}` };
+		}
+	}
 	const result = callResult?.(expr);
 	if (result && isKnownScalarType(result.type.replace(/\s*\(\s*\)\s*$/, '').trim().toLowerCase())) {
 		return { span: expr.span, detail: `'${result.display}' returns ${result.type}` };

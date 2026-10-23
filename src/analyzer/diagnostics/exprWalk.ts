@@ -14,6 +14,7 @@
 import type { BodyNode, ExprNode, ModuleNode, ProcedureNode } from '../parser/nodes';
 import type { ConditionalActivityTracker } from '../conditional/conditionalCompilation';
 import { activeModuleMembers, isInactiveNode } from './walker';
+import { statementOperandRoots } from './statementOperands';
 
 /**
  * A rule's per-procedure expression visitor: the factory does the rule's
@@ -84,6 +85,13 @@ export function forEachExpressionInBody(
 					if (arg.value) {
 						forEachSubExpression(arg.value, visit);
 					}
+				}
+				break;
+			case 'Statement':
+				// Case items, Print # and Debug.Print items, file and record
+				// numbers, single-line If arms (statementOperands.ts).
+				for (const root of statementOperandRoots(node)) {
+					forEachSubExpression(root, visit);
 				}
 				break;
 			case 'IfBlock':
