@@ -10,7 +10,7 @@ const hoisted = vi.hoisted(() => ({
     textDocuments: [] as unknown[],
 }));
 
-vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({
+vi.mock('vscode', async () => (await import('../helpers/vscodeMock')).vscodeMock({
     workspace: {
         textDocuments: hoisted.textDocuments,
         workspaceFolders: [],
@@ -30,11 +30,11 @@ vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock(
 }));
 
 import * as vscode from 'vscode';
-import { mcpEditMirrorHandlers, mirrorMcpEdits } from '../src/mcpEditMirror';
-import { onDidChangeProjectFile } from '../src/projectFileChanges';
-import { hasPendingAgentReview, revertAgentChange, type AgentWriteReviewDeps } from '../src/xlideAgentDiff';
-import { xlideApiRecordName } from '../src/xlideApiServer';
-import { encodeModuleUri } from '../src/xlideFileSystem';
+import { mcpEditMirrorHandlers, mirrorMcpEdits } from '../../src/mcpEditMirror';
+import { onDidChangeProjectFile } from '../../src/projectFileChanges';
+import { hasPendingAgentReview, revertAgentChange, type AgentWriteReviewDeps } from '../../src/xlideAgentDiff';
+import { xlideApiRecordName } from '../../src/xlideApiServer';
+import { encodeModuleUri } from '../../src/xlideFileSystem';
 
 interface FakeBridge {
     call: ReturnType<typeof vi.fn>;

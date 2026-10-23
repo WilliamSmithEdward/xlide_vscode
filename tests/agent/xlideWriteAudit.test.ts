@@ -5,7 +5,7 @@ import {
 	formatChangeSummaryDetails,
 	recentXlideWriteAudits,
 	recordXlideWriteAudit,
-} from '../src/xlideWriteAudit';
+} from '../../src/xlideWriteAudit';
 
 describe('XLIDE write audit', () => {
 	beforeEach(() => {

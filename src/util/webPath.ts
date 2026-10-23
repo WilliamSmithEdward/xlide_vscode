@@ -5,7 +5,7 @@
 // POSIX by construction - `vscode-vfs://github/owner/repo/Book.xlsm` - so
 // there are no drive letters or backslashes to handle.
 //
-// node:path's own posix implementation is the oracle: tests/webPath.test.ts
+// node:path's own posix implementation is the oracle: tests/web/webPath.test.ts
 // asserts identical output across a generated corpus of path shapes. Where
 // the browser has no equivalent at all the difference is documented below
 // rather than guessed at.
