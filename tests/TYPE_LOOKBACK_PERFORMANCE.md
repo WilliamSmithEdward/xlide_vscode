@@ -14,7 +14,7 @@ The cursor context and candidate generation retain their existing behavior.
 
 ```powershell
 $env:XLIDE_TYPE_LOOKBACK_BENCH='1'
-npx vitest run tests/typeLookbackPerformance.test.ts -t 'measures warm'
+npx vitest run tests/analyzer/typeLookbackPerformance.test.ts -t 'measures warm'
 Remove-Item Env:XLIDE_TYPE_LOOKBACK_BENCH
 ```
 

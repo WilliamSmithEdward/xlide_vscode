@@ -18,7 +18,7 @@ no index or cache was introduced.
 ## Reproduction
 
 ```powershell
-npx vitest run tests/macroTargetLookupWork.test.ts tests/macroNames217.test.ts
+npx vitest run tests/analyzer/macroTargetLookupWork.test.ts tests/analyzer/macroNames217.test.ts
 node scripts/benchmark-macro-target-lookup.mjs --baseline=1b445e849ef18382680c4d7bb71a49de7814447e
 node scripts/benchmark-macro-target-lookup.mjs
 ```

@@ -56,7 +56,7 @@ node scripts/benchmark-reference-prefixes.mjs --baseline=c3fb6da5
 node scripts/benchmark-reference-prefixes.mjs
 node scripts/benchmark-reference-prefixes.mjs
 node scripts/benchmark-reference-prefixes.mjs --baseline=c3fb6da5
-npm exec vitest run tests/referenceWithScanWork.test.ts tests/referenceCollectorPrefixWork.test.ts tests/vbaReferenceResolution.test.ts tests/vbaBangAndBracketReferences.test.ts tests/vbaReferenceKinds.test.ts tests/engine/vbaProjectReferences.test.ts tests/engine/vbaFormReferenceWiring.test.ts
+npm exec vitest run tests/analyzer/referenceWithScanWork.test.ts tests/analyzer/referenceCollectorPrefixWork.test.ts tests/analyzer/vbaReferenceResolution.test.ts tests/analyzer/vbaBangAndBracketReferences.test.ts tests/analyzer/vbaReferenceKinds.test.ts tests/engine/vbaProjectReferences.test.ts tests/engine/vbaFormReferenceWiring.test.ts
 npm run check-types
 npm test -- --run
 ```

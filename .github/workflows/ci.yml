@@ -70,7 +70,7 @@ jobs:
           tests/engine/vbaLanguageMatrix.test.ts
           tests/engine/vbaCodePages.test.ts
           tests/engine/moduleExport.test.ts
-          tests/vbaCombiningMarks.test.ts
+          tests/analyzer/vbaCombiningMarks.test.ts
           tests/editor/vbaNonAsciiNavigation.test.ts
 
   # Reading and writing the VBA project of an Access database: the Jet/ACE

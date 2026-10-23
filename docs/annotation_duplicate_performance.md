@@ -78,7 +78,7 @@ node scripts/benchmark-annotation-duplicates.mjs --baseline=b678a385
 node scripts/benchmark-annotation-duplicates.mjs
 node scripts/benchmark-annotation-duplicates.mjs
 node scripts/benchmark-annotation-duplicates.mjs --baseline=b678a385
-npm exec vitest run tests/annotationDuplicateWork.test.ts tests/attributeAnnotations.test.ts tests/attributeRewriteTargetIndex.test.ts tests/diagnostics/classAttributes256.test.ts
+npm exec vitest run tests/analyzer/annotationDuplicateWork.test.ts tests/analyzer/attributeAnnotations.test.ts tests/analyzer/attributeRewriteTargetIndex.test.ts tests/analyzer/diagnostics/classAttributes256.test.ts
 npm run check-types
 npm test -- --run
 ```

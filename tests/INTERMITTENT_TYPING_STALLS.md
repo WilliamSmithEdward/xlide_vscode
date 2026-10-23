@@ -10,7 +10,7 @@ The suite measures five edits with completion, 48 keyboard typing/smart Backspac
 
 These are command roundtrip/provider timings and extension-host heartbeat delays. They do not measure menu or tooltip painting. Focus commands and idle setup occur outside the typing measurement. A failed insertion invalidates a run; do not reinterpret it as a dropped Backspace.
 
-For differential parser validation, set `XLIDE_INCREMENTAL_PARSE_CORPUS` to a private exported source file and run `npx vitest run tests/incrementalModuleParse.test.ts`. That optional test checks the entire AST and diagnostics against a fresh parse for tail and middle-procedure edits, without logging source.
+For differential parser validation, set `XLIDE_INCREMENTAL_PARSE_CORPUS` to a private exported source file and run `npx vitest run tests/analyzer/incrementalModuleParse.test.ts`. That optional test checks the entire AST and diagnostics against a fresh parse for tail and middle-procedure edits, without logging source.
 
 ## Changes
 

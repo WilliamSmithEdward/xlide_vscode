@@ -21,7 +21,7 @@ waits were added.
 ## Reproduce
 
 ~~~powershell
-npx vitest run tests/procedureScopeLookupPerformance.test.ts
+npx vitest run tests/analyzer/procedureScopeLookupPerformance.test.ts
 ~~~
 
 Tests compare procedure lookup against the old first-match search at every
@@ -37,7 +37,7 @@ for every source snapshot:
 
 ~~~powershell
 $env:XLIDE_PERF_WORKBOOK = 'F:\GitHub\xlide\xlide_vscode_testing\ROneCOne_Delegates_Demo.xlsm'
-npx vitest run tests/receiverScopeWorkbookPerformance.test.ts
+npx vitest run tests/analyzer/receiverScopeWorkbookPerformance.test.ts
 ~~~
 
 The editor harness copies the workbook into a disposable workspace:

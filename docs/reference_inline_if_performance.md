@@ -65,7 +65,7 @@ node scripts/benchmark-reference-target-parens.mjs --shape=inline-if --baseline=
 node scripts/benchmark-reference-target-parens.mjs --shape=inline-if
 node scripts/benchmark-reference-target-parens.mjs --shape=inline-if
 node scripts/benchmark-reference-target-parens.mjs --shape=inline-if --baseline=0f685d45
-npm exec vitest run tests/referenceInlineIfWork.test.ts tests/vbaReferenceKinds.test.ts tests/referenceTargetParenWork.test.ts
+npm exec vitest run tests/analyzer/referenceInlineIfWork.test.ts tests/analyzer/vbaReferenceKinds.test.ts tests/analyzer/referenceTargetParenWork.test.ts
 npm run check-types
 npm test -- --run
 ```

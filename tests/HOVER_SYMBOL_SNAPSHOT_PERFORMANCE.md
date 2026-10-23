@@ -16,7 +16,7 @@ for every request.
 
 ```powershell
 $env:XLIDE_HOVER_SYMBOL_BENCH='1'
-npx vitest run tests/hoverSymbolSnapshotPerformance.test.ts -t 'measures warm'
+npx vitest run tests/analyzer/hoverSymbolSnapshotPerformance.test.ts -t 'measures warm'
 Remove-Item Env:XLIDE_HOVER_SYMBOL_BENCH
 ```
 

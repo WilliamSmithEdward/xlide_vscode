@@ -358,7 +358,7 @@ before.
 | --- | --- |
 | VB6 project container | `src/vba/vb6/vbpProject.ts`, `src/macroContainerUi.ts` (discovery, context values), `src/analyzer/host/hostRegistry.ts` (`vb6` token), `tests/fixtures/vb6/**` with `LICENSE` and `NOTICE.md`, `tests/editor/vb6Project.test.ts`, `docs/architecture.md` |
 | VB6 form header / `.frx` | `src/vba/vb6/frmHeader.ts`, `src/vba/vb6/frx.ts`, `src/vbaUserFormControls.ts`, `tests/vb6Forms.test.ts`, `docs/architecture.md` |
-| `vb6` host model | `src/analyzer/host/vb6ObjectModel.ts` and generated `vb6ObjectModelData.ts`, the generator under `scripts/`, `tests/vbaHostModels.test.ts`, `docs/spec/MS-VBAL.verification-map.md` (addendum), `docs/architecture.md` |
+| `vb6` host model | `src/analyzer/host/vb6ObjectModel.ts` and generated `vb6ObjectModelData.ts`, the generator under `scripts/`, `tests/analyzer/vbaHostModels.test.ts`, `docs/spec/MS-VBAL.verification-map.md` (addendum), `docs/architecture.md` |
 | twinBASIC oracle | `syntax_corpus/oracle/twinbasic/**`, `package.json` (`test:oracle:twinbasic`), `docs/` parity report, `xlide_development_principles.md` (oracle usage) |
 | VB6 forms designer | `src/vb6FormDesigner.ts` and the canvas beside `src/vba/oforms/preview.ts`, `package.json` (custom editor), `tests/vb6Designer.test.ts`, `docs/architecture.md` |
 

@@ -1,0 +1,280 @@
+// Diagnostics tests: overflow the code proves (issue #116). Each raising
+// sample was measured in Excel 16.0 (build 20326, 2026-09-26): it compiles
+// and raises error 6 every time it runs, or (for a Const) is refused while
+// compiling. Each quiet one runs there.
+
+import { describe, it, expect } from 'vitest';
+import { analyzeModule } from '../../../src/analyzer';
+import { byCode, expectDiagnostic, expectDiagnostics } from '../../helpers/diagnostics';
+
+const ARITHMETIC = 'arithmetic-overflow';
+const CONST = 'const-overflow';
+const COUNTER = 'for-counter-overflow';
+
+function wrap(...lines: string[]): string {
+	return `Option Explicit\nFunction Main() As Variant\n${lines.map((line) => `    ${line}`).join('\n')}\nEnd Function\n`;
+}
+
+describe('arithmetic-overflow - literal and constant arithmetic (issue #116)', () => {
+	it('types two Integer literals as Integer arithmetic even when a Long receives the result', () => {
+		const src = wrap('Dim secs As Long', 'secs = 60 * 60 * 24', 'Main = secs');
+		expectDiagnostic(src, analyzeModule(src), ARITHMETIC, { span: '60 * 60 * 24', message: ['3600 (Integer) * 24 (Integer)', 'Integer range', "error '6'"] });
+	});
+
+	it('flags each measured literal expression', () => {
+		const cases: Array<[string, string]> = [
+			['32767 + 1', 'Integer range'],
+			['1024 * 1024', 'Integer range'],
+			['255 * 255', 'Integer range'],
+			['24 * 60 * 60', 'Integer range'],
+			['&H8000 - 1', '-32768 (Integer) - 1'],
+			['2147483647 + 1', 'Long range'],
+			['50000 * 50000', 'Long range'],
+			['10 ^ 309', 'Double range'],
+			['Exp(1000)', 'Double range'],
+		];
+		for (const [expr, message] of cases) {
+			const src = wrap(`Main = ${expr}`);
+			expectDiagnostic(src, analyzeModule(src), ARITHMETIC, { span: expr, message });
+		}
+		// The Long suffix arrives too late: the Integer product before it overflows first.
+		const late = wrap('Main = 24 * 60 * 60 * 1000&');
+		expectDiagnostic(late, analyzeModule(late), ARITHMETIC, { span: '24 * 60 * 60', message: 'Integer range' });
+	});
+
+	it('folds Integer Consts with Integer typing', () => {
+		const src =
+			'Option Explicit\nPrivate Const HOURS As Integer = 24\nPrivate Const MINUTES As Integer = 60\n' +
+			'Function Main() As Variant\n    Main = HOURS * MINUTES * MINUTES\nEnd Function\n';
+		expectDiagnostic(src, analyzeModule(src), ARITHMETIC, { span: 'HOURS * MINUTES * MINUTES', message: '1440 (Integer) * 60 (Integer)' });
+	});
+
+	it('stays quiet at the boundaries and when one operand is a Long', () => {
+		const src = wrap('Dim l As Long', 'l = 32767 + 1&', 'Main = 181 * 181', 'Main = 32767 + 0', 'Main = -32768 - 0', 'Main = l + 1');
+		expect(byCode(analyzeModule(src), ARITHMETIC)).toHaveLength(0);
+	});
+});
+
+describe('const-overflow (issue #116)', () => {
+	it('reports a module Const whose Integer arithmetic overflows as a compile error', () => {
+		const src = 'Option Explicit\nPrivate Const SECONDS_PER_DAY = 60 * 60 * 24\nFunction Main() As Variant\n    Main = SECONDS_PER_DAY\nEnd Function\n';
+		expectDiagnostic(src, analyzeModule(src), CONST, { span: '60 * 60 * 24', message: ["'SECONDS_PER_DAY'", 'compile error'] });
+	});
+
+	it('reports a Const declared As a type its value does not fit, and a local Const', () => {
+		const src = 'Option Explicit\nPrivate Const BIG As Integer = 40000\nFunction Main() As Variant\n    Const K = 50000 * 50000\n    Main = BIG + K\nEnd Function\n';
+		expectDiagnostics(src, analyzeModule(src), CONST, [
+			{ span: '40000', message: 'As Integer' },
+			{ span: '50000 * 50000', message: 'Long range' },
+		]);
+	});
+});
+
+describe('for-counter-overflow (issue #116)', () => {
+	it('flags a limit the counter type cannot step past', () => {
+		const cases: Array<[string, string, string]> = [
+			['Dim i As Integer', 'For i = 1 To 32767', '32767'],
+			['Dim b As Byte', 'For b = 0 To 255', '255'],
+			['Dim i As Integer', 'For i = 100 To -32768 Step -1', '-32768'],
+			['Dim l As Long', 'For l = 2147483000 To 2147483647', '2147483647'],
+		];
+		for (const [decl, header, span] of cases) {
+			const src = wrap(decl, header, 'Next', 'Main = 0');
+			expectDiagnostic(src, analyzeModule(src), COUNTER, { span, message: ['after its last pass', "error '6'"] });
+		}
+		// A limit the type cannot hold fails on the For line itself (issue #263).
+		const past = wrap('Dim i As Integer', 'For i = 1 To 40000', 'Next', 'Main = 0');
+		expectDiagnostic(past, analyzeModule(past), COUNTER, { span: '40000', message: ['converts its limit 40000 to Integer as it starts', "error '6'"] });
+	});
+
+	it('stays quiet one below the maximum, for a Long counter, and when the step lands short of it', () => {
+		const src = wrap(
+			'Dim i As Integer, l As Long',
+			'For i = 1 To 32766', 'Next',
+			'For l = 1 To 32767', 'Next',
+			'For i = 100 To -32767 Step -1', 'Next',
+			'For i = 1 To 32766 Step 2', 'Next',
+			'Main = 0',
+		);
+		expect(byCode(analyzeModule(src), COUNTER)).toHaveLength(0);
+	});
+});
+
+describe('arithmetic-overflow - assignments and conversions (issue #116)', () => {
+	it('flags a stored value the target type cannot hold, after rounding', () => {
+		const cases: Array<[string, string, string]> = [
+			['Dim b As Byte', 'b = 200 + 100', 'stores 300 in a Byte'],
+			['Dim b As Byte', 'b = 255.5', 'rounds to 256'],
+			['Dim i As Integer', 'i = 32767.5', 'rounds to 32768'],
+			['Dim d As Date', 'd = 3000000', 'Date'],
+			['Dim i As Integer', 'i = Rows.Count', '1048576'],
+		];
+		for (const [decl, assignment, message] of cases) {
+			const src = wrap(decl, assignment, 'Main = 0');
+			expectDiagnostic(src, analyzeModule(src), ARITHMETIC, { message });
+		}
+		const rounding = wrap('Dim b As Byte', 'b = -0.5', 'b = 255.4', 'Main = b');
+		expect(byCode(analyzeModule(rounding), ARITHMETIC)).toHaveLength(0);
+	});
+
+	it('follows a value through a straight run of statements', () => {
+		const src = wrap('Dim i As Integer', 'i = 32767', 'i = i + 1', 'Main = i');
+		expectDiagnostic(src, analyzeModule(src), ARITHMETIC, { span: 'i + 1', message: '32767 (Integer) + 1 (Integer)' });
+		const branched = wrap('Dim i As Integer', 'i = 32767', 'If Main Then i = 0', 'i = i + 1', 'Main = i');
+		expect(byCode(analyzeModule(branched), ARITHMETIC)).toHaveLength(0);
+		const negated = wrap('Dim i As Integer', 'i = -32768', 'Main = -i');
+		expectDiagnostic(src.replace(src, negated), analyzeModule(negated), ARITHMETIC, { span: '-i', message: 'Negating -32768' });
+	});
+
+	it('flags conversions whose argument is outside the target range', () => {
+		const cases: Array<[string, string]> = [
+			['CInt(40000)', 'CInt(40000) does not fit Integer'],
+			['CByte(-1)', 'CByte(-1) does not fit Byte'],
+			['CLng(2147483647.5)', 'does not fit Long'],
+			['CSng(1E+39)', 'does not fit Single'],
+			['Hex(1E+20)', 'outside the Long range'],
+			['Abs(CInt(-32768))', 'Abs(-32768) does not fit Integer'],
+		];
+		for (const [expr, message] of cases) {
+			const src = wrap(`Main = ${expr}`);
+			expectDiagnostic(src, analyzeModule(src), ARITHMETIC, { span: expr, message });
+		}
+		const quiet = wrap('Main = CInt(32767.4)', 'Main = CByte(255)', 'Main = CLng(-2147483648#)', 'Main = Abs(CInt(-32767))');
+		expect(byCode(analyzeModule(quiet), ARITHMETIC)).toHaveLength(0);
+	});
+
+	it('also sees a conversion inside another statement', () => {
+		const src = wrap('Debug.Print CInt(40000)');
+		expectDiagnostic(src, analyzeModule(src), ARITHMETIC, { span: 'CInt(40000)' });
+	});
+});
+
+describe('operator precedence and Exit For (issue #145)', () => {
+	// Measured in Excel 16.0 (build 20326, 2026-09-26): the module returns
+	// 88030; `1 Mod 200 * 200` raises 6 because the product comes first.
+	it('folds \\, Mod and ^ at their own levels', () => {
+		const src =
+			'Option Explicit\n' +
+			'Private Const K1 As Long = 32000 \\ 2 * 4\n' +
+			'Private Const K2 As Double = 200 * 200 ^ 1\n\n' +
+			'Function Main() As Double\n' +
+			'    Dim n As Long, d As Double\n' +
+			'    n = 32000 \\ 2 * 4\n' +
+			'    d = 200 * 200 ^ 1\n' +
+			'    Main = K1 + K2 + n + d\n' +
+			'End Function\n';
+		const diags = analyzeModule(src);
+		expect(byCode(diags, CONST)).toHaveLength(0);
+		expect(byCode(diags, ARITHMETIC)).toHaveLength(0);
+	});
+
+	it('reports the product inside a Mod', () => {
+		const src = wrap('Dim n As Long', 'n = 1 Mod 200 * 200', 'Main = n');
+		expectDiagnostic(src, analyzeModule(src), ARITHMETIC, { message: '200 (Integer) * 200 (Integer) is 40000' });
+	});
+
+	it('binds ^ above unary minus', () => {
+		// -2 ^ 2 is -4: no negation overflow story, and the Double result is in range.
+		const src = wrap('Dim d As Double', 'd = -2 ^ 2', 'Main = d');
+		expect(byCode(analyzeModule(src), ARITHMETIC)).toHaveLength(0);
+	});
+
+	it('does not report a counter whose loop leaves through Exit For', () => {
+		const src = wrap(
+			'Dim b As Byte, i As Integer',
+			'For b = 0 To 255',
+			'    If b = 10 Then Exit For',
+			'Next b',
+			'For i = 1 To 32767',
+			'    If i = 20 Then Exit For',
+			'Next i',
+			'Main = b + i',
+		);
+		expect(byCode(analyzeModule(src), COUNTER)).toHaveLength(0);
+	});
+
+	it('still reports the counter when only a nested loop exits', () => {
+		const src = wrap(
+			'Dim b As Byte, j As Long',
+			'For b = 0 To 255',
+			'    For j = 1 To 3',
+			'        Exit For',
+			'    Next j',
+			'Next b',
+			'Main = b',
+		);
+		expectDiagnostic(src, analyzeModule(src), COUNTER, { span: '255' });
+	});
+});
+
+describe('arithmetic-overflow - a number spelled in a string (issue #184)', () => {
+	it('reads the string a conversion or Val takes, hex and octal with their width sign', () => {
+		const cases: Array<[string, string]> = [
+			['Debug.Print Val("1e400")', 'past the Double range'],
+			['Debug.Print CInt("&H10000")', 'CInt("&H10000") does not fit Integer'],
+			['Debug.Print CInt("40000")', 'CInt("40000")'],
+			['Debug.Print CByte("256")', 'CByte("256")'],
+			['Debug.Print CInt("&O200000")', 'CInt("&O200000")'],
+			['Main = CDbl("1e400")', 'past the Double range'],
+		];
+		for (const [line, message] of cases) {
+			const src = wrap(line);
+			const hits = byCode(analyzeModule(src), ARITHMETIC);
+			expect(hits, line).toHaveLength(1);
+			expect(hits[0].message, line).toContain(message);
+		}
+		// Each runs in Excel. "1.5" and "1,000" are read by the locale and not judged.
+		const quiet = wrap(
+			'Main = Val("1e300")',
+			'Main = CInt("&H8000")',
+			'Main = CLng("&H80000000")',
+			'Main = CInt("32767")',
+			'Main = CInt("40000.5")',
+			'Main = CInt("40,000")',
+		);
+		expect(byCode(analyzeModule(quiet), ARITHMETIC)).toHaveLength(0);
+	});
+});
+
+describe('Byte and Date arithmetic, and a float argument to a whole-number parameter (issue #203)', () => {
+	// Measured in Excel 16.0: two Bytes make a Byte, a Date plus or minus a
+	// number or another Date makes a Date, and a float literal passed ByVal to
+	// a Long is rounded half to even, then must fit.
+	const HELPERS = 'Function EchoL(ByVal n As Long) As Long\n    EchoL = n\nEnd Function\nFunction EchoI(ByVal n As Integer) As Integer\n    EchoI = n\nEnd Function\n';
+	const RAISES: ReadonlyArray<readonly [string, string[], string, string]> = [
+		['Byte + Byte', ['Dim a As Byte, b As Byte', 'a = 200: b = 100', 'Main = a + b'], ARITHMETIC, '200 (Byte) + 100 (Byte) is 300, outside the Byte range'],
+		['Byte - Byte', ['Dim a As Byte, b As Byte', 'a = 1: b = 2', 'Main = a - b'], ARITHMETIC, 'is -1, outside the Byte range'],
+		['Byte * Byte', ['Dim a As Byte, b As Byte', 'a = 20: b = 20', 'Main = a * b'], ARITHMETIC, 'is 400, outside the Byte range'],
+		['a Date plus a day', ['Dim d As Date', 'd = #12/31/9999#', 'Main = d + 1'], ARITHMETIC, '#12/31/9999# (Date) + 1 (Integer) falls after 12/31/9999'],
+		['a Date literal plus a day', ['Main = #12/31/9999# + 1'], ARITHMETIC, 'falls after 12/31/9999'],
+		['a Date plus a Double', ['Dim d As Date', 'd = #12/31/9999#', 'Main = d + 1#'], ARITHMETIC, 'falls after 12/31/9999'],
+		['two Dates added', ['Dim d As Date, e As Date', 'd = #12/31/9999#: e = #1/2/1900#', 'Main = d + e'], ARITHMETIC, 'falls after 12/31/9999'],
+		['a Date minus a day', ['Dim d As Date', 'd = #1/1/100#', 'Main = d - 1'], ARITHMETIC, '#1/1/100# (Date) - 1 (Integer) falls before 1/1/100'],
+		['an ISO Date literal', ['Main = #9999-12-31# + 1'], ARITHMETIC, 'falls after 12/31/9999'],
+		['a Date literal with a time', ['Main = #12/31/9999 11:00:00 PM# + 1'], ARITHMETIC, '#12/31/9999 11:00:00 PM# (Date) + 1 (Integer) falls after 12/31/9999'],
+		['a float argument past a Long', ['Main = EchoL(3000000000#)'], 'argument-type-mismatch', 'The numeric literal 3000000000# is outside the Long range'],
+		['a float argument that rounds past an Integer', ['Main = EchoI(32767.5)'], 'argument-type-mismatch', '32767.5, which VBA rounds to 32768, is outside the Integer range'],
+	];
+	it.each(RAISES)('reports %s', (_name, lines, code, text) => {
+		const hits = byCode(analyzeModule(wrap(...lines) + HELPERS), code);
+		expect(hits).toHaveLength(1);
+		expect(hits[0].message).toContain(text);
+		expect(hits[0].message).toContain("Run-time error '6': Overflow.");
+	});
+
+	const RUNS: ReadonlyArray<readonly [string, string[]]> = [
+		['a Byte plus an Integer literal', ['Dim a As Byte', 'a = 200', 'Main = a + 100']],
+		['a Byte plus an Integer', ['Dim a As Byte, i As Integer', 'a = 200: i = 100', 'Main = a + i']],
+		['Byte \\ and Mod', ['Dim a As Byte, b As Byte', 'a = 200: b = 100', 'Main = a \\ b + a Mod b']],
+		['a Date minus a day at the end', ['Dim d As Date', 'd = #12/31/9999#', 'Main = d - 1']],
+		['two Dates subtracted', ['Dim d As Date, e As Date', 'd = #12/31/9999#: e = #1/1/1900#', 'Main = d - e']],
+		['two Dates subtracted past the Date range, a Double', ['Dim d As Date, e As Date', 'd = #1/1/100#: e = #12/31/9999#', 'Main = d - e']],
+		['a float argument that rounds into an Integer', ['Main = EchoI(32767.4)']],
+		['a whole Long argument', ['Main = EchoL(2147483647)']],
+		['a date literal with a time, at the end of the range', ['Main = #12/31/9999 11:00:00 PM# + 0']],
+	];
+	it.each(RUNS)('stays quiet for %s', (_name, lines) => {
+		const diagnostics = analyzeModule(wrap(...lines) + HELPERS);
+		expect([...byCode(diagnostics, ARITHMETIC), ...byCode(diagnostics, 'argument-type-mismatch')]).toEqual([]);
+	});
+});

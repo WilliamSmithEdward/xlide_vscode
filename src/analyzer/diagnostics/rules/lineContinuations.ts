@@ -17,7 +17,7 @@
 // VBA-JSON, which has this shape in its Windows branch.
 //
 // The analyzer follows continuations everywhere else the VBE does; those
-// places are covered by tests/diagnostics/lineContinuations.test.ts.
+// places are covered by tests/analyzer/diagnostics/lineContinuations.test.ts.
 
 import { tokenizeCached } from '../../lexer/tokenize';
 import { firstTokenAtOrAfter } from '../../lexer/tokenHelpers';

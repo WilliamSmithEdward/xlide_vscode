@@ -3,7 +3,7 @@
 Run deterministic work-count tests and the lexer substrate corpus comparison:
 
 ```powershell
-npx vitest run tests/editor/smartEnterSurfacePerformance.test.ts tests/editor/smartEnterSubstrateComparison.test.ts tests/vbaStructuralAnalysis.test.ts
+npx vitest run tests/editor/smartEnterSurfacePerformance.test.ts tests/editor/smartEnterSubstrateComparison.test.ts tests/analyzer/vbaStructuralAnalysis.test.ts
 ```
 
 The listener tests assert zero full-document reads after ordinary Enter and

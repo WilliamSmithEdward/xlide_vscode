@@ -15,7 +15,7 @@ safety checks are unchanged. No source cache or public API was added.
 ## Reproduction
 
 ```powershell
-npx vitest run tests/formatterProcedurePositionWork.test.ts tests/vbaFormatter.test.ts tests/vbaFormatterCorpus.test.ts tests/vbaFormatterTokenReuse.test.ts
+npx vitest run tests/analyzer/formatterProcedurePositionWork.test.ts tests/analyzer/vbaFormatter.test.ts tests/analyzer/vbaFormatterCorpus.test.ts tests/analyzer/vbaFormatterTokenReuse.test.ts
 node scripts/benchmark-formatter-procedure-position.mjs --baseline=9ccf1bc21f16057020be3123b28ea7fe9c79d123
 node scripts/benchmark-formatter-procedure-position.mjs
 ```
