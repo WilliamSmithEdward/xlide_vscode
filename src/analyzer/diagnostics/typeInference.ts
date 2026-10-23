@@ -244,11 +244,23 @@ export function uniqueProjectTypeSignatures(
 	}
 	const out = new Map<string, CallableTypeSignature>();
 	for (const [lower, candidates] of projectProcedures) {
-		if (candidates.length !== 1) {
-			continue;
+		if (candidates.length === 1) {
+			out.set(lower, callableTypeSignatureOf(candidates[0]));
 		}
-		const candidate = candidates[0];
-		out.set(lower, {
+	}
+	UNIQUE_PROJECT_TYPE_SIGNATURES.set(projectProcedures, out);
+	return out;
+}
+
+// The project index keeps a module's signature objects until that module
+// changes, so converting per object spares the unchanged ones on each
+// keystroke (issue #1418).
+const CALLABLE_TYPE_SIGNATURE_OF = new WeakMap<VbaProcedureSignature, CallableTypeSignature>();
+
+function callableTypeSignatureOf(candidate: VbaProcedureSignature): CallableTypeSignature {
+	let sig = CALLABLE_TYPE_SIGNATURE_OF.get(candidate);
+	if (!sig) {
+		sig = {
 			name: candidate.name,
 			params: candidate.params.map((p) => ({
 				name: p.name,
@@ -260,10 +272,10 @@ export function uniqueProjectTypeSignatures(
 			})),
 			returnType: candidate.returnType,
 			...(candidate.kind === 'function' ? { valued: true } : {}),
-		});
+		};
+		CALLABLE_TYPE_SIGNATURE_OF.set(candidate, sig);
 	}
-	UNIQUE_PROJECT_TYPE_SIGNATURES.set(projectProcedures, out);
-	return out;
+	return sig;
 }
 
 export function isByRefProcedureParam(param: { byRef?: boolean; byVal?: boolean; paramArray?: boolean }): boolean {

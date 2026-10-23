@@ -724,7 +724,7 @@ export class ProjectIndex {
 		// opens with VERSION 5.00 and designer Begin blocks, so every other
 		// module parses to nothing - and a form whose kind arrived mislabeled
 		// still answers its controls.
-		return this.cached(`implicitMembers:${key}`, () =>
+		return this.moduleLocal('implicitMembers', key, () =>
 			parseUserFormControls(this.moduleSources.get(key) ?? ''));
 	}
 
@@ -742,8 +742,17 @@ export class ProjectIndex {
 		if (supplied !== undefined) {
 			return supplied;
 		}
-		return this.cached(`predeclaredId:${key}`, () =>
+		return this.moduleLocal('predeclaredId', key, () =>
 			predeclaredIdFromSource(this.moduleSources.get(key) ?? ''));
+	}
+
+	/**
+	 * A fact of one module's own text, kept until that module changes rather
+	 * than until any module does (issue #1418). Unindexed names compute fresh.
+	 */
+	private moduleLocal<T>(query: string, key: string, compute: () => T): T {
+		const mod = this.modules.get(key);
+		return mod ? this.contribution(query, mod, false, compute) : compute();
 	}
 
 	/**
@@ -1162,24 +1171,26 @@ export class ProjectIndex {
 		return new Map(this.cached('procedureSignaturesByKey', () => {
 			const signatures = new Map<string, VbaProcedureSignature[]>();
 			for (const mod of this.modules.values()) {
-				for (const symbol of mod.root.children ?? []) {
-					if (
-						!isBareCallableKind(symbol.kind) ||
-						mod.moduleKind !== 'standard' ||
-						!isExported(symbol, mod.moduleKind)
-					) {
-						continue;
+				if (mod.moduleKind !== 'standard') {
+					continue;
+				}
+				// A module's signatures are kept until it changes (issue #1418).
+				const part = this.contribution('exportedSignatures', mod, false, () => {
+					const entries: [string, VbaProcedureSignature][] = [];
+					for (const symbol of mod.root.children ?? []) {
+						if (!isBareCallableKind(symbol.kind) || !isExported(symbol, mod.moduleKind)) {
+							continue;
+						}
+						const declared = procedureSignatureFromSymbol(symbol);
+						const sig = declared && procedureSignatureWithDefTypes(declared, mod.defTypes);
+						if (sig) {
+							entries.push([symbol.name.toLowerCase(), sig], [qualifiedProcedureKey(symbol.moduleName, symbol.name), sig]);
+						}
 					}
-					const declared = procedureSignatureFromSymbol(symbol);
-					const sig = declared && procedureSignatureWithDefTypes(declared, mod.defTypes);
-					if (sig) {
-						addProcedureSignature(signatures, symbol.name.toLowerCase(), sig);
-						addProcedureSignature(
-							signatures,
-							qualifiedProcedureKey(symbol.moduleName, symbol.name),
-							sig,
-						);
-					}
+					return entries;
+				});
+				for (const [key, sig] of part) {
+					addProcedureSignature(signatures, key, sig);
 				}
 			}
 			return signatures;
@@ -1304,74 +1315,85 @@ export class ProjectIndex {
 				if (kind !== 'class' && kind !== 'document' && kind !== 'userform') {
 					continue;
 				}
-				const members = this.visibleObjectMembers(mod);
-				if (kind === 'class' && includeValueFacts) {
-					const values = this.contribution('classMemberValues', mod, false, () =>
-						classMemberValues(this.moduleSources.get(mod.moduleName.toLowerCase()) ?? '', mod.root.children ?? []));
-					for (const member of members) {
-						const value = values.get(member.name.toLowerCase());
-						if (value) {
-							member.knownValue = value;
-						}
-					}
-				}
-				// A worksheet's ActiveX controls are members of it the same way
-				// (issue #225), when the workbook supplied them.
-				const sheetControls = kind === 'document' && this.moduleDesignerClassByName.has(mod.moduleName.toLowerCase())
-					&& this.moduleImplicitMembersByName.has(mod.moduleName.toLowerCase());
-				if (kind === 'userform' || sheetControls) {
-					// A form's controls are members of the form, declared by the
-					// designer rather than by code, so a qualified reference from
-					// another module (`EntryForm.NameBox`) must find them on the
-					// form's type - not only inside its own code-behind (#22).
-					const own = new Set(members.map((member) => member.name.toLowerCase()));
-					for (const control of this.moduleImplicitMembers(mod.moduleName)) {
-						if (own.has(control.name.toLowerCase())) {
-							continue;
-						}
-						members.push({
-							name: control.name,
-							kind: 'property',
-							returns: control.type,
-							moduleName: mod.moduleName,
-						});
-					}
-				}
-				const designerClass = this.moduleDesignerClassByName.get(mod.moduleName.toLowerCase());
-				out.push({
-					name: mod.moduleName,
-					kind,
-					moduleName: mod.moduleName,
-					implements: this.moduleImplementsFor(mod),
-					doc: mod.root.doc,
-					// Classes are source-exhaustive. A form is exhaustive when
-					// its control list is authoritative (issue #26): with the
-					// controls and code-behind here and the UserForm base
-					// merged at resolution, the surface proves absence the
-					// same way the VBE's compiler does. That holds for an Access
-					// form or report too, whose list is its TypeInfo stream's,
-					// record-source fields included (issue #206). A worksheet is
-					// too when the workbook supplied its class and its ActiveX
-					// controls (issue #225); other document modules stay
-					// non-exhaustive: their host base carries more
-					// than any list here.
-					exhaustive: kind === 'class'
-						|| (kind === 'userform' && this.moduleImplicitMembersKnown(mod.moduleName))
-						|| sheetControls,
-					...(designerClass !== undefined ? { designerClass } : {}),
-					// Documents and forms always have one; only a class module
-					// has to be asked (issue #47).
-					predeclaredId: kind === 'class'
-						? this.modulePredeclaredId(mod.moduleName)
-						: true,
-					members,
-					privateMembers: projectMemberCandidateSymbols(mod, false)
-						.filter((symbol) => !isVisibleProjectObjectMember(symbol) && projectObjectMemberKind(symbol) !== undefined)
-						.map((symbol) => symbol.name),
-				});
+				// Everything below reads this module alone, so an edit to
+				// another module keeps it (issue #1418).
+				out.push(this.contribution(includeValueFacts ? 'objectSurface' : 'objectSurface:noValueFacts', mod, false, () => this.objectModuleSurface(mod, kind, includeValueFacts)));
 			}
 			return out;
 		}).slice();
+	}
+
+	/** One class, document or form module's member surface, from its own symbols and text. */
+	private objectModuleSurface(
+		mod: ModuleSymbols,
+		kind: 'class' | 'document' | 'userform',
+		includeValueFacts: boolean,
+	): VbaProjectClassMembers {
+		const members = this.visibleObjectMembers(mod);
+		if (kind === 'class' && includeValueFacts) {
+			const values = this.contribution('classMemberValues', mod, false, () =>
+				classMemberValues(this.moduleSources.get(mod.moduleName.toLowerCase()) ?? '', mod.root.children ?? []));
+			for (const member of members) {
+				const value = values.get(member.name.toLowerCase());
+				if (value) {
+					member.knownValue = value;
+				}
+			}
+		}
+		// A worksheet's ActiveX controls are members of it the same way
+		// (issue #225), when the workbook supplied them.
+		const sheetControls = kind === 'document' && this.moduleDesignerClassByName.has(mod.moduleName.toLowerCase())
+			&& this.moduleImplicitMembersByName.has(mod.moduleName.toLowerCase());
+		if (kind === 'userform' || sheetControls) {
+			// A form's controls are members of the form, declared by the
+			// designer rather than by code, so a qualified reference from
+			// another module (`EntryForm.NameBox`) must find them on the
+			// form's type - not only inside its own code-behind (#22).
+			const own = new Set(members.map((member) => member.name.toLowerCase()));
+			for (const control of this.moduleImplicitMembers(mod.moduleName)) {
+				if (own.has(control.name.toLowerCase())) {
+					continue;
+				}
+				members.push({
+					name: control.name,
+					kind: 'property',
+					returns: control.type,
+					moduleName: mod.moduleName,
+				});
+			}
+		}
+		const designerClass = this.moduleDesignerClassByName.get(mod.moduleName.toLowerCase());
+		return {
+			name: mod.moduleName,
+			kind,
+			moduleName: mod.moduleName,
+			implements: this.moduleImplementsFor(mod),
+			doc: mod.root.doc,
+			// Classes are source-exhaustive. A form is exhaustive when
+			// its control list is authoritative (issue #26): with the
+			// controls and code-behind here and the UserForm base
+			// merged at resolution, the surface proves absence the
+			// same way the VBE's compiler does. That holds for an Access
+			// form or report too, whose list is its TypeInfo stream's,
+			// record-source fields included (issue #206). A worksheet is
+			// too when the workbook supplied its class and its ActiveX
+			// controls (issue #225); other document modules stay
+			// non-exhaustive: their host base carries more
+			// than any list here.
+			exhaustive: kind === 'class'
+				|| (kind === 'userform' && this.moduleImplicitMembersKnown(mod.moduleName))
+				|| sheetControls,
+			...(designerClass !== undefined ? { designerClass } : {}),
+			// Documents and forms always have one; only a class module
+			// has to be asked (issue #47).
+			predeclaredId: kind === 'class'
+				? this.modulePredeclaredId(mod.moduleName)
+				: true,
+			members,
+			privateMembers: projectMemberCandidateSymbols(mod, false)
+				.filter((symbol) => !isVisibleProjectObjectMember(symbol) && projectObjectMemberKind(symbol) !== undefined)
+				.map((symbol) => symbol.name),
+		};
 	}
 
 	/**
