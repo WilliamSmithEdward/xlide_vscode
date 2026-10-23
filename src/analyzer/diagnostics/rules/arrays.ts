@@ -47,6 +47,7 @@ import { counterText, loopCountersAt, numericCounterPasses, type CounterValue, t
 import { procedureHasUnstructuredFlow } from '../../flow/procedureUnstructured';
 import { untouchedModuleVariablesIn } from '../moduleState';
 import { isBareOrVbaQualifiedIntrinsicCall, sourceExpressionSyntaxProblem } from '../rules/shared';
+import { constantNumberFolder } from './overflow';
 import { foldStringExpression, moduleCompare, type ModuleCompare } from '../knownStringCalls';
 import {
 	declarationShapeEnvironmentFor,
@@ -843,6 +844,7 @@ export function checkRedimImpossibleBounds(
 	const moduleDeclarations = redimBlockedDeclarationsForModule(mod, activity);
 	const optionBase = moduleOptionBase(mod, activity);
 	const moduleConstants = moduleIntegerConstants(mod, projectIntegerConstants, activity);
+	const folder = constantNumberFolder(symbols, projectVisibleSymbols);
 	return (member) => {
 		const localDeclarations = redimBlockedDeclarationsForBody(member.body, activity);
 		const localNames = declarationNamesForBody(member.body, activity);
@@ -851,6 +853,7 @@ export function checkRedimImpossibleBounds(
 			member, moduleConstants, symbols, projectVisibleSymbols, activity, hostModel,
 		);
 		const valuesAt = knownLocalLiteralValuesAt(source, member, symbols, activity);
+		const fold = (text: string): number | undefined => folder(text, member);
 		return (stmt) => {
 			// `zz = -1` then `ReDim a(zz)` (issue #238).
 			const lookup = (): IntegerConstantLookup => withKnownLocals(constantsLookup(), valuesAt(stmt));
@@ -869,7 +872,7 @@ export function checkRedimImpossibleBounds(
 					continue;
 				}
 				target.dimensions.forEach((dimension, index) => {
-					const outside = boundOutsideLong(source, dimension.span, lookup());
+					const outside = boundOutsideLong(source, dimension.span, lookup(), fold);
 					if (outside !== undefined) {
 						push(
 							'arithmeticOverflow',
@@ -909,6 +912,9 @@ const MAX_ARRAY_DIMENSIONS = 60;
  *    measured in Excel 16.0): `Dim a(LO To HI)`, `Dim a(-LO)` below Option
  *    Base, `Dim a(1.5 To 1)`, which rounds to 2. A bound that names a
  *    variable stays quiet.
+ *  - `array-bound-overflow`: a bound a Long cannot hold, "Overflow" in the
+ *    VBE: `Dim a(2147483648#)`, `Dim a(N)` with N a Double Const past the
+ *    range (issue #1412). The dimension is not also judged for its order.
  *  - `too-many-array-dimensions`: more than 60 dimensions (the VBA maximum;
  *    oracle-verified `corpus_array_limit_001b_compile`), in a Type member too.
  * ReDim is covered separately by checkRedimImpossibleBounds.
@@ -929,21 +935,24 @@ export function checkArrayDeclarationBounds(
 	const moduleScope = (): IntegerConstantLookup => moduleLookup ??= scopedIntegerConstantLookup(
 		moduleConstants, symbols, undefined, projectVisibleSymbols, hostModel,
 	);
-	const inspectGroup = (group: VariableGroupNode, lookup: () => IntegerConstantLookup): void => {
+	// Read only for a bound that whole-number folding cannot read.
+	const folder = constantNumberFolder(symbols, projectVisibleSymbols);
+	const moduleFold = (text: string): number | undefined => folder(text);
+	const inspectGroup = (group: VariableGroupNode, scope: BoundScope): void => {
 		for (const decl of group.declarations) {
 			if (!decl.isArray || decl.arrayBounds === undefined || isInactiveNode(activity, decl)) {
 				continue;
 			}
-			inspectArrayDeclaration(source, decl, lookup, optionBase, push);
+			inspectArrayDeclaration(source, decl, scope, optionBase, push);
 		}
 	};
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind === 'VariableGroup') {
-			inspectGroup(member, moduleScope);
+			inspectGroup(member, { lookup: moduleScope, fold: moduleFold });
 		} else if (member.kind === 'Type') {
 			for (const field of member.fields) {
 				if (field.isArray && !isInactiveNode(activity, field)) {
-					inspectArrayDeclaration(source, field, moduleScope, optionBase, push);
+					inspectArrayDeclaration(source, field, { lookup: moduleScope, fold: moduleFold }, optionBase, push);
 				}
 			}
 		} else if (member.kind === 'Procedure') {
@@ -951,9 +960,16 @@ export function checkArrayDeclarationBounds(
 			const procedureScope = (): IntegerConstantLookup => constants ??= procedureIntegerConstantLookup(
 				member, moduleConstants, symbols, projectVisibleSymbols, activity, hostModel,
 			);
-			forEachVariableGroup(member.body, (group) => inspectGroup(group, procedureScope), activity);
+			const scope: BoundScope = { lookup: procedureScope, fold: (text) => folder(text, member) };
+			forEachVariableGroup(member.body, (group) => inspectGroup(group, scope), activity);
 		}
 	}
+}
+
+/** How a declaration's bounds are read: whole-number Consts first, then VBA's typed folding. */
+interface BoundScope {
+	lookup: () => IntegerConstantLookup;
+	fold: (text: string) => number | undefined;
 }
 
 /** The module's integer constants and Enum members, over the project's Public ones. */
@@ -980,6 +996,9 @@ interface DimensionBounds {
 	explicitLower: boolean;
 	/** A bound holds a type-suffixed literal its type cannot hold, a compile error of its own. */
 	malformedLiteral: boolean;
+	/** Each written bound's text, for a reading past whole numbers. */
+	lowerText?: string;
+	upperText?: string;
 }
 
 function dimensionBounds(source: string, span: Span, lookup: IntegerConstantLookup): DimensionBounds {
@@ -994,6 +1013,7 @@ function dimensionBounds(source: string, span: Span, lookup: IntegerConstantLook
 			to = i;
 		}
 	}
+	const sideText = (part: readonly VbaToken[]): string => text.slice(part[0].start, part[part.length - 1].end);
 	const side = (part: readonly VbaToken[]): number | undefined => {
 		if (part.length === 0) {
 			return undefined;
@@ -1005,13 +1025,17 @@ function dimensionBounds(source: string, span: Span, lookup: IntegerConstantLook
 			const value = Number(decimal.rawText.replace(/[!#@]$/, '').replace(/[dD]/, 'e'));
 			return Number.isFinite(value) ? bankersRound(negative ? -value : value) + 0 : undefined;
 		}
-		return evaluateIntegerConstantExpression(text.slice(part[0].start, part[part.length - 1].end), lookup);
+		return evaluateIntegerConstantExpression(sideText(part), lookup);
 	};
+	const upperPart = to < 0 ? toks : toks.slice(to + 1);
+	const lowerPart = to < 0 ? [] : toks.slice(0, to);
 	return {
-		upper: side(to < 0 ? toks : toks.slice(to + 1)),
-		lower: to < 0 ? undefined : side(toks.slice(0, to)),
+		upper: side(upperPart),
+		lower: side(lowerPart),
 		explicitLower: to >= 0,
 		malformedLiteral: toks.some(suffixedLiteralOutOfRange),
+		upperText: upperPart.length > 0 ? sideText(upperPart) : undefined,
+		lowerText: lowerPart.length > 0 ? sideText(lowerPart) : undefined,
 	};
 }
 
@@ -1047,23 +1071,40 @@ function suffixedLiteralOutOfRange(tok: VbaToken): boolean {
 }
 
 /**
- * A bound a Long cannot hold: `ReDim a(2147483648#)`, from a Double literal,
- * a Const or an expression, raises 6 (issue #1412, measured in Excel, Word,
- * PowerPoint and Access 16.0). A Long- or Integer-suffixed literal out of
- * range is a compile error first, suffixed-literal-overflow's.
+ * A bound a Long cannot hold once it is rounded half to even, as VBA makes
+ * a bound whole: `ReDim a(2147483648#)` raises 6 and `Dim a(2147483648#)` is
+ * refused with "Overflow" (issue #1412, measured in Excel, Word, PowerPoint
+ * and Access 16.0). 2147483647.5 rounds to 2147483648 and is past the range;
+ * -2147483648.5 rounds to -2147483648 and is not. A bound whole-number
+ * folding cannot read, a Double Const or `2147483647# + 1`, is read by
+ * `fold`. A Long- or Integer-suffixed literal out of range is a compile
+ * error first, suffixed-literal-overflow's.
  */
-function boundOutsideLong(source: string, span: Span, lookup: IntegerConstantLookup): number | undefined {
+function boundOutsideLong(
+	source: string,
+	span: Span,
+	lookup: IntegerConstantLookup,
+	fold: (text: string) => number | undefined,
+): number | undefined {
 	const bounds = dimensionBounds(source, span, lookup);
 	if (bounds.malformedLiteral) {
 		return undefined;
 	}
-	return [bounds.lower, bounds.upper].find((value) => value !== undefined && (value < LONG_MIN || value > LONG_MAX));
+	const read = (value: number | undefined, text: string | undefined): number | undefined => {
+		if (value !== undefined || text === undefined) {
+			return value;
+		}
+		const folded = fold(text);
+		return folded === undefined ? undefined : bankersRound(folded) + 0;
+	};
+	return [read(bounds.lower, bounds.lowerText), read(bounds.upper, bounds.upperText)]
+		.find((value) => value !== undefined && (value < LONG_MIN || value > LONG_MAX));
 }
 
 function inspectArrayDeclaration(
 	source: string,
 	decl: VariableDeclNode | TypeFieldNode,
-	lookup: () => IntegerConstantLookup,
+	scope: BoundScope,
 	optionBase: number,
 	push: PushFn,
 ): void {
@@ -1090,7 +1131,16 @@ function inspectArrayDeclaration(
 
 	dims.forEach((dimTokens, index) => {
 		const span = tokenGroupSpan(decl.span, dimTokens);
-		const bounds = impossibleBounds(source, span, lookup(), optionBase);
+		const outside = boundOutsideLong(source, span, scope.lookup(), scope.fold);
+		if (outside !== undefined) {
+			push(
+				'arrayBoundOverflow',
+				`Array '${decl.name}' bound ${outside} for dimension ${index + 1} is outside the range of a Long; this is a VBE compile error: Overflow.`,
+				span,
+			);
+			return;
+		}
+		const bounds = impossibleBounds(source, span, scope.lookup(), optionBase);
 		if (!bounds) {
 			return;
 		}
