@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 // Exercise the coordinator's pure policy without starting PowerShell or Office.
 const source = readFileSync(join(process.cwd(), 'syntax_corpus/oracle/run_vbe_oracle.mjs'), 'utf8');
-const names = ['caseHost', 'validateCrashBuilds', 'hostsNeedingBuilds', 'knownHostCrashResult',
+const names = ['caseHost', 'unsupportedHost', 'validateCrashBuilds', 'hostsNeedingBuilds', 'knownHostCrashResult',
     'expectedMatches', 'isOracleInfrastructureFailure', 'promoteObservedCases', 'formatCasesDocument',
     'evidencePhaseForCase', 'evidencePhaseForResult', 'diagnosticMeaningForResult', 'phaseMatches'];
 const functions = names.map((name) => {
@@ -14,6 +14,7 @@ const functions = names.map((name) => {
     return source.slice(start, source.indexOf('\n}', start) + 2);
 }).join('\n');
 const policy = runInNewContext(`const DEFAULT_HOST = 'excel';
+const OFFICE_HOSTS = { excel: {}, word: {}, powerpoint: {}, access: {} };
 const EVIDENCE_OUTCOMES = new Set(['accepted', 'rejected']);
 ${functions}\n({${names.join(',')}})`);
 const build = '16.0.20430.20182';
@@ -81,6 +82,7 @@ describe('VBE oracle promotion writes', () => {
                 // The run lock is covered in vbeOracleRunLock.test.ts; here it is always free.
                 acquireOracleRunLock: async () => ({ held: true, release: async () => {} }),
                 oracleRunLockAddress: () => 'test-lock', oracleRunOwner: () => ({ pid: 1 }), describeRefusal: () => 'refused',
+                unwritableCheckpoint: () => undefined, // A real path is checked in vbeOracleOptions.test.ts.
                 OracleWorker: class { async close() {} },
                 caseHash: () => 'hash',
                 runCaseWithRetries: async (_worker: unknown, kase: { id: string }) => {
@@ -156,6 +158,7 @@ function setupUncheckpointedMain(registered: { build: string | null; why?: strin
         // The run lock is covered in vbeOracleRunLock.test.ts; here it is always free.
         acquireOracleRunLock: async () => ({ held: true, release: async () => {} }),
         oracleRunLockAddress: () => 'test-lock', oracleRunOwner: () => ({ pid: 1 }), describeRefusal: () => 'refused',
+        unwritableCheckpoint: () => undefined, // A real path is checked in vbeOracleOptions.test.ts.
         OracleWorker: class { async close() {} },
         caseHash: () => 'hash',
         runCaseWithRetries: async (_worker: unknown, kase: { id: string }) => {
@@ -204,6 +207,7 @@ it.each([true, false])('continues after a skip and excludes it from checkpoints 
         // The run lock is covered in vbeOracleRunLock.test.ts; here it is always free.
         acquireOracleRunLock: async () => ({ held: true, release: async () => {} }),
         oracleRunLockAddress: () => 'test-lock', oracleRunOwner: () => ({ pid: 1 }), describeRefusal: () => 'refused',
+        unwritableCheckpoint: () => undefined, // A real path is checked in vbeOracleOptions.test.ts.
         OracleWorker: class { async close() {} },
         caseHash: () => 'hash', checkpointKey: () => 'key',
         runCaseWithRetries: async (_worker: unknown, kase: { id: string }) => {

@@ -34,8 +34,22 @@ const OFFICE_HOSTS = {
 };
 const DEFAULT_HOST = 'excel';
 
+/** The case's host: absent is Excel, and anything else must be one of OFFICE_HOSTS, exactly. */
 function caseHost(kase) {
-    return String(kase.host ?? DEFAULT_HOST).toLowerCase();
+    return kase.host === undefined ? DEFAULT_HOST : kase.host;
+}
+
+/**
+ * Why a case's host is not one the oracle drives, or undefined. One rule for
+ * every case and every check (issue #1440): `"Excel"`, `" excel"`, `null`
+ * and `1` are refused, where the coordinator once lowercased some of them.
+ */
+function unsupportedHost(kase) {
+    const host = kase.host;
+    if (host === undefined || (typeof host === 'string' && Object.hasOwn(OFFICE_HOSTS, host))) {
+        return undefined;
+    }
+    return `${String(kase.id)} names host ${JSON.stringify(host)}`;
 }
 
 // Most rejected cases show a VBE error box, and Windows plays a message-box
@@ -790,6 +804,25 @@ const USAGE = `Usage: node run_vbe_oracle.mjs [options]
   run starts nothing and exits with code 3, naming that run.
 `;
 
+/** Why a checkpoint cannot be kept at `file`, or undefined: it is a directory, or its directory is missing or read-only. */
+function unwritableCheckpoint(file) {
+    try {
+        if (fs.statSync(file).isDirectory()) { return 'is a directory'; }
+        fs.accessSync(file, fs.constants.W_OK);
+        return undefined;
+    } catch (err) {
+        if (err.code !== 'ENOENT') { return `cannot be written (${err.code ?? err.message})`; }
+    }
+    const dir = path.dirname(path.resolve(file));
+    try {
+        if (!fs.statSync(dir).isDirectory()) { return `${dir} is not a directory`; }
+        fs.accessSync(dir, fs.constants.W_OK);
+        return undefined;
+    } catch (err) {
+        return err.code === 'ENOENT' ? `its directory ${dir} does not exist` : `its directory cannot be written (${err.code ?? err.message})`;
+    }
+}
+
 function parseArgs(argv) {
     const args = {
         cases: DEFAULT_CASES,
@@ -803,22 +836,34 @@ function parseArgs(argv) {
         strict: false,
         promoteObserved: false,
     };
-    const number = (raw, flag) => {
-        const value = Number.parseInt(raw, 10);
-        if (!Number.isInteger(value)) { throw new Error(`${flag} expects an integer (got '${raw}')`); }
-        return value;
+    let i = 0;
+    // An option's value is the next argument, which must exist and must not
+    // be another option: `--checkpoint --strict` names no file (issue #1440).
+    // So a value cannot begin with `--`; write `./--name` for such a path.
+    const value = (flag) => {
+        const raw = argv[i + 1];
+        if (raw === undefined || raw === '' || raw.startsWith('--')) {
+            throw new Error(raw === undefined || raw === '' ? `${flag} expects a value` : `${flag} expects a value, not the option '${raw}'`);
+        }
+        i += 1;
+        return raw;
     };
-    for (let i = 0; i < argv.length; i++) {
+    const number = (flag) => {
+        const raw = value(flag);
+        if (!/^-?\d+$/.test(raw)) { throw new Error(`${flag} expects an integer (got '${raw}')`); }
+        return Number.parseInt(raw, 10);
+    };
+    for (; i < argv.length; i++) {
         const flag = argv[i];
         switch (flag) {
-            case '--cases': args.cases = argv[++i]; break;
-            case '--case': args.caseIds.push(argv[++i]); break;
-            case '--timeout': args.timeout = number(argv[++i], flag); break;
-            case '--timeout-retries': args.timeoutRetries = number(argv[++i], flag); break;
+            case '--cases': args.cases = value(flag); break;
+            case '--case': args.caseIds.push(value(flag)); break;
+            case '--timeout': args.timeout = number(flag); break;
+            case '--timeout-retries': args.timeoutRetries = number(flag); break;
             case '--cases-per-instance':
-            case '--cases-per-excel': args.casesPerInstance = number(argv[++i], flag); break;
-            case '--dialog-hold-seconds': args.dialogHoldSeconds = number(argv[++i], flag); break;
-            case '--checkpoint': args.checkpoint = argv[++i]; break;
+            case '--cases-per-excel': args.casesPerInstance = number(flag); break;
+            case '--dialog-hold-seconds': args.dialogHoldSeconds = number(flag); break;
+            case '--checkpoint': args.checkpoint = value(flag); break;
             case '--json': args.json = true; break;
             case '--strict': args.strict = true; break;
             case '--promote-observed': args.promoteObserved = true; break;
@@ -874,10 +919,19 @@ async function main(argv) {
 
     // Every host the selected cases use must be installed, and for a
     // checkpoint run its build must be readable.
-    const unknownHosts = [...new Set(cases.map(caseHost))].filter((host) => !(host in OFFICE_HOSTS));
+    const unknownHosts = cases.map(unsupportedHost).filter((why) => why !== undefined);
     if (unknownHosts.length) {
-        console.error(`Unknown oracle host(s): ${unknownHosts.join(', ')}. Use ${Object.keys(OFFICE_HOSTS).join(', ')}.`);
+        console.error(`Unknown oracle host: ${unknownHosts.slice(0, 5).join('; ')}${unknownHosts.length > 5 ? `; and ${unknownHosts.length - 5} more` : ''}. Use ${Object.keys(OFFICE_HOSTS).join(', ')}, or leave host out for excel.`);
         return 2;
+    }
+    // A checkpoint is first written after a case has run, so a path that
+    // cannot take it is refused now, before Office starts (issue #1440).
+    if (args.checkpoint) {
+        const why = unwritableCheckpoint(args.checkpoint);
+        if (why) {
+            console.error(`--checkpoint ${args.checkpoint}: ${why}`);
+            return 2;
+        }
     }
     const hosts = [...new Set(cases.map(caseHost))];
     const buildHosts = hostsNeedingBuilds(cases, args.checkpoint);
