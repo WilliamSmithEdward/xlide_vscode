@@ -130,7 +130,7 @@ describe('VbaProjectIndexService', () => {
 		expect(second.byModule.get('module1')?.source).toContain('Gamma');
 	});
 
-	it('keeps a document module\'s document type on its project type, across an edit', async () => {
+	it('keeps a document module\'s document type on its project type, across edits', async () => {
 		// A workbook module renamed BookCode is still a Workbook: what the host
 		// read from its VB_Base must reach the type other modules see.
 		const { index, projectIndexService } = service([
@@ -144,6 +144,9 @@ describe('VbaProjectIndexService', () => {
 			.toEqual([['BookCode', 'workbook'], ['Sheet1', undefined]]);
 
 		index.updateModuleSource(BOOK, 'BookCode', 'Public Sub Gamma()\nEnd Sub\n');
+		expect(documentTypes(await projectIndexService.contextForProject(BOOK)))
+			.toEqual([['BookCode', 'workbook'], ['Sheet1', undefined]]);
+		index.updateModuleSource(BOOK, 'Sheet1', 'Public Sub Delta()\nEnd Sub\n');
 		expect(documentTypes(await projectIndexService.contextForProject(BOOK)))
 			.toEqual([['BookCode', 'workbook'], ['Sheet1', undefined]]);
 	});

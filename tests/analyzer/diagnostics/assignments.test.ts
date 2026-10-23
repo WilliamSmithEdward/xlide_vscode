@@ -1751,6 +1751,24 @@ describe('analyzeModule - assignment type validation', () => {
 		it('reads a document module with no document type from its code name, as before', () => {
 			expect(mismatches(undefined)).toEqual([4, 6]);
 		});
+
+		it('takes a Document into a variable of the renamed Word document module', () => {
+			const src =
+				'Option Explicit\n' +
+				'Public Sub T()\n' +
+				'    Dim d As DocCode\n' +
+				'    Set d = Application.ActiveDocument\n' +
+				'End Sub\n';
+			const lines = (documentType: 'document' | undefined) => byCode(
+				analyzeProjectModule(src, [
+					{ moduleName: 'Module1', type: 'standard', source: src },
+					{ moduleName: 'DocCode', type: 'document', documentType, source: '' },
+				], 'Module1', { host: 'word' }),
+				'assignment-object-type-mismatch',
+			).map((d) => src.slice(0, d.span.start).split('\n').length);
+			expect(lines('document')).toEqual([]);
+			expect(lines(undefined)).toEqual([4]);
+		});
 	});
 
 	it('uses the exhaustive Worksheet host surface for declared Worksheet variables', () => {

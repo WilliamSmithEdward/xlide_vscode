@@ -342,7 +342,10 @@ function moduleSurfaceDigest(options: VbaProjectAnalysisOptions): string {
         // re-seed that answers it differently must not reuse the old analysis. All
         // THREE states are distinct: unknown is not the same claim as false (#47).
         fold.add(`${surface.name}:${surface.kind}:${surface.exhaustive === true ? '1' : '0'}`
-            + `:${surface.predeclaredId === undefined ? '?' : surface.predeclaredId ? '1' : '0'}`);
+            + `:${surface.predeclaredId === undefined ? '?' : surface.predeclaredId ? '1' : '0'}`
+            // Which object a document module is decides what a variable of its
+            // type takes: a renamed workbook module holds a Workbook.
+            + `:${surface.documentType ?? ''}`);
         for (const member of surface.members) {
             fold.add(`${surface.name}.${member.name}:${member.kind}:${member.returns ?? ''}`);
         }
