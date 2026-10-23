@@ -3,7 +3,7 @@
 Run deterministic work-count tests and the lexer substrate corpus comparison:
 
 ```powershell
-npx vitest run tests/smartEnterSurfacePerformance.test.ts tests/smartEnterSubstrateComparison.test.ts tests/vbaStructuralAnalysis.test.ts
+npx vitest run tests/editor/smartEnterSurfacePerformance.test.ts tests/editor/smartEnterSubstrateComparison.test.ts tests/vbaStructuralAnalysis.test.ts
 ```
 
 The listener tests assert zero full-document reads after ordinary Enter and
@@ -17,7 +17,7 @@ Run the opt-in component benchmark on an otherwise idle machine:
 ```powershell
 New-Item -ItemType Directory -Force out | Out-Null
 $env:XLIDE_ENTER_BENCHMARK_OUTPUT = 'out/smart-enter-latency.json'
-npx vitest run tests/smartEnterSurfacePerformance.test.ts -t 'measures Enter and stripped-line work'
+npx vitest run tests/editor/smartEnterSurfacePerformance.test.ts -t 'measures Enter and stripped-line work'
 Remove-Item Env:XLIDE_ENTER_BENCHMARK_OUTPUT
 Get-Content out/smart-enter-latency.json
 ```

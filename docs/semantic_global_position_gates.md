@@ -10,7 +10,7 @@ resolution precedence and emitted token fields remain unchanged.
 ## Reproduction
 
 ```powershell
-npx vitest run tests/semanticGlobalPositionWork.test.ts tests/vbaSemanticTokens.test.ts tests/editorSurfaceFollowupPerformance.test.ts
+npx vitest run tests/semanticGlobalPositionWork.test.ts tests/vbaSemanticTokens.test.ts tests/editor/editorSurfaceFollowupPerformance.test.ts
 node scripts/benchmark-semantic-global-gates.mjs --baseline=453511f94a6078c227cde6db766daa45335f6176
 node scripts/benchmark-semantic-global-gates.mjs
 ```
