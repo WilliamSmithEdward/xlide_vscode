@@ -75,6 +75,7 @@ import {
 	sourceNameScopeFor,
 	typeEnvironmentFor,
 } from '../typeInference';
+import { TYPEOF_KEYWORD_OPERANDS } from '../../runtime/vbaValueResults';
 import { isInvalidBooleanString, isInvalidDateString } from '../stringConversion';
 import { isBareOrVbaQualifiedIntrinsicCall, isLineLabelOnlyStatement } from './shared';
 import {
@@ -458,6 +459,34 @@ const TYPEOF_VALUE_TYPES: ReadonlySet<string> = new Set([
  * `TypeOf o Is Long`, testing for a value type: both are Syntax errors
  * (issue #1415, measured in Excel, Word, PowerPoint and Access 16.0).
  */
+const TYPEOF_LITERAL_KINDS: ReadonlySet<string> = new Set(['integerLiteral', 'floatLiteral', 'stringLiteral', 'dateLiteral']);
+const TYPEOF_LITERAL_WORDS: ReadonlySet<string> = new Set(['true', 'false', 'nothing', 'null', 'empty']);
+
+/**
+ * `TypeOf 1 Is Collection`, `TypeOf -1`, `TypeOf Nothing`, and a bare
+ * keyword-named function, `TypeOf CDbl(1)` or `TypeOf Len("x")`: each is a
+ * Syntax error (issue #1416, measured in Excel, Word, PowerPoint and Access
+ * 16.0). `TypeOf VBA.CDbl(1)` parses, and is a Type mismatch instead.
+ */
+function typeOfValueOperand(toks: readonly VbaToken[], at: number): { last: number; what: string } | undefined {
+	const tok = toks[at];
+	if (!tok) {
+		return undefined;
+	}
+	if (TYPEOF_LITERAL_KINDS.has(tok.kind) || TYPEOF_LITERAL_WORDS.has(tokenText(tok))) {
+		return { last: at, what: `${tok.rawText} is a literal` };
+	}
+	if (tok.rawText === '-' || tok.rawText === '+') {
+		return { last: at, what: `'${tok.rawText}' starts a value` };
+	}
+	const suffix = toks[at + 1]?.rawText === '$' && toks[at + 1].start === tok.end ? 1 : 0;
+	const name = `${tokenText(tok)}${suffix ? '$' : ''}`;
+	if (tok.kind === 'keyword' && TYPEOF_KEYWORD_OPERANDS.has(name)) {
+		return { last: at + suffix, what: `${tok.rawText}${suffix ? '$' : ''} is one of VBA's own functions, which the VBE reads as a keyword here` };
+	}
+	return undefined;
+}
+
 function malformedTypeOf(toks: readonly VbaToken[], offset: number): { span: Span; why: string } | undefined {
 	for (let i = 0; i < toks.length; i++) {
 		if (tokenText(toks[i]) !== 'typeof') {
@@ -465,6 +494,10 @@ function malformedTypeOf(toks: readonly VbaToken[], offset: number): { span: Spa
 		}
 		if (toks[i + 1]?.rawText === '(') {
 			return { span: { start: offset + toks[i + 1].start, end: offset + toks[i + 1].end }, why: "TypeOf takes its operand without parentheses: 'TypeOf o Is Collection'." };
+		}
+		const operand = typeOfValueOperand(toks, i + 1);
+		if (operand) {
+			return { span: { start: offset + toks[i + 1].start, end: offset + toks[operand.last].end }, why: `TypeOf tests an object, and ${operand.what}.` };
 		}
 		let depth = 0;
 		for (let j = i + 1; j < toks.length; j++) {

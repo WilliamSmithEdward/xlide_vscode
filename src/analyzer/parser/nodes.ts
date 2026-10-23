@@ -323,6 +323,8 @@ export interface MemberAccessExpr extends ExprBase {
 	object: ExprNode | null;
 	member: string;
 	memberSpan: Span;
+	/** Type-declaration character glued to the member (`VBA.Mid$`): $, % or @. */
+	typeSuffix?: string;
 	/**
 	 * `'bang'` for the `receiver!name` form (sugar for the receiver's default
 	 * member indexed by the string `"name"`, e.g. `rs!Field` ≈ `rs.Fields("Field")`).

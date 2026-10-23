@@ -446,6 +446,13 @@ class ExpressionParser {
 					memberSpan: { start: memberToken.start, end: memberToken.end },
 					span: { start: this.spanOf(expr).start, end: memberToken.end },
 				};
+				// `VBA.Mid$(s, 1)`: the same adjacent suffix an identifier takes.
+				const suffix = this.peek();
+				if (suffix && suffix.kind === 'unknown' && UNAMBIGUOUS_SUFFIXES.has(suffix.rawText) && suffix.start === memberToken.end) {
+					this.next();
+					node.typeSuffix = suffix.rawText;
+					node.span = { start: node.span.start, end: suffix.end };
+				}
 				expr = node;
 				continue;
 			}
@@ -696,7 +703,9 @@ class ExpressionParser {
 			}
 			// `CLng(1)`, `Len("a")`: VBA's functions whose names the lexer reads
 			// as keywords are calls, and the expression is still one (issue #1415).
-			if (this.peekAt(1)?.rawText === '(' && resolveRuntimeFunction(token.rawText)?.kind === 'function') {
+			// So is a `$` form, `String$(1, "x")` (issue #1416).
+			const dollar = this.peekAt(1)?.rawText === '$' && this.peekAt(1)!.start === token.end ? 1 : 0;
+			if (this.peekAt(1 + dollar)?.rawText === '(' && resolveRuntimeFunction(`${token.rawText}${dollar ? '$' : ''}`)?.kind === 'function') {
 				this.next();
 				return this.identifierExpr(token);
 			}
