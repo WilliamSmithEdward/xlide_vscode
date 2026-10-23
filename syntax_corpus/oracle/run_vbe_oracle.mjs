@@ -14,6 +14,7 @@ import path from 'node:path';
 import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { acquireOracleRunLock, describeRefusal, oracleRunLockAddress, oracleRunOwner } from './oracleRunLock.mjs';
+import { describeLeftHosts, OwnedHosts, ownedHostsPath } from './oracleOwnedHosts.mjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_CASES = path.join(ROOT, 'vbe_oracle_cases.json');
@@ -459,28 +460,39 @@ function promoteObservedCases(document, results) {
     return { promoted, errors: [] };
 }
 
-// The worker records "<pid> <image>" for the host instance it started.
+// The worker records "<pid> <image> <start>" for the host instance it started,
+// the start time as a UTC FileTime (issue #1439).
 function readRecordedProcess(pidPath) {
     try {
-        const [rawPid, image] = fs.readFileSync(pidPath, 'ascii').trim().split(/\s+/);
+        const [rawPid, image, start] = fs.readFileSync(pidPath, 'ascii').trim().split(/\s+/);
         const pid = Number.parseInt(rawPid, 10);
-        return Number.isInteger(pid) && /^[A-Z]+$/.test(image ?? '') ? { pid, image } : undefined;
+        return Number.isInteger(pid) && /^[A-Z]+$/.test(image ?? '') && /^\d+$/.test(start ?? '')
+            ? { pid, image, start } : undefined;
     } catch {
         return undefined;
     }
 }
 
-// Only that host's image: a recorded pid may since have been reused by
-// another process.
-function killProcess(recorded) {
-    if (recorded === undefined) { return; }
-    spawnSync('taskkill', [
-        '/PID', String(recorded.pid), '/FI', `IMAGENAME eq ${recorded.image}.EXE`, '/T', '/F',
-    ], { encoding: 'utf8', timeout: 10_000 });
+/** A host an earlier worker started is still running and could not be ended. */
+class HostCleanupError extends Error {
+    constructor(left) {
+        super(describeLeftHosts(left));
+        this.left = left;
+    }
 }
 
-function killRecordedHost(pidPath) {
-    killProcess(readRecordedProcess(pidPath));
+// The temporary folder of each case under way, so that an interrupt can still
+// read which host it started and remove the folder (issue #1439).
+const ACTIVE_CASE_DIRS = new Set();
+
+/** Records the hosts the cases under way started, and removes their folders. */
+function abandonActiveCases(owned) {
+    for (const dir of [...ACTIVE_CASE_DIRS]) {
+        const recorded = readRecordedProcess(path.join(dir, 'host.pid'));
+        if (recorded) { owned.add(recorded); }
+        try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* reported by the next run's temp */ }
+        ACTIVE_CASE_DIRS.delete(dir);
+    }
 }
 
 function readDialogResult(kase, dialogPath) {
@@ -514,8 +526,10 @@ function readDialogResult(kase, dialogPath) {
 // kills the worker and its host instance, and the next case starts a new
 // worker.
 class OracleWorker {
-    constructor(casesPerInstance) {
+    constructor(casesPerInstance, owned = new OwnedHosts()) {
         this.casesPerInstance = casesPerInstance;
+        // Every host a case started, until each is known to be gone (issue #1439).
+        this.owned = owned;
         this.child = null;
         this.pending = null;
         this.stderr = '';
@@ -527,6 +541,9 @@ class OracleWorker {
     }
 
     start() {
+        // A new worker owns no host yet: any host an earlier one left is ended first.
+        const left = this.owned.sweep();
+        if (left.length) { throw new HostCleanupError(left); }
         const child = spawn('powershell.exe', [
             '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', WORKER,
             '-Serve', '-CasesPerInstance', String(this.casesPerInstance),
@@ -546,7 +563,7 @@ class OracleWorker {
             if (this.child !== child) { return; }
             this.child = null;
             // A worker that did not exit cleanly did not quit its host instance.
-            if (error || code !== 0) { killProcess(this.hostProcess); }
+            if (error || code !== 0) { this.owned.sweep(); }
             this.settle({ exited: true, error, code });
         };
         child.on('error', (error) => ended(error, null));
@@ -599,7 +616,7 @@ class OracleWorker {
         return new Promise((resolve) => {
             const timer = setTimeout(() => {
                 this.kill();
-                killProcess(this.hostProcess);
+                this.owned.sweep();
                 resolve();
             }, 30_000);
             child.once('close', () => { clearTimeout(timer); resolve(); });
@@ -630,7 +647,14 @@ async function runCaseOnce(worker, kase, timeoutSeconds, dialogHoldSeconds) {
 }
 
 async function runCaseOnceUnchecked(worker, kase, timeoutSeconds, dialogHoldSeconds) {
+    // Every host but the one this worker still drives must be gone before the
+    // next case: one that cannot be ended stops the run (issue #1439).
+    const left = worker.owned.sweep(worker.child ? worker.hostProcess : undefined);
+    if (left.length) {
+        return { caseId: kase.id, outcome: 'worker_error', stage: 'host_cleanup', message: describeLeftHosts(left), hresult: null };
+    }
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-vbe-oracle-'));
+    ACTIVE_CASE_DIRS.add(tmpDir);
     const casePath = path.join(tmpDir, 'case.json');
     const pidPath = path.join(tmpDir, 'host.pid');
     const stagePath = path.join(tmpDir, 'stage.txt');
@@ -650,17 +674,27 @@ async function runCaseOnceUnchecked(worker, kase, timeoutSeconds, dialogHoldSeco
 
     try {
         const host = caseHost(kase);
-        const reply = await worker.request({
-            casePath, pidPath, stagePath, dialogPath, dialogWatchSeconds, dialogHoldSeconds,
-            host, hostProgId: OFFICE_HOSTS[host].progId, hostImage: OFFICE_HOSTS[host].image,
-        }, timeoutSeconds * 1000);
-        worker.hostProcess = readRecordedProcess(pidPath) ?? worker.hostProcess;
+        let reply;
+        try {
+            reply = await worker.request({
+                casePath, pidPath, stagePath, dialogPath, dialogWatchSeconds, dialogHoldSeconds,
+                host, hostProgId: OFFICE_HOSTS[host].progId, hostImage: OFFICE_HOSTS[host].image,
+            }, timeoutSeconds * 1000);
+        } catch (error) {
+            if (!(error instanceof HostCleanupError)) { throw error; }
+            return { caseId: kase.id, outcome: 'worker_error', stage: 'host_cleanup', message: error.message, hresult: null };
+        }
+        const recorded = readRecordedProcess(pidPath);
+        if (recorded) {
+            worker.owned.add(recorded);
+            worker.hostProcess = recorded;
+        }
 
         if (reply.timedOut) {
             let stage = 'timeout';
             try { stage = fs.readFileSync(stagePath, 'ascii').trim() || 'timeout'; } catch { /* keep */ }
             worker.kill();
-            killRecordedHost(pidPath);
+            worker.owned.sweep();
             return {
                 caseId: kase.id,
                 outcome: 'timeout',
@@ -672,7 +706,7 @@ async function runCaseOnceUnchecked(worker, kase, timeoutSeconds, dialogHoldSeco
 
         if (reply.exited) {
             // This case's host instance, which the worker's exit handler may not have known.
-            killProcess(worker.hostProcess);
+            worker.owned.sweep();
             return readDialogResult(kase, dialogPath) ?? {
                 caseId: kase.id,
                 outcome: 'worker_error',
@@ -698,6 +732,7 @@ async function runCaseOnceUnchecked(worker, kase, timeoutSeconds, dialogHoldSeco
         if (reply.stderr) { result.stderr = reply.stderr; }
         return result;
     } finally {
+        ACTIVE_CASE_DIRS.delete(tmpDir);
         fs.rmSync(tmpDir, { recursive: true, force: true });
     }
 }
@@ -966,12 +1001,25 @@ async function main(argv) {
         return 3;
     }
 
+    // Hosts an earlier run started and was killed before ending are this run's
+    // to end, before it starts any of its own (issue #1439).
+    const owned = new OwnedHosts({ file: ownedHostsPath() });
+    const inherited = owned.load();
+    if (inherited.length) {
+        const left = owned.sweep();
+        if (left.length) {
+            console.error(describeLeftHosts(left));
+            return 2;
+        }
+        console.error(`Ended ${inherited.map((r) => `${r.image}.EXE pid ${r.pid}`).join(', ')}, left running by an earlier oracle run.`);
+    }
+
     const results = [];
     let skippedCount = 0;
     let failures = 0;
     let oracleFailures = 0;
     const checkpoint = args.checkpoint ? loadCheckpoint(args.checkpoint) : null;
-    const worker = new OracleWorker(args.casesPerInstance);
+    const worker = new OracleWorker(args.casesPerInstance, owned);
     worker.hostBuilds = args.checkpoint ? hostBuilds : null;
     // Ctrl-C, closing the console and a normal end all put the sounds back,
     // unless Windows ends the process first; the next run then does.
@@ -981,12 +1029,24 @@ async function main(argv) {
         restored = true;
         setDialogSounds('restore');
     };
-    // The worker gets the same Ctrl-C and quits its host as before; only the
-    // sounds need putting back here.
-    const interrupt = (code) => () => { restoreSounds(); process.exit(code); };
+    // One cleanup for every way out but a normal end (issue #1439): the worker,
+    // the hosts the run started, the cases' temporary folders and the sounds.
+    // It is synchronous, so it finishes inside Windows' console-close deadline
+    // for a run's few hosts, and running it twice does nothing more.
+    let cleanedUp = false;
+    const cleanUp = () => {
+        if (cleanedUp) { return; }
+        cleanedUp = true;
+        worker.kill();
+        abandonActiveCases(owned);
+        const left = owned.sweep();
+        if (left.length) { console.error(describeLeftHosts(left)); }
+        restoreSounds();
+    };
+    const interrupt = (code) => () => { cleanUp(); process.exit(code); };
     const signals = [['SIGINT', interrupt(130)], ['SIGBREAK', interrupt(149)], ['SIGTERM', interrupt(143)], ['SIGHUP', interrupt(129)]];
     for (const [signal, handler] of signals) { process.once(signal, handler); }
-    process.once('exit', restoreSounds);
+    process.once('exit', cleanUp);
     setDialogSounds('silence');
     try {
         for (const kase of cases) {
@@ -1022,9 +1082,17 @@ async function main(argv) {
     } finally {
         try { await worker.close(); }
         finally {
+            // The worker quit its host; any it could not is ended now, or named.
+            abandonActiveCases(owned);
+            const left = owned.sweep();
+            if (left.length) {
+                console.error(describeLeftHosts(left));
+                oracleFailures += 1;
+            }
+            cleanedUp = true;
             restoreSounds();
             for (const [signal, handler] of signals) { process.removeListener(signal, handler); }
-            process.removeListener('exit', restoreSounds);
+            process.removeListener('exit', cleanUp);
         }
     }
 

@@ -82,9 +82,34 @@ Windows frees the pipe the moment its owner exits, however it exits, so no
 lock file can go stale and there is nothing to delete after a crash. If an
 owner answers with something unreadable, or not in time, the run refuses
 and starts nothing rather than guess. If a run is killed outright, for
-example with Task Manager or `taskkill /F`, the next run can start at once.
-The Office instance the killed run was driving may stay open, with its VBE
-showing; end it before the next run, since its dialogs can confuse that run.
+example with Task Manager or `taskkill /F`, the next run can start at once,
+and it first ends the Office instance the killed run left (below).
+
+The runner ends what it started, and only that (issue #1439). The worker
+records each Office instance it starts by image, process id and start time,
+and the runner keeps that record until the instance is gone. Before it ends
+one, the process at that id must still have that image and start time, so a
+reused id or someone else's Office session is never touched.
+
+- **Normal end, an exception, Ctrl-C, Ctrl-Break and closing the console**
+  take one cleanup. It ends the worker and every recorded instance, removes
+  the current case's temporary folder and puts the sounds back. Running it
+  twice does nothing more. The lock is freed when the process exits.
+- **Between cases**, any recorded instance but the one the worker still
+  drives must be gone before the next case. One that cannot be ended stops
+  the run with a `worker_error` at stage `host_cleanup` that names it.
+- **Outright termination** runs no cleanup, so the records are also kept in
+  `~/.xlide-vbe-oracle-hosts.json`. The next run reads it, ends those
+  instances after the same identity check, and says which it ended. An
+  instance it cannot end is named, and the run starts nothing.
+
+Two limits remain. An instance that is still starting, between Office
+handing it to the worker and the worker recording it, is not yet known.
+If the run is killed in that moment, the instance stays open with its VBE
+showing; end it in Task Manager. And Windows gives a closing console about
+five seconds. The cleanup is synchronous and fits that for a run's one
+instance, but an instance slower to die than that stays recorded, and the
+next run ends it.
 
 Every option that takes a value needs one, and the runner checks them all
 before it starts anything (issue #1440). A value may not begin with `--`, so
