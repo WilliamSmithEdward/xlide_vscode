@@ -18,7 +18,7 @@ PowerShell, from the repository root:
 
 ```powershell
 $env:XLIDE_IDENTIFIER_CACHE_BENCH='1'
-npx vitest run tests/identifierSymbolCachePerformance.test.ts -t 'measures repeated'
+npx vitest run tests/analyzer/identifierSymbolCachePerformance.test.ts -t 'measures repeated'
 Remove-Item Env:XLIDE_IDENTIFIER_CACHE_BENCH
 ```
 

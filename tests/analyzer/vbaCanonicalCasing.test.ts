@@ -1,0 +1,252 @@
+import { describe, it, expect } from 'vitest';
+import {
+	canonicalCaseBoundaryKind,
+	ProjectIndex,
+	resolveCanonicalCaseEdit,
+	resolveCanonicalCaseEdits,
+	type CanonicalCaseContext,
+} from '../../src/analyzer';
+
+function editAtMarker(src: string, ctx: CanonicalCaseContext = {}) {
+	const offset = src.indexOf('|');
+	if (offset < 0) {
+		throw new Error('Missing | marker');
+	}
+	return resolveCanonicalCaseEdit(src.replace('|', ''), offset, ctx);
+}
+
+function editsOnLine(src: string, lineNumber: number, ctx: CanonicalCaseContext = {}) {
+	const lines = src.split('\n');
+	const start = lines.slice(0, lineNumber).reduce((sum, line) => sum + line.length + 1, 0);
+	const end = start + lines[lineNumber].replace(/\r$/, '').length;
+	return resolveCanonicalCaseEdits(src, { start, end }, ctx);
+}
+
+describe('canonical casing edits', () => {
+	it('canonicalizes host member names after a boundary', () => {
+		const edit = editAtMarker(
+			'Sub T()\n    Workbooks(1).Worksheets(1).Range("A1").value| = 1\nEnd Sub\n',
+		);
+		expect(edit?.text).toBe('Value');
+	});
+
+	it('canonicalizes leading-dot host member names inside With', () => {
+		const edit = editAtMarker(
+			'Sub T()\n    With Range("A1")\n        .value| = 1\n    End With\nEnd Sub\n',
+		);
+		expect(edit?.text).toBe('Value');
+	});
+
+	it('canonicalizes runtime functions before an argument list', () => {
+		const edit = editAtMarker('Sub T()\n    x = left|("test", 3)\nEnd Sub\n');
+		expect(edit?.text).toBe('Left');
+	});
+
+	it('canonicalizes exported project procedures', () => {
+		const edit = editAtMarker('Sub T()\n    mysub|\nEnd Sub\n', {
+			identifier: {
+				projectProcedures: [
+					{
+						name: 'mySub',
+						moduleName: 'Helpers',
+						kind: 'sub',
+						params: [],
+					},
+				],
+			},
+		});
+		expect(edit?.text).toBe('mySub');
+	});
+
+	it('canonicalizes type names in declaration and New expression positions', () => {
+		const ctx: CanonicalCaseContext = {
+			type: {
+				projectTypes: [{ name: 'Person', kind: 'class' }],
+			},
+		};
+		expect(editAtMarker('Sub T()\n    Dim p As person|\nEnd Sub\n', ctx)?.text).toBe('Person');
+		expect(editAtMarker('Sub T()\n    Set p = New person|\nEnd Sub\n', ctx)?.text).toBe('Person');
+		expect(editAtMarker('Sub T()\n    Dim amount As currency|\nEnd Sub\n', ctx)?.text).toBe('Currency');
+		expect(editAtMarker('Sub T()\n    Set wb = new workbook|\nEnd Sub\n')?.text).toBe('Workbook');
+	});
+
+	it('canonicalizes source-backed current class members through Me', () => {
+		const edit = editAtMarker('Sub T()\n    Me.save|\nEnd Sub\n', {
+			member: {
+				meProjectType: 'Person',
+				projectClassMembers: [
+					{
+						name: 'Person',
+						kind: 'class',
+						moduleName: 'Person',
+						members: [{ name: 'Save', kind: 'method', moduleName: 'Person' }],
+					},
+				],
+			},
+		});
+		expect(edit?.text).toBe('Save');
+	});
+
+	it('canonicalizes standard module qualifiers and qualified members', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Finance',
+			moduleKind: 'standard',
+			source: [
+				'Public Function InvoiceTotal() As Currency',
+				'End Function',
+				'Public Const DefaultTaxRate As Double = 0.08',
+			].join('\n'),
+		});
+		index.setModule({ moduleName: 'Caller', moduleKind: 'standard', source: '' });
+		const projectMemberSurfaces = index.projectMemberSurfaces('Caller');
+		const ctx: CanonicalCaseContext = {
+			identifier: {
+				projectMemberSurfaces,
+				includeGlobals: false,
+				includeRuntime: false,
+			},
+			member: {
+				projectClassMembers: projectMemberSurfaces,
+			},
+		};
+
+		expect(editAtMarker('Sub T()\n    finance|.InvoiceTotal\nEnd Sub\n', ctx)?.text)
+			.toBe('Finance');
+		expect(editAtMarker('Sub T()\n    Finance.invoicetotal|\nEnd Sub\n', ctx)?.text)
+			.toBe('InvoiceTotal');
+		expect(editAtMarker('Sub T()\n    Finance.defaulttaxrate|\nEnd Sub\n', ctx)?.text)
+			.toBe('DefaultTaxRate');
+	});
+
+	it('canonicalizes qualified project type names', () => {
+		const ctx: CanonicalCaseContext = {
+			type: {
+				projectTypes: [
+					{ name: 'TPoint', kind: 'userType', moduleName: 'Geometry' },
+				],
+			},
+		};
+
+		expect(editAtMarker('Sub T()\n    Dim p As geometry|.TPoint\nEnd Sub\n', ctx)?.text)
+			.toBe('Geometry');
+		expect(editAtMarker('Sub T()\n    Dim p As Geometry.tpoint|\nEnd Sub\n', ctx)?.text)
+			.toBe('TPoint');
+	});
+
+	it('canonicalizes keywords without touching comments or strings', () => {
+		expect(editAtMarker('sub| T()\nEnd Sub\n')?.text).toBe('Sub');
+		expect(editAtMarker('Sub T()\n    MsgBox "left|("\nEnd Sub\n')).toBeUndefined();
+		expect(editAtMarker("Sub T()\n    ' left|(\nEnd Sub\n")).toBeUndefined();
+	});
+
+	it('canonicalizes every safe token on a completed line', () => {
+		const src =
+			'Sub T()\n' +
+			'    dim p as person: set p = new person\n' +
+			'End Sub\n';
+		const edits = editsOnLine(src, 1, {
+			type: {
+				projectTypes: [{ name: 'Person', kind: 'class' }],
+			},
+		});
+
+		expect(edits.map((edit) => [src.slice(edit.start, edit.end), edit.text])).toEqual([
+			['dim', 'Dim'],
+			['as', 'As'],
+			['person', 'Person'],
+			['set', 'Set'],
+			['new', 'New'],
+			['person', 'Person'],
+		]);
+	});
+
+	it('canonicalizes built-in and host type names on a completed declaration line', () => {
+		const src =
+			'Sub T()\n' +
+			'    dim wb as workbook\n' +
+			'End Sub\n';
+		const edits = editsOnLine(src, 1);
+
+		expect(edits.map((edit) => [src.slice(edit.start, edit.end), edit.text])).toEqual([
+			['dim', 'Dim'],
+			['as', 'As'],
+			['workbook', 'Workbook'],
+		]);
+	});
+
+	// Corpus CASING_004 (xlide_vba_realtime_analysis_final_corpus_addendum.md): a
+	// bracketed identifier (a distinct token kind) is never re-cased.
+	it('preserves a bracketed identifier and only canonicalizes the keyword', () => {
+		const src = 'Sub T()\n    dim [sub] As String\nEnd Sub\n';
+		const pairs = editsOnLine(src, 1).map((edit) => [src.slice(edit.start, edit.end), edit.text]);
+		expect(pairs).toEqual([['dim', 'Dim']]);
+		expect(pairs.some(([word]) => word.includes('sub'))).toBe(false);
+	});
+
+	// Corpus CASING_005 (xlide_vba_realtime_analysis_final_corpus_addendum.md): a
+	// type-declaration suffix is a token boundary and is left untouched.
+	it('preserves a type-declaration suffix and only canonicalizes the keyword', () => {
+		const src = 'Sub T()\n    dim total&\nEnd Sub\n';
+		const pairs = editsOnLine(src, 1).map((edit) => [src.slice(edit.start, edit.end), edit.text]);
+		expect(pairs).toEqual([['dim', 'Dim']]);
+		expect(pairs.some(([word]) => word.includes('total') || word.includes('&'))).toBe(false);
+	});
+
+	it('line canonicalization keeps strings and comments unchanged', () => {
+		const src =
+			'Sub T()\n' +
+			'    msgbox "left" \' application.calculate\n' +
+			'End Sub\n';
+		const edits = editsOnLine(src, 1);
+
+		expect(edits.map((edit) => [src.slice(edit.start, edit.end), edit.text])).toEqual([
+			['msgbox', 'MsgBox'],
+		]);
+	});
+
+	it('keeps a name that is a contextual keyword elsewhere as written (issue #86)', () => {
+		const src =
+			'Sub T(ByVal text As String)\n' +
+			'    dim output as string\n' +
+			'    output = text\n' +
+			'End Sub\n';
+		expect(editsOnLine(src, 1).map((edit) => [src.slice(edit.start, edit.end), edit.text])).toEqual([
+			['dim', 'Dim'],
+			['as', 'As'],
+			['string', 'String'],
+		]);
+		expect(editsOnLine(src, 2)).toEqual([]);
+		expect(editsOnLine('option compare text\n', 0).map((edit) => edit.text)).toEqual(['Option', 'Compare', 'Text']);
+	});
+
+	it('leaves a line alone that a comment ending in _ runs on to (issue #82)', () => {
+		const src =
+			'Sub T()\n' +
+			"    n = 1 ' note _\n" +
+			'    this is not code\n' +
+			'    dim x\n' +
+			'End Sub\n';
+		expect(editsOnLine(src, 2)).toEqual([]);
+		expect(editAtMarker(src.replace('this is', 'this is|'))).toBeUndefined();
+		expect(editsOnLine(src, 3).map((edit) => edit.text)).toEqual(['Dim']);
+	});
+});
+
+describe('canonical casing boundary policy', () => {
+	it('classifies Enter with optional editor indentation as a line boundary', () => {
+		expect(canonicalCaseBoundaryKind('\n')).toBe('line');
+		expect(canonicalCaseBoundaryKind('\r\n')).toBe('line');
+		expect(canonicalCaseBoundaryKind('\n\t\t')).toBe('line');
+		expect(canonicalCaseBoundaryKind('\r\n    ')).toBe('line');
+	});
+
+	it('classifies single-token boundaries without treating pasted text as a boundary', () => {
+		for (const text of [' ', '\t', '.', '(', ')', ',', '=', ':', '+', '-', '*', '/', '\\', '&', '<', '>']) {
+			expect(canonicalCaseBoundaryKind(text), text).toBe('token');
+		}
+		expect(canonicalCaseBoundaryKind('  ')).toBeUndefined();
+		expect(canonicalCaseBoundaryKind(' = ')).toBeUndefined();
+		expect(canonicalCaseBoundaryKind('Value')).toBeUndefined();
+	});
+});

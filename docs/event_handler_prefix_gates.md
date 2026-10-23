@@ -15,7 +15,7 @@ fresh; no cache or public API was added.
 ## Reproduction
 
 ```powershell
-npx vitest run tests/eventHandlerPrefixWork.test.ts tests/vbaEventHandlerCompletion.test.ts tests/diagnostics/eventHandlerSignatures.test.ts
+npx vitest run tests/analyzer/eventHandlerPrefixWork.test.ts tests/analyzer/vbaEventHandlerCompletion.test.ts tests/analyzer/diagnostics/eventHandlerSignatures.test.ts
 node scripts/benchmark-event-prefix-gates.mjs --baseline=099741b137d66b328583fb5df5f768f10794ac07
 node scripts/benchmark-event-prefix-gates.mjs
 ```

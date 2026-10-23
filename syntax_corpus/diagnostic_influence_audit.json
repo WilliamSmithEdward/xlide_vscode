@@ -9492,7 +9492,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Structural block-balance diagnostic emitted by analyzeVbaStructure (src/vbaStructuralDiagnostics.ts), surfaced through vbaModuleAnalysis; not a registry rule. Reports a block opener (procedure/If/For/Do/While/With/Select/Type/Enum) with no matching closer. Suppression boundary: block keywords inside strings and comments (including a `: Rem ...` trailing comment after the audit-#74 stripVba fix) are blanked before matching; single-line `If ... Then stmt`, `Declare Sub/Function`, line-continued headers, and inactive conditional-compilation headers do not open a block; colon one-liners are split. Verified against the dual-engine comparison harness (tests/structuralEngineComparison.test.ts) and tests/vbaStructuralAnalysis.test.ts.",
+      "notes": "Structural block-balance diagnostic emitted by analyzeVbaStructure (src/vbaStructuralDiagnostics.ts), surfaced through vbaModuleAnalysis; not a registry rule. Reports a block opener (procedure/If/For/Do/While/With/Select/Type/Enum) with no matching closer. Suppression boundary: block keywords inside strings and comments (including a `: Rem ...` trailing comment after the audit-#74 stripVba fix) are blanked before matching; single-line `If ... Then stmt`, `Declare Sub/Function`, line-continued headers, and inactive conditional-compilation headers do not open a block; colon one-liners are split. Verified against the dual-engine comparison harness (tests/analyzer/structuralEngineComparison.test.ts) and tests/vbaStructuralAnalysis.test.ts.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -9513,7 +9513,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Structural block-balance diagnostic emitted by analyzeVbaStructure (src/vbaStructuralDiagnostics.ts), surfaced through vbaModuleAnalysis; not a registry rule. Reports a stray block closer with no matching opener. Suppression boundary: closers inside strings and comments are blanked - including a `: Rem ...` trailing comment, whose leak was a fixed false positive (audit #74: stripVba now blanks Rem at any statement start, pinned by tests/vbaStructuralAnalysis.test.ts and the convergence repro in tests/structuralEngineComparison.test.ts). Mismatched procedure closers are folded into a single repairable missing-block-closer instead.",
+      "notes": "Structural block-balance diagnostic emitted by analyzeVbaStructure (src/vbaStructuralDiagnostics.ts), surfaced through vbaModuleAnalysis; not a registry rule. Reports a stray block closer with no matching opener. Suppression boundary: closers inside strings and comments are blanked - including a `: Rem ...` trailing comment, whose leak was a fixed false positive (audit #74: stripVba now blanks Rem at any statement start, pinned by tests/analyzer/vbaStructuralAnalysis.test.ts and the convergence repro in tests/analyzer/structuralEngineComparison.test.ts). Mismatched procedure closers are folded into a single repairable missing-block-closer instead.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -11803,7 +11803,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "ThisWorkbook.Sheets, Worksheets or Charts given a name or index the saved workbook lacks: runtime error 9. Needs the workbook's sheets from the host; the oracle cases carry none, so the sweep never runs the check, and tests/diagnostics/workbookSheets229.test.ts runs the same sources against Sheet1.",
+      "notes": "ThisWorkbook.Sheets, Worksheets or Charts given a name or index the saved workbook lacks: runtime error 9. Needs the workbook's sheets from the host; the oracle cases carry none, so the sweep never runs the check, and tests/analyzer/diagnostics/workbookSheets229.test.ts runs the same sources against Sheet1.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {

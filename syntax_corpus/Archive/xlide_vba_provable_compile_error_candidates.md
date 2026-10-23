@@ -205,6 +205,6 @@ candidate once argument-slot named/positional shape is modeled.
 2. ~~For each *confirmed* case (PCEC_004, PCEC_006, PCEC_007), implement the
    diagnostic rule~~ **Done** — shipped as `empty-type`, `duplicate-option`, and
    `duplicate-case-else`, each `vbe-oracle-verified` with an asserted oracle case
-   and tests in `tests/diagnostics/oracleConfirmedRules.test.ts`.
+   and tests in `tests/analyzer/diagnostics/oracleConfirmedRules.test.ts`.
 3. Leave the *refuted* cases (PCEC_002, PCEC_003, PCEC_005) ruleless; their
    accepted oracle controls guard against a future false positive.

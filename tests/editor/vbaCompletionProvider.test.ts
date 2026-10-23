@@ -25,7 +25,7 @@ vi.mock('../../src/analyzer/call/callContext', async () => {
 });
 
 import * as vscode from 'vscode';
-import { projectOptions } from '../diagnostics/helpers';
+import { projectOptions } from '../analyzer/diagnostics/helpers';
 import * as lexer from '../../src/analyzer/lexer/tokenize';
 import * as identifiers from '../../src/analyzer/completion/identifierCompletion';
 import { VbaMemberCompletionProvider } from '../../src/vbaCompletionProvider';

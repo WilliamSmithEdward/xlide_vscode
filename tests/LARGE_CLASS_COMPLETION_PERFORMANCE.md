@@ -6,7 +6,7 @@ The owner reported a visible delay while editing the ROneCOne class in ROneCOne_
 
 Set `XLIDE_PERF_WORKBOOK` to the workbook path. Run `npm run compile`, then `npx vscode-test --code-version 1.139.1 --grep "Actual large class latency"`. The suite appends a probe procedure to the class in a copied workbook, types five actual characters and checks completion after each edit, then checks hover before and after changing a local declaration from Long to Double. It records edit-to-result timings and the extension's performance snapshot. Set `XLIDE_PERF_CPU_PROFILE=1` to additionally save an extension-host CPU profile to the disposable workspace. The clipboard is restored after reading the performance snapshot.
 
-For analyzer phases run `npx vitest run tests/roneconeLatencyProbe.test.ts` with XLIDE_PERF_WORKBOOK set. The opt-in fresh-source probe reports lexer, parser, symbol, index, context and member costs separately. The keyword benchmark warms six different source/caret positions, then reports the median per-request time across 21 batches of six requests. Ordinary CI skips these workbook-specific probes.
+For analyzer phases run `npx vitest run tests/analyzer/roneconeLatencyProbe.test.ts` with XLIDE_PERF_WORKBOOK set. The opt-in fresh-source probe reports lexer, parser, symbol, index, context and member costs separately. The keyword benchmark warms six different source/caret positions, then reports the median per-request time across 21 batches of six requests. Ordinary CI skips these workbook-specific probes.
 
 ## Findings and change
 

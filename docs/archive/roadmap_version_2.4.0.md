@@ -74,7 +74,7 @@ Progress (expression binder, sliced):
   value-expression parser (`src/analyzer/parser/parseExpression.ts`) implements
   the full §5.6 precedence ladder, member/index access, calls with positional
   arguments, `New`/`AddressOf`/`TypeOf...Is`, with span accuracy and recovery,
-  covered by `tests/parseExpression.test.ts`. Named arguments, omitted
+  covered by `tests/analyzer/parseExpression.test.ts`. Named arguments, omitted
   arguments, and bang (`!`) access are deferred to the statement-wiring slice.
 - [x] Slice 2 - statement wiring. `parseModule.parseBodyItem` now routes plain
   body statements through the expression parser into `Assignment`/`Call` nodes
@@ -82,7 +82,7 @@ Progress (expression binder, sliced):
   operands parse cleanly and fully; everything else keeps the raw `Statement`
   fallback. The diagnostics traversal was widened (`LeafStatementNode` /
   `isLeafStatement`) across ~10 walker/branch sites so no rule skips the new
-  nodes. Covered by `tests/parseModuleStatements.test.ts`; full suite green with
+  nodes. Covered by `tests/analyzer/parseModuleStatements.test.ts`; full suite green with
   zero regressions, and an adversarial review pass fixed two found defects
   (`MidB`/`MidB$` must stay raw; malformed operands must not leak into structured
   nodes). Still deferred to later slices: named/omitted arguments, bang access,
@@ -92,7 +92,7 @@ Progress (expression binder, sliced):
   condition and own statement body, while the flat `body` is retained so the
   generic walkers and `else-branch-order` diagnostics are unaffected
   (`startIfBranch`/`ifBranchMarker`/`parseThenCondition`/`finishIfBlock` in
-  `parseModule`). Covered by `tests/vbaParser.test.ts`; full suite green, zero
+  `parseModule`). Covered by `tests/analyzer/vbaParser.test.ts`; full suite green, zero
   regressions, and an adversarial review (nested Ifs, `#If` interleaving, empty
   arms, `Else If`, `Case Else`, unclosed Ifs, span/identity integrity) found no
   defects.
@@ -111,7 +111,7 @@ Progress (expression binder, sliced):
     the target type. Reuses the existing object-compatibility tables in both
     directions plus a concrete-operand gate (interface-typed operands stay
     quiet), so it is strictly no-false-positive. Covered by
-    `tests/diagnostics/typeOfIs.test.ts`; an adversarial review across interface,
+    `tests/analyzer/diagnostics/typeOfIs.test.ts`; an adversarial review across interface,
     diamond, host, and position cases found zero false positives.
   - [x] Investigated and rejected: an `ExprNode`-based `inferExprType` walker for
     arbitrary-expression assignment/argument typing. Findings: the token engine
@@ -133,7 +133,7 @@ Progress (expression binder, sliced):
     qualified identifiers (`Module.CONST`, `MyEnum.Value`) stay quiet (may be
     constants); object-typed params are skipped (owned by
     `parameter-default-type-mismatch`), so the two never double-report. Covered by
-    `tests/diagnostics/parameterDefaults.test.ts`; an adversarial FP-hunt across
+    `tests/analyzer/diagnostics/parameterDefaults.test.ts`; an adversarial FP-hunt across
     ~60 signatures (grouping parens, unary, literals, concat, operators,
     qualified/bracketed consts, line continuation, property accessors,
     multi-param attribution) found zero false positives.
@@ -144,7 +144,7 @@ Progress (expression binder, sliced):
     `New`, or `AddressOf` is flagged; literals, string concatenation, arithmetic,
     grouping, and bare/qualified identifiers stay quiet. The Const rule walks
     module-level and procedure-local (incl. nested-block) `Const`s. Covered by
-    `tests/diagnostics/constEnumNotConstant.test.ts`. An adversarial FP/FN hunt
+    `tests/analyzer/diagnostics/constEnumNotConstant.test.ts`. An adversarial FP/FN hunt
     (~60 probes, verified empirically against the real analyzer) found and fixed a
     latent false-positive class that ALSO affected the shipped
     `parameter-default-not-constant`: operator keywords (`And`/`Or`/`Not`/`Mod`/
@@ -171,7 +171,7 @@ Progress (expression binder, sliced):
     and (reusing the just-landed Type-body directive modeling) only collides
     provably-active fields, so inactive / mutually-exclusive `#If`/`#Else` arms
     never produce a false positive. Array fields collide by bare name. Covered by
-    `tests/diagnostics/duplicates.test.ts`; verified empirically across array /
+    `tests/analyzer/diagnostics/duplicates.test.ts`; verified empirically across array /
     fixed-length / suffix / bracketed / conditional-compilation / malformed cases.
   - [x] Impossible array declaration bounds (`array-declaration-impossible-bounds`).
     A `Dim`/`Static`/`Private`/`Public` array whose explicit literal `lower To upper`
@@ -181,7 +181,7 @@ Progress (expression binder, sliced):
     Only literal reversed dimensions are flagged; equal/increasing/upper-only/variable/
     Const-reference/dynamic/inactive-branch bounds stay quiet (no false positive),
     reusing the array-family `comparableArrayBoundKey` helper. Covered by
-    `tests/diagnostics/arrays.test.ts`; verified empirically (line continuation,
+    `tests/analyzer/diagnostics/arrays.test.ts`; verified empirically (line continuation,
     bracketed/suffix names, arithmetic/hex/negative bounds, multi-dimension,
     multi-declaration, malformed - zero FP, no crashes).
   - [x] Numeric overflow extended via the VBE runtime oracle: `Long` and `Currency`
@@ -657,9 +657,9 @@ Keeping these out is what lets Priorities 1-4 reach a provable, auditable close.
 - `syntax_corpus/xlide_vba_provable_compile_error_candidates.md`
 - `src/analyzer/parser/parseExpression.ts`
 - `tests/fixtures/vbaProjects/`
-- `tests/vbaDiagnostics.test.ts`
-- `tests/vbaParser.test.ts`
-- `tests/parseExpression.test.ts`
-- `tests/parseModuleStatements.test.ts`
-- `tests/vbaSymbolGraph.test.ts`
-- `tests/vbaRuntime.test.ts`
+- `tests/analyzer/vbaDiagnostics.test.ts`
+- `tests/analyzer/vbaParser.test.ts`
+- `tests/analyzer/parseExpression.test.ts`
+- `tests/analyzer/parseModuleStatements.test.ts`
+- `tests/analyzer/vbaSymbolGraph.test.ts`
+- `tests/analyzer/vbaRuntime.test.ts`

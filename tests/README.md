@@ -11,22 +11,23 @@ Four harnesses check XLIDE, each for what the others cannot reach.
 
 ## Where a suite lives
 
-- `oracle/` - the VBE and twinBASIC oracle: the worker, startup, run lock, owned hosts, sound recovery, and the sweeps that hold the analyzer to the recorded verdicts.
+- `analyzer/` - the language service under the editor: lexer, parser, symbols, types, completion and hover resolution, diagnostics and their work guards.
+- `analyzer/diagnostics/` - one suite per analyzer diagnostic or issue, each driven through `tests/helpers/diagnostics.ts`.
 - `editor/` - the VS Code surfaces: completion, hover, navigation and formatting providers, Smart Enter and Backspace, the Project Explorer tree, commands, settings and the form and Access designers' panes.
 - `engine/` - reading and writing Office and VB6 files: ZIP, compound file and OVBA containers, code pages, forms and shapes, Access storage and designs, module export, workbook parts.
 - `agent/` - the agent tools, agent instructions and review, the MCP edit mirror, the API server and the write audit.
 - `web/` - the browser build: the bundle and the web replacements for Node's buffer, crypto and path.
-- `diagnostics/` - one suite per analyzer diagnostic or issue, each driven through `tests/helpers/diagnostics.ts`.
+- `oracle/` - the VBE and twinBASIC oracle: the worker, startup, run lock, owned hosts, sound recovery, and the sweeps that hold the analyzer to the recorded verdicts.
 - `office/` - the live Office suite above.
 - `properties/` - property-based checks; `.github/workflows/fuzz.yml` runs them at a higher count (`XLIDE_PROPERTY_RUNS`, `XLIDE_PROPERTY_SEED`).
 - `helpers/` - shared setup: the `vscode` mock, fake config and project engine, temp folders, project fixtures and the oracle shard readers.
 - `fixtures/` - Office files, Access databases, VB6 projects and recorded type data. Office extensions are gitignored, so a new binary fixture needs its `!` line in `.gitignore`.
-- The root holds the suites not yet moved into a feature folder (#1441), and the checks of the repository itself: `packageManifest`, `workflowPins`, `securityScans` and `tempDirs`.
+- The root holds the checks of the repository itself: `packageManifest`, `workflowPins`, `securityScans` and `tempDirs`.
 
 ## Focused runs
 
 ```bash
-npx vitest run tests/oracle
+npx vitest run tests/analyzer/diagnostics
 ```
 
 ```bash
