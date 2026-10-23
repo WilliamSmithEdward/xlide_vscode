@@ -1686,46 +1686,11 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(hits).toEqual([]);
 	});
 
-	describe('a document module is the object its host says, whatever its code name', () => {
+	describe('a variable of a document module\'s type holds the object its host says, whatever its code name', () => {
 		// Excel lets the workbook's code name change (BookCode here) and Word
 		// the document's; the module is still the Workbook or the Document,
-		// and the host reads that from its VB_Base, not from the name.
-		const me =
-			'Option Explicit\n' +
-			'Public Sub T()\n' +
-			'    Me.UsedRange.Select\n' +
-			'    Debug.Print Me.FullName\n' +
-			'End Sub\n';
-		const meMisses = (
-			moduleName: string,
-			documentType: 'workbook' | 'worksheet' | 'chart' | 'document' | undefined,
-			host = 'excel',
-		) => byCode(
-			analyzeProjectModule(me, [{ moduleName, type: 'document', documentType, source: me }], moduleName, { moduleKind: 'document', host, documentType }),
-			'member-not-found',
-		).map((d) => spanText(me, d));
-
-		it.each([
-			['ThisWorkbook', undefined, 'excel'],
-			['ThisWorkbook', 'workbook', 'excel'],
-			['BookCode', 'workbook', 'excel'],
-			['ThisDocument', undefined, 'word'],
-			['DocCode', 'document', 'word'],
-		] as const)('types Me in %s (%s) as its host object', (moduleName, documentType, host) => {
-			expect(meMisses(moduleName, documentType, host)).toEqual(['UsedRange']);
-		});
-
-		it.each([
-			['BookCode', undefined],
-			['Sheet1', 'worksheet'],
-			['Chart1', 'chart'],
-		] as const)('leaves Me in %s (%s) to its own members', (moduleName, documentType) => {
-			// With no document type a name proves nothing, and a sheet's Me
-			// waits for its designer class: only with it are the sheet's
-			// ActiveX controls, which are members of Me too, known.
-			expect(meMisses(moduleName, documentType)).toEqual([]);
-		});
-
+		// and the host reads that from its VB_Base, not from the name. Me in
+		// such a module is in ownObjectMembers228.test.ts.
 		const caller =
 			'Option Explicit\n' +
 			'Public Sub T()\n' +
