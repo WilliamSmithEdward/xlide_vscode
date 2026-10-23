@@ -113,7 +113,7 @@ export function checkLongLongNarrowing(
 			});
 			// Calls: a ByVal whole-number parameter of a procedure, and a VBA
 			// function's whole-number argument.
-			const calls = [extractCall(source, span), extractQualifiedCall(source, span, signatures), ...expressionCalls(source, span, signatures, sourceNames)].filter((call) => call !== undefined);
+			const calls = [extractCall(source, span), extractQualifiedCall(source, span, signatures, sourceNames), ...expressionCalls(source, span, signatures, sourceNames)].filter((call) => call !== undefined);
 			const seen = new Set<number>();
 			for (const call of calls) {
 				if (!call || seen.has(call.nameSpan.start)) {

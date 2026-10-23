@@ -81,7 +81,7 @@ export function checkArgumentCount(
 			const statementCall = extractCall(source, stmt.span);
 			const qualifiedStatementCall = statementCall
 				? undefined
-				: extractQualifiedCall(source, stmt.span, moduleSignatures);
+				: extractQualifiedCall(source, stmt.span, moduleSignatures, sourceNames);
 			const effectiveStatementCall = statementCall ?? qualifiedStatementCall;
 			if (effectiveStatementCall) {
 				validateCallableArity(
@@ -129,7 +129,7 @@ export function checkArgumentCount(
 			// running them again would report the same call twice.
 			for (const branch of statementAndBranchSpans(stmt).slice(1)) {
 				const branchCall = extractCall(source, branch)
-					?? extractQualifiedCall(source, branch, moduleSignatures);
+					?? extractQualifiedCall(source, branch, moduleSignatures, sourceNames);
 				if (branchCall && !projectQualifiedCallSpans.has(callTargetSpanKey(branchCall))) {
 					validateCallableArity(
 						source,

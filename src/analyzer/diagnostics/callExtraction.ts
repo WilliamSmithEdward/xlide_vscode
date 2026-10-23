@@ -207,15 +207,32 @@ export function extractCall(source: string, span: Span): CallArguments | undefin
 }
 
 /**
+ * Whether `Qualifier.Member` reaches a variable rather than the standard
+ * module named Qualifier. A local, a parameter or a variable of the current
+ * module takes the name, even in that module itself, so `Other.Foo()` is a
+ * member call on the variable and Other's Foo is never checked against it.
+ * A Public variable of a third module does not take it. Both measured in
+ * Excel, Word, PowerPoint and Access 16.0 (issue #1411).
+ */
+export function moduleQualifierShadowed(
+	qualifier: string,
+	sourceNames: { variableShadows: { has(lowerName: string): boolean } } | undefined,
+): boolean {
+	return sourceNames?.variableShadows.has(qualifier.toLowerCase()) === true;
+}
+
+/**
  * Extracts a module-qualified call statement (`ModuleName.Procedure ...`) only
  * when the project signature map proves that `ModuleName.Procedure` is an
- * exported project procedure. This keeps host/object member calls out of the
- * arity/type validator.
+ * exported project procedure, and no variable in `sourceNames` takes the
+ * module's name. This keeps host/object member calls out of the arity/type
+ * validator.
  */
 export function extractQualifiedCall(
 	source: string,
 	span: Span,
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	sourceNames?: Parameters<typeof moduleQualifierShadowed>[1],
 ): CallArguments | undefined {
 	const sliceStart = span.start;
 	// Reuse the per-pass statement-token cache (slice-relative offsets, byte-
@@ -239,7 +256,7 @@ export function extractQualifiedCall(
 		return undefined;
 	}
 	const lookupKey = qualifiedProcedureKey(qualifier, name);
-	if (!moduleSignatures.has(lookupKey)) {
+	if (!moduleSignatures.has(lookupKey) || moduleQualifierShadowed(qualifier, sourceNames)) {
 		return undefined;
 	}
 
