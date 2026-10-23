@@ -101,7 +101,7 @@ it implements, member by member:
 by `Inherits`, coclasses by their default interface, `[Unimplemented]` and
 `[Hidden]` attributes, `#If FEATURE_...` guards recorded and treated as on)
 into `reference/vb6/twinbasic-vb-surface.json`; its reader is pinned by
-`tests/twinbasicVbSurface.test.ts`. The transcriber then marks every `VB`
+`tests/oracle/twinbasicVbSurface.test.ts`. The transcriber then marks every `VB`
 member with `oracle`: `implemented`, `unimplemented` (declared for VB6
 compatibility, not run) or `absent` (unknown to the package, so no oracle
 verdict can vouch for it), and the generator carries the flag into the

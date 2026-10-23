@@ -25,7 +25,7 @@ const DEFAULT_CASES_PER_INSTANCE = 40;
 const RESULT_PREFIX = 'XLIDE-ORACLE-RESULT ';
 
 // The Office hosts a fixture can run in, as src/officeHostApps.ts describes
-// them (tests/vbeOracleWorker.test.ts keeps the two in step). A fixture names
+// them (tests/oracle/vbeOracleWorker.test.ts keeps the two in step). A fixture names
 // its host with `host`; one without runs in Excel.
 const OFFICE_HOSTS = {
     excel: { progId: 'Excel.Application', image: 'EXCEL', noun: 'Excel' },

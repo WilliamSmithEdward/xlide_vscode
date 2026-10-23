@@ -8,7 +8,7 @@ import {
 	splitOptions,
 	stageCase,
 	twinModule,
-} from '../syntax_corpus/oracle/twinbasic/run_twinbasic_oracle.mjs';
+} from '../../syntax_corpus/oracle/twinbasic/run_twinbasic_oracle.mjs';
 
 // The twinBASIC oracle's staging (roadmap_vb6_support.md, Slice 4): what a
 // VBE corpus case becomes on disk before the compiler sees it. Pinned here

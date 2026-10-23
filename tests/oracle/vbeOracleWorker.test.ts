@@ -2,9 +2,9 @@ import { spawnSync } from 'node:child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { describe, expect, it } from 'vitest';
-import { OFFICE_HOST_APPS } from '../src/officeHostApps';
+import { OFFICE_HOST_APPS } from '../../src/officeHostApps';
 
-const ORACLE = path.join(__dirname, '..', 'syntax_corpus', 'oracle');
+const ORACLE = path.join(__dirname, '..', '..', 'syntax_corpus', 'oracle');
 const readOracle = (name: string): string => fs.readFileSync(path.join(ORACLE, name), 'utf8');
 
 /** The coordinator's host table, read from its source: `host: { progId, image }`. */

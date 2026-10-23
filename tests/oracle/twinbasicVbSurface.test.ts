@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseTwinSource, resolveSurfaces } from '../scripts/twinbasic-vb-surface.mjs';
+import { parseTwinSource, resolveSurfaces } from '../../scripts/twinbasic-vb-surface.mjs';
 
 // The reader of twinBASIC's VB package source (roadmap_vb6_support.md,
 // Slice 4). The package is the oracle's own statement of which VB6 members

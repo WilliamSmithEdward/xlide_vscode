@@ -6,7 +6,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { runInNewContext } from 'node:vm';
 import { afterEach, describe, expect, it } from 'vitest';
-import { OFFICE_HOST_APPS } from '../src/officeHostApps';
+import { OFFICE_HOST_APPS } from '../../src/officeHostApps';
 
 const source = fs.readFileSync(path.join(process.cwd(), 'syntax_corpus/oracle/run_vbe_oracle.mjs'), 'utf8');
 const lift = (name: string): string => {

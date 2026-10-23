@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join, win32 } from 'node:path';
 import { runInNewContext } from 'node:vm';
 import { describe, expect, it, vi } from 'vitest';
-import { OFFICE_HOST_APPS } from '../src/officeHostApps';
+import { OFFICE_HOST_APPS } from '../../src/officeHostApps';
 
 // Run the coordinator's actual functions, with no real PowerShell, signals,
 // registry writes, Office processes or account-profile writes.
