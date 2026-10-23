@@ -12,6 +12,7 @@ Four harnesses check XLIDE, each for what the others cannot reach.
 ## Where a suite lives
 
 - `oracle/` - the VBE and twinBASIC oracle: the worker, startup, run lock, owned hosts, sound recovery, and the sweeps that hold the analyzer to the recorded verdicts.
+- `engine/` - reading and writing Office and VB6 files: ZIP, compound file and OVBA containers, code pages, forms and shapes, Access storage and designs, module export, workbook parts.
 - `agent/` - the agent tools, agent instructions and review, the MCP edit mirror, the API server and the write audit.
 - `web/` - the browser build: the bundle and the web replacements for Node's buffer, crypto and path.
 - `diagnostics/` - one suite per analyzer diagnostic or issue, each driven through `tests/helpers/diagnostics.ts`.
