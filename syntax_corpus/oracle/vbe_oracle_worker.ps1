@@ -814,6 +814,18 @@ function Add-DesignerControls($Component, $ModuleSpec) {
     }
 }
 
+# A document module's code name can be changed, ThisWorkbook to BookCode say.
+# The case's `codeName` is set on the module and read back.
+function Set-DocumentCodeName($Component, $ModuleSpec) {
+    if (-not ($ModuleSpec.PSObject.Properties.Name -contains "codeName") -or -not $ModuleSpec.codeName) {
+        return
+    }
+    $Component.Name = [string]$ModuleSpec.codeName
+    if ([string]$Component.Name -cne [string]$ModuleSpec.codeName) {
+        throw "Module '$($ModuleSpec.name)' is named '$($Component.Name)', not '$($ModuleSpec.codeName)', after renaming it."
+    }
+}
+
 # Module attributes (Attribute VB_PredeclaredId = True) are import metadata,
 # like procedure attributes. Once imported, the module is exported again and
 # every attribute line of the case must be there, or the case fails as setup.
@@ -849,6 +861,7 @@ function Add-OracleComponent($VbProject, $ModuleSpec) {
         } else {
             $VbProject.VBComponents.Item([string]$ModuleSpec.name)
         }
+        Set-DocumentCodeName $component $ModuleSpec
         $lineCount = $component.CodeModule.CountOfLines
         if ($lineCount -gt 0) { $null = $component.CodeModule.DeleteLines(1, $lineCount) }
         $source = [string]$ModuleSpec.source

@@ -363,6 +363,13 @@ fails ends the case as a `worker_error`, never as evidence:
   `Attribute VB_PredeclaredId = True`. The module is imported rather than
   typed in, as procedure attributes already were. It is then exported again,
   and every attribute line of the case must be in the export.
+- `codeName` on an Excel or Word `document` entry: the module's new code
+  name, `ThisWorkbook` renamed `BookCode` say. The worker renames the
+  module before it takes the case's code, and reads the name back. The
+  analyzer gets the module under that name, and as the object the original
+  name was: a workbook, a document or a worksheet. Access names a form's
+  or report's module itself, so an Access case with one ends as a
+  `worker_error`.
 - `implicitMembers`, `designerClass` and `predeclaredId` are the analyzer's
   side of the same facts. `tests/helpers/oracleModuleInput.ts` hands them,
   and the controls `designerControls` names, to the analyzer, and every

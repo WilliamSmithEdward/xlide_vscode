@@ -160,6 +160,18 @@ describe('VBE oracle worker', () => {
         expect(body(worker, 'Add-OracleComponent')).toContain('Add-DesignerControls $component $ModuleSpec');
     });
 
+    it('renames a document module to its codeName and reads the name back', () => {
+        const worker = readOracle('vbe_oracle_worker.ps1');
+        const rename = body(worker, 'Set-DocumentCodeName');
+        expect(rename).toContain('$Component.Name = [string]$ModuleSpec.codeName');
+        expect(rename).toMatch(/if \(\[string\]\$Component\.Name -cne \[string\]\$ModuleSpec\.codeName\) \{\s*throw "/);
+        // Before the case's code goes in, so the code compiles under the new name.
+        const component = body(worker, 'Add-OracleComponent');
+        expect(component.indexOf('Set-DocumentCodeName $component $ModuleSpec'))
+            .toBeLessThan(component.indexOf('$component.CodeModule.AddFromString($source)'));
+        expect(component.indexOf('Set-DocumentCodeName $component $ModuleSpec')).toBeGreaterThanOrEqual(0);
+    });
+
     it('imports module attributes and reads every attribute line back', () => {
         const worker = readOracle('vbe_oracle_worker.ps1');
         const component = body(worker, 'Add-OracleComponent');

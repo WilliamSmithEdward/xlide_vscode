@@ -4,6 +4,7 @@
 // oracle builds the same module from the same fields, so the analyzer sees
 // the project the VBE compiled.
 
+import type { EventHandlerDocumentType } from '../../src/analyzer';
 import { hostTokenForLibid } from '../../src/analyzer/host/hostLibraries';
 import type { VbaProjectModuleInput } from '../../src/vbaProjectAnalysis';
 
@@ -17,6 +18,8 @@ export interface OracleFixtureModule {
 	implicitMembers?: readonly { name: string; type: string }[];
 	designerClass?: string;
 	predeclaredId?: boolean;
+	/** The code name the oracle gives a document module, `ThisWorkbook` renamed `BookCode`. */
+	codeName?: string;
 }
 
 /** `Forms.CommandButton.1` is an `MSForms.CommandButton`. */
@@ -41,12 +44,24 @@ export function oracleReferencedHosts(kase: { references?: readonly { guid: stri
 	return tokens.length === 0 ? {} : { referencedHosts: tokens };
 }
 
+/** What a new file's document module is, by the name it was made with. */
+function documentTypeOf(name: string): EventHandlerDocumentType {
+	switch (name.toLowerCase()) {
+		case 'thisworkbook': return 'workbook';
+		case 'thisdocument': return 'document';
+		default: return 'worksheet';
+	}
+}
+
 export function oracleModuleInput(mod: OracleFixtureModule): VbaProjectModuleInput {
 	const implicitMembers = mod.designerControls
 		? mod.designerControls.map((control) => ({ name: control.name, type: controlType(control.progId) }))
 		: mod.implicitMembers;
 	return {
-		moduleName: mod.name,
+		moduleName: mod.codeName ?? mod.name,
+		// A renamed module is still the object it was made as, which the
+		// extension reads from the module's VB_Base.
+		...(mod.codeName !== undefined ? { documentType: documentTypeOf(mod.name) } : {}),
 		type: mod.type,
 		source: mod.source,
 		...(implicitMembers !== undefined ? { implicitMembers } : {}),
