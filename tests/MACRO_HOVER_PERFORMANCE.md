@@ -5,7 +5,7 @@ large module, macro string boundaries, project-free rejection of impossible hove
 positions, and fallback to project metadata for unknown names and macro strings.
 
 ```powershell
-npx vitest run tests/macroHoverSurfacePerformance.test.ts tests/macroNames217.test.ts tests/vbaHover.test.ts tests/vbaMemberCompletion.test.ts
+npx vitest run tests/editor/macroHoverSurfacePerformance.test.ts tests/macroNames217.test.ts tests/vbaHover.test.ts tests/editor/vbaMemberCompletion.test.ts
 ```
 
 The opt-in benchmark uses 21 warmed samples with a 1,200-procedure, 58,953-byte
@@ -14,7 +14,7 @@ module. Run on an otherwise idle machine:
 ```powershell
 New-Item -ItemType Directory -Force out | Out-Null
 $env:XLIDE_MACRO_HOVER_BENCHMARK_OUTPUT = 'out/macro-hover-latency.json'
-npx vitest run tests/macroHoverSurfacePerformance.test.ts -t 'measures macro lookup and empty hover work'
+npx vitest run tests/editor/macroHoverSurfacePerformance.test.ts -t 'measures macro lookup and empty hover work'
 Remove-Item Env:XLIDE_MACRO_HOVER_BENCHMARK_OUTPUT
 Get-Content out/macro-hover-latency.json
 ```

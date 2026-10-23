@@ -9,7 +9,7 @@ Run the synthetic benchmark from the repository root in PowerShell:
 ```powershell
 New-Item -ItemType Directory -Force out | Out-Null
 $env:XLIDE_EDITOR_BENCHMARK_OUTPUT = 'out/editor-latency.json'
-npx vitest run tests/editorSurfacePerformance.test.ts -t 'measures editor latency'
+npx vitest run tests/editor/editorSurfacePerformance.test.ts -t 'measures editor latency'
 Remove-Item Env:XLIDE_EDITOR_BENCHMARK_OUTPUT
 Get-Content out/editor-latency.json
 ```
@@ -31,7 +31,7 @@ and repeated semantic-token requests for the same document version:
 ```powershell
 New-Item -ItemType Directory -Force out | Out-Null
 $env:XLIDE_SURFACE_BENCHMARK_OUTPUT = 'out/surface-latency.json'
-npx vitest run tests/editorSurfaceFollowupPerformance.test.ts -t 'measures highlighting and caret surface work'
+npx vitest run tests/editor/editorSurfaceFollowupPerformance.test.ts -t 'measures highlighting and caret surface work'
 Remove-Item Env:XLIDE_SURFACE_BENCHMARK_OUTPUT
 Get-Content out/surface-latency.json
 ```

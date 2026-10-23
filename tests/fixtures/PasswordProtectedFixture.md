@@ -8,7 +8,7 @@ The public test password for every file below is **Test66**.
 
 Open copies for manual testing. Cancelled or incorrect passwords must deny XLIDE access; `Test66` must unlock the selected file once for the current VS Code session. Close Office copies without saving to retain their initial protected state. These fixtures are not production documents.
 
-Regression tests: `npx --no-install vitest run tests/projectProtection.test.ts`.
+Regression tests: `npx --no-install vitest run tests/editor/projectProtection.test.ts`.
 
 Real VS Code integration: `npm run compile`, then `npx --no-install vscode-test --config tests/projectPasswordIntegration.config.mjs`. The runner pins VS Code 1.139.1; `XLIDE_TEST_CODE_EXECUTABLE` can select an existing compatible installation. The suite uses the activated extension's filesystem, editor saves, UserForm designer, commands and agent tools; user-dialog answers are stubbed.
 

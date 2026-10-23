@@ -47,5 +47,5 @@ or busy-host request; those spikes remain an investigation target.
 ```powershell
 npm run compile
 npx vscode-test --code-version 1.139.1 --grep 'Immediate completion surfaces'
-npx vitest run tests/completionResponseScheduling.test.ts
+npx vitest run tests/editor/completionResponseScheduling.test.ts
 ```

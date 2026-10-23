@@ -1729,7 +1729,7 @@ The VBA language-service layer is ready for a first public preview when:
 > `src/analyzer/host/hostModel.ts` resolver +
 > `src/analyzer/completion/memberAccess.ts` receiver-chain resolution) and a VS
 > Code provider (`src/vbaMemberCompletion.ts`, trigger `.`). Covered by
-> `tests/vbaMemberCompletion.test.ts` (23 tests). Resolves host globals,
+> `tests/editor/vbaMemberCompletion.test.ts` (23 tests). Resolves host globals,
 > worksheet code names, `Me` by module kind, typed local/param/module variables,
 > and member-access chains through return types. Member metadata is transcribed
 > from the official Office VBA object-model reference (verified 2026-05-30), not

@@ -71,7 +71,7 @@ jobs:
           tests/engine/vbaCodePages.test.ts
           tests/engine/moduleExport.test.ts
           tests/vbaCombiningMarks.test.ts
-          tests/vbaNonAsciiNavigation.test.ts
+          tests/editor/vbaNonAsciiNavigation.test.ts
 
   # Reading and writing the VBA project of an Access database: the Jet/ACE
   # storage engine underneath it (data pages, usage maps, long values, B-tree
