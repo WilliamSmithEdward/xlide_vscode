@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { runInNewContext } from 'node:vm';
 import { describe, expect, it, vi } from 'vitest';
-import { OFFICE_HOST_APPS } from '../src/officeHostApps';
+import { OFFICE_HOST_APPS } from '../../src/officeHostApps';
 
 const source = readFileSync(join(process.cwd(), 'syntax_corpus/oracle/run_vbe_oracle.mjs'), 'utf8');
 const names = ['comRegistered', 'registeredHostBuild', 'caseHost', 'unsupportedHost', 'hostsNeedingBuilds',

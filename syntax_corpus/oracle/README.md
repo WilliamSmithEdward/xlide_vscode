@@ -14,7 +14,7 @@ A fixture names the application it runs in with `host`: `excel`, `word`,
 `powerpoint` or `access`. A fixture without one runs in Excel, which is where
 most of the corpus was measured. The coordinator keeps its own copy of the
 host table in `src/officeHostApps.ts` (ProgID and process image), and
-`tests/vbeOracleWorker.test.ts` keeps the two in step. A change to the oracle
+`tests/oracle/vbeOracleWorker.test.ts` keeps the two in step. A change to the oracle
 for one host is made for all four.
 
 Each case gets a fresh file in its host: a workbook, a document, a
@@ -163,7 +163,7 @@ fixtures whose `expected` value is already asserted, and writes only
 `diagnosticMeaning`. Timeouts and worker errors remain unpromotable.
 It rewrites the whole file as `JSON.stringify(document, null, 2)` with DEL
 and every non-ASCII character written as `\uXXXX`, so lay out hand-edited
-cases the same way; `tests/vbeOracleKnownCrash.test.ts` checks it.
+cases the same way; `tests/oracle/vbeOracleKnownCrash.test.ts` checks it.
 
 ## Requirements
 

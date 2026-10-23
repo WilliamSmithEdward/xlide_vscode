@@ -5,7 +5,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { describeLeftHosts, OwnedHosts, windowsHostSystem } from '../syntax_corpus/oracle/oracleOwnedHosts.mjs';
+import { describeLeftHosts, OwnedHosts, windowsHostSystem } from '../../syntax_corpus/oracle/oracleOwnedHosts.mjs';
 
 interface Proc { image: string; start: string; dies?: boolean }
 

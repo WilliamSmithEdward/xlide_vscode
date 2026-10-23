@@ -542,7 +542,7 @@ Verification rule: a new diagnostic rule must (1) carry a `specReference` in
 positive, negative, and no-diagnostic fixtures in the diagnostics test suite
 (`tests/diagnostics/*.test.ts` or `tests/vbaDiagnostics.test.ts`), and (4) appear
 both in this table and in `syntax_corpus/diagnostic_influence_audit.json` (the
-latter is enforced by `tests/corpusProvenance.test.ts`).
+latter is enforced by `tests/oracle/corpusProvenance.test.ts`).
 
 ## Won't Implement
 

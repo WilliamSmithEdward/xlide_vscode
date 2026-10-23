@@ -122,11 +122,11 @@ jobs:
       - name: Execute oracle recovery and lifecycle regressions
         run: >
           npx --no-install vitest run
-          tests/vbeOracleSoundRecovery.test.ts
-          tests/vbeOracleDialogSounds.test.ts
-          tests/vbeOracleWorker.test.ts
-          tests/vbeOracleStartup.test.ts
-          tests/vbeOracleKnownCrash.test.ts
+          tests/oracle/vbeOracleSoundRecovery.test.ts
+          tests/oracle/vbeOracleDialogSounds.test.ts
+          tests/oracle/vbeOracleWorker.test.ts
+          tests/oracle/vbeOracleStartup.test.ts
+          tests/oracle/vbeOracleKnownCrash.test.ts
 
   # The one check branch protection requires: it passes only when every job
   # above did, so jobs can be added or renamed without touching the rules.

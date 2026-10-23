@@ -1,10 +1,10 @@
 import { readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { expect, it } from 'vitest';
-import { oracleShardCount } from './helpers/oracleShards';
+import { oracleShardCount } from '../helpers/oracleShards';
 
 it('has every oracle sweep shard file, each running its own slice', () => {
-	const tests = join(process.cwd(), 'tests');
+	const tests = join(process.cwd(), 'tests', 'oracle');
 	for (const sweep of ['oracleCommentLines', 'oracleWrappedInIf']) {
 		expect(readdirSync(tests).filter((file) => file.startsWith(`${sweep}.shard`)).length).toBe(oracleShardCount);
 		// A missing file throws; one that ran another's slice would leave a

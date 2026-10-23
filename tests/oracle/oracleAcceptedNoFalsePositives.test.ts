@@ -1,16 +1,16 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { oracleModuleInput, type OracleFixtureModule } from './helpers/oracleModuleInput';
-import { diagnosticMetadataForCode } from '../src/analyzer';
-import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
+import { oracleModuleInput, type OracleFixtureModule } from '../helpers/oracleModuleInput';
+import { diagnosticMetadataForCode } from '../../src/analyzer';
+import { analyzeVbaModuleSource } from '../../src/vbaModuleAnalysis';
 import {
 	buildVbaProjectIndex,
 	effectiveModuleKind,
 	projectAnalysisOptionsForModule,
 	projectProcedureSignatures,
 	type VbaProjectModuleInput,
-} from '../src/vbaProjectAnalysis';
+} from '../../src/vbaProjectAnalysis';
 
 // Corpus-wide no-false-positive sweep: every ACCEPTED oracle case is code the
 // Excel/VBE oracle verified as valid, so no constrained diagnostic may fire on

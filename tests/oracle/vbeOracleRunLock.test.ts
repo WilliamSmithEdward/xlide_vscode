@@ -8,12 +8,12 @@ import * as net from 'node:net';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { acquireOracleRunLock, describeRefusal, oracleRunLockAddress } from '../syntax_corpus/oracle/oracleRunLock.mjs';
+import { acquireOracleRunLock, describeRefusal, oracleRunLockAddress } from '../../syntax_corpus/oracle/oracleRunLock.mjs';
 
 type Lock = { held: true; release: () => Promise<void> } | { held: false; reason: 'busy' | 'uncertain'; owner?: Record<string, unknown>; detail?: string };
 const acquire = acquireOracleRunLock as (address: string, owner: object, options?: { queryTimeoutMs?: number }) => Promise<Lock>;
 
-const MODULE = path.join(__dirname, '..', 'syntax_corpus', 'oracle', 'oracleRunLock.mjs');
+const MODULE = path.join(__dirname, '..', '..', 'syntax_corpus', 'oracle', 'oracleRunLock.mjs');
 const cleanups: Array<() => Promise<void> | void> = [];
 afterEach(async () => {
 	while (cleanups.length) {
@@ -150,7 +150,7 @@ describe('VBE oracle run lock', () => {
 	});
 
 	it('is taken before the coordinator starts a worker or silences dialog sounds', () => {
-		const coordinator = fs.readFileSync(path.join(__dirname, '..', 'syntax_corpus', 'oracle', 'run_vbe_oracle.mjs'), 'utf8');
+		const coordinator = fs.readFileSync(path.join(__dirname, '..', '..', 'syntax_corpus', 'oracle', 'run_vbe_oracle.mjs'), 'utf8');
 		const main = coordinator.slice(coordinator.indexOf('async function main('));
 		const lock = main.indexOf('await acquireOracleRunLock(oracleRunLockAddress()');
 		expect(lock).toBeGreaterThan(0);
