@@ -33,6 +33,7 @@ import {
 	procedureSignatureLabel,
 	procedureParamsFromSymbol,
 	procedureSignatureFromSymbol,
+	procedureSignatureWithDefTypes,
 } from './symbolModel';
 import {
 	resolveBareIdentifierBinding,
@@ -1169,7 +1170,8 @@ export class ProjectIndex {
 					) {
 						continue;
 					}
-					const sig = procedureSignatureFromSymbol(symbol);
+					const declared = procedureSignatureFromSymbol(symbol);
+					const sig = declared && procedureSignatureWithDefTypes(declared, mod.defTypes);
 					if (sig) {
 						addProcedureSignature(signatures, symbol.name.toLowerCase(), sig);
 						addProcedureSignature(

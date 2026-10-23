@@ -1145,11 +1145,11 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'isOperatorNonObject',
-		procedureExpressions: (ctx, push) => checkIsOperatorOperands(ctx.symbols, push),
+		procedureExpressions: (ctx, push) => checkIsOperatorOperands(ctx.symbols, push, ctx.opts.projectProcedures, ctx.opts.projectVisibleSymbols),
 	},
 	{
 		name: 'isOperandsInConditions',
-		run: (ctx, push) => checkIsOperandsInConditions(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push),
+		run: (ctx, push) => checkIsOperandsInConditions(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push, ctx.opts.projectProcedures, ctx.opts.projectVisibleSymbols),
 	},
 	{
 		name: 'nonScalarBinaryOperand',

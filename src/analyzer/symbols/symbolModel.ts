@@ -395,6 +395,36 @@ export function procedureParamsFromSymbol(
 }
 
 /** Converts a Sub/Function/Declare symbol into the shared callable signature model. */
+/**
+ * The type a module's DefType lines give a name declared with no type, by its
+ * first character: `DefInt A-Z` then `Dim i` is an Integer (issue #285). A
+ * Variant is no type to report on, so it gives undefined, as no DefType does.
+ */
+export function defTypeFor(defTypes: ReadonlyMap<string, string> | undefined, name: string): string | undefined {
+	const type = /^[A-Za-z]\w*$/.test(name) ? defTypes?.get(name[0].toLowerCase()) : undefined;
+	return type === 'Variant' || type === 'Decimal' ? undefined : type;
+}
+
+/**
+ * A procedure's signature with its untyped result and parameters typed by
+ * the DefType lines of the module that declares it, as VBA types them. A
+ * caller in another module sees those types, whatever its own DefType lines
+ * say (issue #1411, measured in Excel, Word, PowerPoint and Access 16.0).
+ */
+export function procedureSignatureWithDefTypes(
+	signature: VbaProcedureSignature,
+	defTypes: ReadonlyMap<string, string> | undefined,
+): VbaProcedureSignature {
+	if (!defTypes || signature.external) {
+		return signature;
+	}
+	return {
+		...signature,
+		params: signature.params.map((param) => (param.type || param.paramArray ? param : { ...param, type: defTypeFor(defTypes, param.name) })),
+		returnType: signature.returnType ?? (signature.kind === 'function' ? defTypeFor(defTypes, signature.name) : undefined),
+	};
+}
+
 export function procedureSignatureFromSymbol(
 	symbol: VbaSymbol,
 ): VbaProcedureSignature | undefined {

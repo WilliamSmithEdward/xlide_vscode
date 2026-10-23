@@ -49,6 +49,7 @@ import type {
 	VbaSymbol,
 } from '../symbols/symbolModel';
 import {
+	defTypeFor,
 	isBareCallableKind,
 	isProcedureKind,
 	procedureParamsFromSymbol,
@@ -417,8 +418,7 @@ function typeEnvModuleBase(symbols: ReturnType<typeof buildModuleSymbols>): Map<
  * is no type to report on, so it gives undefined, as no DefType does.
  */
 export function defTypeOf(symbols: ReturnType<typeof buildModuleSymbols>, name: string): string | undefined {
-	const type = /^[A-Za-z]\w*$/.test(name) ? symbols.defTypes?.get(name[0].toLowerCase()) : undefined;
-	return type === 'Variant' || type === 'Decimal' ? undefined : type;
+	return defTypeFor(symbols.defTypes, name);
 }
 
 /** Resolve an implicit value type only in the module that owns its declaration. */
