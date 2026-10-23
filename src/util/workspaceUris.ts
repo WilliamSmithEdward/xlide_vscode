@@ -63,3 +63,72 @@ function relativeToFolder(folderUri: vscode.Uri, filePath: string): string | und
 function trimTrailingSlash(value: string): string {
     return value.endsWith('/') ? value.slice(0, -1) : value;
 }
+
+/**
+ * Whether `filePath` is in one of the workspace folders: what decides if an
+ * agent may read it without asking.
+ *
+ * Unlike workspaceUriFor this is a boundary, so it fails closed. `..` and
+ * `.` segments are resolved first, or `C:\work\..\secret.xlsm` would pass as
+ * inside C:\work. A relative path is outside, since it resolves against
+ * whatever directory the extension host runs in. A Windows drive path is
+ * compared without case, because the file system ignores it and VS Code
+ * lower-cases the drive letter of a folder's fsPath.
+ */
+export function isInWorkspaceFolder(filePath: string): boolean {
+    const target = normalizedAbsolute(filePath);
+    if (target === undefined) {
+        return false;
+    }
+    for (const folder of vscode.workspace.workspaceFolders ?? []) {
+        for (const base of [folder.uri.fsPath, folder.uri.path]) {
+            const root = normalizedAbsolute(base);
+            if (root !== undefined && containsPath(root, target)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+const WINDOWS_DRIVE = /^[a-zA-Z]:\//;
+
+function containsPath(root: string, target: string): boolean {
+    const fold = WINDOWS_DRIVE.test(root) && WINDOWS_DRIVE.test(target);
+    const [r, t] = fold ? [root.toLowerCase(), target.toLowerCase()] : [root, target];
+    if (t === r) {
+        return true;
+    }
+    return t.startsWith(r.endsWith('/') ? r : `${r}/`);
+}
+
+/**
+ * The path in forward-slash form with `.` and `..` resolved, or undefined
+ * when it is not absolute. A `..` above the root stays at the root, as the
+ * file system does.
+ */
+function normalizedAbsolute(value: string): string | undefined {
+    const slashed = value.replace(/\\/g, '/');
+    let prefix: string;
+    if (slashed.startsWith('//')) {
+        prefix = '//';
+    } else if (WINDOWS_DRIVE.test(slashed)) {
+        prefix = slashed.slice(0, 3);
+    } else if (slashed.startsWith('/')) {
+        prefix = '/';
+    } else {
+        return undefined;
+    }
+    const segments: string[] = [];
+    for (const segment of slashed.slice(prefix.length).split('/')) {
+        if (segment === '' || segment === '.') {
+            continue;
+        }
+        if (segment === '..') {
+            segments.pop();
+        } else {
+            segments.push(segment);
+        }
+    }
+    return prefix + segments.join('/');
+}

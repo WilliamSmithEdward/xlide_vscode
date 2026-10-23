@@ -12,6 +12,9 @@ PowerPoint, or Access - without driving the XLIDE panels by hand.
    `xlide_getProjectInfo`.
 2. Read the file's VBA with `xlide_readModule`: the whole module, or for a
    large one the line ranges and procedures the task needs, in one call.
+   The read tools work without asking on a file in the workspace folders.
+   For any other file they ask the user first, so open the file's folder
+   in the workspace to read it freely.
 3. Write changes with `xlide_writeModule`, or change parts of a module with
    `xlide_editModule`, which replaces line ranges and whole procedures and
    inserts after a line, several edits in one call against the read's

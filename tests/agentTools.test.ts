@@ -5,6 +5,7 @@ import * as path from 'path';
 
 interface RegisteredTool {
     invoke(options: { input: Record<string, unknown>; toolInvocationToken?: unknown }, token: unknown): Promise<unknown>;
+    prepareInvocation?(options: { input: Record<string, unknown> }, token: unknown): unknown;
 }
 
 const vscodeMock = vi.hoisted(() => ({
@@ -128,6 +129,69 @@ function registerTools(bridgeCall: ReturnType<typeof vi.fn>) {
     );
     return { explorer };
 }
+
+describe('read-only agent tools outside the workspace', () => {
+    const READ_TOOLS = [
+        'xlide_listModules', 'xlide_listSubs', 'xlide_searchModules', 'xlide_readModule',
+        'xlide_listSheets', 'xlide_getProjectInfo', 'xlide_validateProject', 'xlide_analyzeProject',
+        'xlide_readCells', 'xlide_readFormulas', 'xlide_listReferences', 'xlide_listShapes',
+        'xlide_gitChanges',
+    ];
+    const workspace = vscode.workspace as { workspaceFolders?: unknown };
+
+    beforeEach(() => {
+        workspace.workspaceFolders = [{ uri: { fsPath: 'c:\\work', path: '/c:/work' } }];
+        registerTools(vi.fn());
+    });
+
+    afterEach(() => {
+        workspace.workspaceFolders = undefined;
+    });
+
+    function prepare(name: string, input: Record<string, unknown>) {
+        return vscodeMock.registeredTools.get(name)?.prepareInvocation?.({ input }, undefined) as
+            | { confirmationMessages?: { title: string; message: { value: string } } }
+            | undefined;
+    }
+
+    it('gives every tool that takes a file a prepareInvocation', () => {
+        const without = [...vscodeMock.registeredTools.entries()]
+            .filter(([name, tool]) => name !== 'xlide_listProjects' && !tool.prepareInvocation)
+            .map(([name]) => name);
+        expect(without).toEqual([]);
+    });
+
+    it.each(READ_TOOLS)('%s reads a file in the workspace without asking', (name) => {
+        expect(prepare(name, { filePath: 'C:\\work\\Book.xlsm' })).toBeUndefined();
+    });
+
+    it.each(READ_TOOLS)('%s asks before reading a file outside the workspace', (name) => {
+        const prepared = prepare(name, { filePath: 'C:\\Users\\me\\Documents\\Payroll.xlsm' });
+        expect(prepared?.confirmationMessages?.title).toBe('Read a File Outside the Workspace');
+        expect(prepared?.confirmationMessages?.message.value)
+            .toContain('` C:\\Users\\me\\Documents\\Payroll.xlsm `');
+    });
+
+    it('asks for a path that climbs out of the workspace', () => {
+        expect(prepare('xlide_readModule', { filePath: 'C:\\work\\..\\Payroll.xlsm' })?.confirmationMessages)
+            .toBeDefined();
+    });
+
+    it('asks when no folder is open', () => {
+        workspace.workspaceFolders = undefined;
+        expect(prepare('xlide_readCells', { filePath: 'C:\\work\\Book.xlsm' })?.confirmationMessages).toBeDefined();
+    });
+
+    it('asks when the call names no file', () => {
+        expect(prepare('xlide_listModules', {})?.confirmationMessages?.message.value)
+            .toContain('Let the agent read a file?');
+    });
+
+    it('fences a path that holds backticks so it shows whole', () => {
+        const message = prepare('xlide_readModule', { filePath: 'D:\\a``b\\Book.xlsm' })?.confirmationMessages?.message.value;
+        expect(message).toContain('``` D:\\a``b\\Book.xlsm ```');
+    });
+});
 
 describe('xlide_gitChanges agent tool', () => {
     const PROJECT = process.platform === 'win32' ? 'C:\\work\\Book.xlsm' : '/work/Book.xlsm';

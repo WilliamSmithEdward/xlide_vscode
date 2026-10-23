@@ -10,7 +10,7 @@ XLIDE separates actions into four broad categories.
 
 | Category | Examples | User expectation |
 |---|---|---|
-| Read-only inspection | list files, list modules, read modules, read cell values, analyze code | Does not save the file. |
+| Read-only inspection | list files, list modules, read modules, read cell values, analyze code | Does not save the file. An agent tool asks before it reads a file outside the workspace folders. |
 | File mutation | save a module, create/rename/delete a module, import modules, write cells, create a file | Requires an explicit command, save, UI action, or approved agent tool call. Access runs the compiled project, so a write to a database takes effect when Access next opens it and recompiles. |
 | VBA execution | run macro at cursor, run unit tests | Requires an explicit run action and COM automation of the file's own application: Excel, Word, PowerPoint, or Access. |
 | Local support/export artifacts | export support bundle, export modules, write test artifacts | Writes files to a selected or configured local folder. |
