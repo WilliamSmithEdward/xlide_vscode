@@ -101,7 +101,9 @@ function fieldKind(step: FieldStep, types: ModuleTypes, isObjectType: (type: str
 	return isObjectType(type) ? 'object' : undefined;
 }
 
-const VALUE_OPERATORS: ReadonlySet<string> = new Set(['+', '-', '*', '/', '\\', '^', 'mod', '&', '=', '<>', '<', '>', '<=', '>=']);
+// The logical operators and Like refuse a Type field too (issue #1415,
+// measured in Excel, Word, PowerPoint and Access 16.0).
+const VALUE_OPERATORS: ReadonlySet<string> = new Set(['+', '-', '*', '/', '\\', '^', 'mod', '&', '=', '<>', '<', '>', '<=', '>=', 'and', 'or', 'xor', 'eqv', 'imp', 'like']);
 
 /**
  * A field of a Type used as the shape it is not (issue #417, each measured

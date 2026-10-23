@@ -26,6 +26,7 @@
 //     back to raw for named/omitted arguments or bang access.
 
 import { MAX_EXPRESSION_DEPTH } from './expressionLimits';
+import { resolveRuntimeFunction } from '../runtime/vbaRuntime';
 import { VbaToken } from '../lexer/tokenKinds';
 import { isIdentLike, relationalOperatorAt, tokenName, tokenWord } from '../lexer/tokenHelpers';
 import {
@@ -692,6 +693,12 @@ class ExpressionParser {
 			}
 			if (word === 'typeof') {
 				return this.parseTypeOf(token);
+			}
+			// `CLng(1)`, `Len("a")`: VBA's functions whose names the lexer reads
+			// as keywords are calls, and the expression is still one (issue #1415).
+			if (this.peekAt(1)?.rawText === '(' && resolveRuntimeFunction(token.rawText)?.kind === 'function') {
+				this.next();
+				return this.identifierExpr(token);
 			}
 		}
 

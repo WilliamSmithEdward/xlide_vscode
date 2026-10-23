@@ -108,9 +108,13 @@ describe('analyzeModule - non-scalar-binary-operand', () => {
 		expect(hits(src)).toHaveLength(0);
 	});
 
-	it('does not apply to Is or Like (out of operator scope)', () => {
+	it('does not apply to Is (is-operator-non-object owns it)', () => {
 		expect(hits(wrap('    Dim a(3) As Long\n    If (a Is Nothing) Then\n    End If'))).toHaveLength(0);
-		expect(hits(wrap('    Dim a(3) As Long\n    Dim b As Boolean\n    b = (a Like "x")'))).toHaveLength(0);
+	});
+
+	it('flags an array either side of Like (issue #1415, measured)', () => {
+		expect(hits(wrap('    Dim a(3) As Long\n    Dim b As Boolean\n    b = (a Like "x")'))).toHaveLength(1);
+		expect(hits(wrap('    Dim a(3) As String\n    Dim b As Boolean\n    b = "x" Like a'))).toHaveLength(1);
 	});
 
 	it('stays quiet inside an inactive conditional-compilation branch', () => {
@@ -137,7 +141,13 @@ describe('analyzeModule - non-scalar-binary-operand', () => {
 		expect(hits(wrap('    Dim a(3) As Long\n    If UBound(a) < 3 Then\n    End If'))).toHaveLength(0);
 	});
 
-	it('stays quiet for a parenthesised array operand (conservative)', () => {
-		expect(hits(wrap('    Dim a(3) As Long\n    Dim s As String\n    s = "x" & (a)'))).toHaveLength(0);
+	it('flags a parenthesised array operand (issue #1415, measured)', () => {
+		expect(hits(wrap('    Dim a(3) As Long\n    Dim s As String\n    s = "x" & (a)'))).toHaveLength(1);
+		expect(hits(wrap('    Dim a(3) As Long\n    Dim s As String\n    s = "x" & ((a))'))).toHaveLength(1);
+	});
+
+	it('stays quiet for a parenthesised element and for ^ (issue #1415, measured)', () => {
+		expect(hits(wrap('    Dim a(3) As Long\n    Dim v As Variant\n    v = (a(0)) + 1'))).toHaveLength(0);
+		expect(hits(wrap('    Dim a(3) As Long\n    Dim v As Variant\n    v = (a) ^ 1'))).toHaveLength(0);
 	});
 });

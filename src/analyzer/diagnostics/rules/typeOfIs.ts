@@ -34,6 +34,7 @@ import type { ConditionalActivityTracker } from '../../conditional/conditionalCo
 import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { PushFn } from '../analysisContext';
 import { qualifiedProcedureKey, type VbaProcedureSignature, type VbaSymbol } from '../../symbols/symbolModel';
+import { resolveRuntimeFunction } from '../../runtime/vbaRuntime';
 import type { CallableTypeSignature } from '../callExtraction';
 import {
 	bareCallableSourceShadowed,
@@ -43,6 +44,7 @@ import {
 	createProjectInterfaceSharingLookup,
 	isKnownScalarType,
 	objectAssignmentIncompatibilityReason,
+	runtimeCallableSourceShadowed,
 	sourceNameScopeFor,
 	type SourceNameScope,
 	typeEnvironmentFor,
@@ -268,10 +270,17 @@ function callResultType(
 	const callee = expr.callee;
 	if (callee.exprKind === 'IdentifierExpr') {
 		const lower = callee.name.toLowerCase();
-		const type = env.has(lower) || bareCallableSourceShadowed(callee.name, sourceNames)
-			? undefined
-			: moduleSignatures.get(lower)?.returnType;
-		return type ? { type, display: callee.name } : undefined;
+		if (env.has(lower) || bareCallableSourceShadowed(callee.name, sourceNames)) {
+			return undefined;
+		}
+		const signature = moduleSignatures.get(lower);
+		if (signature) {
+			return signature.returnType ? { type: signature.returnType, display: callee.name } : undefined;
+		}
+		// VBA's own function, when nothing of the source takes its name:
+		// `CLng(1) Is Nothing`, `Len("a") Is Nothing` (issue #1415, measured).
+		const runtime = runtimeCallableSourceShadowed(callee.name, sourceNames) ? undefined : resolveRuntimeFunction(callee.name);
+		return runtime?.kind === 'function' && runtime.returns ? { type: runtime.returns, display: runtime.name } : undefined;
 	}
 	if (callee.exprKind === 'MemberAccessExpr' && callee.accessKind !== 'bang' && callee.object?.exprKind === 'IdentifierExpr') {
 		const qualifier = callee.object.name;
@@ -350,10 +359,24 @@ export function checkIsOperandsInConditions(
 
 /** Describes a provably non-object (scalar) operand of `Is`, or undefined. */
 function nonObjectOperand(
-	expr: ExprNode,
+	operand: ExprNode,
 	env: ReadonlyMap<string, string>,
 	callResult?: (expr: ExprNode) => CallResult | undefined,
 ): { span: Span; detail: string } | undefined {
+	// `(n) Is Nothing` is the same Type mismatch (issue #1415, measured in
+	// Excel, Word, PowerPoint and Access 16.0).
+	let expr = operand;
+	while (expr.exprKind === 'ParenExpr') {
+		expr = expr.inner;
+	}
+	// `a(0) Is Nothing` for a Long array: its element is a Long (issue #1415).
+	if (expr.exprKind === 'IndexExpr' && expr.callee.exprKind === 'IdentifierExpr') {
+		const declared = env.get(expr.callee.name.toLowerCase());
+		const element = declared?.replace(/\s*\(\s*\)\s*$/, '').trim();
+		if (element && isKnownScalarType(element.toLowerCase())) {
+			return { span: expr.span, detail: `an element of '${expr.callee.name}' is ${/^[aeiou]/i.test(element) ? 'an' : 'a'} ${element}` };
+		}
+	}
 	const result = callResult?.(expr);
 	if (result && isKnownScalarType(result.type.replace(/\s*\(\s*\)\s*$/, '').trim().toLowerCase())) {
 		return { span: expr.span, detail: `'${result.display}' returns ${result.type}` };

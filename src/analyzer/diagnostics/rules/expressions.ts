@@ -97,6 +97,7 @@ import {
 	firstExecutableTokenIndex,
 	matchParenFrom,
 	rawExpressionTokens,
+	statementAndBranchSpans,
 	statementTokens,
 	tokenName,
 	tokenText,
@@ -329,6 +330,18 @@ export function checkInvalidExpressionSyntax(
 				);
 				return;
 			}
+			const typeOf = malformedTypeOf(labelToks, stmt.span.start);
+			if (typeOf) {
+				push('invalidExpressionSyntax', `${typeOf.why} This is a VBE compile error: Syntax error.`, typeOf.span);
+				return;
+			}
+			for (const span of statementAndBranchSpans(stmt)) {
+				const value = incompleteAssignmentValue(statementTokens(source, span), span.start);
+				if (value) {
+					push('invalidExpressionSyntax', `${value.why} This is a VBE compile error: Syntax error.`, value.span);
+					return;
+				}
+			}
 			const unsupportedQuestion = unsupportedQuestionMarkOperator(source, stmt.span);
 			if (unsupportedQuestion) {
 				push(
@@ -379,6 +392,90 @@ function newWithArgumentList(toks: readonly VbaToken[], offset: number): Span | 
 		}
 		if (toks[j + 1]?.rawText === '(') {
 			return { start: offset + toks[j + 1].start, end: offset + toks[j + 1].end };
+		}
+	}
+	return undefined;
+}
+
+/**
+ * An assignment whose value runs on past a comma, `n = 1, 2`,
+ * `.Value = 1, 2`, `!Value = 1, 2`: a Syntax error, and so it is before an
+ * inline Else (issue #1415, measured in Excel, Word, PowerPoint and Access
+ * 16.0). Only a statement that is an assignment is read: a target of names,
+ * `.` and `!` members and argument lists, then `=`. A Print list keeps its
+ * commas. A value that ends at an operator, `n = 1 +`, is a Syntax error
+ * too, but it is also a line being typed, and stays quiet on purpose (see the
+ * realtime recovery tests in controlFlow.test.ts).
+ */
+function incompleteAssignmentValue(toks: readonly VbaToken[], offset: number): { span: Span; why: string } | undefined {
+	let i = firstExecutableTokenIndex(toks);
+	const head = tokenText(toks[i]);
+	if (head === 'let' || head === 'set') {
+		i += 1;
+	}
+	if (toks[i]?.rawText === '.' || toks[i]?.rawText === '!') {
+		i += 1;
+	}
+	if (!tokenName(toks[i]) || (toks[i].kind === 'keyword' && i === firstExecutableTokenIndex(toks) && toks[i + 1]?.rawText !== '=')) {
+		return undefined;
+	}
+	i += 1;
+	for (;;) {
+		const raw = toks[i]?.rawText;
+		if ((raw === '.' || raw === '!') && tokenName(toks[i + 1])) {
+			i += 2;
+		} else if (raw === '(') {
+			const close = matchParenFrom(toks, i);
+			if (close < 0) {
+				return undefined;
+			}
+			i = close + 1;
+		} else {
+			break;
+		}
+	}
+	if (toks[i]?.rawText !== '=' || i + 1 >= toks.length) {
+		return undefined;
+	}
+	const value = toks.slice(i + 1).filter((tok) => tok.kind !== 'comment');
+	let depth = 0;
+	for (const tok of value) {
+		depth += tok.rawText === '(' ? 1 : tok.rawText === ')' ? -1 : 0;
+		if (depth === 0 && tok.rawText === ',') {
+			return { span: { start: offset + tok.start, end: offset + tok.end }, why: "An assignment takes one value; the ',' after it starts nothing." };
+		}
+	}
+	return undefined;
+}
+
+/** VBA's value types, which no TypeOf can test for; Object is every object. */
+const TYPEOF_VALUE_TYPES: ReadonlySet<string> = new Set([
+	'byte', 'boolean', 'integer', 'long', 'longlong', 'longptr', 'currency', 'decimal', 'single', 'double', 'date', 'string', 'variant',
+]);
+
+/**
+ * `TypeOf (o) Is Collection`, with its operand in parentheses, and
+ * `TypeOf o Is Long`, testing for a value type: both are Syntax errors
+ * (issue #1415, measured in Excel, Word, PowerPoint and Access 16.0).
+ */
+function malformedTypeOf(toks: readonly VbaToken[], offset: number): { span: Span; why: string } | undefined {
+	for (let i = 0; i < toks.length; i++) {
+		if (tokenText(toks[i]) !== 'typeof') {
+			continue;
+		}
+		if (toks[i + 1]?.rawText === '(') {
+			return { span: { start: offset + toks[i + 1].start, end: offset + toks[i + 1].end }, why: "TypeOf takes its operand without parentheses: 'TypeOf o Is Collection'." };
+		}
+		let depth = 0;
+		for (let j = i + 1; j < toks.length; j++) {
+			depth += toks[j].rawText === '(' ? 1 : toks[j].rawText === ')' ? -1 : 0;
+			if (depth === 0 && tokenText(toks[j]) === 'is') {
+				const target = toks[j + 1];
+				if (target && TYPEOF_VALUE_TYPES.has(tokenText(target)) && toks[j + 2]?.rawText !== '.') {
+					return { span: { start: offset + target.start, end: offset + target.end }, why: `TypeOf tests for a class, and ${target.rawText} is a value type.` };
+				}
+				break;
+			}
 		}
 	}
 	return undefined;

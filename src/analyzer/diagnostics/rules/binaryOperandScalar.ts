@@ -17,11 +17,12 @@
 // `Type` declared in this module (`Type` names are always user identifiers, never
 // scalar keywords, so this never collides with a scalar; an Object/class instance
 // is not a module `Type` symbol and stays quiet, since a default member may
-// coerce). Everything else stays quiet - scalars, Variant, Object/host receivers,
-// an indexed element `a(i)` (an `IndexExpr`, not the bare aggregate), member
-// access, calls, parenthesised expressions, cross-module UDTs (deferred), and
-// undeclared names. `Is` (object operands, owned by `is-operator-non-object`) and
-// `Like` (operands coerced to String) are out of scope.
+// coerce). Parentheses keep the aggregate, `(a) + 1` (issue #1415). Everything
+// else stays quiet - scalars, Variant, Object/host receivers, an indexed element
+// `a(i)` (an `IndexExpr`, not the bare aggregate), member access, calls,
+// cross-module UDTs (deferred), and undeclared names. `Is` (object operands,
+// owned by `is-operator-non-object`) is out of scope; `Like` refuses an array,
+// and its Type operand is `udt-value-mismatch`'s (issue #1415).
 //
 // The body/expression traversal is the shared `forEachExpressionInBody` walk
 // (diagnostics/exprWalk.ts); this rule only filters to scalar-requiring binaries.
@@ -39,6 +40,7 @@ import {
 	type DeclaredValueShape,
 } from '../typeInference';
 import type { ProcedureExpressionVisitor } from '../exprWalk';
+import { caseComparisonOperator } from '../statementOperands';
 
 /**
  * Binary operators that require scalar operands (MS-VBAL 5.6). Excludes `Is`
@@ -85,11 +87,28 @@ export function checkBinaryOperandScalar(
 				);
 				return;
 			}
-			if (expr.exprKind !== 'BinaryExpr' || !SCALAR_OPERAND_OPERATORS.has(expr.operator)) {
+			// `Case a` compares the Select value with a, and an array is no value
+			// to compare (issue #1415, measured in Excel, Word, PowerPoint and
+			// Access 16.0).
+			const comparison = caseComparisonOperator(expr);
+			const comparand = comparison ? nonScalarOperand(expr, shapes, udtNames, true) : undefined;
+			if (comparand) {
+				push(
+					'nonScalarBinaryOperand',
+					`The Case's '${comparison}' comparison requires a scalar operand, but ${comparand.detail}. This will fail to compile with 'Type mismatch'.`,
+					comparand.span,
+				);
 				return;
 			}
-			const offender = nonScalarOperand(expr.left, shapes, udtNames)
-				?? nonScalarOperand(expr.right, shapes, udtNames);
+			// `a Like "*"` and `"x" Like a` refuse an array too, where Like
+			// takes any value as a String; a Type there is udt-value-mismatch's
+			// (issue #1415, measured in Excel, Word, PowerPoint and Access 16.0).
+			const like = expr.exprKind === 'BinaryExpr' && expr.operator === 'Like';
+			if (expr.exprKind !== 'BinaryExpr' || (!SCALAR_OPERAND_OPERATORS.has(expr.operator) && !like)) {
+				return;
+			}
+			const offender = nonScalarOperand(expr.left, shapes, udtNames, like)
+				?? nonScalarOperand(expr.right, shapes, udtNames, like);
 			if (offender) {
 				push(
 					'nonScalarBinaryOperand',
@@ -109,13 +128,21 @@ function isNothing(expr: ExprNode): boolean {
 /** A provably non-scalar identifier operand (a bare array, or a same-module
  *  user-defined Type value), or undefined. Quiet for everything else. */
 function nonScalarOperand(
-	expr: ExprNode,
+	operand: ExprNode,
 	shapes: ReadonlyMap<string, DeclaredValueShape>,
 	udtNames: ReadonlySet<string>,
+	arraysOnly = false,
 ): { span: Span; detail: string } | undefined {
+	// Parentheses keep the aggregate: `(a) + 1` and `((a)) & 1` are Type
+	// mismatch too (issue #1415, measured in Excel, Word, PowerPoint and
+	// Access 16.0).
+	let expr = operand;
+	while (expr.exprKind === 'ParenExpr') {
+		expr = expr.inner;
+	}
 	// Only a bare identifier is typed: an indexed element `a(i)` is an IndexExpr
-	// (a scalar element), member access / calls / parens are not the bare
-	// aggregate, and literals are scalar.
+	// (a scalar element), member access / calls are not the bare aggregate, and
+	// literals are scalar.
 	if (expr.exprKind !== 'IdentifierExpr') {
 		return undefined;
 	}
@@ -124,7 +151,7 @@ function nonScalarOperand(
 		return { span: expr.span, detail: `'${expr.name}' is declared As an array` };
 	}
 	const declared = shape?.asType;
-	if (declared && udtNames.has(declared.toLowerCase())) {
+	if (!arraysOnly && declared && udtNames.has(declared.toLowerCase())) {
 		return {
 			span: expr.span,
 			detail: `'${expr.name}' is declared As ${declared} (a user-defined Type)`,
