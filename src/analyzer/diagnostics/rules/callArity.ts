@@ -1,4 +1,5 @@
 import {sourceSetterAssignment} from '../setterAssignment';
+import { scalarFunctionCallTarget } from './assignments';
 import {procedureSymbolFor} from '../analysisContext';
 // Rule family: call-argument arity (audit #0).
 //
@@ -14,12 +15,20 @@ import type {
 } from '../../symbols/symbolModel';
 import type { PushFn } from '../analysisContext';
 import {
+	argumentListStatementCall,
 	type CallableTypeSignature,
 	type CallArguments,
 	extractCall,
 	extractQualifiedCall,
 	validateArity,
 } from '../callExtraction';
+
+/**
+ * The statements the call extractor leaves to the file rules, whose argument
+ * count is still checked here (issue #1414, measured in Excel, Word,
+ * PowerPoint and Access 16.0).
+ */
+const OWN_RULE_STATEMENTS: ReadonlySet<string> = new Set(['chdir', 'chdrive', 'kill', 'mkdir', 'rmdir']);
 import {
 	bareCallableSourceShadowed,
 	callableTypeSignaturesFor,
@@ -77,8 +86,17 @@ export function checkArgumentCount(
 				checkUnmodelledArity(source, span, env, sourceNames, memberCtx, push);
 			}
 			const setterNames = new Set(statementAndBranchSpans(stmt).map(span => sourceSetterAssignment(source, span, symbols, procedureSymbolFor(symbols, member), projectVisibleSymbols, memberCtx)?.nameSpan.start).filter(start => start !== undefined));
+			// `F() = 2` for a Function returning Long is the assignment's error,
+			// not its arguments' (issue #1414).
+			for (const span of statementAndBranchSpans(stmt)) {
+				const target = scalarFunctionCallTarget(source, span, symbols, member, projectVisibleSymbols);
+				if (target) {
+					setterNames.add(target.nameSpan.start);
+				}
+			}
 			const projectQualifiedCallSpans = new Set<string>();
-			const statementCall = extractCall(source, stmt.span);
+			const statementCall = extractCall(source, stmt.span)
+				?? argumentListStatementCall(source, stmt.span, OWN_RULE_STATEMENTS);
 			const qualifiedStatementCall = statementCall
 				? undefined
 				: extractQualifiedCall(source, stmt.span, moduleSignatures, sourceNames);
@@ -94,7 +112,7 @@ export function checkArgumentCount(
 				);
 				recordProjectQualifiedCallSpan(effectiveStatementCall, projectQualifiedCallSpans);
 			}
-			const expressionCallList = expressionCalls(source, stmt.span, moduleSignatures, sourceNames);
+			const expressionCallList = expressionCalls(source, stmt.span, moduleSignatures, sourceNames, { vbaLibrary: true });
 			for (const call of expressionCallList) {
 				if (setterNames.has(call.nameSpan.start) || sameCallTarget(call, effectiveStatementCall)) {
 					continue;
@@ -129,6 +147,7 @@ export function checkArgumentCount(
 			// running them again would report the same call twice.
 			for (const branch of statementAndBranchSpans(stmt).slice(1)) {
 				const branchCall = extractCall(source, branch)
+					?? argumentListStatementCall(source, branch, OWN_RULE_STATEMENTS)
 					?? extractQualifiedCall(source, branch, moduleSignatures, sourceNames);
 				if (branchCall && !projectQualifiedCallSpans.has(callTargetSpanKey(branchCall))) {
 					validateCallableArity(
@@ -266,6 +285,16 @@ function validateCallableArity(
 ): void {
 	const lower = call.lookupKey ?? call.name.toLowerCase();
 	const check = (signature: CallableTypeSignature, report: PushFn): void => validateArity(source, signature, call, report);
+	// `VBA.CLng()`: VBA's function, measured to take the arguments its bare
+	// name does in Excel, Word, PowerPoint and Access 16.0 (issue #1414).
+	if (call.vbaLibrary) {
+		const runtime = resolveRuntimeFunction(call.name);
+		const runtimeSignature = runtime ? runtimeAritySignature(runtime) : undefined;
+		if (runtimeSignature) {
+			check(runtimeSignature, push);
+		}
+		return;
+	}
 	if (!call.qualifier && bareCallableSourceShadowed(call.name, sourceNames)) {
 		return;
 	}

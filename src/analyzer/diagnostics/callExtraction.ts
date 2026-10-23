@@ -26,6 +26,8 @@ export interface CallArguments {
 	name: string;
 	/** Optional module qualifier for `ModuleName.MemberName` calls. */
 	qualifier?: string;
+	/** `VBA.Len(...)`: the qualifier is VBA's own library, and only its function is meant. */
+	vbaLibrary?: boolean;
 	/** Lowercased signature lookup key; defaults to lowercased `name`. */
 	lookupKey?: string;
 	/** Absolute span of the callee identifier. */
@@ -203,6 +205,38 @@ export function extractCall(source: string, span: Span): CallArguments | undefin
 		slots: split.slots,
 		slotSpans: split.spans,
 		sliceStart,
+	};
+}
+
+/**
+ * `Kill "a", "b"`: one of the statements the call extractor leaves to rules
+ * of their own, read as the call it also is, for its argument count.
+ */
+export function argumentListStatementCall(
+	source: string,
+	span: Span,
+	names: ReadonlySet<string>,
+): CallArguments | undefined {
+	const toks = statementTokens(source, span);
+	const at = firstExecutableTokenIndex(toks);
+	const name = tokenName(toks[at]);
+	const next = toks[at + 1]?.rawText;
+	if (!name || !names.has(name.toLowerCase()) || next === '=' || next === '.' || next === '(' || next === ':') {
+		return undefined;
+	}
+	// `Kill:` is a line label of that name (issue #272); the colon ends the
+	// statement's span, so look past it in the source.
+	if (/^[ \t]*:/.test(source.slice(span.start + toks[at].end, span.start + toks[at].end + 64))) {
+		return undefined;
+	}
+	const argToks = toks.slice(at + 1);
+	const split = argToks.length === 0 ? emptyArgSplit() : splitArgSlots(argToks, span.start);
+	return {
+		name,
+		nameSpan: { start: span.start + toks[at].start, end: span.start + toks[at].end },
+		slots: split.slots,
+		slotSpans: split.spans,
+		sliceStart: span.start,
 	};
 }
 

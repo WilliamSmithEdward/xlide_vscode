@@ -61,6 +61,7 @@ import {
 	splitArgSlots,
 	type InferredArgumentType,
 	extractQualifiedCall,
+	moduleQualifierShadowed,
 } from '../callExtraction';
 import {
 	buildModuleTypeSignatures,
@@ -160,6 +161,10 @@ export function checkConstAssignment(
 			// `Set K = Nothing` assigns to the constant too (issue #255).
 			const hit = bareAssignmentTarget(source, span) ?? setAssignmentTarget(source, span);
 			if (!hit) {
+				const call = scalarFunctionCallTarget(source, span, symbols, member, projectVisibleSymbols);
+				if (call) {
+					push('assignmentToProcedureName', call.message, call.nameSpan);
+				}
 				return;
 			}
 			const binding = sourceIdentifierBinding(
@@ -211,6 +216,68 @@ function invalidGetterArgumentCount(source: string, name: string, span: Span, pa
 	validateArity(source,{name,params:params.map(param => ({...param,optional:Boolean(param.optional),paramArray:Boolean(param.paramArray)}))},
 		{name,nameSpan:span,slots:split.slots,slotSpans:split.spans,sliceStart:base},()=>{invalid=true;});
 	return invalid;
+}
+
+/**
+ * `F() = 2`, `Let F(1) = 2`, `Module2.F() = 2`: a call to a Function that
+ * returns a type of VBA's own, on the left of an assignment. That is the
+ * error, "Function call on left-hand side of assignment must return Variant
+ * or Object", whether the call's arguments would fit or not; a Variant
+ * result is assignable, and its arguments are then what is wrong (issue
+ * #1414, measured in Excel, Word, PowerPoint and Access 16.0). A module name
+ * a variable takes is that variable.
+ */
+export function scalarFunctionCallTarget(
+	source: string,
+	span: Span,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	member: ProcedureNode,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
+): { nameSpan: Span; message: string } | undefined {
+	const toks = statementTokens(source, span);
+	let i = firstExecutableTokenIndex(toks);
+	if (tokenText(toks[i]) === 'let') {
+		i++;
+	}
+	let qualifier: string | undefined;
+	if (tokenName(toks[i]) && toks[i + 1]?.rawText === '.' && tokenName(toks[i + 2])) {
+		qualifier = tokenName(toks[i]);
+		i += 2;
+	}
+	const name = tokenName(toks[i]);
+	if (!name || toks[i + 1]?.rawText !== '(') {
+		return undefined;
+	}
+	const close = matchParenFrom(toks, i + 1);
+	if (close < 0 || toks[close + 1]?.rawText !== '=') {
+		return undefined;
+	}
+	const procSym = procedureSymbolFor(symbols, member);
+	const lower = name.toLowerCase();
+	let definitions: readonly VbaSymbol[];
+	if (qualifier) {
+		if (moduleQualifierShadowed(qualifier, sourceNameScopeFor(symbols, member, projectVisibleSymbols))) {
+			return undefined;
+		}
+		const module = qualifier.toLowerCase();
+		definitions = module === symbols.moduleName.toLowerCase()
+			? (symbols.root.children ?? []).filter((child) => child.name.toLowerCase() === lower)
+			: (projectVisibleSymbols ?? []).filter((symbol) => symbol.moduleName.toLowerCase() === module && symbol.name.toLowerCase() === lower);
+	} else {
+		const binding = sourceIdentifierBinding(symbols, procSym, projectVisibleSymbols, name, 'assignmentTarget');
+		if (binding.scope === 'ambiguous' || binding.scope === 'unresolved') {
+			return undefined;
+		}
+		definitions = binding.definitions;
+	}
+	// A Sub given arguments on the left was not measured.
+	if (definitions.length !== 1 || definitions[0].kind === 'sub') {
+		return undefined;
+	}
+	const target = procedureAssignmentTarget(definitions, procSym);
+	return target
+		? { nameSpan: { start: span.start + toks[i].start, end: span.start + toks[i].end }, message: target(qualifier ? `${qualifier}.${name}` : name) }
+		: undefined;
 }
 
 function procedureAssignmentTarget(
