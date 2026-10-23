@@ -47,6 +47,12 @@ import {
 	type SourceNameScope,
 	typeEnvironmentFor,
 } from '../typeInference';
+import {
+	ARGUMENT_TYPED_FUNCTIONS,
+	BARE_VALUE_RESULT_FUNCTIONS,
+	TYPEOF_KEYWORD_OPERANDS,
+	VALUE_RESULT_FUNCTIONS,
+} from '../../runtime/vbaValueResults';
 import { tokenizeCached } from '../../lexer/tokenize';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import { parseExpression } from '../../parser/parseExpression';
@@ -210,16 +216,24 @@ export function checkIsOperatorOperands(
 	projectVisibleSymbols?: readonly VbaSymbol[],
 ): ProcedureExpressionVisitor {
 	const moduleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
+	let enums: ReadonlySet<string> | undefined;
+	const enumNames = (): ReadonlySet<string> => enums ??= enumTypeNames(symbols, projectVisibleSymbols);
 	return (member) => {
 		const env = typeEnvironmentFor(symbols, member);
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
-		const calls = (expr: ExprNode): CallResult | undefined => callResultType(expr, env, moduleSignatures, sourceNames);
+		const resultOf = (form: OperandForm) => (expr: ExprNode): CallResult | undefined =>
+			callResultType(expr, env, moduleSignatures, sourceNames) ?? runtimeValueResult(expr, form, env, sourceNames);
+		const calls = resultOf('is');
+		const typeOfCalls = resultOf('typeof');
+		const operand = (side: ExprNode, results: (expr: ExprNode) => CallResult | undefined) =>
+			nonObjectOperand(side, env, results) ?? enumOperand(side, env, enumNames());
 		return (expr) => {
 			// `TypeOf n Is Collection` with n a Long is the same compile error,
 			// Type mismatch (issue #1411, measured in Excel, Word, PowerPoint
-			// and Access 16.0). A literal operand there was not measured.
+			// and Access 16.0). A literal operand is a Syntax error, which
+			// expressions.ts reports (issue #1416).
 			if (expr.exprKind === 'TypeOfIsExpr') {
-				const offender = expr.operand.exprKind === 'LiteralExpr' ? undefined : nonObjectOperand(expr.operand, env, calls);
+				const offender = expr.operand.exprKind === 'LiteralExpr' ? undefined : operand(expr.operand, typeOfCalls);
 				if (offender) {
 					push(
 						'isOperatorNonObject',
@@ -232,7 +246,7 @@ export function checkIsOperatorOperands(
 			if (expr.exprKind !== 'BinaryExpr' || expr.operator !== 'Is') {
 				return;
 			}
-			const offender = nonObjectOperand(expr.left, env, calls) ?? nonObjectOperand(expr.right, env, calls);
+			const offender = operand(expr.left, calls) ?? operand(expr.right, calls);
 			if (offender) {
 				push(
 					'isOperatorNonObject',
@@ -286,6 +300,122 @@ function callResultType(
 		return type ? { type, display: `${qualifier}.${callee.member}` } : undefined;
 	}
 	return undefined;
+}
+
+/**
+ * The Enums this module and the project make visible, lowercase. A name
+ * another kind of symbol of the project also takes is left out.
+ */
+function enumTypeNames(
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
+): ReadonlySet<string> {
+	const enums = new Set<string>();
+	const others = new Set<string>();
+	for (const sym of [...(symbols.root.children ?? []), ...(projectVisibleSymbols ?? [])]) {
+		(sym.kind === 'enum' ? enums : others).add(sym.name.toLowerCase());
+	}
+	for (const name of others) {
+		enums.delete(name);
+	}
+	return enums;
+}
+
+/**
+ * `n Is Nothing` and `TypeOf n Is Collection` with n declared As an Enum,
+ * of this module or another: Type mismatch (issue #1416, measured in
+ * Excel, Word, PowerPoint and Access 16.0).
+ */
+function enumOperand(
+	operand: ExprNode,
+	env: ReadonlyMap<string, string>,
+	enums: ReadonlySet<string>,
+): { span: Span; detail: string } | undefined {
+	let expr = operand;
+	while (expr.exprKind === 'ParenExpr') {
+		expr = expr.inner;
+	}
+	if (expr.exprKind !== 'IdentifierExpr') {
+		return undefined;
+	}
+	const declared = env.get(expr.name.toLowerCase());
+	return declared && enums.has(declared.trim().toLowerCase())
+		? { span: expr.span, detail: `'${expr.name}' is declared As ${declared}, an Enum` }
+		: undefined;
+}
+
+/** Whether a call stands under `Is` or under `TypeOf`, which judge some calls differently. */
+type OperandForm = 'is' | 'typeof';
+
+/**
+ * A call to one of VBA's own functions whose result is a value under `Is`
+ * or `TypeOf` (vbaValueResults.ts, issue #1416): `CDbl(1)`, `VBA.Mid$(s, 1)`,
+ * `Erl`. Undefined when a source name takes the function's name or `VBA`'s,
+ * and for a bare keyword-named TypeOf operand, which is a Syntax error
+ * reported in expressions.ts.
+ */
+function runtimeValueResult(
+	expr: ExprNode,
+	form: OperandForm,
+	env: ReadonlyMap<string, string>,
+	sourceNames: SourceNameScope,
+): CallResult | undefined {
+	const target = expr.exprKind === 'IndexExpr' ? expr.callee : expr;
+	const args = expr.exprKind === 'IndexExpr' ? expr.args : [];
+	let name: string;
+	let display: string;
+	let qualified: boolean;
+	if (target.exprKind === 'IdentifierExpr') {
+		if (env.has(target.name.toLowerCase()) || bareCallableSourceShadowed(target.name, sourceNames)) {
+			return undefined;
+		}
+		name = target.name;
+		display = target.name;
+		qualified = false;
+		if (target.typeSuffix && target.typeSuffix !== '$') {
+			return undefined;
+		}
+		name += target.typeSuffix ?? '';
+	} else if (
+		target.exprKind === 'MemberAccessExpr' && target.accessKind !== 'bang'
+		&& target.object?.exprKind === 'IdentifierExpr' && target.object.name.toLowerCase() === 'vba'
+		&& !env.has('vba') && !sourceNames.callableShadows.has('vba')
+	) {
+		if (target.typeSuffix && target.typeSuffix !== '$') {
+			return undefined;
+		}
+		name = `${target.member}${target.typeSuffix ?? ''}`;
+		display = `VBA.${name}`;
+		qualified = true;
+	} else {
+		return undefined;
+	}
+	const lower = name.toLowerCase();
+	if (!qualified && form === 'typeof' && TYPEOF_KEYWORD_OPERANDS.has(lower)) {
+		return undefined;
+	}
+	const value = VALUE_RESULT_FUNCTIONS.has(lower)
+		|| (!qualified && BARE_VALUE_RESULT_FUNCTIONS.has(lower))
+		|| (!qualified && form === 'is' && ARGUMENT_TYPED_FUNCTIONS.has(lower) && args.length > 0
+			&& args.every((arg) => arg.value !== undefined && arg.value !== null && provablyScalar(arg.value, env, sourceNames)));
+	return value ? { type: 'value', display: `${display}${args.length > 0 || expr.exprKind === 'IndexExpr' ? '(...)' : ''}` } : undefined;
+}
+
+/** Arithmetic and `&`, which give a value when both sides are values. */
+const SCALAR_OPERATORS: ReadonlySet<string> = new Set(['+', '-', '*', '/', '\\', '^', 'Mod', '&']);
+
+/** An argument that is provably a value: a literal, a typed variable or element, a value call, or arithmetic on those. */
+function provablyScalar(expr: ExprNode, env: ReadonlyMap<string, string>, sourceNames: SourceNameScope): boolean {
+	if (expr.exprKind === 'ParenExpr') {
+		return provablyScalar(expr.inner, env, sourceNames);
+	}
+	if (expr.exprKind === 'UnaryExpr' && expr.operator === '-') {
+		return provablyScalar(expr.operand, env, sourceNames);
+	}
+	if (expr.exprKind === 'BinaryExpr') {
+		return SCALAR_OPERATORS.has(expr.operator) && provablyScalar(expr.left, env, sourceNames) && provablyScalar(expr.right, env, sourceNames);
+	}
+	return nonObjectOperand(expr, env, (inner) => runtimeValueResult(inner, 'is', env, sourceNames)) !== undefined;
 }
 
 /**
@@ -374,6 +504,9 @@ function nonObjectOperand(
 		}
 	}
 	const result = callResult?.(expr);
+	if (result?.type === 'value') {
+		return { span: expr.span, detail: `VBA's '${result.display}' returns a value` };
+	}
 	if (result && isKnownScalarType(result.type.replace(/\s*\(\s*\)\s*$/, '').trim().toLowerCase())) {
 		return { span: expr.span, detail: `'${result.display}' returns ${result.type}` };
 	}
