@@ -33,12 +33,18 @@ import type { MemberCompletionContext } from '../../completion/memberAccess';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { PushFn } from '../analysisContext';
+import { qualifiedProcedureKey, type VbaProcedureSignature, type VbaSymbol } from '../../symbols/symbolModel';
+import type { CallableTypeSignature } from '../callExtraction';
 import {
+	bareCallableSourceShadowed,
+	callableTypeSignaturesFor,
 	createObjectAssignmentTypeResolver,
 	createObjectTypeImplementationLookup,
 	createProjectInterfaceSharingLookup,
 	isKnownScalarType,
 	objectAssignmentIncompatibilityReason,
+	sourceNameScopeFor,
+	type SourceNameScope,
 	typeEnvironmentFor,
 } from '../typeInference';
 import { tokenizeCached } from '../../lexer/tokenize';
@@ -200,14 +206,33 @@ function checkTypeOfIs(
 export function checkIsOperatorOperands(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	push: PushFn,
+	projectProcedures?: ReadonlyMap<string, readonly VbaProcedureSignature[]>,
+	projectVisibleSymbols?: readonly VbaSymbol[],
 ): ProcedureExpressionVisitor {
+	const moduleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
 	return (member) => {
 		const env = typeEnvironmentFor(symbols, member);
+		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
+		const calls = (expr: ExprNode): CallResult | undefined => callResultType(expr, env, moduleSignatures, sourceNames);
 		return (expr) => {
+			// `TypeOf n Is Collection` with n a Long is the same compile error,
+			// Type mismatch (issue #1411, measured in Excel, Word, PowerPoint
+			// and Access 16.0). A literal operand there was not measured.
+			if (expr.exprKind === 'TypeOfIsExpr') {
+				const offender = expr.operand.exprKind === 'LiteralExpr' ? undefined : nonObjectOperand(expr.operand, env, calls);
+				if (offender) {
+					push(
+						'isOperatorNonObject',
+						`'TypeOf ... Is' requires an object operand, but ${offender.detail}, which is not an object.`,
+						offender.span,
+					);
+				}
+				return;
+			}
 			if (expr.exprKind !== 'BinaryExpr' || expr.operator !== 'Is') {
 				return;
 			}
-			const offender = nonObjectOperand(expr.left, env) ?? nonObjectOperand(expr.right, env);
+			const offender = nonObjectOperand(expr.left, env, calls) ?? nonObjectOperand(expr.right, env, calls);
 			if (offender) {
 				push(
 					'isOperatorNonObject',
@@ -217,6 +242,45 @@ export function checkIsOperatorOperands(
 			}
 		};
 	};
+}
+
+/** A call's declared result, and the name to show for the call. */
+interface CallResult {
+	type: string;
+	display: string;
+}
+
+/**
+ * The declared result of a call to a project or same-module Function,
+ * `Bar()` or `Other.Foo()`, typed by the DefType of the module that declares
+ * it. Undefined for a variable's element, a name a source variable takes,
+ * and VBA's own functions, which were not measured (issue #1411).
+ */
+function callResultType(
+	expr: ExprNode,
+	env: ReadonlyMap<string, string>,
+	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	sourceNames: SourceNameScope,
+): CallResult | undefined {
+	if (expr.exprKind !== 'IndexExpr') {
+		return undefined;
+	}
+	const callee = expr.callee;
+	if (callee.exprKind === 'IdentifierExpr') {
+		const lower = callee.name.toLowerCase();
+		const type = env.has(lower) || bareCallableSourceShadowed(callee.name, sourceNames)
+			? undefined
+			: moduleSignatures.get(lower)?.returnType;
+		return type ? { type, display: callee.name } : undefined;
+	}
+	if (callee.exprKind === 'MemberAccessExpr' && callee.accessKind !== 'bang' && callee.object?.exprKind === 'IdentifierExpr') {
+		const qualifier = callee.object.name;
+		const type = env.has(qualifier.toLowerCase()) || sourceNames.callableShadows.has(qualifier.toLowerCase())
+			? undefined
+			: moduleSignatures.get(qualifiedProcedureKey(qualifier, callee.member))?.returnType;
+		return type ? { type, display: `${qualifier}.${callee.member}` } : undefined;
+	}
+	return undefined;
 }
 
 /**
@@ -230,8 +294,10 @@ export function checkIsOperandsInConditions(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	projectProcedures?: ReadonlyMap<string, readonly VbaProcedureSignature[]>,
+	projectVisibleSymbols?: readonly VbaSymbol[],
 ): void {
-	const checkOperands = checkIsOperatorOperands(symbols, push);
+	const checkOperands = checkIsOperatorOperands(symbols, push, projectProcedures, projectVisibleSymbols);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
@@ -286,7 +352,12 @@ export function checkIsOperandsInConditions(
 function nonObjectOperand(
 	expr: ExprNode,
 	env: ReadonlyMap<string, string>,
+	callResult?: (expr: ExprNode) => CallResult | undefined,
 ): { span: Span; detail: string } | undefined {
+	const result = callResult?.(expr);
+	if (result && isKnownScalarType(result.type.replace(/\s*\(\s*\)\s*$/, '').trim().toLowerCase())) {
+		return { span: expr.span, detail: `'${result.display}' returns ${result.type}` };
+	}
 	if (expr.exprKind === 'LiteralExpr') {
 		const k = expr.literalKind;
 		if (k === 'integer' || k === 'float' || k === 'string' || k === 'date' || k === 'boolean') {

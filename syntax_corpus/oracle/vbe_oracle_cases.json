@@ -123761,6 +123761,1796 @@
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid",
       "host": "access"
+    },
+    {
+      "id": "issue1411_f_byref_string_variable_compile",
+      "description": "Issue #1411: a String variable passed to Take(x) of a module whose DefLng makes x a ByRef Long is rejected: Compile error: ByRef argument type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim s As String\r\n    s = \"1\"\r\n    Take s\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefLng A-Z\r\nPublic Sub Take(x)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1411_f_numeric_string_literal_runtime",
+      "description": "Issue #1411: Take \"1\" for Take(x) of a module whose DefLng makes x a Long runs. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Take \"1\"\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefLng A-Z\r\nPublic Sub Take(x)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1411_f_text_string_literal_runtime",
+      "description": "Issue #1411: Take \"abc\" for Take(x) of a module whose DefLng makes x a Long is rejected: Run-time error '13': Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Take \"abc\"\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefLng A-Z\r\nPublic Sub Take(x)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue1411_f_caller_deftype_only_compile",
+      "description": "Issue #1411: a String variable passed to an untyped Take(x) of a module with no DefType, from a caller under DefLng compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefLng A-Z\r\nSub Main()\r\n    Dim s As String\r\n    s = \"abc\"\r\n    Take s\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Take(x)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1411_word_f_byref_string_variable_compile",
+      "description": "Issue #1411: a String variable passed to Take(x) of a module whose DefLng makes x a ByRef Long is rejected: Compile error: ByRef argument type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim s As String\r\n    s = \"1\"\r\n    Take s\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefLng A-Z\r\nPublic Sub Take(x)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_f_numeric_string_literal_runtime",
+      "description": "Issue #1411: Take \"1\" for Take(x) of a module whose DefLng makes x a Long runs. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Take \"1\"\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefLng A-Z\r\nPublic Sub Take(x)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_f_text_string_literal_runtime",
+      "description": "Issue #1411: Take \"abc\" for Take(x) of a module whose DefLng makes x a Long is rejected: Run-time error '13': Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Take \"abc\"\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefLng A-Z\r\nPublic Sub Take(x)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_f_caller_deftype_only_compile",
+      "description": "Issue #1411: a String variable passed to an untyped Take(x) of a module with no DefType, from a caller under DefLng compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefLng A-Z\r\nSub Main()\r\n    Dim s As String\r\n    s = \"abc\"\r\n    Take s\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Take(x)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_powerpoint_f_byref_string_variable_compile",
+      "description": "Issue #1411: a String variable passed to Take(x) of a module whose DefLng makes x a ByRef Long is rejected: Compile error: ByRef argument type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim s As String\r\n    s = \"1\"\r\n    Take s\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefLng A-Z\r\nPublic Sub Take(x)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_f_numeric_string_literal_runtime",
+      "description": "Issue #1411: Take \"1\" for Take(x) of a module whose DefLng makes x a Long runs. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Take \"1\"\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefLng A-Z\r\nPublic Sub Take(x)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_f_text_string_literal_runtime",
+      "description": "Issue #1411: Take \"abc\" for Take(x) of a module whose DefLng makes x a Long is rejected: Run-time error '13': Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Take \"abc\"\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefLng A-Z\r\nPublic Sub Take(x)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_f_caller_deftype_only_compile",
+      "description": "Issue #1411: a String variable passed to an untyped Take(x) of a module with no DefType, from a caller under DefLng compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefLng A-Z\r\nSub Main()\r\n    Dim s As String\r\n    s = \"abc\"\r\n    Take s\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Take(x)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_access_f_byref_string_variable_compile",
+      "description": "Issue #1411: a String variable passed to Take(x) of a module whose DefLng makes x a ByRef Long is rejected: Compile error: ByRef argument type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim s As String\r\n    s = \"1\"\r\n    Take s\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefLng A-Z\r\nPublic Sub Take(x)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_f_numeric_string_literal_runtime",
+      "description": "Issue #1411: Take \"1\" for Take(x) of a module whose DefLng makes x a Long runs. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Take \"1\"\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefLng A-Z\r\nPublic Sub Take(x)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_f_text_string_literal_runtime",
+      "description": "Issue #1411: Take \"abc\" for Take(x) of a module whose DefLng makes x a Long is rejected: Run-time error '13': Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Take \"abc\"\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefLng A-Z\r\nPublic Sub Take(x)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_f_caller_deftype_only_compile",
+      "description": "Issue #1411: a String variable passed to an untyped Take(x) of a module with no DefType, from a caller under DefLng compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefLng A-Z\r\nSub Main()\r\n    Dim s As String\r\n    s = \"abc\"\r\n    Take s\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Take(x)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_g_is_long_function_compile",
+      "description": "Issue #1411: b = Bar() Is Nothing for Function Bar() As Long is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Bar() Is Nothing\r\nEnd Sub\r\nFunction Bar() As Long\r\nEnd Function\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1411_g_is_long_function_with_argument_compile",
+      "description": "Issue #1411: b = Bar(1) Is Nothing for Function Bar(x As Long) As Long is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Bar(1) Is Nothing\r\nEnd Sub\r\nFunction Bar(x As Long) As Long\r\nEnd Function\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1411_g_is_string_function_compile",
+      "description": "Issue #1411: b = Bar() Is Nothing for Function Bar() As String is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Bar() Is Nothing\r\nEnd Sub\r\nFunction Bar() As String\r\nEnd Function\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1411_g_is_object_function_compile",
+      "description": "Issue #1411: b = Bar() Is Nothing for Function Bar() As Collection compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Bar() Is Nothing\r\nEnd Sub\r\nFunction Bar() As Collection\r\nEnd Function\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1411_g_is_variant_function_compile",
+      "description": "Issue #1411: b = Bar() Is Nothing for an untyped Function Bar() compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Bar() Is Nothing\r\nEnd Sub\r\nFunction Bar()\r\nEnd Function\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1411_g_is_long_array_function_compile",
+      "description": "Issue #1411: b = Bar() Is Nothing for Function Bar() As Long() is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Bar() Is Nothing\r\nEnd Sub\r\nFunction Bar() As Long()\r\nEnd Function\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1411_g_is_deflng_bare_compile",
+      "description": "Issue #1411: b = Foo() Is Nothing for an untyped Foo of a module under DefLng is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefLng A-Z\r\nPublic Function Foo()\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1411_g_is_deflng_qualified_compile",
+      "description": "Issue #1411: b = Other.Foo() Is Nothing for an untyped Foo of a module under DefLng is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefLng A-Z\r\nPublic Function Foo()\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1411_g_is_defobj_qualified_compile",
+      "description": "Issue #1411: b = Other.Foo() Is Nothing for an untyped Foo of a module under DefObj compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefObj A-Z\r\nPublic Function Foo()\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1411_g_is_deflng_caller_defobj_compile",
+      "description": "Issue #1411: b = Foo() Is Nothing from a caller under DefObj, for an untyped Foo of a module under DefLng is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefObj A-Z\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefLng A-Z\r\nPublic Function Foo()\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1411_g_is_deflng_shadowed_qualifier_compile",
+      "description": "Issue #1411: b = Other.Foo() Is Nothing with a local Other As Object, beside a module Other under DefLng compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    Dim Other As Object\r\n    b = Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefLng A-Z\r\nPublic Function Foo()\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1411_g_typeof_long_identifier_compile",
+      "description": "Issue #1411: b = TypeOf n Is Collection for a local n As Long is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    Dim n As Long\r\n    b = TypeOf n Is Collection\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1411_g_typeof_string_identifier_compile",
+      "description": "Issue #1411: b = TypeOf s Is Collection for a local s As String is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    Dim s As String\r\n    b = TypeOf s Is Collection\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1411_g_typeof_variant_identifier_compile",
+      "description": "Issue #1411: b = TypeOf v Is Collection for a local v As Variant compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    Dim v As Variant\r\n    b = TypeOf v Is Collection\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1411_g_typeof_object_identifier_compile",
+      "description": "Issue #1411: b = TypeOf o Is Collection for a local o As Object compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    Dim o As Object\r\n    b = TypeOf o Is Collection\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1411_g_typeof_long_function_compile",
+      "description": "Issue #1411: b = TypeOf Bar() Is Collection for Function Bar() As Long is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = TypeOf Bar() Is Collection\r\nEnd Sub\r\nFunction Bar() As Long\r\nEnd Function\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1411_g_typeof_deflng_qualified_compile",
+      "description": "Issue #1411: b = TypeOf Other.Foo() Is Collection for an untyped Foo of a module under DefLng is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = TypeOf Other.Foo() Is Collection\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefLng A-Z\r\nPublic Function Foo()\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1411_g_typeof_defobj_bare_compile",
+      "description": "Issue #1411: b = TypeOf Foo() Is Collection for an untyped Foo of a module under DefObj compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = TypeOf Foo() Is Collection\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefObj A-Z\r\nPublic Function Foo()\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1411_word_g_is_long_function_compile",
+      "description": "Issue #1411: b = Bar() Is Nothing for Function Bar() As Long is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Bar() Is Nothing\r\nEnd Sub\r\nFunction Bar() As Long\r\nEnd Function\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_g_is_long_function_with_argument_compile",
+      "description": "Issue #1411: b = Bar(1) Is Nothing for Function Bar(x As Long) As Long is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Bar(1) Is Nothing\r\nEnd Sub\r\nFunction Bar(x As Long) As Long\r\nEnd Function\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_g_is_string_function_compile",
+      "description": "Issue #1411: b = Bar() Is Nothing for Function Bar() As String is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Bar() Is Nothing\r\nEnd Sub\r\nFunction Bar() As String\r\nEnd Function\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_g_is_object_function_compile",
+      "description": "Issue #1411: b = Bar() Is Nothing for Function Bar() As Collection compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Bar() Is Nothing\r\nEnd Sub\r\nFunction Bar() As Collection\r\nEnd Function\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_g_is_variant_function_compile",
+      "description": "Issue #1411: b = Bar() Is Nothing for an untyped Function Bar() compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Bar() Is Nothing\r\nEnd Sub\r\nFunction Bar()\r\nEnd Function\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_g_is_long_array_function_compile",
+      "description": "Issue #1411: b = Bar() Is Nothing for Function Bar() As Long() is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Bar() Is Nothing\r\nEnd Sub\r\nFunction Bar() As Long()\r\nEnd Function\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_g_is_deflng_bare_compile",
+      "description": "Issue #1411: b = Foo() Is Nothing for an untyped Foo of a module under DefLng is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefLng A-Z\r\nPublic Function Foo()\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_g_is_deflng_qualified_compile",
+      "description": "Issue #1411: b = Other.Foo() Is Nothing for an untyped Foo of a module under DefLng is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefLng A-Z\r\nPublic Function Foo()\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_g_is_defobj_qualified_compile",
+      "description": "Issue #1411: b = Other.Foo() Is Nothing for an untyped Foo of a module under DefObj compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefObj A-Z\r\nPublic Function Foo()\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_g_is_deflng_caller_defobj_compile",
+      "description": "Issue #1411: b = Foo() Is Nothing from a caller under DefObj, for an untyped Foo of a module under DefLng is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefObj A-Z\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefLng A-Z\r\nPublic Function Foo()\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_g_is_deflng_shadowed_qualifier_compile",
+      "description": "Issue #1411: b = Other.Foo() Is Nothing with a local Other As Object, beside a module Other under DefLng compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    Dim Other As Object\r\n    b = Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefLng A-Z\r\nPublic Function Foo()\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_g_typeof_long_identifier_compile",
+      "description": "Issue #1411: b = TypeOf n Is Collection for a local n As Long is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    Dim n As Long\r\n    b = TypeOf n Is Collection\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_g_typeof_string_identifier_compile",
+      "description": "Issue #1411: b = TypeOf s Is Collection for a local s As String is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    Dim s As String\r\n    b = TypeOf s Is Collection\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_g_typeof_variant_identifier_compile",
+      "description": "Issue #1411: b = TypeOf v Is Collection for a local v As Variant compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    Dim v As Variant\r\n    b = TypeOf v Is Collection\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_g_typeof_object_identifier_compile",
+      "description": "Issue #1411: b = TypeOf o Is Collection for a local o As Object compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    Dim o As Object\r\n    b = TypeOf o Is Collection\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_g_typeof_long_function_compile",
+      "description": "Issue #1411: b = TypeOf Bar() Is Collection for Function Bar() As Long is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = TypeOf Bar() Is Collection\r\nEnd Sub\r\nFunction Bar() As Long\r\nEnd Function\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_g_typeof_deflng_qualified_compile",
+      "description": "Issue #1411: b = TypeOf Other.Foo() Is Collection for an untyped Foo of a module under DefLng is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = TypeOf Other.Foo() Is Collection\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefLng A-Z\r\nPublic Function Foo()\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_g_typeof_defobj_bare_compile",
+      "description": "Issue #1411: b = TypeOf Foo() Is Collection for an untyped Foo of a module under DefObj compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = TypeOf Foo() Is Collection\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefObj A-Z\r\nPublic Function Foo()\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_powerpoint_g_is_long_function_compile",
+      "description": "Issue #1411: b = Bar() Is Nothing for Function Bar() As Long is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Bar() Is Nothing\r\nEnd Sub\r\nFunction Bar() As Long\r\nEnd Function\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_g_is_long_function_with_argument_compile",
+      "description": "Issue #1411: b = Bar(1) Is Nothing for Function Bar(x As Long) As Long is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Bar(1) Is Nothing\r\nEnd Sub\r\nFunction Bar(x As Long) As Long\r\nEnd Function\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_g_is_string_function_compile",
+      "description": "Issue #1411: b = Bar() Is Nothing for Function Bar() As String is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Bar() Is Nothing\r\nEnd Sub\r\nFunction Bar() As String\r\nEnd Function\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_g_is_object_function_compile",
+      "description": "Issue #1411: b = Bar() Is Nothing for Function Bar() As Collection compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Bar() Is Nothing\r\nEnd Sub\r\nFunction Bar() As Collection\r\nEnd Function\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_g_is_variant_function_compile",
+      "description": "Issue #1411: b = Bar() Is Nothing for an untyped Function Bar() compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Bar() Is Nothing\r\nEnd Sub\r\nFunction Bar()\r\nEnd Function\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_g_is_long_array_function_compile",
+      "description": "Issue #1411: b = Bar() Is Nothing for Function Bar() As Long() is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Bar() Is Nothing\r\nEnd Sub\r\nFunction Bar() As Long()\r\nEnd Function\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_g_is_deflng_bare_compile",
+      "description": "Issue #1411: b = Foo() Is Nothing for an untyped Foo of a module under DefLng is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefLng A-Z\r\nPublic Function Foo()\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_g_is_deflng_qualified_compile",
+      "description": "Issue #1411: b = Other.Foo() Is Nothing for an untyped Foo of a module under DefLng is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefLng A-Z\r\nPublic Function Foo()\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_g_is_defobj_qualified_compile",
+      "description": "Issue #1411: b = Other.Foo() Is Nothing for an untyped Foo of a module under DefObj compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefObj A-Z\r\nPublic Function Foo()\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_g_is_deflng_caller_defobj_compile",
+      "description": "Issue #1411: b = Foo() Is Nothing from a caller under DefObj, for an untyped Foo of a module under DefLng is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefObj A-Z\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefLng A-Z\r\nPublic Function Foo()\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_g_is_deflng_shadowed_qualifier_compile",
+      "description": "Issue #1411: b = Other.Foo() Is Nothing with a local Other As Object, beside a module Other under DefLng compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    Dim Other As Object\r\n    b = Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefLng A-Z\r\nPublic Function Foo()\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_g_typeof_long_identifier_compile",
+      "description": "Issue #1411: b = TypeOf n Is Collection for a local n As Long is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    Dim n As Long\r\n    b = TypeOf n Is Collection\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_g_typeof_string_identifier_compile",
+      "description": "Issue #1411: b = TypeOf s Is Collection for a local s As String is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    Dim s As String\r\n    b = TypeOf s Is Collection\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_g_typeof_variant_identifier_compile",
+      "description": "Issue #1411: b = TypeOf v Is Collection for a local v As Variant compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    Dim v As Variant\r\n    b = TypeOf v Is Collection\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_g_typeof_object_identifier_compile",
+      "description": "Issue #1411: b = TypeOf o Is Collection for a local o As Object compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    Dim o As Object\r\n    b = TypeOf o Is Collection\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_g_typeof_long_function_compile",
+      "description": "Issue #1411: b = TypeOf Bar() Is Collection for Function Bar() As Long is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = TypeOf Bar() Is Collection\r\nEnd Sub\r\nFunction Bar() As Long\r\nEnd Function\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_g_typeof_deflng_qualified_compile",
+      "description": "Issue #1411: b = TypeOf Other.Foo() Is Collection for an untyped Foo of a module under DefLng is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = TypeOf Other.Foo() Is Collection\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefLng A-Z\r\nPublic Function Foo()\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_g_typeof_defobj_bare_compile",
+      "description": "Issue #1411: b = TypeOf Foo() Is Collection for an untyped Foo of a module under DefObj compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = TypeOf Foo() Is Collection\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefObj A-Z\r\nPublic Function Foo()\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_access_g_is_long_function_compile",
+      "description": "Issue #1411: b = Bar() Is Nothing for Function Bar() As Long is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Bar() Is Nothing\r\nEnd Sub\r\nFunction Bar() As Long\r\nEnd Function\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_g_is_long_function_with_argument_compile",
+      "description": "Issue #1411: b = Bar(1) Is Nothing for Function Bar(x As Long) As Long is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Bar(1) Is Nothing\r\nEnd Sub\r\nFunction Bar(x As Long) As Long\r\nEnd Function\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_g_is_string_function_compile",
+      "description": "Issue #1411: b = Bar() Is Nothing for Function Bar() As String is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Bar() Is Nothing\r\nEnd Sub\r\nFunction Bar() As String\r\nEnd Function\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_g_is_object_function_compile",
+      "description": "Issue #1411: b = Bar() Is Nothing for Function Bar() As Collection compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Bar() Is Nothing\r\nEnd Sub\r\nFunction Bar() As Collection\r\nEnd Function\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_g_is_variant_function_compile",
+      "description": "Issue #1411: b = Bar() Is Nothing for an untyped Function Bar() compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Bar() Is Nothing\r\nEnd Sub\r\nFunction Bar()\r\nEnd Function\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_g_is_long_array_function_compile",
+      "description": "Issue #1411: b = Bar() Is Nothing for Function Bar() As Long() is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Bar() Is Nothing\r\nEnd Sub\r\nFunction Bar() As Long()\r\nEnd Function\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_g_is_deflng_bare_compile",
+      "description": "Issue #1411: b = Foo() Is Nothing for an untyped Foo of a module under DefLng is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefLng A-Z\r\nPublic Function Foo()\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_g_is_deflng_qualified_compile",
+      "description": "Issue #1411: b = Other.Foo() Is Nothing for an untyped Foo of a module under DefLng is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefLng A-Z\r\nPublic Function Foo()\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_g_is_defobj_qualified_compile",
+      "description": "Issue #1411: b = Other.Foo() Is Nothing for an untyped Foo of a module under DefObj compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefObj A-Z\r\nPublic Function Foo()\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_g_is_deflng_caller_defobj_compile",
+      "description": "Issue #1411: b = Foo() Is Nothing from a caller under DefObj, for an untyped Foo of a module under DefLng is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefObj A-Z\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefLng A-Z\r\nPublic Function Foo()\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_g_is_deflng_shadowed_qualifier_compile",
+      "description": "Issue #1411: b = Other.Foo() Is Nothing with a local Other As Object, beside a module Other under DefLng compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    Dim Other As Object\r\n    b = Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefLng A-Z\r\nPublic Function Foo()\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_g_typeof_long_identifier_compile",
+      "description": "Issue #1411: b = TypeOf n Is Collection for a local n As Long is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    Dim n As Long\r\n    b = TypeOf n Is Collection\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_g_typeof_string_identifier_compile",
+      "description": "Issue #1411: b = TypeOf s Is Collection for a local s As String is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    Dim s As String\r\n    b = TypeOf s Is Collection\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_g_typeof_variant_identifier_compile",
+      "description": "Issue #1411: b = TypeOf v Is Collection for a local v As Variant compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    Dim v As Variant\r\n    b = TypeOf v Is Collection\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_g_typeof_object_identifier_compile",
+      "description": "Issue #1411: b = TypeOf o Is Collection for a local o As Object compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    Dim o As Object\r\n    b = TypeOf o Is Collection\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_g_typeof_long_function_compile",
+      "description": "Issue #1411: b = TypeOf Bar() Is Collection for Function Bar() As Long is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = TypeOf Bar() Is Collection\r\nEnd Sub\r\nFunction Bar() As Long\r\nEnd Function\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_g_typeof_deflng_qualified_compile",
+      "description": "Issue #1411: b = TypeOf Other.Foo() Is Collection for an untyped Foo of a module under DefLng is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = TypeOf Other.Foo() Is Collection\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefLng A-Z\r\nPublic Function Foo()\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_g_typeof_defobj_bare_compile",
+      "description": "Issue #1411: b = TypeOf Foo() Is Collection for an untyped Foo of a module under DefObj compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim b As Boolean\r\n    b = TypeOf Foo() Is Collection\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nDefObj A-Z\r\nPublic Function Foo()\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
     }
   ]
 }
