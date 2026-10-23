@@ -94,6 +94,7 @@ import {
 	checkArrayDeclarationBounds,
 	checkEraseTargets,
 	checkInvalidRedimTargets,
+	checkIndexedNextCounters,
 	checkRedimImpossibleBounds,
 	checkRedimTypeChange,
 	checkRedimPreserveDimensions,
@@ -714,6 +715,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 			push,
 			ctx.opts.hostModel,
 		),
+	},
+	{
+		name: 'indexedNextCounters',
+		run: (ctx, push) => checkIndexedNextCounters(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push),
 	},
 	{
 		name: 'arrayDeclarationImpossibleBounds',

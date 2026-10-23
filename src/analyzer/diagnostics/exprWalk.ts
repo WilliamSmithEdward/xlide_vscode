@@ -5,8 +5,9 @@
 // `TypeOf ... Is`, binary `Is`, scalar-requiring binary operators, and (as the
 // binder cashes in more families) others. They all need the SAME two-level walk:
 // find every root expression in the body (assignment sides, call callee and
-// arguments, `If`/`ElseIf` conditions, and nested block bodies), then recurse
-// each expression into all of its sub-expressions. Re-implementing that walk per
+// arguments, `If`/`ElseIf` conditions, `For` start, end and `Step` values, and
+// nested block bodies), then recurse each expression into all of its
+// sub-expressions. Re-implementing that walk per
 // rule triplicated a traversal that must stay consistent: a new `BodyNode` or
 // `ExprNode` kind would otherwise have to be added in every copy or rules would
 // silently miss nodes. This module owns the one walk; rules filter by `exprKind`.
@@ -101,6 +102,12 @@ export function forEachExpressionInBody(
 					}
 				}
 				// Arm statements live in the flat body; recurse it for nested exprs.
+				forEachExpressionInBody(node.body, activity, visit);
+				break;
+			case 'ForBlock':
+				for (const bound of node.boundExpressions ?? []) {
+					forEachSubExpression(bound, visit);
+				}
 				forEachExpressionInBody(node.body, activity, visit);
 				break;
 			default:

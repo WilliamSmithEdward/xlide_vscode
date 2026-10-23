@@ -1482,6 +1482,7 @@ class Parser {
 			case 'foreach': {
 				const control = this.forControlVariable(opener, head);
 				const source = opener === 'foreach' ? this.forEachSourceExpression(head) : undefined;
+				const bounds = opener === 'for' && control ? forBoundExpressions(head) : [];
 				const next = nextOverride ?? this.nextControlVariable(endStmt);
 				return {
 					kind: 'ForBlock',
@@ -1494,6 +1495,7 @@ class Parser {
 						sourceExpression: source.raw,
 						sourceExpressionSpan: source.span,
 					} : {}),
+					...(bounds.length > 0 ? { boundExpressions: bounds } : {}),
 					...(next ? {
 						nextVariable: next.name,
 						nextVariableSpan: next.span,
@@ -2131,6 +2133,37 @@ function isMidStatementTarget(tokens: readonly VbaToken[], start: number): boole
  * truncated operand. Requiring zero diagnostics keeps a malformed statement as
  * a raw StatementNode instead of a structured node hiding a parse error.
  */
+/**
+ * The start, end and Step values of `For i = start To end [Step step]`, each
+ * that parses whole. `To` and `Step` are read at parenthesis depth 0 only.
+ */
+function forBoundExpressions(stmt: LogicalStatement): ExprNode[] {
+	const tokens = codeTokensAfterLineNumber(stmt);
+	const cuts: number[] = [];
+	let depth = 0;
+	for (let i = 3; i < tokens.length; i++) {
+		const raw = tokens[i].rawText;
+		depth += raw === '(' ? 1 : raw === ')' ? -1 : 0;
+		const word = tokenWord(tokens[i]);
+		if (depth === 0 && (word === (cuts.length === 0 ? 'to' : 'step'))) {
+			cuts.push(i);
+			if (cuts.length === 2) {
+				break;
+			}
+		}
+	}
+	const bounds: ExprNode[] = [];
+	let from = 3;
+	for (const to of [...cuts, tokens.length]) {
+		const result = parseExpression(tokens, from, to);
+		if (from < to && fullyConsumed(result, to)) {
+			bounds.push(result.expr);
+		}
+		from = to + 1;
+	}
+	return bounds;
+}
+
 function fullyConsumed(
 	result: ExprParseResult,
 	to: number,

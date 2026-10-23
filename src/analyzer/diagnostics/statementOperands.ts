@@ -52,7 +52,7 @@ export function statementOperandRoots(node: StatementNode): readonly ExprNode[] 
 		for (const arm of node.singleLineIfBranches) {
 			const inArm = toks.filter((tok) => tok.start >= arm.start && tok.end <= arm.end);
 			if (inArm.length > 0) {
-				operandRanges(inArm).forEach(add(toks.indexOf(inArm[0])));
+				armOperandRanges(inArm).forEach(add(toks.indexOf(inArm[0])));
 			}
 		}
 	} else {
@@ -100,6 +100,33 @@ function fileNumber(toks: readonly VbaToken[], from: number, to: number): [numbe
 
 /** [from, to) of an operand, and for a Case item the operator it is compared by. */
 type OperandRange = [number, number, string?];
+
+/**
+ * The operand ranges of a single-line If arm. An arm can be an If of its own,
+ * `Else If s Is Nothing Then ...`, whose condition no other rule reads, so it
+ * is read here with its own arms (issue #1417, measured in all four hosts).
+ */
+function armOperandRanges(toks: readonly VbaToken[]): OperandRange[] {
+	if (tokenWord(toks[0]) !== 'if') {
+		return operandRanges(toks);
+	}
+	const then = topLevel(toks, 1, toks.length, (tok) => tokenWord(tok) === 'then')[0];
+	if (then === undefined) {
+		return [];
+	}
+	const out: OperandRange[] = [[1, then]];
+	const elses = topLevel(toks, then + 1, toks.length, (tok) => tokenWord(tok) === 'else');
+	let from = then + 1;
+	for (const to of [...elses, toks.length]) {
+		if (from < to) {
+			for (const [start, stop, comparison] of armOperandRanges(toks.slice(from, to))) {
+				out.push([start + from, stop + from, comparison]);
+			}
+		}
+		from = to + 1;
+	}
+	return out.filter(([start, stop]) => start < stop);
+}
 
 /** The operand ranges of one statement's tokens, by its leading words. */
 function operandRanges(toks: readonly VbaToken[]): OperandRange[] {

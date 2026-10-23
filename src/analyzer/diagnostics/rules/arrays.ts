@@ -70,6 +70,7 @@ import {
 	absoluteSpan,
 	activeModuleMembers,
 	bareAssignmentTarget,
+	blockFooterLineSpan,
 	blockHeaderStatements,
 	forEachStatement,
 	forEachStatementWithHeaders,
@@ -124,6 +125,67 @@ export function checkArrayBoundIntrinsicArguments(
 			}
 		};
 	};
+}
+
+/**
+ * `For i = 1 To 2 ... Next i(1)`: a Next given a subscript. On a counter of
+ * a numeric or Date type it is Expected array, and on a Variant one Invalid
+ * Next control variable reference; a Boolean or String counter is
+ * for-counter-type's first (issue #1417, measured in Excel, Word, PowerPoint
+ * and Access 16.0). A type character on the name, `Next i&(1)`, changes
+ * nothing.
+ */
+export function checkIndexedNextCounters(
+	source: string,
+	mod: ModuleNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		let shapes: ReadonlyMap<string, DeclaredValueShape> | undefined;
+		const visit = (body: readonly BodyNode[]): void => {
+			for (const node of body) {
+				if (isInactiveNode(activity, node)) {
+					continue;
+				}
+				// The parser drops a Next variable a subscript follows, so read the footer.
+				const indexed = node.kind === 'ForBlock' && !node.each && node.closed ? indexedNextVariable(source, node.span) : undefined;
+				if (indexed) {
+					shapes ??= declarationShapeEnvironmentFor(symbols, member);
+					const shape = shapes.get(indexed.name.toLowerCase());
+					const type = shape && !shape.isArray ? normalizeType(shape.asType ?? 'Variant') : undefined;
+					if (type === 'variant') {
+						push('nextVariableMismatch', `Next names its counter '${indexed.name}' with a subscript, and a Next takes the counter alone. This is a VBE compile error: Invalid Next control variable reference.`, indexed.span);
+					} else if (type && isKnownScalarType(type) && type !== 'boolean' && type !== 'string') {
+						push('scalarIndexed', `'${indexed.name}' is declared As ${shape!.asType}, which is no array to index. This is a VBE compile error: Expected array.`, indexed.span);
+					}
+				}
+				// An If block's flat body holds every arm's statements.
+				if ('body' in node && Array.isArray(node.body)) {
+					visit(node.body as BodyNode[]);
+				}
+			}
+		};
+		visit(member.body);
+	}
+}
+
+/** `Next i(1)` or `Next i&(1)` on a For block's last line: the name and its span. */
+function indexedNextVariable(source: string, span: Span): { name: string; span: Span } | undefined {
+	const footer = blockFooterLineSpan(source, span);
+	const toks = statementTokensAfterLeadingLabel(source, footer);
+	const name = tokenText(toks[0]) === 'next' ? tokenName(toks[1]) : undefined;
+	if (!name) {
+		return undefined;
+	}
+	const suffix = toks[2] && toks[2].start === toks[1].end && /^[%&^@!#$]$/.test(toks[2].rawText) ? 1 : 0;
+	return toks[2 + suffix]?.rawText === '('
+		? { name, span: { start: footer.start + toks[1].start, end: footer.start + toks[1].end } }
+		: undefined;
 }
 
 /**
