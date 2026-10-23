@@ -9,7 +9,7 @@ import { OFFICE_HOST_APPS } from '../src/officeHostApps';
 // registry writes, Office processes or account-profile writes.
 const source = readFileSync(join(process.cwd(), 'syntax_corpus/oracle/run_vbe_oracle.mjs'), 'utf8');
 const names = ['dialogSoundsPath', 'dialogSoundsScript', 'setDialogSounds', 'parseArgs',
-    'caseHost', 'hostsNeedingBuilds', 'knownHostCrashResult', 'expectedMatches', 'isOracleInfrastructureFailure'];
+    'caseHost', 'unsupportedHost', 'hostsNeedingBuilds', 'knownHostCrashResult', 'expectedMatches', 'isOracleInfrastructureFailure'];
 const functions = names.map((name) => {
     const start = source.indexOf(`function ${name}(`);
     // Up to the next top-level declaration, so a closing brace at the start of
@@ -93,6 +93,7 @@ function setup(cases: Case[] = [{ id: 'first' }, { id: 'second' }], lockHeld = t
             ? { held: true, release: async () => {} }
             : { held: false, reason: 'busy', owner: { pid: 99 } }),
         oracleRunLockAddress: () => 'test-lock', oracleRunOwner: () => ({ pid: 1 }), describeRefusal: () => 'refused',
+        unwritableCheckpoint: () => undefined, // A real path is checked in vbeOracleOptions.test.ts.
         OracleWorker: class {
             constructor() { workers.started++; }
             async close() {
@@ -213,6 +214,12 @@ describe('VBE oracle dialog sound lifecycle', () => {
         { argv: ['--cases-per-instance', '0'], platform: 'win32', code: 2 },
         { argv: ['--promote-observed'], platform: 'win32', code: 2 },
         { argv: ['--case', 'missing'], platform: 'win32', code: 2 },
+        // An option with no value, or another option in its place (issue #1440).
+        { argv: ['--checkpoint'], platform: 'win32', code: 2 },
+        { argv: ['--checkpoint', '--strict'], platform: 'win32', code: 2 },
+        { argv: ['--cases', '--json'], platform: 'win32', code: 2 },
+        { argv: ['--case'], platform: 'win32', code: 2 },
+        { argv: ['--timeout', '5abc'], platform: 'win32', code: 2 },
         { argv: [], platform: 'linux', code: 2 },
         { argv: [], platform: 'darwin', code: 2 },
         { argv: ['--help'], platform: 'win32', code: 0 },
@@ -225,9 +232,11 @@ describe('VBE oracle dialog sound lifecycle', () => {
         expectNoOwnedListeners(probe);
     });
 
-    it.each(['unknown host', 'unregistered host', 'invalid document', 'unreadable checkpoint build'])(
+    it.each(['unknown host', 'capitalized host', 'null host', 'unregistered host', 'invalid document', 'unreadable checkpoint build'])(
         'does not touch sounds after startup failure: %s', async (failure) => {
-            const probe = setup([{ id: 'first', host: failure === 'unknown host' ? 'other' : 'excel' }]);
+            const hosts: Record<string, string | null> = { 'unknown host': 'other', 'capitalized host': 'Excel', 'null host': null };
+            const host = failure in hosts ? hosts[failure] : 'excel';
+            const probe = setup([{ id: 'first', host: host as string }]);
             if (failure === 'unregistered host') { probe.comRegistered.mockReturnValue(false); }
             if (failure === 'invalid document') { probe.loadCasesDocument.mockImplementation(() => { throw new Error('bad JSON'); }); }
             if (failure === 'unreadable checkpoint build') {

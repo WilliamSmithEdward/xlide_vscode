@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { OFFICE_HOST_APPS } from '../src/officeHostApps';
 
 const source = readFileSync(join(process.cwd(), 'syntax_corpus/oracle/run_vbe_oracle.mjs'), 'utf8');
-const names = ['comRegistered', 'registeredHostBuild', 'caseHost', 'hostsNeedingBuilds',
+const names = ['comRegistered', 'registeredHostBuild', 'caseHost', 'unsupportedHost', 'hostsNeedingBuilds',
     'knownHostCrashResult', 'expectedMatches', 'isOracleInfrastructureFailure'];
 const functions = names.map((name) => {
     const start = source.indexOf(`function ${name}(`);
@@ -46,6 +46,7 @@ function setup(cases: Case[] = [], checkpoint = false) {
         // The run lock is covered in vbeOracleRunLock.test.ts; here it is always free.
         acquireOracleRunLock: async () => ({ held: true, release: async () => {} }),
         oracleRunLockAddress: () => 'test-lock', oracleRunOwner: () => ({ pid: 1 }), describeRefusal: () => 'refused',
+        unwritableCheckpoint: () => undefined, // A real path is checked in vbeOracleOptions.test.ts.
         OracleWorker: class { async close() {} },
         caseHash: () => 'hash', checkpointKey: () => 'key', phaseMatches: () => true,
         fs: { appendFileSync: vi.fn() },
@@ -188,7 +189,7 @@ describe('VBE oracle startup messages and exit codes', () => {
         const probe = setup([{ id: 'excel' }, { id: 'unknown', host: 'other' },
             { id: 'also-unknown', host: 'another' }], true);
         expect(await probe.main([])).toBe(2);
-        expect(probe.errors).toEqual(['Unknown oracle host(s): other, another. Use excel, word, powerpoint, access.']);
+        expect(probe.errors).toEqual(['Unknown oracle host: unknown names host "other"; also-unknown names host "another". Use excel, word, powerpoint, access, or leave host out for excel.']);
         expect(probe.spawnSync).not.toHaveBeenCalled();
     });
 

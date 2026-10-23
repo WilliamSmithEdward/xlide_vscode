@@ -86,6 +86,15 @@ example with Task Manager or `taskkill /F`, the next run can start at once.
 The Office instance the killed run was driving may stay open, with its VBE
 showing; end it before the next run, since its dialogs can confuse that run.
 
+Every option that takes a value needs one, and the runner checks them all
+before it starts anything (issue #1440). A value may not begin with `--`, so
+`--checkpoint --strict` is refused rather than writing a file named
+`--strict`; for a path that does begin so, write `./--name`. A fixture's
+`host` is left out for Excel or is exactly `excel`, `word`, `powerpoint` or
+`access`; anything else, `Excel` and `null` included, is refused. A
+`--checkpoint` whose directory is missing or read-only is refused before
+Office starts.
+
 Useful filters:
 
 ```powershell
