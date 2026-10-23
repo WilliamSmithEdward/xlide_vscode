@@ -522,6 +522,8 @@ export interface ForBlockNode extends NodeBase {
 	controlVariableSpan?: Span;
 	sourceExpression?: string;
 	sourceExpressionSpan?: Span;
+	/** A counted For's start, end and Step values, each that parsed whole (MS-VBAL 5.4.2.3). */
+	boundExpressions?: ExprNode[];
 	nextVariable?: string;
 	nextVariableSpan?: Span;
 	body: BodyNode[];

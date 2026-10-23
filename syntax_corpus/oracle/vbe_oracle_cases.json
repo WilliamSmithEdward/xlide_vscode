@@ -141252,6 +141252,2420 @@
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid",
       "host": "access"
+    },
+    {
+      "id": "issue1417_n_next_index_long_compile",
+      "description": "Issue #1417: Dim i As Long / For i = 1 To 2 / Next i(1) is rejected: Compile error: Expected array. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Long\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1417_n_next_index_integer_compile",
+      "description": "Issue #1417: Dim i As Integer / For i = 1 To 2 / Next i(1) is rejected: Compile error: Expected array. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Integer\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1417_n_next_index_byte_compile",
+      "description": "Issue #1417: Dim i As Byte / For i = 1 To 2 / Next i(1) is rejected: Compile error: Expected array. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Byte\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1417_n_next_index_date_compile",
+      "description": "Issue #1417: Dim i As Date / For i = 1 To 2 / Next i(1) is rejected: Compile error: Expected array. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Date\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1417_n_next_index_single_compile",
+      "description": "Issue #1417: Dim i As Single / For i = 1 To 2 / Next i(1) is rejected: Compile error: Expected array. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Single\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1417_n_next_index_double_compile",
+      "description": "Issue #1417: Dim i As Double / For i = 1 To 2 / Next i(1) is rejected: Compile error: Expected array. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Double\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1417_n_next_index_currency_compile",
+      "description": "Issue #1417: Dim i As Currency / For i = 1 To 2 / Next i(1) is rejected: Compile error: Expected array. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Currency\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1417_n_next_index_longlong_compile",
+      "description": "Issue #1417: Dim i As LongLong / For i = 1 To 2 / Next i(1) is rejected: Compile error: Expected array. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As LongLong\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1417_n_next_index_longptr_compile",
+      "description": "Issue #1417: Dim i As LongPtr / For i = 1 To 2 / Next i(1) is rejected: Compile error: Expected array. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As LongPtr\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1417_n_next_index_boolean_compile",
+      "description": "Issue #1417: Dim i As Boolean / For i = 1 To 2 / Next i(1) is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Boolean\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1417_n_next_index_string_compile",
+      "description": "Issue #1417: Dim i As String / For i = 1 To 2 / Next i(1) is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As String\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1417_n_next_index_variant_compile",
+      "description": "Issue #1417: Dim i As Variant / For i = 1 To 2 / Next i(1) is rejected: Compile error: Invalid Next control variable reference. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Variant\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1417_n_next_index_long_suffix_compile",
+      "description": "Issue #1417: Dim i& / For i = 1 To 2 / Next i&(1) is rejected: Compile error: Expected array. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i&\r\n    For i = 1 To 2\r\n    Next i&(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1417_n_next_index_integer_suffix_compile",
+      "description": "Issue #1417: Dim i% / For i = 1 To 2 / Next i%(1) is rejected: Compile error: Expected array. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i%\r\n    For i = 1 To 2\r\n    Next i%(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1417_n_next_ok_compile",
+      "description": "Issue #1417: Dim i As Long / For i = 1 To 2 / Next i compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Long\r\n    For i = 1 To 2\r\n    Next i\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1417_n_next_suffix_ok_compile",
+      "description": "Issue #1417: Dim i& / For i = 1 To 2 / Next i& compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i&\r\n    For i = 1 To 2\r\n    Next i&\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1417_f_lineno_array_start_compile",
+      "description": "Issue #1417: Dim a(1) As Long, i As Long / 10  For i = a To 1 / Next is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, i As Long\r\n    10  For i = a To 1\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1417_f_lineno_array_end_compile",
+      "description": "Issue #1417: Dim a(1) As Long, i As Long / 10 For i = 1 To a / Next is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, i As Long\r\n    10 For i = 1 To a\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1417_f_lineno_array_step_compile",
+      "description": "Issue #1417: Dim a(1) As Long, i As Long / 10 For i = 1 To 2 Step a / Next is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, i As Long\r\n    10 For i = 1 To 2 Step a\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1417_f_array_start_compile",
+      "description": "Issue #1417: Dim a(1) As Long, i As Long / For i = a To 1 / Next is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, i As Long\r\n    For i = a To 1\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1417_f_lineno_ok_compile",
+      "description": "Issue #1417: Dim a(1) As Long, i As Long / 10 For i = 1 To a(0) / Next compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, i As Long\r\n    10 For i = 1 To a(0)\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1417_e_else_if_is_compile",
+      "description": "Issue #1417: Dim n As Long, s As String / If n Then Exit Sub Else If s Is Nothing Then Exit Sub is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long, s As String\r\n    If n Then Exit Sub Else If s Is Nothing Then Exit Sub\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1417_e_if_is_compile",
+      "description": "Issue #1417: Dim n As Long, s As String / If s Is Nothing Then Exit Sub is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long, s As String\r\n    If s Is Nothing Then Exit Sub\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1417_e_else_if_ok_compile",
+      "description": "Issue #1417: Dim n As Long, s As String / If n Then Exit Sub Else If s = \"\" Then Exit Sub compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long, s As String\r\n    If n Then Exit Sub Else If s = \"\" Then Exit Sub\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1417_word_n_next_index_long_compile",
+      "description": "Issue #1417: Dim i As Long / For i = 1 To 2 / Next i(1) is rejected: Compile error: Expected array. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Long\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1417_word_n_next_index_integer_compile",
+      "description": "Issue #1417: Dim i As Integer / For i = 1 To 2 / Next i(1) is rejected: Compile error: Expected array. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Integer\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1417_word_n_next_index_byte_compile",
+      "description": "Issue #1417: Dim i As Byte / For i = 1 To 2 / Next i(1) is rejected: Compile error: Expected array. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Byte\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1417_word_n_next_index_date_compile",
+      "description": "Issue #1417: Dim i As Date / For i = 1 To 2 / Next i(1) is rejected: Compile error: Expected array. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Date\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1417_word_n_next_index_single_compile",
+      "description": "Issue #1417: Dim i As Single / For i = 1 To 2 / Next i(1) is rejected: Compile error: Expected array. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Single\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1417_word_n_next_index_double_compile",
+      "description": "Issue #1417: Dim i As Double / For i = 1 To 2 / Next i(1) is rejected: Compile error: Expected array. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Double\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1417_word_n_next_index_currency_compile",
+      "description": "Issue #1417: Dim i As Currency / For i = 1 To 2 / Next i(1) is rejected: Compile error: Expected array. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Currency\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1417_word_n_next_index_longlong_compile",
+      "description": "Issue #1417: Dim i As LongLong / For i = 1 To 2 / Next i(1) is rejected: Compile error: Expected array. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As LongLong\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1417_word_n_next_index_longptr_compile",
+      "description": "Issue #1417: Dim i As LongPtr / For i = 1 To 2 / Next i(1) is rejected: Compile error: Expected array. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As LongPtr\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1417_word_n_next_index_boolean_compile",
+      "description": "Issue #1417: Dim i As Boolean / For i = 1 To 2 / Next i(1) is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Boolean\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1417_word_n_next_index_string_compile",
+      "description": "Issue #1417: Dim i As String / For i = 1 To 2 / Next i(1) is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As String\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1417_word_n_next_index_variant_compile",
+      "description": "Issue #1417: Dim i As Variant / For i = 1 To 2 / Next i(1) is rejected: Compile error: Invalid Next control variable reference. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Variant\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1417_word_n_next_index_long_suffix_compile",
+      "description": "Issue #1417: Dim i& / For i = 1 To 2 / Next i&(1) is rejected: Compile error: Expected array. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i&\r\n    For i = 1 To 2\r\n    Next i&(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1417_word_n_next_index_integer_suffix_compile",
+      "description": "Issue #1417: Dim i% / For i = 1 To 2 / Next i%(1) is rejected: Compile error: Expected array. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i%\r\n    For i = 1 To 2\r\n    Next i%(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1417_word_n_next_ok_compile",
+      "description": "Issue #1417: Dim i As Long / For i = 1 To 2 / Next i compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Long\r\n    For i = 1 To 2\r\n    Next i\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1417_word_n_next_suffix_ok_compile",
+      "description": "Issue #1417: Dim i& / For i = 1 To 2 / Next i& compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i&\r\n    For i = 1 To 2\r\n    Next i&\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1417_word_f_lineno_array_start_compile",
+      "description": "Issue #1417: Dim a(1) As Long, i As Long / 10  For i = a To 1 / Next is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, i As Long\r\n    10  For i = a To 1\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1417_word_f_lineno_array_end_compile",
+      "description": "Issue #1417: Dim a(1) As Long, i As Long / 10 For i = 1 To a / Next is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, i As Long\r\n    10 For i = 1 To a\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1417_word_f_lineno_array_step_compile",
+      "description": "Issue #1417: Dim a(1) As Long, i As Long / 10 For i = 1 To 2 Step a / Next is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, i As Long\r\n    10 For i = 1 To 2 Step a\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1417_word_f_array_start_compile",
+      "description": "Issue #1417: Dim a(1) As Long, i As Long / For i = a To 1 / Next is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, i As Long\r\n    For i = a To 1\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1417_word_f_lineno_ok_compile",
+      "description": "Issue #1417: Dim a(1) As Long, i As Long / 10 For i = 1 To a(0) / Next compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, i As Long\r\n    10 For i = 1 To a(0)\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1417_word_e_else_if_is_compile",
+      "description": "Issue #1417: Dim n As Long, s As String / If n Then Exit Sub Else If s Is Nothing Then Exit Sub is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long, s As String\r\n    If n Then Exit Sub Else If s Is Nothing Then Exit Sub\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1417_word_e_if_is_compile",
+      "description": "Issue #1417: Dim n As Long, s As String / If s Is Nothing Then Exit Sub is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long, s As String\r\n    If s Is Nothing Then Exit Sub\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1417_word_e_else_if_ok_compile",
+      "description": "Issue #1417: Dim n As Long, s As String / If n Then Exit Sub Else If s = \"\" Then Exit Sub compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long, s As String\r\n    If n Then Exit Sub Else If s = \"\" Then Exit Sub\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1417_powerpoint_n_next_index_long_compile",
+      "description": "Issue #1417: Dim i As Long / For i = 1 To 2 / Next i(1) is rejected: Compile error: Expected array. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Long\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1417_powerpoint_n_next_index_integer_compile",
+      "description": "Issue #1417: Dim i As Integer / For i = 1 To 2 / Next i(1) is rejected: Compile error: Expected array. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Integer\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1417_powerpoint_n_next_index_byte_compile",
+      "description": "Issue #1417: Dim i As Byte / For i = 1 To 2 / Next i(1) is rejected: Compile error: Expected array. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Byte\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1417_powerpoint_n_next_index_date_compile",
+      "description": "Issue #1417: Dim i As Date / For i = 1 To 2 / Next i(1) is rejected: Compile error: Expected array. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Date\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1417_powerpoint_n_next_index_single_compile",
+      "description": "Issue #1417: Dim i As Single / For i = 1 To 2 / Next i(1) is rejected: Compile error: Expected array. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Single\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1417_powerpoint_n_next_index_double_compile",
+      "description": "Issue #1417: Dim i As Double / For i = 1 To 2 / Next i(1) is rejected: Compile error: Expected array. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Double\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1417_powerpoint_n_next_index_currency_compile",
+      "description": "Issue #1417: Dim i As Currency / For i = 1 To 2 / Next i(1) is rejected: Compile error: Expected array. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Currency\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1417_powerpoint_n_next_index_longlong_compile",
+      "description": "Issue #1417: Dim i As LongLong / For i = 1 To 2 / Next i(1) is rejected: Compile error: Expected array. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As LongLong\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1417_powerpoint_n_next_index_longptr_compile",
+      "description": "Issue #1417: Dim i As LongPtr / For i = 1 To 2 / Next i(1) is rejected: Compile error: Expected array. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As LongPtr\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1417_powerpoint_n_next_index_boolean_compile",
+      "description": "Issue #1417: Dim i As Boolean / For i = 1 To 2 / Next i(1) is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Boolean\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1417_powerpoint_n_next_index_string_compile",
+      "description": "Issue #1417: Dim i As String / For i = 1 To 2 / Next i(1) is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As String\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1417_powerpoint_n_next_index_variant_compile",
+      "description": "Issue #1417: Dim i As Variant / For i = 1 To 2 / Next i(1) is rejected: Compile error: Invalid Next control variable reference. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Variant\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1417_powerpoint_n_next_index_long_suffix_compile",
+      "description": "Issue #1417: Dim i& / For i = 1 To 2 / Next i&(1) is rejected: Compile error: Expected array. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i&\r\n    For i = 1 To 2\r\n    Next i&(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1417_powerpoint_n_next_index_integer_suffix_compile",
+      "description": "Issue #1417: Dim i% / For i = 1 To 2 / Next i%(1) is rejected: Compile error: Expected array. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i%\r\n    For i = 1 To 2\r\n    Next i%(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1417_powerpoint_n_next_ok_compile",
+      "description": "Issue #1417: Dim i As Long / For i = 1 To 2 / Next i compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Long\r\n    For i = 1 To 2\r\n    Next i\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1417_powerpoint_n_next_suffix_ok_compile",
+      "description": "Issue #1417: Dim i& / For i = 1 To 2 / Next i& compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i&\r\n    For i = 1 To 2\r\n    Next i&\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1417_powerpoint_f_lineno_array_start_compile",
+      "description": "Issue #1417: Dim a(1) As Long, i As Long / 10  For i = a To 1 / Next is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, i As Long\r\n    10  For i = a To 1\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1417_powerpoint_f_lineno_array_end_compile",
+      "description": "Issue #1417: Dim a(1) As Long, i As Long / 10 For i = 1 To a / Next is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, i As Long\r\n    10 For i = 1 To a\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1417_powerpoint_f_lineno_array_step_compile",
+      "description": "Issue #1417: Dim a(1) As Long, i As Long / 10 For i = 1 To 2 Step a / Next is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, i As Long\r\n    10 For i = 1 To 2 Step a\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1417_powerpoint_f_array_start_compile",
+      "description": "Issue #1417: Dim a(1) As Long, i As Long / For i = a To 1 / Next is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, i As Long\r\n    For i = a To 1\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1417_powerpoint_f_lineno_ok_compile",
+      "description": "Issue #1417: Dim a(1) As Long, i As Long / 10 For i = 1 To a(0) / Next compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, i As Long\r\n    10 For i = 1 To a(0)\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1417_powerpoint_e_else_if_is_compile",
+      "description": "Issue #1417: Dim n As Long, s As String / If n Then Exit Sub Else If s Is Nothing Then Exit Sub is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long, s As String\r\n    If n Then Exit Sub Else If s Is Nothing Then Exit Sub\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1417_powerpoint_e_if_is_compile",
+      "description": "Issue #1417: Dim n As Long, s As String / If s Is Nothing Then Exit Sub is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long, s As String\r\n    If s Is Nothing Then Exit Sub\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1417_powerpoint_e_else_if_ok_compile",
+      "description": "Issue #1417: Dim n As Long, s As String / If n Then Exit Sub Else If s = \"\" Then Exit Sub compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long, s As String\r\n    If n Then Exit Sub Else If s = \"\" Then Exit Sub\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1417_access_n_next_index_long_compile",
+      "description": "Issue #1417: Dim i As Long / For i = 1 To 2 / Next i(1) is rejected: Compile error: Expected array. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Long\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1417_access_n_next_index_integer_compile",
+      "description": "Issue #1417: Dim i As Integer / For i = 1 To 2 / Next i(1) is rejected: Compile error: Expected array. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Integer\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1417_access_n_next_index_byte_compile",
+      "description": "Issue #1417: Dim i As Byte / For i = 1 To 2 / Next i(1) is rejected: Compile error: Expected array. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Byte\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1417_access_n_next_index_date_compile",
+      "description": "Issue #1417: Dim i As Date / For i = 1 To 2 / Next i(1) is rejected: Compile error: Expected array. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Date\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1417_access_n_next_index_single_compile",
+      "description": "Issue #1417: Dim i As Single / For i = 1 To 2 / Next i(1) is rejected: Compile error: Expected array. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Single\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1417_access_n_next_index_double_compile",
+      "description": "Issue #1417: Dim i As Double / For i = 1 To 2 / Next i(1) is rejected: Compile error: Expected array. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Double\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1417_access_n_next_index_currency_compile",
+      "description": "Issue #1417: Dim i As Currency / For i = 1 To 2 / Next i(1) is rejected: Compile error: Expected array. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Currency\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1417_access_n_next_index_longlong_compile",
+      "description": "Issue #1417: Dim i As LongLong / For i = 1 To 2 / Next i(1) is rejected: Compile error: Expected array. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As LongLong\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1417_access_n_next_index_longptr_compile",
+      "description": "Issue #1417: Dim i As LongPtr / For i = 1 To 2 / Next i(1) is rejected: Compile error: Expected array. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As LongPtr\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1417_access_n_next_index_boolean_compile",
+      "description": "Issue #1417: Dim i As Boolean / For i = 1 To 2 / Next i(1) is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Boolean\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1417_access_n_next_index_string_compile",
+      "description": "Issue #1417: Dim i As String / For i = 1 To 2 / Next i(1) is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As String\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1417_access_n_next_index_variant_compile",
+      "description": "Issue #1417: Dim i As Variant / For i = 1 To 2 / Next i(1) is rejected: Compile error: Invalid Next control variable reference. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Variant\r\n    For i = 1 To 2\r\n    Next i(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1417_access_n_next_index_long_suffix_compile",
+      "description": "Issue #1417: Dim i& / For i = 1 To 2 / Next i&(1) is rejected: Compile error: Expected array. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i&\r\n    For i = 1 To 2\r\n    Next i&(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1417_access_n_next_index_integer_suffix_compile",
+      "description": "Issue #1417: Dim i% / For i = 1 To 2 / Next i%(1) is rejected: Compile error: Expected array. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i%\r\n    For i = 1 To 2\r\n    Next i%(1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1417_access_n_next_ok_compile",
+      "description": "Issue #1417: Dim i As Long / For i = 1 To 2 / Next i compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Long\r\n    For i = 1 To 2\r\n    Next i\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1417_access_n_next_suffix_ok_compile",
+      "description": "Issue #1417: Dim i& / For i = 1 To 2 / Next i& compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim i&\r\n    For i = 1 To 2\r\n    Next i&\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1417_access_f_lineno_array_start_compile",
+      "description": "Issue #1417: Dim a(1) As Long, i As Long / 10  For i = a To 1 / Next is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, i As Long\r\n    10  For i = a To 1\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1417_access_f_lineno_array_end_compile",
+      "description": "Issue #1417: Dim a(1) As Long, i As Long / 10 For i = 1 To a / Next is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, i As Long\r\n    10 For i = 1 To a\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1417_access_f_lineno_array_step_compile",
+      "description": "Issue #1417: Dim a(1) As Long, i As Long / 10 For i = 1 To 2 Step a / Next is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, i As Long\r\n    10 For i = 1 To 2 Step a\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1417_access_f_array_start_compile",
+      "description": "Issue #1417: Dim a(1) As Long, i As Long / For i = a To 1 / Next is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, i As Long\r\n    For i = a To 1\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1417_access_f_lineno_ok_compile",
+      "description": "Issue #1417: Dim a(1) As Long, i As Long / 10 For i = 1 To a(0) / Next compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, i As Long\r\n    10 For i = 1 To a(0)\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1417_access_e_else_if_is_compile",
+      "description": "Issue #1417: Dim n As Long, s As String / If n Then Exit Sub Else If s Is Nothing Then Exit Sub is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long, s As String\r\n    If n Then Exit Sub Else If s Is Nothing Then Exit Sub\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1417_access_e_if_is_compile",
+      "description": "Issue #1417: Dim n As Long, s As String / If s Is Nothing Then Exit Sub is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long, s As String\r\n    If s Is Nothing Then Exit Sub\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1417_access_e_else_if_ok_compile",
+      "description": "Issue #1417: Dim n As Long, s As String / If n Then Exit Sub Else If s = \"\" Then Exit Sub compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long, s As String\r\n    If n Then Exit Sub Else If s = \"\" Then Exit Sub\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1417_f2_dynamic_array_end_compile",
+      "description": "Issue #1417: Dim a() As Long, i As Long / For i = 1 To a / Next is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long, i As Long\r\n    For i = 1 To a\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1417_f2_variant_array_start_compile",
+      "description": "Issue #1417: Dim a() As Variant, i As Long / For i = a To 1 / Next is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Variant, i As Long\r\n    For i = a To 1\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1417_f2_variant_counter_end_compile",
+      "description": "Issue #1417: Dim a(1) As Long, v As Variant / For v = 1 To a / Next is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, v As Variant\r\n    For v = 1 To a\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1417_f2_paren_array_end_compile",
+      "description": "Issue #1417: Dim a(1) As Long, i As Long / For i = 1 To (a) / Next is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, i As Long\r\n    For i = 1 To (a)\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1417_f2_string_array_end_compile",
+      "description": "Issue #1417: Dim a(1) As String, i As Long / For i = 1 To a / Next is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As String, i As Long\r\n    For i = 1 To a\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1417_f2_variant_holding_ok_compile",
+      "description": "Issue #1417: Dim a As Variant, i As Long / For i = 1 To a / Next compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a As Variant, i As Long\r\n    For i = 1 To a\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1417_f2_element_ok_compile",
+      "description": "Issue #1417: Dim a(1) As Long, i As Long / For i = a(0) To a(1) Step a(1) / Next compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, i As Long\r\n    For i = a(0) To a(1) Step a(1)\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1417_f2_ubound_ok_compile",
+      "description": "Issue #1417: Dim a(1) As Long, i As Long / For i = LBound(a) To UBound(a) / Next compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, i As Long\r\n    For i = LBound(a) To UBound(a)\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1417_e2_nested_else_if_ok_compile",
+      "description": "Issue #1417: Dim n As Long, o As Object / If n Then Exit Sub Else If o Is Nothing Then Exit Sub compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long, o As Object\r\n    If n Then Exit Sub Else If o Is Nothing Then Exit Sub\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1417_e2_then_if_is_compile",
+      "description": "Issue #1417: Dim n As Long, s As String / If n Then If s Is Nothing Then Exit Sub is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long, s As String\r\n    If n Then If s Is Nothing Then Exit Sub\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1417_word_f2_dynamic_array_end_compile",
+      "description": "Issue #1417: Dim a() As Long, i As Long / For i = 1 To a / Next is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long, i As Long\r\n    For i = 1 To a\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1417_word_f2_variant_array_start_compile",
+      "description": "Issue #1417: Dim a() As Variant, i As Long / For i = a To 1 / Next is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Variant, i As Long\r\n    For i = a To 1\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1417_word_f2_variant_counter_end_compile",
+      "description": "Issue #1417: Dim a(1) As Long, v As Variant / For v = 1 To a / Next is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, v As Variant\r\n    For v = 1 To a\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1417_word_f2_paren_array_end_compile",
+      "description": "Issue #1417: Dim a(1) As Long, i As Long / For i = 1 To (a) / Next is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, i As Long\r\n    For i = 1 To (a)\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1417_word_f2_string_array_end_compile",
+      "description": "Issue #1417: Dim a(1) As String, i As Long / For i = 1 To a / Next is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As String, i As Long\r\n    For i = 1 To a\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1417_word_f2_variant_holding_ok_compile",
+      "description": "Issue #1417: Dim a As Variant, i As Long / For i = 1 To a / Next compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a As Variant, i As Long\r\n    For i = 1 To a\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1417_word_f2_element_ok_compile",
+      "description": "Issue #1417: Dim a(1) As Long, i As Long / For i = a(0) To a(1) Step a(1) / Next compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, i As Long\r\n    For i = a(0) To a(1) Step a(1)\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1417_word_f2_ubound_ok_compile",
+      "description": "Issue #1417: Dim a(1) As Long, i As Long / For i = LBound(a) To UBound(a) / Next compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, i As Long\r\n    For i = LBound(a) To UBound(a)\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1417_word_e2_nested_else_if_ok_compile",
+      "description": "Issue #1417: Dim n As Long, o As Object / If n Then Exit Sub Else If o Is Nothing Then Exit Sub compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long, o As Object\r\n    If n Then Exit Sub Else If o Is Nothing Then Exit Sub\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1417_word_e2_then_if_is_compile",
+      "description": "Issue #1417: Dim n As Long, s As String / If n Then If s Is Nothing Then Exit Sub is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long, s As String\r\n    If n Then If s Is Nothing Then Exit Sub\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1417_powerpoint_f2_dynamic_array_end_compile",
+      "description": "Issue #1417: Dim a() As Long, i As Long / For i = 1 To a / Next is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long, i As Long\r\n    For i = 1 To a\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1417_powerpoint_f2_variant_array_start_compile",
+      "description": "Issue #1417: Dim a() As Variant, i As Long / For i = a To 1 / Next is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Variant, i As Long\r\n    For i = a To 1\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1417_powerpoint_f2_variant_counter_end_compile",
+      "description": "Issue #1417: Dim a(1) As Long, v As Variant / For v = 1 To a / Next is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, v As Variant\r\n    For v = 1 To a\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1417_powerpoint_f2_paren_array_end_compile",
+      "description": "Issue #1417: Dim a(1) As Long, i As Long / For i = 1 To (a) / Next is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, i As Long\r\n    For i = 1 To (a)\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1417_powerpoint_f2_string_array_end_compile",
+      "description": "Issue #1417: Dim a(1) As String, i As Long / For i = 1 To a / Next is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As String, i As Long\r\n    For i = 1 To a\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1417_powerpoint_f2_variant_holding_ok_compile",
+      "description": "Issue #1417: Dim a As Variant, i As Long / For i = 1 To a / Next compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a As Variant, i As Long\r\n    For i = 1 To a\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1417_powerpoint_f2_element_ok_compile",
+      "description": "Issue #1417: Dim a(1) As Long, i As Long / For i = a(0) To a(1) Step a(1) / Next compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, i As Long\r\n    For i = a(0) To a(1) Step a(1)\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1417_powerpoint_f2_ubound_ok_compile",
+      "description": "Issue #1417: Dim a(1) As Long, i As Long / For i = LBound(a) To UBound(a) / Next compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, i As Long\r\n    For i = LBound(a) To UBound(a)\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1417_powerpoint_e2_nested_else_if_ok_compile",
+      "description": "Issue #1417: Dim n As Long, o As Object / If n Then Exit Sub Else If o Is Nothing Then Exit Sub compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long, o As Object\r\n    If n Then Exit Sub Else If o Is Nothing Then Exit Sub\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1417_powerpoint_e2_then_if_is_compile",
+      "description": "Issue #1417: Dim n As Long, s As String / If n Then If s Is Nothing Then Exit Sub is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long, s As String\r\n    If n Then If s Is Nothing Then Exit Sub\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1417_access_f2_dynamic_array_end_compile",
+      "description": "Issue #1417: Dim a() As Long, i As Long / For i = 1 To a / Next is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long, i As Long\r\n    For i = 1 To a\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1417_access_f2_variant_array_start_compile",
+      "description": "Issue #1417: Dim a() As Variant, i As Long / For i = a To 1 / Next is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Variant, i As Long\r\n    For i = a To 1\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1417_access_f2_variant_counter_end_compile",
+      "description": "Issue #1417: Dim a(1) As Long, v As Variant / For v = 1 To a / Next is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, v As Variant\r\n    For v = 1 To a\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1417_access_f2_paren_array_end_compile",
+      "description": "Issue #1417: Dim a(1) As Long, i As Long / For i = 1 To (a) / Next is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, i As Long\r\n    For i = 1 To (a)\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1417_access_f2_string_array_end_compile",
+      "description": "Issue #1417: Dim a(1) As String, i As Long / For i = 1 To a / Next is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As String, i As Long\r\n    For i = 1 To a\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1417_access_f2_variant_holding_ok_compile",
+      "description": "Issue #1417: Dim a As Variant, i As Long / For i = 1 To a / Next compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a As Variant, i As Long\r\n    For i = 1 To a\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1417_access_f2_element_ok_compile",
+      "description": "Issue #1417: Dim a(1) As Long, i As Long / For i = a(0) To a(1) Step a(1) / Next compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, i As Long\r\n    For i = a(0) To a(1) Step a(1)\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1417_access_f2_ubound_ok_compile",
+      "description": "Issue #1417: Dim a(1) As Long, i As Long / For i = LBound(a) To UBound(a) / Next compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1) As Long, i As Long\r\n    For i = LBound(a) To UBound(a)\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1417_access_e2_nested_else_if_ok_compile",
+      "description": "Issue #1417: Dim n As Long, o As Object / If n Then Exit Sub Else If o Is Nothing Then Exit Sub compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long, o As Object\r\n    If n Then Exit Sub Else If o Is Nothing Then Exit Sub\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1417_access_e2_then_if_is_compile",
+      "description": "Issue #1417: Dim n As Long, s As String / If n Then If s Is Nothing Then Exit Sub is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long, s As String\r\n    If n Then If s Is Nothing Then Exit Sub\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
     }
   ]
 }

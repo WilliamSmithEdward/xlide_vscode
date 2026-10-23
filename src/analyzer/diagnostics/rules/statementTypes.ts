@@ -41,6 +41,14 @@
 //    members, and two values of one Type, take it.
 //  - udt-variant-coercion: a user-defined type passed to a method of a
 //    Collection, an Object or a Variant, `c.Add t`, `o.Add t`.
+//
+// Issue #1417, measured in Excel, Word, PowerPoint and Access 16.0 (build
+// 20430, 2026-10-22):
+//
+//  - for-bound-array: an array variable, fixed or dynamic and in parentheses
+//    or not, as a For start, end or Step value, "Type mismatch", whatever the
+//    counter's type. An element, UBound(a) and a Variant that is not declared
+//    as an array take.
 
 import { uncheckedAggregateOperators } from './typeMembers';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
@@ -282,6 +290,19 @@ function checkFor(
 		);
 	}
 	const variable = variableNamed(ctx, procSym, name);
+	for (const bound of node.boundExpressions ?? []) {
+		let value = bound;
+		while (value.exprKind === 'ParenExpr') {
+			value = value.inner;
+		}
+		if (value.exprKind === 'IdentifierExpr' && variableNamed(ctx, procSym, value.name)?.isArray) {
+			ctx.push(
+				'forBoundArray',
+				`'${value.name}' is an array, and a For start, end or Step value must be a single value. This is a VBE compile error: Type mismatch.`,
+				bound.span,
+			);
+		}
+	}
 	if (!node.each) {
 		const kind = category(ctx, variable);
 		if (kind === 'string' || kind === 'boolean' || kind === 'object' || kind === 'udt' || kind === 'class') {
