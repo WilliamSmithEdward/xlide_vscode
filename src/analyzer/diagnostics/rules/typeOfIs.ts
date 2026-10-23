@@ -34,7 +34,6 @@ import type { ConditionalActivityTracker } from '../../conditional/conditionalCo
 import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { PushFn } from '../analysisContext';
 import { qualifiedProcedureKey, type VbaProcedureSignature, type VbaSymbol } from '../../symbols/symbolModel';
-import { resolveRuntimeFunction } from '../../runtime/vbaRuntime';
 import type { CallableTypeSignature } from '../callExtraction';
 import {
 	bareCallableSourceShadowed,
@@ -44,7 +43,6 @@ import {
 	createProjectInterfaceSharingLookup,
 	isKnownScalarType,
 	objectAssignmentIncompatibilityReason,
-	runtimeCallableSourceShadowed,
 	sourceNameScopeFor,
 	type SourceNameScope,
 	typeEnvironmentFor,
@@ -273,14 +271,12 @@ function callResultType(
 		if (env.has(lower) || bareCallableSourceShadowed(callee.name, sourceNames)) {
 			return undefined;
 		}
-		const signature = moduleSignatures.get(lower);
-		if (signature) {
-			return signature.returnType ? { type: signature.returnType, display: callee.name } : undefined;
-		}
-		// VBA's own function, when nothing of the source takes its name:
-		// `CLng(1) Is Nothing`, `Len("a") Is Nothing` (issue #1415, measured).
-		const runtime = runtimeCallableSourceShadowed(callee.name, sourceNames) ? undefined : resolveRuntimeFunction(callee.name);
-		return runtime?.kind === 'function' && runtime.returns ? { type: runtime.returns, display: runtime.name } : undefined;
+		// VBA's own functions are left out: the runtime table types `Right`,
+		// `Mid`, `InStr`, `Split` and others as values where the VBE treats
+		// their result as a Variant (issue #1416's measurements), so only a
+		// source declaration says what a call returns here.
+		const type = moduleSignatures.get(lower)?.returnType;
+		return type ? { type, display: callee.name } : undefined;
 	}
 	if (callee.exprKind === 'MemberAccessExpr' && callee.accessKind !== 'bang' && callee.object?.exprKind === 'IdentifierExpr') {
 		const qualifier = callee.object.name;

@@ -75,7 +75,7 @@ describe('parentheses keep an array an array (issue #1415)', () => {
 });
 
 describe('Is and TypeOf operands (issue #1415)', () => {
-	it.each(ids(['g2_is_paren_left', 'g2_is_paren_right', 'g2_is_double_paren', 'g2_is_element_left', 'g2_is_element_right', 'g2_is_clng', 'g2_is_len']))(
+	it.each(ids(['g2_is_paren_left', 'g2_is_paren_right', 'g2_is_double_paren', 'g2_is_element_left', 'g2_is_element_right']))(
 		'%s is Type mismatch',
 		(id) => expectOnly(id, 'rejected', ['is-operator-non-object']),
 	);
