@@ -1,32 +1,67 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import * as lexer from '../src/analyzer/lexer/tokenize';
-import { resolveIdentifierCompletions } from '../src/analyzer/completion/identifierCompletion';
+import { describe, expect, it, vi } from 'vitest';
 
-afterEach(() => vi.restoreAllMocks());
+// Issue #1443: the guard counts the lexing identifier completion really does.
+// The lexer module itself is wrapped, so every importer's calls are seen:
+// each tokenize() call's characters, and each tokenizeCached() call with the
+// reads of the stream it returns. A spy on one export saw none of the
+// line-window lexing, and its zero passed every upper bound.
+const work = { lexCalls: 0, lexedChars: 0, cachedCalls: 0, cachedChars: 0, cachedReads: 0 };
+const resetWork = () => { for (const key of Object.keys(work) as (keyof typeof work)[]) { work[key] = 0; } };
+vi.mock('../src/analyzer/lexer/tokenize', async (load) => {
+    const real = await load<typeof import('../src/analyzer/lexer/tokenize')>();
+    return {
+        ...real,
+        tokenize: (...args: Parameters<typeof real.tokenize>) => {
+            work.lexCalls += 1;
+            work.lexedChars += args[0].length;
+            return real.tokenize(...args);
+        },
+        tokenizeCached: (...args: Parameters<typeof real.tokenizeCached>) => {
+            work.cachedCalls += 1;
+            work.cachedChars += args[0].length;
+            return new Proxy(real.tokenizeCached(...args), {
+                get(target, property, receiver) {
+                    if (typeof property === 'string' && /^\d+$/.test(property)) { work.cachedReads += 1; }
+                    return Reflect.get(target, property, receiver);
+                },
+            });
+        },
+    };
+});
+
+const { resolveIdentifierCompletions } = await import('../src/analyzer/completion/identifierCompletion');
+
+const padded = Array.from({ length: 1200 }, (_, i) =>
+    'Sub Padding' + i + '()\nDebug.Print ' + i + '\nEnd Sub\n').join('') +
+    'Sub Probe()\nDim CanonicalValue As Long\ncanonicalvalue\nThisWorkbook.Sheets(1).Na\nEnd Sub';
 
 describe('identifier completion prefix work', () => {
-    it('does not copy preceding procedures for identifier or member-position checks', () => {
-        const source = Array.from({ length: 1200 }, (_, i) =>
-            'Sub Padding' + i + '()\nDebug.Print ' + i + '\nEnd Sub\n').join('') +
-            'Sub Probe()\nDim CanonicalValue As Long\ncanonicalvalue\nThisWorkbook.Sheets(1).Na\nEnd Sub';
+    it('lexes only the current line on each keystroke once the module is warm', () => {
+        const source = padded;
         const identifierOffset = source.lastIndexOf('canonicalvalue') + 14;
         const memberOffset = source.lastIndexOf('.Na') + 3;
+        // Warm the module's symbol analysis on purpose: the guard is about the
+        // per-keystroke grammar work, not the first request's.
         expect(resolveIdentifierCompletions(source, identifierOffset).map(item => item.name)).toContain('CanonicalValue');
-        const tokens = lexer.tokenizeCached(source);
-        let reads = 0;
-        vi.spyOn(lexer, 'tokenizeCached').mockReturnValue(new Proxy(tokens, {
-            get(target, property, receiver) {
-                if (typeof property === 'string' && /^\d+$/.test(property)) { reads++; }
-                return Reflect.get(target, property, receiver);
-            },
-        }));
+        // Fresh offsets, so no cursor-context cache answers for them.
         for (const offset of [identifierOffset - 1, identifierOffset - 2, memberOffset]) {
-            reads = 0;
+            resetWork();
             const result = resolveIdentifierCompletions(source, offset);
-            expect(reads).toBeLessThan(100);
+            expect(work.lexedChars, `offset ${offset}`).toBeGreaterThan(0);
+            expect(work.lexedChars, `offset ${offset}`).toBeLessThanOrEqual(120);
+            // Measured at 41 to 55 characters, and the shared stream untouched.
+            expect(work.cachedCalls, `offset ${offset}`).toBe(0);
             if (offset === memberOffset) { expect(result).toEqual([]); }
             else { expect(result.map(item => item.name)).toContain('CanonicalValue'); }
         }
+    });
+
+    it('keeps cold start separately measurable: the first request lexes the module', () => {
+        const source = padded.replace('Sub Probe()', 'Sub ColdProbe()');
+        resetWork();
+        const offset = source.lastIndexOf('canonicalvalue') + 14;
+        expect(resolveIdentifierCompletions(source, offset).map(item => item.name)).toContain('CanonicalValue');
+        expect(work.lexedChars + work.cachedChars).toBeGreaterThanOrEqual(source.length);
     });
 
     it('preserves the preceding-token policy at a blank position without crossing a second newline', () => {
