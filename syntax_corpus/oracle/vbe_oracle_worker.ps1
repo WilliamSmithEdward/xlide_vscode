@@ -42,6 +42,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Information.TypeName reads a designer control's class, as VBA's TypeName does.
+Add-Type -AssemblyName Microsoft.VisualBasic
+
 Add-Type @"
 using System;
 using System.Collections.Generic;
@@ -763,6 +766,79 @@ function Set-ComponentSource($Component, [string]$Source) {
     $Component.CodeModule.AddFromString($Source)
 }
 
+# What TypeName reports from .NET for a control each ProgID makes: the
+# control's default interface, not the class name VBA's TypeName shows.
+# Measured in Excel, Word, PowerPoint and Access 16.0 (build 20430); a ProgID
+# not listed here is refused until it is measured.
+$DesignerControlInterfaces = @{
+    "Forms.CommandButton.1" = "ICommandButton"
+    "Forms.ComboBox.1" = "IMdcCombo"
+}
+
+# A UserForm's controls belong to its designer, not to its code. The case
+# names each control and its ProgID; every one is then read back by name and
+# type, so a control the designer did not make fails the case as setup, never
+# as compile evidence (issue #1419).
+function Add-DesignerControls($Component, $ModuleSpec) {
+    if (-not ($ModuleSpec.PSObject.Properties.Name -contains "designerControls") -or -not $ModuleSpec.designerControls) {
+        return
+    }
+    $designer = $Component.Designer
+    if ($null -eq $designer) {
+        throw "Module '$($ModuleSpec.name)' has no designer to take designerControls."
+    }
+    try {
+        foreach ($control in @($ModuleSpec.designerControls)) {
+            $added = $designer.Controls.Add([string]$control.progId, [string]$control.name, $true)
+            Remove-ComObjectReference $added
+        }
+        foreach ($control in @($ModuleSpec.designerControls)) {
+            $found = $null
+            try { $found = $designer.Controls.Item([string]$control.name) } catch { }
+            if ($null -eq $found -or [string]$found.Name -cne [string]$control.name) {
+                throw "The designer has no control named '$($control.name)' after adding it."
+            }
+            $expected = $DesignerControlInterfaces[[string]$control.progId]
+            $actual = [Microsoft.VisualBasic.Information]::TypeName($found)
+            Remove-ComObjectReference $found
+            if ($null -eq $expected) {
+                throw "No read-back type is known for $($control.progId); add it to `$DesignerControlInterfaces once measured."
+            }
+            if ($actual -ne $expected) {
+                throw "The designer made '$($control.name)' a $actual, not the $expected that $($control.progId) makes."
+            }
+        }
+    }
+    finally {
+        Remove-ComObjectReference $designer
+    }
+}
+
+# Module attributes (Attribute VB_PredeclaredId = True) are import metadata,
+# like procedure attributes. Once imported, the module is exported again and
+# every attribute line of the case must be there, or the case fails as setup.
+function Assert-ImportedAttributes($Component, [string]$Source, [string]$Extension) {
+    $wanted = @([regex]::Matches($Source, '(?m)^[ \t]*(Attribute[ \t]+[^\r\n]*?)[ \t]*\r?$') | ForEach-Object {
+        ($_.Groups[1].Value -replace '\s+', ' ').ToLowerInvariant()
+    })
+    if ($wanted.Count -eq 0) { return }
+    $readBack = Join-Path ([IO.Path]::GetTempPath()) ('xlide-oracle-readback-' + [Guid]::NewGuid().ToString('N') + $Extension)
+    try {
+        $null = $Component.Export($readBack)
+        $exported = @([IO.File]::ReadAllLines($readBack, [Text.Encoding]::Default) | ForEach-Object {
+            ($_.Trim() -replace '\s+', ' ').ToLowerInvariant()
+        })
+        foreach ($line in $wanted) {
+            if ($exported -notcontains $line) {
+                throw "The imported module '$($Component.Name)' lost the attribute line '$line'."
+            }
+        }
+    }
+    finally {
+        if (Test-Path -LiteralPath $readBack) { Remove-Item -LiteralPath $readBack -Force }
+    }
+}
+
 function Add-OracleComponent($VbProject, $ModuleSpec) {
     if (([string]$ModuleSpec.type).ToLowerInvariant() -eq "document") {
         # The file's document modules exist already and cannot be added:
@@ -784,10 +860,17 @@ function Add-OracleComponent($VbProject, $ModuleSpec) {
     if ($ModuleSpec.PSObject.Properties.Name -contains "name" -and $ModuleSpec.name) {
         $component.Name = [string]$ModuleSpec.name
     }
+    Add-DesignerControls $component $ModuleSpec
     $source = [string]$ModuleSpec.source
     # Procedure attributes are import metadata, not editor statements. Adding
     # them as code creates a Syntax error during whole-project compilation.
-    if ($source -match '(?m)^\s*Attribute\s+[^\s.]+\.VB_\w+\s*=') {
+    # Module attributes, Attribute VB_PredeclaredId = True, are the same
+    # (issue #1419); a case that carries them replaces the exported header's.
+    $moduleAttributes = $source -match '(?m)^\s*Attribute\s+VB_\w+\s*='
+    if ($moduleAttributes -or $source -match '(?m)^\s*Attribute\s+[^\s.]+\.VB_\w+\s*=') {
+        if ($componentType -eq 3) {
+            throw "A UserForm's attributes come from its designer, not from imported source."
+        }
         $extension = if ($componentType -eq 2) { '.cls' } else { '.bas' }
         $importPath = Join-Path ([IO.Path]::GetTempPath()) ('xlide-oracle-component-' + [Guid]::NewGuid().ToString('N') + $extension)
         try {
@@ -796,15 +879,50 @@ function Add-OracleComponent($VbProject, $ModuleSpec) {
             $null = $component.Export($importPath)
             $encoding = [Text.Encoding]::Default
             $header = [IO.File]::ReadAllText($importPath, $encoding)
+            if ($moduleAttributes) {
+                $redefined = @([regex]::Matches($source, '(?m)^\s*Attribute\s+(VB_\w+)\s*=') | ForEach-Object { $_.Groups[1].Value.ToLowerInvariant() })
+                $header = ($header -split '\r?\n' | Where-Object {
+                    $_.Trim() -and -not ($_ -match '^\s*Attribute\s+(VB_\w+)\s*=' -and $redefined -contains $matches[1].ToLowerInvariant())
+                }) -join "`r`n"
+            }
             $null = $VbProject.VBComponents.Remove($component)
             [IO.File]::WriteAllText($importPath, $header + [Environment]::NewLine + $source, $encoding)
-            return $VbProject.VBComponents.Import($importPath)
+            $imported = $VbProject.VBComponents.Import($importPath)
+            Assert-ImportedAttributes $imported $source $extension
+            return $imported
         } finally {
             if (Test-Path -LiteralPath $importPath) { Remove-Item -LiteralPath $importPath -Force }
         }
     }
     Set-ComponentSource $component $source
     return $component
+}
+
+# Where the VBE leaves its selection once its compile dialog is gone: the
+# module of the active code pane and the span it selects, 1-based as the VBE
+# counts. It is read after the dialog closes, so it is not proof of what the
+# dialog highlighted while it was up (issue #1419). Unreadable is $null.
+function Get-SelectionAfterDialog($App) {
+    $pane = $null
+    try {
+        $pane = $App.VBE.ActiveCodePane
+        if ($null -eq $pane) { return $null }
+        $startLine = 0; $startColumn = 0; $endLine = 0; $endColumn = 0
+        $pane.GetSelection([ref]$startLine, [ref]$startColumn, [ref]$endLine, [ref]$endColumn)
+        return [ordered]@{
+            module = [string]$pane.CodeModule.Parent.Name
+            startLine = [int]$startLine
+            startColumn = [int]$startColumn
+            endLine = [int]$endLine
+            endColumn = [int]$endColumn
+        }
+    }
+    catch {
+        return $null
+    }
+    finally {
+        Remove-ComObjectReference $pane
+    }
 }
 
 function Find-VbeCommandControl($Controls, [string]$Caption) {
@@ -1217,6 +1335,8 @@ function Invoke-OracleCase {
             $dialog = Resolve-DialogAfterStop $dialog
             if ($null -ne $dialog) {
                 Set-DialogOutcome $dialog $true
+                $selection = Get-SelectionAfterDialog $app
+                if ($null -ne $selection) { $result.selectionAfterDialog = $selection }
             }
             else {
                 Assert-HostAlive $app $appPid

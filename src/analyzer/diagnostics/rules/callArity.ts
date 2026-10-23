@@ -8,6 +8,7 @@ import {procedureSymbolFor} from '../analysisContext';
 
 import type { MemberCompletionContext } from '../../completion/memberAccess';
 import { resolveRuntimeFunction } from '../../runtime/vbaRuntime';
+import { isReservedIdentifier } from '../../lexer/keywordTable';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type {
 	VbaProcedureSignature,
@@ -74,6 +75,7 @@ export function checkArgumentCount(
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	memberCtx: MemberCompletionContext,
 	push: PushFn,
+	objectNames: ReadonlySet<string> = new Set(),
 ): ProcedureStatementVisitor {
 	const sameModuleSignatures = sameModuleCallableSignatures(symbols);
 	const projectSignatures = uniqueProjectTypeSignatures(projectProcedures);
@@ -109,6 +111,7 @@ export function checkArgumentCount(
 					projectSignatures,
 					sourceNames,
 					push,
+					objectNames,
 				);
 				recordProjectQualifiedCallSpan(effectiveStatementCall, projectQualifiedCallSpans);
 			}
@@ -117,7 +120,7 @@ export function checkArgumentCount(
 				if (setterNames.has(call.nameSpan.start) || sameCallTarget(call, effectiveStatementCall)) {
 					continue;
 				}
-				validateCallableArity(source, call, sameModuleSignatures, projectSignatures, sourceNames, push);
+				validateCallableArity(source, call, sameModuleSignatures, projectSignatures, sourceNames, push, objectNames);
 				recordProjectQualifiedCallSpan(call, projectQualifiedCallSpans);
 			}
 			for (const memberCall of memberExpressionCalls(
@@ -157,6 +160,7 @@ export function checkArgumentCount(
 						projectSignatures,
 						sourceNames,
 						push,
+						objectNames,
 					);
 					recordProjectQualifiedCallSpan(branchCall, projectQualifiedCallSpans);
 				}
@@ -282,6 +286,7 @@ function validateCallableArity(
 	projectSignatures: ReadonlyMap<string, CallableTypeSignature>,
 	sourceNames: SourceNameScope | undefined,
 	push: PushFn,
+	objectNames: ReadonlySet<string> = new Set(),
 ): void {
 	const lower = call.lookupKey ?? call.name.toLowerCase();
 	const check = (signature: CallableTypeSignature, report: PushFn): void => validateArity(source, signature, call, report);
@@ -329,6 +334,12 @@ function validateCallableArity(
 	}
 	if (!call.qualifier) {
 		if (runtimeCallableSourceShadowed(call.name, sourceNames)) {
+			return;
+		}
+		// A control or a predeclared object takes a VBA function's name, except
+		// where the VBE reads that name as a keyword: with a control named Len,
+		// `[Len]()` is the control and `Len()` is still VBA's (issue #1419).
+		if (objectNames.has(lower) && (source[call.nameSpan.start] === '[' || !isReservedIdentifier(call.name))) {
 			return;
 		}
 		const runtime = resolveRuntimeFunction(call.name);

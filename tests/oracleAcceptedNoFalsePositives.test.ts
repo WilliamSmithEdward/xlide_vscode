@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { oracleModuleInput, type OracleFixtureModule } from './helpers/oracleModuleInput';
 import { diagnosticMetadataForCode } from '../src/analyzer';
 import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
 import {
@@ -27,7 +28,7 @@ import {
 // flagged the oracle-accepted control suffix_long_amp_glued_concat_accepted,
 // and only a targeted per-rule test existed to notice.
 
-interface OracleModule {
+interface OracleModule extends OracleFixtureModule {
 	name: string;
 	type?: string;
 	source: string;
@@ -83,11 +84,7 @@ describe('oracle accepted cases - corpus-wide no-false-positive sweep', () => {
 	it.each(accepted.map((oracleCase) => [oracleCase.id, oracleCase] as const))(
 		'no constrained diagnostic fires on %s',
 		(_id, oracleCase) => {
-			const modules: VbaProjectModuleInput[] = caseModules(oracleCase).map((mod) => ({
-				moduleName: mod.name,
-				type: mod.type,
-				source: mod.source,
-			}));
+			const modules: VbaProjectModuleInput[] = caseModules(oracleCase).map(oracleModuleInput);
 			// The extension always supplies the project's conditional
 			// constants, and an Excel case has none: a name no #Const defines
 			// is then provably undefined, as the VBE treats it (issue #208).

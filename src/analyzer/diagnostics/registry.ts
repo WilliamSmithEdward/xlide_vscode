@@ -8,7 +8,7 @@
 // reorder entries without updating the snapshot expectations in
 // tests/vbaDiagnostics.test.ts and tests/diagnostics/.
 
-import { ownObjectMemberNames, type PushFn, type RulePassContext } from './analysisContext';
+import { bareObjectNames, ownObjectMemberNames, type PushFn, type RulePassContext } from './analysisContext';
 import type { ProcedureStatementVisitor } from './walker';
 import type { ProcedureExpressionVisitor } from './exprWalk';
 import {
@@ -1033,6 +1033,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'memberNotFound',
+		// `If Sheet1.NoSuchMember Then`, `Do While`, `Select Case` and a For
+		// bound are the same compile error (issue #1419, measured in Excel
+		// and Word).
+		blockHeaders: true,
 		procedureStatements: (ctx, push) => checkMemberNotFound(ctx.source, ctx.memberCtx, push),
 	},
 	{
@@ -1070,6 +1074,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 			ctx.opts.projectVisibleSymbols,
 			ctx.memberCtx,
 			push,
+			bareObjectNames(ctx.opts),
 		),
 	},
 	{
@@ -1150,11 +1155,11 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'isOperatorNonObject',
-		procedureExpressions: (ctx, push) => checkIsOperatorOperands(ctx.symbols, push, ctx.opts.projectProcedures, ctx.opts.projectVisibleSymbols),
+		procedureExpressions: (ctx, push) => checkIsOperatorOperands(ctx.symbols, push, ctx.opts.projectProcedures, ctx.opts.projectVisibleSymbols, bareObjectNames(ctx.opts)),
 	},
 	{
 		name: 'isOperandsInConditions',
-		run: (ctx, push) => checkIsOperandsInConditions(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push, ctx.opts.projectProcedures, ctx.opts.projectVisibleSymbols),
+		run: (ctx, push) => checkIsOperandsInConditions(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push, ctx.opts.projectProcedures, ctx.opts.projectVisibleSymbols, bareObjectNames(ctx.opts)),
 	},
 	{
 		name: 'nonScalarBinaryOperand',

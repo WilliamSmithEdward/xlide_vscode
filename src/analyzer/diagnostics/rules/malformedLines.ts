@@ -39,7 +39,7 @@
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import { tokenizeCached } from '../../lexer/tokenize';
 import { isReservedIdentifier } from '../../lexer/keywordTable';
-import { colonDirectiveStarts, directiveRem, firstTokenAtOrAfter, misplacedDirectiveStarts, remDirectiveStarts } from '../../lexer/tokenHelpers';
+import { colonDirectiveStarts, directiveRem, firstTokenAtOrAfter, isDecimalLineNumber, misplacedDirectiveStarts, remDirectiveStarts } from '../../lexer/tokenHelpers';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type { EnumNode, ModuleNode, ProcedureNode, Span, VariableGroupNode } from '../../parser/nodes';
 import type { PushFn } from '../analysisContext';
@@ -433,7 +433,10 @@ function checkValueKeywords(source: string, span: Span, context: 'statement' | '
  * `1 + Shared` are a Syntax error, and so are `Tab(5)` and `Spc(5)` outside a
  * Print list. Input, Len and Array take an argument list, and Seek
  * needs its argument: bare, the first three are a Syntax error and
- * Seek is "Argument not optional".
+ * Seek is "Argument not optional". So are LenB, Abs, Int, Fix, Sgn and
+ * the C-conversions below, after `=`, in a Print list and in an If's
+ * condition, `If Len Is Nothing Then` (issue #1419, measured in Excel,
+ * Word, PowerPoint and Access 16.0).
  */
 export const VALUE_WORD_ERRORS: ReadonlyMap<string, string> = new Map(Object.entries({
 	tab: 'Syntax error',
@@ -445,26 +448,53 @@ export const VALUE_WORD_ERRORS: ReadonlyMap<string, string> = new Map(Object.ent
 	len: 'Syntax error',
 	array: 'Syntax error',
 	seek: 'Argument not optional',
+	lenb: 'Syntax error',
+	abs: 'Syntax error',
+	int: 'Syntax error',
+	fix: 'Syntax error',
+	sgn: 'Syntax error',
+	cdbl: 'Syntax error',
+	cstr: 'Syntax error',
+	clng: 'Syntax error',
+	cint: 'Syntax error',
+	cbool: 'Syntax error',
+	cvar: 'Syntax error',
+	cdate: 'Syntax error',
 }));
+
+/** The words of VALUE_WORD_ERRORS that are functions, fine with their argument list. */
+const ARGUMENT_LIST_WORDS: ReadonlySet<string> = new Set([...VALUE_WORD_ERRORS.keys()]
+	.filter((word) => !['tab', 'spc', 'print', 'write', 'shared'].includes(word)));
 
 function checkValueWords(source: string, span: Span, push: PushFn): void {
 	const toks = statementTokens(source, span);
-	const valueFrom = valueStart(source, span, toks);
 	// A Print list, `Debug.Print "a"; Tab(5)` or `Print #1, Spc(2)`, takes Tab and Spc.
 	const print = toks.findIndex((tok, i) => tokenText(tok) === 'print' && (i === 0 || toks[i - 1].rawText === '.'));
+	const head = isDecimalLineNumber(toks[0]) ? 1 : 0;
+	const assigned = valueStart(source, span, toks);
+	// After `=`; failing that, a Print list's items and an If's condition.
+	const condition = assigned < 0 && print < 0 && tokenText(toks[head]) === 'if';
+	const valueFrom = assigned >= 0 ? assigned : print >= 0 ? print + 1 : condition ? head + 1 : -1;
+	// The condition ends at Then; the arms are statements of their own.
+	const valueEnd = condition ? toks.findIndex((tok) => tokenText(tok) === 'then') : -1;
+	// Open's `Len = 128` clause is the record length, in an If's arm too.
+	const open = toks.findIndex((tok) => tokenText(tok) === 'open');
 	let depth = 0;
 	for (let i = 0; i < toks.length; i++) {
 		depth += toks[i].rawText === '(' ? 1 : toks[i].rawText === ')' ? -1 : 0;
 		const word = tokenText(toks[i]);
 		const error = VALUE_WORD_ERRORS.get(word);
 		const next = toks[i + 1]?.rawText;
-		if (!error || (depth === 0 && (valueFrom < 0 || i < valueFrom)) || ['.', '!'].includes(toks[i - 1]?.rawText ?? '') || ['.', '!', ':='].includes(next ?? '')) {
+		if (!error || (depth === 0 && (valueFrom < 0 || i < valueFrom)) || (valueEnd >= 0 && i >= valueEnd) || ['.', '!'].includes(toks[i - 1]?.rawText ?? '') || ['.', '!', ':='].includes(next ?? '')) {
 			continue;
 		}
 		if ((word === 'tab' || word === 'spc') && print >= 0 && i > print) {
 			continue;
 		}
-		if ((word === 'input' || word === 'len' || word === 'seek' || word === 'array') && (next === '(' || next === '$')) {
+		if (ARGUMENT_LIST_WORDS.has(word) && (next === '(' || next === '$')) {
+			continue;
+		}
+		if (word === 'len' && open >= 0 && open < i) {
 			continue;
 		}
 		const what = word === 'seek' ? 'is a function that needs its file number' : word === 'tab' || word === 'spc' ? 'belongs to a Print list' : 'is a reserved word';
