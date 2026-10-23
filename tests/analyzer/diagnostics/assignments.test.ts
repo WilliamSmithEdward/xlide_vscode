@@ -1,11 +1,25 @@
 // Diagnostics tests: assignments rule family.
 // Split verbatim from tests/analyzer/vbaDiagnostics.test.ts (audit #107).
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { analyzeModule, type HostObjectModel } from '../../../src/analyzer';
+import { analyzeVbaModuleSource } from '../../../src/vbaModuleAnalysis';
+import {
+	buildVbaProjectIndex,
+	effectiveModuleKind,
+	projectAnalysisOptionsForModule,
+	projectProcedureSignatures,
+} from '../../../src/vbaProjectAnalysis';
+import { oracleModuleInput, type OracleFixtureModule } from '../../helpers/oracleModuleInput';
+import { inferAtomicExpressionType } from '../../../src/analyzer/diagnostics/typeInference';
+import { rawExpressionTokens } from '../../../src/analyzer/diagnostics/walker';
+import { extractVariable } from '../../../src/analyzer/refactor/extractVariable';
+import { applyVbaTextEdits } from '../../../src/analyzer/refactor/refactorTypes';
 
 import { byCode, expectDiagnostic, expectDiagnostics, spanText } from '../../helpers/diagnostics';
-import { analyzeProjectModule, projectClassMembers, projectMemberSurfaces } from './helpers';
+import { analyzeProjectModule, projectClassMembers, projectMemberSurfaces, projectOptions, type ProjectTestModule } from './helpers';
 
 describe('analyzeModule - assignment to constant', () => {
 	it('flags assigning to a module-level Const', () => {
@@ -2466,6 +2480,184 @@ describe('analyzeModule - Set assignment validation', () => {
 			'    Set sheet = Nothing\n' +
 			'End Sub\n';
 		expect(byCode(analyzeModule(src), 'set-requires-object')).toHaveLength(0);
+	});
+});
+
+// A document module named bare is the host's own object, so a variable of
+// another host class refuses it when the Set or the call runs: Run-time
+// error 13 (measured in Excel, Word and Access 16.0, build 20430; the
+// document_module_ cases in syntax_corpus/oracle/vbe_oracle_cases.json).
+describe('analyzeModule - a document module into a variable of a host class', () => {
+	const workbook: ProjectTestModule[] = [
+		{ moduleName: 'ThisWorkbook', moduleKind: 'document', source: '' },
+		{ moduleName: 'Sheet1', moduleKind: 'document', source: '' },
+		{ moduleName: 'Chart1', moduleKind: 'document', source: '' },
+	];
+	const caller = (body: string): string => `Sub Take(ByVal p As Workbook)\nEnd Sub\nSub T()\n${body}End Sub\n`;
+
+	it.each([
+		{ type: 'Workbook', document: 'Sheet1', documentClass: 'Excel.Worksheet' },
+		{ type: 'Range', document: 'Sheet1', documentClass: 'Excel.Worksheet' },
+		{ type: 'Chart', document: 'Sheet1', documentClass: 'Excel.Worksheet' },
+		{ type: 'Worksheet', document: 'Chart1', documentClass: 'Excel.Chart' },
+		{ type: 'Worksheet', document: 'ThisWorkbook', documentClass: 'Excel.Workbook' },
+	])('reports Set v = $document into v As $type', ({ type, document, documentClass }) => {
+		const src = caller(`    Dim v As ${type}\n    Set v = ${document}\n`);
+		const span = document;
+		const message = `expects ${type}, but got ${document} As ${documentClass}`;
+		expectDiagnostic(src, analyzeProjectModule(src, workbook, 'Module1'), 'assignment-object-type-mismatch', { span, message });
+	});
+
+	it.each([
+		{ type: 'Worksheet', document: 'Sheet1' },
+		{ type: 'Chart', document: 'Chart1' },
+		{ type: 'Workbook', document: 'ThisWorkbook' },
+		{ type: 'Sheet1', document: 'Sheet1' },
+		{ type: 'Object', document: 'Sheet1' },
+		{ type: 'Variant', document: 'Sheet1' },
+	])('keeps Set v = $document into v As $type quiet', ({ type, document }) => {
+		const src = caller(`    Dim v As ${type}\n    Set v = ${document}\n`);
+		expect(byCode(analyzeProjectModule(src, workbook, 'Module1'), 'assignment-object-type-mismatch')).toHaveLength(0);
+	});
+
+	it.each([
+		['a typed local', 'Sub T()\n    Dim Sheet1 As Workbook\n    Dim wb As Workbook\n    Set wb = Sheet1\nEnd Sub\n'],
+		['an untyped local', 'Sub T()\n    Dim Sheet1\n    Set Sheet1 = ThisWorkbook\n    Dim wb As Workbook\n    Set wb = Sheet1\nEnd Sub\n'],
+		['an untyped parameter', 'Sub T(Sheet1)\n    Dim wb As Workbook\n    Set wb = Sheet1\nEnd Sub\n'],
+		['an untyped module variable', 'Dim Sheet1\nSub T()\n    Dim wb As Workbook\n    Set wb = Sheet1\nEnd Sub\n'],
+		['an untyped Function', 'Function Sheet1()\n    Set Sheet1 = ThisWorkbook\nEnd Function\nSub T()\n    Dim wb As Workbook\n    Set wb = Sheet1\nEnd Sub\n'],
+	])('takes the name as %s that the code declares', (_what, src) => {
+		expect(byCode(analyzeProjectModule(src, workbook, 'Module1'), 'assignment-object-type-mismatch')).toHaveLength(0);
+	});
+
+	it('reads the project surfaces once for the contexts of successive requests', () => {
+		let reads = 0;
+		const surfaces = projectClassMembers(workbook);
+		const counted = new Proxy(surfaces, {
+			get(target, property, receiver) {
+				if (property === Symbol.iterator) {
+					reads++;
+				}
+				return Reflect.get(target, property, receiver);
+			},
+		});
+		const request = { projectClassMembers: counted };
+		for (const name of ['Sheet1', 'Unknown', 'Sheet1']) {
+			// Each completion request spreads the project's context into a new one.
+			const ctx = { ...request };
+			expect(inferAtomicExpressionType(rawExpressionTokens(name), 0, new Map(), new Map(), undefined, name, ctx)?.label)
+				.toBe(name === 'Sheet1' ? 'Sheet1 As Excel.Worksheet' : undefined);
+		}
+		expect(reads).toBe(1);
+	});
+
+	it('reports a document module passed to a parameter of another host class', () => {
+		const src = caller('    Take Sheet1\n    Take ThisWorkbook\n');
+		expectDiagnostic(src, analyzeProjectModule(src, workbook, 'Module1'), 'argument-type-mismatch', {
+			span: 'Sheet1',
+			message: 'expects Workbook, but got Sheet1 As Excel.Worksheet',
+		});
+	});
+
+	it.each([
+		{ document: 'BookCode', documentType: 'workbook', own: 'Workbook', documentClass: 'Excel.Workbook' },
+		{ document: 'Graph', documentType: 'chart', own: 'Chart', documentClass: 'Excel.Chart' },
+	] as const)('takes $document, renamed, as the $own the host says it is', ({ document, documentType, own, documentClass }) => {
+		const renamed: ProjectTestModule[] = [
+			{ moduleName: document, moduleKind: 'document', documentType, source: '' },
+			{ moduleName: 'Sheet1', moduleKind: 'document', source: '' },
+		];
+		const src = caller(`    Dim ws As Worksheet\n    Dim v As ${own}\n    Set ws = ${document}\n    Set v = ${document}\n`);
+		expectDiagnostic(src, analyzeProjectModule(src, renamed, 'Module1'), 'assignment-object-type-mismatch', {
+			span: document,
+			message: `expects Worksheet, but got ${document} As ${documentClass}`,
+		});
+	});
+
+	// With no designer class a form is guessed a worksheet by its name, which
+	// a reference to Excel would resolve.
+	it.each([[[]], [['excel']]])('leaves an Access form whose designer class is unknown unjudged, referencing %j', (referencedHosts) => {
+		const src = 'Sub T()\n    Dim f As Form\n    Dim r As Report\n    Set f = Form_Orders\n    Set r = Form_Orders\nEnd Sub\n';
+		const diagnostics = analyzeVbaModuleSource({
+			source: src,
+			moduleName: 'Module1',
+			host: 'access',
+			referencedHosts,
+			...projectOptions([{ moduleName: 'Module1', source: src }, { moduleName: 'Form_Orders', moduleKind: 'document', source: '' }], 'Module1'),
+		}).diagnostics;
+		expect(byCode(diagnostics, 'assignment-object-type-mismatch')).toHaveLength(0);
+	});
+
+	it.each([
+		['an Enum member of this module', 'Public Enum E\n    Sheet1\nEnd Enum\n', []],
+		['a Public Function of another module', '', [{ moduleName: 'Module3', source: 'Public Function Sheet1() As Workbook\nEnd Function\n' }]],
+		['a Public variable of another module', '', [{ moduleName: 'Module3', source: 'Public Sheet1 As Workbook\n' }]],
+	] as const)('leaves the name to %s', (_what, header, others) => {
+		const src = `${header}Sub T()\n    Dim wb As Workbook\n    Set wb = Sheet1\nEnd Sub\n`;
+		expect(byCode(analyzeProjectModule(src, [...workbook, ...others], 'Module1'), 'assignment-object-type-mismatch')).toHaveLength(0);
+	});
+
+	it('leaves the name to an Enum member that shares it with a VBA function', () => {
+		const src = 'Public Enum E\n    InStr\nEnd Enum\nSub T()\n    Dim wb As Workbook\n    Set wb = InStr\nEnd Sub\n';
+		const sheet: ProjectTestModule[] = [{ moduleName: 'InStr', moduleKind: 'document', source: '' }];
+		expect(byCode(analyzeProjectModule(src, sheet, 'Module1'), 'assignment-object-type-mismatch')).toHaveLength(0);
+	});
+
+	// Its type would read as the library's class, not the module's.
+	it.each(['Worksheet', 'Workbook'])('leaves a sheet code-named Workbook unjudged, into a %s', (type) => {
+		const src = `Sub T()\n    Dim v As Excel.${type}\n    Set v = Workbook\nEnd Sub\n`;
+		const sheet: ProjectTestModule[] = [{ moduleName: 'Workbook', moduleKind: 'document', source: '', designerClass: 'Excel.Worksheet' }];
+		expect(byCode(analyzeProjectModule(src, sheet, 'Module1'), 'assignment-object-type-mismatch')).toHaveLength(0);
+	});
+
+	it('extracts a document module into a variable of its own type', () => {
+		const source = 'Sub T()\n    Debug.Print Sheet1.Name\nEnd Sub\n';
+		const start = source.indexOf('Sheet1');
+		const result = extractVariable({
+			source,
+			span: { start, end: start + 'Sheet1'.length },
+			typeContext: { projectClassMembers: projectClassMembers(workbook) },
+			name: 'sheet',
+		});
+		if (!result.ok) {
+			throw new Error(result.reason);
+		}
+		expect(applyVbaTextEdits(source, result.edits)).toBe('Sub T()\n    Dim sheet As Sheet1\n    Set sheet = Sheet1\n    Debug.Print sheet.Name\nEnd Sub\n');
+	});
+
+	describe('as the VBE oracle measured it, in each host', () => {
+		interface OracleCase {
+			id: string;
+			expected: 'accepted' | 'rejected';
+			host?: 'excel' | 'word' | 'powerpoint' | 'access';
+			modules: OracleFixtureModule[];
+		}
+		const corpus: { cases: OracleCase[] } = JSON.parse(
+			readFileSync(join(process.cwd(), 'syntax_corpus', 'oracle', 'vbe_oracle_cases.json'), 'utf8'),
+		);
+		const cases = corpus.cases.filter((oracleCase) => oracleCase.id.startsWith('document_module_'));
+		const codes = ['assignment-object-type-mismatch', 'argument-type-mismatch'];
+		const reported = (oracleCase: OracleCase): string[] => {
+			const modules = oracleCase.modules.map(oracleModuleInput);
+			const project = buildVbaProjectIndex(modules, undefined, { conditionalCompilation: { projectConstants: {} } });
+			const procedures = projectProcedureSignatures(project);
+			return modules.flatMap((mod) => analyzeVbaModuleSource({
+				source: mod.source,
+				moduleName: mod.moduleName,
+				moduleKind: effectiveModuleKind(mod),
+				host: oracleCase.host ?? 'excel',
+				...projectAnalysisOptionsForModule(project, mod.moduleName, procedures),
+			}).diagnostics.map((diagnostic) => diagnostic.code ?? '')).filter((code) => codes.includes(code));
+		};
+
+		it('has the measured cases of every host with document modules', () => {
+			expect(new Set(cases.map((oracleCase) => oracleCase.host ?? 'excel'))).toEqual(new Set(['excel', 'word', 'access']));
+			expect(cases).toHaveLength(28);
+		});
+
+		it.each(cases.map((oracleCase) => [oracleCase.id, oracleCase] as const))('%s', (_id, oracleCase) => {
+			expect(reported(oracleCase)).toHaveLength(oracleCase.expected === 'rejected' ? 1 : 0);
+		});
 	});
 });
 

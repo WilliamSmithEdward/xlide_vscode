@@ -212858,6 +212858,806 @@
           "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
         }
       ]
+    },
+    {
+      "id": "document_module_sheet_into_worksheet_runtime",
+      "description": "A document module into an object variable: Set ws = Sheet1, with ws As Worksheet, compiles and runs. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim ws As Worksheet\r\n    Set ws = Sheet1\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": ""
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": ""
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "document_module_sheet_into_workbook_runtime",
+      "description": "A document module into an object variable: Set wb = Sheet1, with wb As Workbook, compiles and raises Run-time error '13': Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim wb As Workbook\r\n    Set wb = Sheet1\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": ""
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": ""
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "document_module_sheet_into_range_runtime",
+      "description": "A document module into an object variable: Set r = Sheet1, with r As Range, compiles and raises Run-time error '13': Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim r As Range\r\n    Set r = Sheet1\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": ""
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": ""
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "document_module_sheet_into_chart_runtime",
+      "description": "A document module into an object variable: Set ch = Sheet1, with ch As Chart, compiles and raises Run-time error '13': Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim ch As Chart\r\n    Set ch = Sheet1\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": ""
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": ""
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "document_module_sheet_into_object_runtime",
+      "description": "A document module into an object variable: Set o = Sheet1, with o As Object, compiles and runs. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    Set o = Sheet1\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": ""
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": ""
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "document_module_sheet_into_variant_runtime",
+      "description": "A document module into an object variable: Set v = Sheet1, with v As Variant, compiles and runs. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    Set v = Sheet1\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": ""
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": ""
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "document_module_thisworkbook_into_worksheet_runtime",
+      "description": "A document module into an object variable: Set ws = ThisWorkbook, with ws As Worksheet, compiles and raises Run-time error '13': Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim ws As Worksheet\r\n    Set ws = ThisWorkbook\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": ""
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": ""
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "document_module_thisworkbook_into_workbook_runtime",
+      "description": "A document module into an object variable: Set wb = ThisWorkbook, with wb As Workbook, compiles and runs. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim wb As Workbook\r\n    Set wb = ThisWorkbook\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": ""
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": ""
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "document_module_sheet_byval_workbook_parameter_runtime",
+      "description": "A document module into an object variable: Take Sheet1, into a ByVal parameter As Workbook, compiles and raises Run-time error '13': Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Take(ByVal p As Workbook)\r\nEnd Sub\r\nSub Main()\r\n    Take Sheet1\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": ""
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": ""
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "document_module_sheet_byref_workbook_parameter_runtime",
+      "description": "A document module into an object variable: Take Sheet1, into a ByRef parameter As Workbook, compiles and raises Run-time error '13': Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Take(ByRef p As Workbook)\r\nEnd Sub\r\nSub Main()\r\n    Take Sheet1\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": ""
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": ""
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "document_module_sheet_byval_worksheet_parameter_runtime",
+      "description": "A document module into an object variable: Take Sheet1, into a ByVal parameter As Worksheet, compiles and runs. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Take(ByVal p As Worksheet)\r\nEnd Sub\r\nSub Main()\r\n    Take Sheet1\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": ""
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": ""
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "document_module_thisworkbook_byval_worksheet_parameter_runtime",
+      "description": "A document module into an object variable: Take ThisWorkbook, into a ByVal parameter As Worksheet, compiles and raises Run-time error '13': Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Take(ByVal p As Worksheet)\r\nEnd Sub\r\nSub Main()\r\n    Take ThisWorkbook\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": ""
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": ""
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "document_module_thisworkbook_byref_worksheet_parameter_runtime",
+      "description": "A document module into an object variable: Take ThisWorkbook, into a ByRef parameter As Worksheet, compiles and raises Run-time error '13': Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Take(ByRef p As Worksheet)\r\nEnd Sub\r\nSub Main()\r\n    Take ThisWorkbook\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": ""
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": ""
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "document_module_word_thisdocument_into_range_runtime",
+      "description": "A document module into an object variable: Set r = ThisDocument, with r As Range, compiles and raises Run-time error '13': Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim r As Range\r\n    Set r = ThisDocument\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": ""
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "document_module_word_thisdocument_into_document_runtime",
+      "description": "A document module into an object variable: Set d = ThisDocument, with d As Document, compiles and runs. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Document\r\n    Set d = ThisDocument\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": ""
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "document_module_word_thisdocument_into_object_runtime",
+      "description": "A document module into an object variable: Set o = ThisDocument, with o As Object, compiles and runs. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    Set o = ThisDocument\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": ""
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "document_module_word_thisdocument_byval_range_parameter_runtime",
+      "description": "A document module into an object variable: Take ThisDocument, into a ByVal parameter As Range, compiles and raises Run-time error '13': Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Take(ByVal p As Range)\r\nEnd Sub\r\nSub Main()\r\n    Take ThisDocument\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": ""
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "document_module_access_form_into_form_runtime",
+      "description": "A document module into an object variable: Set f = Form_Orders, with f As Form, compiles and runs. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim f As Form\r\n    Set f = Form_Orders\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Form_Orders",
+          "type": "document",
+          "source": "",
+          "designerClass": "Access.Form"
+        },
+        {
+          "name": "Report_Sales",
+          "type": "document",
+          "source": "",
+          "designerClass": "Access.Report"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "document_module_access_form_into_report_runtime",
+      "description": "A document module into an object variable: Set r = Form_Orders, with r As Report, compiles and raises Run-time error '13': Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim r As Report\r\n    Set r = Form_Orders\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Form_Orders",
+          "type": "document",
+          "source": "",
+          "designerClass": "Access.Form"
+        },
+        {
+          "name": "Report_Sales",
+          "type": "document",
+          "source": "",
+          "designerClass": "Access.Report"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "document_module_access_report_into_report_runtime",
+      "description": "A document module into an object variable: Set r = Report_Sales, with r As Report, compiles and runs. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim r As Report\r\n    Set r = Report_Sales\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Form_Orders",
+          "type": "document",
+          "source": "",
+          "designerClass": "Access.Form"
+        },
+        {
+          "name": "Report_Sales",
+          "type": "document",
+          "source": "",
+          "designerClass": "Access.Report"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "document_module_access_report_into_form_runtime",
+      "description": "A document module into an object variable: Set f = Report_Sales, with f As Form, compiles and raises Run-time error '13': Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim f As Form\r\n    Set f = Report_Sales\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Form_Orders",
+          "type": "document",
+          "source": "",
+          "designerClass": "Access.Form"
+        },
+        {
+          "name": "Report_Sales",
+          "type": "document",
+          "source": "",
+          "designerClass": "Access.Report"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "document_module_access_form_into_object_runtime",
+      "description": "A document module into an object variable: Set o = Form_Orders, with o As Object, compiles and runs. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    Set o = Form_Orders\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Form_Orders",
+          "type": "document",
+          "source": "",
+          "designerClass": "Access.Form"
+        },
+        {
+          "name": "Report_Sales",
+          "type": "document",
+          "source": "",
+          "designerClass": "Access.Report"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "document_module_access_form_byval_report_parameter_runtime",
+      "description": "A document module into an object variable: Take Form_Orders, into a ByVal parameter As Report, compiles and raises Run-time error '13': Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Take(ByVal p As Report)\r\nEnd Sub\r\nSub Main()\r\n    Take Form_Orders\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Form_Orders",
+          "type": "document",
+          "source": "",
+          "designerClass": "Access.Form"
+        },
+        {
+          "name": "Report_Sales",
+          "type": "document",
+          "source": "",
+          "designerClass": "Access.Report"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "document_module_sheet_into_unimplemented_interface_runtime",
+      "description": "A document module into an object variable: Set x = Sheet1, with x As IFoo, compiles and raises Run-time error '13': Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim x As IFoo\r\n    Set x = Sheet1\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "IFoo",
+          "type": "class",
+          "source": "Public Sub Foo()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": ""
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": ""
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "document_module_sheet_into_class_runtime",
+      "description": "A document module into an object variable: Set c = Sheet1, with c As Class1, compiles and raises Run-time error '13': Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As Class1\r\n    Set c = Sheet1\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Public Sub Bar()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": ""
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": ""
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "document_module_sheet_into_thisworkbook_type_runtime",
+      "description": "A document module into an object variable: Set t = Sheet1, with t As ThisWorkbook, compiles and raises Run-time error '13': Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim t As ThisWorkbook\r\n    Set t = Sheet1\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": ""
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": ""
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "document_module_access_implementing_form_into_interface_runtime",
+      "description": "A document module into an object variable: Set x = Form_Orders, with x As IFoo, compiles and runs. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim x As IFoo\r\n    Set x = Form_Orders\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "IFoo",
+          "type": "class",
+          "source": "Public Sub Foo()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Form_Orders",
+          "type": "document",
+          "source": "Implements IFoo\r\nPrivate Sub IFoo_Foo()\r\nEnd Sub\r\n",
+          "designerClass": "Access.Form"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "document_module_access_implementing_form_into_report_runtime",
+      "description": "A document module into an object variable: Set r = Form_Orders, with r As Report, compiles and raises Run-time error '13': Type mismatch. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim r As Report\r\n    Set r = Form_Orders\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "IFoo",
+          "type": "class",
+          "source": "Public Sub Foo()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Form_Orders",
+          "type": "document",
+          "source": "Implements IFoo\r\nPrivate Sub IFoo_Foo()\r\nEnd Sub\r\n",
+          "designerClass": "Access.Form"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }

@@ -11,7 +11,7 @@
 import { untouchedModuleVariablesIn, writtenNamesIn } from './moduleState';
 import { shareImmutableReachingStart } from './reachingSnapshot';
 import type { VbaToken } from '../lexer/tokenKinds';
-import type { HostMember, HostObjectModel } from '../host/excelObjectModel';
+import { getExcelObjectModel, type HostMember, type HostObjectModel } from '../host/excelObjectModel';
 import { IDENT_RE, matchParenFrom, splitTopLevelTokenGroups } from '../lexer/tokenHelpers';
 import { parseModule } from '../parser/parseModule';
 import { HOST_DEFAULT_MEMBERS } from '../host/hostDefaultMembers';
@@ -2402,6 +2402,26 @@ export function inferAtomicExpressionType(
 		if (sig?.returnType) {
 			return { type: sig.returnType, label: `${name} As ${sig.returnType}`, span };
 		}
+		// A document module named bare is its own module's object, ahead of a
+		// host global of that name, unless a name the code declares or can
+		// see takes it. Its type is the module's, which keeps what it
+		// implements, so a module named like a library class (a sheet named
+		// Workbook) is left alone: its type would read as that class. Its host
+		// class must be the host's own: an Access form with no designer class
+		// is guessed a worksheet, which a reference to Excel would otherwise
+		// resolve (measured in Excel, Word and Access 16.0).
+		const lower = name.toLowerCase();
+		const documentHostType = memberCtx && !declaredType?.resolved && !env.has(lower)
+			? projectDocumentHostTypes(memberCtx).get(lower) : undefined;
+		const hostName = documentHostType && (memberCtx?.model ?? getExcelObjectModel()).hostName?.toLowerCase();
+		const documentClass = documentHostType?.startsWith(`${hostName}.`)
+			&& !moduleQualifierShadowed(name, sourceNames) && !sourceNames?.runtimeShadows.has(lower)
+			&& !callableSignatureFor(name, moduleSignatures, sourceNames)
+			&& lower !== 'collection' && !resolveHostAlias(name, memberCtx?.model) && !libraryObjectType(name)
+			? resolveHostAlias(documentHostType, memberCtx?.model) : undefined;
+		if (documentClass) {
+			return { type: name, label: `${name} As ${documentClass}`, span };
+		}
 		const externalObject = inferBareExternalObjectExpressionType(
 			name,
 			span,
@@ -3287,7 +3307,10 @@ const PROJECT_VALUE_TYPE_NAMES = new WeakMap<MemberCompletionContext, ReadonlySe
  * that, its code name implies.
  */
 function projectDocumentHostTypes(memberCtx: MemberCompletionContext): ReadonlyMap<string, string> {
-	const cached = PROJECT_DOCUMENT_HOST_TYPES.get(memberCtx);
+	// Keyed by the project's surfaces, which a completion request's own
+	// context shares with the last one's, so a request does not read them again.
+	const key: object = memberCtx.projectClassMembers ?? memberCtx;
+	const cached = PROJECT_DOCUMENT_HOST_TYPES.get(key);
 	if (cached) {
 		return cached;
 	}
@@ -3306,11 +3329,11 @@ function projectDocumentHostTypes(memberCtx: MemberCompletionContext): ReadonlyM
 				: documentType === 'document' ? 'Word.Document' : 'Excel.Worksheet');
 		types.set(candidate.name.toLowerCase(), hostType.toLowerCase());
 	}
-	PROJECT_DOCUMENT_HOST_TYPES.set(memberCtx, types);
+	PROJECT_DOCUMENT_HOST_TYPES.set(key, types);
 	return types;
 }
 
-const PROJECT_DOCUMENT_HOST_TYPES = new WeakMap<MemberCompletionContext, ReadonlyMap<string, string>>();
+const PROJECT_DOCUMENT_HOST_TYPES = new WeakMap<object, ReadonlyMap<string, string>>();
 
 export function resolveKnownObjectAssignmentType(
 	type: string | undefined,
@@ -5161,6 +5184,12 @@ export function objectAssignmentIncompatibilityReason(
 	// another host class is never the document.
 	if (expected.kind === 'project' && actualObject.kind === 'host'
 		&& projectDocumentHostTypes(memberCtx).get(expected.key) === actualObject.key) {
+		return undefined;
+	}
+	// The other way, the document is an object of its host class: Sheet1
+	// into a Worksheet runs, and into a Workbook raises 13.
+	if (expected.kind === 'host' && actualObject.kind === 'project'
+		&& projectDocumentHostTypes(memberCtx).get(actualObject.key) === expected.key) {
 		return undefined;
 	}
 	if (actualObject.kind === 'project' && (implementsType ?? implementsObjectType)(actualObject, expected)) {
