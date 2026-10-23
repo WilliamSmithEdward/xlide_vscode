@@ -71,6 +71,21 @@ process cleanup, producing timeouts or misleading contradictory results. When
 several cases need retesting, run one command, wait for it to finish and clean
 up, then run the next.
 
+The runner enforces this per Windows user (issue #1438). Before it starts
+any Office automation or touches the sounds, it takes a lock:
+`oracleRunLock.mjs` listens on a named pipe named after your account. A
+second run, from any directory, repository or terminal, exits with code 3
+and names the run that holds it: its process, machine, start time,
+directory and command. Wait for that run to finish, or stop it.
+
+Windows frees the pipe the moment its owner exits, however it exits, so no
+lock file can go stale and there is nothing to delete after a crash. If an
+owner answers with something unreadable, or not in time, the run refuses
+and starts nothing rather than guess. If a run is killed outright, for
+example with Task Manager or `taskkill /F`, the next run can start at once.
+The Office instance the killed run was driving may stay open, with its VBE
+showing; end it before the next run, since its dialogs can confuse that run.
+
 Useful filters:
 
 ```powershell

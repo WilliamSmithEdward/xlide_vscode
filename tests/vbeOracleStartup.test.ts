@@ -43,6 +43,9 @@ function setup(cases: Case[] = [], checkpoint = false) {
         console: { log: (line: string) => output.push(line), error: (line: string) => errors.push(line) },
         loadCasesDocument: () => ({ cases }),
         loadCheckpoint: () => new Map(),
+        // The run lock is covered in vbeOracleRunLock.test.ts; here it is always free.
+        acquireOracleRunLock: async () => ({ held: true, release: async () => {} }),
+        oracleRunLockAddress: () => 'test-lock', oracleRunOwner: () => ({ pid: 1 }), describeRefusal: () => 'refused',
         OracleWorker: class { async close() {} },
         caseHash: () => 'hash', checkpointKey: () => 'key', phaseMatches: () => true,
         fs: { appendFileSync: vi.fn() },

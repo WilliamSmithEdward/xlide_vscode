@@ -78,6 +78,9 @@ describe('VBE oracle promotion writes', () => {
                 comRegistered: () => true,
                 // No real Office, registry, or filesystem effects in this test.
                 setDialogSounds() {},
+                // The run lock is covered in vbeOracleRunLock.test.ts; here it is always free.
+                acquireOracleRunLock: async () => ({ held: true, release: async () => {} }),
+                oracleRunLockAddress: () => 'test-lock', oracleRunOwner: () => ({ pid: 1 }), describeRefusal: () => 'refused',
                 OracleWorker: class { async close() {} },
                 caseHash: () => 'hash',
                 runCaseWithRetries: async (_worker: unknown, kase: { id: string }) => {
@@ -150,6 +153,9 @@ function setupUncheckpointedMain(registered: { build: string | null; why?: strin
         OFFICE_HOSTS: { excel: { progId: 'Excel.Application' } },
         comRegistered: () => true,
         registeredHostBuild: () => ({ registered: true, ...registered }),
+        // The run lock is covered in vbeOracleRunLock.test.ts; here it is always free.
+        acquireOracleRunLock: async () => ({ held: true, release: async () => {} }),
+        oracleRunLockAddress: () => 'test-lock', oracleRunOwner: () => ({ pid: 1 }), describeRefusal: () => 'refused',
         OracleWorker: class { async close() {} },
         caseHash: () => 'hash',
         runCaseWithRetries: async (_worker: unknown, kase: { id: string }) => {
@@ -195,6 +201,9 @@ it.each([true, false])('continues after a skip and excludes it from checkpoints 
         comRegistered: () => true,
         registeredHostBuild: () => ({ registered: true, build }),
         loadCheckpoint: () => new Map(),
+        // The run lock is covered in vbeOracleRunLock.test.ts; here it is always free.
+        acquireOracleRunLock: async () => ({ held: true, release: async () => {} }),
+        oracleRunLockAddress: () => 'test-lock', oracleRunOwner: () => ({ pid: 1 }), describeRefusal: () => 'refused',
         OracleWorker: class { async close() {} },
         caseHash: () => 'hash', checkpointKey: () => 'key',
         runCaseWithRetries: async (_worker: unknown, kase: { id: string }) => {
