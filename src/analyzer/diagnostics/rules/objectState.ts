@@ -41,6 +41,7 @@ import {
 	readOnlyHostDefault,
 	returnAssignmentTypeFor,
 	type SourceDeclaredType,
+	tokensMayRunCode,
 	typeEnvironmentFor,
 	unreachableStatementsIn,
 } from '../typeInference';
@@ -233,6 +234,215 @@ export function checkObjectVariableNotSet(
 			push(...finding);
 		}
 	}
+}
+
+/** A standard module's object variable named through its module: `Module2.g`. */
+interface QualifiedModuleObject {
+	display: string;
+	/** In the module's own code, the bare name a reset may use: `Set g = Nothing`. */
+	bare?: string;
+}
+
+/**
+ * The qualified module variables a procedure may set to Nothing, for the
+ * object walk to follow: none unless its text has a qualified reset, or a
+ * bare one in code that names its own module.
+ */
+function qualifiedResetCandidates(
+	source: string,
+	member: ProcedureNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	memberCtx: MemberCompletionContext,
+	resolveObjectType: ObjectTypeResolver,
+): Map<string, QualifiedModuleObject> {
+	const text = source.slice(member.span.start, member.span.end);
+	const qualifiedReset = /\bset\s+[\w[\]]+\s*\.\s*[\w[\]]+\s*=\s*nothing\b/i.test(text);
+	if (!qualifiedReset && !(/\bset\s+[\w[\]]+\s*=\s*nothing\b/i.test(text) && text.toLowerCase().includes(`${symbols.moduleName.toLowerCase()}.`))) {
+		return new Map();
+	}
+	return qualifiedModuleObjects(symbols, member, memberCtx, resolveObjectType);
+}
+
+/** What the object walk asks of the qualified module variables it follows. */
+interface QualifiedModuleTracking {
+	onStatement(stmt: LeafStatementNode): void;
+	onBlock(node: BodyNode): void;
+	/** The followed variables a statement in a nested block may change. */
+	touches(stmt: LeafStatementNode): string[];
+}
+
+/**
+ * `Set Module2.g = Nothing` and then `Module2.g.Count`: the module variable is
+ * Nothing at the read, which raises 91 (issue #1411, measured in Excel, Word,
+ * PowerPoint and Access 16.0, for Print, Call, a labelled line, With, an If's
+ * condition and an assignment). Each variable is a `module2.g` key in the
+ * walk's state, so blocks, If arms, loops and jumps treat it as they treat a
+ * local. A statement that may run code, or names the variable other than to
+ * read a member of it, may change it; so may an If whose condition names it,
+ * which may be its guard.
+ */
+function qualifiedModuleTracking(
+	source: string,
+	member: ProcedureNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	objects: ReadonlyMap<string, QualifiedModuleObject>,
+	state: Map<string, ObjectVariableState>,
+	report: PushFn,
+): QualifiedModuleTracking {
+	// The followed name at token i, as its key.
+	const qualifiedAt = (toks: readonly VbaToken[], i: number): string | undefined => {
+		const qualifier = tokenName(toks[i]);
+		const name = tokenName(toks[i + 2]);
+		if (!qualifier || !name || toks[i + 1]?.rawText !== '.' || toks[i - 1]?.rawText === '.' || toks[i - 1]?.rawText === '!') {
+			return undefined;
+		}
+		const key = `${qualifier.toLowerCase()}.${name.toLowerCase()}`;
+		return objects.has(key) ? key : undefined;
+	};
+	const memberRead = (toks: readonly VbaToken[], i: number): boolean =>
+		(toks[i + 3]?.rawText === '.' || toks[i + 3]?.rawText === '!') && tokenName(toks[i + 4]) !== undefined;
+	const reportReads = (toks: readonly VbaToken[], offset: number, end: number): void => {
+		for (let i = 0; i + 4 < end; i++) {
+			const key = qualifiedAt(toks, i);
+			if (key && state.get(key) === 'unset' && memberRead(toks, i)) {
+				report(
+					'objectVariableNotSet',
+					`Object variable '${objects.get(key)!.display}' is Nothing before member access. This will raise Run-time error '91': Object variable or With block variable not set.`,
+					{ start: offset + toks[i].start, end: offset + toks[i + 2].end },
+				);
+			}
+		}
+	};
+	const mayChange = (toks: readonly VbaToken[]): boolean => {
+		const rest: VbaToken[] = [];
+		let named = false;
+		for (let i = 0; i < toks.length; i++) {
+			if (qualifiedAt(toks, i)) {
+				named ||= !memberRead(toks, i);
+				i += 2;
+				continue;
+			}
+			rest.push(toks[i]);
+		}
+		return named || tokensMayRunCode(rest, member, symbols);
+	};
+	const demoteAll = (): void => {
+		for (const key of objects.keys()) {
+			if (state.get(key) === 'unset') {
+				state.set(key, 'unknown');
+			}
+		}
+	};
+	// `Set Module2.g = ...`, or `Set g = ...` in Module2's own code.
+	const resetOf = (toks: readonly VbaToken[]): { key: string; value: VbaToken[] } | undefined => {
+		if (tokenText(toks[0]) !== 'set') {
+			return undefined;
+		}
+		const qualified = qualifiedAt(toks, 1);
+		const bare = qualified ? undefined : tokenName(toks[1])?.toLowerCase();
+		const key = qualified ?? [...objects].find(([, object]) => bare !== undefined && object.bare === bare)?.[0];
+		const equals = qualified ? 4 : 2;
+		return key && toks[equals]?.rawText === '='
+			? { key, value: toks.slice(equals + 1).filter((tok) => tok.kind !== 'comment') }
+			: undefined;
+	};
+	const onStatement = (stmt: LeafStatementNode): void => {
+		const toks = statementTokensAfterLeadingLabel(source, stmt.span);
+		// A single-line If always reads its condition; its arms may not run.
+		const thenIndex = statementAndBranchSpans(stmt).length > 1 ? toks.findIndex((tok) => tokenText(tok) === 'then') : -1;
+		reportReads(toks, stmt.span.start, thenIndex > 0 ? thenIndex : toks.length);
+		const reset = thenIndex > 0 ? undefined : resetOf(toks);
+		if (reset) {
+			const nothing = reset.value.length === 1 && tokenText(reset.value[0]) === 'nothing';
+			state.set(reset.key, nothing ? 'unset' : 'unknown');
+			if (tokensMayRunCode(reset.value, member, symbols)) {
+				demoteAll();
+			}
+			return;
+		}
+		if (mayChange(toks)) {
+			demoteAll();
+		}
+	};
+	return {
+		onStatement,
+		onBlock: (node) => {
+			if (node.kind === 'WithBlock') {
+				const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span));
+				const key = tokenText(header[0]) === 'with' && header.length === 4 ? qualifiedAt(header, 1) : undefined;
+				if (key && state.get(key) === 'unset') {
+					report(
+						'objectVariableNotSet',
+						`Object variable '${objects.get(key)!.display}' is Nothing before With member access. This will raise Run-time error '91': Object variable or With block variable not set.`,
+						{ start: node.span.start + header[1].start, end: node.span.start + header[3].end },
+					);
+				}
+				return;
+			}
+			if (node.kind === 'IfBlock') {
+				node.branches.forEach((branch, index) => {
+					if (branch.branchKind === 'else') {
+						return;
+					}
+					const toks = statementTokens(source, branch.headerSpan);
+					// The first condition always runs; a later one only when those before fail.
+					if (index === 0) {
+						reportReads(toks, branch.headerSpan.start, toks.length);
+					}
+					if (toks.some((_, i) => qualifiedAt(toks, i) !== undefined) || tokensMayRunCode(toks, member, symbols)) {
+						demoteAll();
+					}
+				});
+				return;
+			}
+			if (node.kind === 'SelectBlock' || node.kind === 'DoBlock' || node.kind === 'WhileBlock' || node.kind === 'ForBlock') {
+				const { before } = blockHeaderStatements(source, node);
+				if (before) {
+					onStatement(before);
+				}
+			}
+		},
+		touches: (stmt) => statementAndBranchSpans(stmt).some((span) => mayChange(statementTokensAfterLeadingLabel(source, span)))
+			? [...objects.keys()]
+			: [],
+	};
+}
+
+/**
+ * The standard modules' object variables a procedure can name through their
+ * module, by `module.variable`: every Public one of the project's other
+ * standard modules, and each of this module's own when it is a standard
+ * module. `As New` ones are never Nothing at a read. None when a local, a
+ * parameter or a variable of this module takes the module's name.
+ */
+function qualifiedModuleObjects(
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	member: ProcedureNode,
+	memberCtx: MemberCompletionContext,
+	resolveObjectType: ObjectTypeResolver,
+): Map<string, QualifiedModuleObject> {
+	const procSym = procedureSymbolFor(symbols, member);
+	const locals = new Set((procSym?.children ?? []).map((child) => child.name.toLowerCase()));
+	const moduleVariables = new Set((symbols.root.children ?? []).filter((child) => child.kind === 'moduleVariable').map((child) => child.name.toLowerCase()));
+	const shadowed = (moduleName: string): boolean => locals.has(moduleName.toLowerCase()) || moduleVariables.has(moduleName.toLowerCase());
+	const tracked = (symbol: VbaSymbol): boolean => symbol.kind === 'moduleVariable' && !symbol.isArray && !symbol.isAutoInstantiated
+		&& !!symbol.asType && resolveObjectType(symbol.asType) !== undefined;
+	const out = new Map<string, QualifiedModuleObject>();
+	const own = symbols.moduleName.toLowerCase();
+	for (const symbol of memberCtx.projectSymbols ?? []) {
+		if (symbol.moduleName.toLowerCase() !== own && tracked(symbol) && !shadowed(symbol.moduleName)) {
+			out.set(`${symbol.moduleName.toLowerCase()}.${symbol.name.toLowerCase()}`, { display: `${symbol.moduleName}.${symbol.name}` });
+		}
+	}
+	if (symbols.moduleKind === 'standard' && !shadowed(symbols.moduleName)) {
+		for (const symbol of symbols.root.children ?? []) {
+			if (tracked(symbol)) {
+				const lower = symbol.name.toLowerCase();
+				out.set(`${own}.${lower}`, { display: `${symbols.moduleName}.${symbol.name}`, ...(locals.has(lower) ? {} : { bare: lower }) });
+			}
+		}
+	}
+	return out;
 }
 
 /** Words that raise or end before a Function could return: Err.Raise, Error, End, Stop. */
@@ -532,10 +742,15 @@ function walkObjectState(
 	const resolveObjectType = defaultQueries.resolveType;
 	const locals = localObjectVariablesFor(source, symbols, member, resolveObjectType);
 	const elements = objectArrayElements(source, symbols, member, resolveObjectType, activity);
-	if (locals.size === 0 && elements.keys.size === 0) {
+	const qualifiedObjects = qualifiedResetCandidates(source, member, symbols, memberCtx, resolveObjectType);
+	if (locals.size === 0 && elements.keys.size === 0 && qualifiedObjects.size === 0) {
 		return;
 	}
 	const state = new Map<string, ObjectVariableState>();
+	// What a module variable holds as the procedure starts is not known.
+	for (const key of qualifiedObjects.keys()) {
+		state.set(key, 'unknown');
+	}
 	for (const key of locals.keys()) {
 		// A Variant starts Empty, which is no object and not Nothing; what a
 		// module variable holds as the procedure starts is not known.
@@ -576,6 +791,9 @@ function walkObjectState(
 	const nothingAfter = new Set<BodyNode>();
 	// A statement a known guard keeps from running (issue #273).
 	const unreachable = unreachableStatementsIn(source, member, symbols, activity);
+	const qualified = qualifiedObjects.size > 0
+		? qualifiedModuleTracking(source, member, symbols, qualifiedObjects, state, report)
+		: undefined;
 	walk(source, member.body, (node) => isInactiveNode(activity, node) || unreachable.has(node), {
 		onStatement: (stmt) => {
 			checkObjectVariableNotSetStatement(source, stmt, locals, state, setAnywhere, memberCtx, report, lets, facts, defaultQueries, elements);
@@ -583,8 +801,10 @@ function walkObjectState(
 			for (const lower of moduleTouches(stmt)) {
 				state.set(lower, 'unknown');
 			}
+			qualified?.onStatement(stmt);
 		},
 		onBlock: (node) => {
+			qualified?.onBlock(node);
 			// The header runs as the block is entered, with the state as it
 			// stands: `For i = 1 To c.Count`, `Select Case c.Count` (issue #233).
 			if (node.kind === 'SelectBlock' || node.kind === 'DoBlock' || node.kind === 'WhileBlock' || (node.kind === 'ForBlock' && !node.each)) {
@@ -673,6 +893,9 @@ function walkObjectState(
 			}
 			for (const lower of moduleTouches(stmt)) {
 				touched.add(lower);
+			}
+			for (const key of qualified?.touches(stmt) ?? []) {
+				touched.add(key);
 			}
 			// A single-line If's branches Set too. A Let gives a Variant a value.
 			for (const span of statementAndBranchSpans(stmt)) {

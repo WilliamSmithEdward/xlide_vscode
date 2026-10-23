@@ -152,7 +152,7 @@ export function checkArgumentShape(
 			}
 			const statementCall =
 				extractCall(source, stmt.span) ??
-				extractQualifiedCall(source, stmt.span, moduleSignatures);
+				extractQualifiedCall(source, stmt.span, moduleSignatures, sourceNames);
 			if (statementCall) {
 				checkCall(statementCall);
 			}

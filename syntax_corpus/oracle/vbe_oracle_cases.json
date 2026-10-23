@@ -119741,6 +119741,4026 @@
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error",
       "source": "Option Explicit\r\nSub Main()\r\n    Dim x As Qwerty\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "issue1411_a_nothing_read_print_runtime",
+      "description": "Issue #1411: Debug.Print of Module2.g.Count after Set Module2.g = Nothing is rejected: Run-time error '91': Object variable or With block variable not set. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nDebug.Print Module2.g.Count\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue1411_a_nothing_read_call_runtime",
+      "description": "Issue #1411: Call Module2.g.Add(1) after Set Module2.g = Nothing is rejected: Run-time error '91': Object variable or With block variable not set. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nCall Module2.g.Add(1)\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue1411_a_nothing_read_label_runtime",
+      "description": "Issue #1411: a line-numbered Module2.g.Add 1 after Set Module2.g = Nothing is rejected: Run-time error '91': Object variable or With block variable not set. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\n10 Module2.g.Add 1\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue1411_a_nothing_read_with_runtime",
+      "description": "Issue #1411: With Module2.g after Set Module2.g = Nothing is rejected: Run-time error '91': Object variable or With block variable not set. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nWith Module2.g\r\n.Add 1\r\nEnd With\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue1411_a_nothing_read_if_runtime",
+      "description": "Issue #1411: a single-line If reading Module2.g.Count after Set Module2.g = Nothing is rejected: Run-time error '91': Object variable or With block variable not set. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nIf Module2.g.Count = 0 Then Debug.Print 1\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue1411_a_nothing_read_assign_runtime",
+      "description": "Issue #1411: n = Module2.g.Count after Set Module2.g = Nothing is rejected: Run-time error '91': Object variable or With block variable not set. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nDim n As Long\r\nn = Module2.g.Count\r\nDebug.Print n\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue1411_a_reset_then_new_runtime",
+      "description": "Issue #1411: Set Module2.g = Nothing, then New Collection, then Module2.g.Add runs. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nSet Module2.g = New Collection\r\nModule2.g.Add 1\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1411_a_reset_then_call_init_runtime",
+      "description": "Issue #1411: Set Module2.g = Nothing, then Module2.Init sets it, then Module2.g.Add runs. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\nSub Init()\r\nSet g = New Collection\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nModule2.Init\r\nModule2.g.Add 1\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1411_a_reset_unqualified_read_qualified_runtime",
+      "description": "Issue #1411: Set g = Nothing inside Module2, then Module2.g.Add is rejected: Run-time error '91': Object variable or With block variable not set. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\nSub Main()\r\nSet g = Nothing\r\nModule2.g.Add 1\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue1411_a_shadowed_own_module_receiver_runtime",
+      "description": "Issue #1411: a local C named Module1 has its g reset while the module g stays set runs. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\nSub Main()\r\nDim Module1 As New C\r\nSet g = New Collection\r\nSet Module1.g = Nothing\r\ng.Add 1\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "C",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1411_b_strings_local_compile",
+      "description": "Issue #1411: Strings.Foo() for module Strings's Foo(x As Long), with a local Strings As Object compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nDim Strings As Object\r\n    If False Then Debug.Print Strings.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Strings",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1411_b_strings_parameter_compile",
+      "description": "Issue #1411: Strings.Foo() for module Strings's Foo(x As Long), with a ByVal parameter Strings As Object compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main(ByVal Strings As Object)\r\n    If False Then Debug.Print Strings.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Strings",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1411_b_strings_module_compile",
+      "description": "Issue #1411: Strings.Foo() for module Strings's Foo(x As Long), with a module-level Strings As Object compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate Strings As Object\r\nSub Main()\r\n    If False Then Debug.Print Strings.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Strings",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1411_b_strings_variant_local_compile",
+      "description": "Issue #1411: Strings.Foo() for module Strings's Foo(x As Long), with a local Strings As Variant compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nDim Strings As Variant\r\n    If False Then Debug.Print Strings.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Strings",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1411_b_strings_unshadowed_compile",
+      "description": "Issue #1411: Strings.Foo() for module Strings's Foo(x As Long), with nothing shadowing the module is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Debug.Print Strings.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Strings",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1411_b_math_local_compile",
+      "description": "Issue #1411: Math.Foo() for module Math's Foo(x As Long), with a local Math As Object compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nDim Math As Object\r\n    If False Then Debug.Print Math.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Math",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1411_b_math_parameter_compile",
+      "description": "Issue #1411: Math.Foo() for module Math's Foo(x As Long), with a ByVal parameter Math As Object compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main(ByVal Math As Object)\r\n    If False Then Debug.Print Math.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Math",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1411_b_math_module_compile",
+      "description": "Issue #1411: Math.Foo() for module Math's Foo(x As Long), with a module-level Math As Object compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate Math As Object\r\nSub Main()\r\n    If False Then Debug.Print Math.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Math",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1411_b_math_variant_local_compile",
+      "description": "Issue #1411: Math.Foo() for module Math's Foo(x As Long), with a local Math As Variant compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nDim Math As Variant\r\n    If False Then Debug.Print Math.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Math",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1411_b_math_unshadowed_compile",
+      "description": "Issue #1411: Math.Foo() for module Math's Foo(x As Long), with nothing shadowing the module is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Debug.Print Math.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Math",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1411_b_other_local_compile",
+      "description": "Issue #1411: Other.Foo() for module Other's Foo(x As Long), with a local Other As Object compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nDim Other As Object\r\n    If False Then Debug.Print Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1411_b_other_parameter_compile",
+      "description": "Issue #1411: Other.Foo() for module Other's Foo(x As Long), with a ByVal parameter Other As Object compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main(ByVal Other As Object)\r\n    If False Then Debug.Print Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1411_b_other_module_compile",
+      "description": "Issue #1411: Other.Foo() for module Other's Foo(x As Long), with a module-level Other As Object compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate Other As Object\r\nSub Main()\r\n    If False Then Debug.Print Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1411_b_other_variant_local_compile",
+      "description": "Issue #1411: Other.Foo() for module Other's Foo(x As Long), with a local Other As Variant compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nDim Other As Variant\r\n    If False Then Debug.Print Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1411_b_other_unshadowed_compile",
+      "description": "Issue #1411: Other.Foo() for module Other's Foo(x As Long), with nothing shadowing the module is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Debug.Print Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1411_b_other_collection_local_compile",
+      "description": "Issue #1411: Other.Foo() Is Nothing with a local Other As Collection compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nDim Other As Collection\r\n    If False Then Debug.Print Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1411_b_other_long_local_compile",
+      "description": "Issue #1411: Other.Foo() Is Nothing with a local Other As Long is rejected: Compile error: Invalid qualifier. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nDim Other As Long\r\n    If False Then Debug.Print Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1411_b_math_current_module_compile",
+      "description": "Issue #1411: Math.Foo() for module Math's Foo(x As Long), with a local Math As Object inside module Math itself compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Math",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nSub Main()\r\n    Dim Math As Object\r\n    Set Math = New Collection\r\n    If False Then Debug.Print Math.Foo()\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1411_b_strings_current_module_compile",
+      "description": "Issue #1411: Strings.Foo() for module Strings's Foo(x As Long), with a local Strings As Object inside module Strings itself compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Strings",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nSub Main()\r\n    Dim Strings As Object\r\n    Set Strings = New Collection\r\n    If False Then Debug.Print Strings.Foo()\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1411_word_a_nothing_read_print_runtime",
+      "description": "Issue #1411: Debug.Print of Module2.g.Count after Set Module2.g = Nothing is rejected: Run-time error '91': Object variable or With block variable not set. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nDebug.Print Module2.g.Count\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_a_nothing_read_call_runtime",
+      "description": "Issue #1411: Call Module2.g.Add(1) after Set Module2.g = Nothing is rejected: Run-time error '91': Object variable or With block variable not set. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nCall Module2.g.Add(1)\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_a_nothing_read_label_runtime",
+      "description": "Issue #1411: a line-numbered Module2.g.Add 1 after Set Module2.g = Nothing is rejected: Run-time error '91': Object variable or With block variable not set. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\n10 Module2.g.Add 1\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_a_nothing_read_with_runtime",
+      "description": "Issue #1411: With Module2.g after Set Module2.g = Nothing is rejected: Run-time error '91': Object variable or With block variable not set. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nWith Module2.g\r\n.Add 1\r\nEnd With\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_a_nothing_read_if_runtime",
+      "description": "Issue #1411: a single-line If reading Module2.g.Count after Set Module2.g = Nothing is rejected: Run-time error '91': Object variable or With block variable not set. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nIf Module2.g.Count = 0 Then Debug.Print 1\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_a_nothing_read_assign_runtime",
+      "description": "Issue #1411: n = Module2.g.Count after Set Module2.g = Nothing is rejected: Run-time error '91': Object variable or With block variable not set. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nDim n As Long\r\nn = Module2.g.Count\r\nDebug.Print n\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_a_reset_then_new_runtime",
+      "description": "Issue #1411: Set Module2.g = Nothing, then New Collection, then Module2.g.Add runs. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nSet Module2.g = New Collection\r\nModule2.g.Add 1\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_a_reset_then_call_init_runtime",
+      "description": "Issue #1411: Set Module2.g = Nothing, then Module2.Init sets it, then Module2.g.Add runs. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\nSub Init()\r\nSet g = New Collection\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nModule2.Init\r\nModule2.g.Add 1\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_a_reset_unqualified_read_qualified_runtime",
+      "description": "Issue #1411: Set g = Nothing inside Module2, then Module2.g.Add is rejected: Run-time error '91': Object variable or With block variable not set. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\nSub Main()\r\nSet g = Nothing\r\nModule2.g.Add 1\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_a_shadowed_own_module_receiver_runtime",
+      "description": "Issue #1411: a local C named Module1 has its g reset while the module g stays set runs. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\nSub Main()\r\nDim Module1 As New C\r\nSet g = New Collection\r\nSet Module1.g = Nothing\r\ng.Add 1\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "C",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_b_strings_local_compile",
+      "description": "Issue #1411: Strings.Foo() for module Strings's Foo(x As Long), with a local Strings As Object compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nDim Strings As Object\r\n    If False Then Debug.Print Strings.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Strings",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_b_strings_parameter_compile",
+      "description": "Issue #1411: Strings.Foo() for module Strings's Foo(x As Long), with a ByVal parameter Strings As Object compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main(ByVal Strings As Object)\r\n    If False Then Debug.Print Strings.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Strings",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_b_strings_module_compile",
+      "description": "Issue #1411: Strings.Foo() for module Strings's Foo(x As Long), with a module-level Strings As Object compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate Strings As Object\r\nSub Main()\r\n    If False Then Debug.Print Strings.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Strings",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_b_strings_variant_local_compile",
+      "description": "Issue #1411: Strings.Foo() for module Strings's Foo(x As Long), with a local Strings As Variant compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nDim Strings As Variant\r\n    If False Then Debug.Print Strings.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Strings",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_b_strings_unshadowed_compile",
+      "description": "Issue #1411: Strings.Foo() for module Strings's Foo(x As Long), with nothing shadowing the module is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Debug.Print Strings.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Strings",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_b_math_local_compile",
+      "description": "Issue #1411: Math.Foo() for module Math's Foo(x As Long), with a local Math As Object compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nDim Math As Object\r\n    If False Then Debug.Print Math.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Math",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_b_math_parameter_compile",
+      "description": "Issue #1411: Math.Foo() for module Math's Foo(x As Long), with a ByVal parameter Math As Object compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main(ByVal Math As Object)\r\n    If False Then Debug.Print Math.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Math",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_b_math_module_compile",
+      "description": "Issue #1411: Math.Foo() for module Math's Foo(x As Long), with a module-level Math As Object compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate Math As Object\r\nSub Main()\r\n    If False Then Debug.Print Math.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Math",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_b_math_variant_local_compile",
+      "description": "Issue #1411: Math.Foo() for module Math's Foo(x As Long), with a local Math As Variant compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nDim Math As Variant\r\n    If False Then Debug.Print Math.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Math",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_b_math_unshadowed_compile",
+      "description": "Issue #1411: Math.Foo() for module Math's Foo(x As Long), with nothing shadowing the module is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Debug.Print Math.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Math",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_b_other_local_compile",
+      "description": "Issue #1411: Other.Foo() for module Other's Foo(x As Long), with a local Other As Object compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nDim Other As Object\r\n    If False Then Debug.Print Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_b_other_parameter_compile",
+      "description": "Issue #1411: Other.Foo() for module Other's Foo(x As Long), with a ByVal parameter Other As Object compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main(ByVal Other As Object)\r\n    If False Then Debug.Print Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_b_other_module_compile",
+      "description": "Issue #1411: Other.Foo() for module Other's Foo(x As Long), with a module-level Other As Object compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate Other As Object\r\nSub Main()\r\n    If False Then Debug.Print Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_b_other_variant_local_compile",
+      "description": "Issue #1411: Other.Foo() for module Other's Foo(x As Long), with a local Other As Variant compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nDim Other As Variant\r\n    If False Then Debug.Print Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_b_other_unshadowed_compile",
+      "description": "Issue #1411: Other.Foo() for module Other's Foo(x As Long), with nothing shadowing the module is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Debug.Print Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_b_other_collection_local_compile",
+      "description": "Issue #1411: Other.Foo() Is Nothing with a local Other As Collection compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nDim Other As Collection\r\n    If False Then Debug.Print Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_b_other_long_local_compile",
+      "description": "Issue #1411: Other.Foo() Is Nothing with a local Other As Long is rejected: Compile error: Invalid qualifier. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nDim Other As Long\r\n    If False Then Debug.Print Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_b_math_current_module_compile",
+      "description": "Issue #1411: Math.Foo() for module Math's Foo(x As Long), with a local Math As Object inside module Math itself compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Math",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nSub Main()\r\n    Dim Math As Object\r\n    Set Math = New Collection\r\n    If False Then Debug.Print Math.Foo()\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_b_strings_current_module_compile",
+      "description": "Issue #1411: Strings.Foo() for module Strings's Foo(x As Long), with a local Strings As Object inside module Strings itself compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Strings",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nSub Main()\r\n    Dim Strings As Object\r\n    Set Strings = New Collection\r\n    If False Then Debug.Print Strings.Foo()\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_powerpoint_a_nothing_read_print_runtime",
+      "description": "Issue #1411: Debug.Print of Module2.g.Count after Set Module2.g = Nothing is rejected: Run-time error '91': Object variable or With block variable not set. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nDebug.Print Module2.g.Count\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_a_nothing_read_call_runtime",
+      "description": "Issue #1411: Call Module2.g.Add(1) after Set Module2.g = Nothing is rejected: Run-time error '91': Object variable or With block variable not set. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nCall Module2.g.Add(1)\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_a_nothing_read_label_runtime",
+      "description": "Issue #1411: a line-numbered Module2.g.Add 1 after Set Module2.g = Nothing is rejected: Run-time error '91': Object variable or With block variable not set. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\n10 Module2.g.Add 1\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_a_nothing_read_with_runtime",
+      "description": "Issue #1411: With Module2.g after Set Module2.g = Nothing is rejected: Run-time error '91': Object variable or With block variable not set. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nWith Module2.g\r\n.Add 1\r\nEnd With\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_a_nothing_read_if_runtime",
+      "description": "Issue #1411: a single-line If reading Module2.g.Count after Set Module2.g = Nothing is rejected: Run-time error '91': Object variable or With block variable not set. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nIf Module2.g.Count = 0 Then Debug.Print 1\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_a_nothing_read_assign_runtime",
+      "description": "Issue #1411: n = Module2.g.Count after Set Module2.g = Nothing is rejected: Run-time error '91': Object variable or With block variable not set. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nDim n As Long\r\nn = Module2.g.Count\r\nDebug.Print n\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_a_reset_then_new_runtime",
+      "description": "Issue #1411: Set Module2.g = Nothing, then New Collection, then Module2.g.Add runs. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nSet Module2.g = New Collection\r\nModule2.g.Add 1\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_a_reset_then_call_init_runtime",
+      "description": "Issue #1411: Set Module2.g = Nothing, then Module2.Init sets it, then Module2.g.Add runs. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\nSub Init()\r\nSet g = New Collection\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nModule2.Init\r\nModule2.g.Add 1\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_a_reset_unqualified_read_qualified_runtime",
+      "description": "Issue #1411: Set g = Nothing inside Module2, then Module2.g.Add is rejected: Run-time error '91': Object variable or With block variable not set. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\nSub Main()\r\nSet g = Nothing\r\nModule2.g.Add 1\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_a_shadowed_own_module_receiver_runtime",
+      "description": "Issue #1411: a local C named Module1 has its g reset while the module g stays set runs. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\nSub Main()\r\nDim Module1 As New C\r\nSet g = New Collection\r\nSet Module1.g = Nothing\r\ng.Add 1\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "C",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_b_strings_local_compile",
+      "description": "Issue #1411: Strings.Foo() for module Strings's Foo(x As Long), with a local Strings As Object compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nDim Strings As Object\r\n    If False Then Debug.Print Strings.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Strings",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_b_strings_parameter_compile",
+      "description": "Issue #1411: Strings.Foo() for module Strings's Foo(x As Long), with a ByVal parameter Strings As Object compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main(ByVal Strings As Object)\r\n    If False Then Debug.Print Strings.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Strings",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_b_strings_module_compile",
+      "description": "Issue #1411: Strings.Foo() for module Strings's Foo(x As Long), with a module-level Strings As Object compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate Strings As Object\r\nSub Main()\r\n    If False Then Debug.Print Strings.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Strings",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_b_strings_variant_local_compile",
+      "description": "Issue #1411: Strings.Foo() for module Strings's Foo(x As Long), with a local Strings As Variant compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nDim Strings As Variant\r\n    If False Then Debug.Print Strings.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Strings",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_b_strings_unshadowed_compile",
+      "description": "Issue #1411: Strings.Foo() for module Strings's Foo(x As Long), with nothing shadowing the module is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Debug.Print Strings.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Strings",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_b_math_local_compile",
+      "description": "Issue #1411: Math.Foo() for module Math's Foo(x As Long), with a local Math As Object compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nDim Math As Object\r\n    If False Then Debug.Print Math.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Math",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_b_math_parameter_compile",
+      "description": "Issue #1411: Math.Foo() for module Math's Foo(x As Long), with a ByVal parameter Math As Object compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main(ByVal Math As Object)\r\n    If False Then Debug.Print Math.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Math",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_b_math_module_compile",
+      "description": "Issue #1411: Math.Foo() for module Math's Foo(x As Long), with a module-level Math As Object compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate Math As Object\r\nSub Main()\r\n    If False Then Debug.Print Math.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Math",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_b_math_variant_local_compile",
+      "description": "Issue #1411: Math.Foo() for module Math's Foo(x As Long), with a local Math As Variant compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nDim Math As Variant\r\n    If False Then Debug.Print Math.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Math",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_b_math_unshadowed_compile",
+      "description": "Issue #1411: Math.Foo() for module Math's Foo(x As Long), with nothing shadowing the module is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Debug.Print Math.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Math",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_b_other_local_compile",
+      "description": "Issue #1411: Other.Foo() for module Other's Foo(x As Long), with a local Other As Object compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nDim Other As Object\r\n    If False Then Debug.Print Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_b_other_parameter_compile",
+      "description": "Issue #1411: Other.Foo() for module Other's Foo(x As Long), with a ByVal parameter Other As Object compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main(ByVal Other As Object)\r\n    If False Then Debug.Print Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_b_other_module_compile",
+      "description": "Issue #1411: Other.Foo() for module Other's Foo(x As Long), with a module-level Other As Object compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate Other As Object\r\nSub Main()\r\n    If False Then Debug.Print Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_b_other_variant_local_compile",
+      "description": "Issue #1411: Other.Foo() for module Other's Foo(x As Long), with a local Other As Variant compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nDim Other As Variant\r\n    If False Then Debug.Print Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_b_other_unshadowed_compile",
+      "description": "Issue #1411: Other.Foo() for module Other's Foo(x As Long), with nothing shadowing the module is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Debug.Print Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_b_other_collection_local_compile",
+      "description": "Issue #1411: Other.Foo() Is Nothing with a local Other As Collection compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nDim Other As Collection\r\n    If False Then Debug.Print Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_b_other_long_local_compile",
+      "description": "Issue #1411: Other.Foo() Is Nothing with a local Other As Long is rejected: Compile error: Invalid qualifier. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nDim Other As Long\r\n    If False Then Debug.Print Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_b_math_current_module_compile",
+      "description": "Issue #1411: Math.Foo() for module Math's Foo(x As Long), with a local Math As Object inside module Math itself compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Math",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nSub Main()\r\n    Dim Math As Object\r\n    Set Math = New Collection\r\n    If False Then Debug.Print Math.Foo()\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_b_strings_current_module_compile",
+      "description": "Issue #1411: Strings.Foo() for module Strings's Foo(x As Long), with a local Strings As Object inside module Strings itself compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Strings",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nSub Main()\r\n    Dim Strings As Object\r\n    Set Strings = New Collection\r\n    If False Then Debug.Print Strings.Foo()\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_access_a_nothing_read_print_runtime",
+      "description": "Issue #1411: Debug.Print of Module2.g.Count after Set Module2.g = Nothing is rejected: Run-time error '91': Object variable or With block variable not set. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nDebug.Print Module2.g.Count\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_a_nothing_read_call_runtime",
+      "description": "Issue #1411: Call Module2.g.Add(1) after Set Module2.g = Nothing is rejected: Run-time error '91': Object variable or With block variable not set. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nCall Module2.g.Add(1)\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_a_nothing_read_label_runtime",
+      "description": "Issue #1411: a line-numbered Module2.g.Add 1 after Set Module2.g = Nothing is rejected: Run-time error '91': Object variable or With block variable not set. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\n10 Module2.g.Add 1\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_a_nothing_read_with_runtime",
+      "description": "Issue #1411: With Module2.g after Set Module2.g = Nothing is rejected: Run-time error '91': Object variable or With block variable not set. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nWith Module2.g\r\n.Add 1\r\nEnd With\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_a_nothing_read_if_runtime",
+      "description": "Issue #1411: a single-line If reading Module2.g.Count after Set Module2.g = Nothing is rejected: Run-time error '91': Object variable or With block variable not set. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nIf Module2.g.Count = 0 Then Debug.Print 1\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_a_nothing_read_assign_runtime",
+      "description": "Issue #1411: n = Module2.g.Count after Set Module2.g = Nothing is rejected: Run-time error '91': Object variable or With block variable not set. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nDim n As Long\r\nn = Module2.g.Count\r\nDebug.Print n\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_a_reset_then_new_runtime",
+      "description": "Issue #1411: Set Module2.g = Nothing, then New Collection, then Module2.g.Add runs. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nSet Module2.g = New Collection\r\nModule2.g.Add 1\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_a_reset_then_call_init_runtime",
+      "description": "Issue #1411: Set Module2.g = Nothing, then Module2.Init sets it, then Module2.g.Add runs. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\nSub Init()\r\nSet g = New Collection\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nModule2.Init\r\nModule2.g.Add 1\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_a_reset_unqualified_read_qualified_runtime",
+      "description": "Issue #1411: Set g = Nothing inside Module2, then Module2.g.Add is rejected: Run-time error '91': Object variable or With block variable not set. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\nSub Main()\r\nSet g = Nothing\r\nModule2.g.Add 1\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_a_shadowed_own_module_receiver_runtime",
+      "description": "Issue #1411: a local C named Module1 has its g reset while the module g stays set runs. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\nSub Main()\r\nDim Module1 As New C\r\nSet g = New Collection\r\nSet Module1.g = Nothing\r\ng.Add 1\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "C",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_b_strings_local_compile",
+      "description": "Issue #1411: Strings.Foo() for module Strings's Foo(x As Long), with a local Strings As Object compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nDim Strings As Object\r\n    If False Then Debug.Print Strings.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Strings",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_b_strings_parameter_compile",
+      "description": "Issue #1411: Strings.Foo() for module Strings's Foo(x As Long), with a ByVal parameter Strings As Object compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main(ByVal Strings As Object)\r\n    If False Then Debug.Print Strings.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Strings",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_b_strings_module_compile",
+      "description": "Issue #1411: Strings.Foo() for module Strings's Foo(x As Long), with a module-level Strings As Object compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate Strings As Object\r\nSub Main()\r\n    If False Then Debug.Print Strings.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Strings",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_b_strings_variant_local_compile",
+      "description": "Issue #1411: Strings.Foo() for module Strings's Foo(x As Long), with a local Strings As Variant compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nDim Strings As Variant\r\n    If False Then Debug.Print Strings.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Strings",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_b_strings_unshadowed_compile",
+      "description": "Issue #1411: Strings.Foo() for module Strings's Foo(x As Long), with nothing shadowing the module is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Debug.Print Strings.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Strings",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_b_math_local_compile",
+      "description": "Issue #1411: Math.Foo() for module Math's Foo(x As Long), with a local Math As Object compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nDim Math As Object\r\n    If False Then Debug.Print Math.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Math",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_b_math_parameter_compile",
+      "description": "Issue #1411: Math.Foo() for module Math's Foo(x As Long), with a ByVal parameter Math As Object compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main(ByVal Math As Object)\r\n    If False Then Debug.Print Math.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Math",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_b_math_module_compile",
+      "description": "Issue #1411: Math.Foo() for module Math's Foo(x As Long), with a module-level Math As Object compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate Math As Object\r\nSub Main()\r\n    If False Then Debug.Print Math.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Math",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_b_math_variant_local_compile",
+      "description": "Issue #1411: Math.Foo() for module Math's Foo(x As Long), with a local Math As Variant compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nDim Math As Variant\r\n    If False Then Debug.Print Math.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Math",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_b_math_unshadowed_compile",
+      "description": "Issue #1411: Math.Foo() for module Math's Foo(x As Long), with nothing shadowing the module is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Debug.Print Math.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Math",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_b_other_local_compile",
+      "description": "Issue #1411: Other.Foo() for module Other's Foo(x As Long), with a local Other As Object compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nDim Other As Object\r\n    If False Then Debug.Print Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_b_other_parameter_compile",
+      "description": "Issue #1411: Other.Foo() for module Other's Foo(x As Long), with a ByVal parameter Other As Object compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main(ByVal Other As Object)\r\n    If False Then Debug.Print Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_b_other_module_compile",
+      "description": "Issue #1411: Other.Foo() for module Other's Foo(x As Long), with a module-level Other As Object compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate Other As Object\r\nSub Main()\r\n    If False Then Debug.Print Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_b_other_variant_local_compile",
+      "description": "Issue #1411: Other.Foo() for module Other's Foo(x As Long), with a local Other As Variant compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nDim Other As Variant\r\n    If False Then Debug.Print Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_b_other_unshadowed_compile",
+      "description": "Issue #1411: Other.Foo() for module Other's Foo(x As Long), with nothing shadowing the module is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Debug.Print Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_b_other_collection_local_compile",
+      "description": "Issue #1411: Other.Foo() Is Nothing with a local Other As Collection compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nDim Other As Collection\r\n    If False Then Debug.Print Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_b_other_long_local_compile",
+      "description": "Issue #1411: Other.Foo() Is Nothing with a local Other As Long is rejected: Compile error: Invalid qualifier. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nDim Other As Long\r\n    If False Then Debug.Print Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_b_math_current_module_compile",
+      "description": "Issue #1411: Math.Foo() for module Math's Foo(x As Long), with a local Math As Object inside module Math itself compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Math",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nSub Main()\r\n    Dim Math As Object\r\n    Set Math = New Collection\r\n    If False Then Debug.Print Math.Foo()\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_b_strings_current_module_compile",
+      "description": "Issue #1411: Strings.Foo() for module Strings's Foo(x As Long), with a local Strings As Object inside module Strings itself compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Strings",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nSub Main()\r\n    Dim Strings As Object\r\n    Set Strings = New Collection\r\n    If False Then Debug.Print Strings.Foo()\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_d_statement_shadowed_compile",
+      "description": "Issue #1411: Other.Bar as a call statement for module Other's procedure taking x As Long, with a local Other As Object compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim Other As Object\r\n    If False Then Other.Bar\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1411_d_statement_unshadowed_compile",
+      "description": "Issue #1411: Other.Bar as a call statement for module Other's procedure taking x As Long, with nothing shadowing the module is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Other.Bar\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1411_d_call_statement_shadowed_compile",
+      "description": "Issue #1411: Call Other.Bar() for module Other's procedure taking x As Long, with a local Other As Object compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim Other As Object\r\n    If False Then Call Other.Bar()\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1411_d_call_statement_unshadowed_compile",
+      "description": "Issue #1411: Call Other.Bar() for module Other's procedure taking x As Long, with nothing shadowing the module is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Call Other.Bar()\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1411_d_assignment_shadowed_compile",
+      "description": "Issue #1411: v = Other.Foo() for module Other's procedure taking x As Long, with a local Other As Object compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim Other As Object\r\n    Dim v As Variant\r\n    If False Then v = Other.Foo()\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1411_d_assignment_unshadowed_compile",
+      "description": "Issue #1411: v = Other.Foo() for module Other's procedure taking x As Long, with nothing shadowing the module is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If False Then v = Other.Foo()\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1411_d_nested_argument_shadowed_compile",
+      "description": "Issue #1411: Len(Other.Foo()) for module Other's procedure taking x As Long, with a local Other As Object compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim Other As Object\r\n    If False Then Debug.Print Len(Other.Foo())\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1411_d_nested_argument_unshadowed_compile",
+      "description": "Issue #1411: Len(Other.Foo()) for module Other's procedure taking x As Long, with nothing shadowing the module is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Debug.Print Len(Other.Foo())\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1411_d_set_assignment_shadowed_compile",
+      "description": "Issue #1411: Set o = Other.Foo() for module Other's procedure taking x As Long, with a local Other As Object compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim Other As Object\r\n    Dim o As Object\r\n    If False Then Set o = Other.Foo()\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1411_d_set_assignment_unshadowed_compile",
+      "description": "Issue #1411: Set o = Other.Foo() for module Other's procedure taking x As Long, with nothing shadowing the module is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    If False Then Set o = Other.Foo()\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1411_d_public_variable_named_like_module_compile",
+      "description": "Issue #1411: Other.Foo() with a Public variable named Other in a third module is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Debug.Print Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Other As Object\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1411_word_d_statement_shadowed_compile",
+      "description": "Issue #1411: Other.Bar as a call statement for module Other's procedure taking x As Long, with a local Other As Object compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim Other As Object\r\n    If False Then Other.Bar\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_d_statement_unshadowed_compile",
+      "description": "Issue #1411: Other.Bar as a call statement for module Other's procedure taking x As Long, with nothing shadowing the module is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Other.Bar\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_d_call_statement_shadowed_compile",
+      "description": "Issue #1411: Call Other.Bar() for module Other's procedure taking x As Long, with a local Other As Object compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim Other As Object\r\n    If False Then Call Other.Bar()\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_d_call_statement_unshadowed_compile",
+      "description": "Issue #1411: Call Other.Bar() for module Other's procedure taking x As Long, with nothing shadowing the module is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Call Other.Bar()\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_d_assignment_shadowed_compile",
+      "description": "Issue #1411: v = Other.Foo() for module Other's procedure taking x As Long, with a local Other As Object compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim Other As Object\r\n    Dim v As Variant\r\n    If False Then v = Other.Foo()\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_d_assignment_unshadowed_compile",
+      "description": "Issue #1411: v = Other.Foo() for module Other's procedure taking x As Long, with nothing shadowing the module is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If False Then v = Other.Foo()\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_d_nested_argument_shadowed_compile",
+      "description": "Issue #1411: Len(Other.Foo()) for module Other's procedure taking x As Long, with a local Other As Object compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim Other As Object\r\n    If False Then Debug.Print Len(Other.Foo())\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_d_nested_argument_unshadowed_compile",
+      "description": "Issue #1411: Len(Other.Foo()) for module Other's procedure taking x As Long, with nothing shadowing the module is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Debug.Print Len(Other.Foo())\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_d_set_assignment_shadowed_compile",
+      "description": "Issue #1411: Set o = Other.Foo() for module Other's procedure taking x As Long, with a local Other As Object compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim Other As Object\r\n    Dim o As Object\r\n    If False Then Set o = Other.Foo()\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_d_set_assignment_unshadowed_compile",
+      "description": "Issue #1411: Set o = Other.Foo() for module Other's procedure taking x As Long, with nothing shadowing the module is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    If False Then Set o = Other.Foo()\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_d_public_variable_named_like_module_compile",
+      "description": "Issue #1411: Other.Foo() with a Public variable named Other in a third module is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Debug.Print Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Other As Object\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_powerpoint_d_statement_shadowed_compile",
+      "description": "Issue #1411: Other.Bar as a call statement for module Other's procedure taking x As Long, with a local Other As Object compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim Other As Object\r\n    If False Then Other.Bar\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_d_statement_unshadowed_compile",
+      "description": "Issue #1411: Other.Bar as a call statement for module Other's procedure taking x As Long, with nothing shadowing the module is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Other.Bar\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_d_call_statement_shadowed_compile",
+      "description": "Issue #1411: Call Other.Bar() for module Other's procedure taking x As Long, with a local Other As Object compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim Other As Object\r\n    If False Then Call Other.Bar()\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_d_call_statement_unshadowed_compile",
+      "description": "Issue #1411: Call Other.Bar() for module Other's procedure taking x As Long, with nothing shadowing the module is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Call Other.Bar()\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_d_assignment_shadowed_compile",
+      "description": "Issue #1411: v = Other.Foo() for module Other's procedure taking x As Long, with a local Other As Object compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim Other As Object\r\n    Dim v As Variant\r\n    If False Then v = Other.Foo()\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_d_assignment_unshadowed_compile",
+      "description": "Issue #1411: v = Other.Foo() for module Other's procedure taking x As Long, with nothing shadowing the module is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If False Then v = Other.Foo()\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_d_nested_argument_shadowed_compile",
+      "description": "Issue #1411: Len(Other.Foo()) for module Other's procedure taking x As Long, with a local Other As Object compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim Other As Object\r\n    If False Then Debug.Print Len(Other.Foo())\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_d_nested_argument_unshadowed_compile",
+      "description": "Issue #1411: Len(Other.Foo()) for module Other's procedure taking x As Long, with nothing shadowing the module is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Debug.Print Len(Other.Foo())\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_d_set_assignment_shadowed_compile",
+      "description": "Issue #1411: Set o = Other.Foo() for module Other's procedure taking x As Long, with a local Other As Object compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim Other As Object\r\n    Dim o As Object\r\n    If False Then Set o = Other.Foo()\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_d_set_assignment_unshadowed_compile",
+      "description": "Issue #1411: Set o = Other.Foo() for module Other's procedure taking x As Long, with nothing shadowing the module is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    If False Then Set o = Other.Foo()\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_d_public_variable_named_like_module_compile",
+      "description": "Issue #1411: Other.Foo() with a Public variable named Other in a third module is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Debug.Print Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Other As Object\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_access_d_statement_shadowed_compile",
+      "description": "Issue #1411: Other.Bar as a call statement for module Other's procedure taking x As Long, with a local Other As Object compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim Other As Object\r\n    If False Then Other.Bar\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_d_statement_unshadowed_compile",
+      "description": "Issue #1411: Other.Bar as a call statement for module Other's procedure taking x As Long, with nothing shadowing the module is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Other.Bar\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_d_call_statement_shadowed_compile",
+      "description": "Issue #1411: Call Other.Bar() for module Other's procedure taking x As Long, with a local Other As Object compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim Other As Object\r\n    If False Then Call Other.Bar()\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_d_call_statement_unshadowed_compile",
+      "description": "Issue #1411: Call Other.Bar() for module Other's procedure taking x As Long, with nothing shadowing the module is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Call Other.Bar()\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_d_assignment_shadowed_compile",
+      "description": "Issue #1411: v = Other.Foo() for module Other's procedure taking x As Long, with a local Other As Object compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim Other As Object\r\n    Dim v As Variant\r\n    If False Then v = Other.Foo()\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_d_assignment_unshadowed_compile",
+      "description": "Issue #1411: v = Other.Foo() for module Other's procedure taking x As Long, with nothing shadowing the module is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If False Then v = Other.Foo()\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_d_nested_argument_shadowed_compile",
+      "description": "Issue #1411: Len(Other.Foo()) for module Other's procedure taking x As Long, with a local Other As Object compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim Other As Object\r\n    If False Then Debug.Print Len(Other.Foo())\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_d_nested_argument_unshadowed_compile",
+      "description": "Issue #1411: Len(Other.Foo()) for module Other's procedure taking x As Long, with nothing shadowing the module is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Debug.Print Len(Other.Foo())\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_d_set_assignment_shadowed_compile",
+      "description": "Issue #1411: Set o = Other.Foo() for module Other's procedure taking x As Long, with a local Other As Object compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim Other As Object\r\n    Dim o As Object\r\n    If False Then Set o = Other.Foo()\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_d_set_assignment_unshadowed_compile",
+      "description": "Issue #1411: Set o = Other.Foo() for module Other's procedure taking x As Long, with nothing shadowing the module is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    If False Then Set o = Other.Foo()\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_d_public_variable_named_like_module_compile",
+      "description": "Issue #1411: Other.Foo() with a Public variable named Other in a third module is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Debug.Print Other.Foo() Is Nothing\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "Other",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo(x As Long) As Long\r\nEnd Function\r\nPublic Sub Bar(x As Long)\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Other As Object\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_e_block_guard_runtime",
+      "description": "Issue #1411: Set Module2.g = Nothing, then Module2.g.Add inside If Not Module2.g Is Nothing runs. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nIf Not Module2.g Is Nothing Then\r\nModule2.g.Add 1\r\nEnd If\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1411_e_line_guard_runtime",
+      "description": "Issue #1411: Set Module2.g = Nothing, then a single-line If Not Module2.g Is Nothing Then Module2.g.Add runs. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nIf Not Module2.g Is Nothing Then Module2.g.Add 1\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1411_e_exit_between_runtime",
+      "description": "Issue #1411: Set Module2.g = Nothing, Exit Sub, then Module2.g.Add runs. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nExit Sub\r\nModule2.g.Add 1\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1411_e_as_new_runtime",
+      "description": "Issue #1411: Set Module2.g = Nothing on a Public g As New Collection, then Module2.g.Add runs. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As New Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nModule2.g.Add 1\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1411_word_e_block_guard_runtime",
+      "description": "Issue #1411: Set Module2.g = Nothing, then Module2.g.Add inside If Not Module2.g Is Nothing runs. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nIf Not Module2.g Is Nothing Then\r\nModule2.g.Add 1\r\nEnd If\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_e_line_guard_runtime",
+      "description": "Issue #1411: Set Module2.g = Nothing, then a single-line If Not Module2.g Is Nothing Then Module2.g.Add runs. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nIf Not Module2.g Is Nothing Then Module2.g.Add 1\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_e_exit_between_runtime",
+      "description": "Issue #1411: Set Module2.g = Nothing, Exit Sub, then Module2.g.Add runs. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nExit Sub\r\nModule2.g.Add 1\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_word_e_as_new_runtime",
+      "description": "Issue #1411: Set Module2.g = Nothing on a Public g As New Collection, then Module2.g.Add runs. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As New Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nModule2.g.Add 1\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1411_powerpoint_e_block_guard_runtime",
+      "description": "Issue #1411: Set Module2.g = Nothing, then Module2.g.Add inside If Not Module2.g Is Nothing runs. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nIf Not Module2.g Is Nothing Then\r\nModule2.g.Add 1\r\nEnd If\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_e_line_guard_runtime",
+      "description": "Issue #1411: Set Module2.g = Nothing, then a single-line If Not Module2.g Is Nothing Then Module2.g.Add runs. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nIf Not Module2.g Is Nothing Then Module2.g.Add 1\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_e_exit_between_runtime",
+      "description": "Issue #1411: Set Module2.g = Nothing, Exit Sub, then Module2.g.Add runs. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nExit Sub\r\nModule2.g.Add 1\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_powerpoint_e_as_new_runtime",
+      "description": "Issue #1411: Set Module2.g = Nothing on a Public g As New Collection, then Module2.g.Add runs. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As New Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nModule2.g.Add 1\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1411_access_e_block_guard_runtime",
+      "description": "Issue #1411: Set Module2.g = Nothing, then Module2.g.Add inside If Not Module2.g Is Nothing runs. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nIf Not Module2.g Is Nothing Then\r\nModule2.g.Add 1\r\nEnd If\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_e_line_guard_runtime",
+      "description": "Issue #1411: Set Module2.g = Nothing, then a single-line If Not Module2.g Is Nothing Then Module2.g.Add runs. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nIf Not Module2.g Is Nothing Then Module2.g.Add 1\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_e_exit_between_runtime",
+      "description": "Issue #1411: Set Module2.g = Nothing, Exit Sub, then Module2.g.Add runs. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nExit Sub\r\nModule2.g.Add 1\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1411_access_e_as_new_runtime",
+      "description": "Issue #1411: Set Module2.g = Nothing on a Public g As New Collection, then Module2.g.Add runs. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic g As New Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\nSet Module2.g = Nothing\r\nModule2.g.Add 1\r\nEnd Sub\r\n",
+          "entry": true
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "access"
     }
   ]
 }

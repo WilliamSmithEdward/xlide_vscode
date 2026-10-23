@@ -219,7 +219,7 @@ export function checkArgumentTypes(
 			}
 			// A single-line If's branch is a statement call too: `If x Then Sl Nothing` (issue #254).
 			for (const span of statementAndBranchSpans(stmt)) {
-				const statementCall = extractCall(source, span) ?? extractQualifiedCall(source, span, moduleSignatures);
+				const statementCall = extractCall(source, span) ?? extractQualifiedCall(source, span, moduleSignatures, sourceNames);
 				if (statementCall) {
 					validateArgumentTypes(
 						statementCall,

@@ -75,6 +75,7 @@ import {
 	callableAcceptsZeroArguments,
 	emptyArgSplit,
 	isNamedSlot,
+	moduleQualifierShadowed,
 	splitArgSlots,
 	type CallArguments,
 	type CallableParamType,
@@ -770,6 +771,12 @@ export interface SourceNameScope {
 	 * runtime fallback once source/project callable signatures have not resolved.
 	 */
 	runtimeShadows: { has(lowerName: string): boolean };
+	/**
+	 * The variables a `Name.` receiver can mean instead of the module called
+	 * Name: the procedure's locals and parameters and the current module's
+	 * variables. See moduleQualifierShadowed.
+	 */
+	variableShadows: { has(lowerName: string): boolean };
 }
 
 export function sourceNameScopeFor(
@@ -783,6 +790,7 @@ export function sourceNameScopeFor(
 		return cached.result;
 	}
 	const own = new Set<string>();
+	const variables = new Set<string>();
 	const procSym = procedureSymbolFor(symbols, proc);
 	const runtimeShadows = sourceIdentifierNames({
 		currentModule: symbols,
@@ -794,9 +802,18 @@ export function sourceNameScopeFor(
 		if (isNonCallableSymbol(child)) {
 			own.add(lower);
 		}
+		if (child.kind === 'localVariable' || child.kind === 'parameter') {
+			variables.add(lower);
+		}
 	}
-	const callableShadows = new LayeredSet(moduleNonCallableSymbols(symbols), own);
-	const result: SourceNameScope = { callableShadows, runtimeShadows };
+	const moduleNonCallables = moduleNonCallableSymbols(symbols);
+	const callableShadows = new LayeredSet(moduleNonCallables, own);
+	for (const [lower, sym] of moduleNonCallables) {
+		if (sym.kind === 'moduleVariable') {
+			variables.add(lower);
+		}
+	}
+	const result: SourceNameScope = { callableShadows, runtimeShadows, variableShadows: variables };
 	cache.set(proc, { projectVisibleSymbols, result });
 	return result;
 }
@@ -1078,7 +1095,7 @@ export function expressionCalls(
 				? tokenName(toks[i - 2])
 				: undefined;
 		const lookupKey = qualifier ? qualifiedProcedureKey(qualifier, name) : undefined;
-		if (qualifier && !moduleSignatures.has(lookupKey!)) {
+		if (qualifier && (!moduleSignatures.has(lookupKey!) || moduleQualifierShadowed(qualifier, sourceNames))) {
 			continue; // host/member calls need receiver binding before checking
 		}
 		if (!qualifier && i > 0 && toks[i - 1].rawText === '.') {
@@ -2423,7 +2440,8 @@ export function inferAtomicExpressionType(
 			}
 		}
 	}
-	if (name && toks[1]?.rawText === '.') {
+	// A variable named like a module is the receiver; member typing below reads it.
+	if (name && toks[1]?.rawText === '.' && !moduleQualifierShadowed(name, sourceNames)) {
 		const member = tokenName(toks[2]);
 		const errorVariant = inferIntrinsicCverrErrorVariant(
 			toks,
@@ -4347,6 +4365,14 @@ function procedureCodeSafeNames(proc: ProcedureNode, symbols: ReturnType<typeof 
  */
 function codeMayRun(toks: readonly VbaToken[], proc: ProcedureNode, symbols: ReturnType<typeof buildModuleSymbols>, leavesAlone?: (name: string) => boolean): boolean {
 	return codeMayRunWith(toks, proc.name.toLowerCase(), procedureCodeSafeNames(proc, symbols), symbols, leavesAlone);
+}
+
+/**
+ * Whether the tokens may run code other than the procedure's own, with no
+ * callee read through: what can change a variable of another module.
+ */
+export function tokensMayRunCode(toks: readonly VbaToken[], proc: ProcedureNode, symbols: ReturnType<typeof buildModuleSymbols>): boolean {
+	return codeMayRun(toks, proc, symbols);
 }
 
 function moduleCodeSafeNames(symbols: ReturnType<typeof buildModuleSymbols>): ReadonlySet<string> {
