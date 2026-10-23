@@ -1412,6 +1412,76 @@ function constantLookup(
 	return out;
 }
 
+/**
+ * The number a constant expression comes to, typed as VBA types it: literals,
+ * and the Consts and Enum members of the project, the module and, given one,
+ * the procedure, where a local or parameter hides a Const of its name.
+ * Undefined where it does not fold or overflows on the way. An array bound
+ * reads it, for a Double Const or `2147483647# + 1` (issue #1412).
+ *
+ * Text with no float literal, no `/` or `^` and no Const or Enum name is
+ * whole-number arithmetic at most, or names a variable: it is not folded,
+ * and the Consts are folded only for text that may need them. `ReDim a(n)`
+ * costs a name check.
+ */
+export function constantNumberFolder(
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
+): (text: string, member?: ProcedureNode) => number | undefined {
+	let moduleSymbols: readonly VbaSymbol[] | undefined;
+	const moduleSymbolsOf = (): readonly VbaSymbol[] => moduleSymbols ??= [...(projectVisibleSymbols ?? []), ...(symbols.root.children ?? [])];
+	let moduleNames: ReadonlySet<string> | undefined;
+	let moduleConstants: ReadonlyMap<string, Typed> | undefined;
+	const procedures = new Map<ProcedureNode | undefined, { children: readonly VbaSymbol[]; names?: NameLookup }>();
+	const scopeOf = (member: ProcedureNode | undefined) => {
+		let scope = procedures.get(member);
+		if (!scope) {
+			scope = { children: member ? procedureSymbolFor(symbols, member)?.children ?? [] : [] };
+			procedures.set(member, scope);
+		}
+		return scope;
+	};
+	const mayNeedFolding = (toks: readonly VbaToken[], children: readonly VbaSymbol[]): boolean => {
+		moduleNames ??= constantNames(moduleSymbolsOf());
+		return toks.some((tok) => tok.kind === 'floatLiteral' || tok.rawText === '/' || tok.rawText === '^'
+			|| (tok.kind === 'identifier' && (moduleNames!.has(tok.rawText.toLowerCase())
+				|| children.some((child) => (child.kind === 'constant' || child.kind === 'enum') && child.name.toLowerCase() === tok.rawText.toLowerCase()))));
+	};
+	return (text, member) => {
+		const toks = rawExpressionTokens(text);
+		const scope = scopeOf(member);
+		if (!mayNeedFolding(toks, scope.children)) {
+			return undefined;
+		}
+		if (!scope.names) {
+			moduleConstants ??= constantLookup(new Map(), moduleSymbolsOf());
+			const constants = constantLookup(moduleConstants, scope.children);
+			const hidden = new Set(scope.children
+				.filter((child) => child.kind === 'localVariable' || child.kind === 'parameter')
+				.map((child) => child.name.toLowerCase()));
+			scope.names = (lower) => hidden.has(lower) ? undefined : constants.get(lower);
+		}
+		const folded = new TypedFolder(toks, 0, scope.names).fold();
+		return folded === undefined || isOverflow(folded) ? undefined : folded.value;
+	};
+}
+
+/** The names of the Consts and Enums among `candidates`, an Enum's members too. */
+function constantNames(candidates: readonly VbaSymbol[]): ReadonlySet<string> {
+	const names = new Set<string>();
+	for (const symbol of candidates) {
+		if (symbol.kind === 'constant') {
+			names.add(symbol.name.toLowerCase());
+		} else if (symbol.kind === 'enum') {
+			names.add(symbol.name.toLowerCase());
+			for (const member of symbol.children ?? []) {
+				names.add(member.name.toLowerCase());
+			}
+		}
+	}
+	return names;
+}
+
 const SHEET_ROWS = 1048576;
 const SHEET_COLUMNS = 16384;
 

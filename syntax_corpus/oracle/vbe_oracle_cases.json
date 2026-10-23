@@ -205345,6 +205345,2180 @@
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid",
       "host": "access"
+    },
+    {
+      "id": "issue1412_d_half_up_compile",
+      "description": "Issue #1412: in Sub Main Dim a(2147483647.5) As Long, is rejected: Compile error: Overflow. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(2147483647.5) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1412_d_under_half_ok_compile",
+      "description": "Issue #1412: in Sub Main Dim a(2147483647.4) As Long, compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(2147483647.4) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1412_d_low_half_ok_compile",
+      "description": "Issue #1412: in Sub Main Dim a(-2147483648.5 To -2147483648#) As Long, compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(-2147483648.5 To -2147483648#) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1412_d_low_past_compile",
+      "description": "Issue #1412: in Sub Main Dim a(-2147483648.6 To 0) As Long, is rejected: Compile error: Overflow. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(-2147483648.6 To 0) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1412_d_low_double_compile",
+      "description": "Issue #1412: in Sub Main Dim a(-2147483649# To 0) As Long, is rejected: Compile error: Overflow. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(-2147483649# To 0) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1412_d_const_double_compile",
+      "description": "Issue #1412: at module level Const N As Double = 2147483648#, then in Sub Main Dim a(N) As Long, is rejected: Compile error: Overflow. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nConst N As Double = 2147483648#\r\nSub Main()\r\n    Dim a(N) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1412_d_local_const_double_compile",
+      "description": "Issue #1412: in Sub Main Const N As Double = 2147483648# / Dim a(N) As Long, is rejected: Compile error: Overflow. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const N As Double = 2147483648#\r\n    Dim a(N) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1412_d_const_untyped_compile",
+      "description": "Issue #1412: at module level Const N = 2147483648#, then in Sub Main Dim a(N) As Long, is rejected: Compile error: Overflow. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nConst N = 2147483648#\r\nSub Main()\r\n    Dim a(N) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1412_d_const_plus_compile",
+      "description": "Issue #1412: at module level Const N As Double = 2147483647#, then in Sub Main Dim a(N + 1) As Long, is rejected: Compile error: Overflow. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nConst N As Double = 2147483647#\r\nSub Main()\r\n    Dim a(N + 1) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1412_d_const_ok_compile",
+      "description": "Issue #1412: at module level Const N As Double = 2147483647#, then in Sub Main Dim a(N) As Long, compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nConst N As Double = 2147483647#\r\nSub Main()\r\n    Dim a(N) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1412_d_double_plus_compile",
+      "description": "Issue #1412: in Sub Main Dim a(2147483647# + 1) As Long, is rejected: Compile error: Overflow. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(2147483647# + 1) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1412_d_divide_compile",
+      "description": "Issue #1412: in Sub Main Dim a(4294967296# / 2) As Long, is rejected: Compile error: Overflow. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(4294967296# / 2) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1412_d_divide_ok_compile",
+      "description": "Issue #1412: in Sub Main Dim a(4294967294# / 2) As Long, compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(4294967294# / 2) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1412_d_single_compile",
+      "description": "Issue #1412: in Sub Main Dim a(3E+09!) As Long, is rejected: Compile error: Overflow. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(3E+09!) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1412_d_currency_compile",
+      "description": "Issue #1412: in Sub Main Dim a(2147483648@) As Long, is rejected: Compile error: Overflow. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(2147483648@) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1412_d_second_dim_compile",
+      "description": "Issue #1412: in Sub Main Dim a(1, 2147483648#) As Long, is rejected: Compile error: Overflow. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1, 2147483648#) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1412_d_module_level_compile",
+      "description": "Issue #1412: at module level Dim a(2147483648#) As Long, is rejected: Compile error: Overflow. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nDim a(2147483648#) As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1412_d_type_field_compile",
+      "description": "Issue #1412: at module level Private Type T / a(2147483648#) As Long / End Type, is rejected: Compile error: Overflow. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    a(2147483648#) As Long\r\nEnd Type\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1412_d_long_sum_compile",
+      "description": "Issue #1412: in Sub Main Dim a(2147483647 + 1) As Long, is rejected: Compile error: Overflow. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(2147483647 + 1) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1412_r_half_up_runtime",
+      "description": "Issue #1412: in Sub Main Dim a() As Long / ReDim a(2147483647 To 2147483647.5), is rejected: Run-time error '6': Overflow. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(2147483647 To 2147483647.5)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue1412_r_under_half_ok_runtime",
+      "description": "Issue #1412: in Sub Main Dim a() As Long / ReDim a(2147483647 To 2147483647.4), runs. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(2147483647 To 2147483647.4)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1412_r_low_half_ok_runtime",
+      "description": "Issue #1412: in Sub Main Dim a() As Long / ReDim a(-2147483648.5 To -2147483648#), runs. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(-2147483648.5 To -2147483648#)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1412_r_low_past_runtime",
+      "description": "Issue #1412: in Sub Main Dim a() As Long / ReDim a(-2147483648.6 To -2147483648#), is rejected: Run-time error '6': Overflow. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(-2147483648.6 To -2147483648#)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue1412_r_local_const_runtime",
+      "description": "Issue #1412: in Sub Main Const N As Double = 2147483648# / Dim a() As Long / ReDim a(N), is rejected: Run-time error '6': Overflow. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const N As Double = 2147483648#\r\n    Dim a() As Long\r\n    ReDim a(N)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue1412_r_const_plus_runtime",
+      "description": "Issue #1412: at module level Const N As Double = 2147483647#, then in Sub Main Dim a() As Long / ReDim a(N To N + 1), is rejected: Run-time error '6': Overflow. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nConst N As Double = 2147483647#\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(N To N + 1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue1412_r_const_ok_runtime",
+      "description": "Issue #1412: at module level Const N As Double = 2147483647#, then in Sub Main Dim a() As Long / ReDim a(N To N), runs. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nConst N As Double = 2147483647#\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(N To N)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1412_r_double_plus_runtime",
+      "description": "Issue #1412: in Sub Main Dim a() As Long / ReDim a(1 To 2147483647# + 1), is rejected: Run-time error '6': Overflow. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(1 To 2147483647# + 1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue1412_r_divide_runtime",
+      "description": "Issue #1412: in Sub Main Dim a() As Long / ReDim a(1 To 4294967296# / 2), is rejected: Run-time error '6': Overflow. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(1 To 4294967296# / 2)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue1412_r_single_runtime",
+      "description": "Issue #1412: in Sub Main Dim a() As Long / ReDim a(1 To 3E+09!), is rejected: Run-time error '6': Overflow. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(1 To 3E+09!)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue1412_r_currency_runtime",
+      "description": "Issue #1412: in Sub Main Dim a() As Long / ReDim a(1 To 2147483648@), is rejected: Run-time error '6': Overflow. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(1 To 2147483648@)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue1412_word_d_half_up_compile",
+      "description": "Issue #1412: in Sub Main Dim a(2147483647.5) As Long, is rejected: Compile error: Overflow. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(2147483647.5) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_d_under_half_ok_compile",
+      "description": "Issue #1412: in Sub Main Dim a(2147483647.4) As Long, compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(2147483647.4) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_d_low_half_ok_compile",
+      "description": "Issue #1412: in Sub Main Dim a(-2147483648.5 To -2147483648#) As Long, compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(-2147483648.5 To -2147483648#) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_d_low_past_compile",
+      "description": "Issue #1412: in Sub Main Dim a(-2147483648.6 To 0) As Long, is rejected: Compile error: Overflow. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(-2147483648.6 To 0) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_d_low_double_compile",
+      "description": "Issue #1412: in Sub Main Dim a(-2147483649# To 0) As Long, is rejected: Compile error: Overflow. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(-2147483649# To 0) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_d_const_double_compile",
+      "description": "Issue #1412: at module level Const N As Double = 2147483648#, then in Sub Main Dim a(N) As Long, is rejected: Compile error: Overflow. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nConst N As Double = 2147483648#\r\nSub Main()\r\n    Dim a(N) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_d_local_const_double_compile",
+      "description": "Issue #1412: in Sub Main Const N As Double = 2147483648# / Dim a(N) As Long, is rejected: Compile error: Overflow. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const N As Double = 2147483648#\r\n    Dim a(N) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_d_const_untyped_compile",
+      "description": "Issue #1412: at module level Const N = 2147483648#, then in Sub Main Dim a(N) As Long, is rejected: Compile error: Overflow. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nConst N = 2147483648#\r\nSub Main()\r\n    Dim a(N) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_d_const_plus_compile",
+      "description": "Issue #1412: at module level Const N As Double = 2147483647#, then in Sub Main Dim a(N + 1) As Long, is rejected: Compile error: Overflow. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nConst N As Double = 2147483647#\r\nSub Main()\r\n    Dim a(N + 1) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_d_const_ok_compile",
+      "description": "Issue #1412: at module level Const N As Double = 2147483647#, then in Sub Main Dim a(N) As Long, compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nConst N As Double = 2147483647#\r\nSub Main()\r\n    Dim a(N) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_d_double_plus_compile",
+      "description": "Issue #1412: in Sub Main Dim a(2147483647# + 1) As Long, is rejected: Compile error: Overflow. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(2147483647# + 1) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_d_divide_compile",
+      "description": "Issue #1412: in Sub Main Dim a(4294967296# / 2) As Long, is rejected: Compile error: Overflow. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(4294967296# / 2) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_d_divide_ok_compile",
+      "description": "Issue #1412: in Sub Main Dim a(4294967294# / 2) As Long, compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(4294967294# / 2) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_d_single_compile",
+      "description": "Issue #1412: in Sub Main Dim a(3E+09!) As Long, is rejected: Compile error: Overflow. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(3E+09!) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_d_currency_compile",
+      "description": "Issue #1412: in Sub Main Dim a(2147483648@) As Long, is rejected: Compile error: Overflow. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(2147483648@) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_d_second_dim_compile",
+      "description": "Issue #1412: in Sub Main Dim a(1, 2147483648#) As Long, is rejected: Compile error: Overflow. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1, 2147483648#) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_d_module_level_compile",
+      "description": "Issue #1412: at module level Dim a(2147483648#) As Long, is rejected: Compile error: Overflow. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nDim a(2147483648#) As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_d_type_field_compile",
+      "description": "Issue #1412: at module level Private Type T / a(2147483648#) As Long / End Type, is rejected: Compile error: Overflow. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    a(2147483648#) As Long\r\nEnd Type\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_d_long_sum_compile",
+      "description": "Issue #1412: in Sub Main Dim a(2147483647 + 1) As Long, is rejected: Compile error: Overflow. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(2147483647 + 1) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_r_half_up_runtime",
+      "description": "Issue #1412: in Sub Main Dim a() As Long / ReDim a(2147483647 To 2147483647.5), is rejected: Run-time error '6': Overflow. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(2147483647 To 2147483647.5)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_r_under_half_ok_runtime",
+      "description": "Issue #1412: in Sub Main Dim a() As Long / ReDim a(2147483647 To 2147483647.4), runs. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(2147483647 To 2147483647.4)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_r_low_half_ok_runtime",
+      "description": "Issue #1412: in Sub Main Dim a() As Long / ReDim a(-2147483648.5 To -2147483648#), runs. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(-2147483648.5 To -2147483648#)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_r_low_past_runtime",
+      "description": "Issue #1412: in Sub Main Dim a() As Long / ReDim a(-2147483648.6 To -2147483648#), is rejected: Run-time error '6': Overflow. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(-2147483648.6 To -2147483648#)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_r_local_const_runtime",
+      "description": "Issue #1412: in Sub Main Const N As Double = 2147483648# / Dim a() As Long / ReDim a(N), is rejected: Run-time error '6': Overflow. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const N As Double = 2147483648#\r\n    Dim a() As Long\r\n    ReDim a(N)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_r_const_plus_runtime",
+      "description": "Issue #1412: at module level Const N As Double = 2147483647#, then in Sub Main Dim a() As Long / ReDim a(N To N + 1), is rejected: Run-time error '6': Overflow. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nConst N As Double = 2147483647#\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(N To N + 1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_r_const_ok_runtime",
+      "description": "Issue #1412: at module level Const N As Double = 2147483647#, then in Sub Main Dim a() As Long / ReDim a(N To N), runs. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nConst N As Double = 2147483647#\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(N To N)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_r_double_plus_runtime",
+      "description": "Issue #1412: in Sub Main Dim a() As Long / ReDim a(1 To 2147483647# + 1), is rejected: Run-time error '6': Overflow. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(1 To 2147483647# + 1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_r_divide_runtime",
+      "description": "Issue #1412: in Sub Main Dim a() As Long / ReDim a(1 To 4294967296# / 2), is rejected: Run-time error '6': Overflow. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(1 To 4294967296# / 2)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_r_single_runtime",
+      "description": "Issue #1412: in Sub Main Dim a() As Long / ReDim a(1 To 3E+09!), is rejected: Run-time error '6': Overflow. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(1 To 3E+09!)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_word_r_currency_runtime",
+      "description": "Issue #1412: in Sub Main Dim a() As Long / ReDim a(1 To 2147483648@), is rejected: Run-time error '6': Overflow. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(1 To 2147483648@)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1412_powerpoint_d_half_up_compile",
+      "description": "Issue #1412: in Sub Main Dim a(2147483647.5) As Long, is rejected: Compile error: Overflow. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(2147483647.5) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_d_under_half_ok_compile",
+      "description": "Issue #1412: in Sub Main Dim a(2147483647.4) As Long, compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(2147483647.4) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_d_low_half_ok_compile",
+      "description": "Issue #1412: in Sub Main Dim a(-2147483648.5 To -2147483648#) As Long, compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(-2147483648.5 To -2147483648#) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_d_low_past_compile",
+      "description": "Issue #1412: in Sub Main Dim a(-2147483648.6 To 0) As Long, is rejected: Compile error: Overflow. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(-2147483648.6 To 0) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_d_low_double_compile",
+      "description": "Issue #1412: in Sub Main Dim a(-2147483649# To 0) As Long, is rejected: Compile error: Overflow. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(-2147483649# To 0) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_d_const_double_compile",
+      "description": "Issue #1412: at module level Const N As Double = 2147483648#, then in Sub Main Dim a(N) As Long, is rejected: Compile error: Overflow. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nConst N As Double = 2147483648#\r\nSub Main()\r\n    Dim a(N) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_d_local_const_double_compile",
+      "description": "Issue #1412: in Sub Main Const N As Double = 2147483648# / Dim a(N) As Long, is rejected: Compile error: Overflow. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const N As Double = 2147483648#\r\n    Dim a(N) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_d_const_untyped_compile",
+      "description": "Issue #1412: at module level Const N = 2147483648#, then in Sub Main Dim a(N) As Long, is rejected: Compile error: Overflow. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nConst N = 2147483648#\r\nSub Main()\r\n    Dim a(N) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_d_const_plus_compile",
+      "description": "Issue #1412: at module level Const N As Double = 2147483647#, then in Sub Main Dim a(N + 1) As Long, is rejected: Compile error: Overflow. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nConst N As Double = 2147483647#\r\nSub Main()\r\n    Dim a(N + 1) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_d_const_ok_compile",
+      "description": "Issue #1412: at module level Const N As Double = 2147483647#, then in Sub Main Dim a(N) As Long, compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nConst N As Double = 2147483647#\r\nSub Main()\r\n    Dim a(N) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_d_double_plus_compile",
+      "description": "Issue #1412: in Sub Main Dim a(2147483647# + 1) As Long, is rejected: Compile error: Overflow. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(2147483647# + 1) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_d_divide_compile",
+      "description": "Issue #1412: in Sub Main Dim a(4294967296# / 2) As Long, is rejected: Compile error: Overflow. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(4294967296# / 2) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_d_divide_ok_compile",
+      "description": "Issue #1412: in Sub Main Dim a(4294967294# / 2) As Long, compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(4294967294# / 2) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_d_single_compile",
+      "description": "Issue #1412: in Sub Main Dim a(3E+09!) As Long, is rejected: Compile error: Overflow. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(3E+09!) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_d_currency_compile",
+      "description": "Issue #1412: in Sub Main Dim a(2147483648@) As Long, is rejected: Compile error: Overflow. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(2147483648@) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_d_second_dim_compile",
+      "description": "Issue #1412: in Sub Main Dim a(1, 2147483648#) As Long, is rejected: Compile error: Overflow. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1, 2147483648#) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_d_module_level_compile",
+      "description": "Issue #1412: at module level Dim a(2147483648#) As Long, is rejected: Compile error: Overflow. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nDim a(2147483648#) As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_d_type_field_compile",
+      "description": "Issue #1412: at module level Private Type T / a(2147483648#) As Long / End Type, is rejected: Compile error: Overflow. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    a(2147483648#) As Long\r\nEnd Type\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_d_long_sum_compile",
+      "description": "Issue #1412: in Sub Main Dim a(2147483647 + 1) As Long, is rejected: Compile error: Overflow. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(2147483647 + 1) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_r_half_up_runtime",
+      "description": "Issue #1412: in Sub Main Dim a() As Long / ReDim a(2147483647 To 2147483647.5), is rejected: Run-time error '6': Overflow. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(2147483647 To 2147483647.5)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_r_under_half_ok_runtime",
+      "description": "Issue #1412: in Sub Main Dim a() As Long / ReDim a(2147483647 To 2147483647.4), runs. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(2147483647 To 2147483647.4)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_r_low_half_ok_runtime",
+      "description": "Issue #1412: in Sub Main Dim a() As Long / ReDim a(-2147483648.5 To -2147483648#), runs. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(-2147483648.5 To -2147483648#)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_r_low_past_runtime",
+      "description": "Issue #1412: in Sub Main Dim a() As Long / ReDim a(-2147483648.6 To -2147483648#), is rejected: Run-time error '6': Overflow. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(-2147483648.6 To -2147483648#)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_r_local_const_runtime",
+      "description": "Issue #1412: in Sub Main Const N As Double = 2147483648# / Dim a() As Long / ReDim a(N), is rejected: Run-time error '6': Overflow. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const N As Double = 2147483648#\r\n    Dim a() As Long\r\n    ReDim a(N)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_r_const_plus_runtime",
+      "description": "Issue #1412: at module level Const N As Double = 2147483647#, then in Sub Main Dim a() As Long / ReDim a(N To N + 1), is rejected: Run-time error '6': Overflow. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nConst N As Double = 2147483647#\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(N To N + 1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_r_const_ok_runtime",
+      "description": "Issue #1412: at module level Const N As Double = 2147483647#, then in Sub Main Dim a() As Long / ReDim a(N To N), runs. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nConst N As Double = 2147483647#\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(N To N)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_r_double_plus_runtime",
+      "description": "Issue #1412: in Sub Main Dim a() As Long / ReDim a(1 To 2147483647# + 1), is rejected: Run-time error '6': Overflow. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(1 To 2147483647# + 1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_r_divide_runtime",
+      "description": "Issue #1412: in Sub Main Dim a() As Long / ReDim a(1 To 4294967296# / 2), is rejected: Run-time error '6': Overflow. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(1 To 4294967296# / 2)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_r_single_runtime",
+      "description": "Issue #1412: in Sub Main Dim a() As Long / ReDim a(1 To 3E+09!), is rejected: Run-time error '6': Overflow. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(1 To 3E+09!)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_powerpoint_r_currency_runtime",
+      "description": "Issue #1412: in Sub Main Dim a() As Long / ReDim a(1 To 2147483648@), is rejected: Run-time error '6': Overflow. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(1 To 2147483648@)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1412_access_d_half_up_compile",
+      "description": "Issue #1412: in Sub Main Dim a(2147483647.5) As Long, is rejected: Compile error: Overflow. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(2147483647.5) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_d_under_half_ok_compile",
+      "description": "Issue #1412: in Sub Main Dim a(2147483647.4) As Long, compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(2147483647.4) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_d_low_half_ok_compile",
+      "description": "Issue #1412: in Sub Main Dim a(-2147483648.5 To -2147483648#) As Long, compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(-2147483648.5 To -2147483648#) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_d_low_past_compile",
+      "description": "Issue #1412: in Sub Main Dim a(-2147483648.6 To 0) As Long, is rejected: Compile error: Overflow. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(-2147483648.6 To 0) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_d_low_double_compile",
+      "description": "Issue #1412: in Sub Main Dim a(-2147483649# To 0) As Long, is rejected: Compile error: Overflow. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(-2147483649# To 0) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_d_const_double_compile",
+      "description": "Issue #1412: at module level Const N As Double = 2147483648#, then in Sub Main Dim a(N) As Long, is rejected: Compile error: Overflow. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nConst N As Double = 2147483648#\r\nSub Main()\r\n    Dim a(N) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_d_local_const_double_compile",
+      "description": "Issue #1412: in Sub Main Const N As Double = 2147483648# / Dim a(N) As Long, is rejected: Compile error: Overflow. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const N As Double = 2147483648#\r\n    Dim a(N) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_d_const_untyped_compile",
+      "description": "Issue #1412: at module level Const N = 2147483648#, then in Sub Main Dim a(N) As Long, is rejected: Compile error: Overflow. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nConst N = 2147483648#\r\nSub Main()\r\n    Dim a(N) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_d_const_plus_compile",
+      "description": "Issue #1412: at module level Const N As Double = 2147483647#, then in Sub Main Dim a(N + 1) As Long, is rejected: Compile error: Overflow. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nConst N As Double = 2147483647#\r\nSub Main()\r\n    Dim a(N + 1) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_d_const_ok_compile",
+      "description": "Issue #1412: at module level Const N As Double = 2147483647#, then in Sub Main Dim a(N) As Long, compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nConst N As Double = 2147483647#\r\nSub Main()\r\n    Dim a(N) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_d_double_plus_compile",
+      "description": "Issue #1412: in Sub Main Dim a(2147483647# + 1) As Long, is rejected: Compile error: Overflow. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(2147483647# + 1) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_d_divide_compile",
+      "description": "Issue #1412: in Sub Main Dim a(4294967296# / 2) As Long, is rejected: Compile error: Overflow. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(4294967296# / 2) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_d_divide_ok_compile",
+      "description": "Issue #1412: in Sub Main Dim a(4294967294# / 2) As Long, compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(4294967294# / 2) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_d_single_compile",
+      "description": "Issue #1412: in Sub Main Dim a(3E+09!) As Long, is rejected: Compile error: Overflow. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(3E+09!) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_d_currency_compile",
+      "description": "Issue #1412: in Sub Main Dim a(2147483648@) As Long, is rejected: Compile error: Overflow. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(2147483648@) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_d_second_dim_compile",
+      "description": "Issue #1412: in Sub Main Dim a(1, 2147483648#) As Long, is rejected: Compile error: Overflow. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(1, 2147483648#) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_d_module_level_compile",
+      "description": "Issue #1412: at module level Dim a(2147483648#) As Long, is rejected: Compile error: Overflow. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nDim a(2147483648#) As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_d_type_field_compile",
+      "description": "Issue #1412: at module level Private Type T / a(2147483648#) As Long / End Type, is rejected: Compile error: Overflow. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    a(2147483648#) As Long\r\nEnd Type\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_d_long_sum_compile",
+      "description": "Issue #1412: in Sub Main Dim a(2147483647 + 1) As Long, is rejected: Compile error: Overflow. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a(2147483647 + 1) As Long\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_r_half_up_runtime",
+      "description": "Issue #1412: in Sub Main Dim a() As Long / ReDim a(2147483647 To 2147483647.5), is rejected: Run-time error '6': Overflow. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(2147483647 To 2147483647.5)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_r_under_half_ok_runtime",
+      "description": "Issue #1412: in Sub Main Dim a() As Long / ReDim a(2147483647 To 2147483647.4), runs. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(2147483647 To 2147483647.4)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_r_low_half_ok_runtime",
+      "description": "Issue #1412: in Sub Main Dim a() As Long / ReDim a(-2147483648.5 To -2147483648#), runs. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(-2147483648.5 To -2147483648#)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_r_low_past_runtime",
+      "description": "Issue #1412: in Sub Main Dim a() As Long / ReDim a(-2147483648.6 To -2147483648#), is rejected: Run-time error '6': Overflow. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(-2147483648.6 To -2147483648#)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_r_local_const_runtime",
+      "description": "Issue #1412: in Sub Main Const N As Double = 2147483648# / Dim a() As Long / ReDim a(N), is rejected: Run-time error '6': Overflow. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const N As Double = 2147483648#\r\n    Dim a() As Long\r\n    ReDim a(N)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_r_const_plus_runtime",
+      "description": "Issue #1412: at module level Const N As Double = 2147483647#, then in Sub Main Dim a() As Long / ReDim a(N To N + 1), is rejected: Run-time error '6': Overflow. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nConst N As Double = 2147483647#\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(N To N + 1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_r_const_ok_runtime",
+      "description": "Issue #1412: at module level Const N As Double = 2147483647#, then in Sub Main Dim a() As Long / ReDim a(N To N), runs. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nConst N As Double = 2147483647#\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(N To N)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_r_double_plus_runtime",
+      "description": "Issue #1412: in Sub Main Dim a() As Long / ReDim a(1 To 2147483647# + 1), is rejected: Run-time error '6': Overflow. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(1 To 2147483647# + 1)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_r_divide_runtime",
+      "description": "Issue #1412: in Sub Main Dim a() As Long / ReDim a(1 To 4294967296# / 2), is rejected: Run-time error '6': Overflow. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(1 To 4294967296# / 2)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_r_single_runtime",
+      "description": "Issue #1412: in Sub Main Dim a() As Long / ReDim a(1 To 3E+09!), is rejected: Run-time error '6': Overflow. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(1 To 3E+09!)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1412_access_r_currency_runtime",
+      "description": "Issue #1412: in Sub Main Dim a() As Long / ReDim a(1 To 2147483648@), is rejected: Run-time error '6': Overflow. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(1 To 2147483648@)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "access"
     }
   ]
 }

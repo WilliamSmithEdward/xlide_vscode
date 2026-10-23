@@ -1427,6 +1427,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.2.3.1 (array declaration bounds)',
 		confidence: 'high',
 	},
+	arrayBoundOverflow: {
+		code: 'array-bound-overflow',
+		title: 'Dim bound a Long cannot hold',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.2.3.1 (array declaration bounds); VBE compile error: Overflow (issue #1412, Excel, Word, PowerPoint and Access 16.0)',
+		confidence: 'high',
+	},
 	arrayTemporarilyLocked: {
 		code: 'array-temporarily-locked',
 		title: 'Array is locked while it is resized or erased',
