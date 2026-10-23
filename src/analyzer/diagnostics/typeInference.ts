@@ -1062,6 +1062,7 @@ export function expressionCalls(
 	span: Span,
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
 	sourceNames?: SourceNameScope,
+	options: { vbaLibrary?: boolean } = {},
 ): CallArguments[] {
 	const toks = statementTokens(source, span);
 	const out: CallArguments[] = [];
@@ -1095,16 +1096,21 @@ export function expressionCalls(
 				? tokenName(toks[i - 2])
 				: undefined;
 		const lookupKey = qualifier ? qualifiedProcedureKey(qualifier, name) : undefined;
-		if (qualifier && (!moduleSignatures.has(lookupKey!) || moduleQualifierShadowed(qualifier, sourceNames))) {
+		// `VBA.Len()` names VBA's own function, whatever the project calls Len,
+		// for a caller that asks for these calls (issue #1414).
+		const vbaLibrary = options.vbaLibrary === true && qualifier?.toLowerCase() === 'vba' && toks[i - 3]?.rawText !== '.'
+			&& !moduleSignatures.has(lookupKey!) && !moduleQualifierShadowed(qualifier, sourceNames)
+			&& resolveRuntimeFunction(name) !== undefined;
+		if (qualifier && !vbaLibrary && (!moduleSignatures.has(lookupKey!) || moduleQualifierShadowed(qualifier, sourceNames))) {
 			continue; // host/member calls need receiver binding before checking
 		}
 		if (!qualifier && i > 0 && toks[i - 1].rawText === '.') {
 			continue;
 		}
 		if (
-			lookupKey
+			!vbaLibrary && (lookupKey
 				? !moduleSignatures.has(lookupKey)
-				: !callableSignatureFor(name, moduleSignatures, sourceNames)
+				: !callableSignatureFor(name, moduleSignatures, sourceNames))
 		) {
 			continue;
 		}
@@ -1117,7 +1123,7 @@ export function expressionCalls(
 		out.push({
 			name,
 			qualifier,
-			lookupKey,
+			...(vbaLibrary ? { vbaLibrary: true } : { lookupKey }),
 			nameSpan: { start: span.start + toks[i].start, end: span.start + toks[nameEndIndex].end },
 			slots: split.slots,
 			slotSpans: split.spans,
@@ -2030,8 +2036,24 @@ export function runtimeAritySignature(runtime: VbaRuntimeFunction): CallableType
 	if (runtime.params || runtimeSignatureParameterText(runtime.signature) !== undefined) {
 		return runtimeTypeSignature(runtime);
 	}
+	// A statement's signature is its argument list after the name, unparenthesized.
+	if (runtime.kind === 'statement' && ARGUMENT_LIST_STATEMENTS.has(runtime.name.toLowerCase())) {
+		return parseRuntimeDisplaySignature(runtime.name, `${runtime.name}(${runtime.signature.slice(runtime.name.length).trim()})`);
+	}
 	return undefined;
 }
+
+/**
+ * The statements whose arguments are a plain list, each measured to refuse a
+ * missing argument (Argument not optional), one too many (Wrong number of
+ * arguments) and a repeated named one (Named argument already specified) in
+ * Excel, Word, PowerPoint and Access 16.0 (issue #1414). Line Input #, Name
+ * ... As and Width # have syntax of their own; Beep, Randomize, Reset, Load
+ * and Unload were not measured.
+ */
+const ARGUMENT_LIST_STATEMENTS: ReadonlySet<string> = new Set([
+	'appactivate', 'chdir', 'chdrive', 'deletesetting', 'filecopy', 'kill', 'mkdir', 'rmdir', 'savesetting', 'sendkeys', 'setattr',
+]);
 
 export function parseRuntimeDisplaySignature(
 	name: string,
