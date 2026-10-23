@@ -156,6 +156,7 @@ function applyProjectModule(
         implicitMembers: mod.implicitMembers,
         predeclaredId: mod.predeclaredId,
         designerClass: mod.designerClass,
+        documentType: mod.documentType,
     });
     return !!isOverride && applied;
 }

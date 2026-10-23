@@ -47,6 +47,7 @@ import { mergeSheetChanges, sheetChangesIn, type SheetChanges } from './sheetCha
 import { writtenNamesIn } from '../diagnostics/moduleState';
 import { mergeOpenedFileNumbers, openedFileNumbersIn, type OpenedFileNumbers } from '../diagnostics/openedFileNumbers';
 import { classMemberValues } from './classMemberFacts';
+import type { EventHandlerDocumentType } from '../completion/eventHandlers';
 import { hasAuthoritativeDesignerHeader, parseUserFormControls } from '../../vbaUserFormControls';
 
 /**
@@ -91,6 +92,12 @@ export interface ModuleInput {
 	 * UserForm, which is always an MSForms.UserForm.
 	 */
 	designerClass?: string;
+	/**
+	 * Which host object a document module is, from a host that knows it: a
+	 * workbook module whose code name is not ThisWorkbook is still a
+	 * Workbook. Absent leaves the code name to say.
+	 */
+	documentType?: EventHandlerDocumentType;
 }
 
 /** Project-wide symbol graph options shared by every indexed module. */
@@ -564,6 +571,8 @@ export class ProjectIndex {
 	private readonly modulePredeclaredIdByName = new Map<string, boolean>();
 	/** Host-supplied designer classes, keyed by lowercased module name. */
 	private readonly moduleDesignerClassByName = new Map<string, string>();
+	/** Host-supplied document types, keyed by lowercased module name. */
+	private readonly moduleDocumentTypeByName = new Map<string, EventHandlerDocumentType>();
 	/** Lazily resolved per-module integer constants, dropped on module change. */
 	private readonly moduleResolvedConstants = new Map<string, Map<string, number | undefined>>();
 	/** Lazily scanned per-module Implements lists, dropped on module change. */
@@ -619,6 +628,11 @@ export class ProjectIndex {
 		} else {
 			this.moduleDesignerClassByName.delete(key);
 		}
+		if (input.documentType !== undefined) {
+			this.moduleDocumentTypeByName.set(key, input.documentType);
+		} else {
+			this.moduleDocumentTypeByName.delete(key);
+		}
 		this.invalidate(key);
 	}
 
@@ -635,6 +649,7 @@ export class ProjectIndex {
 		this.moduleImplicitMembersByName.delete(key);
 		this.modulePredeclaredIdByName.delete(key);
 		this.moduleDesignerClassByName.delete(key);
+		this.moduleDocumentTypeByName.delete(key);
 		this.invalidate(key);
 	}
 
@@ -1363,6 +1378,7 @@ export class ProjectIndex {
 			}
 		}
 		const designerClass = this.moduleDesignerClassByName.get(mod.moduleName.toLowerCase());
+		const documentType = kind === 'document' ? this.moduleDocumentTypeByName.get(mod.moduleName.toLowerCase()) : undefined;
 		return {
 			name: mod.moduleName,
 			kind,
@@ -1384,6 +1400,7 @@ export class ProjectIndex {
 				|| (kind === 'userform' && this.moduleImplicitMembersKnown(mod.moduleName))
 				|| sheetControls,
 			...(designerClass !== undefined ? { designerClass } : {}),
+			...(documentType !== undefined ? { documentType } : {}),
 			// Documents and forms always have one; only a class module
 			// has to be asked (issue #47).
 			predeclaredId: kind === 'class'
