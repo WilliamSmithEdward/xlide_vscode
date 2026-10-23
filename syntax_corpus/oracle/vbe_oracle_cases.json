@@ -132155,6 +132155,2287 @@
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error",
       "host": "access"
+    },
+    {
+      "id": "issue1413_c_single_compile",
+      "description": "Issue #1413: Const k As Single = Nothing is rejected: Compile error: Invalid use of object. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k As Single = Nothing\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1413_c_single_suffix_compile",
+      "description": "Issue #1413: Const k! = Nothing is rejected: Compile error: Invalid use of object. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k! = Nothing\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1413_c_double_parenthesized_compile",
+      "description": "Issue #1413: Const k As Double = (Nothing) is rejected: Compile error: Invalid use of object. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k As Double = (Nothing)\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1413_c_long_double_parenthesized_compile",
+      "description": "Issue #1413: Const k As Long = ((Nothing)) is rejected: Compile error: Invalid use of object. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k As Long = ((Nothing))\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1413_c_longlong_compile",
+      "description": "Issue #1413: Const k As LongLong = Nothing is rejected: Compile error: Invalid use of object. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k As LongLong = Nothing\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1413_c_longptr_compile",
+      "description": "Issue #1413: Const k As LongPtr = Nothing is rejected: Compile error: Invalid use of object. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k As LongPtr = Nothing\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1413_c_string_compile",
+      "description": "Issue #1413: Const k As String = Nothing is rejected: Compile error: Invalid use of object. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k As String = Nothing\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1413_c_untyped_compile",
+      "description": "Issue #1413: Const k = Nothing is rejected: Compile error: Invalid data type for constant. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k = Nothing\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1413_c_variant_compile",
+      "description": "Issue #1413: Const k As Variant = Nothing is rejected: Compile error: Object variable or With block variable not set. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k As Variant = Nothing\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1413_c_module_level_compile",
+      "description": "Issue #1413: Private Const k As Long = Nothing at module level is rejected: Compile error: Invalid use of object. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Const k As Long = Nothing\r\nSub Main()\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1413_c_single_ok_compile",
+      "description": "Issue #1413: Const k As Single = 1 compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k As Single = 1\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1413_d_spaced_type_compile",
+      "description": "Issue #1413: a Declare returning Outlook . Application, from a made-up library, with no Outlook reference, is rejected: Compile error: User-defined type not defined. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function X Lib \"xlide_none\" () As Outlook . Application\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1413_d_type_text_in_lib_compile",
+      "description": "Issue #1413: a Declare returning Outlook.Application with Lib \"Outlook.Application\", with no Outlook reference, is rejected: Compile error: User-defined type not defined. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function X Lib \"Outlook.Application\" () As Outlook.Application\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1413_d_unspaced_type_compile",
+      "description": "Issue #1413: a Declare returning Outlook.Application, from a made-up library, with no Outlook reference, is rejected: Compile error: User-defined type not defined. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function X Lib \"xlide_none\" () As Outlook.Application\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1413_d_lib_text_long_ok_compile",
+      "description": "Issue #1413: a Declare returning Long with Lib \"Outlook.Application\" compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function X Lib \"Outlook.Application\" () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1413_d_dim_spaced_type_compile",
+      "description": "Issue #1413: Dim o As Outlook . Application with no Outlook reference is rejected: Compile error: User-defined type not defined. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Outlook . Application\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1413_t_dim_tab_compile",
+      "description": "Issue #1413: Dim t As Tab is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim t As Tab\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1413_t_dim_spc_compile",
+      "description": "Issue #1413: Dim t As Spc is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim t As Spc\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1413_t_param_tab_compile",
+      "description": "Issue #1413: Sub F(t As Tab) is rejected: Compile error: Expected: type name. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub F(t As Tab)\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1413_t_name_tab_ok_compile",
+      "description": "Issue #1413: Dim tab1 As Long compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim tab1 As Long\r\n    tab1 = 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1413_f_no_parens_fixed_string_compile",
+      "description": "Issue #1413: Function F As String * 3 is rejected: Compile error: Expected: end of statement. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction F As String * 3\r\n    F = \"abc\"\r\nEnd Function\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1413_f_parens_fixed_string_compile",
+      "description": "Issue #1413: Function F() As String * 3 is rejected: Compile error: Expected: end of statement. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction F() As String * 3\r\n    F = \"abc\"\r\nEnd Function\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1413_f_no_parens_string_ok_compile",
+      "description": "Issue #1413: Function F As String compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction F As String\r\n    F = \"abc\"\r\nEnd Function\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1413_n_class_parens_compile",
+      "description": "Issue #1413: Set o = New Class1() is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    Set o = New Class1()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1413_n_collection_parens_compile",
+      "description": "Issue #1413: Set o = New Collection(), inside a single-line If False, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    If False Then Set o = New Collection()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1413_n_excel_application_parens_compile",
+      "description": "Issue #1413: Set o = New Excel.Application(), inside a single-line If False, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    If False Then Set o = New Excel.Application()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1413_n_class_ok_compile",
+      "description": "Issue #1413: Set o = New Class1 compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    Set o = New Class1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1413_n_dim_as_new_parens_compile",
+      "description": "Issue #1413: Dim o As New Class1() is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As New Class1()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1413_word_c_single_compile",
+      "description": "Issue #1413: Const k As Single = Nothing is rejected: Compile error: Invalid use of object. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k As Single = Nothing\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1413_word_c_single_suffix_compile",
+      "description": "Issue #1413: Const k! = Nothing is rejected: Compile error: Invalid use of object. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k! = Nothing\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1413_word_c_double_parenthesized_compile",
+      "description": "Issue #1413: Const k As Double = (Nothing) is rejected: Compile error: Invalid use of object. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k As Double = (Nothing)\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1413_word_c_long_double_parenthesized_compile",
+      "description": "Issue #1413: Const k As Long = ((Nothing)) is rejected: Compile error: Invalid use of object. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k As Long = ((Nothing))\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1413_word_c_longlong_compile",
+      "description": "Issue #1413: Const k As LongLong = Nothing is rejected: Compile error: Invalid use of object. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k As LongLong = Nothing\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1413_word_c_longptr_compile",
+      "description": "Issue #1413: Const k As LongPtr = Nothing is rejected: Compile error: Invalid use of object. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k As LongPtr = Nothing\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1413_word_c_string_compile",
+      "description": "Issue #1413: Const k As String = Nothing is rejected: Compile error: Invalid use of object. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k As String = Nothing\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1413_word_c_untyped_compile",
+      "description": "Issue #1413: Const k = Nothing is rejected: Compile error: Invalid data type for constant. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k = Nothing\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1413_word_c_variant_compile",
+      "description": "Issue #1413: Const k As Variant = Nothing is rejected: Compile error: Object variable or With block variable not set. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k As Variant = Nothing\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1413_word_c_module_level_compile",
+      "description": "Issue #1413: Private Const k As Long = Nothing at module level is rejected: Compile error: Invalid use of object. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Const k As Long = Nothing\r\nSub Main()\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1413_word_c_single_ok_compile",
+      "description": "Issue #1413: Const k As Single = 1 compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k As Single = 1\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1413_word_d_spaced_type_compile",
+      "description": "Issue #1413: a Declare returning Outlook . Application, from a made-up library, with no Outlook reference, is rejected: Compile error: User-defined type not defined. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function X Lib \"xlide_none\" () As Outlook . Application\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1413_word_d_type_text_in_lib_compile",
+      "description": "Issue #1413: a Declare returning Outlook.Application with Lib \"Outlook.Application\", with no Outlook reference, is rejected: Compile error: User-defined type not defined. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function X Lib \"Outlook.Application\" () As Outlook.Application\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1413_word_d_unspaced_type_compile",
+      "description": "Issue #1413: a Declare returning Outlook.Application, from a made-up library, with no Outlook reference, is rejected: Compile error: User-defined type not defined. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function X Lib \"xlide_none\" () As Outlook.Application\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1413_word_d_lib_text_long_ok_compile",
+      "description": "Issue #1413: a Declare returning Long with Lib \"Outlook.Application\" compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function X Lib \"Outlook.Application\" () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1413_word_d_dim_spaced_type_compile",
+      "description": "Issue #1413: Dim o As Outlook . Application with no Outlook reference is rejected: Compile error: User-defined type not defined. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Outlook . Application\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1413_word_t_dim_tab_compile",
+      "description": "Issue #1413: Dim t As Tab is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim t As Tab\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1413_word_t_dim_spc_compile",
+      "description": "Issue #1413: Dim t As Spc is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim t As Spc\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1413_word_t_param_tab_compile",
+      "description": "Issue #1413: Sub F(t As Tab) is rejected: Compile error: Expected: type name. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub F(t As Tab)\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1413_word_t_name_tab_ok_compile",
+      "description": "Issue #1413: Dim tab1 As Long compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim tab1 As Long\r\n    tab1 = 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1413_word_f_no_parens_fixed_string_compile",
+      "description": "Issue #1413: Function F As String * 3 is rejected: Compile error: Expected: end of statement. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction F As String * 3\r\n    F = \"abc\"\r\nEnd Function\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1413_word_f_parens_fixed_string_compile",
+      "description": "Issue #1413: Function F() As String * 3 is rejected: Compile error: Expected: end of statement. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction F() As String * 3\r\n    F = \"abc\"\r\nEnd Function\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1413_word_f_no_parens_string_ok_compile",
+      "description": "Issue #1413: Function F As String compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction F As String\r\n    F = \"abc\"\r\nEnd Function\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1413_word_n_class_parens_compile",
+      "description": "Issue #1413: Set o = New Class1() is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    Set o = New Class1()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1413_word_n_collection_parens_compile",
+      "description": "Issue #1413: Set o = New Collection(), inside a single-line If False, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    If False Then Set o = New Collection()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1413_word_n_class_ok_compile",
+      "description": "Issue #1413: Set o = New Class1 compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    Set o = New Class1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1413_word_n_dim_as_new_parens_compile",
+      "description": "Issue #1413: Dim o As New Class1() is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As New Class1()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1413_powerpoint_c_single_compile",
+      "description": "Issue #1413: Const k As Single = Nothing is rejected: Compile error: Invalid use of object. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k As Single = Nothing\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1413_powerpoint_c_single_suffix_compile",
+      "description": "Issue #1413: Const k! = Nothing is rejected: Compile error: Invalid use of object. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k! = Nothing\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1413_powerpoint_c_double_parenthesized_compile",
+      "description": "Issue #1413: Const k As Double = (Nothing) is rejected: Compile error: Invalid use of object. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k As Double = (Nothing)\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1413_powerpoint_c_long_double_parenthesized_compile",
+      "description": "Issue #1413: Const k As Long = ((Nothing)) is rejected: Compile error: Invalid use of object. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k As Long = ((Nothing))\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1413_powerpoint_c_longlong_compile",
+      "description": "Issue #1413: Const k As LongLong = Nothing is rejected: Compile error: Invalid use of object. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k As LongLong = Nothing\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1413_powerpoint_c_longptr_compile",
+      "description": "Issue #1413: Const k As LongPtr = Nothing is rejected: Compile error: Invalid use of object. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k As LongPtr = Nothing\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1413_powerpoint_c_string_compile",
+      "description": "Issue #1413: Const k As String = Nothing is rejected: Compile error: Invalid use of object. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k As String = Nothing\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1413_powerpoint_c_untyped_compile",
+      "description": "Issue #1413: Const k = Nothing is rejected: Compile error: Invalid data type for constant. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k = Nothing\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1413_powerpoint_c_variant_compile",
+      "description": "Issue #1413: Const k As Variant = Nothing is rejected: Compile error: Object variable or With block variable not set. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k As Variant = Nothing\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1413_powerpoint_c_module_level_compile",
+      "description": "Issue #1413: Private Const k As Long = Nothing at module level is rejected: Compile error: Invalid use of object. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Const k As Long = Nothing\r\nSub Main()\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1413_powerpoint_c_single_ok_compile",
+      "description": "Issue #1413: Const k As Single = 1 compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k As Single = 1\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1413_powerpoint_d_spaced_type_compile",
+      "description": "Issue #1413: a Declare returning Outlook . Application, from a made-up library, with no Outlook reference, is rejected: Compile error: User-defined type not defined. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function X Lib \"xlide_none\" () As Outlook . Application\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1413_powerpoint_d_type_text_in_lib_compile",
+      "description": "Issue #1413: a Declare returning Outlook.Application with Lib \"Outlook.Application\", with no Outlook reference, is rejected: Compile error: User-defined type not defined. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function X Lib \"Outlook.Application\" () As Outlook.Application\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1413_powerpoint_d_unspaced_type_compile",
+      "description": "Issue #1413: a Declare returning Outlook.Application, from a made-up library, with no Outlook reference, is rejected: Compile error: User-defined type not defined. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function X Lib \"xlide_none\" () As Outlook.Application\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1413_powerpoint_d_lib_text_long_ok_compile",
+      "description": "Issue #1413: a Declare returning Long with Lib \"Outlook.Application\" compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function X Lib \"Outlook.Application\" () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1413_powerpoint_d_dim_spaced_type_compile",
+      "description": "Issue #1413: Dim o As Outlook . Application with no Outlook reference is rejected: Compile error: User-defined type not defined. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Outlook . Application\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1413_powerpoint_t_dim_tab_compile",
+      "description": "Issue #1413: Dim t As Tab is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim t As Tab\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1413_powerpoint_t_dim_spc_compile",
+      "description": "Issue #1413: Dim t As Spc is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim t As Spc\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1413_powerpoint_t_param_tab_compile",
+      "description": "Issue #1413: Sub F(t As Tab) is rejected: Compile error: Expected: type name. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub F(t As Tab)\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1413_powerpoint_t_name_tab_ok_compile",
+      "description": "Issue #1413: Dim tab1 As Long compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim tab1 As Long\r\n    tab1 = 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1413_powerpoint_f_no_parens_fixed_string_compile",
+      "description": "Issue #1413: Function F As String * 3 is rejected: Compile error: Expected: end of statement. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction F As String * 3\r\n    F = \"abc\"\r\nEnd Function\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1413_powerpoint_f_parens_fixed_string_compile",
+      "description": "Issue #1413: Function F() As String * 3 is rejected: Compile error: Expected: end of statement. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction F() As String * 3\r\n    F = \"abc\"\r\nEnd Function\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1413_powerpoint_f_no_parens_string_ok_compile",
+      "description": "Issue #1413: Function F As String compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction F As String\r\n    F = \"abc\"\r\nEnd Function\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1413_powerpoint_n_class_parens_compile",
+      "description": "Issue #1413: Set o = New Class1() is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    Set o = New Class1()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1413_powerpoint_n_collection_parens_compile",
+      "description": "Issue #1413: Set o = New Collection(), inside a single-line If False, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    If False Then Set o = New Collection()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1413_powerpoint_n_class_ok_compile",
+      "description": "Issue #1413: Set o = New Class1 compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    Set o = New Class1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1413_powerpoint_n_dim_as_new_parens_compile",
+      "description": "Issue #1413: Dim o As New Class1() is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As New Class1()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1413_access_c_single_compile",
+      "description": "Issue #1413: Const k As Single = Nothing is rejected: Compile error: Invalid use of object. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k As Single = Nothing\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1413_access_c_single_suffix_compile",
+      "description": "Issue #1413: Const k! = Nothing is rejected: Compile error: Invalid use of object. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k! = Nothing\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1413_access_c_double_parenthesized_compile",
+      "description": "Issue #1413: Const k As Double = (Nothing) is rejected: Compile error: Invalid use of object. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k As Double = (Nothing)\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1413_access_c_long_double_parenthesized_compile",
+      "description": "Issue #1413: Const k As Long = ((Nothing)) is rejected: Compile error: Invalid use of object. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k As Long = ((Nothing))\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1413_access_c_longlong_compile",
+      "description": "Issue #1413: Const k As LongLong = Nothing is rejected: Compile error: Invalid use of object. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k As LongLong = Nothing\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1413_access_c_longptr_compile",
+      "description": "Issue #1413: Const k As LongPtr = Nothing is rejected: Compile error: Invalid use of object. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k As LongPtr = Nothing\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1413_access_c_string_compile",
+      "description": "Issue #1413: Const k As String = Nothing is rejected: Compile error: Invalid use of object. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k As String = Nothing\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1413_access_c_untyped_compile",
+      "description": "Issue #1413: Const k = Nothing is rejected: Compile error: Invalid data type for constant. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k = Nothing\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1413_access_c_variant_compile",
+      "description": "Issue #1413: Const k As Variant = Nothing is rejected: Compile error: Object variable or With block variable not set. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k As Variant = Nothing\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1413_access_c_module_level_compile",
+      "description": "Issue #1413: Private Const k As Long = Nothing at module level is rejected: Compile error: Invalid use of object. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Const k As Long = Nothing\r\nSub Main()\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1413_access_c_single_ok_compile",
+      "description": "Issue #1413: Const k As Single = 1 compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const k As Single = 1\r\n    Debug.Print k\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1413_access_d_spaced_type_compile",
+      "description": "Issue #1413: a Declare returning Outlook . Application, from a made-up library, with no Outlook reference, is rejected: Compile error: User-defined type not defined. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function X Lib \"xlide_none\" () As Outlook . Application\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1413_access_d_type_text_in_lib_compile",
+      "description": "Issue #1413: a Declare returning Outlook.Application with Lib \"Outlook.Application\", with no Outlook reference, is rejected: Compile error: User-defined type not defined. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function X Lib \"Outlook.Application\" () As Outlook.Application\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1413_access_d_unspaced_type_compile",
+      "description": "Issue #1413: a Declare returning Outlook.Application, from a made-up library, with no Outlook reference, is rejected: Compile error: User-defined type not defined. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function X Lib \"xlide_none\" () As Outlook.Application\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1413_access_d_lib_text_long_ok_compile",
+      "description": "Issue #1413: a Declare returning Long with Lib \"Outlook.Application\" compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function X Lib \"Outlook.Application\" () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1413_access_d_dim_spaced_type_compile",
+      "description": "Issue #1413: Dim o As Outlook . Application with no Outlook reference is rejected: Compile error: User-defined type not defined. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Outlook . Application\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1413_access_t_dim_tab_compile",
+      "description": "Issue #1413: Dim t As Tab is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim t As Tab\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1413_access_t_dim_spc_compile",
+      "description": "Issue #1413: Dim t As Spc is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim t As Spc\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1413_access_t_param_tab_compile",
+      "description": "Issue #1413: Sub F(t As Tab) is rejected: Compile error: Expected: type name. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub F(t As Tab)\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1413_access_t_name_tab_ok_compile",
+      "description": "Issue #1413: Dim tab1 As Long compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim tab1 As Long\r\n    tab1 = 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1413_access_f_no_parens_fixed_string_compile",
+      "description": "Issue #1413: Function F As String * 3 is rejected: Compile error: Expected: end of statement. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction F As String * 3\r\n    F = \"abc\"\r\nEnd Function\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1413_access_f_parens_fixed_string_compile",
+      "description": "Issue #1413: Function F() As String * 3 is rejected: Compile error: Expected: end of statement. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction F() As String * 3\r\n    F = \"abc\"\r\nEnd Function\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1413_access_f_no_parens_string_ok_compile",
+      "description": "Issue #1413: Function F As String compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction F As String\r\n    F = \"abc\"\r\nEnd Function\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1413_access_n_class_parens_compile",
+      "description": "Issue #1413: Set o = New Class1() is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    Set o = New Class1()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1413_access_n_collection_parens_compile",
+      "description": "Issue #1413: Set o = New Collection(), inside a single-line If False, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    If False Then Set o = New Collection()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1413_access_n_class_ok_compile",
+      "description": "Issue #1413: Set o = New Class1 compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    Set o = New Class1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1413_access_n_dim_as_new_parens_compile",
+      "description": "Issue #1413: Dim o As New Class1() is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As New Class1()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1413_word_x_declare_spaced_type_compile",
+      "description": "Issue #1413: a Declare returning Excel . Application, from a made-up library, with no Excel reference, is rejected: Compile error: User-defined type not defined. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function X Lib \"xlide_none\" () As Excel . Application\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1413_powerpoint_x_declare_spaced_type_compile",
+      "description": "Issue #1413: a Declare returning Excel . Application, from a made-up library, with no Excel reference, is rejected: Compile error: User-defined type not defined. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function X Lib \"xlide_none\" () As Excel . Application\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1413_access_x_declare_spaced_type_compile",
+      "description": "Issue #1413: a Declare returning Excel . Application, from a made-up library, with no Excel reference, is rejected: Compile error: User-defined type not defined. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function X Lib \"xlide_none\" () As Excel . Application\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1413_word_x_declare_type_text_in_lib_compile",
+      "description": "Issue #1413: a Declare returning Excel.Application with Lib \"Excel.Application\", with no Excel reference, is rejected: Compile error: User-defined type not defined. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function X Lib \"Excel.Application\" () As Excel.Application\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1413_powerpoint_x_declare_type_text_in_lib_compile",
+      "description": "Issue #1413: a Declare returning Excel.Application with Lib \"Excel.Application\", with no Excel reference, is rejected: Compile error: User-defined type not defined. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function X Lib \"Excel.Application\" () As Excel.Application\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1413_access_x_declare_type_text_in_lib_compile",
+      "description": "Issue #1413: a Declare returning Excel.Application with Lib \"Excel.Application\", with no Excel reference, is rejected: Compile error: User-defined type not defined. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function X Lib \"Excel.Application\" () As Excel.Application\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1413_word_x_declare_unspaced_type_compile",
+      "description": "Issue #1413: a Declare returning Excel.Application, from a made-up library, with no Excel reference, is rejected: Compile error: User-defined type not defined. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function X Lib \"xlide_none\" () As Excel.Application\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1413_powerpoint_x_declare_unspaced_type_compile",
+      "description": "Issue #1413: a Declare returning Excel.Application, from a made-up library, with no Excel reference, is rejected: Compile error: User-defined type not defined. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function X Lib \"xlide_none\" () As Excel.Application\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1413_access_x_declare_unspaced_type_compile",
+      "description": "Issue #1413: a Declare returning Excel.Application, from a made-up library, with no Excel reference, is rejected: Compile error: User-defined type not defined. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function X Lib \"xlide_none\" () As Excel.Application\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1413_word_x_dim_spaced_type_compile",
+      "description": "Issue #1413: Dim o As Excel . Application with no Excel reference is rejected: Compile error: User-defined type not defined. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Excel . Application\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1413_powerpoint_x_dim_spaced_type_compile",
+      "description": "Issue #1413: Dim o As Excel . Application with no Excel reference is rejected: Compile error: User-defined type not defined. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Excel . Application\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1413_access_x_dim_spaced_type_compile",
+      "description": "Issue #1413: Dim o As Excel . Application with no Excel reference is rejected: Compile error: User-defined type not defined. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Excel . Application\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1413_word_x_lib_text_long_ok_compile",
+      "description": "Issue #1413: a Declare returning Long with Lib \"Excel.Application\" compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function X Lib \"Excel.Application\" () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1413_powerpoint_x_lib_text_long_ok_compile",
+      "description": "Issue #1413: a Declare returning Long with Lib \"Excel.Application\" compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function X Lib \"Excel.Application\" () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1413_access_x_lib_text_long_ok_compile",
+      "description": "Issue #1413: a Declare returning Long with Lib \"Excel.Application\" compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function X Lib \"Excel.Application\" () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1413_t_dim_excel_tab_ok_compile",
+      "description": "Issue #1413: Dim t As Excel.Tab compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim t As Excel.Tab\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
     }
   ]
 }

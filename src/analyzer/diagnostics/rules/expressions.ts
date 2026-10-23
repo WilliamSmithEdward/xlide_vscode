@@ -320,6 +320,15 @@ export function checkInvalidExpressionSyntax(
 				);
 				return;
 			}
+			const newArguments = newWithArgumentList(labelToks, stmt.span.start);
+			if (newArguments) {
+				push(
+					'invalidExpressionSyntax',
+					"New takes a class name and no argument list; remove the parentheses. This is a VBE compile error: Syntax error.",
+					newArguments,
+				);
+				return;
+			}
 			const unsupportedQuestion = unsupportedQuestionMarkOperator(source, stmt.span);
 			if (unsupportedQuestion) {
 				push(
@@ -348,6 +357,31 @@ export function checkInvalidExpressionSyntax(
 			}
 		};
 	};
+}
+
+/**
+ * `Set o = New Class1()`, `New Collection()`, `New Excel.Application()`: New
+ * is given a class, never an argument list, and the parentheses are a Syntax
+ * error (issue #1413, measured in Excel, Word, PowerPoint and Access 16.0).
+ * The span of the `(`, or undefined.
+ */
+function newWithArgumentList(toks: readonly VbaToken[], offset: number): Span | undefined {
+	for (let i = 0; i < toks.length; i++) {
+		if (tokenText(toks[i]) !== 'new' || tokenText(toks[i - 1]) === 'as') {
+			continue;
+		}
+		let j = i + 1;
+		if (!tokenName(toks[j])) {
+			continue;
+		}
+		while (toks[j + 1]?.rawText === '.' && tokenName(toks[j + 2])) {
+			j += 2;
+		}
+		if (toks[j + 1]?.rawText === '(') {
+			return { start: offset + toks[j + 1].start, end: offset + toks[j + 1].end };
+		}
+	}
+	return undefined;
 }
 
 const NON_UNARY_BINARY_OPERATORS = new Set([

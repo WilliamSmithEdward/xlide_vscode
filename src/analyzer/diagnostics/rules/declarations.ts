@@ -72,6 +72,7 @@ import {
 import {
 	absoluteSpan,
 	activeModuleMembers,
+	blockHeaderLineSpan,
 	declaredNameSpan,
 	firstTokenSpan,
 	forEachStatement,
@@ -1264,9 +1265,50 @@ export function checkUnexpectedDeclarationTokens(
 			for (const param of member.params) {
 				inspectParameter(source, param, inspect);
 			}
+			const fixedResult = fixedLengthStringResult(source, member);
+			if (fixedResult) {
+				push(
+					'unexpectedDeclarationToken',
+					`A ${member.procKind === 'PropertyGet' ? 'Property Get' : 'Function'} cannot return a fixed-length String; '${member.name}' ends at its String. This is a VBE compile error: Expected: end of statement.`,
+					fixedResult,
+				);
+			}
 			forEachVariableGroup(member.body, inspectGroup, activity);
 		}
 	}
+}
+
+/**
+ * `Function F As String * 3`, with or without its parentheses: no procedure
+ * returns a fixed-length String, so the `*` is Expected: end of statement
+ * (issue #1413, measured in Excel, Word, PowerPoint and Access 16.0). The
+ * span of the `*`, or undefined.
+ */
+function fixedLengthStringResult(source: string, member: ProcedureNode): Span | undefined {
+	if ((member.procKind !== 'Function' && member.procKind !== 'PropertyGet') || !member.nameSpan) {
+		return undefined;
+	}
+	const header = blockHeaderLineSpan(source, member.span);
+	const toks = statementTokens(source, header);
+	let i = toks.findIndex((tok) => header.start + tok.start === member.nameSpan!.start);
+	if (i < 0) {
+		return undefined;
+	}
+	i += 1;
+	if (toks[i] && member.typeSuffixSpan && header.start + toks[i].start === member.typeSuffixSpan.start) {
+		i += 1;
+	}
+	if (toks[i]?.rawText === '(') {
+		const close = matchParenFrom(toks, i);
+		if (close < 0) {
+			return undefined;
+		}
+		i = close + 1;
+	}
+	if (tokenText(toks[i]) !== 'as' || tokenText(toks[i + 1]) !== 'string' || toks[i + 2]?.rawText !== '*') {
+		return undefined;
+	}
+	return { start: header.start + toks[i + 2].start, end: header.start + toks[i + 2].end };
 }
 
 type TypeDeclarationSuffixNode =
@@ -1551,6 +1593,9 @@ function isDeclarationTypeNameToken(tok: VbaToken | undefined): boolean {
 	);
 }
 
+/** The Print statement's keywords, which no unqualified type name can be (issue #1413). */
+const PRINT_LIST_KEYWORDS: ReadonlySet<string> = new Set(['tab', 'spc']);
+
 /** The Scripting Runtime's types, which missing-library-reference judges (issue #349). */
 const SCRIPTING_TYPE_NAMES: ReadonlySet<string> = new Set(['dictionary', 'filesystemobject', 'textstream']);
 
@@ -1591,6 +1636,17 @@ export function checkInvalidAsTypeNames(
 			push(
 				'invalidAsTypeName',
 				`'${ref.name}' is ambiguous because multiple visible project types use that name.`,
+				ref.span,
+			);
+			continue;
+		}
+		// `Dim t As Tab` is a Syntax error even in Excel, whose library has a
+		// Tab type: unqualified, the Print keyword wins (issue #1413, measured
+		// in Excel, Word, PowerPoint and Access 16.0). Excel.Tab compiles.
+		if (!ref.qualifier && PRINT_LIST_KEYWORDS.has(ref.name.toLowerCase())) {
+			push(
+				'invalidAsTypeName',
+				`'${ref.name}' is a keyword of the Print statement, not a type name. This is a VBE compile error: Syntax error.`,
 				ref.span,
 			);
 			continue;
@@ -1951,6 +2007,36 @@ export function checkNonConstantParameterDefaults(
 	}
 }
 
+/** The intrinsic types a Const can have, whose Nothing is Invalid use of object. */
+const CONST_VALUE_TYPES: ReadonlySet<string> = new Set([
+	'byte', 'boolean', 'integer', 'long', 'longlong', 'longptr', 'currency', 'single', 'double', 'date', 'string',
+]);
+const SUFFIX_CONST_TYPES: Readonly<Record<string, string>> = {
+	'%': 'integer', '&': 'long', '^': 'longlong', '@': 'currency', '!': 'single', '#': 'double', '$': 'string',
+};
+
+/**
+ * The VBE's error for a Const whose value is Nothing, parentheses and all:
+ * one of VBA's types refuses it as Invalid use of object, an untyped Const
+ * as Invalid data type for constant, and a Variant one as Object variable or
+ * With block variable not set (issue #1413, measured in Excel, Word,
+ * PowerPoint and Access 16.0). Other types were not measured.
+ */
+function constNothingError(decl: VariableDeclNode, value: readonly VbaToken[]): string | undefined {
+	const words = value.filter((tok) => tok.kind !== 'comment' && tok.rawText !== '(' && tok.rawText !== ')');
+	if (words.length !== 1 || tokenText(words[0]) !== 'nothing') {
+		return undefined;
+	}
+	const type = decl.asType?.trim().toLowerCase() ?? (decl.typeSuffix ? SUFFIX_CONST_TYPES[decl.typeSuffix] : undefined);
+	if (type === undefined) {
+		return 'Invalid data type for constant';
+	}
+	if (type === 'variant') {
+		return 'Object variable or With block variable not set';
+	}
+	return CONST_VALUE_TYPES.has(type) ? 'Invalid use of object' : undefined;
+}
+
 /**
  * The value of a Const declaration must be a constant expression (MS-VBAL 5.2.4
  * / VBE "Constant expression required"). Flags a Const value that is provably
@@ -1987,6 +2073,16 @@ export function checkNonConstantConstValues(
 			}
 			const valueTokens = valueTokensAfterEquals(source, decl.span);
 			if (!valueTokens) {
+				continue;
+			}
+			const nothing = constNothingError(decl, valueTokens.tokens);
+			if (nothing) {
+				const at = valueTokens.tokens.find((tok) => tokenText(tok) === 'nothing')!;
+				push(
+					'constValueNotConstant',
+					`Const '${decl.name}' cannot be Nothing, which is an object reference. This is a VBE compile error: ${nothing}.`,
+					{ start: decl.span.start + at.start, end: decl.span.start + at.end },
+				);
 				continue;
 			}
 			const nonConstant = nonConstantDefaultElement(valueTokens.tokens, decl.span.start, 'const')
