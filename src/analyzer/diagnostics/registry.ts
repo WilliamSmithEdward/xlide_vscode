@@ -290,7 +290,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'redimTypeChange',
-		procedureStatements: (ctx, push) => checkRedimTypeChange(ctx.source, ctx.mod, ctx.activity, push),
+		procedureStatements: (ctx, push) => checkRedimTypeChange(ctx.source, ctx.mod, ctx.activity, push, ctx.symbols, ctx.opts.projectTypes, ctx.memberCtx.model),
 	},
 	{
 		name: 'tooManyParameters',
