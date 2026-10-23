@@ -4,8 +4,9 @@
 // asynchronous. The whole container engine is synchronous and reads a part at
 // a time out of an already-loaded archive, so an async inflate would mean
 // threading promises through every reader in src/vba/. This is ~200 lines
-// instead, and zlib itself is the oracle: tests/inflate.test.ts asserts byte
-// identity against inflateRawSync over every fixture container in the repo.
+// instead, and zlib itself is the oracle: tests/engine/inflate.test.ts asserts
+// byte identity against inflateRawSync over every fixture container in the
+// repo.
 //
 // Only decompression lives here. Nothing needs a pure-TS deflate, because
 // ZipArchive carries untouched entries over with their original compressed

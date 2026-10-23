@@ -67,9 +67,9 @@ jobs:
       - name: Run the VBA language tests
         run: >
           npx vitest run
-          tests/vbaLanguageMatrix.test.ts
-          tests/vbaCodePages.test.ts
-          tests/moduleExport.test.ts
+          tests/engine/vbaLanguageMatrix.test.ts
+          tests/engine/vbaCodePages.test.ts
+          tests/engine/moduleExport.test.ts
           tests/vbaCombiningMarks.test.ts
           tests/vbaNonAsciiNavigation.test.ts
 
@@ -99,10 +99,10 @@ jobs:
       - name: Run the Access storage tests
         run: >
           npx vitest run
-          tests/accessStorage.test.ts
-          tests/accessStorageEngine.test.ts
-          tests/accessVbaWrite.test.ts
-          tests/accessDesign.test.ts
+          tests/engine/accessStorage.test.ts
+          tests/engine/accessStorageEngine.test.ts
+          tests/engine/accessVbaWrite.test.ts
+          tests/engine/accessDesign.test.ts
 
   # Execute generated recovery PowerShell against fake registry objects. No
   # Office installation or real registry changes are needed.
