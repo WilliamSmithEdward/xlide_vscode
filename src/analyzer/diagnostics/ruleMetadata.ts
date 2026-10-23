@@ -2069,6 +2069,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.4.2.3; VBE "Type mismatch" (issue #213, Excel 16.0)',
 		confidence: 'high',
 	},
+	redimBoundArray: {
+		code: 'redim-bound-array',
+		title: 'Array as a ReDim bound',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.4.3.3; VBE "Type mismatch" (issue #1412, Excel, Word, PowerPoint and Access 16.0)',
+		confidence: 'high',
+	},
 	forBoundArray: {
 		code: 'for-bound-array',
 		title: 'Array as a For start, end or Step value',

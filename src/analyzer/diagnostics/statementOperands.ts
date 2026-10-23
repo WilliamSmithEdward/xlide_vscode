@@ -2,7 +2,8 @@
 //
 // The shared expression walk (exprWalk.ts) parses assignments, calls and If
 // conditions. A Case item, a Print # or Debug.Print item, a file number, a
-// Seek position, a record number or a Lock range is an expression too, and
+// Seek position, a record number, a Lock range or a ReDim bound is an
+// expression too, and
 // the VBE judges it as one: an array or a scalar `Is` there is the same Type
 // mismatch it is anywhere (issue #1415, measured in Excel, Word, PowerPoint
 // and Access 16.0). This module finds those expressions in a statement's own
@@ -234,8 +235,52 @@ function operandRanges(toks: readonly VbaToken[]): OperandRange[] {
 			}
 			break;
 		}
+		case 'redim': {
+			for (const range of redimBoundRanges(toks)) {
+				out.push(range);
+			}
+			break;
+		}
 		default:
 			break;
 	}
 	return out.filter(([from, to]) => from < to);
+}
+
+/**
+ * The bounds of `ReDim [Preserve] a(1 To n, m) [As T], b(k)`: each lower and
+ * upper bound of each variable, an expression the VBE judges as one, so
+ * `ReDim a(n Is Nothing)` is the Type mismatch it is anywhere (issue
+ * #1412, measured in Excel, Word, PowerPoint and Access 16.0).
+ */
+function redimBoundRanges(toks: readonly VbaToken[]): OperandRange[] {
+	const out: OperandRange[] = [];
+	const from = tokenWord(toks[1]) === 'preserve' ? 2 : 1;
+	for (const [start, stop] of pieces(toks, from, toks.length, COMMA)) {
+		const open = toks.findIndex((tok, i) => i >= start && i < stop && tok.rawText === '(');
+		if (open < 0) {
+			continue;
+		}
+		let depth = 0;
+		let close = -1;
+		for (let i = open; i < stop; i++) {
+			depth += toks[i].rawText === '(' ? 1 : toks[i].rawText === ')' ? -1 : 0;
+			if (depth === 0) {
+				close = i;
+				break;
+			}
+		}
+		if (close < 0) {
+			continue;
+		}
+		for (const [dimStart, dimStop] of pieces(toks, open + 1, close, COMMA)) {
+			const to = topLevel(toks, dimStart, dimStop, (tok) => tokenWord(tok) === 'to')[0];
+			if (to === undefined) {
+				out.push([dimStart, dimStop]);
+			} else {
+				out.push([dimStart, to], [to + 1, dimStop]);
+			}
+		}
+	}
+	return out.filter(([start, stop]) => start < stop);
 }
