@@ -39,6 +39,7 @@ const lockTaken = (): Promise<void> => new Promise((resolve) => setImmediate(res
 function setup(cases: Case[] = [{ id: 'first' }, { id: 'second' }], lockHeld = true) {
     const trace: string[] = [];
     const workers = { started: 0 };
+    const hostSweeps = { count: 0 };
     const errors: string[] = [];
     const output: string[] = [];
     const interrupted = new Error('fake process exited');
@@ -93,6 +94,9 @@ function setup(cases: Case[] = [{ id: 'first' }, { id: 'second' }], lockHeld = t
             ? { held: true, release: async () => {} }
             : { held: false, reason: 'busy', owner: { pid: 99 } }),
         oracleRunLockAddress: () => 'test-lock', oracleRunOwner: () => ({ pid: 1 }), describeRefusal: () => 'refused',
+        // Owned hosts are covered in vbeOracleOwnedHosts.test.ts; here the run owns none.
+        OwnedHosts: class { load() { return []; } add() {} sweep() { hostSweeps.count += 1; return []; } },
+        ownedHostsPath: () => 'hosts.json', describeLeftHosts: () => 'left', abandonActiveCases: () => {},
         unwritableCheckpoint: () => undefined, // A real path is checked in vbeOracleOptions.test.ts.
         OracleWorker: class {
             constructor() { workers.started++; }
@@ -113,7 +117,7 @@ function setup(cases: Case[] = [{ id: 'first' }, { id: 'second' }], lockHeld = t
         dialogSoundsPath: () => string;
         setDialogSounds: (action: string) => void;
     };
-    return { ...api, trace, workers, errors, output, fakeProcess, os, spawnSync, close, kill,
+    return { ...api, trace, workers, hostSweeps, errors, output, fakeProcess, os, spawnSync, close, kill,
         runCaseWithRetries, comRegistered, registeredHostBuild, loadCasesDocument, interrupted };
 }
 
@@ -158,7 +162,7 @@ describe('VBE oracle dialog sound lifecycle', () => {
         expect(probe.spawnSync).toHaveBeenCalledTimes(2);
     });
 
-    it('restores synchronously on exit, without restoring again in finally', async () => {
+    it('cleans up synchronously on exit, without restoring again in finally', async () => {
         const probe = setup([{ id: 'first' }]);
         const pending = deferred<{ caseId: string; outcome: string }>();
         probe.runCaseWithRetries.mockReturnValueOnce(pending.promise);
@@ -166,16 +170,18 @@ describe('VBE oracle dialog sound lifecycle', () => {
         await lockTaken();
         expect(probe.trace).toEqual(['silence', 'measure:first']);
         probe.fakeProcess.emit('exit', 1);
-        expect(probe.trace).toEqual(['silence', 'measure:first', 'restore']);
+        // The worker and the hosts it started are ended, then the sounds put back (issue #1439).
+        expect(probe.trace).toEqual(['silence', 'measure:first', 'kill', 'restore']);
+        expect(probe.hostSweeps.count).toBeGreaterThan(0);
         probe.fakeProcess.emit('exit', 1);
         pending.resolve({ caseId: 'first', outcome: 'accepted' });
         expect(await running).toBe(0);
-        expect(probe.trace).toEqual(['silence', 'measure:first', 'restore', 'close:begin', 'close:end']);
+        expect(probe.trace).toEqual(['silence', 'measure:first', 'kill', 'restore', 'close:begin', 'close:end']);
         expectNoOwnedListeners(probe);
     });
 
     it.each(signals.flatMap(([signal, code]) => ['case', 'close'].map((stage) => ({ signal, code, stage }))))(
-        'restores and exits $code on $signal during $stage, leaving the worker to its own Ctrl-C, without a second restore', async ({ signal, code, stage }) => {
+        'ends the worker and its hosts, restores and exits $code on $signal during $stage, without a second restore', async ({ signal, code, stage }) => {
             const probe = setup([{ id: 'first' }]);
             const measuring = deferred<{ caseId: string; outcome: string }>();
             const closing = deferred<void>();
@@ -190,10 +196,12 @@ describe('VBE oracle dialog sound lifecycle', () => {
                 await closeStarted.promise;
             }
             expect(() => probe.fakeProcess.emit(signal)).toThrow(probe.interrupted);
-            expect(probe.trace.slice(-2)).toEqual(['restore', `exit:${code}`]);
+            expect(probe.trace.slice(-3)).toEqual(['kill', 'restore', `exit:${code}`]);
             expect(probe.fakeProcess.exit).toHaveBeenCalledExactlyOnceWith(code);
-            // The worker gets the same Ctrl-C and quits its host itself, as without this change.
-            expect(probe.kill).not.toHaveBeenCalled();
+            // The coordinator ends the worker and the hosts it recorded itself (issue
+            // #1439), whether or not the worker also saw the Ctrl-C.
+            expect(probe.kill).toHaveBeenCalledTimes(1);
+            expect(probe.hostSweeps.count).toBeGreaterThan(0);
             expect(probe.fakeProcess.listenerCount(signal)).toBe(0);
             if (stage === 'case') {
                 measuring.reject(probe.interrupted);

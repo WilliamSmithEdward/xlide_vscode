@@ -46,6 +46,9 @@ function setup(cases: Case[] = [], checkpoint = false) {
         // The run lock is covered in vbeOracleRunLock.test.ts; here it is always free.
         acquireOracleRunLock: async () => ({ held: true, release: async () => {} }),
         oracleRunLockAddress: () => 'test-lock', oracleRunOwner: () => ({ pid: 1 }), describeRefusal: () => 'refused',
+        // Owned hosts are covered in vbeOracleOwnedHosts.test.ts; here the run owns none.
+        OwnedHosts: class { load() { return []; } add() {} sweep() { return []; } },
+        ownedHostsPath: () => 'hosts.json', describeLeftHosts: () => 'left', abandonActiveCases: () => {},
         unwritableCheckpoint: () => undefined, // A real path is checked in vbeOracleOptions.test.ts.
         OracleWorker: class { async close() {} },
         caseHash: () => 'hash', checkpointKey: () => 'key', phaseMatches: () => true,

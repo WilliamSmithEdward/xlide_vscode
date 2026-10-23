@@ -1064,6 +1064,15 @@ function Start-OracleHost {
     $script:appCases = 0
 }
 
+# The host this worker drives, for the coordinator: its process id, image and
+# start time (issue #1439). The coordinator ends a host only while the process
+# at that id still has that image and start time, so a reused id is never
+# taken for it. Written as soon as the host is started, and before each case.
+function Write-HostRecord {
+    $start = (Get-Process -Id $script:appPid -ErrorAction Stop).StartTime.ToUniversalTime().ToFileTimeUtc()
+    Set-Content -LiteralPath $PidPath -Value "$($script:appPid) $($script:hostImageOfApp) $start" -Encoding ascii
+}
+
 function Stop-OracleHost {
     $script:appBuild = $null
     $script:appBuildPid = 0
@@ -1091,6 +1100,12 @@ function Stop-OracleHost {
         $deadline = [DateTime]::UtcNow.AddSeconds(10)
         while ([DateTime]::UtcNow -lt $deadline -and $null -ne (Get-Process -Id $script:appPid -ErrorAction SilentlyContinue)) {
             Start-Sleep -Milliseconds 50
+        }
+        # A host still running is not forgotten (issue #1439): the worker fails,
+        # and the coordinator, which recorded it, ends it or reports it.
+        $left = Get-Process -Id $script:appPid -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -eq $script:hostImageOfApp }
+        if ($null -ne $left) {
+            throw "The $($script:hostNoun) instance the oracle started, pid $($script:appPid), did not exit."
         }
         $script:appPid = 0
     }
@@ -1261,13 +1276,13 @@ function Invoke-OracleCase {
             Stop-OracleHost
         }
         if ($null -ne $script:app) {
-            Set-Content -LiteralPath $PidPath -Value "$($script:appPid) $($script:hostImage)" -Encoding ascii
+            Write-HostRecord
             try { Set-OracleHostSettings $script:app } catch { Stop-OracleHost }
         }
         if ($null -eq $script:app) {
             $script:hostImageOfApp = $script:hostImage
             Start-OracleHost
-            Set-Content -LiteralPath $PidPath -Value "$($script:appPid) $($script:hostImage)" -Encoding ascii
+            Write-HostRecord
             Set-OracleHostSettings $script:app
         }
         $app = $script:app
