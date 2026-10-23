@@ -13,6 +13,7 @@ import os from 'node:os';
 import path from 'node:path';
 import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
+import { acquireOracleRunLock, describeRefusal, oracleRunLockAddress, oracleRunOwner } from './oracleRunLock.mjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_CASES = path.join(ROOT, 'vbe_oracle_cases.json');
@@ -784,6 +785,9 @@ const USAGE = `Usage: node run_vbe_oracle.mjs [options]
   --strict                    Exit non-zero when outcomes do not match fixtures
   --promote-observed          Write accepted/rejected outcomes back as asserted
                               vbe-oracle-verified expectations. Requires --case.
+
+  One run at a time per Windows user: while another run holds the lock, a
+  run starts nothing and exits with code 3, naming that run.
 `;
 
 function parseArgs(argv) {
@@ -898,6 +902,14 @@ async function main(argv) {
             return 2;
         }
         if (registered.build) { hostBuilds.set(host, registered.build); }
+    }
+
+    // One run at a time per user, taken before any Office automation or sound
+    // change (issue #1438). Ending this process, however it ends, frees it.
+    const lock = await acquireOracleRunLock(oracleRunLockAddress(), oracleRunOwner(argv));
+    if (!lock.held) {
+        console.error(describeRefusal(lock));
+        return 3;
     }
 
     const results = [];

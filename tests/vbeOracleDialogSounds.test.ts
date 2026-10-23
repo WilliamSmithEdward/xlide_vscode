@@ -33,8 +33,12 @@ function deferred<T>() {
     return { promise, resolve, reject };
 }
 
-function setup(cases: Case[] = [{ id: 'first' }, { id: 'second' }]) {
+/** The run lock is taken asynchronously (issue #1438): let main reach its first case. */
+const lockTaken = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
+
+function setup(cases: Case[] = [{ id: 'first' }, { id: 'second' }], lockHeld = true) {
     const trace: string[] = [];
+    const workers = { started: 0 };
     const errors: string[] = [];
     const output: string[] = [];
     const interrupted = new Error('fake process exited');
@@ -84,7 +88,13 @@ function setup(cases: Case[] = [{ id: 'first' }, { id: 'second' }]) {
         loadCasesDocument, comRegistered,
         registeredHostBuild,
         loadCheckpoint: () => new Map(),
+        // The run lock is covered in vbeOracleRunLock.test.ts; here it is always free.
+        acquireOracleRunLock: async () => (lockHeld
+            ? { held: true, release: async () => {} }
+            : { held: false, reason: 'busy', owner: { pid: 99 } }),
+        oracleRunLockAddress: () => 'test-lock', oracleRunOwner: () => ({ pid: 1 }), describeRefusal: () => 'refused',
         OracleWorker: class {
+            constructor() { workers.started++; }
             async close() {
                 trace.push('close:begin');
                 try { await close(); } finally { trace.push('close:end'); }
@@ -102,7 +112,7 @@ function setup(cases: Case[] = [{ id: 'first' }, { id: 'second' }]) {
         dialogSoundsPath: () => string;
         setDialogSounds: (action: string) => void;
     };
-    return { ...api, trace, errors, output, fakeProcess, os, spawnSync, close, kill,
+    return { ...api, trace, workers, errors, output, fakeProcess, os, spawnSync, close, kill,
         runCaseWithRetries, comRegistered, registeredHostBuild, loadCasesDocument, interrupted };
 }
 
@@ -111,6 +121,15 @@ function expectNoOwnedListeners(probe: ReturnType<typeof setup>) {
 }
 
 describe('VBE oracle dialog sound lifecycle', () => {
+    it('starts no worker and leaves the sounds alone while another run holds the lock', async () => {
+        const probe = setup([{ id: 'first' }], false);
+        expect(await probe.main(['--json'])).toBe(3);
+        expect(probe.trace).toEqual([]);
+        expect(probe.workers.started).toBe(0);
+        expect(probe.errors).toEqual(['refused']);
+        expect(probe.spawnSync).not.toHaveBeenCalled();
+    });
+
     it.each(Object.keys(OFFICE_HOST_APPS))('silences once before measuring %s, restores once after close, and removes its listeners', async (host) => {
         const probe = setup([{ id: 'first', host }, { id: 'second', host }]);
         const unrelated = vi.fn();
@@ -143,6 +162,7 @@ describe('VBE oracle dialog sound lifecycle', () => {
         const pending = deferred<{ caseId: string; outcome: string }>();
         probe.runCaseWithRetries.mockReturnValueOnce(pending.promise);
         const running = probe.main(['--json']);
+        await lockTaken();
         expect(probe.trace).toEqual(['silence', 'measure:first']);
         probe.fakeProcess.emit('exit', 1);
         expect(probe.trace).toEqual(['silence', 'measure:first', 'restore']);
@@ -163,6 +183,7 @@ describe('VBE oracle dialog sound lifecycle', () => {
             probe.close.mockImplementationOnce(() => { closeStarted.resolve(); return closing.promise; });
             const running = probe.main(['--json']);
             const rejected = expect(running).rejects.toBe(probe.interrupted);
+            await lockTaken();
             if (stage === 'close') {
                 measuring.resolve({ caseId: 'first', outcome: 'accepted' });
                 await closeStarted.promise;
