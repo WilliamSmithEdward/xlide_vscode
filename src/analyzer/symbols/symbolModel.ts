@@ -15,6 +15,7 @@
 
 import type { Span } from '../parser/nodes';
 import type { VbaDoc } from '../docs/docModel';
+import type { EventHandlerDocumentType } from '../completion/eventHandlers';
 
 /**
  * The project-project role of a module, as reported by the host
@@ -333,6 +334,12 @@ export interface VbaProjectClassMembers {
 	 * for a UserForm, whose base is the forms library's.
 	 */
 	designerClass?: string;
+	/**
+	 * Which host object a document module is, where the host said: a
+	 * renamed ThisWorkbook is still a `workbook`. Absent for every other
+	 * kind, and where only the code name can tell.
+	 */
+	documentType?: EventHandlerDocumentType;
 	members: VbaProjectClassMember[];
 	/**
 	 * The names of the module's Private members, which `members` leaves out.

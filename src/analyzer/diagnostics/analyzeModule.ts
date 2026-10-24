@@ -46,6 +46,7 @@ import { buildModuleSymbols } from '../symbols/buildModuleSymbols';
 import { createConditionalActivityTracker } from '../conditional/conditionalCompilation';
 import type { ModuleSymbolKind, VbaProjectClassMembers } from '../symbols/symbolModel';
 import { type MemberCompletionContext } from '../completion/memberAccess';
+import type { EventHandlerDocumentType } from '../completion/eventHandlers';
 import {
 	DIAGNOSTIC_RULES,
 	DiagnosticRuleName,
@@ -472,7 +473,7 @@ function diagnosticMemberCompletionContext(
 	if (meProjectType) {
 		ctx.meProjectType = meProjectType;
 	}
-	const meType = meHostTypeFor(opts.moduleName, opts.moduleKind, opts.host, opts.designerClass);
+	const meType = meHostTypeFor(opts.moduleName, opts.moduleKind, opts.host, opts.designerClass, opts.documentType);
 	if (meType) {
 		ctx.meType = meType;
 	}
@@ -520,6 +521,7 @@ function meHostTypeFor(
 	moduleKind: ModuleSymbolKind | undefined,
 	host?: string,
 	designerClass?: string,
+	documentType?: EventHandlerDocumentType,
 ): string | undefined {
 	// A designer class is what the module IS, whatever kind it is listed as: a
 	// VB6 form's `Me` reaches Arrange and Show from `VB.MDIForm`, which the
@@ -528,7 +530,23 @@ function meHostTypeFor(
 	if (designerClass) {
 		return designerClass;
 	}
-	if (!moduleName || moduleKind !== 'document') {
+	if (moduleKind !== 'document') {
+		return undefined;
+	}
+	// The host's word for the object outranks the code name, which the user
+	// can change: a workbook module renamed BookCode is still a Workbook. A
+	// sheet stays without one unless its designer class came with it, since
+	// only then are the ActiveX controls that are members of it known too.
+	switch (documentType) {
+		case 'workbook':
+			return 'Excel.Workbook';
+		case 'document':
+			return 'Word.Document';
+		case 'worksheet':
+		case 'chart':
+			return undefined;
+	}
+	if (!moduleName) {
 		return undefined;
 	}
 	const lower = moduleName.toLowerCase();

@@ -3283,7 +3283,8 @@ const PROJECT_VALUE_TYPE_NAMES = new WeakMap<MemberCompletionContext, ReadonlySe
 /**
  * Each document module's host class, lowercased and qualified
  * (`excel.workbook` for ThisWorkbook): its designer's class where the
- * workbook gave one, otherwise the class its code name implies.
+ * workbook gave one, otherwise the class its document type or, failing
+ * that, its code name implies.
  */
 function projectDocumentHostTypes(memberCtx: MemberCompletionContext): ReadonlyMap<string, string> {
 	const cached = PROJECT_DOCUMENT_HOST_TYPES.get(memberCtx);
@@ -3295,7 +3296,11 @@ function projectDocumentHostTypes(memberCtx: MemberCompletionContext): ReadonlyM
 		if (candidate.kind !== 'document') {
 			continue;
 		}
-		const documentType = eventHandlerDocumentTypeForContext({ moduleName: candidate.name, moduleKind: 'document' });
+		const documentType = eventHandlerDocumentTypeForContext({
+			moduleName: candidate.name,
+			moduleKind: 'document',
+			documentType: candidate.documentType,
+		});
 		const hostType = candidate.designerClass
 			?? (documentType === 'workbook' ? 'Excel.Workbook' : documentType === 'chart' ? 'Excel.Chart'
 				: documentType === 'document' ? 'Word.Document' : 'Excel.Worksheet');

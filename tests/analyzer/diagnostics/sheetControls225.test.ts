@@ -10,7 +10,11 @@ import { analyzeProjectModule, type ProjectTestModule } from './helpers';
 const SHEET = 'Option Explicit\nPublic Function Tag() As Long\nEnd Function\n';
 
 function findings(currentModule: string, body: string, known = true): string[] {
-	const sheetFacts = known ? { designerClass: 'Excel.Worksheet', implicitMembers: [{ name: 'CommandButton1', type: 'Object' }] } : {};
+	// The document type comes from the module's VB_Base, so a sheet has it
+	// whether or not the workbook could say what is on the sheet.
+	const sheetFacts = known
+		? { documentType: 'worksheet' as const, designerClass: 'Excel.Worksheet', implicitMembers: [{ name: 'CommandButton1', type: 'Object' }] }
+		: { documentType: 'worksheet' as const };
 	const modules: ProjectTestModule[] = [
 		{ moduleName: 'Sheet1', source: SHEET, moduleKind: 'document', ...sheetFacts },
 		{ moduleName: 'Module1', source: 'Option Explicit\n' },

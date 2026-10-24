@@ -130,6 +130,27 @@ describe('VbaProjectIndexService', () => {
 		expect(second.byModule.get('module1')?.source).toContain('Gamma');
 	});
 
+	it('keeps a document module\'s document type on its project type, across edits', async () => {
+		// A workbook module renamed BookCode is still a Workbook: what the host
+		// read from its VB_Base must reach the type other modules see.
+		const { index, projectIndexService } = service([
+			{ name: 'BookCode', type: 'document', documentType: 'workbook', source: 'Public Sub Alpha()\nEnd Sub\n' },
+			{ name: 'Sheet1', type: 'document', source: '' },
+		]);
+		const documentTypes = (context: VbaProjectContext) => context.project.projectClassMembers()
+			.filter((type) => type.kind === 'document')
+			.map((type) => [type.name, type.documentType]);
+		expect(documentTypes(await projectIndexService.contextForProject(BOOK)))
+			.toEqual([['BookCode', 'workbook'], ['Sheet1', undefined]]);
+
+		index.updateModuleSource(BOOK, 'BookCode', 'Public Sub Gamma()\nEnd Sub\n');
+		expect(documentTypes(await projectIndexService.contextForProject(BOOK)))
+			.toEqual([['BookCode', 'workbook'], ['Sheet1', undefined]]);
+		index.updateModuleSource(BOOK, 'Sheet1', 'Public Sub Delta()\nEnd Sub\n');
+		expect(documentTypes(await projectIndexService.contextForProject(BOOK)))
+			.toEqual([['BookCode', 'workbook'], ['Sheet1', undefined]]);
+	});
+
 	it('rebuilds after a project-level symbol index invalidation', async () => {
 		const { index, projectIndexService, callCount } = service([
 			{ name: 'Module1', type: 'standard', source: 'Public Sub Alpha()\nEnd Sub\n' },

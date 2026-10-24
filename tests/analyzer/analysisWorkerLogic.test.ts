@@ -353,6 +353,42 @@ describe('incremental reuse keys on the project surface, not the generation (iss
         expect(codesForCaller(state, oneArgumentEditedBody, 2)).toContain('argument-count');
     });
 
+    it('re-derives a caller when only a document module\'s document type changes', () => {
+        const caller = [
+            'Option Explicit',
+            'Public Sub UseIt()',
+            '    Dim w As BookCode',
+            '    Set w = Application.ActiveWorkbook',
+            'End Sub',
+        ].join('\n');
+        const state = new AnalysisWorkerState();
+        const codes = (documentType: string | undefined, generation: number): string[] => {
+            state.handle({
+                kind: 'seed',
+                projectKey: 'wb',
+                generation,
+                modules: [
+                    { moduleName: 'BookCode', source: '', type: 'document', documentType },
+                    { moduleName: 'Caller', source: caller, type: 'standard' },
+                ],
+            });
+            const response = state.handle({
+                kind: 'analyze',
+                requestId: generation,
+                docKey: 'doc:Caller',
+                projectKey: 'wb',
+                generation,
+                moduleName: 'Caller',
+                source: caller,
+                moduleType: 'standard',
+                moduleKind: 'standard',
+            });
+            return (response?.kind === 'result' ? response.diagnostics : []).map((d) => d.code);
+        };
+        expect(codes(undefined, 1)).toContain('assignment-object-type-mismatch');
+        expect(codes('workbook', 2)).not.toContain('assignment-object-type-mismatch');
+    });
+
     it('a re-seed with identical content re-uses the same fingerprint', () => {
         const state = new AnalysisWorkerState();
         expect(codesForCaller(state, oneArgument, 1)).toContain('argument-count');
