@@ -212295,6 +212295,569 @@
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid",
       "host": "access"
+    },
+    {
+      "id": "document_member_workbook_var_host_member_compile",
+      "description": "Excel: w.UsedRange, w declared As ThisWorkbook, UsedRange not a Workbook member, is rejected: Compile error: Method or data member not found. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim w As ThisWorkbook\r\n    Debug.Print w.UsedRange\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "document_member_workbook_var_unknown_compile",
+      "description": "Excel: w.Nope, w declared As ThisWorkbook, is rejected: Compile error: Method or data member not found. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim w As ThisWorkbook\r\n    Debug.Print w.Nope\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "document_member_workbook_var_workbook_member_compile",
+      "description": "Excel: w.FullName, w declared As ThisWorkbook, compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim w As ThisWorkbook\r\n    Debug.Print w.FullName\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "document_member_workbook_var_own_procedure_compile",
+      "description": "Excel: w.Hello, w declared As ThisWorkbook and Hello a public Sub of the module, compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim w As ThisWorkbook\r\n    w.Hello\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "document_member_renamed_workbook_name_host_member_compile",
+      "description": "Excel: BookCode.UsedRange, BookCode the workbook module renamed, is rejected: Compile error: Method or data member not found. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Debug.Print BookCode.UsedRange\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "codeName": "BookCode",
+          "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "document_member_renamed_workbook_name_workbook_member_compile",
+      "description": "Excel: BookCode.FullName, BookCode the workbook module renamed, compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Debug.Print BookCode.FullName\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "codeName": "BookCode",
+          "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "document_member_renamed_workbook_name_own_procedure_compile",
+      "description": "Excel: BookCode.Hello, BookCode the workbook module renamed and Hello its public Sub, compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    BookCode.Hello\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "codeName": "BookCode",
+          "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "document_member_renamed_workbook_var_host_member_compile",
+      "description": "Excel: b.UsedRange, b declared As BookCode, the workbook module renamed, is rejected: Compile error: Method or data member not found. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim b As BookCode\r\n    Debug.Print b.UsedRange\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "codeName": "BookCode",
+          "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "document_member_renamed_workbook_var_workbook_member_compile",
+      "description": "Excel: b.FullName, b declared As BookCode, the workbook module renamed, compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim b As BookCode\r\n    Debug.Print b.FullName\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "codeName": "BookCode",
+          "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "document_member_sheet_var_workbook_member_compile",
+      "description": "Excel: s.FullName, s declared As Sheet1, a sheet with no controls, is rejected: Compile error: Method or data member not found. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim s As Sheet1\r\n    Debug.Print s.FullName\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "designerClass": "Excel.Worksheet",
+          "implicitMembers": [],
+          "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "document_member_sheet_var_worksheet_member_compile",
+      "description": "Excel: s.UsedRange, s declared As Sheet1, compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim s As Sheet1\r\n    Debug.Print s.UsedRange\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "designerClass": "Excel.Worksheet",
+          "implicitMembers": [],
+          "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "document_member_sheet_var_own_procedure_compile",
+      "description": "Excel: s.Hello, s declared As Sheet1 and Hello its public Sub, compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim s As Sheet1\r\n    s.Hello\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "designerClass": "Excel.Worksheet",
+          "implicitMembers": [],
+          "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "document_member_sheet_name_workbook_member_compile",
+      "description": "Excel: Sheet1.FullName, a sheet with no controls, is rejected: Compile error: Method or data member not found. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Debug.Print Sheet1.FullName\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "designerClass": "Excel.Worksheet",
+          "implicitMembers": [],
+          "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "document_member_renamed_sheet_var_workbook_member_compile",
+      "description": "Excel: s.FullName, s declared As DataSheet, Sheet1 renamed, with no controls, is rejected: Compile error: Method or data member not found. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim s As DataSheet\r\n    Debug.Print s.FullName\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "designerClass": "Excel.Worksheet",
+          "implicitMembers": [],
+          "codeName": "DataSheet",
+          "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "document_member_word_var_host_member_compile",
+      "description": "Word: d.UsedRange, d declared As ThisDocument, UsedRange not a Document member, is rejected: Compile error: Method or data member not found. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim d As ThisDocument\r\n    Debug.Print d.UsedRange\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "document_member_word_var_unknown_compile",
+      "description": "Word: d.Nope, d declared As ThisDocument, is rejected: Compile error: Method or data member not found. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim d As ThisDocument\r\n    Debug.Print d.Nope\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "document_member_word_var_document_member_compile",
+      "description": "Word: d.Content, d declared As ThisDocument, compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim d As ThisDocument\r\n    Debug.Print d.Content\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "document_member_word_var_own_procedure_compile",
+      "description": "Word: d.Hello, d declared As ThisDocument and Hello its public Sub, compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim d As ThisDocument\r\n    d.Hello\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "document_member_renamed_word_name_host_member_compile",
+      "description": "Word: DocCode.UsedRange, DocCode the document module renamed, is rejected: Compile error: Method or data member not found. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Debug.Print DocCode.UsedRange\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "codeName": "DocCode",
+          "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "document_member_renamed_word_var_host_member_compile",
+      "description": "Word: d.UsedRange, d declared As DocCode, the document module renamed, is rejected: Compile error: Method or data member not found. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim d As DocCode\r\n    Debug.Print d.UsedRange\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "codeName": "DocCode",
+          "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "document_member_renamed_word_var_document_member_compile",
+      "description": "Word: d.Content, d declared As DocCode, the document module renamed, compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim d As DocCode\r\n    Debug.Print d.Content\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "codeName": "DocCode",
+          "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "document_member_access_form_var_host_member_compile",
+      "description": "Access: f.UsedRange, f declared As Form_Frm1, is rejected: Compile error: Method or data member not found. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim f As Form_Frm1\r\n    Debug.Print f.UsedRange\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Form_Frm1",
+          "type": "document",
+          "designerClass": "Access.Form",
+          "implicitMembers": [],
+          "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "document_member_access_form_var_unknown_compile",
+      "description": "Access: f.Nope, f declared As Form_Frm1, is rejected: Compile error: Method or data member not found. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim f As Form_Frm1\r\n    Debug.Print f.Nope\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Form_Frm1",
+          "type": "document",
+          "designerClass": "Access.Form",
+          "implicitMembers": [],
+          "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "document_member_access_form_var_form_member_compile",
+      "description": "Access: f.Caption, f declared As Form_Frm1, compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim f As Form_Frm1\r\n    Debug.Print f.Caption\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Form_Frm1",
+          "type": "document",
+          "designerClass": "Access.Form",
+          "implicitMembers": [],
+          "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+        }
+      ]
     }
   ]
 }

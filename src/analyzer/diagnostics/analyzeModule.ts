@@ -44,7 +44,7 @@ import { hostObjectModelForToken, hostObjectModelForTokens } from '../host/hostR
 import { parseModule } from '../parser/parseModule';
 import { buildModuleSymbols } from '../symbols/buildModuleSymbols';
 import { createConditionalActivityTracker } from '../conditional/conditionalCompilation';
-import type { ModuleSymbolKind } from '../symbols/symbolModel';
+import type { ModuleSymbolKind, VbaProjectClassMembers } from '../symbols/symbolModel';
 import { type MemberCompletionContext } from '../completion/memberAccess';
 import type { EventHandlerDocumentType } from '../completion/eventHandlers';
 import {
@@ -477,7 +477,38 @@ function diagnosticMemberCompletionContext(
 	if (meType) {
 		ctx.meType = meType;
 	}
+	const codeNames = documentCodeNames(opts.projectClassMembers, opts.host);
+	if (codeNames) {
+		ctx.codeNames = codeNames;
+	}
 	return ctx;
+}
+
+/**
+ * The document modules whose `Me` has a host type, by code name. Reached from
+ * another module, through the name or a variable of its type, such a module
+ * is the same closed class as its `Me`: `Dim w As ThisWorkbook` then
+ * `w.UsedRange` is "Method or data member not found", measured in Excel and
+ * Word 16.0. A renamed one, BookCode for ThisWorkbook, is known by the
+ * document type the host reads from its VB_Base. A module with a designer
+ * class already reaches it through its project type, and a sheet without
+ * one stays unchecked, as its `Me` does.
+ */
+function documentCodeNames(
+	projectClassMembers: readonly VbaProjectClassMembers[] | undefined,
+	host: string | undefined,
+): Record<string, string> | undefined {
+	let codeNames: Record<string, string> | undefined;
+	for (const candidate of projectClassMembers ?? []) {
+		if (candidate.kind !== 'document' || candidate.designerClass) {
+			continue;
+		}
+		const hostType = meHostTypeFor(candidate.name, 'document', host, undefined, candidate.documentType);
+		if (hostType) {
+			(codeNames ??= {})[candidate.name.toLowerCase()] = hostType;
+		}
+	}
+	return codeNames;
 }
 
 function meProjectTypeFor(

@@ -1232,17 +1232,38 @@ describe('analyzeModule - assignment type validation', () => {
 	});
 
 	it('does not use source-only document module members to prove absence', () => {
+		// The workbook module is a Workbook too, so its own members alone are
+		// not the whole list: FullName is there, and only DoesntExist is not
+		// (measured: document_member_workbook_var_* in the VBE oracle).
 		const project =
 			'Public Sub Hello()\n' +
 			'End Sub\n';
 		const src =
 			'Public Sub T()\n' +
 			'    Dim wb As ThisWorkbook\n' +
+			'    wb.Hello\n' +
+			'    Debug.Print wb.FullName\n' +
 			'    wb.DoesntExist\n' +
 			'End Sub\n';
 		const diagnostics = analyzeModule(src, {
 			projectClassMembers: projectClassMembers([
 				{ moduleName: 'ThisWorkbook', moduleKind: 'document', source: project },
+			]),
+		});
+		expectDiagnostics(src, diagnostics, 'member-not-found', [
+			{ span: 'DoesntExist', message: 'ThisWorkbook.DoesntExist' },
+		]);
+	});
+
+	it('leaves a sheet module unchecked when its controls are unknown', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim s As Sheet1\n' +
+			'    s.DoesntExist\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src, {
+			projectClassMembers: projectClassMembers([
+				{ moduleName: 'Sheet1', moduleKind: 'document', source: 'Public Sub Hello()\nEnd Sub\n' },
 			]),
 		});
 		expect(byCode(diagnostics, 'member-not-found')).toHaveLength(0);

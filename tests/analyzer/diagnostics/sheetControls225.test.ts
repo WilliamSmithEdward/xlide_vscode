@@ -40,8 +40,16 @@ describe("a worksheet's members, with its controls known (issue #225)", () => {
 		expect(findings('Module1', outside)).toEqual([]);
 	});
 
+	it('checks a variable of the sheet type the same way', () => {
+		// FullName is a Workbook's, not a Worksheet's (document_member_sheet_* in the VBE oracle).
+		expect(findings('Module1', '    Dim s As Sheet1\n    Debug.Print s.FullName')).toEqual([expect.stringContaining('FullName')]);
+		const found = ['    Dim s As Sheet1', '    Debug.Print s.UsedRange.Address', '    Debug.Print s.Tag()', '    Debug.Print s.CommandButton1.Caption'].join('\n');
+		expect(findings('Module1', found)).toEqual([]);
+	});
+
 	it('stays quiet when the workbook supplied nothing', () => {
 		expect(findings('Sheet1', '    Debug.Print Me.Nope', false)).toEqual([]);
 		expect(findings('Module1', '    Debug.Print Sheet1.Nope()', false)).toEqual([]);
+		expect(findings('Module1', '    Dim s As Sheet1\n    Debug.Print s.FullName', false)).toEqual([]);
 	});
 });
