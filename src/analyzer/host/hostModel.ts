@@ -294,20 +294,45 @@ export function resolveHostGlobalMember(
 	name: string,
 	model: HostObjectModel = getExcelObjectModel(),
 ): HostMember | undefined {
-	if (!model.globalType || isHiddenDispatchName(name)) {
+	if (isHiddenDispatchName(name)) {
 		return undefined;
 	}
-	return hostModelIndex(model).membersByType
-		.get(model.globalType)?.byLowerName.get(name.toLowerCase());
+	const lower = name.toLowerCase();
+	const members = hostModelIndex(model).membersByType;
+	for (const owner of globalOwners(model)) {
+		const found = members.get(owner)?.byLowerName.get(lower);
+		if (found) {
+			return found;
+		}
+	}
+	return undefined;
 }
 
-/** All object-access members of the host's hidden Global interface. */
+/** All object-access members of the host's hidden Global interface, then each referenced library's global object. */
 export function getHostGlobalMembers(
 	model: HostObjectModel = getExcelObjectModel(),
 ): HostMember[] {
-	return model.globalType
-		? getHostMembers(model.globalType, model).filter((member) => !isHiddenDispatchName(member.name))
-		: [];
+	const seen = new Set<string>();
+	const out: HostMember[] = [];
+	for (const owner of globalOwners(model)) {
+		for (const member of getHostMembers(owner, model)) {
+			const lower = member.name.toLowerCase();
+			if (!isHiddenDispatchName(member.name) && !seen.has(lower)) {
+				seen.add(lower);
+				out.push(member);
+			}
+		}
+	}
+	return out;
+}
+
+/** The host's Global first, so it wins a name a referenced library's global object shares. */
+function globalOwners(model: HostObjectModel): readonly string[] {
+	const referenced = model.referencedGlobalTypes ?? [];
+	if (referenced.length === 0) {
+		return model.globalType ? [model.globalType] : [];
+	}
+	return model.globalType ? [model.globalType, ...referenced] : referenced;
 }
 
 /**

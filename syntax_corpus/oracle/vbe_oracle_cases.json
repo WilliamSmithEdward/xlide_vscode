@@ -207519,6 +207519,2150 @@
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error",
       "host": "access"
+    },
+    {
+      "id": "outlook_ref_dim_app_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim o As Outlook.Application, compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Outlook.Application\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "outlook_noref_dim_app_compile",
+      "description": "With no reference to the library the code names, Module1: Dim o As Outlook.Application, is rejected: Compile error: User-defined type not defined. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Outlook.Application\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "outlook_ref_dim_mailitem_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim m As Outlook.MailItem, compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim m As Outlook.MailItem\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "outlook_ref_dim_bare_mailitem_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim m As MailItem, compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim m As MailItem\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "outlook_noref_dim_bare_mailitem_compile",
+      "description": "With no reference to the library the code names, Module1: Dim m As MailItem, is rejected: Compile error: User-defined type not defined. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim m As MailItem\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "outlook_ref_new_app_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim o As New Outlook.Application, compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As New Outlook.Application\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "outlook_ref_constant_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim n As Long / n = olMailItem, compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long\r\n    n = olMailItem\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "outlook_noref_constant_compile",
+      "description": "With no reference to the library the code names, Module1: Dim n As Long / n = olMailItem, is rejected: Compile error: Variable not defined. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long\r\n    n = olMailItem\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "outlook_ref_qualified_constant_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim n As Long / n = Outlook.olMailItem, compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long\r\n    n = Outlook.olMailItem\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "outlook_ref_enum_constant_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim n As Long / n = Outlook.OlItemType.olMailItem, compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long\r\n    n = Outlook.OlItemType.olMailItem\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "outlook_ref_member_ok_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim o As Outlook.Application / Set o = New Outlook.Application / Dim ns As Outlook.NameSpace / Set ns = o.GetNamespace(\"MAPI\"), compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Outlook.Application\r\n    Set o = New Outlook.Application\r\n    Dim ns As Outlook.NameSpace\r\n    Set ns = o.GetNamespace(\"MAPI\")\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "outlook_ref_member_missing_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim o As Outlook.Application / Set o = New Outlook.Application / o.NoSuchMember, compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Outlook.Application\r\n    Set o = New Outlook.Application\r\n    o.NoSuchMember\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "outlook_ref_item_member_missing_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim o As Outlook.Application / Set o = New Outlook.Application / Dim m As Outlook.MailItem / Set m = o.CreateItem(olMailItem) / m.NoSuchMember, compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Outlook.Application\r\n    Set o = New Outlook.Application\r\n    Dim m As Outlook.MailItem\r\n    Set m = o.CreateItem(olMailItem)\r\n    m.NoSuchMember\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "outlook_ref_item_member_ok_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim o As Outlook.Application / Set o = New Outlook.Application / Dim m As Outlook.MailItem / Set m = o.CreateItem(olMailItem) / m.Subject = \"x\", compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Outlook.Application\r\n    Set o = New Outlook.Application\r\n    Dim m As Outlook.MailItem\r\n    Set m = o.CreateItem(olMailItem)\r\n    m.Subject = \"x\"\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "outlook_ref_wrong_arguments_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim o As Outlook.Application / Set o = New Outlook.Application / Dim m As Object / Set m = o.CreateItem(), is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Outlook.Application\r\n    Set o = New Outlook.Application\r\n    Dim m As Object\r\n    Set m = o.CreateItem()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "outlook_ref_bare_unknown_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim x As Object / Set x = NoSuchOutlookGlobal, is rejected: Compile error: Variable not defined. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim x As Object\r\n    Set x = NoSuchOutlookGlobal\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "outlook_ref_bare_session_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim x As Object / Set x = Session, compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim x As Object\r\n    Set x = Session\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "outlook_ref_bare_createitem_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim x As Object / Set x = CreateItem(0), compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim x As Object\r\n    Set x = CreateItem(0)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "outlook_ref_bare_getnamespace_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim x As Object / Set x = GetNamespace(\"MAPI\"), compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim x As Object\r\n    Set x = GetNamespace(\"MAPI\")\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "outlook_ref_module_level_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Private mApp As Outlook.Application / Set mApp = Nothing, compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate mApp As Outlook.Application\r\nSub Main()\r\n    Set mApp = Nothing\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "outlook_ref_withevents_compile",
+      "description": "With the project referencing the Outlook object library, Watcher: Private WithEvents mApp As Outlook.Application / Private Sub mApp_NewMail(), compiles. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Watcher",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents mApp As Outlook.Application\r\nPrivate Sub mApp_NewMail()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "outlook_word_ref_dim_app_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim o As Outlook.Application, compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Outlook.Application\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "outlook_word_noref_dim_app_compile",
+      "description": "With no reference to the library the code names, Module1: Dim o As Outlook.Application, is rejected: Compile error: User-defined type not defined. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Outlook.Application\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "outlook_word_ref_dim_mailitem_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim m As Outlook.MailItem, compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim m As Outlook.MailItem\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "outlook_word_ref_dim_bare_mailitem_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim m As MailItem, compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim m As MailItem\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "outlook_word_noref_dim_bare_mailitem_compile",
+      "description": "With no reference to the library the code names, Module1: Dim m As MailItem, is rejected: Compile error: User-defined type not defined. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim m As MailItem\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "outlook_word_ref_new_app_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim o As New Outlook.Application, compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As New Outlook.Application\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "outlook_word_ref_constant_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim n As Long / n = olMailItem, compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long\r\n    n = olMailItem\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "outlook_word_noref_constant_compile",
+      "description": "With no reference to the library the code names, Module1: Dim n As Long / n = olMailItem, is rejected: Compile error: Variable not defined. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long\r\n    n = olMailItem\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "outlook_word_ref_qualified_constant_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim n As Long / n = Outlook.olMailItem, compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long\r\n    n = Outlook.olMailItem\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "outlook_word_ref_enum_constant_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim n As Long / n = Outlook.OlItemType.olMailItem, compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long\r\n    n = Outlook.OlItemType.olMailItem\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "outlook_word_ref_member_ok_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim o As Outlook.Application / Set o = New Outlook.Application / Dim ns As Outlook.NameSpace / Set ns = o.GetNamespace(\"MAPI\"), compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Outlook.Application\r\n    Set o = New Outlook.Application\r\n    Dim ns As Outlook.NameSpace\r\n    Set ns = o.GetNamespace(\"MAPI\")\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "outlook_word_ref_member_missing_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim o As Outlook.Application / Set o = New Outlook.Application / o.NoSuchMember, compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Outlook.Application\r\n    Set o = New Outlook.Application\r\n    o.NoSuchMember\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "outlook_word_ref_item_member_missing_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim o As Outlook.Application / Set o = New Outlook.Application / Dim m As Outlook.MailItem / Set m = o.CreateItem(olMailItem) / m.NoSuchMember, compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Outlook.Application\r\n    Set o = New Outlook.Application\r\n    Dim m As Outlook.MailItem\r\n    Set m = o.CreateItem(olMailItem)\r\n    m.NoSuchMember\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "outlook_word_ref_item_member_ok_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim o As Outlook.Application / Set o = New Outlook.Application / Dim m As Outlook.MailItem / Set m = o.CreateItem(olMailItem) / m.Subject = \"x\", compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Outlook.Application\r\n    Set o = New Outlook.Application\r\n    Dim m As Outlook.MailItem\r\n    Set m = o.CreateItem(olMailItem)\r\n    m.Subject = \"x\"\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "outlook_word_ref_wrong_arguments_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim o As Outlook.Application / Set o = New Outlook.Application / Dim m As Object / Set m = o.CreateItem(), is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Outlook.Application\r\n    Set o = New Outlook.Application\r\n    Dim m As Object\r\n    Set m = o.CreateItem()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "outlook_word_ref_bare_unknown_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim x As Object / Set x = NoSuchOutlookGlobal, is rejected: Compile error: Variable not defined. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim x As Object\r\n    Set x = NoSuchOutlookGlobal\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "outlook_word_ref_bare_session_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim x As Object / Set x = Session, compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim x As Object\r\n    Set x = Session\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "outlook_word_ref_bare_createitem_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim x As Object / Set x = CreateItem(0), compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim x As Object\r\n    Set x = CreateItem(0)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "outlook_word_ref_bare_getnamespace_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim x As Object / Set x = GetNamespace(\"MAPI\"), compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim x As Object\r\n    Set x = GetNamespace(\"MAPI\")\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "outlook_word_ref_module_level_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Private mApp As Outlook.Application / Set mApp = Nothing, compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate mApp As Outlook.Application\r\nSub Main()\r\n    Set mApp = Nothing\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "outlook_word_ref_withevents_compile",
+      "description": "With the project referencing the Outlook object library, Watcher: Private WithEvents mApp As Outlook.Application / Private Sub mApp_NewMail(), compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Watcher",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents mApp As Outlook.Application\r\nPrivate Sub mApp_NewMail()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "outlook_word_xlref_bare_activeworkbook_compile",
+      "description": "With the project referencing the Excel object library, Module1: Dim x As Object / Set x = ActiveWorkbook, compiles. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00020813-0000-0000-C000-000000000046}",
+          "major": 1,
+          "minor": 9
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim x As Object\r\n    Set x = ActiveWorkbook\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "outlook_word_noxlref_bare_activeworkbook_compile",
+      "description": "With no reference to the library the code names, Module1: Dim x As Object / Set x = ActiveWorkbook, is rejected: Compile error: Variable not defined. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim x As Object\r\n    Set x = ActiveWorkbook\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "outlook_powerpoint_ref_dim_app_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim o As Outlook.Application, compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Outlook.Application\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "outlook_powerpoint_noref_dim_app_compile",
+      "description": "With no reference to the library the code names, Module1: Dim o As Outlook.Application, is rejected: Compile error: User-defined type not defined. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Outlook.Application\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "outlook_powerpoint_ref_dim_mailitem_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim m As Outlook.MailItem, compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim m As Outlook.MailItem\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "outlook_powerpoint_ref_dim_bare_mailitem_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim m As MailItem, compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim m As MailItem\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "outlook_powerpoint_noref_dim_bare_mailitem_compile",
+      "description": "With no reference to the library the code names, Module1: Dim m As MailItem, is rejected: Compile error: User-defined type not defined. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim m As MailItem\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "outlook_powerpoint_ref_new_app_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim o As New Outlook.Application, compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As New Outlook.Application\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "outlook_powerpoint_ref_constant_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim n As Long / n = olMailItem, compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long\r\n    n = olMailItem\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "outlook_powerpoint_noref_constant_compile",
+      "description": "With no reference to the library the code names, Module1: Dim n As Long / n = olMailItem, is rejected: Compile error: Variable not defined. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long\r\n    n = olMailItem\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "outlook_powerpoint_ref_qualified_constant_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim n As Long / n = Outlook.olMailItem, compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long\r\n    n = Outlook.olMailItem\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "outlook_powerpoint_ref_enum_constant_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim n As Long / n = Outlook.OlItemType.olMailItem, compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long\r\n    n = Outlook.OlItemType.olMailItem\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "outlook_powerpoint_ref_member_ok_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim o As Outlook.Application / Set o = New Outlook.Application / Dim ns As Outlook.NameSpace / Set ns = o.GetNamespace(\"MAPI\"), compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Outlook.Application\r\n    Set o = New Outlook.Application\r\n    Dim ns As Outlook.NameSpace\r\n    Set ns = o.GetNamespace(\"MAPI\")\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "outlook_powerpoint_ref_member_missing_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim o As Outlook.Application / Set o = New Outlook.Application / o.NoSuchMember, compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Outlook.Application\r\n    Set o = New Outlook.Application\r\n    o.NoSuchMember\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "outlook_powerpoint_ref_item_member_missing_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim o As Outlook.Application / Set o = New Outlook.Application / Dim m As Outlook.MailItem / Set m = o.CreateItem(olMailItem) / m.NoSuchMember, compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Outlook.Application\r\n    Set o = New Outlook.Application\r\n    Dim m As Outlook.MailItem\r\n    Set m = o.CreateItem(olMailItem)\r\n    m.NoSuchMember\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "outlook_powerpoint_ref_item_member_ok_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim o As Outlook.Application / Set o = New Outlook.Application / Dim m As Outlook.MailItem / Set m = o.CreateItem(olMailItem) / m.Subject = \"x\", compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Outlook.Application\r\n    Set o = New Outlook.Application\r\n    Dim m As Outlook.MailItem\r\n    Set m = o.CreateItem(olMailItem)\r\n    m.Subject = \"x\"\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "outlook_powerpoint_ref_wrong_arguments_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim o As Outlook.Application / Set o = New Outlook.Application / Dim m As Object / Set m = o.CreateItem(), is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Outlook.Application\r\n    Set o = New Outlook.Application\r\n    Dim m As Object\r\n    Set m = o.CreateItem()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "outlook_powerpoint_ref_bare_unknown_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim x As Object / Set x = NoSuchOutlookGlobal, is rejected: Compile error: Variable not defined. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim x As Object\r\n    Set x = NoSuchOutlookGlobal\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "outlook_powerpoint_ref_bare_session_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim x As Object / Set x = Session, compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim x As Object\r\n    Set x = Session\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "outlook_powerpoint_ref_bare_createitem_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim x As Object / Set x = CreateItem(0), compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim x As Object\r\n    Set x = CreateItem(0)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "outlook_powerpoint_ref_bare_getnamespace_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim x As Object / Set x = GetNamespace(\"MAPI\"), compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim x As Object\r\n    Set x = GetNamespace(\"MAPI\")\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "outlook_powerpoint_ref_module_level_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Private mApp As Outlook.Application / Set mApp = Nothing, compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate mApp As Outlook.Application\r\nSub Main()\r\n    Set mApp = Nothing\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "outlook_powerpoint_ref_withevents_compile",
+      "description": "With the project referencing the Outlook object library, Watcher: Private WithEvents mApp As Outlook.Application / Private Sub mApp_NewMail(), compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Watcher",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents mApp As Outlook.Application\r\nPrivate Sub mApp_NewMail()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "outlook_powerpoint_xlref_bare_activeworkbook_compile",
+      "description": "With the project referencing the Excel object library, Module1: Dim x As Object / Set x = ActiveWorkbook, compiles. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00020813-0000-0000-C000-000000000046}",
+          "major": 1,
+          "minor": 9
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim x As Object\r\n    Set x = ActiveWorkbook\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "outlook_powerpoint_noxlref_bare_activeworkbook_compile",
+      "description": "With no reference to the library the code names, Module1: Dim x As Object / Set x = ActiveWorkbook, is rejected: Compile error: Variable not defined. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim x As Object\r\n    Set x = ActiveWorkbook\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "outlook_access_ref_dim_app_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim o As Outlook.Application, compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Outlook.Application\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "outlook_access_noref_dim_app_compile",
+      "description": "With no reference to the library the code names, Module1: Dim o As Outlook.Application, is rejected: Compile error: User-defined type not defined. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Outlook.Application\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "outlook_access_ref_dim_mailitem_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim m As Outlook.MailItem, compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim m As Outlook.MailItem\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "outlook_access_ref_dim_bare_mailitem_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim m As MailItem, compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim m As MailItem\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "outlook_access_noref_dim_bare_mailitem_compile",
+      "description": "With no reference to the library the code names, Module1: Dim m As MailItem, is rejected: Compile error: User-defined type not defined. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim m As MailItem\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "outlook_access_ref_new_app_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim o As New Outlook.Application, compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As New Outlook.Application\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "outlook_access_ref_constant_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim n As Long / n = olMailItem, compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long\r\n    n = olMailItem\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "outlook_access_noref_constant_compile",
+      "description": "With no reference to the library the code names, Module1: Dim n As Long / n = olMailItem, is rejected: Compile error: Variable not defined. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long\r\n    n = olMailItem\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "outlook_access_ref_qualified_constant_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim n As Long / n = Outlook.olMailItem, compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long\r\n    n = Outlook.olMailItem\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "outlook_access_ref_enum_constant_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim n As Long / n = Outlook.OlItemType.olMailItem, compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long\r\n    n = Outlook.OlItemType.olMailItem\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "outlook_access_ref_member_ok_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim o As Outlook.Application / Set o = New Outlook.Application / Dim ns As Outlook.NameSpace / Set ns = o.GetNamespace(\"MAPI\"), compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Outlook.Application\r\n    Set o = New Outlook.Application\r\n    Dim ns As Outlook.NameSpace\r\n    Set ns = o.GetNamespace(\"MAPI\")\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "outlook_access_ref_member_missing_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim o As Outlook.Application / Set o = New Outlook.Application / o.NoSuchMember, compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Outlook.Application\r\n    Set o = New Outlook.Application\r\n    o.NoSuchMember\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "outlook_access_ref_item_member_missing_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim o As Outlook.Application / Set o = New Outlook.Application / Dim m As Outlook.MailItem / Set m = o.CreateItem(olMailItem) / m.NoSuchMember, compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Outlook.Application\r\n    Set o = New Outlook.Application\r\n    Dim m As Outlook.MailItem\r\n    Set m = o.CreateItem(olMailItem)\r\n    m.NoSuchMember\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "outlook_access_ref_item_member_ok_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim o As Outlook.Application / Set o = New Outlook.Application / Dim m As Outlook.MailItem / Set m = o.CreateItem(olMailItem) / m.Subject = \"x\", compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Outlook.Application\r\n    Set o = New Outlook.Application\r\n    Dim m As Outlook.MailItem\r\n    Set m = o.CreateItem(olMailItem)\r\n    m.Subject = \"x\"\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "outlook_access_ref_wrong_arguments_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim o As Outlook.Application / Set o = New Outlook.Application / Dim m As Object / Set m = o.CreateItem(), is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Outlook.Application\r\n    Set o = New Outlook.Application\r\n    Dim m As Object\r\n    Set m = o.CreateItem()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "outlook_access_ref_bare_unknown_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim x As Object / Set x = NoSuchOutlookGlobal, is rejected: Compile error: Variable not defined. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim x As Object\r\n    Set x = NoSuchOutlookGlobal\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "outlook_access_ref_bare_session_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim x As Object / Set x = Session, compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim x As Object\r\n    Set x = Session\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "outlook_access_ref_bare_createitem_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim x As Object / Set x = CreateItem(0), compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim x As Object\r\n    Set x = CreateItem(0)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "outlook_access_ref_bare_getnamespace_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Dim x As Object / Set x = GetNamespace(\"MAPI\"), compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim x As Object\r\n    Set x = GetNamespace(\"MAPI\")\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "outlook_access_ref_module_level_compile",
+      "description": "With the project referencing the Outlook object library, Module1: Private mApp As Outlook.Application / Set mApp = Nothing, compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate mApp As Outlook.Application\r\nSub Main()\r\n    Set mApp = Nothing\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "outlook_access_ref_withevents_compile",
+      "description": "With the project referencing the Outlook object library, Watcher: Private WithEvents mApp As Outlook.Application / Private Sub mApp_NewMail(), compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00062FFF-0000-0000-C000-000000000046}",
+          "major": 9,
+          "minor": 6
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Watcher",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents mApp As Outlook.Application\r\nPrivate Sub mApp_NewMail()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "outlook_access_xlref_bare_activeworkbook_compile",
+      "description": "With the project referencing the Excel object library, Module1: Dim x As Object / Set x = ActiveWorkbook, compiles. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{00020813-0000-0000-C000-000000000046}",
+          "major": 1,
+          "minor": 9
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim x As Object\r\n    Set x = ActiveWorkbook\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "outlook_access_noxlref_bare_activeworkbook_compile",
+      "description": "With no reference to the library the code names, Module1: Dim x As Object / Set x = ActiveWorkbook, is rejected: Compile error: Variable not defined. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim x As Object\r\n    Set x = ActiveWorkbook\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
     }
   ]
 }

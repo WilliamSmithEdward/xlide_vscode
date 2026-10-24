@@ -23,7 +23,7 @@ describe('the host registry', () => {
 	});
 
 	it('answers the empty model for a named host with no model yet', () => {
-		for (const token of ['outlook', 'visio', 'project', 'other']) {
+		for (const token of ['visio', 'project', 'other']) {
 			const model = hostObjectModelForToken(token);
 			expect(model, token).toBe(EMPTY_HOST_MODEL);
 			expect(Object.keys(model!.types)).toEqual([]);

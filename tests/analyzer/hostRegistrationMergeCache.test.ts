@@ -12,6 +12,7 @@ function model(version: string): HostObjectModel {
 }
 function merged(first: HostObjectModel, second: HostObjectModel): HostObjectModel {
 	return {source: first.source + ' + ' + second.source, hostName: first.hostName, globalType: first.globalType,
+		referencedGlobalTypes: second.globalType === undefined ? [] : [second.globalType],
 		types: {...second.types, ...first.types}, aliases: {...second.aliases, ...first.aliases}, globals: {...second.globals, ...first.globals},
 		constants: {...second.constants, ...first.constants}, enums: {...Object.fromEntries(Object.entries(second.enums ?? {}).map(([key, value]) => [key, {...value, library: second.hostName}])), ...first.enums},
 		memberSignatures: {...second.memberSignatures, ...first.memberSignatures},

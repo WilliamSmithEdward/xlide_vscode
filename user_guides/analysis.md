@@ -72,6 +72,12 @@ and XLIDE checks `xl.Workbooks.Add` against Excel's object model, completes
 Excel's members after `xl.`, and knows Excel's spellings. Excel, Word,
 PowerPoint and Access are covered in every combination.
 
+Outlook's object library works the same way from any of the four. With a
+reference to it, `Dim o As Outlook.Application`, `MailItem`, `olMailItem`
+and Outlook's bare globals such as `Session` and `CreateItem` resolve, and
+`o.` completes Outlook's members. Outlook's objects take members the library
+does not list, as the VBE does, so XLIDE never reports one missing.
+
 Without the reference the VBE refuses the declaration - "User-defined type not
 defined" - and the project stops compiling. XLIDE reports that as
 `missing-library-reference`, once per library per module, with a quick fix that
