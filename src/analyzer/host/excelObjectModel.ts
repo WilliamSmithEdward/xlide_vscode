@@ -152,6 +152,13 @@ export interface HostObjectModel {
 	 * #34). Absent when the host has none modelled.
 	 */
 	globalType?: string;
+	/**
+	 * The global objects of the libraries a project references, in reference
+	 * order, whose members VBA binds bare after the host's own: Outlook's
+	 * Application, so `Session` and `CreateItem` compile in a workbook that
+	 * references Outlook. Set only on a merged model.
+	 */
+	referencedGlobalTypes?: readonly string[];
 	/** Host enum constants, keyed by canonical name. */
 	constants?: Record<string, HostConstant>;
 	/**

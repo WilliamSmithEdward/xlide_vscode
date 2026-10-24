@@ -308,6 +308,14 @@ export const HOST_LIBRARIES: Readonly<Record<string, HostLibrary>> = Object.free
 		path: 'C:\\Program Files\\Microsoft Office\\root\\Office16\\MSACC.OLB',
 		description: 'Microsoft Access 16.0 Object Library',
 	},
+	// A library a project drives Outlook through, not a host XLIDE opens.
+	outlook: {
+		name: 'Outlook',
+		guid: '{00062FFF-0000-0000-C000-000000000046}',
+		version: '9.6',
+		path: 'C:\\Program Files\\Microsoft Office\\root\\Office16\\MSOUTL.OLB',
+		description: 'Microsoft Outlook 16.0 Object Library',
+	},
 });
 
 /**

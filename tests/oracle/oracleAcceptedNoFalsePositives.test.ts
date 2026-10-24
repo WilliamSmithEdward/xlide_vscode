@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { oracleModuleInput, type OracleFixtureModule } from '../helpers/oracleModuleInput';
+import { oracleModuleInput, oracleReferencedHosts, type OracleFixtureModule } from '../helpers/oracleModuleInput';
 import { diagnosticMetadataForCode } from '../../src/analyzer';
 import { analyzeVbaModuleSource } from '../../src/vbaModuleAnalysis';
 import {
@@ -38,6 +38,8 @@ interface OracleCase {
 	id: string;
 	/** The Office host the case was measured in; absent means Excel. */
 	host?: string;
+	/** Type libraries the oracle added before the modules. */
+	references?: { guid: string }[];
 	expected: 'accepted' | 'rejected' | 'observe';
 	evidencePhase?: 'compile' | 'runtime';
 	moduleName?: string;
@@ -100,6 +102,7 @@ describe('oracle accepted cases - corpus-wide no-false-positive sweep', () => {
 					moduleKind: effectiveModuleKind(mod),
 					...projectAnalysisOptionsForModule(project, mod.moduleName, procedures),
 					...(oracleCase.host && oracleCase.host !== 'excel' ? { host: oracleCase.host } : {}),
+					...oracleReferencedHosts(oracleCase),
 				});
 				for (const diagnostic of diagnostics) {
 					if (constrainedByAcceptedCase(diagnostic.code ?? '', oracleCase.evidencePhase)) {

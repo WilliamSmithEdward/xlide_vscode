@@ -39,7 +39,7 @@ import type { PushFn } from '../analysisContext';
 
 /** The libraries a project can be given a reference to, lowercased. */
 const ADDABLE = new Map<string, string>(
-	(['excel', 'word', 'powerpoint', 'access'] as const)
+	(['excel', 'word', 'powerpoint', 'access', 'outlook'] as const)
 		.map((token) => [HOST_LIBRARY_NAMES[token].toLowerCase(), HOST_LIBRARY_NAMES[token]]),
 );
 

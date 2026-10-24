@@ -4,6 +4,7 @@
 // oracle builds the same module from the same fields, so the analyzer sees
 // the project the VBE compiled.
 
+import { hostTokenForLibid } from '../../src/analyzer/host/hostLibraries';
 import type { VbaProjectModuleInput } from '../../src/vbaProjectAnalysis';
 
 export interface OracleFixtureModule {
@@ -25,6 +26,19 @@ function controlType(progId: string): string {
 		throw new Error(`No MSForms type for the ProgID ${progId}`);
 	}
 	return `MSForms.${match[1]}`;
+}
+
+/**
+ * The libraries a fixture's `references` add, as the analysis option the
+ * extension derives from a project's references: a case the oracle compiled
+ * with Outlook referenced is analyzed against Outlook's model too.
+ */
+export function oracleReferencedHosts(kase: { references?: readonly { guid: string }[] }): { referencedHosts?: string[] } {
+	const tokens = (kase.references ?? []).flatMap((reference) => {
+		const token = hostTokenForLibid(reference.guid);
+		return token === undefined ? [] : [token];
+	});
+	return tokens.length === 0 ? {} : { referencedHosts: tokens };
 }
 
 export function oracleModuleInput(mod: OracleFixtureModule): VbaProjectModuleInput {
