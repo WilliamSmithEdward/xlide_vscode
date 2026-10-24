@@ -2412,6 +2412,9 @@
   "overrides": {
     "@vscode/test-cli": {
       "mocha": "$mocha"
+    },
+    "@azure/identity": {
+      "@azure/msal-node": "7.1.1"
     }
   }
 }
