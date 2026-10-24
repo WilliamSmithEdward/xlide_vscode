@@ -489,8 +489,10 @@ function diagnosticMemberCompletionContext(
  * another module, through the name or a variable of its type, such a module
  * is the same closed class as its `Me`: `Dim w As ThisWorkbook` then
  * `w.UsedRange` is "Method or data member not found", measured in Excel and
- * Word 16.0. A module with a designer class already reaches it through its
- * project type, and a sheet without one stays unchecked, as its `Me` does.
+ * Word 16.0. A renamed one, BookCode for ThisWorkbook, is known by the
+ * document type the host reads from its VB_Base. A module with a designer
+ * class already reaches it through its project type, and a sheet without
+ * one stays unchecked, as its `Me` does.
  */
 function documentCodeNames(
 	projectClassMembers: readonly VbaProjectClassMembers[] | undefined,
@@ -501,7 +503,7 @@ function documentCodeNames(
 		if (candidate.kind !== 'document' || candidate.designerClass) {
 			continue;
 		}
-		const hostType = meHostTypeFor(candidate.name, 'document', host);
+		const hostType = meHostTypeFor(candidate.name, 'document', host, undefined, candidate.documentType);
 		if (hostType) {
 			(codeNames ??= {})[candidate.name.toLowerCase()] = hostType;
 		}

@@ -31,18 +31,6 @@ interface Fixture {
 const fixtures: Fixture[] = (JSON.parse(readFileSync(join(process.cwd(), 'syntax_corpus', 'oracle', 'vbe_oracle_cases.json'), 'utf8')) as { cases: Fixture[] })
 	.cases.filter((kase) => kase.id.startsWith('document_member_'));
 
-/**
- * A renamed workbook or document module is known by its document type, which
- * the project index does not carry yet, so a reference to it is still
- * unchecked. Listed here so that the day it is checked these fail and move.
- */
-const UNCHECKED_RENAMED = new Set([
-	'document_member_renamed_workbook_name_host_member_compile',
-	'document_member_renamed_workbook_var_host_member_compile',
-	'document_member_renamed_word_name_host_member_compile',
-	'document_member_renamed_word_var_host_member_compile',
-]);
-
 /** An Access form's module reaches the analyzer as the extension reads it from the database. */
 function moduleInput(fixture: Fixture, mod: OracleFixtureModule): VbaProjectModuleInput {
 	const input = oracleModuleInput(mod);
@@ -67,14 +55,11 @@ describe('document module members against the measured fixtures', () => {
 		expect(new Set(fixtures.map((fixture) => fixture.host ?? 'excel'))).toEqual(new Set(['excel', 'word', 'access']));
 	});
 
-	it.each(fixtures.filter((fixture) => !UNCHECKED_RENAMED.has(fixture.id)).map((fixture) => [fixture.id, fixture] as const))('%s', (_id, fixture) => {
+	// A renamed workbook or document module (BookCode, DocCode) is known by
+	// the document type the host reads from its VB_Base, so it is checked
+	// like ThisWorkbook and ThisDocument (#1457).
+	it.each(fixtures.map((fixture) => [fixture.id, fixture] as const))('%s', (_id, fixture) => {
 		expect(memberNotFound(fixture)).toHaveLength(fixture.expected === 'rejected' ? 1 : 0);
-	});
-
-	it.each([...UNCHECKED_RENAMED])('%s is not reported yet', (id) => {
-		const fixture = fixtures.find((kase) => kase.id === id)!;
-		expect(fixture.expected).toBe('rejected');
-		expect(memberNotFound(fixture)).toEqual([]);
 	});
 });
 
