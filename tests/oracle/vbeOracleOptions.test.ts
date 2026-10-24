@@ -19,11 +19,12 @@ const api = runInNewContext(`
 	const DEFAULT_TIMEOUT_RETRIES = 2;
 	const DEFAULT_CASES_PER_INSTANCE = 40;
 	const OFFICE_HOSTS = ${JSON.stringify(Object.fromEntries(Object.keys(OFFICE_HOST_APPS).map((host) => [host, {}])))};
-	${['parseArgs', 'caseHost', 'unsupportedHost', 'unwritableCheckpoint'].map(lift).join('\n')}
-	({ parseArgs, caseHost, unsupportedHost, unwritableCheckpoint })`, { fs, path }) as {
+	${['parseArgs', 'caseHost', 'unsupportedHost', 'malformedReferences', 'unwritableCheckpoint'].map(lift).join('\n')}
+	({ parseArgs, caseHost, unsupportedHost, malformedReferences, unwritableCheckpoint })`, { fs, path }) as {
 	parseArgs: (argv: string[]) => Record<string, unknown> & { caseIds: string[] };
 	caseHost: (kase: object) => string;
 	unsupportedHost: (kase: object) => string | undefined;
+	malformedReferences: (kase: object) => string | undefined;
 	unwritableCheckpoint: (file: string) => string | undefined;
 };
 
@@ -73,6 +74,32 @@ describe('oracle fixture hosts', () => {
 		for (const host of ['Excel', 'WORD', ' excel', 'excel ', '', 'outlook', 'constructor', null, 1, true, {}, ['excel']]) {
 			expect(api.unsupportedHost({ id: 'the-case', host }), JSON.stringify(host)).toBe(`the-case names host ${JSON.stringify(host)}`);
 		}
+	});
+});
+
+describe('oracle fixture references', () => {
+	const OUTLOOK = { guid: '{00062FFF-0000-0000-C000-000000000046}', major: 9, minor: 6 };
+
+	it('takes none, an empty list, and libraries named by GUID and version', () => {
+		expect(api.malformedReferences({ id: 'c' })).toBeUndefined();
+		expect(api.malformedReferences({ id: 'c', references: [] })).toBeUndefined();
+		expect(api.malformedReferences({ id: 'c', references: [OUTLOOK, { guid: '{420b2830-e718-11cf-893d-00a0c9054228}', major: 1, minor: 0 }] })).toBeUndefined();
+	});
+
+	it('refuses anything else, naming the case', () => {
+		for (const references of [OUTLOOK, 'Outlook', null, [null], [{ ...OUTLOOK, guid: '00062FFF-0000-0000-C000-000000000046' }],
+			[{ ...OUTLOOK, guid: '{00062FFF}' }], [{ ...OUTLOOK, major: '9' }], [{ ...OUTLOOK, minor: 1.5 }], [{ ...OUTLOOK, major: -1 }], [{ guid: OUTLOOK.guid }]]) {
+			expect(api.malformedReferences({ id: 'the-case', references }), JSON.stringify(references))
+				.toBe(`the-case has references ${JSON.stringify(references)}`);
+		}
+	});
+
+	it('is checked before Office starts, and the worker adds each by GUID before the modules', () => {
+		const worker = fs.readFileSync(path.join(process.cwd(), 'syntax_corpus/oracle/vbe_oracle_worker.ps1'), 'utf8');
+		const add = worker.indexOf('$vbProject.References.AddFromGuid([string]$reference.guid, [int]$reference.major, [int]$reference.minor)');
+		expect(add).toBeGreaterThan(0);
+		expect(add).toBeLessThan(worker.indexOf('Set-Stage "add_modules"'));
+		expect(source.indexOf('cases.map(malformedReferences)')).toBeLessThan(source.indexOf('const hosts = [...new Set(cases.map(caseHost))];'));
 	});
 });
 

@@ -120,6 +120,12 @@ before it starts anything (issue #1440). A value may not begin with `--`, so
 `--checkpoint` whose directory is missing or read-only is refused before
 Office starts.
 
+A case whose code names a type library early bound lists it in
+`references`, each entry `{ "guid": "{...}", "major": 9, "minor": 6 }`.
+The worker adds them by GUID and version before any module, as Tools >
+References would, so the library must be registered on the machine. A
+malformed entry is refused before Office starts.
+
 Useful filters:
 
 ```powershell

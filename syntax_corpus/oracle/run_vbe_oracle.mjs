@@ -53,6 +53,20 @@ function unsupportedHost(kase) {
     return `${String(kase.id)} names host ${JSON.stringify(host)}`;
 }
 
+// A case may reference type libraries, which the worker adds by GUID and
+// version before its modules: `references: [{ guid, major, minor }]`.
+function malformedReferences(kase) {
+    const references = kase.references;
+    if (references === undefined) {
+        return undefined;
+    }
+    const guid = /^\{[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\}$/;
+    const valid = Array.isArray(references) && references.every((one) => one !== null && typeof one === 'object'
+        && typeof one.guid === 'string' && guid.test(one.guid)
+        && Number.isInteger(one.major) && one.major >= 0 && Number.isInteger(one.minor) && one.minor >= 0);
+    return valid ? undefined : `${String(kase.id)} has references ${JSON.stringify(references)}`;
+}
+
 // Most rejected cases show a VBE error box, and Windows plays a message-box
 // sound for each. On some machines each sound leaves thousands of kernel trace
 // registrations that Windows frees only slowly, so a long run can fill
@@ -957,6 +971,11 @@ async function main(argv) {
     const unknownHosts = cases.map(unsupportedHost).filter((why) => why !== undefined);
     if (unknownHosts.length) {
         console.error(`Unknown oracle host: ${unknownHosts.slice(0, 5).join('; ')}${unknownHosts.length > 5 ? `; and ${unknownHosts.length - 5} more` : ''}. Use ${Object.keys(OFFICE_HOSTS).join(', ')}, or leave host out for excel.`);
+        return 2;
+    }
+    const badReferences = cases.map(malformedReferences).filter((why) => why !== undefined);
+    if (badReferences.length) {
+        console.error(`Malformed oracle references: ${badReferences.slice(0, 5).join('; ')}${badReferences.length > 5 ? `; and ${badReferences.length - 5} more` : ''}. Each is { "guid": "{...}", "major": n, "minor": n }.`);
         return 2;
     }
     // A checkpoint is first written after a case has run, so a path that

@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 // Exercise the coordinator's pure policy without starting PowerShell or Office.
 const source = readFileSync(join(process.cwd(), 'syntax_corpus/oracle/run_vbe_oracle.mjs'), 'utf8');
-const names = ['caseHost', 'unsupportedHost', 'validateCrashBuilds', 'hostsNeedingBuilds', 'knownHostCrashResult',
+const names = ['caseHost', 'unsupportedHost', 'malformedReferences', 'validateCrashBuilds', 'hostsNeedingBuilds', 'knownHostCrashResult',
     'expectedMatches', 'isOracleInfrastructureFailure', 'promoteObservedCases', 'formatCasesDocument',
     'evidencePhaseForCase', 'evidencePhaseForResult', 'diagnosticMeaningForResult', 'phaseMatches'];
 const functions = names.map((name) => {
