@@ -172,6 +172,7 @@ class ProjectRecord implements VbaProjectContext {
                 implicitMembers,
                 predeclaredId,
                 designerClass: meta.designerClass,
+                documentType: meta.documentType,
             });
         } catch (err) {
             // Keep the previous indexed version while the latest source is
