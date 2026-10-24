@@ -1692,7 +1692,10 @@ export function checkInvalidAsTypeNames(
 			);
 			continue;
 		}
-		if (resolveRuntimeFunction(ref.name)) {
+		// A runtime function's name is no type of VBA's, but another library may
+		// hold a type of that name: Shell32.Shell compiles with the reference
+		// (issue #1413, measured in Excel, Word, PowerPoint and Access 16.0).
+		if (resolveRuntimeFunction(ref.name) && (!ref.qualifier || ref.qualifier.toLowerCase() === 'vba')) {
 			push(
 				'invalidAsTypeName',
 				`'${ref.name}' is a VBA runtime function, not a valid type name.`,

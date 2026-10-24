@@ -341,6 +341,8 @@ export function registerVbaDiagnostics(
     const workbookSheetsByProject = new Map<string, readonly WorkbookSheetInfo[] | undefined>();
     // The names of the libraries each project references; absent until read.
     const referencedLibrariesByProject = new Map<string, readonly string[]>();
+    // Each project's own name, read with its references.
+    const projectNameByProject = new Map<string, string | undefined>();
     const fullPassMetadataRetries = new Map<string, number>();
     const settingsWatchers = new ProjectSettingsWatcherRegistry((projectPath) => {
         invalidateAnalysisSettingsForProject(projectPath);
@@ -649,8 +651,10 @@ export function registerVbaDiagnostics(
                     // Every project references VBA, so an empty list was not read.
                     if (diagnosticProject.references.length > 0) {
                         referencedLibrariesByProject.set(projectKey(projectPath), diagnosticProject.references.map((reference) => reference.name));
+                        projectNameByProject.set(projectKey(projectPath), diagnosticProject.projectName);
                     } else {
                         referencedLibrariesByProject.delete(projectKey(projectPath));
+                        projectNameByProject.delete(projectKey(projectPath));
                     }
                     const current = diagnosticProject.moduleMetadata.get(moduleIdentityKey(moduleName));
                     if (current) {
@@ -738,6 +742,7 @@ export function registerVbaDiagnostics(
                     host: projectPath ? hostTokenForFileName(projectPath) : undefined,
                     referencedHosts: wbKey ? referencedHostsByProject.get(wbKey) : undefined,
                     referencedLibraries: wbKey ? referencedLibrariesByProject.get(wbKey) : undefined,
+                    projectName: wbKey ? projectNameByProject.get(wbKey) : undefined,
                     designerClass,
                     workbookSheets: wbKey ? workbookSheetsByProject.get(wbKey) : undefined,
                 });
@@ -784,6 +789,7 @@ export function registerVbaDiagnostics(
                 ? referencedHostsByProject.get(projectKey(projectPath))
                 : undefined,
             referencedLibraries: projectPath ? referencedLibrariesByProject.get(projectKey(projectPath)) : undefined,
+            projectName: projectPath ? projectNameByProject.get(projectKey(projectPath)) : undefined,
             designerClass,
             workbookSheets: projectPath ? workbookSheetsByProject.get(projectKey(projectPath)) : undefined,
         });

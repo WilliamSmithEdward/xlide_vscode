@@ -195,6 +195,7 @@ export class AnalysisWorkerState {
 			request.host ?? '',
 			(request.referencedHosts ?? []).join('+'),
 			request.referencedLibraries === undefined ? '' : `refs:${request.referencedLibraries.join('+')}`,
+			request.projectName ?? '',
 			// Editing the designer changes diagnostics without changing a line
 			// of code, so incremental reuse has to see the control list.
 			JSON.stringify(implicitMembers ?? null),
@@ -221,6 +222,7 @@ export class AnalysisWorkerState {
 			host: request.host,
 			referencedHosts: request.referencedHosts,
 			referencedLibraries: request.referencedLibraries,
+			projectName: request.projectName,
 			designerClass: request.designerClass,
 			workbookSheets: request.workbookSheets,
 			moduleKind: request.moduleKind as ModuleSymbolKind | undefined,

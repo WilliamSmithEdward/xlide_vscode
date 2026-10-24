@@ -174,6 +174,13 @@ export interface ModuleEntry {
 	 */
 	projectReferences?: VbaProjectReference[];
 	/**
+	 * The PROJECT's own name (`VBAProject`, `Project`, an Access database's
+	 * name), repeated on every entry the way the references are: it
+	 * qualifies the project's types as a library's name does. Absent when
+	 * the dir stream has none.
+	 */
+	projectName?: string;
+	/**
 	 * The WORKBOOK's sheets as saved, in tab order, on the first entry of one
 	 * read only: a workbook can hold hundreds, and one copy is enough for a
 	 * caller to find. Absent for anything but an Excel file.
@@ -1088,6 +1095,7 @@ function readModulesFromContainer({ container, cfb, project }: OpenContainer, fu
 			entry.source = full ? module.source : splitVbaSource(module.source).body;
 			entry.projectConditionalConstants = constants;
 			if (references.length > 0) { entry.projectReferences = references; }
+			if (project.name) { entry.projectName = project.name; }
 			out.push(entry);
 		} catch {
 			// Keep project-wide reads best-effort at the module boundary.

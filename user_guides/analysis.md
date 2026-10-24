@@ -87,6 +87,14 @@ Project Reference** takes one away again. Removing a library your code still
 names early bound stops the project compiling, so XLIDE names the modules that
 would break before it does it.
 
+The same holds for any library. Once XLIDE has read the project's
+references, a type qualified by a name that is no reference of the project,
+not VBA or the application's own library, not the project's name and none of
+its modules, is reported too: `Dim c As ADODB.Connection` in a project that
+does not reference ActiveX Data Objects. XLIDE cannot add every library, so
+this one comes without the quick fix; add the reference under Tools >
+References in the VBE.
+
 Late binding needs no reference, and is never reported:
 
 ```vba
