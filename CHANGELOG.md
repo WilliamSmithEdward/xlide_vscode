@@ -2,6 +2,59 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.2.1] - 2026-10-24
+
+Outlook as a project reference, a missing reference reported for any
+library, and references that are really written into an Access database.
+
+- Add Outlook's object library as a project reference. A workbook,
+  document, presentation or database that references it gets Outlook's
+  types, members, constants and bare globals such as `Session` and
+  `CreateItem` in completion, hover and diagnostics, and the
+  missing-reference quick fix can add the reference. A referenced Office
+  host's global object binds bare too: Excel's `ActiveWorkbook` in a Word
+  project that references Excel (#1475).
+- Report a type qualified by a library the project does not reference,
+  such as `Dim c As ADODB.Connection` without ActiveX Data Objects, after
+  As, New and Implements and in a Declare. The project's own references,
+  name and modules decide it, measured in all four hosts (#1477, #1413).
+- Write a reference added to an Access database. Adding one reported
+  success and changed nothing, so the quick fix and Add Project Reference
+  did nothing there, and removing one did nothing either (#1476, #1474).
+- Check a workbook or document module reached from another module
+  against its host class: `Dim w As ThisWorkbook` then `w.UsedRange` is
+  reported, as the VBE refuses it (#1478, contributed by Sam, @swsammy).
+- Keep a renamed workbook or document module's host type: `Me` in a
+  module renamed `BookCode` is still the Workbook, and a variable of its
+  type takes the active workbook (#1457, contributed by Sam, @swsammy).
+- Report a Dim bound a Long cannot hold as `array-bound-overflow`, and
+  read ReDim and Dim bounds folded from Doubles and Consts, rounded half to
+  even (#1471, #1450, #1459, #1412).
+- Fix diagnostics measured against the VBE from cases Sam (@swsammy)
+  supplied in #1404 to #1406: names and DefType ranges a variable takes
+  (#1448, #1449, #1411), ReDim element types compared by identity (#1450),
+  which error a call gets (#1451, #1414), declaration errors the analyzer
+  missed (#1452), expression shapes in every statement (#1453, #1415), For
+  bounds and subscripted Next counters (#1454, #1417), Is and TypeOf on
+  VBA's own function results (#1455, #1416), and designer controls and
+  module attributes (#1458, #1419).
+- Keep the other modules' project facts across an edit, so analysis does
+  not rebuild them per keystroke (#1456, #1418).
+- Ask before an agent tool reads a file outside the workspace folders
+  (#1446).
+- VBE oracle: one run at a time per Windows user, a run ends only the
+  Office instances it started, options and fixtures are checked before
+  Office starts, and a case can reference type libraries and rename a
+  document module (#1460, #1464, #1461, #1472, #1478, #1438, #1439,
+  #1440).
+- Organize the unit tests into feature folders with a tests guide, move
+  the performance notes to docs, and make the parser and completion work
+  guards count real work (#1465 to #1470, #1462, #1463, #1441, #1442,
+  #1443).
+- Update @azure/msal-node under @vscode/vsce to 7.1.1 and
+  serialize-javascript to 7.1.4 for published advisories, and refresh the
+  zizmor pin (#1473, #1447).
+
 ## [11.2.0] - 2026-10-21
 
 Find and replace across modules and projects directly from the XLIDE tree.
