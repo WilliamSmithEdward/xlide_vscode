@@ -88,6 +88,7 @@ export interface AccessVbaWriterOptions {
 
 /** [MS-OVBA] dir record ids this writer reads or patches. */
 const REC_PROJECTCODEPAGE = 0x0003;
+const REC_PROJECTMODULES = 0x000f;
 const REC_MODULENAME = 0x0019;
 const REC_MODULENAME_UNICODE = 0x0047;
 const REC_MODULESTREAMNAME = 0x001a;
@@ -288,6 +289,26 @@ export class AccessVbaWriter {
 		const dir = Buffer.from(raw);
 		dir.writeUInt32LE(0, block.offsetAt);
 		this.writeStream(this.dirRow(rows), compress(dir));
+		this.invalidateCache(rows);
+	}
+
+	/**
+	 * Take the project's references from `dir`, a dir stream whose reference
+	 * section was edited: everything in front of its PROJECTMODULES record
+	 * replaces everything in front of the database's own (issue #1474). The
+	 * reference records are all there is to it - measured against Access
+	 * 16.0 adding Outlook through `References.AddFromGuid`, which appends a
+	 * REFERENCENAME and REFERENCEREGISTERED after the last reference and
+	 * otherwise only restamps its own version, protection fields and
+	 * compiled project. The compiled project lists the references it was
+	 * built with, so it goes stale.
+	 */
+	setReferenceSection(dir: Buffer): void {
+		const rows = this.rows();
+		const { raw } = this.dir(rows);
+		const own = modulesRecordAt(raw);
+		const edited = modulesRecordAt(dir);
+		this.writeStream(this.dirRow(rows), compress(Buffer.concat([dir.subarray(0, edited), raw.subarray(own)])));
 		this.invalidateCache(rows);
 	}
 
@@ -1168,10 +1189,17 @@ export function applyAccessVbaProject(data: Buffer, project: Cfb): Buffer {
 		const original = had.get(module.name.toLowerCase());
 		return original !== undefined && original.source !== module.source;
 	});
-	if (added.length === 0 && removed.length === 0 && changed.length === 0) {
+	// A reference added or removed is a change of its own: a project whose
+	// modules are untouched used to come back unchanged (issue #1474).
+	const referencesChanged = !referenceSection(before.dirStream).equals(referenceSection(after.dirStream));
+	if (added.length === 0 && removed.length === 0 && changed.length === 0 && !referencesChanged) {
 		return data;
 	}
 	const writer = new AccessVbaWriter(data);
+	// First, while every module record still sits where the edited dir says.
+	if (referencesChanged) {
+		writer.setReferenceSection(after.dirStream);
+	}
 	// A rename arrives as one added and one removed module carrying the same
 	// body, since the CFB the editor works on has no rename of its own to
 	// report; pairing them keeps the module's catalog row rather than
@@ -1283,6 +1311,20 @@ function projectCodePage(dir: Buffer): number {
 		}
 	}
 	return 1252;
+}
+
+/** Where a dir stream's PROJECTMODULES record starts, which ends its reference section. */
+function modulesRecordAt(dir: Buffer): number {
+	const record = readDirRecords(dir).find((one) => one.id === REC_PROJECTMODULES);
+	if (!record) {
+		throw new AccessVbaWriteError('The dir stream has no PROJECTMODULES record.');
+	}
+	return record.start;
+}
+
+/** The dir stream in front of its module section: the project's information and references. */
+function referenceSection(dir: Buffer): Buffer {
+	return dir.subarray(0, modulesRecordAt(dir));
 }
 
 /**

@@ -9,7 +9,7 @@ import { OFFICE_HOST_APPS } from '../../src/officeHostApps';
 // registry writes, Office processes or account-profile writes.
 const source = readFileSync(join(process.cwd(), 'syntax_corpus/oracle/run_vbe_oracle.mjs'), 'utf8');
 const names = ['dialogSoundsPath', 'dialogSoundsScript', 'setDialogSounds', 'parseArgs',
-    'caseHost', 'unsupportedHost', 'hostsNeedingBuilds', 'knownHostCrashResult', 'expectedMatches', 'isOracleInfrastructureFailure'];
+    'caseHost', 'unsupportedHost', 'malformedReferences', 'hostsNeedingBuilds', 'knownHostCrashResult', 'expectedMatches', 'isOracleInfrastructureFailure'];
 const functions = names.map((name) => {
     const start = source.indexOf(`function ${name}(`);
     // Up to the next top-level declaration, so a closing brace at the start of

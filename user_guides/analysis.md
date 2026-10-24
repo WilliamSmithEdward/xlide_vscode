@@ -72,6 +72,12 @@ and XLIDE checks `xl.Workbooks.Add` against Excel's object model, completes
 Excel's members after `xl.`, and knows Excel's spellings. Excel, Word,
 PowerPoint and Access are covered in every combination.
 
+Outlook's object library works the same way from any of the four. With a
+reference to it, `Dim o As Outlook.Application`, `MailItem`, `olMailItem`
+and Outlook's bare globals such as `Session` and `CreateItem` resolve, and
+`o.` completes Outlook's members. Outlook's objects take members the library
+does not list, as the VBE does, so XLIDE never reports one missing.
+
 Without the reference the VBE refuses the declaration - "User-defined type not
 defined" - and the project stops compiling. XLIDE reports that as
 `missing-library-reference`, once per library per module, with a quick fix that
@@ -80,6 +86,14 @@ in the XLIDE tree does the same without waiting for an error, and **Remove
 Project Reference** takes one away again. Removing a library your code still
 names early bound stops the project compiling, so XLIDE names the modules that
 would break before it does it.
+
+The same holds for any library. Once XLIDE has read the project's
+references, a type qualified by a name that is no reference of the project,
+not VBA or the application's own library, not the project's name and none of
+its modules, is reported too: `Dim c As ADODB.Connection` in a project that
+does not reference ActiveX Data Objects. XLIDE cannot add every library, so
+this one comes without the quick fix; add the reference under Tools >
+References in the VBE.
 
 Late binding needs no reference, and is never reported:
 

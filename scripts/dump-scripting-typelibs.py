@@ -5,6 +5,8 @@ Windows + pywin32 required. Pass a clean pyVBAReference checkout at the pin:
     python scripts/dump-scripting-typelibs.py path/to/pyVBAReference
     node scripts/generate-host-object-model.mjs scripting
     node scripts/generate-host-object-model.mjs regexp
+    node scripts/generate-host-object-model.mjs outlook
+Outlook's library is read from MSOUTL.OLB, which an Office install registers.
 No Office application is started and no project references are changed.
 """
 import json
@@ -30,14 +32,16 @@ scraper = runpy.run_path(str(source / 'scrape_excel_object_model.py'))
 LIBRARIES = [
     ('scripting', '{420B2830-E718-11CF-893D-00A0C9054228}', 1, 0),
     ('regexp', '{3F4DACA7-160D-11D2-A8E9-00104B365C9F}', 5, 5),
+    ('outlook', '{00062FFF-0000-0000-C000-000000000046}', 9, 6),
 ]
 for token, guid, major, minor in LIBRARIES:
     tlb = pythoncom.LoadRegTypeLib(guid, major, minor)
     name, description = tlb.GetDocumentation(-1)[:2]
     out = ROOT / 'reference' / token / 'json'
     out.mkdir(parents=True, exist_ok=True)
-    # These two libraries have no Office VBA-API prose corpus; the COM help
-    # strings and signatures are exactly those pyVBAReference extracts.
+    # These libraries are read without an Office VBA-API prose corpus: the
+    # COM help strings and signatures are exactly those pyVBAReference
+    # extracts.
     with tempfile.TemporaryDirectory(prefix='xlide-reference-') as temp:
         written = scraper['scrape_typelib'](tlb, description or name, temp)
         for path in (Path(temp) / 'json').glob('*.json'):

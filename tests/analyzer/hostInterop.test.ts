@@ -27,6 +27,7 @@ import {
 	hostTokenForLibid,
 	hostTokensForProject,
 	libraryGuidOf,
+	referencedHostTokens,
 } from '../../src/analyzer/host/hostLibraries';
 import { hostObjectModelForTokens } from '../../src/analyzer/host/hostRegistry';
 
@@ -256,10 +257,17 @@ describe('naming a library the project does not reference', () => {
 	});
 
 	it('says nothing about a library XLIDE cannot add', () => {
-		expect(codes('Dim o As Outlook.Application', ['word']))
+		expect(codes('Dim v As Visio.Application', ['word']))
 			.not.toContain('missing-library-reference');
 		expect(codes('Dim s As Scripting.Dictionary', ['word']))
 			.not.toContain('missing-library-reference');
+	});
+
+	it('reports Outlook unreferenced with the fix that adds it, and resolves it referenced', () => {
+		const found = analyze('Dim o As Outlook.Application', ['word']);
+		const missing = found.find((d) => d.code === 'missing-library-reference')!;
+		expect(missing.data?.addLibraryReference).toEqual({ library: 'outlook' });
+		expect(codes('Dim o As Outlook.Application', ['word', 'outlook'])).not.toContain('missing-library-reference');
 	});
 
 	it('carries the library for the quick fix that adds it', () => {
@@ -357,7 +365,7 @@ describe('adding a reference the project is missing', () => {
 	it('refuses a library it has no reference to write', () => {
 		const file = copy('ShapesFixture.xlsm');
 
-		expect(() => addReference(file, 'outlook')).toThrow(/not a library XLIDE can add/);
+		expect(() => addReference(file, 'visio')).toThrow(/not a library XLIDE can add/);
 		expect(listReferences(file).map((one) => one.name)).toEqual(['stdole', 'Office']);
 	});
 
@@ -386,6 +394,14 @@ describe('adding a reference the project is missing', () => {
 			expect(hostTokensForProject('excel', listReferences(file))).toContain(token);
 			fs.rmSync(file);
 		}
+		// Outlook, a library rather than a host, selects its model the same way.
+		const outlook = copy('ShapesFixture.xlsm');
+		expect(addReference(outlook, 'outlook')).toEqual({ ok: true, added: true, name: 'Outlook' });
+		const written = listReferences(outlook).at(-1)!;
+		expect(written.libid).toContain('{00062FFF-0000-0000-C000-000000000046}#9.6#');
+		expect(hostTokenForLibid(written.libid)).toBe('outlook');
+		expect(referencedHostTokens('excel', listReferences(outlook))).toEqual(['outlook']);
+		fs.rmSync(outlook);
 		// The fourth, from the other side: a document gaining Excel.
 		const doc = path.join(dir, 'WordExcelInteropFixture.docm');
 		fs.copyFileSync(path.join(__dirname, '..', 'fixtures', 'binaries', 'WordExcelInteropFixture.docm'), doc);

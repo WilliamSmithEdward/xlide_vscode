@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { OFFICE_HOST_APPS } from '../../src/officeHostApps';
 
 const source = readFileSync(join(process.cwd(), 'syntax_corpus/oracle/run_vbe_oracle.mjs'), 'utf8');
-const names = ['comRegistered', 'registeredHostBuild', 'caseHost', 'unsupportedHost', 'hostsNeedingBuilds',
+const names = ['comRegistered', 'registeredHostBuild', 'caseHost', 'unsupportedHost', 'malformedReferences', 'hostsNeedingBuilds',
     'knownHostCrashResult', 'expectedMatches', 'isOracleInfrastructureFailure'];
 const functions = names.map((name) => {
     const start = source.indexOf(`function ${name}(`);

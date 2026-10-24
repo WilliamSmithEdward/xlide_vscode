@@ -39,7 +39,7 @@ import type { PushFn } from '../analysisContext';
 
 /** The libraries a project can be given a reference to, lowercased. */
 const ADDABLE = new Map<string, string>(
-	(['excel', 'word', 'powerpoint', 'access'] as const)
+	(['excel', 'word', 'powerpoint', 'access', 'outlook'] as const)
 		.map((token) => [HOST_LIBRARY_NAMES[token].toLowerCase(), HOST_LIBRARY_NAMES[token]]),
 );
 
@@ -181,6 +181,38 @@ export function checkMissingScriptingReference(
 	}
 }
 
+/** Where the project is not known well enough to judge a qualifier. */
+const NO_JUDGEMENT: ReadonlySet<string> = new Set();
+
+/** What the project knows of itself, for judging a qualifier no library XLIDE can add spells. */
+export interface ProjectNames {
+	/** The libraries the dir stream records; undefined where they were not read. */
+	referencedLibraries?: readonly string[];
+	/** The project's own name, `VBAProject` or `Project` or an Access database's. */
+	projectName?: string;
+	/** Every module of the project, lowercased; undefined without the project. */
+	projectModuleNames?: ReadonlySet<string>;
+}
+
+/**
+ * The names that qualify a type in this project, lowercased, or undefined
+ * when the project is not known well enough to say a name does not (issue
+ * #1413, measured in Excel, Word, PowerPoint and Access 16.0): every
+ * library the dir stream records, which it records by the name the library
+ * gives itself; VBA and the host's own library, which it never records; the
+ * project's name and its modules. The Scripting Runtime is
+ * checkMissingScriptingReference's.
+ */
+function knownQualifiers(model: HostObjectModel | undefined, projectModules: ReadonlySet<string>, project: ProjectNames | undefined): ReadonlySet<string> | undefined {
+	if (!project?.referencedLibraries || !project.projectName || !project.projectModuleNames) {
+		return undefined;
+	}
+	return new Set([
+		'vba', 'scripting', project.projectName, model?.hostName ?? 'Excel', ...project.referencedLibraries,
+		...project.projectModuleNames, ...projectModules,
+	].map((name) => name.toLowerCase()));
+}
+
 /**
  * Module rule: a type or constant qualified with an Office library the
  * project does not reference.
@@ -196,6 +228,7 @@ export function checkMissingLibraryReference(
 	/** The project's module names, lowercased: a module named Word is called as Word.Hi (issue #357). */
 	projectModules: ReadonlySet<string> = new Set(),
 	bindings?: SourceQualifierBindings,
+	project?: ProjectNames,
 ): void {
 	const present = librariesInModel(model);
 	// Nothing is known about any library, so nothing can be said about one
@@ -204,6 +237,7 @@ export function checkMissingLibraryReference(
 		return;
 	}
 	const seen = new Set<string>();
+	let qualifiers: ReadonlySet<string> | undefined;
 	const tokens = tokenizeCached(source).filter(token => token.kind !== 'comment' && token.kind !== 'newline');
 	const explicit = tokens.some((token, i) => token.rawText.toLowerCase() === 'option' && tokens[i + 1]?.rawText.toLowerCase() === 'explicit');
 	for (const found of qualifiedNamesIn(source, bindings ?? {symbols: buildModuleSymbols('', 'standard', source)})) {
@@ -212,7 +246,23 @@ export function checkMissingLibraryReference(
 		if (!found.typeQualifier && !explicit) { continue; }
 		const lower = found.library.toLowerCase();
 		const library = ADDABLE.get(lower);
-		if (library === undefined || present.has(lower) || projectModules.has(lower) || seen.has(lower)) { continue; }
+		if (library === undefined) {
+			// A library XLIDE cannot add: judged only in a type position, and
+			// only where the project's references and modules are known.
+			qualifiers ??= knownQualifiers(model, projectModules, project) ?? NO_JUDGEMENT;
+			if (found.typeQualifier && qualifiers !== NO_JUDGEMENT && !qualifiers.has(lower) && !seen.has(lower)) {
+				seen.add(lower);
+				push(
+					'missingLibraryReference',
+					`'${found.library}' is no library this project references and none of its modules, so ${found.library}.* cannot be resolved. `
+					+ 'Add a reference to the library that defines it, or use late binding: '
+					+ `Dim x As Object: Set x = CreateObject("${found.library}.<class>"). This is a VBE compile error: User-defined type not defined.`,
+					found.span,
+				);
+			}
+			continue;
+		}
+		if (present.has(lower) || projectModules.has(lower) || seen.has(lower)) { continue; }
 		seen.add(lower);
 		push(
 			'missingLibraryReference',

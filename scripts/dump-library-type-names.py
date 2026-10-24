@@ -34,6 +34,8 @@ LIBS = {
     'VBScript_RegExp_55': '{3F4DACA7-160D-11D2-A8E9-00104B365C9F}',
     # The Access database engine, which every new Access database references.
     'DAO': '{4AC9E1DA-5BAD-4AC7-86E3-24F4CDCECA28}',
+    # A library a project drives Outlook through.
+    'Outlook': '{00062FFF-0000-0000-C000-000000000046}',
 }
 
 

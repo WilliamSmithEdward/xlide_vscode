@@ -51,6 +51,8 @@ interface CachedProject {
      * with the module read for the same reason.
      */
     references?: VbaProjectReference[];
+    /** The project's own name, which qualifies its types. Arrives with the module read. */
+    projectName?: string;
     /**
      * The workbook's sheets as saved, which say what `ThisWorkbook.Sheets(...)`
      * can reach. Arrives with the module read; absent for other files.
@@ -84,6 +86,8 @@ interface VbaModuleSourceEntry extends VbaModuleEntry {
     source: string;
     /** The workbook's sheets as saved; on the first entry of an Excel read only. */
     projectSheets?: WorkbookSheetInfo[];
+    /** The project's own name; same on every entry. */
+    projectName?: string;
 }
 
 const MODULE_LIST_CACHE_TTL_MS = 5_000;
@@ -191,6 +195,11 @@ export class VbaSymbolIndex implements vscode.Disposable {
      */
     projectReferences(projectPath: string): VbaProjectReference[] {
         return this.cachedProject(projectIdentityKey(projectPath)).references ?? [];
+    }
+
+    /** The project's own name, if a module read has already fetched it. */
+    projectName(projectPath: string): string | undefined {
+        return this.cachedProject(projectIdentityKey(projectPath)).projectName;
     }
 
     /**
@@ -322,6 +331,7 @@ export class VbaSymbolIndex implements vscode.Disposable {
         wb.conditionalConstants = entries.find((e) => e.projectConditionalConstants)
             ?.projectConditionalConstants;
         wb.references = entries.find((e) => e.projectReferences)?.projectReferences;
+        wb.projectName = entries.find((e) => e.projectName)?.projectName;
         wb.sheets = entries.find((e) => e.projectSheets)?.projectSheets;
         const out: VbaModuleSymbols[] = [];
         for (const [index, entry] of entries.entries()) {

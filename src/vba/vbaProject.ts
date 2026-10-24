@@ -38,6 +38,7 @@ export const REC_PROJECTMODULES = 0x000f;
 const REC_PROJECTCOOKIE = 0x0013;
 const REC_DIR_TERMINATOR = 0x0010;
 const REC_PROJECTCODEPAGE = 0x0003;
+const REC_PROJECTNAME = 0x0004;
 const REC_PROJECTVERSION = 0x0009;
 // MS-OVBA 2.3.4.2.1.12: the VBE "Conditional Compilation Arguments" project
 // property, as `Name = Value : Name = Value`. The Unicode twin at 0x003C holds
@@ -217,6 +218,8 @@ export class VbaProject {
 	 * the VBE stores it. Empty when the project declares none.
 	 */
 	conditionalConstantsRaw = '';
+	/** PROJECTNAME: `VBAProject` in a new workbook, `Project` in a new document. Empty when absent. */
+	name = '';
 	modules: VbaModule[] = [];
 	get hasPassword(): boolean { return this.protection.hasPassword; }
 	protection = new VbaProjectProtection(undefined, 1252);
@@ -339,6 +342,12 @@ export class VbaProject {
 			if (ansiConstants) {
 				project.conditionalConstantsRaw = ansi(ansiConstants);
 			}
+		}
+		// The project's own name, which qualifies its types as a library's
+		// name does: VBAProject.Class1 (issue #1413).
+		const nameRecord = records.find((r) => r.id === REC_PROJECTNAME && r.dataEnd > r.dataStart);
+		if (nameRecord) {
+			project.name = ansi(nameRecord);
 		}
 
 		let current: VbaModule | undefined;

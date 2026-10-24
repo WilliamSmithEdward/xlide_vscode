@@ -35,6 +35,8 @@ export interface WorkerAnalyzeRequest {
 	referencedHosts?: readonly string[];
 	/** The names of the libraries the project references, when known. */
 	referencedLibraries?: readonly string[];
+	/** The project's own name, read with the references. */
+	projectName?: string;
 	/** Designer-declared members of this module, when the caller knows them. */
 	implicitMembers?: WorkerImplicitMember[];
 	/** The host type the module's designer makes it, when the caller knows it. */

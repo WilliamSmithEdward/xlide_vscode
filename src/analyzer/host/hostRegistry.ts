@@ -22,6 +22,7 @@ import { getPowerPointObjectModel } from './powerpointObjectModel';
 import { getAccessObjectModel } from './accessObjectModel';
 import { getVb6ObjectModel } from './vb6ObjectModel';
 import { getScriptingObjectModel, getRegExpObjectModel } from './scriptingObjectModel';
+import { getOutlookObjectModel } from './outlookObjectModel';
 
 /**
  * Host and reference-library tokens used by project contexts. A VB6
@@ -58,6 +59,8 @@ const MODELS_BY_TOKEN = new Map<string, () => HostObjectModel>([
 	['vb6', getVb6ObjectModel],
 	['scripting', getScriptingObjectModel],
 	['regexp', getRegExpObjectModel],
+	// A referenced library only: Outlook is not a host XLIDE opens.
+	['outlook', getOutlookObjectModel],
 ]);
 
 /** Merged models, keyed by the token list that produced them. */
@@ -151,6 +154,9 @@ export function hostObjectModelForTokens(
 		source: models.map((one) => one.source).join(' + '),
 		hostName: models[0].hostName,
 		globalType: models[0].globalType,
+		// A referenced library's global object binds bare after the host's
+		// own: Outlook's Session in a workbook referencing Outlook.
+		referencedGlobalTypes: models.slice(1).map((one) => one.globalType).filter((one): one is string => one !== undefined),
 		types: Object.assign({}, ...layered.map((one) => one.types)),
 		aliases: Object.assign({}, ...layered.map((one) => one.aliases)),
 		globals: Object.assign({}, ...layered.map((one) => one.globals)),

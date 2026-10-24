@@ -1300,6 +1300,14 @@ function Invoke-OracleCase {
         Set-Stage "add_module"
         $vbProject = Get-OracleVbProject $app $container
         $component = $null
+        # Type libraries the case's code names early bound, added by GUID and
+        # version before any module, as Tools > References would.
+        if ($case.PSObject.Properties.Name -contains "references" -and $case.references) {
+            Set-Stage "add_references"
+            foreach ($reference in @($case.references)) {
+                $null = $vbProject.References.AddFromGuid([string]$reference.guid, [int]$reference.major, [int]$reference.minor)
+            }
+        }
         if ($case.PSObject.Properties.Name -contains "modules" -and $case.modules) {
             Set-Stage "add_modules"
             foreach ($moduleSpec in @($case.modules)) {

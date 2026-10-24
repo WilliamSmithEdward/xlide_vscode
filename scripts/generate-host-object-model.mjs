@@ -36,10 +36,10 @@ import {
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const host = process.argv[2];
 if (!host || !/^[a-z][a-z0-9]*$/.test(host)) {
-    console.error('usage: generate-host-object-model.mjs <host>   (word | powerpoint | access | vb6 | scripting | regexp)');
+    console.error('usage: generate-host-object-model.mjs <host>   (word | powerpoint | access | vb6 | scripting | regexp | outlook)');
     process.exit(1);
 }
-const PREFIXES = { word: 'Word', powerpoint: 'PowerPoint', access: 'Access', vb6: 'VB', scripting: 'Scripting', regexp: 'VBScript_RegExp_55' };
+const PREFIXES = { word: 'Word', powerpoint: 'PowerPoint', access: 'Access', vb6: 'VB', scripting: 'Scripting', regexp: 'VBScript_RegExp_55', outlook: 'Outlook' };
 // A host whose dumps span several libraries names each one: a dump's
 // `libraryId` picks its namespace, and a library with no entry here is
 // evidence only (VBA6 is dumped beside VBRUN but the analyzer's VBA runtime
@@ -301,7 +301,7 @@ if (host === 'vb6') {
     lines.push('// each type carrying its source as provenance. Every type is deliberately');
     lines.push('// NON-exhaustive: this metadata offers and describes, and must never prove');
     lines.push('// a member absent.');
-} else if (host === 'scripting' || host === 'regexp') {
+} else if (host === 'scripting' || host === 'regexp' || host === 'outlook') {
     lines.push(`// Types, aliases and enum constants of ${prefix}, read from its registered`);
     lines.push('// COM type library via pinned pyVBAReference. Types remain');
     lines.push('// NON-exhaustive: these snapshots offer and describe visible members.');
