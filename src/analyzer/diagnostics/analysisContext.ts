@@ -250,6 +250,12 @@ export interface AnalyzeModuleOptions {
 	 */
 	projectRunnableProcedures?: ReadonlySet<string>;
 	/**
+	 * Every module of the project, lowercased (ProjectIndex.moduleNames): a
+	 * module's name qualifies a type it declares, `Module1.Pair`. When
+	 * omitted, an unreferenced qualifier is not judged (issue #1413).
+	 */
+	projectModuleNames?: ReadonlySet<string>;
+	/**
 	 * Lowercased names some module of the project may write (from
 	 * ProjectIndex.writtenNames). A Public variable none writes keeps its
 	 * initial value, which the runtime rules use (issue #241). When omitted,
@@ -296,6 +302,12 @@ export interface AnalyzeModuleOptions {
 	 * references are not known, which keeps the rules that read it silent.
 	 */
 	referencedLibraries?: readonly string[];
+	/**
+	 * The project's own name as its dir stream records it (`VBAProject`,
+	 * `Project`, an Access database's), which qualifies its types the way a
+	 * library's name does. Read with the references, and undefined with them.
+	 */
+	projectName?: string;
 	/**
 	 * Conditional-compilation constants for deterministic branch filtering. Branches
 	 * that remain unknown are still analyzed; only proven-inactive code is skipped.

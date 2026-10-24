@@ -171,6 +171,8 @@ export interface ProjectAnalysisWorker {
         referencedHosts?: readonly string[];
         /** The names of the libraries the project references, when known. */
         referencedLibraries?: readonly string[];
+        /** The project's own name, read with the references. */
+        projectName?: string;
         /** The host type the module's designer makes it, when the engine read one. */
         designerClass?: string;
         /** The workbook's sheets as saved, when the container is a workbook. */
@@ -402,6 +404,7 @@ async function loadProjectModules(
 ): Promise<{
     modules: RawModule[];
     references: readonly VbaProjectReference[];
+    projectName: string | undefined;
     sheets: readonly WorkbookSheetInfo[] | undefined;
     conditionalConstants: string | undefined;
 }> {
@@ -411,6 +414,7 @@ async function loadProjectModules(
         undefined,
         () => bridge.call<Array<RawModule & {
             projectReferences?: VbaProjectReference[];
+            projectName?: string;
             projectSheets?: WorkbookSheetInfo[];
             projectConditionalConstants?: string;
         }>>(
@@ -425,6 +429,7 @@ async function loadProjectModules(
         // any one of them carries it; a project with no modules references
         // nothing this analysis can use either.
         references: modules[0]?.projectReferences ?? [],
+        projectName: modules[0]?.projectName,
         // The workbook's sheets ride on the first entry only.
         sheets: modules[0]?.projectSheets,
         // The project's #If arguments, which the engine repeats on every entry.
@@ -506,7 +511,7 @@ async function runProjectAnalysis(
     const totalTrace = startPerformanceTrace('analyzeProject.total');
     const progress = projectAnalysisProgress(options.progress);
     try {
-        const { modules, references, sheets: workbookSheets, conditionalConstants } = await loadProjectModules(bridge, filePath, progress, options);
+        const { modules, references, projectName, sheets: workbookSheets, conditionalConstants } = await loadProjectModules(bridge, filePath, progress, options);
         // A project that references another application is analyzed against
         // both object models, exactly as the editor's own diagnostics are.
         const referencedHosts = referencedHostTokens(hostTokenForFileName(filePath), references);
@@ -637,6 +642,7 @@ async function runProjectAnalysis(
                                 host: hostTokenForFileName(filePath),
                                 referencedHosts,
                                 referencedLibraries,
+                                projectName,
                                 workbookSheets,
                             }),
                         );
@@ -683,6 +689,7 @@ async function runProjectAnalysis(
                         host: hostTokenForFileName(filePath),
                         referencedHosts,
                         referencedLibraries,
+                        projectName,
                         workbookSheets,
                     }),
                 );

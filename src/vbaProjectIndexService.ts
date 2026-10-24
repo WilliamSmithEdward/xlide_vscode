@@ -69,6 +69,8 @@ export interface VbaProjectContext {
      * which object models the module is analyzed against.
      */
     readonly references: readonly VbaProjectReference[];
+    /** The project's own name, which qualifies its types; undefined before it is read. */
+    readonly projectName: string | undefined;
     /** The workbook's sheets as saved; undefined for other files or before they are read. */
     readonly sheets: readonly WorkbookSheetInfo[] | undefined;
     /**
@@ -108,6 +110,7 @@ let generationClock = 0;
 
 class ProjectRecord implements VbaProjectContext {
     references: readonly VbaProjectReference[] = [];
+    projectName: string | undefined;
     sheets: readonly WorkbookSheetInfo[] | undefined;
     conditionalConstants: string | undefined;
     readonly byModule = new Map<string, VbaModuleSymbols>();
@@ -360,6 +363,7 @@ export class VbaProjectIndexService implements vscode.Disposable {
         );
         const record = new ProjectRecord(projectPath, project);
         record.references = this._index.projectReferences(projectPath);
+        record.projectName = this._index.projectName(projectPath);
         record.sheets = this._index.projectSheets(projectPath);
         record.conditionalConstants = conditionalConstants;
         for (const mod of modules) {
