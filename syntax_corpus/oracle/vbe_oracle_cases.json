@@ -213658,6 +213658,338 @@
       ],
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "document_module_renamed_bookcode_worksheet_runtime",
+      "description": "A renamed document module into an object variable: Set ws = BookCode, with ws As Worksheet, where BookCode is the workbook module renamed, compiles and raises Run-time error '13': Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim ws As Worksheet\r\n    Set ws = BookCode\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "codeName": "BookCode",
+          "source": ""
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": ""
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "document_module_renamed_bookcode_workbook_runtime",
+      "description": "A renamed document module into an object variable: Set wb = BookCode, with wb As Workbook, where BookCode is the workbook module renamed, compiles and runs. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim wb As Workbook\r\n    Set wb = BookCode\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "codeName": "BookCode",
+          "source": ""
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": ""
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "document_module_renamed_bookcode_object_runtime",
+      "description": "A renamed document module into an object variable: Set o = BookCode, with o As Object, where BookCode is the workbook module renamed, compiles and runs. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    Set o = BookCode\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "codeName": "BookCode",
+          "source": ""
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": ""
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "document_module_renamed_bookcode_byval_worksheet_param_runtime",
+      "description": "A renamed document module into an object variable: Take BookCode, into a ByVal parameter As Worksheet, where BookCode is the workbook module renamed, compiles and raises Run-time error '13': Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Take(ByVal p As Worksheet)\r\nEnd Sub\r\nSub Main()\r\n    Take BookCode\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "codeName": "BookCode",
+          "source": ""
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": ""
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "document_module_renamed_bookcode_byval_workbook_param_runtime",
+      "description": "A renamed document module into an object variable: Take BookCode, into a ByVal parameter As Workbook, where BookCode is the workbook module renamed, compiles and runs. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Take(ByVal p As Workbook)\r\nEnd Sub\r\nSub Main()\r\n    Take BookCode\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "codeName": "BookCode",
+          "source": ""
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": ""
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "document_module_renamed_datasheet_workbook_runtime",
+      "description": "A renamed document module into an object variable: Set wb = DataSheet, with wb As Workbook, where DataSheet is the sheet module renamed, compiles and raises Run-time error '13': Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim wb As Workbook\r\n    Set wb = DataSheet\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": ""
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "codeName": "DataSheet",
+          "source": ""
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "document_module_renamed_datasheet_worksheet_runtime",
+      "description": "A renamed document module into an object variable: Set ws = DataSheet, with ws As Worksheet, where DataSheet is the sheet module renamed, compiles and runs. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim ws As Worksheet\r\n    Set ws = DataSheet\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": ""
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "codeName": "DataSheet",
+          "source": ""
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "document_module_renamed_datasheet_byval_workbook_param_runtime",
+      "description": "A renamed document module into an object variable: Take DataSheet, into a ByVal parameter As Workbook, where DataSheet is the sheet module renamed, compiles and raises Run-time error '13': Type mismatch. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Take(ByVal p As Workbook)\r\nEnd Sub\r\nSub Main()\r\n    Take DataSheet\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": ""
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "codeName": "DataSheet",
+          "source": ""
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "document_module_renamed_doccode_range_runtime",
+      "description": "A renamed document module into an object variable: Set r = DocCode, with r As Range, where DocCode is the document module renamed, compiles and raises Run-time error '13': Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim r As Range\r\n    Set r = DocCode\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "codeName": "DocCode",
+          "source": ""
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "document_module_renamed_doccode_document_runtime",
+      "description": "A renamed document module into an object variable: Set d = DocCode, with d As Document, where DocCode is the document module renamed, compiles and runs. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Document\r\n    Set d = DocCode\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "codeName": "DocCode",
+          "source": ""
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "document_module_renamed_doccode_object_runtime",
+      "description": "A renamed document module into an object variable: Set o = DocCode, with o As Object, where DocCode is the document module renamed, compiles and runs. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    Set o = DocCode\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "codeName": "DocCode",
+          "source": ""
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "document_module_renamed_doccode_byval_range_param_runtime",
+      "description": "A renamed document module into an object variable: Take DocCode, into a ByVal parameter As Range, where DocCode is the document module renamed, compiles and raises Run-time error '13': Type mismatch. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\r\nSub Take(ByVal p As Range)\r\nEnd Sub\r\nSub Main()\r\n    Take DocCode\r\nEnd Sub\r\n",
+          "entry": true
+        },
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "codeName": "DocCode",
+          "source": ""
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }

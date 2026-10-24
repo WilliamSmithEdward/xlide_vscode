@@ -2652,7 +2652,7 @@ describe('analyzeModule - a document module into a variable of a host class', ()
 
 		it('has the measured cases of every host with document modules', () => {
 			expect(new Set(cases.map((oracleCase) => oracleCase.host ?? 'excel'))).toEqual(new Set(['excel', 'word', 'access']));
-			expect(cases).toHaveLength(28);
+			expect(cases).toHaveLength(40);
 		});
 
 		it.each(cases.map((oracleCase) => [oracleCase.id, oracleCase] as const))('%s', (_id, oracleCase) => {
