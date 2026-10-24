@@ -19,7 +19,13 @@ import * as path from 'path';
 import { AccessVbaWriter, applyAccessVbaProject } from '../../src/vba/access/accessVbaWriter';
 import { readAccessCatalog, readAccessStorage } from '../../src/vba/access/accessStorage';
 import { accessVbaCfb } from '../../src/vba/accessDatabase';
-import { VbaProject } from '../../src/vba/vbaProject';
+import { readDirRecords, VbaProject } from '../../src/vba/vbaProject';
+import {
+	buildRegisteredReference,
+	HOST_LIBRARIES,
+	readProjectReferences,
+	removeReferenceRecords,
+} from '../../src/vba/vbaProjectReferences';
 import { AccessPageStore } from '../../src/vba/access/accessPageStore';
 import { AccessTable } from '../../src/vba/access/accessTableWriter';
 import { decodeRowValues } from '../../src/vba/access/accessFormat';
@@ -354,5 +360,54 @@ describe('the whole project through the editor', () => {
 	it.each(FIXTURES)('%s: a save that changed nothing changes no bytes', (file) => {
 		const data = read(file);
 		expect(applyAccessVbaProject(data, accessVbaCfb(data)).equals(data)).toBe(true);
+	});
+});
+
+// Issue #1474: a change to the references alone used to come back as the
+// database unchanged. AccessExcelReferenceFixture is AccessFixture given the
+// Excel reference by Access 16.0 itself, through References.AddFromGuid.
+describe('the references, through the editor', () => {
+	const withReference = (data: Buffer, library: string): Buffer => {
+		const cfb = accessVbaCfb(data);
+		const edited = VbaProject.parse(cfb);
+		edited.addReferenceRecords(buildRegisteredReference(HOST_LIBRARIES[library]));
+		edited.save(cfb);
+		return applyAccessVbaProject(data, cfb);
+	};
+	const names = (data: Buffer): string[] => readProjectReferences(project(data).dirStream).map((one) => one.name);
+	/** Every dir record but the version stamp, which Access restamps on every save. */
+	const recordsOf = (data: Buffer): string[] => {
+		const dir = project(data).dirStream;
+		return readDirRecords(dir).filter((record) => record.id !== 0x0009).map((record) => dir.subarray(record.start, record.end).toString('hex'));
+	};
+
+	it.each(FIXTURES)('%s: adds a reference, and marks the compiled project stale', (file) => {
+		const data = read(file);
+		const written = withReference(data, 'excel');
+		expect(names(written)).toEqual([...names(data), 'Excel']);
+		expect(accessVbaCfb(written).getStream('_VBA_PROJECT').readUInt16LE(2)).toBe(0x0099);
+		assertConsistent(written);
+		expect(project(written).modules.map((one) => [one.name, one.source]))
+			.toEqual(project(data).modules.map((one) => [one.name, one.source]));
+	});
+
+	it('writes the records Access itself writes for the same reference', () => {
+		expect(recordsOf(withReference(read('AccessFixture.accdb'), 'excel')))
+			.toEqual(recordsOf(read('AccessExcelReferenceFixture.accdb')));
+	});
+
+	it('takes a reference away again, and a module write keeps what is there', () => {
+		const data = read('AccessExcelReferenceFixture.accdb');
+		const cfb = accessVbaCfb(data);
+		const edited = VbaProject.parse(cfb);
+		edited.replaceReferenceSection(removeReferenceRecords(edited.dirStream, (one) => one.name === 'Excel'));
+		edited.save(cfb);
+		const removed = applyAccessVbaProject(data, cfb);
+		expect(names(removed)).toEqual(['stdole', 'DAO']);
+		assertConsistent(removed);
+
+		const writer = new AccessVbaWriter(withReference(read('AccessFixture.accdb'), 'word'));
+		writer.setModuleText('Module1', BODY);
+		expect(names(writer.toBuffer())).toEqual(['stdole', 'DAO', 'Word']);
 	});
 });
