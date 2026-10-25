@@ -16,7 +16,8 @@ import {
 } from '../../conditional/conditionalCompilation';
 import { parseVbaIntegerLiteral } from '../../constants/integerConstantExpression';
 import { splitTopLevelTokenGroups } from '../../lexer/tokenHelpers';
-import type { VbaToken } from '../../lexer/tokenKinds';
+import { isWsc, type VbaToken } from '../../lexer/tokenKinds';
+import { continuationTerminator } from '../../lexer/trivia';
 import type {
 	ModuleNode,
 	ParameterNode,
@@ -180,6 +181,48 @@ export function checkMeOutsideObjectModule(
 }
 
 /**
+ * The text with each run of line continuations, and the whitespace that
+ * follows it, joined into one space, read as the lexer reads a continuation.
+ */
+function joinLineContinuations(text: string): string {
+	let out = '';
+	let i = 0;
+	let joined = false;
+	while (i < text.length) {
+		let at = i;
+		while (at < text.length && isWsc(text[at])) {
+			at++;
+		}
+		const terminator = at > i ? continuationTerminator(text, at) : -1;
+		if (terminator >= 0) {
+			i = terminator + (text[terminator] === '\r' && text[terminator + 1] === '\n' ? 2 : 1);
+			joined = true;
+		} else if (joined) {
+			out += ' ';
+			i = at;
+			joined = false;
+		} else {
+			out += text[i];
+			i++;
+		}
+	}
+	return out;
+}
+
+/** The text without the whitespace the lexer skips at either end. */
+function trimWhitespace(text: string): string {
+	let start = 0;
+	let end = text.length;
+	while (start < end && isWsc(text[start])) {
+		start++;
+	}
+	while (end > start && isWsc(text[end - 1])) {
+		end--;
+	}
+	return text.slice(start, end);
+}
+
+/**
  * Rule: `WithEvents` is a module-level object-module variable declarator. The
  * parser exposes the relevant settled facts directly: module kind, local vs
  * module declaration context, `As New`, and array declarators.
@@ -249,14 +292,24 @@ export function checkWithEventsDeclarations(
 			// is no object at all. A host class is not judged here, and a
 			// project class only by the Events its source declares.
 			const normalized = normalizeType(decl.asType);
+			// `VBA.Collection` is VBA's own Collection, whatever the project
+			// calls Collection, also with either name bracketed, or with
+			// whitespace or line continuations around the dot (collection_vba_*
+			// oracle cases). The type is quoted with each run of continuations
+			// joined.
+			const typeText = decl.asType === undefined ? undefined : joinLineContinuations(decl.asType);
+			const parts = normalizeType(typeText)?.split('.').map(trimWhitespace);
+			const vbaCollection = parts?.length === 2
+				&& (parts[0] === 'vba' || parts[0] === '[vba]')
+				&& (parts[1] === 'collection' || parts[1] === '[collection]');
 			if (normalized === 'object' || normalized === 'variant' || normalized === undefined) {
 				report(
 					`WithEvents variable '${decl.name}' must be declared As a specific class that raises events; ${decl.asType ? `'${decl.asType}'` : 'no type'} names none.`,
 					nameSpan,
 				);
-			} else if ((normalized === 'collection' && collectionWithoutEvents()) || isKnownScalarType(normalized) || classWithoutEvents(normalized)) {
+			} else if (vbaCollection || (normalized === 'collection' && collectionWithoutEvents()) || isKnownScalarType(normalized) || classWithoutEvents(normalized)) {
 				report(
-					`WithEvents variable '${decl.name}' is declared As ${decl.asType}, which does not source automation events.`,
+					`WithEvents variable '${decl.name}' is declared As ${typeText}, which does not source automation events.`,
 					nameSpan,
 				);
 			}
