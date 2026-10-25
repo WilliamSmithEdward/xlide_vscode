@@ -819,6 +819,83 @@ async function runCaseWithRetries(worker, kase, timeoutSeconds, timeoutRetries, 
     };
 }
 
+// Where --changed looks for the branch a change is measured against, in order.
+const CHANGED_BASE_REFS = ['upstream/main', 'origin/main'];
+
+/**
+ * The cases file as it was where this branch left `ref` (by default the first
+ * of CHANGED_BASE_REFS that exists): { ref, commit, cases }, or { error }.
+ * Any later commit on `ref` is left out, so a branch is measured against the
+ * main it started from; fetch first, since an out-of-date `ref` compares with
+ * an older file. A file that did not exist there has no cases there.
+ */
+function changedBase(casesFile, ref) {
+    const git = (...args) => {
+        const run = spawnSync('git', ['-C', path.dirname(path.resolve(casesFile)), ...args], {
+            encoding: 'utf8', maxBuffer: 256 * 1024 * 1024,
+        });
+        return {
+            ok: !run.error && run.status === 0, noGit: run.error?.code === 'ENOENT',
+            out: run.stdout ?? '', why: (run.error?.message ?? run.stderr ?? '').trim(),
+        };
+    };
+    // -z: a path git would otherwise quote, as one with non-ASCII letters.
+    const tracked = git('ls-files', '-z', '--full-name', '--error-unmatch', '--', path.basename(casesFile));
+    if (tracked.noGit) { return { error: '--changed needs git, and git is not on the PATH' }; }
+    if (!tracked.ok) {
+        return { error: `--changed: git does not track ${casesFile}, so there is nothing to compare it with (${tracked.why || 'not tracked'})` };
+    }
+    const file = tracked.out.split('\0')[0];
+    const shallow = git('rev-parse', '--is-shallow-repository');
+    if (!shallow.ok) { return { error: `--changed: git cannot read this repository (${shallow.why})` }; }
+    if (shallow.out.trim() === 'true') {
+        return { error: '--changed: this is a shallow clone, which may not hold the commit where this branch left main; run git fetch --unshallow first' };
+    }
+    const name = ref ?? CHANGED_BASE_REFS.find((candidate) => git('rev-parse', '--verify', '--quiet', `${candidate}^{commit}`).ok);
+    if (!name) {
+        return { error: `--changed: neither ${CHANGED_BASE_REFS.join(' nor ')} exists here; name the branch to compare with, --changed-from <ref>` };
+    }
+    const base = git('merge-base', 'HEAD', name);
+    if (!base.ok) {
+        return { error: `--changed: cannot find where this branch left ${name} (${base.why || 'no commit in common'})` };
+    }
+    const commit = base.out.trim();
+    // Only a path missing from the base's tree counts as no cases, never a
+    // failure of git, which would turn into a full run.
+    const listed = git('ls-tree', '-z', '--full-tree', commit, '--', file);
+    if (!listed.ok) {
+        return { error: `--changed: cannot list ${file} at ${commit.slice(0, 12)} (${listed.why})` };
+    }
+    if (listed.out === '') { return { ref: name, commit, cases: [] }; }
+    const shown = git('show', `${commit}:${file}`);
+    let data;
+    try {
+        if (!shown.ok) { throw new Error(shown.why); }
+        data = JSON.parse(shown.out.replace(/^\uFEFF/, ''));
+        if (!Array.isArray(data?.cases)) { throw new Error('it has no cases array'); }
+    } catch (err) {
+        return { error: `--changed: cannot read ${file} as it was at ${commit.slice(0, 12)} (${err.message})` };
+    }
+    return { ref: name, commit, cases: data.cases };
+}
+
+// The cases that are new, or differ in any field from the case of the same id
+// at the base. A case whose fields only moved counts as changed: measuring
+// one too many is safe, and missing one is not.
+function changedCases(cases, baseCases) {
+    const before = new Map(baseCases.map((kase) => [String(kase.id), JSON.stringify(kase)]));
+    return cases.filter((kase) => before.get(String(kase.id)) !== JSON.stringify(kase));
+}
+
+function describeChanged(cases, total, base) {
+    const perHost = Object.keys(OFFICE_HOSTS)
+        .map((host) => [host, cases.filter((kase) => caseHost(kase) === host).length])
+        .filter(([, count]) => count > 0)
+        .map(([host, count]) => `${count} ${host}`);
+    return `--changed: ${cases.length} of ${total} case(s) are new or changed since this branch left `
+        + `${base.ref} at ${base.commit.slice(0, 12)}${perHost.length ? ` (${perHost.join(', ')})` : ''}.`;
+}
+
 const USAGE = `Usage: node run_vbe_oracle.mjs [options]
 
   A fixture runs in the Office host its "host" names: excel (the default),
@@ -844,6 +921,12 @@ const USAGE = `Usage: node run_vbe_oracle.mjs [options]
                               Requires a readable registered executable version
                               for each host the cases use; a missing or
                               mismatched build from the worker aborts the run.
+  --changed                   Run only the cases that are new, or differ in any
+                              field, since this branch left upstream/main, or
+                              origin/main if upstream/main does not exist.
+                              Uncommitted edits count. Needs git; not with
+                              --case.
+  --changed-from <ref>        The same, since this branch left <ref>.
   --json                      Emit machine-readable JSON
   --strict                    Exit non-zero when outcomes do not match fixtures
   --promote-observed          Write accepted/rejected outcomes back as asserted
@@ -881,6 +964,8 @@ function parseArgs(argv) {
         casesPerInstance: DEFAULT_CASES_PER_INSTANCE,
         dialogHoldSeconds: 0,
         checkpoint: null,
+        changed: false,
+        changedFrom: null,
         json: false,
         strict: false,
         promoteObserved: false,
@@ -913,12 +998,17 @@ function parseArgs(argv) {
             case '--cases-per-excel': args.casesPerInstance = number(flag); break;
             case '--dialog-hold-seconds': args.dialogHoldSeconds = number(flag); break;
             case '--checkpoint': args.checkpoint = value(flag); break;
+            case '--changed': args.changed = true; break;
+            case '--changed-from': args.changed = true; args.changedFrom = value(flag); break;
             case '--json': args.json = true; break;
             case '--strict': args.strict = true; break;
             case '--promote-observed': args.promoteObserved = true; break;
             case '-h': case '--help': args.help = true; break;
             default: throw new Error(`Unknown argument: ${flag}`);
         }
+    }
+    if (args.changed && args.caseIds.length) {
+        throw new Error('--changed and --case each choose the cases to run; give one of them');
     }
     return args;
 }
@@ -955,6 +1045,19 @@ async function main(argv) {
         return 2;
     }
     let cases = document.cases;
+    if (args.changed) {
+        const base = changedBase(args.cases, args.changedFrom);
+        if (base.error) {
+            console.error(base.error);
+            return 2;
+        }
+        cases = changedCases(cases, base.cases);
+        console.error(describeChanged(cases, document.cases.length, base));
+        if (!cases.length) {
+            if (args.json) { console.log(JSON.stringify({ results: [], failureCount: 0, oracleFailureCount: 0, skippedCount: 0 }, null, 2)); }
+            return 0;
+        }
+    }
     if (args.caseIds.length) {
         const wanted = new Set(args.caseIds);
         cases = cases.filter((kase) => wanted.has(kase.id));

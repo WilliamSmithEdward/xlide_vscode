@@ -156,6 +156,30 @@ an infrastructure failure, never cached evidence. An Office update during a
 run stops it at the next case that starts the new build; run it again, and
 the old build's entries are not reused.
 
+To measure the fixtures a branch adds or changes, and nothing else:
+
+```powershell
+node syntax_corpus/oracle/run_vbe_oracle.mjs --changed --strict
+```
+
+`--changed` runs only the fixtures that are new, or differ in any field, from
+the cases file at the commit where this branch left `upstream/main`, or
+`origin/main` if `upstream/main` does not exist; `--changed-from <ref>` names
+another branch. The file is read as it is on disk, so uncommitted edits count.
+A fixture whose fields only moved counts as changed, and a removed one is not
+run. Before it starts, the runner says how many fixtures it found for each
+host, and it ends at once when there are none. Fetch first: against an
+out-of-date `upstream/main` it compares with an older file. It needs git, and
+it refuses a cases file git does not track, a shallow clone, or a branch with
+no commit in common with the one it compares with, rather than run every
+fixture. It cannot be combined with `--case`. Unlike `--checkpoint`, it needs
+no earlier run.
+
+With `--strict`, that is the check for a pull request that adds fixtures: it
+fails if what Office does differs from the asserted `expected` of any fixture
+it runs. A full run is still needed when the oracle itself changes, or for a
+new Office build.
+
 Promotion workflow for an observe-only case:
 
 ```powershell
