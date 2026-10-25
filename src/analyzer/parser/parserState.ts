@@ -105,7 +105,7 @@ export function splitLogicalStatements(tokens: readonly VbaToken[]): LogicalStat
 const TAIL_BLOCK_OPENERS: ReadonlySet<string> = new Set(['with', 'for', 'do', 'while', 'select']);
 
 /** Index of the block opener a one-line If's Then/Else tail starts with, or -1. */
-function singleLineIfTailOpenerIndex(tokens: readonly VbaToken[]): number {
+export function singleLineIfTailOpenerIndex(tokens: readonly VbaToken[]): number {
 	const head = tokens[0]?.kind === 'integerLiteral' && /^\d+$/.test(tokens[0].rawText) ? 1 : 0;
 	if (tokenWord(tokens[head]) !== 'if') {
 		return -1;
@@ -118,7 +118,8 @@ function singleLineIfTailOpenerIndex(tokens: readonly VbaToken[]): number {
 			depth++;
 		} else if (raw === ')') {
 			depth--;
-		} else if (depth === 0) {
+		} else if (depth === 0 && !isMemberAccess(tokens[i - 1], tokens[i])) {
+			// `.Else` and `!Then` are member names, not the If's keywords.
 			const word = tokenWord(tokens[i]);
 			if (word === 'then' || word === 'else') {
 				last = i;
@@ -136,6 +137,11 @@ function singleLineIfTailOpenerIndex(tokens: readonly VbaToken[]): number {
 		return -1;
 	}
 	return last + 1;
+}
+
+/** True when `name` follows a `.` or `!` glued to it; `x! Then` is a type suffix. */
+export function isMemberAccess(dot: VbaToken | undefined, name: VbaToken): boolean {
+	return !!dot && (dot.rawText === '.' || dot.rawText === '!') && dot.end === name.start;
 }
 
 /** An If statement that is not a block If header, whose Then ends its line. */

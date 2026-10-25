@@ -1,6 +1,7 @@
 // Block structure the analyzer used to misread (issues #128 to #131). Each
 // sample compiles and runs in Excel 16.0 (build 20326), measured through
-// pyVBAharness on 2026-09-26; the analyzer must report no compile error on it.
+// pyVBAharness on 2026-09-26, unless a test says otherwise; the analyzer must
+// report no compile error on it.
 
 import { describe, it, expect } from 'vitest';
 import { analyzeVbaModuleSource } from '../../../src/vbaModuleAnalysis';
@@ -29,6 +30,31 @@ describe('a block written in a one-line If tail (issue #128)', () => {
 			'',
 		].join('\n');
 		expect(errors(src)).toEqual([]);
+	});
+
+	// Measured in Excel 16.0 (build 20430) through the VBE oracle harness.
+	it('does not read a member named Else or Then in the tail as the If\'s keyword', () => {
+		const src = [
+			'Option Explicit',
+			'Private Type R',
+			'    Else As New Collection',
+			'    Then As New Collection',
+			'End Type',
+			'Sub T()',
+			'    Dim a As Boolean, d As R, c As New Collection',
+			'    With c',
+			'        If a Then With d.Else: .Add 1: End With',
+			'        If a Then With d.Then: .Add 1: End With',
+			'        If a Then With d.Then: End With',
+			'        .Add 2',
+			'    End With',
+			'End Sub',
+			'',
+		].join('\n');
+		expect(errors(src)).toEqual([]);
+		// A suffix `!` with a space after it is the variable's, not a member access.
+		const suffix = 'Option Explicit\nSub T()\n    Dim x As Single, c As New Collection\n    If x! Then With c: .Add 1: End With\nEnd Sub\n';
+		expect(errors(suffix)).toEqual([]);
 	});
 });
 

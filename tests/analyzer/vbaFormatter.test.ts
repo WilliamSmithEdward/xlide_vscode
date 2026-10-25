@@ -1,6 +1,8 @@
 // The VBA formatter: indentation by block structure, keyword casing, the
 // VBE's spacing, and the things it must never touch.
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { formatVbaModule, tokenStreamDifference } from '../../src/analyzer/format/formatModule';
 
@@ -14,6 +16,17 @@ function format(source: string, options = SPACES): string {
 
 function lines(...text: string[]): string {
 	return text.join('\n');
+}
+
+function oracleSource(id: string): string {
+	const corpus: { cases: { id: string; source: string }[] } = JSON.parse(
+		readFileSync(join(process.cwd(), 'syntax_corpus', 'oracle', 'vbe_oracle_cases.json'), 'utf8'),
+	);
+	const found = corpus.cases.find((oracleCase) => oracleCase.id === id);
+	if (!found) {
+		throw new Error(`no oracle case ${id}`);
+	}
+	return found.source;
 }
 
 describe('formatVbaModule - indentation', () => {
@@ -91,11 +104,113 @@ describe('formatVbaModule - indentation', () => {
 		));
 	});
 
+	it('closes a block written on a one-line If inside that If, not the block around it (issue #128)', () => {
+		const src = lines(
+			'Sub A()',
+			'With c',
+			'If a Then With d: .Add 1: End With',
+			'.Add 2',
+			'If a Then .Add 3 Else For i = 1 To 2: .Add i: Next',
+			'.Add 4',
+			'10 If a Then With d: .Add 5: End With',
+			'.Add 6',
+			'End With',
+			'End Sub',
+		);
+		expect(format(src)).toBe(lines(
+			'Sub A()',
+			'    With c',
+			'        If a Then With d: .Add 1: End With',
+			'        .Add 2',
+			'        If a Then .Add 3 Else For i = 1 To 2: .Add i: Next',
+			'        .Add 4',
+			'10 If a Then With d: .Add 5: End With',
+			'        .Add 6',
+			'    End With',
+			'End Sub',
+		));
+	});
+
+	it('reads an Else after a colon as the one-line If\'s, not an outer block If\'s', () => {
+		// VBE oracle if_single_line_else_after_colon_*: all accepted.
+		const src = lines(
+			'Sub T()',
+			'If outer Then',
+			'With c',
+			'If a Then b = 1: Else c = 2',
+			'.Add 1',
+			'10 If a Then b = 1: Else: c = 2',
+			'.Add 2',
+			'If a Then If x Then c = 1: Else d = 2: Else e = 3',
+			'.Add 3',
+			'If a Then With d: End With: Else With e: End With',
+			'.Add 4',
+			'End With',
+			'Else',
+			'z = 1',
+			'End If',
+			'End Sub',
+		);
+		expect(format(src)).toBe(lines(
+			'Sub T()',
+			'    If outer Then',
+			'        With c',
+			'            If a Then b = 1: Else c = 2',
+			'            .Add 1',
+			'10 If a Then b = 1: Else: c = 2',
+			'            .Add 2',
+			'            If a Then If x Then c = 1: Else d = 2: Else e = 3',
+			'            .Add 3',
+			'            If a Then With d: End With: Else With e: End With',
+			'            .Add 4',
+			'        End With',
+			'    Else',
+			'        z = 1',
+			'    End If',
+			'End Sub',
+		));
+	});
+
+	it('does not read a member named Else or Then as the one-line If\'s keyword', () => {
+		const src = lines(
+			'Sub T()',
+			'With c',
+			'If a Then With d.Else: End With',
+			'.Add 1',
+			'If a Then With d!Then: End With',
+			'.Add 2',
+			'If a Then o.Else = 1: Else b = 1',
+			'.Add 3',
+			'If x! Then With d: End With',
+			'.Add 4',
+			'If a Then Set x = d.Then',
+			'.Add 5',
+			'End With',
+			'End Sub',
+		);
+		expect(format(src)).toBe(lines(
+			'Sub T()',
+			'    With c',
+			'        If a Then With d.Else: End With',
+			'        .Add 1',
+			'        If a Then With d!Then: End With',
+			'        .Add 2',
+			'        If a Then o.Else = 1: Else b = 1',
+			'        .Add 3',
+			'        If x! Then With d: End With',
+			'        .Add 4',
+			'        If a Then Set x = d.Then',
+			'        .Add 5',
+			'    End With',
+			'End Sub',
+		));
+	});
+
 	it('does not open a block for If x Then: with nothing after the colon (issue #84)', () => {
 		// The line after it runs unconditionally, and an End If after it does
 		// not compile.
-		const src = lines('Sub T()', 'If x Then:', 'x = False', 'Debug.Print x', 'End Sub');
-		expect(format(src)).toBe(lines('Sub T()', '    If x Then:', '    x = False', '    Debug.Print x', 'End Sub'));
+		const src = lines('Sub T()', 'If x Then:', 'x = False', '10 If x Then:', 'Debug.Print x', 'End Sub');
+		expect(format(src)).toBe(lines('Sub T()', '    If x Then:', '    x = False', '10 If x Then:', '    Debug.Print x', 'End Sub'));
 	});
 
 	it('keeps a block If whose header ends in a comment', () => {
@@ -158,6 +273,55 @@ describe('formatVbaModule - indentation', () => {
 		));
 	});
 
+	it('treats a Type field named after a block keyword as a field', () => {
+		const src = lines(
+			'Private Type Rec',
+			'For As Long',
+			'Sub As Long',
+			'Next As Long',
+			'End As Long',
+			'Attribute As Long',
+			'With As New Collection',
+			'While _',
+			'As Long',
+			'End Type',
+			'Dim x As Long',
+		);
+		expect(format(src)).toBe(lines(
+			'Private Type Rec',
+			'    For As Long',
+			'    Sub As Long',
+			'    Next As Long',
+			'    End As Long',
+			'    Attribute As Long',
+			'    With As New Collection',
+			'    While _',
+			'        As Long',
+			'End Type',
+			'Dim x As Long',
+		));
+	});
+
+	it('formats the VBE oracle\'s keyword-named Type fields as fields', () => {
+		const fields = oracleSource('reserved_member_name_type_fields_compile');
+		expect(format(fields)).toBe(fields);
+		// A #If inside the Type is still a directive, its arms one level in.
+		expect(format(oracleSource('reserved_member_name_type_field_conditional_compile'))).toBe(lines(
+			'Private Type Rec',
+			'    #If Win64 Then',
+			'        Next As LongLong',
+			'    #Else',
+			'        Next As Long',
+			'    #End If',
+			"    Loop As Long ' trailing comment",
+			'End Type',
+			'',
+			'Public Sub XlideOracleEntry()',
+			'End Sub',
+			'',
+		));
+	});
+
 	it('keeps labels and line numbers at column 1', () => {
 		const src = lines(
 			'Sub T()',
@@ -213,6 +377,76 @@ describe('formatVbaModule - indentation', () => {
 	it('keeps a procedure inside a module-level #If one level in', () => {
 		const src = lines('#If A Then', 'Sub T()', 'x = 1', 'End Sub', '#End If');
 		expect(format(src)).toBe(lines('#If A Then', '    Sub T()', '        x = 1', '    End Sub', '#End If'));
+	});
+
+	it('indents the body of a procedure whose header is written in each arm of a #If', () => {
+		const src = lines(
+			'#If VBA7 Then',
+			'Public Sub Foo(ByVal p As LongPtr)',
+			'#Else',
+			'Public Sub Foo(ByVal p As Long)',
+			'#End If',
+			'x = 1',
+			'End Sub',
+			'Sub Bar()',
+			'#If VBA7 Then',
+			'y = 1',
+			'#End If',
+			'y = 2',
+			'End Sub',
+		);
+		expect(format(src)).toBe(lines(
+			'#If VBA7 Then',
+			'    Public Sub Foo(ByVal p As LongPtr)',
+			'#Else',
+			'    Public Sub Foo(ByVal p As Long)',
+			'#End If',
+			'    x = 1',
+			'End Sub',
+			'Sub Bar()',
+			'    #If VBA7 Then',
+			'        y = 1',
+			'    #End If',
+			'    y = 2',
+			'End Sub',
+		));
+	});
+
+	it('carries a procedure opened in an earlier #If arm past #End If, unless an arm closed it', () => {
+		const src = lines(
+			'#If A Then',
+			'Sub T()',
+			'#Else',
+			"' no header in this arm",
+			'#End If',
+			'x = 1',
+			'End Sub',
+			'#If A Then',
+			'Sub U()',
+			'#Else',
+			'Sub U()',
+			'y = 1',
+			'End Sub',
+			'#End If',
+			'Dim z As Long',
+		);
+		expect(format(src)).toBe(lines(
+			'#If A Then',
+			'    Sub T()',
+			'#Else',
+			"    ' no header in this arm",
+			'#End If',
+			'    x = 1',
+			'End Sub',
+			'#If A Then',
+			'    Sub U()',
+			'#Else',
+			'    Sub U()',
+			'        y = 1',
+			'    End Sub',
+			'#End If',
+			'Dim z As Long',
+		));
 	});
 
 	it('indents comment lines and blank lines at the block level', () => {
