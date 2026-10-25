@@ -201,6 +201,15 @@ export function checkWithEventsDeclarations(
 		const type = projectClasses.find((candidate) => candidate.name.toLowerCase() === lower);
 		return type?.kind === 'class' && type.exhaustive === true && !type.members.some((member) => member.kind === 'event');
 	};
+	// `As Collection` names a project class, UserForm or document module
+	// called Collection ahead of VBA's Collection, and it sources events only
+	// if it declares one. Without such a module, or when Collection is a
+	// Type, an Enum or a standard module, it is refused. Measured in Excel,
+	// Word, PowerPoint and Access 16.0 (collection_class_* oracle cases).
+	const collectionWithoutEvents = (): boolean => !projectClasses.some((candidate) =>
+		candidate.name.toLowerCase() === 'collection'
+		&& (candidate.kind === 'class' || candidate.kind === 'document' || candidate.kind === 'userform')
+		&& candidate.members.some((member) => member.kind === 'event'));
 	const inspect = (group: VariableGroupNode, insideProcedure: boolean): void => {
 		if (!group.withEvents || isInactiveNode(activity, group)) {
 			return;
@@ -234,17 +243,18 @@ export function checkWithEventsDeclarations(
 				);
 			}
 			// The type must be a class that sources events. `As Object` is
-			// refused outright ("Expected: identifier") and `As Collection`,
+			// refused outright ("Expected: identifier") and VBA's Collection,
 			// which has no events, with "Object does not source automation
 			// events" (issue #124, measured in Excel 16.0). An intrinsic type
-			// is no object at all. A host or project class is not judged here.
+			// is no object at all. A host class is not judged here, and a
+			// project class only by the Events its source declares.
 			const normalized = normalizeType(decl.asType);
 			if (normalized === 'object' || normalized === 'variant' || normalized === undefined) {
 				report(
 					`WithEvents variable '${decl.name}' must be declared As a specific class that raises events; ${decl.asType ? `'${decl.asType}'` : 'no type'} names none.`,
 					nameSpan,
 				);
-			} else if (normalized === 'collection' || isKnownScalarType(normalized) || classWithoutEvents(normalized)) {
+			} else if ((normalized === 'collection' && collectionWithoutEvents()) || isKnownScalarType(normalized) || classWithoutEvents(normalized)) {
 				report(
 					`WithEvents variable '${decl.name}' is declared As ${decl.asType}, which does not source automation events.`,
 					nameSpan,

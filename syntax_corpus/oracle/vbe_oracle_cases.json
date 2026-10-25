@@ -212858,6 +212858,1401 @@
           "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
         }
       ]
+    },
+    {
+      "id": "collection_class_local_events_compile",
+      "description": "Collection identity: a project class named Collection declares Public Event Pulse(); Sink declares WithEvents source As Collection. Compile-ok. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "collection_class_renamed_events_compile",
+      "description": "Collection identity: the same event class named EventSource; Sink declares WithEvents source As EventSource. Compile-ok. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "EventSource",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As EventSource\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "collection_class_local_plain_compile",
+      "description": "Collection identity: a project class named Collection declares no event; Sink declares WithEvents source As Collection. Rejected: Object does not source automation events. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "collection_class_local_events_handler_compile",
+      "description": "Collection identity: a project class named Collection declares Public Event Pulse(); Sink declares WithEvents source As Collection, sets it to New Collection and handles source_Pulse(). Compile-ok. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\nPrivate Sub Class_Initialize()\r\nSet source = New Collection\r\nEnd Sub\r\nPrivate Sub source_Pulse()\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "collection_class_local_events_handler_mismatch_compile",
+      "description": "Collection identity: a project class named Collection declares Public Event Pulse(); Sink handles it as source_Pulse(ByVal x As Long). Rejected: Procedure declaration does not match description of event or procedure having the same name. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\nPrivate Sub source_Pulse(ByVal x As Long)\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "collection_class_standard_module_compile",
+      "description": "Collection identity: a standard module named Collection; Sink declares WithEvents source As Collection. Rejected: A module is not a valid type. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "collection_class_user_type_compile",
+      "description": "Collection identity: a Public Type named Collection in a standard module; Sink declares WithEvents source As Collection. Rejected: Object does not source automation events. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Type Collection\r\nValue As Long\r\nEnd Type\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "collection_class_userform_events_compile",
+      "description": "Collection identity: a UserForm named Collection declares Public Event Pulse(); Sink declares WithEvents source As Collection. Compile-ok. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "userform",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "collection_class_userform_plain_compile",
+      "description": "Collection identity: a UserForm named Collection declares no event; Sink declares WithEvents source As Collection. Rejected: Object does not source automation events. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "userform",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "collection_class_document_events_compile",
+      "description": "Collection identity: the ThisWorkbook module renamed Collection declares Public Event Pulse(); Sink declares WithEvents source As Collection. Compile-ok. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n",
+          "codeName": "Collection"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "collection_class_document_plain_compile",
+      "description": "Collection identity: the ThisWorkbook module renamed Collection declares no event; Sink declares WithEvents source As Collection. Rejected: Object does not source automation events. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n",
+          "codeName": "Collection"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "collection_class_inactive_event_compile",
+      "description": "Collection identity: a project class named Collection declares Public Event Pulse() only inside #If False; Sink declares WithEvents source As Collection. Rejected: Object does not source automation events. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\n#If False Then\r\nPublic Event Pulse()\r\n#End If\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "collection_class_enum_compile",
+      "description": "Collection identity: a Public Enum named Collection in a standard module; Sink declares WithEvents source As Collection. Rejected: Object does not source automation events. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Enum Collection\r\nFirst = 1\r\nEnd Enum\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "collection_class_sheet_events_compile",
+      "description": "Collection identity: the Sheet1 module renamed Collection declares Public Event Pulse(); Sink declares WithEvents source As Collection. Compile-ok. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n",
+          "designerClass": "Excel.Worksheet",
+          "implicitMembers": [],
+          "codeName": "Collection"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "collection_class_sheet_plain_compile",
+      "description": "Collection identity: the Sheet1 module renamed Collection declares no event; Sink declares WithEvents source As Collection. Rejected: Object does not source automation events. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n",
+          "designerClass": "Excel.Worksheet",
+          "implicitMembers": [],
+          "codeName": "Collection"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "collection_class_word_local_events_compile",
+      "description": "Collection identity: a project class named Collection declares Public Event Pulse(); Sink declares WithEvents source As Collection. Compile-ok. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "collection_class_word_renamed_events_compile",
+      "description": "Collection identity: the same event class named EventSource; Sink declares WithEvents source As EventSource. Compile-ok. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "EventSource",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As EventSource\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "collection_class_word_local_plain_compile",
+      "description": "Collection identity: a project class named Collection declares no event; Sink declares WithEvents source As Collection. Rejected: Object does not source automation events. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "collection_class_word_local_events_handler_compile",
+      "description": "Collection identity: a project class named Collection declares Public Event Pulse(); Sink declares WithEvents source As Collection, sets it to New Collection and handles source_Pulse(). Compile-ok. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\nPrivate Sub Class_Initialize()\r\nSet source = New Collection\r\nEnd Sub\r\nPrivate Sub source_Pulse()\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "collection_class_word_local_events_handler_mismatch_compile",
+      "description": "Collection identity: a project class named Collection declares Public Event Pulse(); Sink handles it as source_Pulse(ByVal x As Long). Rejected: Procedure declaration does not match description of event or procedure having the same name. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\nPrivate Sub source_Pulse(ByVal x As Long)\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "collection_class_word_standard_module_compile",
+      "description": "Collection identity: a standard module named Collection; Sink declares WithEvents source As Collection. Rejected: A module is not a valid type. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "collection_class_word_user_type_compile",
+      "description": "Collection identity: a Public Type named Collection in a standard module; Sink declares WithEvents source As Collection. Rejected: Object does not source automation events. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Type Collection\r\nValue As Long\r\nEnd Type\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "collection_class_word_userform_events_compile",
+      "description": "Collection identity: a UserForm named Collection declares Public Event Pulse(); Sink declares WithEvents source As Collection. Compile-ok. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "userform",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "collection_class_word_userform_plain_compile",
+      "description": "Collection identity: a UserForm named Collection declares no event; Sink declares WithEvents source As Collection. Rejected: Object does not source automation events. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "userform",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "collection_class_word_document_events_compile",
+      "description": "Collection identity: the ThisDocument module renamed Collection declares Public Event Pulse(); Sink declares WithEvents source As Collection. Compile-ok. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n",
+          "codeName": "Collection"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "collection_class_word_document_plain_compile",
+      "description": "Collection identity: the ThisDocument module renamed Collection declares no event; Sink declares WithEvents source As Collection. Rejected: Object does not source automation events. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n",
+          "codeName": "Collection"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "collection_class_word_inactive_event_compile",
+      "description": "Collection identity: a project class named Collection declares Public Event Pulse() only inside #If False; Sink declares WithEvents source As Collection. Rejected: Object does not source automation events. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\n#If False Then\r\nPublic Event Pulse()\r\n#End If\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "collection_class_word_enum_compile",
+      "description": "Collection identity: a Public Enum named Collection in a standard module; Sink declares WithEvents source As Collection. Rejected: Object does not source automation events. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Enum Collection\r\nFirst = 1\r\nEnd Enum\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "collection_class_powerpoint_local_events_compile",
+      "description": "Collection identity: a project class named Collection declares Public Event Pulse(); Sink declares WithEvents source As Collection. Compile-ok. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "collection_class_powerpoint_renamed_events_compile",
+      "description": "Collection identity: the same event class named EventSource; Sink declares WithEvents source As EventSource. Compile-ok. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "EventSource",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As EventSource\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "collection_class_powerpoint_local_plain_compile",
+      "description": "Collection identity: a project class named Collection declares no event; Sink declares WithEvents source As Collection. Rejected: Object does not source automation events. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "collection_class_powerpoint_local_events_handler_compile",
+      "description": "Collection identity: a project class named Collection declares Public Event Pulse(); Sink declares WithEvents source As Collection, sets it to New Collection and handles source_Pulse(). Compile-ok. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\nPrivate Sub Class_Initialize()\r\nSet source = New Collection\r\nEnd Sub\r\nPrivate Sub source_Pulse()\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "collection_class_powerpoint_local_events_handler_mismatch_compile",
+      "description": "Collection identity: a project class named Collection declares Public Event Pulse(); Sink handles it as source_Pulse(ByVal x As Long). Rejected: Procedure declaration does not match description of event or procedure having the same name. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\nPrivate Sub source_Pulse(ByVal x As Long)\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "collection_class_powerpoint_standard_module_compile",
+      "description": "Collection identity: a standard module named Collection; Sink declares WithEvents source As Collection. Rejected: A module is not a valid type. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "collection_class_powerpoint_user_type_compile",
+      "description": "Collection identity: a Public Type named Collection in a standard module; Sink declares WithEvents source As Collection. Rejected: Object does not source automation events. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Type Collection\r\nValue As Long\r\nEnd Type\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "collection_class_powerpoint_userform_events_compile",
+      "description": "Collection identity: a UserForm named Collection declares Public Event Pulse(); Sink declares WithEvents source As Collection. Compile-ok. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "userform",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "collection_class_powerpoint_userform_plain_compile",
+      "description": "Collection identity: a UserForm named Collection declares no event; Sink declares WithEvents source As Collection. Rejected: Object does not source automation events. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "userform",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "collection_class_powerpoint_inactive_event_compile",
+      "description": "Collection identity: a project class named Collection declares Public Event Pulse() only inside #If False; Sink declares WithEvents source As Collection. Rejected: Object does not source automation events. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\n#If False Then\r\nPublic Event Pulse()\r\n#End If\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "collection_class_powerpoint_enum_compile",
+      "description": "Collection identity: a Public Enum named Collection in a standard module; Sink declares WithEvents source As Collection. Rejected: Object does not source automation events. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Enum Collection\r\nFirst = 1\r\nEnd Enum\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "collection_class_access_local_events_compile",
+      "description": "Collection identity: a project class named Collection declares Public Event Pulse(); Sink declares WithEvents source As Collection. Compile-ok. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "collection_class_access_renamed_events_compile",
+      "description": "Collection identity: the same event class named EventSource; Sink declares WithEvents source As EventSource. Compile-ok. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "EventSource",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As EventSource\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "collection_class_access_local_plain_compile",
+      "description": "Collection identity: a project class named Collection declares no event; Sink declares WithEvents source As Collection. Rejected: Object does not source automation events. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "collection_class_access_local_events_handler_compile",
+      "description": "Collection identity: a project class named Collection declares Public Event Pulse(); Sink declares WithEvents source As Collection, sets it to New Collection and handles source_Pulse(). Compile-ok. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\nPrivate Sub Class_Initialize()\r\nSet source = New Collection\r\nEnd Sub\r\nPrivate Sub source_Pulse()\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "collection_class_access_local_events_handler_mismatch_compile",
+      "description": "Collection identity: a project class named Collection declares Public Event Pulse(); Sink handles it as source_Pulse(ByVal x As Long). Rejected: Procedure declaration does not match description of event or procedure having the same name. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\nPrivate Sub source_Pulse(ByVal x As Long)\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "collection_class_access_standard_module_compile",
+      "description": "Collection identity: a standard module named Collection; Sink declares WithEvents source As Collection. Rejected: A module is not a valid type. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "collection_class_access_user_type_compile",
+      "description": "Collection identity: a Public Type named Collection in a standard module; Sink declares WithEvents source As Collection. Rejected: Object does not source automation events. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Type Collection\r\nValue As Long\r\nEnd Type\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "collection_class_access_userform_events_compile",
+      "description": "Collection identity: a UserForm named Collection declares Public Event Pulse(); Sink declares WithEvents source As Collection. Compile-ok. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "userform",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "collection_class_access_userform_plain_compile",
+      "description": "Collection identity: a UserForm named Collection declares no event; Sink declares WithEvents source As Collection. Rejected: Object does not source automation events. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "userform",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "collection_class_access_inactive_event_compile",
+      "description": "Collection identity: a project class named Collection declares Public Event Pulse() only inside #If False; Sink declares WithEvents source As Collection. Rejected: Object does not source automation events. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\n#If False Then\r\nPublic Event Pulse()\r\n#End If\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "collection_class_access_enum_compile",
+      "description": "Collection identity: a Public Enum named Collection in a standard module; Sink declares WithEvents source As Collection. Rejected: Object does not source automation events. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Enum Collection\r\nFirst = 1\r\nEnd Enum\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }
