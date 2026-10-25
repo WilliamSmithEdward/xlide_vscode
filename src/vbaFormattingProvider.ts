@@ -4,9 +4,11 @@
 // layer feeds it the document's analysis text, turns its result into one edit
 // per changed line, and supplies identifier casing from the declarations the
 // project index knows: a module's own symbols first, then what the project
-// exports, then the VBA runtime and the host's globals and constants. VBA is
-// case-insensitive, so casing never changes what code means; it only makes
-// the module read the way the VBE would print it.
+// exports, then the names `#Const` lines and the project's Conditional
+// Compilation Arguments declare and VBA's own compiler constants, then the
+// VBA runtime and the host's globals and constants. VBA is case-insensitive,
+// so casing never changes what code means; it only makes the module read the
+// way the VBE would print it.
 
 import * as vscode from 'vscode';
 import {
@@ -19,6 +21,7 @@ import {
     resolveRuntimeObject,
     type VbaSymbol,
 } from './analyzer';
+import { conditionalConstantDeclarations, conditionalNameCase } from './analyzer/format/conditionalNameCase';
 import { formatVbaModule } from './analyzer/format/formatModule';
 import { hostObjectModelForTokens, hostTokenForFileName } from './analyzer/host/hostRegistry';
 import { hostTokensForProject } from './analyzer/host/hostLibraries';
@@ -28,12 +31,25 @@ import { moduleKindFromDocument, moduleNameFromDocument } from './vbaDocumentIde
 import { designerHeaderEnd } from './vba/moduleSource';
 import { isVbaDocument, XLIDE_SCHEME } from './xlideFileSystem';
 import type { VbaProjectIndexService } from './vbaProjectIndexService';
+import type { ProjectIndex } from './analyzer/symbols/projectIndex';
 
 type IdentifierCase = (name: string, offset: number) => string | undefined;
+
+interface ModuleDeclarations {
+    source: string;
+    names: readonly string[];
+}
 
 export class VbaFormattingProvider implements
     vscode.DocumentFormattingEditProvider,
     vscode.DocumentRangeFormattingEditProvider {
+
+    /**
+     * Each module's `#Const` names with the source they were read from, by
+     * project, so a format rescans only the modules that changed since the
+     * last one. A project the index drops or rebuilds takes its entry along.
+     */
+    private readonly _conditionalDeclarations = new WeakMap<ProjectIndex, Map<string, ModuleDeclarations>>();
 
     constructor(
         private readonly _projects: VbaProjectIndexService,
@@ -139,13 +155,41 @@ export class VbaFormattingProvider implements
 
             const projectLevel = new Map<string, string>();
             let references: readonly VbaProjectReference[] = [];
+            // Every module's #Const names in project order, this one's from its text now.
+            let declarations: (readonly string[])[] | undefined;
+            let projectConstants: string | undefined;
             if (location && document.uri.scheme === XLIDE_SCHEME) {
                 const context = await this._projects.contextForProject(location.projectPath);
                 references = context.references;
                 for (const symbol of context.project.visibleIdentifierSymbols(moduleName)) {
                     addName(projectLevel, symbol.name);
                 }
+                // Only the project's current modules are kept, so a removed
+                // or renamed one is not held on to.
+                const previous = this._conditionalDeclarations.get(context.project);
+                const current = new Map<string, ModuleDeclarations>();
+                const read = (name: string, text: string): readonly string[] => {
+                    const key = name.toLowerCase();
+                    const cached = previous?.get(key);
+                    const entry = cached?.source === text ? cached : { source: text, names: conditionalConstantDeclarations(text) };
+                    current.set(key, entry);
+                    return entry.names;
+                };
+                const lowerName = moduleName.toLowerCase();
+                const names = context.project.moduleNames();
+                declarations = names.map((name) => read(name, name.toLowerCase() === lowerName
+                    ? source
+                    : context.project.moduleSource(name) ?? ''));
+                if (!names.some((name) => name.toLowerCase() === lowerName)) {
+                    declarations.push(read(moduleName, source));
+                }
+                this._conditionalDeclarations.set(context.project, current);
+                projectConstants = context.conditionalConstants;
             }
+            const conditionalName = conditionalNameCase(
+                declarations ?? [conditionalConstantDeclarations(source)],
+                projectConstants,
+            );
 
             // A project that references another application's library writes
             // that library's names too, so canonical casing has to know them.
@@ -173,6 +217,7 @@ export class VbaFormattingProvider implements
                 }
                 return moduleLevel.get(lower)
                     ?? projectLevel.get(lower)
+                    ?? conditionalName(name)
                     ?? resolveRuntimeFunction(name)?.name
                     ?? resolveRuntimeConstant(name)?.name
                     ?? resolveRuntimeObject(name)?.name

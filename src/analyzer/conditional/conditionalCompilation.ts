@@ -101,6 +101,14 @@ const DEFAULT_COMPILER_CONSTANTS: Readonly<Record<string, ConditionalValue>> = {
 	TWINBASIC: 0,
 };
 
+/**
+ * The compiler constants VBA itself defines, spelled the way the VBE prints
+ * them in every module, on `#If` lines and code lines alike, whatever case they
+ * were written in. `TWINBASIC` is not one: the VBE leaves it as written.
+ * Measured in Excel, Word, PowerPoint and Access 16.0.
+ */
+export const VBA_COMPILER_CONSTANT_NAMES: readonly string[] = ['VBA6', 'VBA7', 'Win16', 'Win32', 'Win64', 'Mac'];
+
 function effectiveConditionalCompilationEnvironment(
 	env: ConditionalCompilationEnvironment = {},
 ): ConditionalCompilationEnvironment {
