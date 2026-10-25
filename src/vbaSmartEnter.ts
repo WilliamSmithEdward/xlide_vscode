@@ -87,19 +87,24 @@ interface LoopNextLine {
 
 type LoopLineInfo = LoopOpenerLine | LoopNextLine;
 
+// The words that may come before `Sub`, `Function` or `Property`: an access
+// word, `Static`, or both in either order (`Public Static Sub` and `Static
+// Public Sub` are both valid VBA). The same as matchOpener's.
+const PROCEDURE_MODIFIERS = String.raw`(?:(?:Public|Private|Friend|Global)\s+(?:Static\s+)?|Static\s+(?:(?:Public|Private|Friend|Global)\s+)?)?`;
+
 export function procedureHeaderParensEdit(line: string): VbaProcedureHeaderParensEdit | undefined {
     const stripped = lexerStrippedLine(line);
     const patterns = [
         new RegExp(
-            `^(\\s*(?:(?:Public|Private|Friend|Global)\\s+)?(?:Static\\s+)?Sub\\s+${VBA_IDENTIFIER_PATTERN})(\\s*)$`,
+            `^(\\s*${PROCEDURE_MODIFIERS}Sub\\s+${VBA_IDENTIFIER_PATTERN})(\\s*)$`,
             'iu',
         ),
         new RegExp(
-            `^(\\s*(?:(?:Public|Private|Friend|Global)\\s+)?(?:Static\\s+)?Function\\s+${VBA_IDENTIFIER_PATTERN})(\\s*(?:As\\s+.+)?\\s*)$`,
+            `^(\\s*${PROCEDURE_MODIFIERS}Function\\s+${VBA_IDENTIFIER_PATTERN})(\\s*(?:As\\s+.+)?\\s*)$`,
             'iu',
         ),
         new RegExp(
-            `^(\\s*(?:(?:Public|Private|Friend|Global)\\s+)?(?:Static\\s+)?Property\\s+Get\\s+${VBA_IDENTIFIER_PATTERN})(\\s*(?:As\\s+.+)?\\s*)$`,
+            `^(\\s*${PROCEDURE_MODIFIERS}Property\\s+Get\\s+${VBA_IDENTIFIER_PATTERN})(\\s*(?:As\\s+.+)?\\s*)$`,
             'iu',
         ),
     ];
@@ -540,8 +545,10 @@ function isCompleteSmartBlockOpener(t: string, kind: BlockKind): boolean {
     }
 }
 
+const PROCEDURE_OPENER = new RegExp(`^${PROCEDURE_MODIFIERS}(?:Sub|Function|Property)\\b`, 'i');
+
 function isProcedureOpener(t: string): boolean {
-    return /^(?:(?:Public|Private|Friend|Global)\s+)?(?:Static\s+)?(?:Sub|Function|Property)\b/i.test(t);
+    return PROCEDURE_OPENER.test(t);
 }
 
 function closerRegex(endKeyword: string): RegExp {

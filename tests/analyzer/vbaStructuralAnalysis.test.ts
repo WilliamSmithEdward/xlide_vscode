@@ -578,6 +578,28 @@ describe('procedureHeaderParensEdit', () => {
         expect(procedureHeaderParensEdit('Property Let Name value As String')).toBeUndefined();
         expect(procedureHeaderParensEdit('Property Set Name value As Object')).toBeUndefined();
     });
+
+    it('accepts Static before or after the access word', () => {
+        const headers: [string, string][] = [
+            ['Public Static Sub Foo', 'Public Static Sub Foo'],
+            ['Static Public Sub Foo', 'Static Public Sub Foo'],
+            ['Private Static Function Bar As Long', 'Private Static Function Bar'],
+            ['Static Private Function Bar As Long', 'Static Private Function Bar'],
+            ['Global Static Sub Foo', 'Global Static Sub Foo'],
+            ['Static Global Sub Foo', 'Static Global Sub Foo'],
+            ['Friend Static Property Get Name As String', 'Friend Static Property Get Name'],
+            ['Static Friend Property Get Name As String', 'Static Friend Property Get Name'],
+        ];
+        for (const [line, head] of headers) {
+            expect(procedureHeaderParensEdit(line), line).toEqual({
+                startCol: head.length,
+                endCol: head.length,
+                newText: '()',
+            });
+        }
+        expect(procedureHeaderParensEdit('Static Public Property Let Name value As String')).toBeUndefined();
+        expect(procedureHeaderParensEdit('Public Static Property Set Name value As Object')).toBeUndefined();
+    });
 });
 
 describe('detectSmartBlockOpener', () => {
@@ -648,6 +670,28 @@ describe('isSmartBlockClosedAhead procedure headers', () => {
     it('returns false at end of file', () => {
         const lines = ['Sub Foo()', '    x = 1'];
         expect(isSmartBlockClosedAhead(lines, 0, { endKeyword: 'End Sub' })).toBe(false);
+    });
+    it('stops at the next procedure with Static before or after the access word', () => {
+        const opener = detectSmartBlockOpener('Sub A()');
+        expect(opener).toEqual({ endKeyword: 'End Sub' });
+        const headers: [string, string][] = [
+            ['Public Static Sub B()', 'End Sub'],
+            ['Static Public Sub B()', 'End Sub'],
+            ['Private Static Function B() As Long', 'End Function'],
+            ['Static Private Function B() As Long', 'End Function'],
+            ['Global Static Sub B()', 'End Sub'],
+            ['Static Global Sub B()', 'End Sub'],
+            ['Friend Static Property Let B(value As Long)', 'End Property'],
+            ['Static Friend Property Let B(value As Long)', 'End Property'],
+            ['Public Static Property Set B(value As Object)', 'End Property'],
+            ['Static Public Property Set B(value As Object)', 'End Property'],
+        ];
+        // The trailing End Sub belongs to a later procedure: A is closed
+        // only if the scan walks past B's header without seeing it.
+        for (const [header, closer] of headers) {
+            const lines = ['Sub A()', '', header, '    x = 1', closer, '', 'End Sub'];
+            expect(isSmartBlockClosedAhead(lines, 0, opener!), header).toBe(false);
+        }
     });
 });
 
