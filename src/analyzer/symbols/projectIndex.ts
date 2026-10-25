@@ -34,6 +34,7 @@ import {
 	procedureParamsFromSymbol,
 	procedureSignatureFromSymbol,
 	procedureSignatureWithDefTypes,
+	defTypeFor,
 } from './symbolModel';
 import {
 	resolveBareIdentifierBinding,
@@ -368,6 +369,12 @@ function projectObjectMemberWritable(symbol: VbaSymbol): boolean | undefined {
 function projectObjectMemberParameters(symbol: VbaSymbol, mod: ModuleSymbols) {
 	return procedureParamsFromSymbol(symbol, {includePassing:true}).map(param => ({...param,
 		type:param.type ?? mod.defTypes?.get(param.name[0]?.toLowerCase())}));
+}
+
+/** An event's parameters, each untyped one typed by its own module's DefType lines. */
+function projectEventParameters(symbol: VbaSymbol, mod: ModuleSymbols) {
+	return procedureParamsFromSymbol(symbol, {includePassing:true}).map(param => (param.type || param.paramArray ? param
+		: {...param, type:defTypeFor(mod.defTypes, param.name)}));
 }
 
 function projectObjectMemberWriteType(symbol: VbaSymbol, mod: ModuleSymbols): string | undefined {
@@ -1922,6 +1929,7 @@ export class ProjectIndex {
 				...(symbol.kind === 'propertySet' ? { setAccessor: true } : {}),
 				...(symbol.kind === 'sub' ? { sub: true } : {}),
 				...(memberProcedureKind(symbol) ? { procedureParams: { [memberProcedureKind(symbol)!]: projectObjectMemberParameters(symbol, mod) } } : {}),
+				...(symbol.kind === 'event' ? { eventParams: projectEventParameters(symbol, mod) } : {}),
 				attributes: mergeMemberAttributes(undefined, symbol.attributes),
 			});
 		}

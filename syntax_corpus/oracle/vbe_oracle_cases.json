@@ -212858,6 +212858,1574 @@
           "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
         }
       ]
+    },
+    {
+      "id": "event_deftype_matching_compile",
+      "description": "Event handler DefType: publisher DefLng X and sink DefLng X: both untyped x are Long. Compile-ok. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByRef x)\r\nDebug.Print x\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "event_deftype_mismatch_compile",
+      "description": "Event handler DefType: publisher DefLng X makes the event's x a Long, sink DefStr X makes the handler's x a String. Rejected: Procedure declaration does not match description of event or procedure having the same name. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByRef x)\r\nDebug.Print x\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "event_deftype_override_compile",
+      "description": "Event handler DefType: sink DefStr X, but the handler declares x As Long, the type publisher DefLng X gives the event's x. Compile-ok. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByRef x As Long)\r\nDebug.Print x\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "event_deftype_mismatch_empty_compile",
+      "description": "Event handler DefType: the mismatch case with an empty handler, which the VBE does not check. Compile-ok. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByRef x)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "event_deftype_suffix_compile",
+      "description": "Event handler DefType: publisher DefStr X but x& is a Long by its type character; sink DefLng X makes the handler's x a Long. Compile-ok. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPublic Event Pulse(ByRef x&)\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByRef x)\r\nDebug.Print x\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "event_deftype_publisher_variant_compile",
+      "description": "Event handler DefType: publisher has no DefType, so the event's x is a Variant; sink DefLng X makes the handler's x a Long. Rejected: Procedure declaration does not match description of event or procedure having the same name. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByRef x)\r\nDebug.Print x\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "event_deftype_library_matching_compile",
+      "description": "Event handler DefType: the library event passes Cancel As Boolean; DefBool C makes the handler's untyped Cancel a Boolean. Compile-ok. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefBool C\r\nPrivate WithEvents app As Application\r\nPrivate Sub app_WorkbookBeforeClose(ByVal Wb As Workbook, Cancel)\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "event_deftype_library_mismatch_compile",
+      "description": "Event handler DefType: the library event passes Cancel As Boolean; DefStr C makes the handler's untyped Cancel a String. Rejected: Procedure declaration does not match description of event or procedure having the same name. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr C\r\nPrivate WithEvents app As Application\r\nPrivate Sub app_WorkbookBeforeClose(ByVal Wb As Workbook, Cancel)\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "event_deftype_word_matching_compile",
+      "description": "Event handler DefType: publisher DefLng X and sink DefLng X: both untyped x are Long. Compile-ok. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByRef x)\r\nDebug.Print x\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "event_deftype_word_mismatch_compile",
+      "description": "Event handler DefType: publisher DefLng X makes the event's x a Long, sink DefStr X makes the handler's x a String. Rejected: Procedure declaration does not match description of event or procedure having the same name. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByRef x)\r\nDebug.Print x\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "event_deftype_word_override_compile",
+      "description": "Event handler DefType: sink DefStr X, but the handler declares x As Long, the type publisher DefLng X gives the event's x. Compile-ok. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByRef x As Long)\r\nDebug.Print x\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "event_deftype_word_mismatch_empty_compile",
+      "description": "Event handler DefType: the mismatch case with an empty handler, which the VBE does not check. Compile-ok. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByRef x)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "event_deftype_word_suffix_compile",
+      "description": "Event handler DefType: publisher DefStr X but x& is a Long by its type character; sink DefLng X makes the handler's x a Long. Compile-ok. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPublic Event Pulse(ByRef x&)\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByRef x)\r\nDebug.Print x\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "event_deftype_word_publisher_variant_compile",
+      "description": "Event handler DefType: publisher has no DefType, so the event's x is a Variant; sink DefLng X makes the handler's x a Long. Rejected: Procedure declaration does not match description of event or procedure having the same name. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByRef x)\r\nDebug.Print x\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "event_deftype_word_library_matching_compile",
+      "description": "Event handler DefType: the library event passes Cancel As Boolean; DefBool C makes the handler's untyped Cancel a Boolean. Compile-ok. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefBool C\r\nPrivate WithEvents app As Application\r\nPrivate Sub app_DocumentBeforeClose(ByVal Doc As Document, Cancel)\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "event_deftype_word_library_mismatch_compile",
+      "description": "Event handler DefType: the library event passes Cancel As Boolean; DefStr C makes the handler's untyped Cancel a String. Rejected: Procedure declaration does not match description of event or procedure having the same name. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr C\r\nPrivate WithEvents app As Application\r\nPrivate Sub app_DocumentBeforeClose(ByVal Doc As Document, Cancel)\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "event_deftype_powerpoint_matching_compile",
+      "description": "Event handler DefType: publisher DefLng X and sink DefLng X: both untyped x are Long. Compile-ok. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByRef x)\r\nDebug.Print x\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "event_deftype_powerpoint_mismatch_compile",
+      "description": "Event handler DefType: publisher DefLng X makes the event's x a Long, sink DefStr X makes the handler's x a String. Rejected: Procedure declaration does not match description of event or procedure having the same name. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByRef x)\r\nDebug.Print x\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "event_deftype_powerpoint_override_compile",
+      "description": "Event handler DefType: sink DefStr X, but the handler declares x As Long, the type publisher DefLng X gives the event's x. Compile-ok. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByRef x As Long)\r\nDebug.Print x\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "event_deftype_powerpoint_mismatch_empty_compile",
+      "description": "Event handler DefType: the mismatch case with an empty handler, which the VBE does not check. Compile-ok. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByRef x)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "event_deftype_powerpoint_suffix_compile",
+      "description": "Event handler DefType: publisher DefStr X but x& is a Long by its type character; sink DefLng X makes the handler's x a Long. Compile-ok. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPublic Event Pulse(ByRef x&)\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByRef x)\r\nDebug.Print x\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "event_deftype_powerpoint_publisher_variant_compile",
+      "description": "Event handler DefType: publisher has no DefType, so the event's x is a Variant; sink DefLng X makes the handler's x a Long. Rejected: Procedure declaration does not match description of event or procedure having the same name. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByRef x)\r\nDebug.Print x\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "event_deftype_powerpoint_library_matching_compile",
+      "description": "Event handler DefType: the library event passes Cancel As Boolean; DefBool C makes the handler's untyped Cancel a Boolean. Compile-ok. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefBool C\r\nPrivate WithEvents app As Application\r\nPrivate Sub app_PresentationBeforeSave(ByVal Pres As Presentation, Cancel)\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "event_deftype_powerpoint_library_mismatch_compile",
+      "description": "Event handler DefType: the library event passes Cancel As Boolean; DefStr C makes the handler's untyped Cancel a String. Rejected: Procedure declaration does not match description of event or procedure having the same name. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr C\r\nPrivate WithEvents app As Application\r\nPrivate Sub app_PresentationBeforeSave(ByVal Pres As Presentation, Cancel)\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "event_deftype_access_matching_compile",
+      "description": "Event handler DefType: publisher DefLng X and sink DefLng X: both untyped x are Long. Compile-ok. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByRef x)\r\nDebug.Print x\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "event_deftype_access_mismatch_compile",
+      "description": "Event handler DefType: publisher DefLng X makes the event's x a Long, sink DefStr X makes the handler's x a String. Rejected: Procedure declaration does not match description of event or procedure having the same name. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByRef x)\r\nDebug.Print x\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "event_deftype_access_override_compile",
+      "description": "Event handler DefType: sink DefStr X, but the handler declares x As Long, the type publisher DefLng X gives the event's x. Compile-ok. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByRef x As Long)\r\nDebug.Print x\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "event_deftype_access_mismatch_empty_compile",
+      "description": "Event handler DefType: the mismatch case with an empty handler, which the VBE does not check. Compile-ok. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByRef x)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "event_deftype_access_suffix_compile",
+      "description": "Event handler DefType: publisher DefStr X but x& is a Long by its type character; sink DefLng X makes the handler's x a Long. Compile-ok. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPublic Event Pulse(ByRef x&)\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByRef x)\r\nDebug.Print x\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "event_deftype_access_publisher_variant_compile",
+      "description": "Event handler DefType: publisher has no DefType, so the event's x is a Variant; sink DefLng X makes the handler's x a Long. Rejected: Procedure declaration does not match description of event or procedure having the same name. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByRef x)\r\nDebug.Print x\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "event_deftype_access_library_matching_compile",
+      "description": "Event handler DefType: an Access form's BeforeUpdate passes Cancel As Integer; DefInt C makes the handler's untyped Cancel an Integer. Compile-ok. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Form_Probe",
+          "type": "document",
+          "designerClass": "Access.Form",
+          "implicitMembers": [],
+          "source": "Option Explicit\r\nDefInt C\r\nPrivate Sub Form_BeforeUpdate(Cancel)\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "event_deftype_access_library_mismatch_compile",
+      "description": "Event handler DefType: an Access form's BeforeUpdate passes Cancel As Integer; DefStr C makes the handler's untyped Cancel a String. Rejected: Procedure declaration does not match description of event or procedure having the same name. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Form_Probe",
+          "type": "document",
+          "designerClass": "Access.Form",
+          "implicitMembers": [],
+          "source": "Option Explicit\r\nDefStr C\r\nPrivate Sub Form_BeforeUpdate(Cancel)\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "event_deftype_handler_suffix_compile",
+      "description": "Event handler DefType: publisher DefLng X makes the event's x a Long; the handler's x& is a Long by its type character, whatever sink DefStr X says. Compile-ok. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByRef x&)\r\nDebug.Print x\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "event_deftype_byval_mismatch_compile",
+      "description": "Event handler DefType: the event passes ByVal x, a Long by publisher DefLng X; the handler's ByVal x is a String by sink DefStr X. Rejected: Procedure declaration does not match description of event or procedure having the same name. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByVal x)\r\nDebug.Print x\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "event_deftype_array_matching_compile",
+      "description": "Event handler DefType: an untyped array parameter x() under DefLng X on both sides is an array of Long. Compile-ok. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByRef x())\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByRef x())\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "event_deftype_array_mismatch_compile",
+      "description": "Event handler DefType: the event's x() is an array of Long by publisher DefLng X, the handler's an array of String by sink DefStr X. Rejected: Procedure declaration does not match description of event or procedure having the same name. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByRef x())\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByRef x())\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "event_deftype_userform_matching_compile",
+      "description": "Event handler DefType: a UserForm's QueryClose passes Cancel As Integer; DefInt C makes the handler's untyped Cancel an Integer. Compile-ok. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "F1",
+          "type": "userform",
+          "source": "Option Explicit\r\nDefInt C\r\nPrivate Sub UserForm_QueryClose(Cancel, CloseMode As Integer)\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "event_deftype_userform_mismatch_compile",
+      "description": "Event handler DefType: a UserForm's QueryClose passes Cancel As Integer; DefStr C makes the handler's untyped Cancel a String. Rejected: Procedure declaration does not match description of event or procedure having the same name. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "F1",
+          "type": "userform",
+          "source": "Option Explicit\r\nDefStr C\r\nPrivate Sub UserForm_QueryClose(Cancel, CloseMode As Integer)\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "event_deftype_document_matching_compile",
+      "description": "Event handler DefType: a ThisWorkbook handler's untyped Cancel, where the event passes Cancel As Boolean, under DefBool C. Compile-ok. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\nDefBool C\r\nPrivate Sub Workbook_BeforeClose(Cancel)\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "event_deftype_document_mismatch_compile",
+      "description": "Event handler DefType: a ThisWorkbook handler's untyped Cancel, where the event passes Cancel As Boolean, under DefStr C. Rejected: Procedure declaration does not match description of event or procedure having the same name. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\nDefStr C\r\nPrivate Sub Workbook_BeforeClose(Cancel)\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "event_deftype_word_handler_suffix_compile",
+      "description": "Event handler DefType: publisher DefLng X makes the event's x a Long; the handler's x& is a Long by its type character, whatever sink DefStr X says. Compile-ok. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByRef x&)\r\nDebug.Print x\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "event_deftype_word_byval_mismatch_compile",
+      "description": "Event handler DefType: the event passes ByVal x, a Long by publisher DefLng X; the handler's ByVal x is a String by sink DefStr X. Rejected: Procedure declaration does not match description of event or procedure having the same name. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByVal x)\r\nDebug.Print x\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "event_deftype_word_array_matching_compile",
+      "description": "Event handler DefType: an untyped array parameter x() under DefLng X on both sides is an array of Long. Compile-ok. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByRef x())\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByRef x())\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "event_deftype_word_array_mismatch_compile",
+      "description": "Event handler DefType: the event's x() is an array of Long by publisher DefLng X, the handler's an array of String by sink DefStr X. Rejected: Procedure declaration does not match description of event or procedure having the same name. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByRef x())\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByRef x())\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "event_deftype_word_userform_matching_compile",
+      "description": "Event handler DefType: a UserForm's QueryClose passes Cancel As Integer; DefInt C makes the handler's untyped Cancel an Integer. Compile-ok. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "F1",
+          "type": "userform",
+          "source": "Option Explicit\r\nDefInt C\r\nPrivate Sub UserForm_QueryClose(Cancel, CloseMode As Integer)\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "event_deftype_word_userform_mismatch_compile",
+      "description": "Event handler DefType: a UserForm's QueryClose passes Cancel As Integer; DefStr C makes the handler's untyped Cancel a String. Rejected: Procedure declaration does not match description of event or procedure having the same name. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "F1",
+          "type": "userform",
+          "source": "Option Explicit\r\nDefStr C\r\nPrivate Sub UserForm_QueryClose(Cancel, CloseMode As Integer)\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "event_deftype_word_document_matching_compile",
+      "description": "Event handler DefType: a ThisDocument handler's untyped Cancel, where the event passes Cancel As Boolean, under DefBool C. Compile-ok. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Option Explicit\r\nDefBool C\r\nPrivate Sub Document_ContentControlOnExit(ByVal ContentControl As ContentControl, Cancel)\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "event_deftype_word_document_mismatch_compile",
+      "description": "Event handler DefType: a ThisDocument handler's untyped Cancel, where the event passes Cancel As Boolean, under DefStr C. Rejected: Procedure declaration does not match description of event or procedure having the same name. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Option Explicit\r\nDefStr C\r\nPrivate Sub Document_ContentControlOnExit(ByVal ContentControl As ContentControl, Cancel)\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "event_deftype_powerpoint_handler_suffix_compile",
+      "description": "Event handler DefType: publisher DefLng X makes the event's x a Long; the handler's x& is a Long by its type character, whatever sink DefStr X says. Compile-ok. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByRef x&)\r\nDebug.Print x\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "event_deftype_powerpoint_byval_mismatch_compile",
+      "description": "Event handler DefType: the event passes ByVal x, a Long by publisher DefLng X; the handler's ByVal x is a String by sink DefStr X. Rejected: Procedure declaration does not match description of event or procedure having the same name. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByVal x)\r\nDebug.Print x\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "event_deftype_powerpoint_array_matching_compile",
+      "description": "Event handler DefType: an untyped array parameter x() under DefLng X on both sides is an array of Long. Compile-ok. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByRef x())\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByRef x())\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "event_deftype_powerpoint_array_mismatch_compile",
+      "description": "Event handler DefType: the event's x() is an array of Long by publisher DefLng X, the handler's an array of String by sink DefStr X. Rejected: Procedure declaration does not match description of event or procedure having the same name. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByRef x())\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByRef x())\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "event_deftype_powerpoint_userform_matching_compile",
+      "description": "Event handler DefType: a UserForm's QueryClose passes Cancel As Integer; DefInt C makes the handler's untyped Cancel an Integer. Compile-ok. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "F1",
+          "type": "userform",
+          "source": "Option Explicit\r\nDefInt C\r\nPrivate Sub UserForm_QueryClose(Cancel, CloseMode As Integer)\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "event_deftype_powerpoint_userform_mismatch_compile",
+      "description": "Event handler DefType: a UserForm's QueryClose passes Cancel As Integer; DefStr C makes the handler's untyped Cancel a String. Rejected: Procedure declaration does not match description of event or procedure having the same name. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "F1",
+          "type": "userform",
+          "source": "Option Explicit\r\nDefStr C\r\nPrivate Sub UserForm_QueryClose(Cancel, CloseMode As Integer)\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "event_deftype_access_handler_suffix_compile",
+      "description": "Event handler DefType: publisher DefLng X makes the event's x a Long; the handler's x& is a Long by its type character, whatever sink DefStr X says. Compile-ok. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByRef x&)\r\nDebug.Print x\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "event_deftype_access_byval_mismatch_compile",
+      "description": "Event handler DefType: the event passes ByVal x, a Long by publisher DefLng X; the handler's ByVal x is a String by sink DefStr X. Rejected: Procedure declaration does not match description of event or procedure having the same name. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByVal x)\r\nDebug.Print x\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "event_deftype_access_array_matching_compile",
+      "description": "Event handler DefType: an untyped array parameter x() under DefLng X on both sides is an array of Long. Compile-ok. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByRef x())\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByRef x())\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "event_deftype_access_array_mismatch_compile",
+      "description": "Event handler DefType: the event's x() is an array of Long by publisher DefLng X, the handler's an array of String by sink DefStr X. Rejected: Procedure declaration does not match description of event or procedure having the same name. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Publisher",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByRef x())\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents source As Publisher\r\nPrivate Sub source_Pulse(ByRef x())\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "event_deftype_access_userform_matching_compile",
+      "description": "Event handler DefType: a UserForm's QueryClose passes Cancel As Integer; DefInt C makes the handler's untyped Cancel an Integer. Compile-ok. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "F1",
+          "type": "userform",
+          "source": "Option Explicit\r\nDefInt C\r\nPrivate Sub UserForm_QueryClose(Cancel, CloseMode As Integer)\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "event_deftype_access_userform_mismatch_compile",
+      "description": "Event handler DefType: a UserForm's QueryClose passes Cancel As Integer; DefStr C makes the handler's untyped Cancel a String. Rejected: Procedure declaration does not match description of event or procedure having the same name. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "F1",
+          "type": "userform",
+          "source": "Option Explicit\r\nDefStr C\r\nPrivate Sub UserForm_QueryClose(Cancel, CloseMode As Integer)\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }

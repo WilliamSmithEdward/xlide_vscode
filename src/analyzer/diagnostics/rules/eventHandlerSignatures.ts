@@ -26,14 +26,19 @@
 // declares (issue #220, measured in Excel 16.0). The same checks hold, an
 // empty handler compiles here too, and a parameter of a project Enum may be
 // declared As Long.
+//
+// An untyped parameter is the type its own module's DefType lines give it,
+// on either side: `Event Pulse(x)` under DefLng passes a Long, and a handler
+// `source_Pulse(x)` under DefStr takes a String, which is refused (measured
+// in Excel, Word, PowerPoint and Access 16.0, build 20430).
 
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import type { MemberCompletionContext } from '../../completion/memberAccess';
 import type { ModuleNode, ParameterNode, ProcedureNode } from '../../parser/nodes';
 import { HOST_EVENT_SIGNATURES } from '../../host/eventSignaturesData';
 import { getHostType, resolveHostAlias } from '../../host/hostModel';
-import { isAccessDesignerClass } from '../../symbols/symbolModel';
-import type { ModuleSymbolKind } from '../../symbols/symbolModel';
+import { defTypeFor, isAccessDesignerClass } from '../../symbols/symbolModel';
+import type { ModuleSymbolKind, VbaProcedureParam } from '../../symbols/symbolModel';
 import type { AnalyzeModuleOptions, PushFn } from '../analysisContext';
 import { normalizeType } from '../typeInference';
 import { activeModuleMembers } from '../walker';
@@ -80,11 +85,12 @@ export function checkEventHandlerSignatures(
 	opts: AnalyzeModuleOptions,
 	memberCtx: MemberCompletionContext,
 	activity: ConditionalActivityTracker | undefined,
+	defTypes: ReadonlyMap<string, string> | undefined,
 	push: PushFn,
 ): void {
 	// Each prefix a handler may take, with the classes whose events it raises.
 	const sources = new Map<string, string[]>();
-	const projectSources = new Map<string, { owner: string; events: Map<string, { name: string; params: string }> }>();
+	const projectSources = new Map<string, { owner: string; events: Map<string, ProjectEvent> }>();
 	const add = (prefix: string, ...classes: string[]): void => {
 		const known = classes.filter((className) => EVENTS_BY_CLASS.has(className.toLowerCase()));
 		if (known.length > 0) {
@@ -155,7 +161,7 @@ export function checkEventHandlerSignatures(
 		const projectSource = projectSources.get(prefix);
 		const projectEvent = projectSource?.events.get(eventName);
 		if (projectSource && projectEvent) {
-			const problem = mismatch(proc, projectEvent.params, (type) => projectEnums.has(bareType(type)));
+			const problem = mismatch(proc, projectEvent.expected, defTypes, (type) => projectEnums.has(bareType(type)));
 			if (problem) {
 				push(
 					'eventHandlerSignature',
@@ -172,7 +178,7 @@ export function checkEventHandlerSignatures(
 		if (!found?.event) {
 			continue;
 		}
-		const problem = mismatch(proc, found.event.params, (type) => /^(xl|wd|pp|mso|fm)[a-z]/i.test(type));
+		const problem = mismatch(proc, parseEventParams(found.event.params), defTypes, (type) => /^(xl|wd|pp|mso|fm)[a-z]/i.test(type));
 		if (problem) {
 			const owner = found.owner.name.slice(found.owner.name.indexOf('.') + 1);
 			push(
@@ -191,18 +197,23 @@ export function checkEventHandlerSignatures(
 function projectEventsOf(
 	asType: string | undefined,
 	memberCtx: MemberCompletionContext,
-): { owner: string; events: Map<string, { name: string; params: string }> } | undefined {
+): { owner: string; events: Map<string, ProjectEvent> } | undefined {
 	const bare = asType?.trim().slice(asType.trim().lastIndexOf('.') + 1).toLowerCase();
 	const type = bare ? (memberCtx.projectClassMembers ?? []).find((candidate) => candidate.name.toLowerCase() === bare) : undefined;
 	if (!type) {
 		return undefined;
 	}
-	const events = new Map<string, { name: string; params: string }>();
+	const events = new Map<string, ProjectEvent>();
 	for (const member of type.members) {
 		const signature = member.signature ?? '';
 		const open = signature.indexOf('(');
 		if (member.kind === 'event' && open >= 0 && signature.endsWith(')')) {
-			events.set(member.name.toLowerCase(), { name: member.name, params: signature.slice(open + 1, -1) });
+			const params = signature.slice(open + 1, -1);
+			events.set(member.name.toLowerCase(), {
+				name: member.name,
+				params,
+				expected: projectEventParams(params, member.eventParams),
+			});
 		}
 	}
 	return { owner: type.name, events };
@@ -250,6 +261,33 @@ interface EventParam {
 	byVal: boolean;
 	type: string;
 	isArray: boolean;
+	/** The label names the type with As; the project index writes a type character as one. */
+	hasType: boolean;
+	/** The type came from a DefType line, not from the declaration. */
+	byDefType?: boolean;
+}
+
+interface ProjectEvent {
+	name: string;
+	/** The parameter list as the class declares it, for the message. */
+	params: string;
+	expected: EventParam[];
+}
+
+/**
+ * A project event's parameters: as declared, with each untyped one typed by
+ * the DefType lines of the class that declares it, which the project index
+ * records. A surface without that record keeps the declared list.
+ */
+function projectEventParams(params: string, typed: readonly VbaProcedureParam[] | undefined): EventParam[] {
+	const declared = parseEventParams(params);
+	if (!typed || typed.length !== declared.length) {
+		return declared;
+	}
+	return declared.map((param, i) => {
+		const type = typed[i].type;
+		return param.hasType || !type ? param : { ...param, type, byDefType: true };
+	});
 }
 
 function parseEventParams(params: string): EventParam[] {
@@ -260,16 +298,29 @@ function parseEventParams(params: string): EventParam[] {
 		const text = part.trim();
 		const typeMatch = /\sAs\s+(\S+)$/i.exec(text);
 		const name = text.replace(/^(?:ByVal|ByRef)\s+/i, '').split(/\s/)[0];
-		return { byVal: /^ByVal\s/i.test(text), type: typeMatch ? typeMatch[1] : 'Variant', isArray: name.endsWith('()') };
+		return {
+			byVal: /^ByVal\s/i.test(text),
+			type: typeMatch ? typeMatch[1] : 'Variant',
+			isArray: name.endsWith('()'),
+			hasType: typeMatch !== null,
+		};
 	});
 }
 
-/** Why the handler differs from the event, or undefined when it matches. */
-function mismatch(proc: ProcedureNode, eventParams: string, isEnum: (type: string) => boolean): string | undefined {
+/**
+ * Why the handler differs from the event, or undefined when it matches. An
+ * untyped handler parameter takes its type from `defTypes`, the handler's
+ * module's DefType lines.
+ */
+function mismatch(
+	proc: ProcedureNode,
+	expected: readonly EventParam[],
+	defTypes: ReadonlyMap<string, string> | undefined,
+	isEnum: (type: string) => boolean,
+): string | undefined {
 	if (proc.procKind !== 'Sub') {
 		return 'an event handler is a Sub';
 	}
-	const expected = parseEventParams(eventParams);
 	const actual = proc.params;
 	if (actual.length !== expected.length) {
 		return `the event passes ${expected.length} parameter${expected.length === 1 ? '' : 's'}, this Sub takes ${actual.length}`;
@@ -287,15 +338,23 @@ function mismatch(proc: ProcedureNode, eventParams: string, isEnum: (type: strin
 		if (param.byVal !== want.byVal) {
 			return want.byVal ? `${label} must be ByVal` : `${label} must be ByRef, not ByVal`;
 		}
-		if (!sameType(param, want.type, isEnum)) {
-			return `${label} is ${declaredType(param)}, and the event's is ${want.type}`;
+		if (!sameType(param, want.type, defTypes, isEnum)) {
+			const wanted = want.byDefType ? `${want.type} (from its module's Deftype)` : want.type;
+			return `${label} is ${declaredType(param, defTypes)}, and the event's is ${wanted}`;
 		}
 	}
 	return undefined;
 }
 
-function declaredType(param: ParameterNode): string {
-	return param.asType ?? (param.typeSuffix ? `${param.typeSuffix} (a type suffix)` : 'Variant');
+function declaredType(param: ParameterNode, defTypes: ReadonlyMap<string, string> | undefined): string {
+	if (param.asType) {
+		return param.asType;
+	}
+	if (param.typeSuffix) {
+		return `${param.typeSuffix} (a type suffix)`;
+	}
+	const implicit = defTypeFor(defTypes, param.name);
+	return implicit ? `${implicit} (from this module's Deftype)` : 'Variant';
 }
 
 /**
@@ -303,11 +362,17 @@ function declaredType(param: ParameterNode): string {
  * type, and an enum - an Office or MSForms one (XlXmlExportResult, fmAction)
  * or the project's own - may be declared As Long, as measured.
  */
-function sameType(param: ParameterNode, expected: string, isEnum: (type: string) => boolean): boolean {
+function sameType(
+	param: ParameterNode,
+	expected: string,
+	defTypes: ReadonlyMap<string, string> | undefined,
+	isEnum: (type: string) => boolean,
+): boolean {
 	const suffixTypes: Readonly<Record<string, string>> = { '%': 'integer', '&': 'long', '!': 'single', '#': 'double', '@': 'currency', '$': 'string' };
+	const implicit = defTypeFor(defTypes, param.name);
 	const actual = param.asType
 		? bareType(param.asType)
-		: param.typeSuffix ? suffixTypes[param.typeSuffix] ?? '' : 'variant';
+		: param.typeSuffix ? suffixTypes[param.typeSuffix] ?? '' : implicit ? bareType(implicit) : 'variant';
 	const want = bareType(expected);
 	if (actual === want) {
 		return true;
