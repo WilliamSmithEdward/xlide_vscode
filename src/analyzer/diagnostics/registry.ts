@@ -377,6 +377,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 			push,
 			ownObjectMemberNames(ctx.opts),
 			ctx.opts.walkProcedureFilter,
+			ctx.opts.referencedLibraries,
 		),
 	},
 	{

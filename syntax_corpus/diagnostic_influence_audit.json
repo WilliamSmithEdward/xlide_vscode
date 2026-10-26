@@ -235,7 +235,7 @@
     {
       "code": "undeclared-variable",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "MS-VBAL 5.2.4.1.1 plus Excel/VBE compile oracle; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports; Outlook 16.0 Object Library references: Excel, Word, PowerPoint and Access 16.0 (build 20430) through the VBE oracle, 2026-10-23",
+      "sourceOfTruth": "MS-VBAL 5.2.4.1.1 plus Excel/VBE compile oracle; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports; Outlook 16.0 Object Library references: Excel, Word, PowerPoint and Access 16.0 (build 20430) through the VBE oracle, 2026-10-23; names recorded as library references (Scripting, another VBA project) as qualifiers: Excel, Word, PowerPoint and Access 16.0 (build 20430), 2026-10-26",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "option_explicit_undeclared_assignment_compile",
@@ -345,7 +345,23 @@
         "outlook_access_ref_bare_createitem_compile",
         "outlook_access_ref_bare_getnamespace_compile",
         "outlook_access_xlref_bare_activeworkbook_compile",
-        "outlook_access_noxlref_bare_activeworkbook_compile"
+        "outlook_access_noxlref_bare_activeworkbook_compile",
+        "library_qualifier_scripting_ref_compile",
+        "library_qualifier_scripting_noref_compile",
+        "library_qualifier_scripting_print_ref_compile",
+        "library_qualifier_scripting_lowercase_ref_compile",
+        "library_qualifier_word_scripting_ref_compile",
+        "library_qualifier_word_scripting_noref_compile",
+        "library_qualifier_word_scripting_print_ref_compile",
+        "library_qualifier_word_scripting_lowercase_ref_compile",
+        "library_qualifier_powerpoint_scripting_ref_compile",
+        "library_qualifier_powerpoint_scripting_noref_compile",
+        "library_qualifier_powerpoint_scripting_print_ref_compile",
+        "library_qualifier_powerpoint_scripting_lowercase_ref_compile",
+        "library_qualifier_access_scripting_ref_compile",
+        "library_qualifier_access_scripting_noref_compile",
+        "library_qualifier_access_scripting_print_ref_compile",
+        "library_qualifier_access_scripting_lowercase_ref_compile"
     ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [

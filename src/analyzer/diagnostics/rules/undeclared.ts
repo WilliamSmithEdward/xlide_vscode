@@ -690,6 +690,7 @@ export function checkUndeclaredVariables(
 	push: PushFn,
 	ownMembers: ReadonlySet<string> = new Set(),
 	procedureFilter?: (member: ProcedureNode) => boolean,
+	referencedLibraries?: readonly string[],
 ): void {
 	if (!hasOptionExplicit(mod, activity) || !knownIdentifiers) {
 		return;
@@ -701,6 +702,13 @@ export function checkUndeclaredVariables(
 	// its model (Office, MSForms), the ones the project references, and VBA,
 	// which isKnown already accepts.
 	const libraryQualifiers = libraryQualifierNames(hostModel, referencedHosts);
+	// Every library the dir stream records qualifies its own globals, by the
+	// name it records: another VBA project the project references among
+	// them, whose contents XLIDE does not read (`ProbeLibrary.Service.Value()`
+	// compiles with a reference to the project ProbeLibrary, measured in
+	// Excel, Word, PowerPoint and Access 16.0). Only before a dot: the name
+	// alone is no value.
+	const referenceQualifiers = new Set((referencedLibraries ?? []).map((name) => name.toLowerCase()));
 	// A form's controls are declared by its DESIGNER, not its text, and the seed
 	// has three states, not two: a list, a vouched-for-empty list, and no answer
 	// at all. Reading no answer as an empty one claimed every control the form's
@@ -836,6 +844,9 @@ export function checkUndeclaredVariables(
 				projectMembers,
 			)) {
 				if (ref.bracketed && bracketNamesEvaluate) {
+					continue;
+				}
+				if (ref.qualifies && referenceQualifiers.has(ref.name.toLowerCase())) {
 					continue;
 				}
 				report(ref.name, ref.span, 'using it', 'expression');
@@ -1020,7 +1031,7 @@ function undeclaredReadReferences(
 	isKnown: (name: string) => boolean,
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
 	projectMembers: readonly VbaProjectClassMembers[] | undefined,
-): Array<{ name: string; span: Span; bracketed: boolean }> {
+): Array<{ name: string; span: Span; bracketed: boolean; qualifies: boolean }> {
 	return valueReadReferences(source, span, isKnown, moduleSignatures, projectMembers)
 		.filter((ref) => !isKnown(ref.name));
 }

@@ -212858,6 +212858,473 @@
           "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
         }
       ]
+    },
+    {
+      "id": "library_qualifier_scripting_ref_compile",
+      "description": "Library qualifier: Scripting referenced; Main = Scripting.BinaryCompare. Compile-ok. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{420B2830-E718-11CF-893D-00A0C9054228}",
+          "major": 1,
+          "minor": 0
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = Scripting.BinaryCompare\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "library_qualifier_scripting_noref_compile",
+      "description": "Library qualifier: Scripting not referenced; Main = Scripting.BinaryCompare. Rejected: Variable not defined. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = Scripting.BinaryCompare\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "library_qualifier_scripting_bare_ref_compile",
+      "description": "Library qualifier: Scripting referenced; Main = Scripting. Rejected: Expected variable or procedure, not project. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{420B2830-E718-11CF-893D-00A0C9054228}",
+          "major": 1,
+          "minor": 0
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = Scripting\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "library_qualifier_scripting_print_ref_compile",
+      "description": "Library qualifier: Scripting referenced; Debug.Print Scripting.TextCompare. Compile-ok. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{420B2830-E718-11CF-893D-00A0C9054228}",
+          "major": 1,
+          "minor": 0
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nDebug.Print Scripting.TextCompare\r\nMain = 1\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "library_qualifier_scripting_lowercase_ref_compile",
+      "description": "Library qualifier: Scripting referenced; Main = scripting.BinaryCompare. Compile-ok. Measured in Excel 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{420B2830-E718-11CF-893D-00A0C9054228}",
+          "major": 1,
+          "minor": 0
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = scripting.BinaryCompare\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "library_qualifier_word_scripting_ref_compile",
+      "description": "Library qualifier: Scripting referenced; Main = Scripting.BinaryCompare. Compile-ok. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "references": [
+        {
+          "guid": "{420B2830-E718-11CF-893D-00A0C9054228}",
+          "major": 1,
+          "minor": 0
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = Scripting.BinaryCompare\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "library_qualifier_word_scripting_noref_compile",
+      "description": "Library qualifier: Scripting not referenced; Main = Scripting.BinaryCompare. Rejected: Variable not defined. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = Scripting.BinaryCompare\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "library_qualifier_word_scripting_bare_ref_compile",
+      "description": "Library qualifier: Scripting referenced; Main = Scripting. Rejected: Expected variable or procedure, not project. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "references": [
+        {
+          "guid": "{420B2830-E718-11CF-893D-00A0C9054228}",
+          "major": 1,
+          "minor": 0
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = Scripting\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "library_qualifier_word_scripting_print_ref_compile",
+      "description": "Library qualifier: Scripting referenced; Debug.Print Scripting.TextCompare. Compile-ok. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "references": [
+        {
+          "guid": "{420B2830-E718-11CF-893D-00A0C9054228}",
+          "major": 1,
+          "minor": 0
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nDebug.Print Scripting.TextCompare\r\nMain = 1\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "library_qualifier_word_scripting_lowercase_ref_compile",
+      "description": "Library qualifier: Scripting referenced; Main = scripting.BinaryCompare. Compile-ok. Measured in Word 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "references": [
+        {
+          "guid": "{420B2830-E718-11CF-893D-00A0C9054228}",
+          "major": 1,
+          "minor": 0
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = scripting.BinaryCompare\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "library_qualifier_powerpoint_scripting_ref_compile",
+      "description": "Library qualifier: Scripting referenced; Main = Scripting.BinaryCompare. Compile-ok. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "references": [
+        {
+          "guid": "{420B2830-E718-11CF-893D-00A0C9054228}",
+          "major": 1,
+          "minor": 0
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = Scripting.BinaryCompare\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "library_qualifier_powerpoint_scripting_noref_compile",
+      "description": "Library qualifier: Scripting not referenced; Main = Scripting.BinaryCompare. Rejected: Variable not defined. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = Scripting.BinaryCompare\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "library_qualifier_powerpoint_scripting_bare_ref_compile",
+      "description": "Library qualifier: Scripting referenced; Main = Scripting. Rejected: Expected variable or procedure, not project. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "references": [
+        {
+          "guid": "{420B2830-E718-11CF-893D-00A0C9054228}",
+          "major": 1,
+          "minor": 0
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = Scripting\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "library_qualifier_powerpoint_scripting_print_ref_compile",
+      "description": "Library qualifier: Scripting referenced; Debug.Print Scripting.TextCompare. Compile-ok. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "references": [
+        {
+          "guid": "{420B2830-E718-11CF-893D-00A0C9054228}",
+          "major": 1,
+          "minor": 0
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nDebug.Print Scripting.TextCompare\r\nMain = 1\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "library_qualifier_powerpoint_scripting_lowercase_ref_compile",
+      "description": "Library qualifier: Scripting referenced; Main = scripting.BinaryCompare. Compile-ok. Measured in PowerPoint 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "references": [
+        {
+          "guid": "{420B2830-E718-11CF-893D-00A0C9054228}",
+          "major": 1,
+          "minor": 0
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = scripting.BinaryCompare\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "library_qualifier_access_scripting_ref_compile",
+      "description": "Library qualifier: Scripting referenced; Main = Scripting.BinaryCompare. Compile-ok. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "references": [
+        {
+          "guid": "{420B2830-E718-11CF-893D-00A0C9054228}",
+          "major": 1,
+          "minor": 0
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = Scripting.BinaryCompare\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "library_qualifier_access_scripting_noref_compile",
+      "description": "Library qualifier: Scripting not referenced; Main = Scripting.BinaryCompare. Rejected: Variable not defined. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = Scripting.BinaryCompare\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "library_qualifier_access_scripting_bare_ref_compile",
+      "description": "Library qualifier: Scripting referenced; Main = Scripting. Rejected: Expected variable or procedure, not project. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "references": [
+        {
+          "guid": "{420B2830-E718-11CF-893D-00A0C9054228}",
+          "major": 1,
+          "minor": 0
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = Scripting\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "library_qualifier_access_scripting_print_ref_compile",
+      "description": "Library qualifier: Scripting referenced; Debug.Print Scripting.TextCompare. Compile-ok. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "references": [
+        {
+          "guid": "{420B2830-E718-11CF-893D-00A0C9054228}",
+          "major": 1,
+          "minor": 0
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nDebug.Print Scripting.TextCompare\r\nMain = 1\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "library_qualifier_access_scripting_lowercase_ref_compile",
+      "description": "Library qualifier: Scripting referenced; Main = scripting.BinaryCompare. Compile-ok. Measured in Access 16.0 (build 20430) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "references": [
+        {
+          "guid": "{420B2830-E718-11CF-893D-00A0C9054228}",
+          "major": 1,
+          "minor": 0
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = scripting.BinaryCompare\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
     }
   ]
 }

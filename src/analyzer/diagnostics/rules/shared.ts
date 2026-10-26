@@ -249,9 +249,9 @@ export function valueReadReferences(
 	isKnownForSkip: (name: string) => boolean,
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
 	projectMembers: readonly VbaProjectClassMembers[] | undefined,
-): Array<{ name: string; span: Span; bracketed: boolean }> {
+): Array<{ name: string; span: Span; bracketed: boolean; qualifies: boolean }> {
 	const toks = statementTokens(source, span);
-	const out: Array<{ name: string; span: Span; bracketed: boolean }> = [];
+	const out: Array<{ name: string; span: Span; bracketed: boolean; qualifies: boolean }> = [];
 	const skip = undeclaredReferenceSkipIndexes(
 		source,
 		span,
@@ -281,6 +281,9 @@ export function valueReadReferences(
 			name,
 			span: { start: span.start + toks[i].start, end: span.start + toks[i].end },
 			bracketed: toks[i].kind === 'bracketedIdentifier',
+			// `Lib.Member`: the name stands before a dot, line continuations
+			// between them being trivia.
+			qualifies: toks[i + 1]?.rawText === '.',
 		});
 	}
 	return out;
