@@ -14,14 +14,37 @@ interface SyntaxToken {
 	t: string;
 }
 
-/** The scopes of the first token holding `text` in `file`, as VS Code colors it. */
-async function scopesOf(file: string, text: string): Promise<string> {
+/** The tokens of `file`, as VS Code colors it. */
+async function tokensOf(file: string): Promise<SyntaxToken[]> {
 	const tokens = await vscode.commands.executeCommand<SyntaxToken[]>(
 		'_workbench.captureSyntaxTokens', vscode.Uri.file(file),
 	);
-	const token = (tokens ?? []).find((candidate) => candidate.c.includes(text));
+	return tokens ?? [];
+}
+
+/** The scopes of the first token holding `text` in `file`. */
+async function scopesOf(file: string, text: string): Promise<string> {
+	const token = (await tokensOf(file)).find((candidate) => candidate.c.includes(text));
 	assert.ok(token, `no token holds ${JSON.stringify(text)}`);
 	return token.t;
+}
+
+/** The scopes of the first token that is exactly `text` in `file`. */
+async function scopesOfToken(file: string, text: string): Promise<string> {
+	const token = (await tokensOf(file)).find((candidate) => candidate.c === text);
+	assert.ok(token, `no token is ${JSON.stringify(text)}`);
+	return token.t;
+}
+
+/** Writes `lines` to a loose module, runs `check` on it and removes it. */
+async function withProbe(lines: string[], check: (file: string) => Promise<void>): Promise<void> {
+	const file = path.join(workspaceRoot(), 'GrammarProbe.bas');
+	fs.writeFileSync(file, [...lines, ''].join('\r\n'));
+	try {
+		await check(file);
+	} finally {
+		fs.rmSync(file, { force: true });
+	}
 }
 
 suite('VBA grammar', () => {
@@ -52,5 +75,103 @@ suite('VBA grammar', () => {
 		} finally {
 			fs.rmSync(file, { force: true });
 		}
+	});
+
+	// Excel accepts these: oracle issue682_16_runtime (`Print #f, "abc": Close #f`),
+	// issue146_a_runtime (`Close #&H1, #&H2`), issue239_17_runtime (`#12/30/9999# + 1`),
+	// issue1416_is_cvdate_1_1_2026_compile, and issue190_16_compile, issue190_20_compile,
+	// issue1323_11_runtime and issue133_q_runtime (the first `d =` line); Word, PowerPoint
+	// and Access accept issue1416_<host>_is_cvdate_1_1_2026_compile. The oracle has no case
+	// for the dates of the second `d =` line: `#8:30#`, `#1 PM#` and parts separated by
+	// U+3000 (whitespace to VBA, MS-VBAL 3.2.2) are date-or-time forms of MS-VBAL 3.3.3,
+	// which the lexer reads too.
+	test('colors # signs as a date only when the text between them is a date', async () => {
+		await withProbe([
+			'Sub Test()',
+			'    f = FreeFile: Open p For Output As #f: Print #f, "abc": Close #f',
+			'    Close #&H1, #&H2',
+			'    t = (86400# - s) * 1000#',
+			'    Main = #12/30/9999# + 1',
+			'    Debug.Print CVDate(#1/1/2026#) Is Nothing',
+			'    d = #Jan 1, 2000# + #2000-02-28# + #1/1/2000 12:00:00 AM# + #13:00 PM#',
+			'    d = #8:30# + #1 PM# + #1\u30001\u30002024#',
+			'End Sub',
+		], async (file) => {
+			const dates = (await tokensOf(file))
+				.filter((token) => /\bconstant\.other\.date\.vba\b/.test(token.t))
+				.map((token) => token.c);
+			assert.deepEqual(dates, [
+				'#12/30/9999#', '#1/1/2026#', '#Jan 1, 2000#', '#2000-02-28#', '#1/1/2000 12:00:00 AM#',
+				'#13:00 PM#', '#8:30#', '#1 PM#', '#1\u30001\u30002024#',
+			]);
+			assert.match(await scopesOf(file, 'abc'), /\bstring\.quoted\.double\.vba\b/);
+			assert.match(await scopesOfToken(file, '&H1'), /\bconstant\.numeric\.hex\.vba\b/);
+			assert.match(await scopesOfToken(file, '86400#'), /\bconstant\.numeric\.float\.vba\b/);
+		});
+	});
+
+	// Excel accepts these: oracle issue681_09_runtime, issue681_11_runtime and
+	// issue234_01_compile. The VBE ends a string at the end of its line.
+	test('ends a string left open at the end of its line', async () => {
+		await withProbe([
+			'Private Const K As String = "abc',
+			'Function Main() As Variant',
+			'    Main = "abc_',
+			'    Main = Main & "|"',
+			'End Function',
+			'#If False Then',
+			'asdf "qwer',
+			'#End If',
+		], async (file) => {
+			assert.match(await scopesOfToken(file, 'Function'), /\bstorage\.type\.function\.vba\b/);
+			assert.match(await scopesOf(file, 'abc_'), /\bstring\.quoted\.double\.vba\b/);
+			assert.match(await scopesOf(file, '#End If'), /\bkeyword\.control\.preprocessor\.vba\b/);
+		});
+	});
+
+	// Excel accepts these: oracle dim_type_suffix_only_compile, suffix_long_amp_inrange_value_compile,
+	// issue133_q_runtime, issue232_27_runtime, issue1412_l_dim_long_max_compile,
+	// issue1412_l_redim_double_in_range_runtime and issue1412_d_divide_ok_compile; Word,
+	// PowerPoint and Access accept the same three issue1412_<host>_… cases. The oracle has no
+	// case for `1D3`, `.5` or `1.`: they are the exponent letter D and the optional digits
+	// around the point of MS-VBAL 3.3.2, which the lexer reads too.
+	test('colors a number with its type suffix or exponent as one number', async () => {
+		await withProbe([
+			'Sub Test()',
+			'    Dim a(0 To 2147483647&) As Byte',
+			'    ReDim b(10#)',
+			'    Dim c(4294967294# / 2) As Long',
+			'    price = 12.34@: ratio = 0.5#: flag = 1%: total = 6@',
+			'    x = 40000&',
+			'    v = 1E+308: v = 3.402823E+38!: v = CLngLng(9E+18): v = 9223372036854775807^',
+			'    v = 1e-3: v = 1D3: v = .5: v = 1.',
+			'End Sub',
+		], async (file) => {
+			for (const integer of ['2147483647&', '40000&', '1%', '9223372036854775807^']) {
+				assert.match(await scopesOfToken(file, integer), /\bconstant\.numeric\.integer\.vba\b/, integer);
+			}
+			for (const float of [
+				'10#', '4294967294#', '12.34@', '0.5#', '6@', '1E+308', '3.402823E+38!', '9E+18', '1e-3', '1D3', '.5', '1.',
+			]) {
+				assert.match(await scopesOfToken(file, float), /\bconstant\.numeric\.float\.vba\b/, float);
+			}
+		});
+	});
+
+	// Excel accepts these: oracle const_directive_before_option_explicit_compile,
+	// issue192_12_runtime, issue192_22_runtime and issue208_12_runtime.
+	test('colors the numbers, dates and strings of a directive line', async () => {
+		await withProbe([
+			'#Const XLIDEORACLEFLAG = 1',
+			'#Const S = "x"',
+			'#If 5 / 2 = 2.5 Then',
+			'#ElseIf #1/2/2000# > #1/1/2000# Then',
+			'#End If',
+		], async (file) => {
+			assert.match(await scopesOfToken(file, '1'), /\bmeta\.preprocessor\.vba constant\.numeric\.integer\.vba\b/);
+			assert.match(await scopesOfToken(file, '2.5'), /\bmeta\.preprocessor\.vba constant\.numeric\.float\.vba\b/);
+			assert.match(await scopesOfToken(file, '#1/2/2000#'), /\bmeta\.preprocessor\.vba constant\.other\.date\.vba\b/);
+			assert.match(await scopesOf(file, 'x'), /\bmeta\.preprocessor\.vba string\.quoted\.double\.vba\b/);
+		});
 	});
 });
