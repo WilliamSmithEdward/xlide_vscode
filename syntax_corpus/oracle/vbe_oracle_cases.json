@@ -225417,6 +225417,186 @@
       ],
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "block_if_else_same_line_statement_excel_runtime",
+      "description": "Excel: A block If's Else with a statement on the Else line (`Else x = 2`) compiles, and the statement and the lines after it run only when the Else arm is taken (MS-VBAL 5.4.2.8). Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Option Explicit\r\nPublic Sub XlideOracleEntry()\r\n    Dim x As Long\r\n    If False Then\r\n        x = 1\r\n    Else x = 2\r\n        If x <> 2 Then Err.Raise 5\r\n        x = x + 10\r\n    End If\r\n    If x <> 12 Then Err.Raise 6\r\n    If True Then\r\n        x = 1\r\n    Else x = 2\r\n        x = x + 10\r\n    End If\r\n    If x <> 1 Then Err.Raise 7\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "block_if_else_same_line_statement_word_runtime",
+      "description": "Word: A block If's Else with a statement on the Else line (`Else x = 2`) compiles, and the statement and the lines after it run only when the Else arm is taken (MS-VBAL 5.4.2.8). Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Option Explicit\r\nPublic Sub XlideOracleEntry()\r\n    Dim x As Long\r\n    If False Then\r\n        x = 1\r\n    Else x = 2\r\n        If x <> 2 Then Err.Raise 5\r\n        x = x + 10\r\n    End If\r\n    If x <> 12 Then Err.Raise 6\r\n    If True Then\r\n        x = 1\r\n    Else x = 2\r\n        x = x + 10\r\n    End If\r\n    If x <> 1 Then Err.Raise 7\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "block_if_else_same_line_statement_powerpoint_runtime",
+      "description": "PowerPoint: A block If's Else with a statement on the Else line (`Else x = 2`) compiles, and the statement and the lines after it run only when the Else arm is taken (MS-VBAL 5.4.2.8). Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Option Explicit\r\nPublic Sub XlideOracleEntry()\r\n    Dim x As Long\r\n    If False Then\r\n        x = 1\r\n    Else x = 2\r\n        If x <> 2 Then Err.Raise 5\r\n        x = x + 10\r\n    End If\r\n    If x <> 12 Then Err.Raise 6\r\n    If True Then\r\n        x = 1\r\n    Else x = 2\r\n        x = x + 10\r\n    End If\r\n    If x <> 1 Then Err.Raise 7\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "block_if_else_same_line_statement_access_runtime",
+      "description": "Access: A block If's Else with a statement on the Else line (`Else x = 2`) compiles, and the statement and the lines after it run only when the Else arm is taken (MS-VBAL 5.4.2.8). Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Option Explicit\r\nPublic Sub XlideOracleEntry()\r\n    Dim x As Long\r\n    If False Then\r\n        x = 1\r\n    Else x = 2\r\n        If x <> 2 Then Err.Raise 5\r\n        x = x + 10\r\n    End If\r\n    If x <> 12 Then Err.Raise 6\r\n    If True Then\r\n        x = 1\r\n    Else x = 2\r\n        x = x + 10\r\n    End If\r\n    If x <> 1 Then Err.Raise 7\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "block_if_elseif_same_line_statement_excel_runtime",
+      "description": "Excel: A block If's ElseIf with a statement after Then (`ElseIf b Then x = 2`) compiles, and the statement and the lines after it run only when that arm is taken. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Option Explicit\r\nPublic Sub XlideOracleEntry()\r\n    Dim x As Long\r\n    If False Then\r\n        x = 1\r\n    ElseIf True Then x = 2\r\n        If x <> 2 Then Err.Raise 5\r\n        x = x + 10\r\n    End If\r\n    If x <> 12 Then Err.Raise 6\r\n    If True Then\r\n        x = 1\r\n    ElseIf True Then x = 2\r\n        x = x + 10\r\n    End If\r\n    If x <> 1 Then Err.Raise 7\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "block_if_elseif_same_line_statement_word_runtime",
+      "description": "Word: A block If's ElseIf with a statement after Then (`ElseIf b Then x = 2`) compiles, and the statement and the lines after it run only when that arm is taken. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Option Explicit\r\nPublic Sub XlideOracleEntry()\r\n    Dim x As Long\r\n    If False Then\r\n        x = 1\r\n    ElseIf True Then x = 2\r\n        If x <> 2 Then Err.Raise 5\r\n        x = x + 10\r\n    End If\r\n    If x <> 12 Then Err.Raise 6\r\n    If True Then\r\n        x = 1\r\n    ElseIf True Then x = 2\r\n        x = x + 10\r\n    End If\r\n    If x <> 1 Then Err.Raise 7\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "block_if_elseif_same_line_statement_powerpoint_runtime",
+      "description": "PowerPoint: A block If's ElseIf with a statement after Then (`ElseIf b Then x = 2`) compiles, and the statement and the lines after it run only when that arm is taken. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Option Explicit\r\nPublic Sub XlideOracleEntry()\r\n    Dim x As Long\r\n    If False Then\r\n        x = 1\r\n    ElseIf True Then x = 2\r\n        If x <> 2 Then Err.Raise 5\r\n        x = x + 10\r\n    End If\r\n    If x <> 12 Then Err.Raise 6\r\n    If True Then\r\n        x = 1\r\n    ElseIf True Then x = 2\r\n        x = x + 10\r\n    End If\r\n    If x <> 1 Then Err.Raise 7\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "block_if_elseif_same_line_statement_access_runtime",
+      "description": "Access: A block If's ElseIf with a statement after Then (`ElseIf b Then x = 2`) compiles, and the statement and the lines after it run only when that arm is taken. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Option Explicit\r\nPublic Sub XlideOracleEntry()\r\n    Dim x As Long\r\n    If False Then\r\n        x = 1\r\n    ElseIf True Then x = 2\r\n        If x <> 2 Then Err.Raise 5\r\n        x = x + 10\r\n    End If\r\n    If x <> 12 Then Err.Raise 6\r\n    If True Then\r\n        x = 1\r\n    ElseIf True Then x = 2\r\n        x = x + 10\r\n    End If\r\n    If x <> 1 Then Err.Raise 7\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "modifier_type_enum_static_property_headers_excel_compile",
+      "description": "Excel: Public Type, Private Enum, Public Static Property Get and Private Static Property Let headers compile. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "source": "Option Explicit\r\nPublic Type Rec\r\n    n As Long\r\nEnd Type\r\nPrivate Enum Colour\r\n    Red\r\nEnd Enum\r\nPublic Static Property Get Total() As Long\r\n    Total = 1\r\nEnd Property\r\nPrivate Static Property Let Total(ByVal v As Long)\r\nEnd Property\r\nSub Main()\r\n    Dim r As Rec\r\n    r.n = Total + Red\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "modifier_type_enum_static_property_headers_word_compile",
+      "description": "Word: Public Type, Private Enum, Public Static Property Get and Private Static Property Let headers compile. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "source": "Option Explicit\r\nPublic Type Rec\r\n    n As Long\r\nEnd Type\r\nPrivate Enum Colour\r\n    Red\r\nEnd Enum\r\nPublic Static Property Get Total() As Long\r\n    Total = 1\r\nEnd Property\r\nPrivate Static Property Let Total(ByVal v As Long)\r\nEnd Property\r\nSub Main()\r\n    Dim r As Rec\r\n    r.n = Total + Red\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "modifier_type_enum_static_property_headers_powerpoint_compile",
+      "description": "PowerPoint: Public Type, Private Enum, Public Static Property Get and Private Static Property Let headers compile. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "source": "Option Explicit\r\nPublic Type Rec\r\n    n As Long\r\nEnd Type\r\nPrivate Enum Colour\r\n    Red\r\nEnd Enum\r\nPublic Static Property Get Total() As Long\r\n    Total = 1\r\nEnd Property\r\nPrivate Static Property Let Total(ByVal v As Long)\r\nEnd Property\r\nSub Main()\r\n    Dim r As Rec\r\n    r.n = Total + Red\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "modifier_type_enum_static_property_headers_access_compile",
+      "description": "Access: Public Type, Private Enum, Public Static Property Get and Private Static Property Let headers compile. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "source": "Option Explicit\r\nPublic Type Rec\r\n    n As Long\r\nEnd Type\r\nPrivate Enum Colour\r\n    Red\r\nEnd Enum\r\nPublic Static Property Get Total() As Long\r\n    Total = 1\r\nEnd Property\r\nPrivate Static Property Let Total(ByVal v As Long)\r\nEnd Property\r\nSub Main()\r\n    Dim r As Rec\r\n    r.n = Total + Red\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "one_line_loop_and_with_blocks_excel_compile",
+      "description": "Excel: For, For Each, Do While, While and With blocks opened and closed on one line, joined by colons, compile. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Long, x As Long, v As Variant, arr(1) As Long\r\n    For i = 1 To 5: x = x + 1: Next\r\n    For Each v In arr: Next\r\n    Do While x < 0: Loop\r\n    While x < 0: Wend\r\n    With New Collection: .Add 1: End With\r\n    x = 0\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "one_line_loop_and_with_blocks_word_compile",
+      "description": "Word: For, For Each, Do While, While and With blocks opened and closed on one line, joined by colons, compile. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Long, x As Long, v As Variant, arr(1) As Long\r\n    For i = 1 To 5: x = x + 1: Next\r\n    For Each v In arr: Next\r\n    Do While x < 0: Loop\r\n    While x < 0: Wend\r\n    With New Collection: .Add 1: End With\r\n    x = 0\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "one_line_loop_and_with_blocks_powerpoint_compile",
+      "description": "PowerPoint: For, For Each, Do While, While and With blocks opened and closed on one line, joined by colons, compile. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Long, x As Long, v As Variant, arr(1) As Long\r\n    For i = 1 To 5: x = x + 1: Next\r\n    For Each v In arr: Next\r\n    Do While x < 0: Loop\r\n    While x < 0: Wend\r\n    With New Collection: .Add 1: End With\r\n    x = 0\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "one_line_loop_and_with_blocks_access_compile",
+      "description": "Access: For, For Each, Do While, While and With blocks opened and closed on one line, joined by colons, compile. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "source": "Option Explicit\r\nSub Main()\r\n    Dim i As Long, x As Long, v As Variant, arr(1) As Long\r\n    For i = 1 To 5: x = x + 1: Next\r\n    For Each v In arr: Next\r\n    Do While x < 0: Loop\r\n    While x < 0: Wend\r\n    With New Collection: .Add 1: End With\r\n    x = 0\r\nEnd Sub\r\n"
     }
   ]
 }

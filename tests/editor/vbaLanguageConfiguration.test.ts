@@ -1,5 +1,6 @@
 import { readFileSync } from 'fs';
 import { describe, expect, it } from 'vitest';
+import { formatVbaModule } from '../../src/analyzer/format/formatModule';
 import { detectSmartBlockOpener } from '../../src/vbaSmartEnter';
 import { VBA_SMART_BLOCK_SNIPPETS } from '../../src/vbaSmartBlockSnippets';
 import { XLIDE_VBA_EDITOR_OVERRIDES } from '../../src/xlideVbaEditorOverrides';
@@ -147,6 +148,7 @@ describe('VBA language configuration', () => {
 		const cases = [
 			'if ready then value = 1',
 			'if then',
+			'if  then',
 			'for',
 			'for i = 1',
 			'for each item in',
@@ -179,6 +181,269 @@ describe('VBA language configuration', () => {
 			expect(decrease.test(line), line).toBe(true);
 		}
 		expect(decrease.test('    EndIfDone = 1')).toBe(false);
+	});
+
+	it('indents after a Type, an Enum and a Static Property with modifiers, as the formatter does', () => {
+		// The formatter's modifiers. Oracle:
+		// modifier_type_enum_static_property_headers_{excel,word,powerpoint,access}_compile
+		// (Public Type, Private Enum, Public and Private Static Property) and
+		// static_public_property_compile (`Static Public`).
+		const config = loadConfig();
+		for (const line of [
+			'Public Type Rec', 'Private Enum Colour', 'Global Type Pair',
+			'Public Static Property Get Total() As Long', 'Private Static Property Let Total(ByVal v As Long)',
+			'Static Public Property Get P() As Long', 'Friend Static Property Set Target(ByVal o As Object)',
+		]) {
+			expect(lineRules(config, `    ${line}`), line).toEqual({ increase: true, decrease: false, enter: true });
+		}
+		// A Type field named Type or Enum is no header.
+		for (const line of ['Type As Long', 'Enum As Long']) {
+			expect(lineRules(config, `    ${line}`), line).toEqual({ increase: false, decrease: false, enter: false });
+		}
+	});
+
+	it('outdents #Else and #ElseIf and indents after them, as after #If', () => {
+		const config = loadConfig();
+		for (const line of ['#Else', '#ElseIf Win64 Then', '# Else \' 32-bit', '#ElseIf #12:00:00 PM# = 0.5 Then']) {
+			expect(lineRules(config, line), line).toEqual({ increase: true, decrease: true, enter: true });
+		}
+		// Not complete yet, like `#If VBA7` without Then.
+		expect(lineRules(config, '#ElseIf Win64')).toEqual({ increase: false, decrease: true, enter: false });
+		expect(lineRules(config, '#ElseIf  Then')).toEqual({ increase: false, decrease: true, enter: false });
+		expect(lineRules(config, '#If  Then')).toEqual({ increase: false, decrease: false, enter: false });
+		expect(lineRules(config, '#End If')).toEqual({ increase: false, decrease: true, enter: false });
+	});
+
+	it('indents after Else, ElseIf and Case on Reindent Lines too, not only on Enter', () => {
+		const config = loadConfig();
+		for (const line of ['Else', 'ElseIf ready Then', 'Else \' otherwise', 'Case 1', 'Case Else', 'Case Is > 10, 20 To 30', 'ElseIf(ready) Then', 'Case(1)']) {
+			expect(lineRules(config, `    ${line}`), line).toEqual({ increase: true, decrease: true, enter: true });
+		}
+		// A Type field named Else or Case.
+		for (const line of ['Else As Long', 'Case As Long']) {
+			expect(lineRules(config, `    ${line}`).increase, line).toBe(false);
+		}
+	});
+
+	it('indents after Else and ElseIf with a statement on their line (Excel, Word, PowerPoint, Access)', () => {
+		// Oracle: block_if_else_same_line_statement_*_runtime and
+		// block_if_elseif_same_line_statement_*_runtime: the statement runs only
+		// when its arm is taken, and the lines after it are in that arm.
+		const config = loadConfig();
+		for (const line of [
+			'Else Set ws = ThisWorkbook.Sheets(1)',
+			'ElseIf ActiveDocument.Paragraphs.Count > 1 Then n = 2',
+			'Else: n = ActivePresentation.Slides.Count',
+			'ElseIf CurrentDb.TableDefs.Count = 0 Then: n = 0',
+		]) {
+			expect(lineRules(config, `    ${line}`), line).toEqual({ increase: true, decrease: true, enter: true });
+		}
+		// The block ends on the line.
+		for (const line of ['Else: End If', 'ElseIf a Then n = 1: End If', 'Case 1: End Select']) {
+			expect(lineRules(config, `    ${line}`).increase, line).toBe(false);
+			expect(lineRules(config, `    ${line}`).enter, line).toBe(false);
+		}
+	});
+
+	it('does not read a comment, a string or a member named Then or To as part of a block opener', () => {
+		const config = loadConfig();
+		for (const line of [
+			"If a Then b ' only if a Then",
+			"If a Then b = 1 ' then",
+			"For i = 1 ' To 5",
+			'If ws.Then',
+			'For i = ws.To + 1',
+			'If a Then: x = b',
+			'#If A \' Then',
+		]) {
+			expect(lineRules(config, `    ${line}`), line).toEqual({ increase: false, decrease: false, enter: false });
+		}
+		for (const line of [
+			"If ready Then ' a comment with Then in it",
+			'If s = "it\'s" Then',
+			'If s = "\' Then" Then',
+			'If d = #12:00:00 AM# Then',
+			'If Application.WorksheetFunction.CountIf(r, "x") > 0 Then',
+			'If IsNull(DLookup("ID", "Tbl", "ID=1")) Then',
+			'With ThisWorkbook.Sheets("a: End With")',
+		]) {
+			expect(lineRules(config, `    ${line}`), line).toEqual({ increase: true, decrease: false, enter: true });
+		}
+	});
+
+	it('does not indent after a block opened and closed on its own line', () => {
+		// Oracle: one_line_loop_and_with_blocks_{excel,word,powerpoint,access}_compile
+		// (For, For Each, Do While, While, With) and
+		// if_single_line_else_after_colon_select_case_compile (a one-line Select Case,
+		// there after a one-line If's Then).
+		const config = loadConfig();
+		for (const line of [
+			'For i = 1 To 5: x = x + 1: Next',
+			'For Each ws In ThisWorkbook.Worksheets: Next',
+			'For Each p In ActiveDocument.Paragraphs: n = n + 1: Next p',
+			'Do While a: Loop',
+			'While a: Wend',
+			'With ActivePresentation.Slides(1): .Name = "x": End With',
+			'Select Case n: Case 1: x = 1: End Select',
+			'Public Sub Delete(): End Sub',
+			'Public Function Count() As Long: End Function',
+			'Public Property Get Name() As String: End Property',
+			'Public Type Pair: a As Long: End Type',
+			'Private Enum Colour: Red: End Enum',
+		]) {
+			expect(lineRules(config, `    ${line}`), line).toEqual({ increase: false, decrease: false, enter: false });
+		}
+		// Opened and left open: the block goes on below.
+		for (const line of [
+			'For i = 1 To 5: x = 1',
+			'For Each t In CurrentDb.TableDefs: n = n + 1',
+			'Do: n = n + 1',
+			'Do Until rs.EOF: rs.MoveNext',
+			'Sub Main(): x = 1',
+		]) {
+			expect(lineRules(config, `    ${line}`), line).toEqual({ increase: true, decrease: false, enter: true });
+		}
+		expect(lineRules(config, '    Do: Loop')).toEqual({ increase: false, decrease: false, enter: false });
+		expect(lineRules(config, '    Do x')).toEqual({ increase: false, decrease: false, enter: false });
+	});
+
+	it('reindents these block forms as Format Document lays them out, for each Office host', () => {
+		const config = loadConfig();
+		const modules = [
+			[
+				'Public Type Rec',
+				'    n As Long',
+				'End Type',
+				'Private Enum Colour',
+				'    Red',
+				'End Enum',
+				'Public Static Property Get Total() As Long',
+				'    Total = ThisWorkbook.Sheets.Count',
+				'End Property',
+				'Public Sub Delete(): End Sub',
+				'Sub Main()',
+				'    Dim i As Long, x As Long',
+				'    If x = 0 Then',
+				'        x = 1',
+				"    ElseIf x = 1 Then x = 2 ' only if x = 1 Then",
+				'        x = 3',
+				'    Else x = ThisWorkbook.Sheets(1).UsedRange.Rows.Count',
+				'        x = 4',
+				'    End If',
+				'    For i = 1 To 5: x = x + 1: Next',
+				'    x = 5',
+				'End Sub',
+			],
+			[
+				'Sub Main()',
+				'    #If Win64 Then',
+				'        Dim p As LongPtr',
+				'    #ElseIf VBA7 Then',
+				'        Dim p As LongPtr',
+				'    #Else',
+				'        Dim p As Long',
+				'    #End If',
+				'    For Each para In ActiveDocument.Paragraphs: n = n + 1: Next',
+				'    Do While n > 0: n = n - 1: Loop',
+				'    If n = 0 Then',
+				'        n = 1',
+				'    Else: n = 2',
+				'        n = 3',
+				'    End If',
+				'End Sub',
+			],
+			[
+				'Sub Main()',
+				'    With ActivePresentation.Slides(1): .Name = "First": End With',
+				'    If ActivePresentation.Slides.Count = 0 Then',
+				'        n = 0',
+				'    ElseIf ActivePresentation.Slides.Count = 1 Then: n = 1',
+				'        n = n + 1',
+				'    End If',
+				'    While n > 0: n = n - 1: Wend',
+				'    n = 2',
+				'End Sub',
+			],
+			[
+				'Private Type Row',
+				'    ID As Long',
+				'End Type',
+				'Function Main() As Variant',
+				'    Dim t As Object',
+				'    For Each t In CurrentDb.TableDefs: n = n + 1: Next',
+				'    If n = 0 Then',
+				'        Main = 0',
+				'    Else Main = n',
+				'        n = 0',
+				'    End If',
+				'End Function',
+			],
+		].map((lines) => lines.join('\r\n'));
+		for (const source of modules) {
+			expect(formatted(source), source).toBe(source);
+			expect(reindent(config, source), source).toBe(source);
+		}
+	});
+
+	it('answers within a fraction of a second on lines tens of thousands of characters long', () => {
+		// These run on every Enter, and the decrease pattern on every keystroke.
+		// The old continuation rule `.*[ \t]_[ \t]*$` took over a second here.
+		const config = loadConfig();
+		const patterns = [
+			config.indentationRules?.increaseIndentPattern ?? '',
+			config.indentationRules?.decreaseIndentPattern ?? '',
+			...(config.onEnterRules ?? []).map((rule) => rule.beforeText ?? ''),
+		].map((pattern) => new RegExp(pattern));
+		const n = 16000;
+		for (const line of [
+			`x = ${' '.repeat(n)}a`,
+			`For i = ${'To '.repeat(n)}: Next`,
+			`While a${' '.repeat(n)}"`,
+			`If ${'Then '.repeat(n)}x`,
+			`ElseIf ${'a Then '.repeat(n)}: End If`,
+			`Sub A(${'a, '.repeat(n)}): End Sub`,
+		]) {
+			const start = performance.now();
+			for (const pattern of patterns) {
+				pattern.test(line);
+			}
+			expect(performance.now() - start, line.slice(0, 30)).toBeLessThan(250);
+		}
+	});
+
+	it('reads a long run of blanks, letters, digits, punctuation, strings or keywords after any keyword in time proportional to it', () => {
+		// A run that two parts of a pattern can both read (`If[ \t]+` and the
+		// code after it, for a run of blanks) is tried at every split, which
+		// took about a second on `If` and 16,000 blanks. Every rule is tried
+		// with and without the `i` flag; a line in linear time takes a few
+		// milliseconds here, and up to about 60 on a busy machine.
+		const config = loadConfig();
+		const sources = [
+			config.indentationRules?.increaseIndentPattern ?? '',
+			config.indentationRules?.decreaseIndentPattern ?? '',
+			...(config.onEnterRules ?? []).map((rule) => rule.beforeText ?? ''),
+		];
+		const patterns = ['', 'i'].flatMap((flags) => sources.map((source) => new RegExp(source, flags)));
+		const keywords = [
+			'', 'If', 'If a', 'ElseIf', 'Else', 'Case', 'For', 'For i =', 'For Each x In', 'Do', 'Do While', 'While', 'With',
+			'Select Case', 'Public Sub', 'Property Get', 'Public Type', 'Enum', '#If', '#ElseIf', '#Else', 'End', 'Next',
+		];
+		const fragments = [
+			' ', '\t', 'a', '_', ':', '"', "'", '1', '.', ' a', ': ', '" ', ' _', '1:', ':=', '"a"', 'Then ', 'To ', ': End If ',
+		];
+		const n = 20000;
+		for (const keyword of keywords) {
+			for (const fragment of fragments) {
+				for (const ending of ['', 'x', ' Then', '"', ': Next']) {
+					const line = `    ${keyword}${fragment.repeat(n)}${ending}`;
+					const start = performance.now();
+					for (const pattern of patterns) {
+						pattern.test(line);
+					}
+					expect(performance.now() - start, JSON.stringify(`${keyword}${fragment}...${ending}`)).toBeLessThan(250);
+				}
+			}
+		}
 	});
 
 	it('contributes the shared Smart Enter/snippet block layout setting', () => {
@@ -504,3 +769,48 @@ describe('VBA language configuration', () => {
 		}
 	});
 });
+
+interface LineRules {
+	increase: boolean;
+	decrease: boolean;
+	enter: boolean;
+}
+
+function lineRules(config: VbaLanguageConfiguration, line: string): LineRules {
+	return {
+		increase: new RegExp(config.indentationRules?.increaseIndentPattern ?? '').test(line),
+		decrease: new RegExp(config.indentationRules?.decreaseIndentPattern ?? '').test(line),
+		enter: enterRuleMatches(config, line),
+	};
+}
+
+/**
+ * Reindent Lines as VS Code computes it (getReindentEditOperations in
+ * src/vs/editor/contrib/indentation/common/indentation.ts), for rules with no
+ * indentNextLine or unIndentedLine pattern: a line matching the decrease
+ * pattern moves out one level, and the line after one matching the increase
+ * pattern moves in one. Starts from column 1, four spaces a level.
+ */
+function reindent(config: VbaLanguageConfiguration, source: string): string {
+	const increase = new RegExp(config.indentationRules?.increaseIndentPattern ?? '');
+	const decrease = new RegExp(config.indentationRules?.decreaseIndentPattern ?? '');
+	const lines = source.split('\r\n').map((line) => line.trimStart());
+	let level = increase.test(lines[0]) ? 1 : 0;
+	const out = [lines[0]];
+	for (const line of lines.slice(1)) {
+		if (decrease.test(line)) {
+			level = Math.max(0, level - 1);
+		}
+		out.push(line === '' ? '' : '    '.repeat(level) + line);
+		if (increase.test(line)) {
+			level++;
+		}
+	}
+	return out.join('\r\n');
+}
+
+/** Format Document's layout of the same module. */
+function formatted(source: string): string | undefined {
+	const unindented = source.split('\r\n').map((line) => line.trimStart()).join('\r\n');
+	return formatVbaModule(unindented, { tabSize: 4, insertSpaces: true }).text;
+}
