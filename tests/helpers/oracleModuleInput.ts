@@ -44,6 +44,59 @@ export function oracleReferencedHosts(kase: { references?: readonly { guid: stri
 	return tokens.length === 0 ? {} : { referencedHosts: tokens };
 }
 
+/** The name the dir stream records for each library the corpus adds (measured, issue #1413). */
+const RECORDED_LIBRARY_NAMES: Readonly<Record<string, string>> = {
+	'{420B2830-E718-11CF-893D-00A0C9054228}': 'Scripting',
+	'{3F4DACA7-160D-11D2-A8E9-00104B365C9F}': 'VBScript_RegExp_55',
+	'{B691E011-1797-432E-907A-4D8C69339129}': 'ADODB',
+	'{F5078F18-C551-11D3-89B9-0000F81FE221}': 'MSXML2',
+	'{0002E157-0000-0000-C000-000000000046}': 'VBIDE',
+	'{662901FC-6951-4854-9EB2-D9A2570F2B2E}': 'WinHttp',
+	'{50A7E9B0-70EF-11D1-B75A-00A0C90564FE}': 'Shell32',
+	'{00062FFF-0000-0000-C000-000000000046}': 'Outlook',
+	'{00020813-0000-0000-C000-000000000046}': 'Excel',
+	'{4AC9E1DA-5BAD-4AC7-86E3-24F4CDCECA28}': 'DAO',
+};
+/** What a new file of each host records before any reference is added, and its project's name (measured, issue #1413). */
+const DEFAULT_REFERENCES: Readonly<Record<string, readonly string[]>> = {
+	excel: ['stdole', 'Office'], word: ['stdole', 'Normal', 'Office'], powerpoint: ['stdole', 'Office'], access: ['stdole', 'DAO'],
+};
+const DEFAULT_PROJECT_NAMES: Readonly<Record<string, string>> = { excel: 'VBAProject', word: 'Project', powerpoint: 'VBAProject', access: 'Database1' };
+
+/**
+ * The references and project name the extension reads from the file the
+ * oracle compiled the fixture in: the host's defaults, then what the
+ * fixture's `references` add.
+ */
+export function oracleProjectReferences(kase: { host?: string; references?: readonly { guid: string }[] }): { referencedLibraries: string[]; projectName: string } {
+	const host = kase.host ?? 'excel';
+	const added = (kase.references ?? []).map((reference) => {
+		const name = RECORDED_LIBRARY_NAMES[reference.guid];
+		if (!name) {
+			throw new Error(`No recorded name for the reference ${reference.guid}; measure it and add it here`);
+		}
+		return name;
+	});
+	return { referencedLibraries: [...new Set([...DEFAULT_REFERENCES[host], ...added])], projectName: DEFAULT_PROJECT_NAMES[host] };
+}
+
+/** The document modules a new file of each host has before the fixture's own modules are added. */
+const DEFAULT_DOCUMENT_MODULES: Readonly<Record<string, readonly string[]>> = {
+	excel: ['ThisWorkbook', 'Sheet1'], word: ['ThisDocument'], powerpoint: [], access: [],
+};
+
+/**
+ * The host's own document modules a fixture leaves out, as empty modules: the
+ * file the oracle compiled it in has them, so `Dim a As ThisWorkbook` names
+ * a type of the project.
+ */
+export function oracleDefaultDocumentModules(kase: { host?: string }, modules: readonly OracleFixtureModule[]): OracleFixtureModule[] {
+	const named = new Set(modules.map((mod) => (mod.codeName ?? mod.name).toLowerCase()));
+	return DEFAULT_DOCUMENT_MODULES[kase.host ?? 'excel']
+		.filter((name) => !named.has(name.toLowerCase()) && !modules.some((mod) => mod.name.toLowerCase() === name.toLowerCase()))
+		.map((name) => ({ name, type: 'document', source: '' }));
+}
+
 /** What a new file's document module is, by the name it was made with. */
 function documentTypeOf(name: string): EventHandlerDocumentType {
 	switch (name.toLowerCase()) {

@@ -95,6 +95,14 @@ does not reference ActiveX Data Objects. XLIDE cannot add every library, so
 this one comes without the quick fix; add the reference under Tools >
 References in the VBE.
 
+In code, a referenced library's name qualifies its constants and functions
+the same way: `stdole.Checked`, `Scripting.BinaryCompare`, and
+`DAO.dbOpenDynaset` with the Access database engine referenced. The name
+stands only before a dot. A library's name on its own, `v = stdole` or
+`v = Excel`, is reported, as the VBE refuses it. A reference to another VBA
+project is still reported when its name qualifies a call, because XLIDE
+does not read the referenced project yet.
+
 Late binding needs no reference, and is never reported:
 
 ```vba

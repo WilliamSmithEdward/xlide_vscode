@@ -98,10 +98,18 @@ function qualifiedNamesIn(source: string, bindings?: SourceQualifierBindings): A
 		previous = token.kind === 'newline' || token.kind === 'colon' ? '' : token.rawText.toLowerCase();
 	}
 	let procedureIndex = 0;
+	// Where each logical line ends; a ` _` continuation is trivia, not one.
+	const newlines = tokens.filter((t) => t.kind === 'newline').map((t) => t.start);
+	let nextNewline = 0;
 	for (let i = 0; i < toks.length - 2; i++) {
 		const library = tokenName(toks[i]);
 		if (toks[i].kind !== 'identifier' || !library) { continue; }
 		if (toks[i + 1].rawText !== '.') { continue; }
+		// The dot must be on the same logical line. Inside a With block,
+		// `With New Collection` and `.Add 1` below it are two statements,
+		// not `Collection.Add`.
+		while (nextNewline < newlines.length && newlines[nextNewline] < toks[i].end) { nextNewline++; }
+		if (nextNewline < newlines.length && newlines[nextNewline] < toks[i + 1].start) { continue; }
 		if (toks[i + 2].kind !== 'identifier' && toks[i + 2].kind !== 'keyword') { continue; }
 		// A member access further along a chain (`a.b.c`) is not a library
 		// qualifier: `b` there is a member of whatever `a` is.
