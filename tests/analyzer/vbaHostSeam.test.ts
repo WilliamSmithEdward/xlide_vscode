@@ -51,6 +51,32 @@ describe('the host registry', () => {
 	});
 });
 
+describe('a legacy PowerPoint template or show', () => {
+	// PowerPoint 97-2003 saves a template (.pot) and a show (.pps) in the same
+	// compound file as a presentation (.ppt), project included. Analyzed under
+	// the absent host, their code met Excel's model, where ActivePresentation
+	// is unknown and nothing past it is checked.
+	const SOURCE = [
+		'Option Explicit',
+		'Public Sub CountSlides()',
+		'    Debug.Print ActivePresentation.Slides.Nope',
+		'End Sub',
+		'',
+	].join('\r\n');
+
+	it.each(['Deck.ppt', 'Deck.pot', 'Deck.pps'])('%s checks members against PowerPoint', (file) => {
+		const diagnostics = analyzeVbaModuleSource({
+			source: SOURCE,
+			moduleName: 'Module1',
+			moduleType: 'standard',
+			host: hostTokenForFileName(file),
+			referencedHosts: [],
+		} as never).diagnostics;
+		expect(diagnostics.filter((d) => d.code === 'member-not-found').map((d) => d.message))
+			.toEqual(["Method or data member not found: 'PowerPoint.Slides.Nope'."]);
+	});
+});
+
 describe('analysis under a named host', () => {
 	// `Calculate` is a member of Excel's Global interface, so under Excel a
 	// bare call to it is known; Word's Global has no Calculate. (Volatile, an

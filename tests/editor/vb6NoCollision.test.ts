@@ -27,7 +27,7 @@ const OFFICE_EXTENSIONS = MACRO_CONTAINER_EXTENSIONS.filter((ext) => ext !== 'vb
 const HOST_BY_EXTENSION: Record<string, string> = {
 	xlsm: 'excel', xlsb: 'excel', xlam: 'excel', xltm: 'excel', xls: 'excel', xlt: 'excel', xla: 'excel',
 	docm: 'word', dotm: 'word', doc: 'word', dot: 'word',
-	pptm: 'powerpoint', potm: 'powerpoint', ppsm: 'powerpoint', ppam: 'powerpoint', ppt: 'powerpoint', ppa: 'powerpoint',
+	pptm: 'powerpoint', potm: 'powerpoint', ppsm: 'powerpoint', ppam: 'powerpoint', ppt: 'powerpoint', pot: 'powerpoint', pps: 'powerpoint', ppa: 'powerpoint',
 	accdb: 'access', accda: 'access', mdb: 'access', mda: 'access',
 };
 
@@ -46,6 +46,8 @@ describe('the Office containers answer exactly as before VB6', () => {
 		expect(containerContextValue('C:\\w\\Book.xlsm')).toBe('xlsm');
 		expect(containerContextValue('C:\\w\\Doc.docm')).toBe('macroDocument');
 		expect(containerContextValue('C:\\w\\Deck.pptm')).toBe('macroDocument');
+		expect(containerContextValue('C:\\w\\Design.pot')).toBe('macroDocument');
+		expect(containerContextValue('C:\\w\\Talk.pps')).toBe('macroDocument');
 		// An Access database creates forms and reports rather than UserForms,
 		// so its menu surface is its own. It is not read-only: 8.0.0 writes it.
 		expect(containerContextValue('C:\\w\\Db.accdb')).toBe('accessDatabase');
@@ -53,6 +55,7 @@ describe('the Office containers answer exactly as before VB6', () => {
 		// and a VB6 project has none.
 		expect(officeHostForPath('C:\\w\\Book.xlsm')).toBe('excel');
 		expect(officeHostForPath('C:\\w\\Db.accdb')).toBe('access');
+		expect(officeHostForPath('C:\\w\\Talk.pps')).toBe('powerpoint');
 		expect(officeHostForPath('C:\\w\\App.vbp')).toBeUndefined();
 		expect(containerAppNameForPath('C:\\w\\Book.xlsm')).toBe('Excel');
 		expect(containerAppNameForPath('C:\\w\\Doc.docm')).toBe('Word');

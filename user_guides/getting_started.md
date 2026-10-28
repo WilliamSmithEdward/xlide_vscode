@@ -27,7 +27,7 @@ Access, chosen by the file's format).
 1. Open a folder that contains macro-enabled Office files: Excel (`.xlsm`,
    `.xlsb`, `.xlam`, `.xltm`, `.xls`, `.xlt`, `.xla`), Word (`.docm`,
    `.dotm`, `.doc`, `.dot`), PowerPoint (`.pptm`, `.potm`, `.ppsm`,
-   `.ppam`, `.ppt`, `.ppa`), or Access (`.accdb`, `.mdb`, `.mda`).
+   `.ppam`, `.ppt`, `.pot`, `.pps`, `.ppa`), or Access (`.accdb`, `.mdb`, `.mda`).
 2. Open the XLIDE Activity Bar view.
 3. Pick the target file from the file selector.
 4. Use **Refresh** if a file was added after VS Code opened the folder.

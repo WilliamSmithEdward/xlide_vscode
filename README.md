@@ -22,14 +22,14 @@ directly to VBA files directly without COM.
 Add macro-enabled Office files to your VS Code project and XLIDE detects them
 automatically: Excel workbooks, templates, and add-ins (`.xlsm`, `.xlsb`,
 `.xlam`, `.xltm`, `.xls`, `.xlt`, `.xla`), Word documents and templates
-(`.docm`, `.dotm`, `.doc`, `.dot`), PowerPoint presentations and add-ins
-(`.pptm`, `.potm`, `.ppsm`, `.ppam`, `.ppt`, `.ppa`), Access databases
-(`.accdb`, `.mdb`, `.mda`), and Visual Basic 6 projects (`.vbp`, with the
-`.bas`, `.cls`, `.frm`, `.ctl`, and `.pag` files they list). Navigate each
-file's VBA project in the XLIDE tree, open modules directly from the file, edit
-with host-aware IntelliSense (Excel modules complete against Excel's object
-model, Word modules against Word's, and so on), and save changes back with
-normal VS Code save behavior.
+(`.docm`, `.dotm`, `.doc`, `.dot`), PowerPoint presentations, templates, shows
+and add-ins (`.pptm`, `.potm`, `.ppsm`, `.ppam`, `.ppt`, `.pot`, `.pps`,
+`.ppa`), Access databases (`.accdb`, `.mdb`, `.mda`), and Visual Basic 6
+projects (`.vbp`, with the `.bas`, `.cls`, `.frm`, `.ctl`, and `.pag` files
+they list). Navigate each file's VBA project in the XLIDE tree, open modules
+directly from the file, edit with host-aware IntelliSense (Excel modules
+complete against Excel's object model, Word modules against Word's, and so on),
+and save changes back with normal VS Code save behavior.
 When you want a file-based workflow, use the full local disk push/pull
 workflow for the selected file: preview detailed side-by-side diffs, export
 modules to `.bas` and `.cls` files, commit them to your favorite version

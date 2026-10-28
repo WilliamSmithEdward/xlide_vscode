@@ -6,7 +6,7 @@
 //   - Legacy compound files (.doc, .xls): the whole file is the CFB and the
 //     project's VBA storage sits under Macros / _VBA_PROJECT_CUR - the
 //     project parser's storage-agnostic lookups find it as-is.
-//   - Legacy PowerPoint (.ppt): the project is an embedded, zlib-compressed
+//   - Legacy PowerPoint (.ppt/.pot/.pps): the project is an embedded, zlib-compressed
 //     CFB inside an ExOleObjStg record of the 'PowerPoint Document' stream
 //     (pptContainer.ts owns the persist machinery).
 //   - Access (.accdb/.mdb): Jet/ACE pages, reassembled by accessDatabase.ts.

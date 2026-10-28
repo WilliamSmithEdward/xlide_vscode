@@ -78,6 +78,15 @@ const READ_CASES: Array<{ file: string; modules: ExpectedModule[] }> = [
 			{ name: 'CDeck', type: 'class', sourceContains: 'ActivePresentation.Name' },
 		],
 	},
+	// PowerPointFixture.ppt saved by PowerPoint as a 97-2003 template and show:
+	// the same compound file, under the extensions a template and a show take.
+	...['PowerPointFixture.pot', 'PowerPointFixture.pps'].map((file) => ({
+		file,
+		modules: [
+			{ name: 'Module1', type: 'standard', sourceContains: 'ActivePresentation.Slides.' },
+			{ name: 'CDeck', type: 'class', sourceContains: 'ActivePresentation.Name' },
+		],
+	})),
 	{
 		file: 'XlsFixture.xls',
 		modules: [
@@ -195,6 +204,8 @@ const WRITE_CASES = [
 	'WordFixture.doc',
 	'XlsFixture.xls',
 	'PowerPointFixture.ppt',
+	'PowerPointFixture.pot',
+	'PowerPointFixture.pps',
 ];
 
 describe.each(WRITE_CASES.map((file) => ({ file })))('writing $file', ({ file }) => {

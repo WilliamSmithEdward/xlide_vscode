@@ -38,6 +38,8 @@ reference/
 *.ppsm
 *.ppam
 *.ppt
+*.pot
+*.pps
 *.ppa
 *.accdb
 *.accda
@@ -81,6 +83,8 @@ reference/
 !tests/fixtures/binaries/WordControlsFixture.docm
 !tests/fixtures/binaries/PowerPointFixture.pptm
 !tests/fixtures/binaries/PowerPointFixture.ppt
+!tests/fixtures/binaries/PowerPointFixture.pot
+!tests/fixtures/binaries/PowerPointFixture.pps
 !tests/fixtures/binaries/PowerPointFixture.ppsm
 !tests/fixtures/binaries/PowerPointControlsFixture.pptm
 !tests/fixtures/binaries/XlsFixture.xls
