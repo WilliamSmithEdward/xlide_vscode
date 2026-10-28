@@ -124,14 +124,9 @@ function singleLineIfTailOpenerIndex(tokens: readonly VbaToken[], inSingleLineIf
 			depth++;
 		} else if (raw === ')') {
 			depth--;
-		} else if (depth === 0) {
-			const word = tokenWord(tokens[i]);
-			// After `.`, or a `!` touching it, the word is a member: `With d.Else`.
-			const previous = tokens[i - 1];
-			const member = previous.rawText === '.' || (previous.rawText === '!' && previous.end === tokens[i].start);
-			if ((word === 'then' || word === 'else') && !member) {
-				last = i;
-			}
+		} else if (depth === 0 && (isThenOrElseKeywordAt(tokens, i, 'then') || isThenOrElseKeywordAt(tokens, i, 'else'))) {
+			// `With d.Else` ends in a member, not the keyword.
+			last = i;
 		}
 	}
 	if (last < 0 || last === tokens.length - 1) {
@@ -154,7 +149,20 @@ function isSingleLineIf(statement: LogicalStatement): boolean {
 	if (tokenWord(tokens[head]) !== 'if') {
 		return false;
 	}
-	return tokenWord(tokens[tokens.length - 1]) !== 'then' || statement.endedByColon === true;
+	return !isThenOrElseKeywordAt(tokens, tokens.length - 1, 'then') || statement.endedByColon === true;
+}
+
+/**
+ * True for the keyword Then or Else (`word`) at `index`. After a `.`, or a
+ * `!` touching it, the word is a member name: `d.Then`, `d!Else` (issue
+ * #1496). A `!` with a space after it is a type suffix: `x! Then`.
+ */
+export function isThenOrElseKeywordAt(tokens: readonly VbaToken[], index: number, word: 'then' | 'else'): boolean {
+	if (tokenWord(tokens[index]) !== word) {
+		return false;
+	}
+	const previous = tokens[index - 1];
+	return !previous || !(previous.rawText === '.' || (previous.rawText === '!' && previous.end === tokens[index].start));
 }
 
 /**
