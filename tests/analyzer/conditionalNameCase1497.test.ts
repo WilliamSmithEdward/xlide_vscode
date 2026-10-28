@@ -1,6 +1,6 @@
 // Format Document gives conditional-compilation names the spelling the VBE
 // gives them (issue #1497). The expectations are what Excel, Word,
-// PowerPoint and Access 16.0 (build 20430) show on opening the same modules
+// PowerPoint and Access 16.0 (build 20527) show on opening the same modules
 // (tests/office/directiveCasing.office.ts).
 
 import { describe, expect, it, vi } from 'vitest';

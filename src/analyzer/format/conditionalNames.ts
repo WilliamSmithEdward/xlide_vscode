@@ -2,7 +2,7 @@
 //
 // The VBE keeps one spelling per name for the whole project. For the names
 // conditional compilation declares, measured in Excel, Word, PowerPoint and
-// Access 16.0 (build 20430) by opening files XLIDE wrote
+// Access 16.0 (build 20527) by opening files XLIDE wrote
 // (tests/office/directiveCasing.office.ts):
 //
 // - VBA's compiler constants print as VBA spells them, on directive and code
