@@ -89,7 +89,7 @@ export function splitLogicalStatements(tokens: readonly VbaToken[]): LogicalStat
 	// find it. The If header keeps `endedByColon`, which stops it reading as
 	// a block If, and the opener statement is a tail of it.
 	function splitTailBlockOpener(): void {
-		const split = singleLineIfTailOpenerIndex(current);
+		const split = singleLineIfTailOpenerIndex(current, inSingleLineIf);
 		if (split < 0) {
 			return;
 		}
@@ -104,14 +104,20 @@ export function splitLogicalStatements(tokens: readonly VbaToken[]): LogicalStat
 
 const TAIL_BLOCK_OPENERS: ReadonlySet<string> = new Set(['with', 'for', 'do', 'while', 'select']);
 
-/** Index of the block opener a one-line If's Then/Else tail starts with, or -1. */
-function singleLineIfTailOpenerIndex(tokens: readonly VbaToken[]): number {
+/**
+ * Index of the block opener a one-line If's Then/Else tail starts with, or -1.
+ * `inSingleLineIf` takes `Else With e` after a `:` as that If's Else part, as
+ * in `If a Then b = 1: Else With e: .Add 3: End With` (issue #1496).
+ */
+function singleLineIfTailOpenerIndex(tokens: readonly VbaToken[], inSingleLineIf: boolean): number {
 	const head = tokens[0]?.kind === 'integerLiteral' && /^\d+$/.test(tokens[0].rawText) ? 1 : 0;
-	if (tokenWord(tokens[head]) !== 'if') {
+	const headWord = tokenWord(tokens[head]);
+	const elsePart = inSingleLineIf && headWord === 'else';
+	if (headWord !== 'if' && !elsePart) {
 		return -1;
 	}
 	let depth = 0;
-	let last = -1;
+	let last = elsePart ? head : -1;
 	for (let i = head + 1; i < tokens.length; i++) {
 		const raw = tokens[i].rawText;
 		if (raw === '(') {
@@ -120,7 +126,10 @@ function singleLineIfTailOpenerIndex(tokens: readonly VbaToken[]): number {
 			depth--;
 		} else if (depth === 0) {
 			const word = tokenWord(tokens[i]);
-			if (word === 'then' || word === 'else') {
+			// After `.`, or a `!` touching it, the word is a member: `With d.Else`.
+			const previous = tokens[i - 1];
+			const member = previous.rawText === '.' || (previous.rawText === '!' && previous.end === tokens[i].start);
+			if ((word === 'then' || word === 'else') && !member) {
 				last = i;
 			}
 		}
