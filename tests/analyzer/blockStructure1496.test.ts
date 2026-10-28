@@ -1,6 +1,6 @@
 // Block shapes Format Document, Smart Enter and the analyzer misread (issue
 // #1496). Every module here compiles in Excel, Word, PowerPoint and Access
-// 16.0 (build 20430): the VBE oracle fixtures i1496_<host>_<family>.
+// 16.0 (build 20527): the VBE oracle fixtures i1496_<host>_<family>.
 
 import { describe, expect, it } from 'vitest';
 import { formatVbaModule } from '../../src/analyzer/format/formatModule';
