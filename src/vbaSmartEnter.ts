@@ -87,19 +87,24 @@ interface LoopNextLine {
 
 type LoopLineInfo = LoopOpenerLine | LoopNextLine;
 
+// The VBE takes the access word and Static in either order: `Public Static
+// Sub` and `Static Public Sub` both declare a procedure (issue #1496).
+const PROCEDURE_MODIFIERS = '(?:(?:Public|Private|Friend|Global)\\s+(?:Static\\s+)?|Static\\s+(?:(?:Public|Private|Friend|Global)\\s+)?)?';
+const PROCEDURE_OPENER_RE = new RegExp(`^${PROCEDURE_MODIFIERS}(?:Sub|Function|Property)\\b`, 'i');
+
 export function procedureHeaderParensEdit(line: string): VbaProcedureHeaderParensEdit | undefined {
     const stripped = lexerStrippedLine(line);
     const patterns = [
         new RegExp(
-            `^(\\s*(?:(?:Public|Private|Friend|Global)\\s+)?(?:Static\\s+)?Sub\\s+${VBA_IDENTIFIER_PATTERN})(\\s*)$`,
+            `^(\\s*${PROCEDURE_MODIFIERS}Sub\\s+${VBA_IDENTIFIER_PATTERN})(\\s*)$`,
             'iu',
         ),
         new RegExp(
-            `^(\\s*(?:(?:Public|Private|Friend|Global)\\s+)?(?:Static\\s+)?Function\\s+${VBA_IDENTIFIER_PATTERN})(\\s*(?:As\\s+.+)?\\s*)$`,
+            `^(\\s*${PROCEDURE_MODIFIERS}Function\\s+${VBA_IDENTIFIER_PATTERN})(\\s*(?:As\\s+.+)?\\s*)$`,
             'iu',
         ),
         new RegExp(
-            `^(\\s*(?:(?:Public|Private|Friend|Global)\\s+)?(?:Static\\s+)?Property\\s+Get\\s+${VBA_IDENTIFIER_PATTERN})(\\s*(?:As\\s+.+)?\\s*)$`,
+            `^(\\s*${PROCEDURE_MODIFIERS}Property\\s+Get\\s+${VBA_IDENTIFIER_PATTERN})(\\s*(?:As\\s+.+)?\\s*)$`,
             'iu',
         ),
     ];
@@ -541,7 +546,7 @@ function isCompleteSmartBlockOpener(t: string, kind: BlockKind): boolean {
 }
 
 function isProcedureOpener(t: string): boolean {
-    return /^(?:(?:Public|Private|Friend|Global)\s+)?(?:Static\s+)?(?:Sub|Function|Property)\b/i.test(t);
+    return PROCEDURE_OPENER_RE.test(t);
 }
 
 function closerRegex(endKeyword: string): RegExp {
