@@ -1130,9 +1130,14 @@ function checkMalformedIfHeaders(source: string, node: IfBlockNode, push: PushFn
 		if (startKw < 0) {
 			continue;
 		}
-		// The block-opening `Then` is the last `then` keyword on the header line.
+		// The block-opening `Then` is the last `then` keyword on the header
+		// line. `d.Then` and `d!Then` are members, not the keyword (issue #1496).
 		let closeThen = -1;
 		for (let i = toks.length - 1; i > startKw; i--) {
+			const previous = toks[i - 1];
+			if (previous.rawText === '.' || (previous.rawText === '!' && previous.end === toks[i].start)) {
+				continue;
+			}
 			if (toks[i].kind === 'keyword' && tokenText(toks[i]) === 'then') {
 				closeThen = i;
 				break;
