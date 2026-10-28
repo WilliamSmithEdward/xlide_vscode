@@ -80,6 +80,7 @@ import { ExprParseResult, parseExpression, parseParenlessArguments } from './par
 import {
 	codeTokens,
 	isCommentLine,
+	isThenOrElseKeywordAt,
 	LogicalStatement,
 	splitLogicalStatements,
 	StatementCursor,
@@ -1560,7 +1561,7 @@ class Parser {
 		const condStart = branchKind === 'elseif' && tokenWord(tokens[0]) === 'else' ? 2 : 1;
 		let thenIndex = -1;
 		for (let i = tokens.length - 1; i >= condStart; i--) {
-			if (tokens[i].kind === 'keyword' && tokenWord(tokens[i]) === 'then') {
+			if (tokens[i].kind === 'keyword' && isThenOrElseKeywordAt(tokens, i, 'then')) {
 				thenIndex = i;
 				break;
 			}
@@ -1717,9 +1718,8 @@ class Parser {
 				// Multi-line If only when "Then" ends the line (MS-VBAL 5.4.2.8).
 				// A single-line "If x Then stmt" is not a block, and neither is
 				// "If x Then:", whose colon opens its statement list (MS-VBAL
-				// 5.4.2.9, issue #84).
-				const last = tokens[tokens.length - 1];
-				return tokenWord(last) === 'then' && !stmt.endedByColon ? 'if' : undefined;
+				// 5.4.2.9, issue #84). `d.Then` ends in a member (issue #1496).
+				return isThenOrElseKeywordAt(tokens, tokens.length - 1, 'then') && !stmt.endedByColon ? 'if' : undefined;
 			}
 			case 'for':
 				return tokenWord(tokens[1]) === 'each' ? 'foreach' : 'for';
@@ -2031,8 +2031,8 @@ class Parser {
 		}
 		const starts: number[] = [];
 		for (let i = 1; i < tokens.length; i += 1) {
-			const word = tokenWord(tokens[i]);
-			if (word !== 'then' && word !== 'else') {
+			// A member named Then or Else, `d.Then`, starts no statement list.
+			if (!isThenOrElseKeywordAt(tokens, i, 'then') && !isThenOrElseKeywordAt(tokens, i, 'else')) {
 				continue;
 			}
 			const next = tokens[i + 1];

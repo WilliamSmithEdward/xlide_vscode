@@ -156,6 +156,29 @@ an infrastructure failure, never cached evidence. An Office update during a
 run stops it at the next case that starts the new build; run it again, and
 the old build's entries are not reused.
 
+A branch that adds or edits fixtures can measure just those:
+
+```powershell
+node syntax_corpus/oracle/run_vbe_oracle.mjs --changed --checkpoint oracle-results.jsonl
+node syntax_corpus/oracle/run_vbe_oracle.mjs --changed-from my-base-branch
+```
+
+`--changed` compares the cases file on disk, uncommitted edits included, with
+the same file at the commit where the branch left `upstream/main`, or
+`origin/main` when there is no `upstream`. `--changed-from <ref>` names
+another base. A fixture runs when its id is new or any of its fields differs
+from the base fixture of that id; a fixture the branch removed does not run,
+and nor does one main changed after the branch left it. The run first prints
+how many cases it selected for each host. With none, it exits 0 before it
+takes the run lock or starts Office.
+
+When the base cannot be worked out, `--changed` exits with code 2 and says
+why, rather than running every fixture: git is missing, the file is not
+tracked or not in a work tree, the clone is shallow, the base ref is missing,
+it shares no history with `HEAD`, or the file does not exist or cannot be
+read there. It cannot be combined with `--case`. It works with `--checkpoint`,
+which still skips what an earlier run measured.
+
 Promotion workflow for an observe-only case:
 
 ```powershell

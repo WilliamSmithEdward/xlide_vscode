@@ -15,6 +15,7 @@ import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { acquireOracleRunLock, describeRefusal, oracleRunLockAddress, oracleRunOwner } from './oracleRunLock.mjs';
 import { describeLeftHosts, OwnedHosts, ownedHostsPath } from './oracleOwnedHosts.mjs';
+import { changedCases } from './oracleChangedCases.mjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_CASES = path.join(ROOT, 'vbe_oracle_cases.json');
@@ -826,6 +827,15 @@ const USAGE = `Usage: node run_vbe_oracle.mjs [options]
 
   --cases <path>              Fixture document (default: vbe_oracle_cases.json)
   --case <id>                 Run only this case; repeatable
+  --changed                   Run only the cases this branch adds or changes: a
+                              new id, or any field different from the base. The
+                              base is the cases file where the branch left
+                              upstream/main, else origin/main; the branch side
+                              is the file on disk, uncommitted edits included.
+                              Refuses (exit 2) when the base cannot be worked
+                              out, and exits 0 when nothing changed, before
+                              starting Office. Not with --case.
+  --changed-from <ref>        As --changed, from where the branch left <ref>.
   --timeout <seconds>         Per-case worker timeout (default 45). Must fit a cold
                               host start plus the dialog-watch window
                               (~min(22, timeout-22)s) plus COM cleanup.
@@ -876,6 +886,8 @@ function parseArgs(argv) {
     const args = {
         cases: DEFAULT_CASES,
         caseIds: [],
+        changed: false,
+        changedFrom: undefined,
         timeout: 45,
         timeoutRetries: DEFAULT_TIMEOUT_RETRIES,
         casesPerInstance: DEFAULT_CASES_PER_INSTANCE,
@@ -907,6 +919,8 @@ function parseArgs(argv) {
         switch (flag) {
             case '--cases': args.cases = value(flag); break;
             case '--case': args.caseIds.push(value(flag)); break;
+            case '--changed': args.changed = true; break;
+            case '--changed-from': args.changed = true; args.changedFrom = value(flag); break;
             case '--timeout': args.timeout = number(flag); break;
             case '--timeout-retries': args.timeoutRetries = number(flag); break;
             case '--cases-per-instance':
@@ -942,19 +956,51 @@ async function main(argv) {
         console.error('--promote-observed requires at least one --case');
         return 2;
     }
+    if (args.changed && args.caseIds.length) {
+        console.error('--changed selects its own cases; it cannot be combined with --case');
+        return 2;
+    }
+
+    // --changed decides what runs before anything needs Windows or Office:
+    // a branch that changed no fixture has nothing to run anywhere.
+    let document;
+    let cases;
+    if (args.changed) {
+        try {
+            document = loadCasesDocument(args.cases);
+        } catch (err) {
+            console.error(err.message);
+            return 2;
+        }
+        const selection = changedCases(args.cases, document.cases, args.changedFrom);
+        if (selection.refusal) {
+            console.error(`--changed: ${selection.refusal}`);
+            return 2;
+        }
+        cases = selection.cases;
+        const perHost = new Map();
+        for (const kase of cases) {
+            const host = String(caseHost(kase));
+            perHost.set(host, (perHost.get(host) ?? 0) + 1);
+        }
+        const counts = [...perHost].map(([host, count]) => `${host} ${count}`).join(', ');
+        console.error(`--changed: ${cases.length} new or changed case(s) against ${selection.base.ref} at ${selection.base.commit.slice(0, 12)}${counts ? ` (${counts})` : ''}`);
+        if (!cases.length) { return 0; }
+    }
     if (process.platform !== 'win32') {
         console.error('VBE oracle tests require Windows.');
         return 2;
     }
 
-    let document;
-    try {
-        document = loadCasesDocument(args.cases);
-    } catch (err) {
-        console.error(err.message);
-        return 2;
+    if (!document) {
+        try {
+            document = loadCasesDocument(args.cases);
+        } catch (err) {
+            console.error(err.message);
+            return 2;
+        }
+        cases = document.cases;
     }
-    let cases = document.cases;
     if (args.caseIds.length) {
         const wanted = new Set(args.caseIds);
         cases = cases.filter((kase) => wanted.has(kase.id));

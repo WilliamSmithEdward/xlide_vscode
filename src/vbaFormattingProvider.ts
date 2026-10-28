@@ -19,6 +19,7 @@ import {
     resolveRuntimeObject,
     type VbaSymbol,
 } from './analyzer';
+import { conditionalConstNames, conditionalNameSpellings } from './analyzer/format/conditionalNames';
 import { formatVbaModule } from './analyzer/format/formatModule';
 import { hostObjectModelForTokens, hostTokenForFileName } from './analyzer/host/hostRegistry';
 import { hostTokensForProject } from './analyzer/host/hostLibraries';
@@ -27,6 +28,7 @@ import { analysisSourceForDocument, moduleLocationOfDocument } from './vbaDocume
 import { moduleKindFromDocument, moduleNameFromDocument } from './vbaDocumentIdentity';
 import { designerHeaderEnd } from './vba/moduleSource';
 import { isVbaDocument, XLIDE_SCHEME } from './xlideFileSystem';
+import { moduleIdentityKey } from './projectIdentity';
 import type { VbaProjectIndexService } from './vbaProjectIndexService';
 
 type IdentifierCase = (name: string, offset: number) => string | undefined;
@@ -35,10 +37,28 @@ export class VbaFormattingProvider implements
     vscode.DocumentFormattingEditProvider,
     vscode.DocumentRangeFormattingEditProvider {
 
+    /**
+     * Each project module's `#Const` names, by the module view they were read
+     * from: a module the index has not replaced since is not read again.
+     */
+    private readonly _constNamesByModule = new WeakMap<object, readonly string[]>();
+
     constructor(
         private readonly _projects: VbaProjectIndexService,
         private readonly _log: (line: string) => void,
     ) {}
+
+    private _constNames(module: object | undefined, source: string): readonly string[] {
+        if (!module) {
+            return conditionalConstNames(source);
+        }
+        let names = this._constNamesByModule.get(module);
+        if (!names) {
+            names = conditionalConstNames(source);
+            this._constNamesByModule.set(module, names);
+        }
+        return names;
+    }
 
     provideDocumentFormattingEdits(
         document: vscode.TextDocument,
@@ -139,12 +159,29 @@ export class VbaFormattingProvider implements
 
             const projectLevel = new Map<string, string>();
             let references: readonly VbaProjectReference[] = [];
+            let conditionalNames = conditionalNameSpellings(undefined, [this._constNames(undefined, source)]);
             if (location && document.uri.scheme === XLIDE_SCHEME) {
                 const context = await this._projects.contextForProject(location.projectPath);
                 references = context.references;
                 for (const symbol of context.project.visibleIdentifierSymbols(moduleName)) {
                     addName(projectLevel, symbol.name);
                 }
+                // Every module in load order, this one as the editor has it.
+                // A module the project does not list yet loads last.
+                const own = moduleIdentityKey(moduleName);
+                const ownNames = this._constNames(undefined, source);
+                let listed = false;
+                const byModule = context.modules.map((module) => {
+                    if (moduleIdentityKey(module.moduleName) !== own) {
+                        return this._constNames(module, module.source);
+                    }
+                    listed = true;
+                    return ownNames;
+                });
+                conditionalNames = conditionalNameSpellings(
+                    context.conditionalConstants,
+                    listed ? byModule : [...byModule, ownNames],
+                );
             }
 
             // A project that references another application's library writes
@@ -173,6 +210,7 @@ export class VbaFormattingProvider implements
                 }
                 return moduleLevel.get(lower)
                     ?? projectLevel.get(lower)
+                    ?? conditionalNames.get(lower)
                     ?? resolveRuntimeFunction(name)?.name
                     ?? resolveRuntimeConstant(name)?.name
                     ?? resolveRuntimeObject(name)?.name
