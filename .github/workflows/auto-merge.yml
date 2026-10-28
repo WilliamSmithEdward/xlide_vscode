@@ -9,6 +9,13 @@ name: Auto-merge
 # Third-party versions reach a pull request only after Dependabot's seven-day
 # cooldown. The YARA updater turns on auto-merge for its own pull requests.
 # Needs the repository setting "Allow auto-merge".
+#
+# Auto-merge is turned on with the YARA updater App's token, not
+# GITHUB_TOKEN: GitHub merges as whoever turned it on, and a merge made with
+# GITHUB_TOKEN starts no workflow on main, so CI, Security and Malware scan
+# never ran on the merged commit. A run started by Dependabot reads only
+# Dependabot secrets, so the App's key is also a Dependabot secret
+# (YARA_APP.md). Without it the token step fails and nothing merges itself.
 
 on:
   pull_request:
@@ -23,16 +30,26 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
-      contents: write # the squash merge, when the checks pass
-      pull-requests: write # turning auto-merge on
+      pull-requests: read # fetch-metadata reads the pull request
     steps:
       - name: Read what the pull request updates
         id: meta
         uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
 
+      - name: Create a token for this repository
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          # The App's client ID, the same in every repository and not a
+          # secret; written here because a Dependabot run may not read vars.
+          client-id: Iv23lisr25w1fELw127J
+          private-key: ${{ secrets.YARA_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
       - name: Turn on auto-merge unless it is a third-party major bump
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR_URL: ${{ github.event.pull_request.html_url }}
           NAMES: ${{ steps.meta.outputs.dependency-names }}
           UPDATE_TYPE: ${{ steps.meta.outputs.update-type }}
