@@ -34,6 +34,7 @@ import {
 import { analyzeVbaModuleSource } from './vbaModuleAnalysis';
 import { hostTokenForFileName } from './analyzer/host/hostRegistry';
 import { referencedHostTokens } from './analyzer/host/hostLibraries';
+import { referencedProjectNames } from './vba/vbaProjectReferences';
 import {
     projectAnalysisOptionsForModule,
     projectProcedureSignatures,
@@ -341,6 +342,8 @@ export function registerVbaDiagnostics(
     const workbookSheetsByProject = new Map<string, readonly WorkbookSheetInfo[] | undefined>();
     // The names of the libraries each project references; absent until read.
     const referencedLibrariesByProject = new Map<string, readonly string[]>();
+    // Which of them are other VBA projects.
+    const referencedProjectsByProject = new Map<string, readonly string[]>();
     // Each project's own name, read with its references.
     const projectNameByProject = new Map<string, string | undefined>();
     const fullPassMetadataRetries = new Map<string, number>();
@@ -651,9 +654,11 @@ export function registerVbaDiagnostics(
                     // Every project references VBA, so an empty list was not read.
                     if (diagnosticProject.references.length > 0) {
                         referencedLibrariesByProject.set(projectKey(projectPath), diagnosticProject.references.map((reference) => reference.name));
+                        referencedProjectsByProject.set(projectKey(projectPath), referencedProjectNames(diagnosticProject.references));
                         projectNameByProject.set(projectKey(projectPath), diagnosticProject.projectName);
                     } else {
                         referencedLibrariesByProject.delete(projectKey(projectPath));
+                        referencedProjectsByProject.delete(projectKey(projectPath));
                         projectNameByProject.delete(projectKey(projectPath));
                     }
                     const current = diagnosticProject.moduleMetadata.get(moduleIdentityKey(moduleName));
@@ -742,6 +747,7 @@ export function registerVbaDiagnostics(
                     host: projectPath ? hostTokenForFileName(projectPath) : undefined,
                     referencedHosts: wbKey ? referencedHostsByProject.get(wbKey) : undefined,
                     referencedLibraries: wbKey ? referencedLibrariesByProject.get(wbKey) : undefined,
+                    referencedProjects: wbKey ? referencedProjectsByProject.get(wbKey) : undefined,
                     projectName: wbKey ? projectNameByProject.get(wbKey) : undefined,
                     designerClass,
                     workbookSheets: wbKey ? workbookSheetsByProject.get(wbKey) : undefined,
@@ -789,6 +795,7 @@ export function registerVbaDiagnostics(
                 ? referencedHostsByProject.get(projectKey(projectPath))
                 : undefined,
             referencedLibraries: projectPath ? referencedLibrariesByProject.get(projectKey(projectPath)) : undefined,
+            referencedProjects: projectPath ? referencedProjectsByProject.get(projectKey(projectPath)) : undefined,
             projectName: projectPath ? projectNameByProject.get(projectKey(projectPath)) : undefined,
             designerClass,
             workbookSheets: projectPath ? workbookSheetsByProject.get(projectKey(projectPath)) : undefined,
