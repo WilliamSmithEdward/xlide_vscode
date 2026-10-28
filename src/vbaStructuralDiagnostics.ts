@@ -145,6 +145,9 @@ export function matchCloser(t: string): BlockKind | undefined {
     return undefined;
 }
 
+/** A line ending in the keyword Then; `d.Then` and `d!Then` end in a member. */
+const BLOCK_IF_END_RE = /(?<![.!])\bThen\s*$/i;
+
 /**
  * The block a one-line If opens in its Then or Else tail: the segment after
  * the last top-level `Then`/`Else` of `If ... Then With c` or
@@ -153,8 +156,9 @@ export function matchCloser(t: string): BlockKind | undefined {
  * is itself a one-line If.
  */
 function singleLineIfTailOpener(t: string): OpenBlock | undefined {
-    if (!/^(?:If|Else)\b/i.test(t) || /\bThen\s*$/i.test(t)) { return undefined; }
-    const parts = t.split(/\b(?:Then|Else)\b/i);
+    if (!/^(?:If|Else)\b/i.test(t) || BLOCK_IF_END_RE.test(t)) { return undefined; }
+    // `With d.Else` ends in a member named Else, not the keyword (issue #1496).
+    const parts = t.split(/(?<![.!])\b(?:Then|Else)\b/i);
     const tail = parts[parts.length - 1].trim();
     if (!tail || /^If\b/i.test(tail)) { return undefined; }
     const opener = matchOpener(tail);
@@ -189,7 +193,7 @@ export function matchOpener(t: string): OpenBlock | undefined {
     m = /^(?:(?:Public|Private|Global)\s+)?Enum\s+([\p{L}\p{M}\p{N}_]+)/iu.exec(t);
     if (m) { return { kind: 'Enum', line: 0, label: `Enum ${m[1]}` }; }
     if (/^Select\s+Case\b/i.test(t)) { return { kind: 'Select', line: 0, label: 'Select Case' }; }
-    if (/^If\b/i.test(t) && /\bThen\s*$/i.test(t)) { return { kind: 'If', line: 0, label: 'If' }; }
+    if (/^If\b/i.test(t) && BLOCK_IF_END_RE.test(t)) { return { kind: 'If', line: 0, label: 'If' }; }
     if (/^For\b/i.test(t)) { return { kind: 'For', line: 0, label: 'For' }; }
     if (/^Do\b/i.test(t)) { return { kind: 'Do', line: 0, label: 'Do' }; }
     if (/^While\b/i.test(t)) { return { kind: 'While', line: 0, label: 'While' }; }

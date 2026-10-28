@@ -75,13 +75,19 @@ interface OpenBlock {
 	level: number;
 	/** True for a `#If` opened outside every procedure, which a procedure header keeps. */
 	moduleLevel: boolean;
+	/** On a `#If`: an earlier arm ended inside a procedure header it opened. */
+	armLeftProcedureOpen?: boolean;
+	/** On a `#If`: a `#Else` or `#ElseIf` has been seen. */
+	hasMidArm?: boolean;
 }
 
 type StatementClass =
 	| { type: 'plain' }
 	| { type: 'label' }
 	| { type: 'attribute' }
-	| { type: 'lineNumber'; rest: VbaToken[] }
+	| { type: 'lineNumber'; rest: StatementClass }
+	/** A one-line If, or the Else part of one; `tail` is the block its last part opens. */
+	| { type: 'singleLineIf'; tail: StatementClass }
 	| { type: 'procedure' }
 	| { type: 'opener'; kind: BlockKind }
 	| { type: 'closer'; kind: BlockKind; count: number }
@@ -222,10 +228,16 @@ export function formatVbaModule(source: string, options: VbaFormatOptions): VbaF
 		// The first statement decides where the line sits; every statement
 		// on the line moves the stack for the lines after it.
 		let lineIndent = level;
+		// A one-line If runs to the end of its logical line, so an `Else`
+		// after a `:` there is its Else, not the enclosing block If's.
+		let inSingleLineIf = false;
 		statements.forEach((statement, index) => {
 			const isFirst = index === 0;
 			const isLast = index === statements.length - 1;
-			const cls = classify(statement, isFirst, isLast, stack);
+			const cls = classify(statement, isFirst, isLast, stack, inSingleLineIf);
+			if (cls.type === 'singleLineIf' || (cls.type === 'lineNumber' && cls.rest.type === 'singleLineIf')) {
+				inSingleLineIf = true;
+			}
 			lineIndent = apply(cls, isFirst, lineIndent);
 		});
 
@@ -252,12 +264,16 @@ export function formatVbaModule(source: string, options: VbaFormatOptions): VbaF
 				return lineIndent;
 			case 'label':
 				return isFirst ? 0 : lineIndent;
-			case 'lineNumber': {
-				const rest = classify({ tokens: cls.rest, endedByColon: false }, false, true, stack);
-				apply(rest, false, lineIndent);
+			case 'lineNumber':
+				apply(cls.rest, false, lineIndent);
 				return isFirst ? 0 : lineIndent;
-			}
+			case 'singleLineIf':
+				apply(cls.tail, false, lineIndent);
+				return lineIndent;
 			case 'closer': {
+				if (cls.kind === 'PreprocessorIf') {
+					return closePreprocessorIf(isFirst, lineIndent);
+				}
 				let indent = lineIndent;
 				for (let n = 0; n < cls.count; n++) {
 					const index = find(cls.kind);
@@ -284,6 +300,12 @@ export function formatVbaModule(source: string, options: VbaFormatOptions): VbaF
 					return lineIndent;
 				}
 				const target = stack[index];
+				if (cls.kind === 'PreprocessorIf') {
+					target.hasMidArm = true;
+					if (procedureIndex > index) {
+						target.armLeftProcedureOpen = true;
+					}
+				}
 				truncateStack(index + 1);
 				const own = cls.kind === 'Select' ? target.level + 1 : target.level;
 				level = own + 1;
@@ -310,6 +332,28 @@ export function formatVbaModule(source: string, options: VbaFormatOptions): VbaF
 				return lineIndent;
 			}
 		}
+	}
+
+	// `#If VBA7 Then` / `Sub Foo(p As LongPtr)` / `#Else` / `Sub Foo(p As
+	// Long)` / `#End If`: whichever arm compiles, a procedure is open after
+	// `#End If`, and its body follows (issue #1496). That holds once the `#If`
+	// has more than one arm and one of them ended inside a header it opened.
+	// A one-arm `#If` closes what it opened, as it always has.
+	function closePreprocessorIf(isFirst: boolean, lineIndent: number): number {
+		const index = find('PreprocessorIf');
+		if (index < 0) {
+			return lineIndent;
+		}
+		const target = stack[index];
+		const keepProcedure = target.hasMidArm === true && (target.armLeftProcedureOpen === true || procedureIndex > index);
+		truncateStack(index);
+		level = target.level;
+		if (keepProcedure) {
+			procedureIndex = stack.length;
+			stack.push({ kind: 'Procedure', level: target.level, moduleLevel: false });
+			level = target.level + 1;
+		}
+		return isFirst ? target.level : lineIndent;
 	}
 
 	const text = output.map((line, i) => line + (eols[i] ?? '')).join('');
@@ -346,6 +390,7 @@ function classify(
 	isFirst: boolean,
 	isLast: boolean,
 	stack: readonly OpenBlock[],
+	inSingleLineIf = false,
 ): StatementClass {
 	const tokens = statement.tokens;
 	if (tokens.length === 0) {
@@ -370,12 +415,26 @@ function classify(
 		return { type: 'plain' };
 	}
 	if (isFirst && head.kind === 'integerLiteral') {
-		return { type: 'lineNumber', rest: tokens.slice(1) };
+		// `10 If x Then: y = 1`: the statement after the number keeps its `:`.
+		const rest = { tokens: tokens.slice(1), endedByColon: statement.endedByColon };
+		return { type: 'lineNumber', rest: classify(rest, false, isLast, stack, inSingleLineIf) };
 	}
 	if (isFirst && head.kind === 'identifier' && head.rawText.toLowerCase() === 'attribute') {
 		return { type: 'attribute' };
 	}
 	const first = tokenWord(head);
+	if (insideRecord(stack)) {
+		// A Type or Enum holds only members, and `For As Long`, `Sub As Long`
+		// and `Next = 1` are members whatever their names spell (issue #1496).
+		const after = tokenWord(tokens[1]);
+		if (after === 'as' || after === '=' || tokens[1]?.rawText === '(') {
+			return { type: 'plain' };
+		}
+	}
+	if (first === 'else' && inSingleLineIf) {
+		// `If a Then b = 1: Else With e`: the one-line If's own Else.
+		return { type: 'singleLineIf', tail: classifySingleLineIfTail(tokens.slice(1), stack) };
+	}
 	if (first === 'end') {
 		const kind = END_CLOSERS[tokenWord(tokens[1])];
 		return kind ? { type: 'closer', kind, count: 1 } : { type: 'plain' };
@@ -413,10 +472,26 @@ function classify(
 		// A block If ends its logical line with Then (MS-VBAL 5.4.2.8); a
 		// single-line If carries its statements after Then, or after a `:`,
 		// and `If x Then:` with nothing after the colon is one too (MS-VBAL
-		// 5.4.2.9, issue #84).
-		return isLast && !statement.endedByColon && tokenWord(tokens[tokens.length - 1]) === 'then' && tokens.length > 1
-			? { type: 'opener', kind: 'If' }
-			: { type: 'plain' };
+		// 5.4.2.9, issue #84). `d.Then` is a member, not the keyword.
+		const lastIndex = tokens.length - 1;
+		if (isLast && !statement.endedByColon && lastIndex > 0 && isThenOrElseKeyword(tokens, lastIndex) === 'then') {
+			return { type: 'opener', kind: 'If' };
+		}
+		// `If a Then With d: .Add 1: End With` opens a block in its tail,
+		// after the last Then or Else (MS-VBAL 5.4.2.9).
+		let split = -1;
+		for (let i = 1, depth = 0; i < tokens.length; i++) {
+			const raw = tokens[i].rawText;
+			if (raw === '(') {
+				depth++;
+			} else if (raw === ')') {
+				depth--;
+			} else if (depth === 0 && isThenOrElseKeyword(tokens, i)) {
+				split = i;
+			}
+		}
+		const tail = split < 0 ? [] : tokens.slice(split + 1);
+		return { type: 'singleLineIf', tail: classifySingleLineIfTail(tail, stack) };
 	}
 	if (first === 'for') {
 		return { type: 'opener', kind: 'For' };
@@ -447,9 +522,7 @@ function classify(
 		}
 		return { type: 'plain' };
 	}
-	const top = stack[stack.length - 1];
-	const insideRecord = top !== undefined && (top.kind === 'Type' || top.kind === 'Enum');
-	if ((declared === 'type' || declared === 'enum') && !insideRecord) {
+	if ((declared === 'type' || declared === 'enum') && !insideRecord(stack)) {
 		let modifiers = 0;
 		while (modifiers < index && TYPE_MODIFIERS.has(tokenWord(tokens[modifiers]))) {
 			modifiers++;
@@ -458,6 +531,48 @@ function classify(
 		if (modifiers === index && isNameToken(name) && tokenWord(name) !== 'as') {
 			return { type: 'opener', kind: declared === 'type' ? 'Type' : 'Enum' };
 		}
+	}
+	return { type: 'plain' };
+}
+
+/** True inside a Type or Enum, conditional-compilation blocks aside. */
+function insideRecord(stack: readonly OpenBlock[]): boolean {
+	for (let i = stack.length - 1; i >= 0; i--) {
+		if (stack[i].kind !== 'PreprocessorIf') {
+			return stack[i].kind === 'Type' || stack[i].kind === 'Enum';
+		}
+	}
+	return false;
+}
+
+/**
+ * The keyword Then or Else at `index`, or undefined. After a `.`, or a `!`
+ * touching it, the word is a member name: `d.Then`, `d!Else`. A `!` with a
+ * space after it is a type suffix, so `x! Then` is the keyword.
+ */
+function isThenOrElseKeyword(tokens: readonly VbaToken[], index: number): 'then' | 'else' | undefined {
+	const word = tokenWord(tokens[index]);
+	if (word !== 'then' && word !== 'else') {
+		return undefined;
+	}
+	const previous = tokens[index - 1];
+	if (previous && (previous.rawText === '.' || (previous.rawText === '!' && previous.end === tokens[index].start))) {
+		return undefined;
+	}
+	return word;
+}
+
+/**
+ * The block a one-line If's tail opens. Only the loops, With and Select
+ * count, with a nested one-line If's own tail; nothing else in a tail opens.
+ */
+function classifySingleLineIfTail(tail: VbaToken[], stack: readonly OpenBlock[]): StatementClass {
+	const cls = classify({ tokens: tail, endedByColon: false }, false, false, stack);
+	if (cls.type === 'singleLineIf') {
+		return cls;
+	}
+	if (cls.type === 'opener' && cls.kind !== 'Type' && cls.kind !== 'Enum' && cls.kind !== 'If' && cls.kind !== 'PreprocessorIf') {
+		return cls;
 	}
 	return { type: 'plain' };
 }
