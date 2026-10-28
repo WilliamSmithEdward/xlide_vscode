@@ -1,0 +1,113 @@
+name: Relock Dependabot updates
+
+# The same in every repository; the canonical copy lives in
+# WilliamSmithEdward/repo-standards (templates/relock), with .github/relock.py.
+# Dependabot rebuilds uv's hash-locked requirement files with its own
+# pip-compile, dropping setuptools, pip and the platform markers, and rewrites
+# a multi-framework packages.lock.json for one target framework only, so its
+# pull requests fail CI and never merge. This rebuilds what a Dependabot push
+# changed the way the locks are built, and the Repo Bot App commits the
+# result to the pull request's branch; CI, Security and Malware scan then run
+# on that commit and auto-merge proceeds as usual.
+#
+# Two jobs, as for the YARA updater. `relock` runs the pull request's branch
+# with no secret and hands on only the rebuilt files. `push` holds the App's
+# token (a Dependabot secret, YARA_APP.md), runs the base branch's relock.py,
+# never the pull request's code, and commits only files that already exist
+# on the branch as lock files. On the App's own commit nothing changes, so
+# `push` does not run.
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: relock-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  relock:
+    name: Relock what Dependabot changed
+    if: >-
+      github.event.pull_request.user.login == 'dependabot[bot]'
+      && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      changed: ${{ steps.relock.outputs.changed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      # uv's version is pinned here and moved by hand; setup-uv is followed by
+      # Dependabot. The locks record the command, not the uv version.
+      - uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
+        with:
+          version: "0.13.4"
+          enable-cache: false
+
+      - name: Set up .NET for a repository that has one
+        if: hashFiles('global.json') != ''
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Relock what the pull request changed
+        id: relock
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          python3 .github/relock.py relock "$BASE_SHA" "$RUNNER_TEMP/relock"
+          if [ "$(cat "$RUNNER_TEMP/relock/manifest.json")" = "[]" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "The locks are already as uv and dotnet build them." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git diff --stat >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - if: steps.relock.outputs.changed == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: relock
+          path: ${{ runner.temp }}/relock
+          retention-days: 1
+
+  push:
+    name: Commit the relock to the pull request's branch
+    needs: relock
+    if: needs.relock.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: relock
+          path: ${{ runner.temp }}/relock
+
+      - name: Create a token for this repository
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          # The App's client ID, the same in every repository and not a
+          # secret; written here because a Dependabot run may not read vars.
+          client-id: Iv23lisr25w1fELw127J
+          private-key: ${{ secrets.YARA_APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - name: Commit the rebuilt locks
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python3 .github/relock.py push "$RUNNER_TEMP/relock" "$HEAD_REF" "$HEAD_SHA"

@@ -59,7 +59,6 @@ import {
 	type VbaDiagnosticData,
 } from '../analysisContext';
 import {
-	type CallableTypeSignature,
 	type CallArguments,
 	extractCall,
 	isNamedSlot,
@@ -690,6 +689,7 @@ export function checkUndeclaredVariables(
 	push: PushFn,
 	ownMembers: ReadonlySet<string> = new Set(),
 	procedureFilter?: (member: ProcedureNode) => boolean,
+	project: ProjectQualifiers = {},
 ): void {
 	if (!hasOptionExplicit(mod, activity) || !knownIdentifiers) {
 		return;
@@ -698,9 +698,16 @@ export function checkUndeclaredVariables(
 	// as it does in an As clause: `Set app = Excel.Application`,
 	// `Word.Application`, `VBAProject.Module2.Twice(4)` (issue #101; each
 	// runs in its host). The libraries are the host's own, those merged into
-	// its model (Office, MSForms), the ones the project references, and VBA,
-	// which isKnown already accepts.
-	const libraryQualifiers = libraryQualifierNames(hostModel, referencedHosts);
+	// its model (Office, MSForms), the ones the project references, and VBA.
+	//
+	// Such a name stands only before a dot. Bare, `v = stdole`, `v = Excel`
+	// and `v = VBA` are "Expected variable or procedure, not project", and
+	// `stdole.Checked`, `Scripting.BinaryCompare` and `DAO.dbOpenDynaset`
+	// with their references compile, in any case, bracketed or continued
+	// (issue #1495, measured in Excel, Word, PowerPoint and Access 16.0).
+	const libraryQualifiers = libraryQualifierNames(hostModel, referencedHosts, project);
+	const isLibraryName = (lower: string): boolean => lower === 'vba' || libraryQualifiers.has(lower);
+	const standsBeforeDot = (span: Span): boolean => BEFORE_DOT.test(source.slice(span.end, span.end + 256));
 	// A form's controls are declared by its DESIGNER, not its text, and the seed
 	// has three states, not two: a list, a vouched-for-empty list, and no answer
 	// at all. Reading no answer as an empty one claimed every control the form's
@@ -728,19 +735,21 @@ export function checkUndeclaredVariables(
 	// else does (MS-VBAL 5.4.3.3), and Option Explicit accepts it (issue #99,
 	// runs in Excel 16.0). Per procedure, below.
 	let redimDeclared: ReadonlySet<string> = new Set();
+	// Without a span the question is only whether the name is known at all,
+	// as the walk that finds the references asks it.
 	const isKnown = (
 		name: string,
 		procSym: VbaSymbol | undefined,
 		context: BareIdentifierContext,
+		span?: Span,
 	): boolean => {
 		const lower = name.toLowerCase();
 		return (
-			lower === 'vba' ||
+			(isLibraryName(lower) && (span === undefined || standsBeforeDot(span))) ||
 			// `Me = 1` in an object module assigns Me's default member: it
 			// compiles, and raises 438 only if there is none (measured in
 			// Excel 16.0). In a standard module Me has its own rule.
 			(lower === 'me' && moduleKind !== undefined && moduleKind !== 'standard') ||
-			libraryQualifiers.has(lower) ||
 			redimDeclared.has(lower) ||
 			// A UserForm's controls are members the designer declared, not the
 			// module's text; referring to one is correct VBA.
@@ -796,10 +805,18 @@ export function checkUndeclaredVariables(
 				assignedType?: () => string,
 			): void => {
 				const key = `${span.start}:${span.end}`;
-				if (reported.has(key) || isKnown(name, procSym, context)) {
+				if (reported.has(key) || isKnown(name, procSym, context, span)) {
 					return;
 				}
 				reported.add(key);
+				if (isLibraryName(name.toLowerCase())) {
+					push(
+						'undeclaredVariable',
+						`'${name}' names a library or project, which stands only before a dot. This is a VBE compile error: Expected variable or procedure, not project.`,
+						span,
+					);
+					return;
+				}
 				push(
 					'undeclaredVariable',
 					`Variable not defined: '${name}'. Declare it before ${mode}, or remove Option Explicit.`,
@@ -828,13 +845,13 @@ export function checkUndeclaredVariables(
 					() => (objectTarget ? 'Object' : assignedValueType(source, span, ctxForTypes)),
 				);
 			}
-			for (const ref of undeclaredReadReferences(
+			for (const ref of valueReadReferences(
 				source,
 				span,
 				(name) => isKnown(name, procSym, 'expression'),
 				moduleSignatures,
 				projectMembers,
-			)) {
+			).filter((read) => !isKnown(read.name, procSym, 'expression', read.span))) {
 				if (ref.bracketed && bracketNamesEvaluate) {
 					continue;
 				}
@@ -986,9 +1003,23 @@ const libraryQualifierModels = new WeakMap<HostObjectModel, {
 	types: HostObjectModel['types']; enums: HostObjectModel['enums']; names: ReadonlySet<string>;
 }>();
 
+/** What the project's dir stream says qualifies a name, where it was read. */
+export interface ProjectQualifiers {
+	/** Every reference's name, type libraries and VBA projects alike. */
+	referencedLibraries?: readonly string[];
+	/** Which of those are VBA projects. */
+	referencedProjects?: readonly string[];
+	/** The project's own name: `VBAProject`, `Project`, an Access database's. */
+	projectName?: string;
+}
+
+/** A dot after a name, across spaces and line continuations. */
+const BEFORE_DOT = /^[ \t]*(?:_[ \t]*\r?\n[ \t]*)*\./;
+
 function libraryQualifierNames(
 	hostModel: HostObjectModel | undefined,
 	referencedHosts: readonly string[] | undefined,
+	project: ProjectQualifiers,
 ): Set<string> {
 	const model = hostModel ?? getExcelObjectModel();
 	let cached = libraryQualifierModels.get(model);
@@ -1004,25 +1035,27 @@ function libraryQualifierNames(
 		cached = { types: model.types, enums: model.enums, names };
 		libraryQualifierModels.set(model, cached);
 	}
-	const out = new Set<string>(['vbaproject', ...cached.names]);
+	// The project's own name qualifies its modules, and only it: Word's is
+	// `Project`, where `VBAProject.Module1.Helper()` is "Variable not
+	// defined" (issue #1495). `VBAProject` stands in while the name is unread.
+	const out = new Set<string>([(project.projectName ?? 'VBAProject').toLowerCase(), ...cached.names]);
 	for (const token of referencedHosts ?? []) {
 		const name = HOST_LIBRARY_NAMES[token as VbaHostToken];
 		if (name) {
 			out.add(name.toLowerCase());
 		}
 	}
+	// A type library's recorded name vouches for what follows it. Another
+	// VBA project's does not until that project is read: its module may be
+	// Option Private, and the call then "Method or data member not found",
+	// so it stays reported rather than turned silent.
+	const projects = new Set((project.referencedProjects ?? []).map((name) => name.toLowerCase()));
+	for (const name of project.referencedLibraries ?? []) {
+		if (!projects.has(name.toLowerCase())) {
+			out.add(name.toLowerCase());
+		}
+	}
 	return out;
-}
-
-function undeclaredReadReferences(
-	source: string,
-	span: Span,
-	isKnown: (name: string) => boolean,
-	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
-	projectMembers: readonly VbaProjectClassMembers[] | undefined,
-): Array<{ name: string; span: Span; bracketed: boolean }> {
-	return valueReadReferences(source, span, isKnown, moduleSignatures, projectMembers)
-		.filter((ref) => !isKnown(ref.name));
 }
 
 function hasOptionExplicit(

@@ -461,8 +461,11 @@ export function logicalLinesFromStripped(stripped: string[], raw?: readonly stri
     return logical;
 }
 
-/** True for a segment that is exactly an `If ... Then` header, opening a block. */
-const BLOCK_IF_HEADER_RE = /^If\b.*\bThen$/i;
+/**
+ * True for a segment that is exactly an `If ... Then` header, opening a block,
+ * after any line number. `d.Then` and `d!Then` end in a member, not the keyword.
+ */
+const BLOCK_IF_HEADER_RE = /^(?:\d+\s+)?If\b.*(?<![.!])\bThen$/i;
 
 /**
  * A date/time literal, whose interior colons are part of the VALUE:

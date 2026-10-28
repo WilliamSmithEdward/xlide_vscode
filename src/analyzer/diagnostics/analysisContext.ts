@@ -303,6 +303,12 @@ export interface AnalyzeModuleOptions {
 	 */
 	referencedLibraries?: readonly string[];
 	/**
+	 * Which of `referencedLibraries` are other VBA projects rather than type
+	 * libraries. Their members are not known until the referenced project is
+	 * read, so a name of one does not yet vouch for what follows its dot.
+	 */
+	referencedProjects?: readonly string[];
+	/**
 	 * The project's own name as its dir stream records it (`VBAProject`,
 	 * `Project`, an Access database's), which qualifies its types the way a
 	 * library's name does. Read with the references, and undefined with them.

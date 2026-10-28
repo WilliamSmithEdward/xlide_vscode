@@ -239,12 +239,44 @@ export function checkWithEventsDeclarations(
 			// events" (issue #124, measured in Excel 16.0). An intrinsic type
 			// is no object at all. A host or project class is not judged here.
 			const normalized = normalizeType(decl.asType);
+			// `As Collection` is VBA's, unless the project has a Collection
+			// of its own that declares an Event, which a WithEvents variable
+			// can listen to. `As VBA.Collection` is always VBA's, in every
+			// spelling the VBE reads as that name, and `[VBA.Collection]` is
+			// one name no type has (issue #1493, measured in Excel, Word,
+			// PowerPoint and Access 16.0).
+			const parts = typeNameParts(decl.asType);
+			const projectType = parts.length > 0 && parts[parts.length - 1] === 'collection'
+				? projectClasses.find((candidate) => candidate.name.toLowerCase() === 'collection')
+				: undefined;
+			if (parts.length === 1 && parts[0] === 'vba.collection') {
+				report(
+					`WithEvents variable '${decl.name}' is declared As ${decl.asType}, a single name no type has. This is a VBE compile error: User-defined type not defined.`,
+					nameSpan,
+				);
+				continue;
+			}
+			if (parts.length === 2 && parts[0] === 'vba' && parts[1] === 'collection') {
+				report(
+					`WithEvents variable '${decl.name}' is declared As ${decl.asType}, VBA's Collection, which does not source automation events.`,
+					nameSpan,
+				);
+				continue;
+			}
+			if (projectType?.kind === 'standardModule') {
+				report(
+					`WithEvents variable '${decl.name}' is declared As ${decl.asType}, and Collection is a standard module of this project. This is a VBE compile error: A module is not a valid type.`,
+					nameSpan,
+				);
+				continue;
+			}
+			const projectCollectionWithEvents = projectType !== undefined && projectType.members.some((member) => member.kind === 'event');
 			if (normalized === 'object' || normalized === 'variant' || normalized === undefined) {
 				report(
 					`WithEvents variable '${decl.name}' must be declared As a specific class that raises events; ${decl.asType ? `'${decl.asType}'` : 'no type'} names none.`,
 					nameSpan,
 				);
-			} else if (normalized === 'collection' || isKnownScalarType(normalized) || classWithoutEvents(normalized)) {
+			} else if ((normalized === 'collection' && !projectCollectionWithEvents) || isKnownScalarType(normalized) || classWithoutEvents(normalized)) {
 				report(
 					`WithEvents variable '${decl.name}' is declared As ${decl.asType}, which does not source automation events.`,
 					nameSpan,
@@ -262,6 +294,23 @@ export function checkWithEventsDeclarations(
 			forEachVariableGroup(member.body, (group) => inspect(group, true), activity);
 		}
 	}
+}
+
+/**
+ * A declared type's name as the VBE reads it, lowercased: line continuations
+ * and spaces around the dots go, and each part loses its brackets, so
+ * `[VBA] _` / `.Collection` is `vba`, `collection`. A name bracketed whole,
+ * `[VBA.Collection]`, is one name with a dot in it.
+ */
+function typeNameParts(asType: string | undefined): string[] {
+	const text = asType?.replace(/[ \t]*_[ \t]*\r?\n[ \t]*/g, '').trim();
+	if (!text) {
+		return [];
+	}
+	if (/^\[[^\]]*\]$/.test(text)) {
+		return [text.slice(1, -1).trim().toLowerCase()];
+	}
+	return text.split(/\s*\.\s*/).map((part) => part.replace(/^\[(.*)\]$/, '$1').trim().toLowerCase());
 }
 
 /**
