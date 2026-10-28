@@ -239,7 +239,7 @@ export function activate(context: vscode.ExtensionContext): void {
     if (errorWorkerClient) {
         context.subscriptions.push(new vscode.Disposable(() => errorWorkerClient.dispose()));
     }
-    const vbaIndex = registerVbaLanguageProviders(
+    const { index: vbaIndex, projectIndexService } = registerVbaLanguageProviders(
         context,
         bridge,
         analysisWorkerClient,
@@ -259,7 +259,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // keeps that from happening.
     try {
         context.subscriptions.push(
-            ...registerCommands(context, bridge, explorer, fsProvider, out, vbaIndex),
+            ...registerCommands(context, bridge, explorer, fsProvider, out, vbaIndex, projectIndexService),
         );
     } catch (err) {
         out.appendLine(

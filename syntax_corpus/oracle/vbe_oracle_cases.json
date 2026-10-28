@@ -212858,6 +212858,682 @@
           "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
         }
       ]
+    },
+    {
+      "id": "issue1494_sheet_into_workbook_runtime",
+      "description": "Issue #1494: Set x = Sheet1 into x As Workbook is rejected: Run-time error '13': Type mismatch. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim x As Workbook\r\n    Set x = Sheet1\r\n    Main = \"ok\"\r\nEnd Function\r\nPrivate Sub TakeRangeByVal(ByVal r As Range)\r\nEnd Sub\r\nPrivate Sub TakeRangeByRef(r As Range)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue1494_sheet_into_range_runtime",
+      "description": "Issue #1494: Set x = Sheet1 into x As Range is rejected: Run-time error '13': Type mismatch. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim x As Range\r\n    Set x = Sheet1\r\n    Main = \"ok\"\r\nEnd Function\r\nPrivate Sub TakeRangeByVal(ByVal r As Range)\r\nEnd Sub\r\nPrivate Sub TakeRangeByRef(r As Range)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue1494_sheet_into_chart_runtime",
+      "description": "Issue #1494: Set x = Sheet1 into x As Chart is rejected: Run-time error '13': Type mismatch. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim x As Chart\r\n    Set x = Sheet1\r\n    Main = \"ok\"\r\nEnd Function\r\nPrivate Sub TakeRangeByVal(ByVal r As Range)\r\nEnd Sub\r\nPrivate Sub TakeRangeByRef(r As Range)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue1494_sheet_into_class_runtime",
+      "description": "Issue #1494: Set x = Sheet1 into x As Class1, a class of the project is rejected: Run-time error '13': Type mismatch. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim x As Class1\r\n    Set x = Sheet1\r\n    Main = \"ok\"\r\nEnd Function\r\nPrivate Sub TakeRangeByVal(ByVal r As Range)\r\nEnd Sub\r\nPrivate Sub TakeRangeByRef(r As Range)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue1494_sheet_into_interface_runtime",
+      "description": "Issue #1494: Set x = Sheet1 into x As IFoo, an interface Sheet1 does not implement is rejected: Run-time error '13': Type mismatch. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\n"
+        },
+        {
+          "name": "IFoo",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim x As IFoo\r\n    Set x = Sheet1\r\n    Main = \"ok\"\r\nEnd Function\r\nPrivate Sub TakeRangeByVal(ByVal r As Range)\r\nEnd Sub\r\nPrivate Sub TakeRangeByRef(r As Range)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue1494_workbook_into_worksheet_runtime",
+      "description": "Issue #1494: Set x = ThisWorkbook into x As Worksheet is rejected: Run-time error '13': Type mismatch. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim x As Worksheet\r\n    Set x = ThisWorkbook\r\n    Main = \"ok\"\r\nEnd Function\r\nPrivate Sub TakeRangeByVal(ByVal r As Range)\r\nEnd Sub\r\nPrivate Sub TakeRangeByRef(r As Range)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue1494_renamed_workbook_into_worksheet_runtime",
+      "description": "Issue #1494: Set x = BookCode, ThisWorkbook renamed, into x As Worksheet is rejected: Run-time error '13': Type mismatch. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\n",
+          "codeName": "BookCode"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim x As Worksheet\r\n    Set x = BookCode\r\n    Main = \"ok\"\r\nEnd Function\r\nPrivate Sub TakeRangeByVal(ByVal r As Range)\r\nEnd Sub\r\nPrivate Sub TakeRangeByRef(r As Range)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue1494_renamed_sheet_into_workbook_runtime",
+      "description": "Issue #1494: Set x = DataSheet, Sheet1 renamed, into x As Workbook is rejected: Run-time error '13': Type mismatch. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\n",
+          "codeName": "DataSheet"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim x As Workbook\r\n    Set x = DataSheet\r\n    Main = \"ok\"\r\nEnd Function\r\nPrivate Sub TakeRangeByVal(ByVal r As Range)\r\nEnd Sub\r\nPrivate Sub TakeRangeByRef(r As Range)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue1494_sheet_into_worksheet_runtime",
+      "description": "Issue #1494: Set x = Sheet1 into x As Worksheet runs. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim x As Worksheet\r\n    Set x = Sheet1\r\n    Main = \"ok\"\r\nEnd Function\r\nPrivate Sub TakeRangeByVal(ByVal r As Range)\r\nEnd Sub\r\nPrivate Sub TakeRangeByRef(r As Range)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1494_sheet_into_object_runtime",
+      "description": "Issue #1494: Set x = Sheet1 into x As Object runs. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim x As Object\r\n    Set x = Sheet1\r\n    Main = \"ok\"\r\nEnd Function\r\nPrivate Sub TakeRangeByVal(ByVal r As Range)\r\nEnd Sub\r\nPrivate Sub TakeRangeByRef(r As Range)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1494_sheet_into_variant_runtime",
+      "description": "Issue #1494: Set x = Sheet1 into x As Variant runs. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim x As Variant\r\n    Set x = Sheet1\r\n    Main = \"ok\"\r\nEnd Function\r\nPrivate Sub TakeRangeByVal(ByVal r As Range)\r\nEnd Sub\r\nPrivate Sub TakeRangeByRef(r As Range)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1494_workbook_into_workbook_runtime",
+      "description": "Issue #1494: Set x = ThisWorkbook into x As Workbook runs. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim x As Workbook\r\n    Set x = ThisWorkbook\r\n    Main = \"ok\"\r\nEnd Function\r\nPrivate Sub TakeRangeByVal(ByVal r As Range)\r\nEnd Sub\r\nPrivate Sub TakeRangeByRef(r As Range)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1494_renamed_sheet_into_worksheet_runtime",
+      "description": "Issue #1494: Set x = DataSheet, Sheet1 renamed, into x As Worksheet runs. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\n",
+          "codeName": "DataSheet"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim x As Worksheet\r\n    Set x = DataSheet\r\n    Main = \"ok\"\r\nEnd Function\r\nPrivate Sub TakeRangeByVal(ByVal r As Range)\r\nEnd Sub\r\nPrivate Sub TakeRangeByRef(r As Range)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1494_sheet_byval_range_runtime",
+      "description": "Issue #1494: Sheet1 passed to a ByVal Range parameter is rejected: Run-time error '13': Type mismatch. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    TakeRangeByVal Sheet1\r\n    Main = \"ok\"\r\nEnd Function\r\nPrivate Sub TakeRangeByVal(ByVal r As Range)\r\nEnd Sub\r\nPrivate Sub TakeRangeByRef(r As Range)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue1494_sheet_byref_range_runtime",
+      "description": "Issue #1494: Sheet1 passed to a ByRef Range parameter is rejected: Run-time error '13': Type mismatch. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    TakeRangeByRef Sheet1\r\n    Main = \"ok\"\r\nEnd Function\r\nPrivate Sub TakeRangeByVal(ByVal r As Range)\r\nEnd Sub\r\nPrivate Sub TakeRangeByRef(r As Range)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue1494_local_shadows_sheet_runtime",
+      "description": "Issue #1494: a local Dim Sheet1 As Range, then Set x = Sheet1 into x As Range runs. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim Sheet1 As Range\r\n    Set Sheet1 = Application.ActiveSheet.Range(\"A1\")\r\n    Dim x As Range\r\n    Set x = Sheet1\r\n    Main = \"ok\"\r\nEnd Function\r\nPrivate Sub TakeRangeByVal(ByVal r As Range)\r\nEnd Sub\r\nPrivate Sub TakeRangeByRef(r As Range)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue1494_word_document_into_range_runtime",
+      "description": "Issue #1494: Set x = ThisDocument into x As Range is rejected: Run-time error '13': Type mismatch. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Option Explicit\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim x As Range\r\n    Set x = ThisDocument\r\n    Main = \"ok\"\r\nEnd Function\r\nPrivate Sub TakeRangeByVal(ByVal r As Range)\r\nEnd Sub\r\nPrivate Sub TakeRangeByRef(r As Range)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1494_word_renamed_document_into_range_runtime",
+      "description": "Issue #1494: Set x = DocCode, ThisDocument renamed, into x As Range is rejected: Run-time error '13': Type mismatch. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Option Explicit\r\n",
+          "codeName": "DocCode"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim x As Range\r\n    Set x = DocCode\r\n    Main = \"ok\"\r\nEnd Function\r\nPrivate Sub TakeRangeByVal(ByVal r As Range)\r\nEnd Sub\r\nPrivate Sub TakeRangeByRef(r As Range)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1494_word_document_into_document_runtime",
+      "description": "Issue #1494: Set x = ThisDocument into x As Document runs. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Option Explicit\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim x As Document\r\n    Set x = ThisDocument\r\n    Main = \"ok\"\r\nEnd Function\r\nPrivate Sub TakeRangeByVal(ByVal r As Range)\r\nEnd Sub\r\nPrivate Sub TakeRangeByRef(r As Range)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1494_word_renamed_document_into_document_runtime",
+      "description": "Issue #1494: Set x = DocCode, ThisDocument renamed, into x As Document runs. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Option Explicit\r\n",
+          "codeName": "DocCode"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim x As Document\r\n    Set x = DocCode\r\n    Main = \"ok\"\r\nEnd Function\r\nPrivate Sub TakeRangeByVal(ByVal r As Range)\r\nEnd Sub\r\nPrivate Sub TakeRangeByRef(r As Range)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1494_word_document_into_object_runtime",
+      "description": "Issue #1494: Set x = ThisDocument into x As Object runs. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Option Explicit\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim x As Object\r\n    Set x = ThisDocument\r\n    Main = \"ok\"\r\nEnd Function\r\nPrivate Sub TakeRangeByVal(ByVal r As Range)\r\nEnd Sub\r\nPrivate Sub TakeRangeByRef(r As Range)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1494_word_document_byval_range_runtime",
+      "description": "Issue #1494: ThisDocument passed to a ByVal Range parameter is rejected: Run-time error '13': Type mismatch. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Option Explicit\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    TakeRangeByVal ThisDocument\r\n    Main = \"ok\"\r\nEnd Function\r\nPrivate Sub TakeRangeByVal(ByVal r As Range)\r\nEnd Sub\r\nPrivate Sub TakeRangeByRef(r As Range)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1494_access_form_into_report_runtime",
+      "description": "Issue #1494: Set x = Form_Orders into x As Report is rejected: Run-time error '13': Type mismatch. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Form_Orders",
+          "type": "document",
+          "source": "Option Explicit\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim x As Report\r\n    Set x = Form_Orders\r\n    Main = \"ok\"\r\nEnd Function\r\nPrivate Sub TakeReport(ByVal r As Report)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1494_access_report_into_form_runtime",
+      "description": "Issue #1494: Set x = Report_Sales into x As Form is rejected: Run-time error '13': Type mismatch. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Report_Sales",
+          "type": "document",
+          "source": "Option Explicit\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim x As Form\r\n    Set x = Report_Sales\r\n    Main = \"ok\"\r\nEnd Function\r\nPrivate Sub TakeReport(ByVal r As Report)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1494_access_form_into_form_runtime",
+      "description": "Issue #1494: Set x = Form_Orders into x As Form runs. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Form_Orders",
+          "type": "document",
+          "source": "Option Explicit\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim x As Form\r\n    Set x = Form_Orders\r\n    Main = \"ok\"\r\nEnd Function\r\nPrivate Sub TakeReport(ByVal r As Report)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1494_access_form_into_object_runtime",
+      "description": "Issue #1494: Set x = Form_Orders into x As Object runs. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Form_Orders",
+          "type": "document",
+          "source": "Option Explicit\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim x As Object\r\n    Set x = Form_Orders\r\n    Main = \"ok\"\r\nEnd Function\r\nPrivate Sub TakeReport(ByVal r As Report)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1494_access_form_byval_report_runtime",
+      "description": "Issue #1494: Form_Orders passed to a ByVal Report parameter is rejected: Run-time error '13': Type mismatch. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Form_Orders",
+          "type": "document",
+          "source": "Option Explicit\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    TakeReport Form_Orders\r\n    Main = \"ok\"\r\nEnd Function\r\nPrivate Sub TakeReport(ByVal r As Report)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1494_access_form_into_its_interface_runtime",
+      "description": "Issue #1494: Set x = Form_Orders into x As IFoo, an interface the form implements runs. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "IFoo",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Form_Orders",
+          "type": "document",
+          "source": "Option Explicit\r\nImplements IFoo\r\nPrivate Sub IFoo_Hello()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim x As IFoo\r\n    Set x = Form_Orders\r\n    Main = \"ok\"\r\nEnd Function\r\nPrivate Sub TakeReport(ByVal r As Report)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "access"
     }
   ]
 }
