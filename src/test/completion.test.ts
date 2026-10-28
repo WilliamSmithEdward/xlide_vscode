@@ -416,6 +416,17 @@ suite('Completion editor surface', () => {
         assert.equal(document.lineAt(2).text.trim(), '');
         assert.ok(document.lineAt(2).text.length > 4, 'Tab should deepen the remaining indent');
     });
+    test('Enter after a bare As leaves the type list on that line', async () => {
+        const { document, editor } = await probe('TypeListBelowAs', 'Sub Demo()\nDim total As\nEnd Sub\n', 'As');
+        await vscode.commands.executeCommand('hideSuggestWidget');
+        await vscode.commands.executeCommand('type', { text: '\n' });
+        await until(() => (editor.selection.active.line === 2 && document.lineAt(2).text.trim() === '') || undefined,
+            'Enter should move the caret to a new empty line', 4000);
+        await vscode.commands.executeCommand('hideSuggestWidget');
+        const items = labels(await completions(document, editor.selection.active));
+        assert.ok(['Dim', 'If'].every(label => items.includes(label)) && !items.includes('LongLong'),
+            `the new line should offer keywords, not types, got ${JSON.stringify(items.slice(0, 10))}`);
+    });
     test('serves repeated completion requests in a large unchanged module', async () => {
         const source = 'Sub Demo()\nDim value As Long\n' + 'value = value + 1\n'.repeat(3000) +
             'ThisWorkbook.Sheets(1).ce\nEnd Sub\n';

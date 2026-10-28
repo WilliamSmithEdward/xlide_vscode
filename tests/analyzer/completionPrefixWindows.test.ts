@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { completionCursorContext, completionLineCursorContext, completionTypeTokens } from '../../src/analyzer/completion/cursorContext';
+import { completionCursorContext, completionLineCursorContext } from '../../src/analyzer/completion/cursorContext';
 import { resolveHover } from '../../src/analyzer/hover/resolveHover';
 import * as lexer from '../../src/analyzer/lexer/tokenize';
-import { resolveTypeCompletions } from '../../src/analyzer/completion/typeCompletion';
+import { resolveTypeCompletions, typeGrammarTokens } from '../../src/analyzer/completion/typeCompletion';
 import { resolveMemberCompletions } from '../../src/analyzer/completion/memberAccess';
 import { resolveKeywordCompletions } from '../../src/analyzer/completion/keywordCompletion';
 
@@ -16,15 +16,18 @@ describe('bounded completion prefix windows', () => {
         'Sub Пример()', 'Dim item As _', ' New _', ' Shapes.Person',
         'ThisWorkbook.Sheets(1). _', ' Name = "a ""quoted"" string"',
         "Rem continued comment _", ' next comment line',
-        "x = 1: y = [odd name] ' comment", 'If x <= 42 Then',
+        "x = 1: y = [odd name] ' comment", 'abc_', 'Dim total As Long', 'If x <= 42 Then',
         'End If', 'End Sub', '',
     ].join('\r\n');
 
     it('matches fresh truncated prefix tokens at every offset, including continuation gaps', () => {
         for (let offset = 0; offset <= fixture.length; offset++) {
             const direct = lexer.tokenize(fixture.slice(0, offset));
-            expect(snapshot(completionTypeTokens(fixture, offset)), 'type offset ' + offset)
-                .toEqual(snapshot(direct.filter(token => token.kind !== 'comment' && token.kind !== 'newline').slice(-5)));
+            // Type positions end at a line break: the last five tokens after it.
+            const grammar = direct.filter(token => token.kind !== 'comment');
+            const statement = grammar.slice(grammar.map(token => token.kind).lastIndexOf('newline') + 1);
+            expect(typeGrammarTokens(fixture, offset).map(({ kind, rawText }) => ({ kind, rawText })), 'type offset ' + offset)
+                .toEqual(statement.slice(-5).map(({ kind, rawText }) => ({ kind, rawText })));
             const full = completionCursorContext(fixture, offset);
             const line = completionLineCursorContext(fixture, offset);
             expect(snapshot(line.tokens), 'line offset ' + offset).toEqual(snapshot(direct.slice(direct.length - line.tokens.length)));
@@ -50,7 +53,7 @@ describe('bounded completion prefix windows', () => {
         for (let offset = source.length - 5; offset <= source.length; offset++) {
             reads = 0;
             completionLineCursorContext(source, offset);
-            completionTypeTokens(source, offset);
+            typeGrammarTokens(source, offset);
             expect(reads).toBeLessThan(100);
         }
     });

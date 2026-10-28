@@ -31,6 +31,9 @@ import * as identifiers from '../../src/analyzer/completion/identifierCompletion
 import { VbaMemberCompletionProvider } from '../../src/vbaCompletionProvider';
 import { callableCompletionShouldInsertParens } from '../../src/analyzer/call/callContext';
 import { getWordObjectModel } from '../../src/analyzer/host/wordObjectModel';
+import { getExcelObjectModel } from '../../src/analyzer/host/excelObjectModel';
+import { getPowerPointObjectModel } from '../../src/analyzer/host/powerpointObjectModel';
+import { getAccessObjectModel } from '../../src/analyzer/host/accessObjectModel';
 import type { EditorProjectContext, VbaEditorProjectContextService } from '../../src/vbaEditorProjectContext';
 
 function prepareRequest(line: string, context: EditorProjectContext = {}, column = line.length, prelude = 'Sub Demo()\n') {
@@ -104,6 +107,22 @@ describe('completion provider surface', () => {
     it('uses the document host rather than Excel for type completion', async () => {
         const result = await request('Dim thing As Range', { host: 'word', hostModel: getWordObjectModel() });
         expect(result.items.find(item => item.label === 'Range')?.detail).toBe('Word type');
+    });
+    it.each([
+        ['excel', getExcelObjectModel],
+        ['word', getWordObjectModel],
+        ['powerpoint', getPowerPointObjectModel],
+        ['access', getAccessObjectModel],
+    ] as const)('offers the general list, not the type list, on the empty row below a bare As or New in %s', async (host, model) => {
+        const context = { host, hostModel: model() };
+        for (const prelude of ['Sub Demo()\nDim count As Long\nDim total As\n', 'Sub Demo()\nDim count As Long\nSet total = New\n']) {
+            const procedure = (await request('', context, 0, prelude)).items.map(item => item.label);
+            expect(procedure, prelude).toEqual(expect.arrayContaining(['If', 'With', 'Select Case']));
+            expect(procedure, prelude).not.toContain('LongLong');
+        }
+        const declarations = (await request('', context, 0, 'Option Explicit\nPrivate mCount As Long\nPrivate mTotal As\n')).items.map(item => item.label);
+        expect(declarations).toEqual(expect.arrayContaining(['Sub', 'Function', 'Enum']));
+        expect(declarations).not.toContain('LongLong');
     });
     it.each(['caf\u00e9', '\u0915\u093e'])('replaces the whole Unicode member prefix %s including its suffix', async prefix => {
         const result = await request(`obj.${prefix}tail`, {

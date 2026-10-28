@@ -48,12 +48,14 @@ describe('fresh cursor lexer windows', () => {
         const padding = 'Sub ColdRevision()\r\nDebug.Print 1\r\nEnd Sub\r\n'.repeat(1400);
         const probes = [
             { source: 'value = other + value', type: undefined },
-            { source: 'value', type: undefined }, // Fewer than five grammar tokens: inspect preceding lines.
+            { source: 'value', type: undefined }, // Fewer than five grammar tokens: the line is still enough.
             { source: 'ThisWorkbook.Sheets(1).Na', type: undefined },
             { source: 'Dim item As Lon', type: 'Long' },
             { source: 'Dim item As New Shapes.Pe', type: 'Person' },
             { source: 'Dim item As _\r\n New _\n Shapes.Pe', type: 'Person' },
-            { source: "Dim item As\n' note _\u3000\r\n New _\n Shapes.Pe", type: 'Person' },
+            // A line break, not a continuation, ends the declaration.
+            { source: "Dim item As\n' note _\u3000\r\n New _\n Shapes.Pe", type: undefined },
+            { source: 'Dim item As Long\r\n', type: undefined },
         ];
         for (const [revision, probe] of probes.entries()) {
             const lead = "' cold revision " + revision + '\r\n';
@@ -101,8 +103,8 @@ describe('fresh cursor lexer windows', () => {
     });
 });
 
-it('does not independently re-lex thousands of sparse type lookback rows', () => {
-    const source = 'Dim item As\n' + "' sparse comment\r\n \n".repeat(2200) + 'New Shapes.Pe';
+it('lexes only the last row behind thousands of sparse rows below an As', () => {
+    const source = 'Dim item As New\n' + "' sparse comment\r\n \n".repeat(2200) + 'Shapes.Pe';
     const tokenize = lexer.tokenize;
     const inputs: number[] = [];
     const spy = vi.spyOn(lexer, 'tokenize').mockImplementation(text => {
@@ -113,10 +115,10 @@ it('does not independently re-lex thousands of sparse type lookback rows', () =>
     try {
         expect(resolveTypeCompletions(source, source.length, {
             projectTypes: [{ name: 'Person', kind: 'class', moduleName: 'Shapes' }],
-        }).map(item => item.name)).toEqual(['Person']);
+        })).toEqual([]);
     } finally {
         spy.mockRestore();
     }
-    expect(inputs.length).toBeLessThan(100);
-    expect(shared).toHaveBeenCalledWith(source);
+    expect(inputs).toEqual(['Shapes.Pe'.length]);
+    expect(shared).not.toHaveBeenCalled();
 });

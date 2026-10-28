@@ -5,6 +5,9 @@ import {
 	type TypeCompletionContext,
 } from '../../src/analyzer';
 import { getWordObjectModel } from '../../src/analyzer/host/wordObjectModel';
+import { getExcelObjectModel } from '../../src/analyzer/host/excelObjectModel';
+import { getPowerPointObjectModel } from '../../src/analyzer/host/powerpointObjectModel';
+import { getAccessObjectModel } from '../../src/analyzer/host/accessObjectModel';
 
 /** Offset just past the end of the first occurrence of `marker`. */
 function endOf(src: string, marker: string): number {
@@ -148,6 +151,49 @@ describe('non-type positions return nothing', () => {
 
 	it('does not offer types inside a comment', () => {
 		expect(resolveTypeCompletions("' Dim x As ", 11)).toEqual([]);
+	});
+});
+
+describe('a line break ends the type position', () => {
+	const hosts = [
+		['Excel', getExcelObjectModel],
+		['Word', getWordObjectModel],
+		['PowerPoint', getPowerPointObjectModel],
+		['Access', getAccessObjectModel],
+	] as const;
+	const projectTypes: ProjectTypeName[] = [{ name: 'Person', kind: 'class' }];
+	const atEnd = (src: string, ctx: TypeCompletionContext = {}): string[] =>
+		resolveTypeCompletions(src, src.length, ctx).map((t) => t.name);
+
+	it.each(hosts)('offers no types on the row below a declaration in %s', (_host, model) => {
+		const ctx = { model: model(), projectTypes };
+		for (const src of [
+			'Option Explicit\nPrivate mTotal As Long\n',
+			'Option Explicit\nPrivate mTotal As Long\n\n',
+			'Sub A()\nDim t As Long\n',
+			'Sub A()\r\nDim t As Long\r\n',
+			'Sub A()\rDim t As Long\r',
+			'Sub A()\n    Dim t As Long\n    ',
+			"Sub A()\nDim t As Long ' total\n",
+			'Sub A()\nDim t As Lo\n',
+			'Sub A()\nDim t As\n',
+			'Sub A()\nDim t As New\n',
+			'Sub A()\nDim t As New Person\n',
+			'Sub A()\nSet t = New\n',
+			'Sub A()\nSet t = New Person\n',
+		]) {
+			expect(atEnd(src, ctx), JSON.stringify(src)).toEqual([]);
+		}
+	});
+
+	it.each(hosts)('keeps the type position through a line continuation in %s', (_host, model) => {
+		const ctx = { model: model(), projectTypes };
+		expect(atEnd('Sub A()\nDim t As _\n', ctx)).toContain('Long');
+		expect(atEnd('Sub A()\r\nDim t As _\r\n    ', ctx)).toContain('Long');
+		expect(atEnd('Sub A()\nDim t As _\n    Lo', ctx)).toEqual(expect.arrayContaining(['Long', 'LongLong', 'LongPtr']));
+		expect(atEnd('Sub A()\nDim t As New _\n', ctx)).toEqual(['Person']);
+		expect(atEnd('Sub A()\nSet t = _\n    New Pe', ctx)).toContain('Person');
+		expect(atEnd('Sub A()\nDim t As Long\nDim u As Lo', ctx)).toEqual(expect.arrayContaining(['Long', 'LongLong', 'LongPtr']));
 	});
 });
 

@@ -22,6 +22,11 @@ re-lexing thousands of blank or comment rows. Long logical lines and sparse
 lookbacks can still require substantial source work; this change does not claim
 constant work for every malformed source.
 
+Later, a line break was made to end a type position (an empty row below a
+bare `As` or an expression `New` was being offered the whole type list). Type
+detection now lexes only the cursor's logical line, so the chunk walk and the
+sparse-tail fallback are gone; see `type_lookback_performance.md`.
+
 ## Regression evidence
 
 `cursorLexerWindowWork.test.ts` compares complete token metadata and cursor

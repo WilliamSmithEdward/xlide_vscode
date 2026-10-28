@@ -15,7 +15,6 @@
 
 import type { VbaToken } from '../lexer/tokenKinds';
 import { tokenize } from '../lexer/tokenize';
-import { completionTypeTokens } from './cursorContext';
 import { isWsc } from '../lexer/tokenKinds';
 import { lineStartAtAnyBreak } from '../../vbaSourceScan';
 import {
@@ -172,16 +171,7 @@ function readPartialTypeName(tokens: readonly VbaToken[]): {
 	return { prefix, qualifier, memberPrefix, beforeIndex: i };
 }
 
-function detectTypePosition(allTokens: readonly VbaToken[]): TypePosition | undefined {
-	// The longest suffix this detector reads is `As New Library.Type`: five
-	// non-newline tokens. Skip newlines as before, but avoid filtering the whole
-	// module prefix for every completion/casing word outside a type position.
-	const tokens: VbaToken[] = [];
-	for (let i = allTokens.length - 1; i >= 0 && tokens.length < 5; i--) {
-		const token = allTokens[i];
-		if (token.kind !== 'newline') { tokens.push(token); }
-	}
-	tokens.reverse();
+function detectTypePosition(tokens: readonly VbaToken[]): TypePosition | undefined {
 	if (tokens.length === 0) {
 		return undefined;
 	}
@@ -572,36 +562,33 @@ function exactTypeNameIndex(ctx: TypeCompletionContext): Map<string, TypeComplet
 	return byLower;
 }
 
-// Type detection consumes the last five grammar tokens across logical lines.
-// Lex only the chunks needed to find them; offsets/trivia stay local because
-// the detector reads kind and token text alone. A sparse tail of comments or
-// blank rows uses the shared full stream after a small number of chunks instead
-// of independently re-lexing thousands of rows on every request.
-const TYPE_GRAMMAR_CHUNK_LIMIT = 32;
-
-function boundedTypeGrammarTokens(source: string, offset: number): VbaToken[] {
-	let end = Math.max(0, Math.min(offset, source.length));
+// A type position belongs to the statement on the cursor's logical line: a
+// line break ends that statement unless a ` _` continuation joins the next
+// row. The longest suffix the detector reads is `As New Library.Type`, five
+// tokens, so lex only this logical line up to the cursor and keep its last
+// five. An empty row below `Dim x As Long` is then no longer read as `As Long`.
+// Token offsets stay local to the lexed slice: detection reads kind and text.
+export function typeGrammarTokens(source: string, offset: number): VbaToken[] {
+	const end = Math.max(0, Math.min(offset, source.length));
 	if (Number.isNaN(end)) { return []; }
-	let suffix: VbaToken[] = [];
 	const beforeBreak = (start: number): number => source[start - 1] === '\n' && source[start - 2] === '\r' ? start - 2 : start - 1;
-	for (let chunks = 0; chunks < TYPE_GRAMMAR_CHUNK_LIMIT; chunks++) {
-		let start = lineStartAtAnyBreak(source, end);
-		while (start > 0) {
-			const priorEnd = beforeBreak(start);
-			const priorStart = lineStartAtAnyBreak(source, priorEnd);
-			let at = priorEnd;
-			while (at > priorStart && isWsc(source[at - 1])) { at--; }
-			// Conservatively include underscore-ended lines, even when an
-			// identifier rather than trivia. This also covers comment chains.
-			if (at <= priorStart || source[at - 1] !== '_') { break; }
-			start = priorStart;
-		}
-		const chunk = tokenize(source.slice(start, end)).filter(token => token.kind !== 'comment' && token.kind !== 'newline');
-		suffix = [...chunk, ...suffix].slice(-5);
-		if (suffix.length >= 5 || start === 0) { return suffix; }
-		end = beforeBreak(start);
+	let start = lineStartAtAnyBreak(source, end);
+	while (start > 0) {
+		const priorEnd = beforeBreak(start);
+		const priorStart = lineStartAtAnyBreak(source, priorEnd);
+		let at = priorEnd;
+		while (at > priorStart && isWsc(source[at - 1])) { at--; }
+		// Conservatively include underscore-ended lines, even when an
+		// identifier rather than trivia. This also covers comment chains.
+		if (at <= priorStart || source[at - 1] !== '_') { break; }
+		start = priorStart;
 	}
-	return completionTypeTokens(source, offset);
+	const tokens = tokenize(source.slice(start, end)).filter(token => token.kind !== 'comment');
+	// A row included above that is not a continuation (`abc_`) still ends
+	// its statement with a newline token: keep only what follows it.
+	let first = tokens.length;
+	while (first > 0 && tokens.length - first < 5 && tokens[first - 1].kind !== 'newline') { first--; }
+	return tokens.slice(first);
 }
 
 /**
@@ -617,7 +604,7 @@ export function resolveTypeCompletions(
 	ctx: TypeCompletionContext = {},
 ): TypeCompletion[] {
 	const pos = detectTypePosition(
-		boundedTypeGrammarTokens(source, offset),
+		typeGrammarTokens(source, offset),
 	);
 	if (!pos) {
 		return [];

@@ -46,17 +46,12 @@ describe('type-position lookback work', () => {
         expect(work.cachedReads).toBe(0);
     });
 
-    it('falls back to the shared token stream only behind a long tail of comment lines', async () => {
-        const source = 'value = 1\n' + "' note\n".repeat(40);
+    it('lexes only the cursor row behind a long tail of comment lines below an As', () => {
+        const source = 'Dim total As\n' + "' note\n".repeat(40);
         resetWork();
         expect(resolveTypeCompletions(source, source.length)).toEqual([]);
-        expect(work.lexCalls).toBe(32);
-        expect(work.cachedCalls).toBe(1);
-        expect(work.cachedChars).toBe(source.length);
-        // The fallback walks the shared stream once: a few reads per token.
-        const { tokenize: realTokenize } = await vi.importActual<typeof import('../src/analyzer/lexer/tokenize')>('../../src/analyzer/lexer/tokenize');
-        expect(work.cachedReads).toBeGreaterThan(0);
-        expect(work.cachedReads).toBeLessThanOrEqual(3 * realTokenize(source).length);
+        expect(work.lexedChars).toBe(0);
+        expect(work.cachedCalls).toBe(0);
     });
     it('retains As New mode for the longest qualified suffix', () => {
         const source = 'Dim item As New Shapes.Pe';
@@ -69,12 +64,12 @@ describe('type-position lookback work', () => {
         expect(result.map(item => item.name)).toEqual(['Person']);
     });
 
-    it('preserves type position through continuation and newline tokens', () => {
-        for (const source of ['Dim item As _\r\n New _\r\n Shapes.Pe', 'Dim item As\nNew\nShapes.Pe']) {
-            expect(resolveTypeCompletions(source, source.length, {
-                projectTypes: [{ name: 'Person', kind: 'class', moduleName: 'Shapes' }],
-            }).map(item => item.name)).toEqual(['Person']);
-        }
+    it('preserves type position through continuations but not line breaks', () => {
+        const projectTypes = [{ name: 'Person', kind: 'class' as const, moduleName: 'Shapes' }];
+        const continued = 'Dim item As _\r\n New _\r\n Shapes.Pe';
+        expect(resolveTypeCompletions(continued, continued.length, { projectTypes }).map(item => item.name)).toEqual(['Person']);
+        const broken = 'Dim item As\nNew\nShapes.Pe';
+        expect(resolveTypeCompletions(broken, broken.length, { projectTypes })).toEqual([]);
     });
 
     it('keeps expression New, library qualifiers and non-type positions distinct', () => {
