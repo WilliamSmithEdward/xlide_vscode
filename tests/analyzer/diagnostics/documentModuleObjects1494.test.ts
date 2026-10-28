@@ -61,6 +61,12 @@ describe('a document module named bare, as a value (issue #1494)', () => {
 		expect(errors(project('access', [{ name: 'Form_Orders', type: 'document', source: '' }], ['Dim f As Form_Orders', 'Dim g As Form', 'Set g = f']))).toEqual([]);
 	});
 
+	it('judges an Access form as the engine lists it, a designer module of Access.Form', () => {
+		const form: OracleFixtureModule = { name: 'Form_Orders', type: 'accessform', designerClass: 'Access.Form', source: '' };
+		expect(errors(project('access', [form], ['Dim x As Report', 'Set x = Form_Orders']))).toHaveLength(1);
+		expect(errors(project('access', [form], ['Dim x As Form', 'Set x = Form_Orders']))).toEqual([]);
+	});
+
 	it('leaves a module whose class is another host\'s unjudged', () => {
 		// A worksheet module in a Word project is no Word class.
 		expect(errors(project('word', [{ name: 'Sheet1', type: 'document', source: '' }], ['Dim r As Range', 'Set r = Sheet1']))).toEqual([]);

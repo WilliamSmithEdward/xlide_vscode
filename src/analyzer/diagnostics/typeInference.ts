@@ -3333,7 +3333,11 @@ function documentModuleHostClasses(memberCtx: MemberCompletionContext): Readonly
 	const host = (memberCtx.model?.hostName ?? 'Excel').toLowerCase();
 	const classes = new Map<string, string>();
 	for (const candidate of memberCtx.projectClassMembers ?? []) {
-		if (candidate.kind !== 'document') {
+		// The engine lists an Access form or report as a designer module
+		// (accessform), which carries its Access class; the oracle's files
+		// list it as a document.
+		const accessDesign = candidate.kind === 'userform' && candidate.designerClass?.toLowerCase().startsWith('access.');
+		if (candidate.kind !== 'document' && !accessDesign) {
 			continue;
 		}
 		const lower = candidate.name.toLowerCase();
@@ -3361,7 +3365,7 @@ const DOCUMENT_MODULE_HOST_CLASSES = new WeakMap<MemberCompletionContext, Readon
 /** The document module a bare name is, as a value, or undefined. */
 export function documentModuleNamed(name: string, memberCtx: MemberCompletionContext | undefined): string | undefined {
 	return memberCtx && documentModuleHostClasses(memberCtx).has(name.toLowerCase())
-		? memberCtx.projectClassMembers?.find((candidate) => candidate.kind === 'document' && candidate.name.toLowerCase() === name.toLowerCase())?.name
+		? memberCtx.projectClassMembers?.find((candidate) => (candidate.kind === 'document' || candidate.kind === 'userform') && candidate.name.toLowerCase() === name.toLowerCase())?.name
 		: undefined;
 }
 
