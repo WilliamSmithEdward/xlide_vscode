@@ -95,6 +95,8 @@ export type AnalysisWorkerRequest =
 		referencedHosts?: readonly string[];
 		/** The names of the libraries the project references, when known. */
 		referencedLibraries?: readonly string[];
+		/** Which of those are other VBA projects. */
+		referencedProjects?: readonly string[];
 		/** The project's own name, read with the references. */
 		projectName?: string;
 		/**

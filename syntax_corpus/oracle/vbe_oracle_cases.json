@@ -212858,6 +212858,1193 @@
           "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
         }
       ]
+    },
+    {
+      "id": "issue1495_stdole_const_compile",
+      "description": "Issue #1495: Module1, with the default references: x = stdole.Checked compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = stdole.Checked\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1495_stdole_case_compile",
+      "description": "Issue #1495: Module1, with the default references: x = STDOLE.checked compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = STDOLE.checked\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1495_stdole_bracketed_compile",
+      "description": "Issue #1495: Module1, with the default references: x = [stdole].Checked compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = [stdole].Checked\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1495_stdole_continued_compile",
+      "description": "Issue #1495: Module1, with the default references: x = stdole _ / .Checked across a line continuation compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = stdole _\r\n            .Checked\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1495_stdole_print_compile",
+      "description": "Issue #1495: Module1, with the default references: Debug.Print stdole.Checked compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    Debug.Print stdole.Checked\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1495_stdole_bare_compile",
+      "description": "Issue #1495: Module1, with the default references: v = stdole, the library's name bare is rejected: Compile error: Expected variable or procedure, not project. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    v = stdole\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1495_scripting_const_compile",
+      "description": "Issue #1495: Module1, referencing Scripting Runtime: x = Scripting.BinaryCompare compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{420B2830-E718-11CF-893D-00A0C9054228}",
+          "major": 1,
+          "minor": 0
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = Scripting.BinaryCompare\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1495_scripting_enum_compile",
+      "description": "Issue #1495: Module1, referencing Scripting Runtime: x = Scripting.CompareMethod.BinaryCompare compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{420B2830-E718-11CF-893D-00A0C9054228}",
+          "major": 1,
+          "minor": 0
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = Scripting.CompareMethod.BinaryCompare\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1495_scripting_bare_compile",
+      "description": "Issue #1495: Module1, referencing Scripting Runtime: v = Scripting, the library's name bare is rejected: Compile error: Expected variable or procedure, not project. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{420B2830-E718-11CF-893D-00A0C9054228}",
+          "major": 1,
+          "minor": 0
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    v = Scripting\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1495_noref_adodb_compile",
+      "description": "Issue #1495: Module1, without an ActiveX Data Objects reference: x = ADODB.adOpenStatic is rejected: Compile error: Variable not defined. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = ADODB.adOpenStatic\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1495_dao_const_compile",
+      "description": "Issue #1495: Module1, referencing the Access database engine (Access's default): x = DAO.dbOpenDynaset compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{4AC9E1DA-5BAD-4AC7-86E3-24F4CDCECA28}",
+          "major": 12,
+          "minor": 0
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = DAO.dbOpenDynaset\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1495_noref_dao_compile",
+      "description": "Issue #1495: Module1, without the Access database engine reference: x = DAO.dbOpenDynaset is rejected: Compile error: Variable not defined. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = DAO.dbOpenDynaset\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1495_host_library_bare_compile",
+      "description": "Issue #1495: Module1: v = the host's own library name bare (Excel, Word, PowerPoint or Access) is rejected: Compile error: Expected variable or procedure, not project. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    v = Excel\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1495_vba_bare_compile",
+      "description": "Issue #1495: Module1: v = VBA, the library's name bare is rejected: Compile error: Expected variable or procedure, not project. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    v = VBA\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1495_project_vbaproject_compile",
+      "description": "Issue #1495: Module1: x = VBAProject.Module1.Helper() compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = VBAProject.Module1.Helper()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1495_project_project_compile",
+      "description": "Issue #1495: Module1: x = Project.Module1.Helper() is rejected: Compile error: Variable not defined. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = Project.Module1.Helper()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1495_word_stdole_const_compile",
+      "description": "Issue #1495: Module1, with the default references: x = stdole.Checked compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = stdole.Checked\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1495_word_stdole_case_compile",
+      "description": "Issue #1495: Module1, with the default references: x = STDOLE.checked compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = STDOLE.checked\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1495_word_stdole_bracketed_compile",
+      "description": "Issue #1495: Module1, with the default references: x = [stdole].Checked compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = [stdole].Checked\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1495_word_stdole_continued_compile",
+      "description": "Issue #1495: Module1, with the default references: x = stdole _ / .Checked across a line continuation compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = stdole _\r\n            .Checked\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1495_word_stdole_print_compile",
+      "description": "Issue #1495: Module1, with the default references: Debug.Print stdole.Checked compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    Debug.Print stdole.Checked\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1495_word_stdole_bare_compile",
+      "description": "Issue #1495: Module1, with the default references: v = stdole, the library's name bare is rejected: Compile error: Expected variable or procedure, not project. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    v = stdole\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1495_word_scripting_const_compile",
+      "description": "Issue #1495: Module1, referencing Scripting Runtime: x = Scripting.BinaryCompare compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{420B2830-E718-11CF-893D-00A0C9054228}",
+          "major": 1,
+          "minor": 0
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = Scripting.BinaryCompare\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1495_word_scripting_enum_compile",
+      "description": "Issue #1495: Module1, referencing Scripting Runtime: x = Scripting.CompareMethod.BinaryCompare compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{420B2830-E718-11CF-893D-00A0C9054228}",
+          "major": 1,
+          "minor": 0
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = Scripting.CompareMethod.BinaryCompare\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1495_word_scripting_bare_compile",
+      "description": "Issue #1495: Module1, referencing Scripting Runtime: v = Scripting, the library's name bare is rejected: Compile error: Expected variable or procedure, not project. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{420B2830-E718-11CF-893D-00A0C9054228}",
+          "major": 1,
+          "minor": 0
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    v = Scripting\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1495_word_noref_adodb_compile",
+      "description": "Issue #1495: Module1, without an ActiveX Data Objects reference: x = ADODB.adOpenStatic is rejected: Compile error: Variable not defined. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = ADODB.adOpenStatic\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1495_word_dao_const_compile",
+      "description": "Issue #1495: Module1, referencing the Access database engine (Access's default): x = DAO.dbOpenDynaset compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{4AC9E1DA-5BAD-4AC7-86E3-24F4CDCECA28}",
+          "major": 12,
+          "minor": 0
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = DAO.dbOpenDynaset\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1495_word_noref_dao_compile",
+      "description": "Issue #1495: Module1, without the Access database engine reference: x = DAO.dbOpenDynaset is rejected: Compile error: Variable not defined. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = DAO.dbOpenDynaset\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1495_word_host_library_bare_compile",
+      "description": "Issue #1495: Module1: v = the host's own library name bare (Excel, Word, PowerPoint or Access) is rejected: Compile error: Expected variable or procedure, not project. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    v = Word\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1495_word_vba_bare_compile",
+      "description": "Issue #1495: Module1: v = VBA, the library's name bare is rejected: Compile error: Expected variable or procedure, not project. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    v = VBA\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1495_word_project_vbaproject_compile",
+      "description": "Issue #1495: Module1: x = VBAProject.Module1.Helper() is rejected: Compile error: Variable not defined. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = VBAProject.Module1.Helper()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1495_word_project_project_compile",
+      "description": "Issue #1495: Module1: x = Project.Module1.Helper() compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = Project.Module1.Helper()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1495_powerpoint_stdole_const_compile",
+      "description": "Issue #1495: Module1, with the default references: x = stdole.Checked compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = stdole.Checked\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1495_powerpoint_stdole_case_compile",
+      "description": "Issue #1495: Module1, with the default references: x = STDOLE.checked compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = STDOLE.checked\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1495_powerpoint_stdole_bracketed_compile",
+      "description": "Issue #1495: Module1, with the default references: x = [stdole].Checked compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = [stdole].Checked\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1495_powerpoint_stdole_continued_compile",
+      "description": "Issue #1495: Module1, with the default references: x = stdole _ / .Checked across a line continuation compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = stdole _\r\n            .Checked\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1495_powerpoint_stdole_print_compile",
+      "description": "Issue #1495: Module1, with the default references: Debug.Print stdole.Checked compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    Debug.Print stdole.Checked\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1495_powerpoint_stdole_bare_compile",
+      "description": "Issue #1495: Module1, with the default references: v = stdole, the library's name bare is rejected: Compile error: Expected variable or procedure, not project. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    v = stdole\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1495_powerpoint_scripting_const_compile",
+      "description": "Issue #1495: Module1, referencing Scripting Runtime: x = Scripting.BinaryCompare compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{420B2830-E718-11CF-893D-00A0C9054228}",
+          "major": 1,
+          "minor": 0
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = Scripting.BinaryCompare\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1495_powerpoint_scripting_enum_compile",
+      "description": "Issue #1495: Module1, referencing Scripting Runtime: x = Scripting.CompareMethod.BinaryCompare compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{420B2830-E718-11CF-893D-00A0C9054228}",
+          "major": 1,
+          "minor": 0
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = Scripting.CompareMethod.BinaryCompare\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1495_powerpoint_scripting_bare_compile",
+      "description": "Issue #1495: Module1, referencing Scripting Runtime: v = Scripting, the library's name bare is rejected: Compile error: Expected variable or procedure, not project. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{420B2830-E718-11CF-893D-00A0C9054228}",
+          "major": 1,
+          "minor": 0
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    v = Scripting\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1495_powerpoint_noref_adodb_compile",
+      "description": "Issue #1495: Module1, without an ActiveX Data Objects reference: x = ADODB.adOpenStatic is rejected: Compile error: Variable not defined. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = ADODB.adOpenStatic\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1495_powerpoint_dao_const_compile",
+      "description": "Issue #1495: Module1, referencing the Access database engine (Access's default): x = DAO.dbOpenDynaset compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{4AC9E1DA-5BAD-4AC7-86E3-24F4CDCECA28}",
+          "major": 12,
+          "minor": 0
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = DAO.dbOpenDynaset\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1495_powerpoint_noref_dao_compile",
+      "description": "Issue #1495: Module1, without the Access database engine reference: x = DAO.dbOpenDynaset is rejected: Compile error: Variable not defined. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = DAO.dbOpenDynaset\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1495_powerpoint_host_library_bare_compile",
+      "description": "Issue #1495: Module1: v = the host's own library name bare (Excel, Word, PowerPoint or Access) is rejected: Compile error: Expected variable or procedure, not project. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    v = PowerPoint\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1495_powerpoint_vba_bare_compile",
+      "description": "Issue #1495: Module1: v = VBA, the library's name bare is rejected: Compile error: Expected variable or procedure, not project. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    v = VBA\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1495_powerpoint_project_vbaproject_compile",
+      "description": "Issue #1495: Module1: x = VBAProject.Module1.Helper() compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = VBAProject.Module1.Helper()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1495_powerpoint_project_project_compile",
+      "description": "Issue #1495: Module1: x = Project.Module1.Helper() is rejected: Compile error: Variable not defined. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = Project.Module1.Helper()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1495_access_stdole_const_compile",
+      "description": "Issue #1495: Module1, with the default references: x = stdole.Checked compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = stdole.Checked\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1495_access_stdole_case_compile",
+      "description": "Issue #1495: Module1, with the default references: x = STDOLE.checked compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = STDOLE.checked\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1495_access_stdole_bracketed_compile",
+      "description": "Issue #1495: Module1, with the default references: x = [stdole].Checked compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = [stdole].Checked\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1495_access_stdole_continued_compile",
+      "description": "Issue #1495: Module1, with the default references: x = stdole _ / .Checked across a line continuation compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = stdole _\r\n            .Checked\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1495_access_stdole_print_compile",
+      "description": "Issue #1495: Module1, with the default references: Debug.Print stdole.Checked compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    Debug.Print stdole.Checked\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1495_access_stdole_bare_compile",
+      "description": "Issue #1495: Module1, with the default references: v = stdole, the library's name bare is rejected: Compile error: Expected variable or procedure, not project. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    v = stdole\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1495_access_scripting_const_compile",
+      "description": "Issue #1495: Module1, referencing Scripting Runtime: x = Scripting.BinaryCompare compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{420B2830-E718-11CF-893D-00A0C9054228}",
+          "major": 1,
+          "minor": 0
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = Scripting.BinaryCompare\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1495_access_scripting_enum_compile",
+      "description": "Issue #1495: Module1, referencing Scripting Runtime: x = Scripting.CompareMethod.BinaryCompare compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{420B2830-E718-11CF-893D-00A0C9054228}",
+          "major": 1,
+          "minor": 0
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = Scripting.CompareMethod.BinaryCompare\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1495_access_scripting_bare_compile",
+      "description": "Issue #1495: Module1, referencing Scripting Runtime: v = Scripting, the library's name bare is rejected: Compile error: Expected variable or procedure, not project. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "references": [
+        {
+          "guid": "{420B2830-E718-11CF-893D-00A0C9054228}",
+          "major": 1,
+          "minor": 0
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    v = Scripting\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1495_access_noref_adodb_compile",
+      "description": "Issue #1495: Module1, without an ActiveX Data Objects reference: x = ADODB.adOpenStatic is rejected: Compile error: Variable not defined. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = ADODB.adOpenStatic\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1495_access_dao_const_compile",
+      "description": "Issue #1495: Module1, referencing the Access database engine (Access's default): x = DAO.dbOpenDynaset compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = DAO.dbOpenDynaset\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1495_access_host_library_bare_compile",
+      "description": "Issue #1495: Module1: v = the host's own library name bare (Excel, Word, PowerPoint or Access) is rejected: Compile error: Expected variable or procedure, not project. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    v = Access\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1495_access_vba_bare_compile",
+      "description": "Issue #1495: Module1: v = VBA, the library's name bare is rejected: Compile error: Expected variable or procedure, not project. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Helper() As Long\r\n    Helper = 1\r\nEnd Function\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    v = VBA\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
     }
   ]
 }
