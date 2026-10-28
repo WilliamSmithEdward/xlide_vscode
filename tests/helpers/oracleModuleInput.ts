@@ -63,6 +63,9 @@ export function oracleModuleInput(mod: OracleFixtureModule): VbaProjectModuleInp
 		// extension reads from the module's VB_Base.
 		...(mod.codeName !== undefined ? { documentType: documentTypeOf(mod.name) } : {}),
 		type: mod.type,
+		// The engine lists an Access form or report as a designer module
+		// (accessform), as the oracle's document modules of Access are.
+		...(mod.designerClass?.startsWith('Access.') ? { moduleKind: 'userform' as const } : {}),
 		source: mod.source,
 		...(implicitMembers !== undefined ? { implicitMembers } : {}),
 		...(mod.designerClass !== undefined ? { designerClass: mod.designerClass } : {}),

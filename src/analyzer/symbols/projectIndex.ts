@@ -1922,6 +1922,7 @@ export class ProjectIndex {
 				...(symbol.kind === 'propertySet' ? { setAccessor: true } : {}),
 				...(symbol.kind === 'sub' ? { sub: true } : {}),
 				...(memberProcedureKind(symbol) ? { procedureParams: { [memberProcedureKind(symbol)!]: projectObjectMemberParameters(symbol, mod) } } : {}),
+				...(symbol.kind === 'event' ? { eventParams: projectObjectMemberParameters(symbol, mod) } : {}),
 				attributes: mergeMemberAttributes(undefined, symbol.attributes),
 			});
 		}

@@ -295,6 +295,12 @@ export interface VbaProjectClassMember {
 	 * interface does (issue #291). Absent for a variable.
 	 */
 	procedureParams?: Partial<Record<'sub' | 'function' | 'propertyGet' | 'propertyLet' | 'propertySet', VbaProcedureParam[]>>;
+	/**
+	 * An event's parameters, each typed as VBA types it: its As clause or
+	 * type character, else the declaring module's DefType (issue #1493).
+	 * `signature` keeps the event as written.
+	 */
+	eventParams?: VbaProcedureParam[];
 	/** Exported attribute lines attached to the member declaration. */
 	attributes?: VbaSymbolAttribute[];
 }
