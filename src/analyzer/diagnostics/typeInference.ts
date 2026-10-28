@@ -2402,6 +2402,12 @@ export function inferAtomicExpressionType(
 		if (sig?.returnType) {
 			return { type: sig.returnType, label: `${name} As ${sig.returnType}`, span };
 		}
+		// A document module named bare is its module's object, ahead of a host
+		// global of the same name: `Set ws = ThisWorkbook` (issue #1494).
+		const document = documentModuleNamed(name, memberCtx);
+		if (document) {
+			return { type: document, label: `the document module ${document}`, span };
+		}
 		const externalObject = inferBareExternalObjectExpressionType(
 			name,
 			span,
@@ -3311,6 +3317,57 @@ function projectDocumentHostTypes(memberCtx: MemberCompletionContext): ReadonlyM
 }
 
 const PROJECT_DOCUMENT_HOST_TYPES = new WeakMap<MemberCompletionContext, ReadonlyMap<string, string>>();
+
+/**
+ * Lowercased document module name -> the lowercased host class it is, where
+ * that class is the current host's own (issue #1494): its designer class,
+ * then its document type, then its name. An Access form or report module is
+ * named after its object, `Form_Orders`, `Report_Sales`. A module whose
+ * class is another host's, or unknown, is left out, so nothing judges it.
+ */
+function documentModuleHostClasses(memberCtx: MemberCompletionContext): ReadonlyMap<string, string> {
+	const cached = DOCUMENT_MODULE_HOST_CLASSES.get(memberCtx);
+	if (cached) {
+		return cached;
+	}
+	const host = (memberCtx.model?.hostName ?? 'Excel').toLowerCase();
+	const classes = new Map<string, string>();
+	for (const candidate of memberCtx.projectClassMembers ?? []) {
+		// The engine lists an Access form or report as a designer module
+		// (accessform), which carries its Access class; the oracle's files
+		// list it as a document.
+		const accessDesign = candidate.kind === 'userform' && candidate.designerClass?.toLowerCase().startsWith('access.');
+		if (candidate.kind !== 'document' && !accessDesign) {
+			continue;
+		}
+		const lower = candidate.name.toLowerCase();
+		let hostClass = candidate.designerClass;
+		if (!hostClass && host === 'access') {
+			hostClass = lower.startsWith('form_') ? 'Access.Form' : lower.startsWith('report_') ? 'Access.Report' : undefined;
+		} else if (!hostClass) {
+			switch (eventHandlerDocumentTypeForContext({ moduleName: candidate.name, moduleKind: 'document', documentType: candidate.documentType })) {
+				case 'workbook': hostClass = 'Excel.Workbook'; break;
+				case 'worksheet': hostClass = 'Excel.Worksheet'; break;
+				case 'chart': hostClass = 'Excel.Chart'; break;
+				case 'document': hostClass = 'Word.Document'; break;
+			}
+		}
+		if (hostClass && hostClass.toLowerCase().startsWith(`${host}.`)) {
+			classes.set(lower, hostClass.toLowerCase());
+		}
+	}
+	DOCUMENT_MODULE_HOST_CLASSES.set(memberCtx, classes);
+	return classes;
+}
+
+const DOCUMENT_MODULE_HOST_CLASSES = new WeakMap<MemberCompletionContext, ReadonlyMap<string, string>>();
+
+/** The document module a bare name is, as a value, or undefined. */
+export function documentModuleNamed(name: string, memberCtx: MemberCompletionContext | undefined): string | undefined {
+	return memberCtx && documentModuleHostClasses(memberCtx).has(name.toLowerCase())
+		? memberCtx.projectClassMembers?.find((candidate) => (candidate.kind === 'document' || candidate.kind === 'userform') && candidate.name.toLowerCase() === name.toLowerCase())?.name
+		: undefined;
+}
 
 export function resolveKnownObjectAssignmentType(
 	type: string | undefined,
@@ -5165,6 +5222,16 @@ export function objectAssignmentIncompatibilityReason(
 	}
 	if (actualObject.kind === 'project' && (implementsType ?? implementsObjectType)(actualObject, expected)) {
 		return undefined;
+	}
+	// A document module is its host's object and nothing else: Sheet1 into a
+	// Workbook, a Range, a Chart, a class or an interface it does not
+	// implement raises 13, and into a Worksheet it runs (issue #1494, run in
+	// Excel, Word and Access 16.0).
+	const documentClass = actualObject.kind === 'project' ? documentModuleHostClasses(memberCtx).get(actualObject.key) : undefined;
+	if (documentClass && (expected.kind === 'host' || expected.kind === 'project')) {
+		return expected.kind === 'host' && (documentClass === expected.key || HOST_VALUES_ALSO_OF_TYPE.get(documentClass) === expected.key)
+			? undefined
+			: `This object type is not compatible with ${expected.display}.`;
 	}
 	// A Set between two class types is checked when it runs, by QueryInterface,
 	// so it compiles whenever the object could support the target (issue #109).

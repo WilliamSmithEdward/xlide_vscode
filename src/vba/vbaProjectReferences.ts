@@ -47,6 +47,11 @@ export interface VbaProjectReference {
 	libid: string;
 }
 
+/** The names of the references that are other VBA projects, not type libraries. */
+export function referencedProjectNames(references: readonly VbaProjectReference[]): string[] {
+	return references.filter((reference) => reference.kind === 'project').map((reference) => reference.name);
+}
+
 /** A reference with the byte span its records occupy in the dir stream. */
 export interface VbaProjectReferenceSpan {
 	reference: VbaProjectReference;

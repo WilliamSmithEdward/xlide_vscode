@@ -28,7 +28,7 @@ const api = runInNewContext(`
 	unwritableCheckpoint: (file: string) => string | undefined;
 };
 
-const VALUE_OPTIONS = ['--cases', '--case', '--checkpoint', '--timeout', '--timeout-retries', '--cases-per-instance', '--cases-per-excel', '--dialog-hold-seconds'];
+const VALUE_OPTIONS = ['--cases', '--case', '--changed-from', '--checkpoint', '--timeout', '--timeout-retries', '--cases-per-instance', '--cases-per-excel', '--dialog-hold-seconds'];
 
 describe('oracle option values', () => {
 	it.each(VALUE_OPTIONS)('refuses %s with no value', (flag) => {

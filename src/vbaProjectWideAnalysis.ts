@@ -27,7 +27,7 @@ import { evictOldest } from './util/boundedMap';
 import { analyzeVbaModuleSource, type VbaModuleAnalysisDiagnostic, type VbaModuleAnalysisFailure } from './vbaModuleAnalysis';
 import { hostTokenForFileName } from './analyzer/host/hostRegistry';
 import { referencedHostTokens } from './analyzer/host/hostLibraries';
-import type { VbaProjectReference } from './vba/vbaProjectReferences';
+import { referencedProjectNames, type VbaProjectReference } from './vba/vbaProjectReferences';
 import type { WorkbookSheetInfo } from './analyzer/symbols/sheetChanges';
 import {
     buildVbaProjectIndexAsync,
@@ -171,6 +171,8 @@ export interface ProjectAnalysisWorker {
         referencedHosts?: readonly string[];
         /** The names of the libraries the project references, when known. */
         referencedLibraries?: readonly string[];
+        /** Which of those are other VBA projects. */
+        referencedProjects?: readonly string[];
         /** The project's own name, read with the references. */
         projectName?: string;
         /** The host type the module's designer makes it, when the engine read one. */
@@ -518,6 +520,7 @@ async function runProjectAnalysis(
         // Every project references VBA itself, so an empty list means the
         // references were not read, and the rules that need them stay quiet.
         const referencedLibraries = references.length > 0 ? references.map((reference) => reference.name) : undefined;
+        const referencedProjects = references.length > 0 ? referencedProjectNames(references) : undefined;
         const openSources = openModuleSourceMapForProject(filePath);
         for (const mod of modules) {
             mod.source = openSources.get(mod.name.toLowerCase()) ?? mod.source;
@@ -642,6 +645,7 @@ async function runProjectAnalysis(
                                 host: hostTokenForFileName(filePath),
                                 referencedHosts,
                                 referencedLibraries,
+                                referencedProjects,
                                 projectName,
                                 workbookSheets,
                             }),
@@ -689,6 +693,7 @@ async function runProjectAnalysis(
                         host: hostTokenForFileName(filePath),
                         referencedHosts,
                         referencedLibraries,
+                        referencedProjects,
                         projectName,
                         workbookSheets,
                     }),

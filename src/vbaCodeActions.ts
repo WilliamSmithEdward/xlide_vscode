@@ -15,8 +15,11 @@ import {
     isXlideDiagnosticSource,
     normalizeDiagnosticCode,
     resolveDiagnosticCodeActions,
+    type ExpressionTypeContext,
     type VbaRefactorResult,
 } from './analyzer';
+import type { VbaProjectIndexService } from './vbaProjectIndexService';
+import { extractVariableTypeContext } from './vbaRefactorTypeContext';
 import {
     XLIDE_DIAGNOSTIC_DATA,
     type XlideDiagnosticWithData,
@@ -36,6 +39,9 @@ export const XLIDE_ANALYZE_CURRENT_MODULE_ACTION_KIND = XLIDE_SOURCE_ACTION_KIND
 export const XLIDE_EXPORT_CURRENT_MODULE_ACTION_KIND = XLIDE_SOURCE_ACTION_KIND.append('exportCurrentModule');
 
 export class VbaCodeActionProvider implements vscode.CodeActionProvider {
+    /** The project index, for Extract Variable's types; absent in tests that need none. */
+    constructor(private readonly _projects?: VbaProjectIndexService) {}
+
     public provideCodeActions(
         document: vscode.TextDocument,
         _range: vscode.Range,
@@ -75,7 +81,10 @@ export class VbaCodeActionProvider implements vscode.CodeActionProvider {
             actions.push(action);
         }
         if (codeActionKindRequested(context.only, vscode.CodeActionKind.Refactor)) {
-            actions.push(...refactorActions(document, _range, source));
+            // Extract Variable needs a selection; a bare caret, which every
+            // cursor move asks about, reads no project facts.
+            const typeContext = _range.isEmpty ? undefined : extractVariableTypeContext(document, this._projects);
+            actions.push(...refactorActions(document, _range, source, typeContext));
         }
         if (!wantsQuickFix) {
             return actions;
@@ -170,6 +179,7 @@ function refactorActions(
     document: vscode.TextDocument,
     range: vscode.Range,
     source: string,
+    typeContext: ExpressionTypeContext | undefined,
 ): vscode.CodeAction[] {
     const out: vscode.CodeAction[] = [];
     const offset = document.offsetAt(range.start);
@@ -177,7 +187,7 @@ function refactorActions(
 
     const local: Array<[VbaRefactorResult, vscode.CodeActionKind]> = [
         [extractMethod({ source, span }), vscode.CodeActionKind.RefactorExtract],
-        [extractVariable({ source, span }), vscode.CodeActionKind.RefactorExtract],
+        [extractVariable({ source, span, typeContext }), vscode.CodeActionKind.RefactorExtract],
         [inlineVariable({ source, offset }), vscode.CodeActionKind.RefactorInline],
         [encapsulateField({ source, offset }), vscode.CodeActionKind.RefactorRewrite],
     ];
