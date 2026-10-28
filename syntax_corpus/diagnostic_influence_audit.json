@@ -1068,7 +1068,7 @@
     {
       "code": "argument-type-mismatch",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "Excel/VBE compile and runtime oracle plus deterministic XLIDE literal, return-type, numeric-expression, string-concatenation, and project signature model; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports; issue #1411 an untyped parameter typed by its declaring module's DefType: Excel, Word, PowerPoint and Access 16.0 (build 20430) through the VBE oracle",
+      "sourceOfTruth": "Excel/VBE compile and runtime oracle plus deterministic XLIDE literal, return-type, numeric-expression, string-concatenation, and project signature model; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports; issue #1411 an untyped parameter typed by its declaring module's DefType: Excel, Word, PowerPoint and Access 16.0 (build 20430) through the VBE oracle; issue #1494 a document module named bare, passed to a parameter of another host class: Excel, Word and Access 16.0 (build 20527) through the VBE oracle, run",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "setter_index_byval_bad",
@@ -1186,7 +1186,11 @@
         "issue1411_powerpoint_f_numeric_string_literal_runtime",
         "issue1411_powerpoint_f_text_string_literal_runtime",
         "issue1411_access_f_numeric_string_literal_runtime",
-        "issue1411_access_f_text_string_literal_runtime"
+        "issue1411_access_f_text_string_literal_runtime",
+        "issue1494_sheet_byval_range_runtime",
+        "issue1494_sheet_byref_range_runtime",
+        "issue1494_word_document_byval_range_runtime",
+        "issue1494_access_form_byval_report_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -1733,7 +1737,7 @@
     {
       "code": "assignment-object-type-mismatch",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "Excel/VBE runtime oracle (a Set of the wrong object class compiles and raises 13, issue #202) plus deterministic XLIDE object assignment compatibility model; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports; neighbouring forms measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-15)",
+      "sourceOfTruth": "Excel/VBE runtime oracle (a Set of the wrong object class compiles and raises 13, issue #202) plus deterministic XLIDE object assignment compatibility model; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports; neighbouring forms measured in Excel 16.0 (Office Home 2024, 64-bit, 2026-10-15); issue #1494 a document module named bare, Set into its own or another host class, a project class or an interface: Excel, Word and Access 16.0 (build 20527) through the VBE oracle, run",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "indexed_property_set_wrongclass",
@@ -1788,7 +1792,31 @@
         "document_type_sheet_workbook_runtime",
         "document_type_sheet_worksheet_runtime",
         "document_type_sheet_range_runtime",
-        "document_type_thisworkbook_application_runtime"
+        "document_type_thisworkbook_application_runtime",
+        "issue1494_sheet_into_workbook_runtime",
+        "issue1494_sheet_into_range_runtime",
+        "issue1494_sheet_into_chart_runtime",
+        "issue1494_sheet_into_class_runtime",
+        "issue1494_sheet_into_interface_runtime",
+        "issue1494_workbook_into_worksheet_runtime",
+        "issue1494_renamed_workbook_into_worksheet_runtime",
+        "issue1494_renamed_sheet_into_workbook_runtime",
+        "issue1494_sheet_into_worksheet_runtime",
+        "issue1494_sheet_into_object_runtime",
+        "issue1494_sheet_into_variant_runtime",
+        "issue1494_workbook_into_workbook_runtime",
+        "issue1494_renamed_sheet_into_worksheet_runtime",
+        "issue1494_local_shadows_sheet_runtime",
+        "issue1494_word_document_into_range_runtime",
+        "issue1494_word_renamed_document_into_range_runtime",
+        "issue1494_word_document_into_document_runtime",
+        "issue1494_word_renamed_document_into_document_runtime",
+        "issue1494_word_document_into_object_runtime",
+        "issue1494_access_form_into_report_runtime",
+        "issue1494_access_report_into_form_runtime",
+        "issue1494_access_form_into_form_runtime",
+        "issue1494_access_form_into_object_runtime",
+        "issue1494_access_form_into_its_interface_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],

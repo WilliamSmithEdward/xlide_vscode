@@ -16,6 +16,7 @@ import { moduleKindFromType } from '../vbaProjectAnalysis';
 import type { ModuleSymbolKind } from '../analyzer/symbols/symbolModel';
 import { isVbaDocument } from '../xlideFileSystem';
 import { workspaceEditFor } from '../vbaWorkspaceEdit';
+import { extractVariableTypeContext } from '../vbaRefactorTypeContext';
 import { statusMessage, type CommandDeps } from './shared';
 import { implementsNames } from '../analyzer/refactor/implementInterface';
 import { refreshProjectState, writeProjectModule } from '../projectModuleOperations';
@@ -36,7 +37,11 @@ export function registerRefactorCommands(deps: CommandDeps): vscode.Disposable[]
             (source, editor) => extractMethod({ source, span: selectionSpan(editor) }),
         )),
         registerXlideCommand('xlide.refactor.extractVariable', () => runLocal(
-            (source, editor) => extractVariable({ source, span: selectionSpan(editor) }),
+            (source, editor) => extractVariable({
+                source,
+                span: selectionSpan(editor),
+                typeContext: extractVariableTypeContext(editor.document, deps.projectIndexService),
+            }),
         )),
         registerXlideCommand('xlide.refactor.inlineVariable', () => runLocal(
             (source, editor) => inlineVariable({ source, offset: caretOffset(editor) }),

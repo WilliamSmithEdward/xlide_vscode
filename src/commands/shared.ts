@@ -3,6 +3,7 @@ import type { ProjectEngine } from '../projectEngine';
 import type { ProjectExplorer, XlideNode } from '../projectExplorer';
 import type { XlideFileSystemProvider } from '../xlideFileSystem';
 import type { VbaSymbolIndex } from '../vbaSymbolIndex';
+import type { VbaProjectIndexService } from '../vbaProjectIndexService';
 import {
     XLIDE_SCHEME,
     activeLocalVbaEditor,
@@ -30,6 +31,8 @@ export interface CommandDeps {
     fsProvider: XlideFileSystemProvider;
     out: vscode.OutputChannel;
     vbaIndex: VbaSymbolIndex;
+    /** The project facts the language providers share, for a refactoring that types names. */
+    projectIndexService?: VbaProjectIndexService;
 }
 
 /**

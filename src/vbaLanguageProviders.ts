@@ -57,7 +57,7 @@ export function registerVbaLanguageProviders(
     workerClient?: AnalysisWorker,
     log: (line: string) => void = () => undefined,
     errorWorker?: AnalysisWorker,
-): VbaSymbolIndex {
+): { index: VbaSymbolIndex; projectIndexService: VbaProjectIndexService } {
     const index = new VbaSymbolIndex(bridge);
     const projectIndexService = new VbaProjectIndexService(index);
     // Which .vbp a file on disk belongs to: the answer every provider below
@@ -105,7 +105,7 @@ export function registerVbaLanguageProviders(
         ),
         vscode.languages.registerCodeActionsProvider(
             VBA_SELECTOR,
-            new VbaCodeActionProvider(),
+            new VbaCodeActionProvider(projectIndexService),
             {
                 providedCodeActionKinds: [
                     vscode.CodeActionKind.QuickFix,
@@ -139,5 +139,5 @@ export function registerVbaLanguageProviders(
         }),
     );
 
-    return index;
+    return { index, projectIndexService };
 }

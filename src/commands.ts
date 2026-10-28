@@ -3,6 +3,7 @@ import { ProjectEngine } from './projectEngine';
 import { ProjectExplorer } from './projectExplorer';
 import { XlideFileSystemProvider } from './xlideFileSystem';
 import { VbaSymbolIndex } from './vbaSymbolIndex';
+import type { VbaProjectIndexService } from './vbaProjectIndexService';
 import { type CommandDeps } from './commands/shared';
 import { registerAnalysisCommands } from './commands/analysisCommands';
 import { registerMiscCommands } from './commands/miscCommands';
@@ -31,8 +32,9 @@ export function registerCommands(
     fsProvider: XlideFileSystemProvider,
     out: vscode.OutputChannel,
     vbaIndex: VbaSymbolIndex,
+    projectIndexService?: VbaProjectIndexService,
 ): vscode.Disposable[] {
-    const deps: CommandDeps = { context, bridge, explorer, fsProvider, out, vbaIndex };
+    const deps: CommandDeps = { context, bridge, explorer, fsProvider, out, vbaIndex, projectIndexService };
     let search: ModuleSearchPanel | undefined;
 
     return [
