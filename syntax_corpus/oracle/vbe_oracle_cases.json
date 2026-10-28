@@ -212858,6 +212858,1154 @@
           "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
         }
       ]
+    },
+    {
+      "id": "issue1481_word_inline_me_compile",
+      "description": "Issue #1481: with CommandButton1 on it, the document's or sheet's or slide's module: Debug.Print Me.CommandButton1.Caption compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub T()\r\n    Debug.Print Me.CommandButton1.Caption\r\nEnd Sub\r\n",
+          "designerClass": "Word.Document",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1481_word_none_me_compile",
+      "description": "Issue #1481: with no control on it, the document's or sheet's module: Debug.Print Me.CommandButton1.Caption is rejected: Compile error: Method or data member not found. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub T()\r\n    Debug.Print Me.CommandButton1.Caption\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1481_word_inline_me_nope_compile",
+      "description": "Issue #1481: with CommandButton1 on it, its module: Debug.Print Me.Nope is rejected: Compile error: Method or data member not found. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub T()\r\n    Debug.Print Me.Nope\r\nEnd Sub\r\n",
+          "designerClass": "Word.Document",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1481_word_inline_bare_compile",
+      "description": "Issue #1481: with CommandButton1 on it, its module: Debug.Print CommandButton1.Caption compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub T()\r\n    Debug.Print CommandButton1.Caption\r\nEnd Sub\r\n",
+          "designerClass": "Word.Document",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1481_word_none_bare_compile",
+      "description": "Issue #1481: with no control on it, the document's module: Debug.Print CommandButton1.Caption is rejected: Compile error: Variable not defined. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub T()\r\n    Debug.Print CommandButton1.Caption\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1481_word_inline_qualified_compile",
+      "description": "Issue #1481: with CommandButton1 on it, Module1: Debug.Print <module>.CommandButton1.Caption compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nEnd Sub\r\n",
+          "designerClass": "Word.Document",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Debug.Print ThisDocument.CommandButton1.Caption\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1481_word_none_qualified_compile",
+      "description": "Issue #1481: with no control on it, Module1: Debug.Print <module>.CommandButton1.Caption is rejected: Compile error: Method or data member not found. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Debug.Print ThisDocument.CommandButton1.Caption\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1481_word_floating_me_compile",
+      "description": "Issue #1481: with a floating CommandButton1 on the page, ThisDocument: Debug.Print Me.CommandButton1.Caption compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1",
+          "layout": "floating"
+        }
+      ],
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub T()\r\n    Debug.Print Me.CommandButton1.Caption\r\nEnd Sub\r\n",
+          "designerClass": "Word.Document",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1481_word_header_me_compile",
+      "description": "Issue #1481: with CheckBox1 in the page header, ThisDocument: Debug.Print Me.CheckBox1.Value compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CheckBox.1",
+          "name": "CheckBox1",
+          "layout": "header"
+        }
+      ],
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub T()\r\n    Debug.Print Me.CheckBox1.Value\r\nEnd Sub\r\n",
+          "designerClass": "Word.Document",
+          "implicitMembers": [
+            {
+              "name": "CheckBox1",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1481_word_header_bare_compile",
+      "description": "Issue #1481: with CheckBox1 in the page header, ThisDocument: Debug.Print CheckBox1.Value compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CheckBox.1",
+          "name": "CheckBox1",
+          "layout": "header"
+        }
+      ],
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub T()\r\n    Debug.Print CheckBox1.Value\r\nEnd Sub\r\n",
+          "designerClass": "Word.Document",
+          "implicitMembers": [
+            {
+              "name": "CheckBox1",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1481_word_textbox_bare_compile",
+      "description": "Issue #1481: with TextBox1 on it, ThisDocument: Debug.Print TextBox1.Text compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.TextBox.1",
+          "name": "TextBox1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub T()\r\n    Debug.Print TextBox1.Text\r\nEnd Sub\r\n",
+          "designerClass": "Word.Document",
+          "implicitMembers": [
+            {
+              "name": "TextBox1",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1481_word_textbox_wrong_member_compile",
+      "description": "Issue #1481: with TextBox1 on it, its module: Debug.Print TextBox1.Nope, a member bound when it runs compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.TextBox.1",
+          "name": "TextBox1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub T()\r\n    Debug.Print TextBox1.Nope\r\nEnd Sub\r\n",
+          "designerClass": "Word.Document",
+          "implicitMembers": [
+            {
+              "name": "TextBox1",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1481_word_renamed_inline_me_compile",
+      "description": "Issue #1481: with CommandButton1 on it and ThisDocument renamed DocCode: Debug.Print Me.CommandButton1.Caption compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "codeName": "DocCode",
+          "source": "Option Explicit\r\nPublic Sub T()\r\n    Debug.Print Me.CommandButton1.Caption\r\nEnd Sub\r\n",
+          "designerClass": "Word.Document",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1481_word_renamed_qualified_compile",
+      "description": "Issue #1481: with CommandButton1 on it and the module renamed, Module1 names the control through the new name compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "codeName": "DocCode",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nEnd Sub\r\n",
+          "designerClass": "Word.Document",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Debug.Print DocCode.CommandButton1.Caption\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1481_word_typed_variable_compile",
+      "description": "Issue #1481: with CommandButton1 on it, Module1: a variable As the module, Set to it, then .CommandButton1.Caption compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nEnd Sub\r\n",
+          "designerClass": "Word.Document",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim d As ThisDocument\r\n    Set d = ThisDocument\r\n    Debug.Print d.CommandButton1.Caption\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1481_word_renamed_typed_variable_compile",
+      "description": "Issue #1481: with CommandButton1 on it and ThisDocument renamed DocCode, Module1: Dim d As DocCode, Set d = DocCode, then d.CommandButton1.Caption compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "codeName": "DocCode",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nEnd Sub\r\n",
+          "designerClass": "Word.Document",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim d As DocCode\r\n    Set d = DocCode\r\n    Debug.Print d.CommandButton1.Caption\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1481_word_renamed_none_content_compile",
+      "description": "Issue #1481: with ThisDocument renamed DocCode and no control: Debug.Print Me.Content.Text compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "codeName": "DocCode",
+          "source": "Option Explicit\r\nPublic Sub T()\r\n    Debug.Print Me.Content.Text\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1481_inline_me_compile",
+      "description": "Issue #1481: with CommandButton1 on it, the document's or sheet's or slide's module: Debug.Print Me.CommandButton1.Caption compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub T()\r\n    Debug.Print Me.CommandButton1.Caption\r\nEnd Sub\r\n",
+          "designerClass": "Excel.Worksheet",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1481_inline_me_nope_compile",
+      "description": "Issue #1481: with CommandButton1 on it, its module: Debug.Print Me.Nope is rejected: Compile error: Method or data member not found. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub T()\r\n    Debug.Print Me.Nope\r\nEnd Sub\r\n",
+          "designerClass": "Excel.Worksheet",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1481_inline_bare_compile",
+      "description": "Issue #1481: with CommandButton1 on it, its module: Debug.Print CommandButton1.Caption compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub T()\r\n    Debug.Print CommandButton1.Caption\r\nEnd Sub\r\n",
+          "designerClass": "Excel.Worksheet",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1481_inline_qualified_compile",
+      "description": "Issue #1481: with CommandButton1 on it, Module1: Debug.Print <module>.CommandButton1.Caption compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nEnd Sub\r\n",
+          "designerClass": "Excel.Worksheet",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Debug.Print Sheet1.CommandButton1.Caption\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1481_inline_qualified_nope_compile",
+      "description": "Issue #1481: with CommandButton1 on it, Module1: Debug.Print <module>.Nope is rejected: Compile error: Method or data member not found. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nEnd Sub\r\n",
+          "designerClass": "Excel.Worksheet",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Debug.Print Sheet1.Nope\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1481_textbox_wrong_member_compile",
+      "description": "Issue #1481: with TextBox1 on it, its module: Debug.Print TextBox1.Nope, a member bound when it runs compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.TextBox.1",
+          "name": "TextBox1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub T()\r\n    Debug.Print TextBox1.Nope\r\nEnd Sub\r\n",
+          "designerClass": "Excel.Worksheet",
+          "implicitMembers": [
+            {
+              "name": "TextBox1",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1481_typed_variable_compile",
+      "description": "Issue #1481: with CommandButton1 on it, Module1: a variable As the module, Set to it, then .CommandButton1.Caption compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nEnd Sub\r\n",
+          "designerClass": "Excel.Worksheet",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim d As Sheet1\r\n    Set d = Sheet1\r\n    Debug.Print d.CommandButton1.Caption\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1481_renamed_qualified_compile",
+      "description": "Issue #1481: with CommandButton1 on it and the module renamed, Module1 names the control through the new name compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "codeName": "DataSheet",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nEnd Sub\r\n",
+          "designerClass": "Excel.Worksheet",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Debug.Print DataSheet.CommandButton1.Caption\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1481_none_me_compile",
+      "description": "Issue #1481: with no control on it, the document's or sheet's module: Debug.Print Me.CommandButton1.Caption is rejected: Compile error: Method or data member not found. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub T()\r\n    Debug.Print Me.CommandButton1.Caption\r\nEnd Sub\r\n",
+          "designerClass": "Excel.Worksheet",
+          "implicitMembers": []
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1481_none_qualified_compile",
+      "description": "Issue #1481: with no control on it, Module1: Debug.Print <module>.CommandButton1.Caption is rejected: Compile error: Method or data member not found. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nEnd Sub\r\n",
+          "designerClass": "Excel.Worksheet",
+          "implicitMembers": []
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Debug.Print Sheet1.CommandButton1.Caption\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1481_powerpoint_inline_me_compile",
+      "description": "Issue #1481: with CommandButton1 on it, the document's or sheet's or slide's module: Debug.Print Me.CommandButton1.Caption compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "Slide1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub T()\r\n    Debug.Print Me.CommandButton1.Caption\r\nEnd Sub\r\n",
+          "designerClass": "PowerPoint.Slide",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1481_powerpoint_inline_me_nope_compile",
+      "description": "Issue #1481: with CommandButton1 on it, its module: Debug.Print Me.Nope is rejected: Compile error: Method or data member not found. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "Slide1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub T()\r\n    Debug.Print Me.Nope\r\nEnd Sub\r\n",
+          "designerClass": "PowerPoint.Slide",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1481_powerpoint_inline_bare_compile",
+      "description": "Issue #1481: with CommandButton1 on it, its module: Debug.Print CommandButton1.Caption compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "Slide1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub T()\r\n    Debug.Print CommandButton1.Caption\r\nEnd Sub\r\n",
+          "designerClass": "PowerPoint.Slide",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1481_powerpoint_inline_qualified_compile",
+      "description": "Issue #1481: with CommandButton1 on it, Module1: Debug.Print <module>.CommandButton1.Caption compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "Slide1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nEnd Sub\r\n",
+          "designerClass": "PowerPoint.Slide",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Debug.Print Slide1.CommandButton1.Caption\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1481_powerpoint_inline_qualified_nope_compile",
+      "description": "Issue #1481: with CommandButton1 on it, Module1: Debug.Print <module>.Nope is rejected: Compile error: Method or data member not found. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "Slide1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nEnd Sub\r\n",
+          "designerClass": "PowerPoint.Slide",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Debug.Print Slide1.Nope\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1481_powerpoint_textbox_wrong_member_compile",
+      "description": "Issue #1481: with TextBox1 on it, its module: Debug.Print TextBox1.Nope, a member bound when it runs compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.TextBox.1",
+          "name": "TextBox1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "Slide1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub T()\r\n    Debug.Print TextBox1.Nope\r\nEnd Sub\r\n",
+          "designerClass": "PowerPoint.Slide",
+          "implicitMembers": [
+            {
+              "name": "TextBox1",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1481_powerpoint_typed_variable_compile",
+      "description": "Issue #1481: with CommandButton1 on it, Module1: a variable As the module, Set to it, then .CommandButton1.Caption compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "Slide1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nEnd Sub\r\n",
+          "designerClass": "PowerPoint.Slide",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim d As Slide1\r\n    Set d = Slide1\r\n    Debug.Print d.CommandButton1.Caption\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
     }
   ]
 }

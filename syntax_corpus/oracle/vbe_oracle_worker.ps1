@@ -814,6 +814,77 @@ function Add-DesignerControls($Component, $ModuleSpec) {
     }
 }
 
+# ActiveX controls on a document, a sheet or a slide are members of the
+# module behind it (issue #1481). The case's `documentControls` names each
+# one, its ProgID and where it goes. In Word, `inline` in the body (the
+# default), `floating` on the page, or `header` in the first section's
+# primary header; in Excel, on the first worksheet (Sheet1); in PowerPoint,
+# on the first slide, which is added blank (ppLayoutBlank, 12) when there is
+# none and whose module the control brings into the project. They are added
+# before any code, and each is read back by name and ProgID, so a control the
+# host did not make fails the case as setup, never as compile evidence. A
+# control keeps the name the host gives it (CommandButton1, CommandButton2):
+# setting one through late binding is ambiguous. The
+# hosts refuse them while ActiveX is disabled in the Trust Center.
+function Add-DocumentControls($Container, $Case) {
+    if (-not ($Case.PSObject.Properties.Name -contains "documentControls") -or -not $Case.documentControls) {
+        return
+    }
+    foreach ($control in @($Case.documentControls)) {
+        $progId = [string]$control.progId
+        $layout = if ($control.PSObject.Properties.Name -contains "layout" -and $control.layout) { [string]$control.layout } else { "inline" }
+        # A list, not an array: += would unroll a COM collection into its items.
+        $held = [System.Collections.ArrayList]::new()
+        try {
+            switch ($script:hostName) {
+                "word" {
+                    switch ($layout) {
+                        "inline" { $story = $Container.InlineShapes; [void]$held.Add($story); $shape = $story.AddOLEControl($progId) }
+                        "floating" { $story = $Container.Shapes; [void]$held.Add($story); $shape = $story.AddOLEControl($progId) }
+                        "header" {
+                            $section = $Container.Sections.Item(1); [void]$held.Add($section)
+                            $header = $section.Headers.Item(1); [void]$held.Add($header)
+                            $story = $header.Range.InlineShapes; [void]$held.Add($story)
+                            $shape = $story.AddOLEControl($progId)
+                        }
+                        default { throw "documentControls layout '$layout' is not inline, floating or header." }
+                    }
+                    [void]$held.Add($shape)
+                    $object = $shape.OLEFormat.Object; [void]$held.Add($object)
+                    $madeName = [string]$object.Name
+                    $madeProgId = [string]$shape.OLEFormat.ProgID
+                }
+                "excel" {
+                    if ($layout -ne "inline") { throw "documentControls in Excel go on the first worksheet; layout '$layout' is Word's." }
+                    $sheets = $Container.Worksheets; [void]$held.Add($sheets)
+                    $sheet = $sheets.Item(1); [void]$held.Add($sheet)
+                    $objects = $sheet.OLEObjects(); [void]$held.Add($objects)
+                    $ole = $objects.Add($progId); [void]$held.Add($ole)
+                    $madeName = [string]$ole.Name
+                    $madeProgId = [string]$ole.progID
+                }
+                "powerpoint" {
+                    if ($layout -ne "inline") { throw "documentControls in PowerPoint go on the first slide; layout '$layout' is Word's." }
+                    $slides = $Container.Slides; [void]$held.Add($slides)
+                    $slide = if ($slides.Count -eq 0) { $slides.Add(1, 12) } else { $slides.Item(1) }
+                    [void]$held.Add($slide)
+                    $shapes = $slide.Shapes; [void]$held.Add($shapes)
+                    $shape = $shapes.AddOLEObject(10, 10, 120, 30, $progId); [void]$held.Add($shape)
+                    $madeName = [string]$shape.Name
+                    $madeProgId = [string]$shape.OLEFormat.ProgID
+                }
+                default { throw "documentControls are measured in Word, Excel and PowerPoint." }
+            }
+            if ($madeName -cne [string]$control.name -or $madeProgId -ne $progId) {
+                throw "The host made '$madeName' ($madeProgId), not '$($control.name)' ($progId)."
+            }
+        }
+        finally {
+            foreach ($reference in $held) { Remove-ComObjectReference $reference }
+        }
+    }
+}
+
 # A document module's code name can be changed, ThisWorkbook to BookCode say.
 # The case's `codeName` is set on the module and read back.
 function Set-DocumentCodeName($Component, $ModuleSpec) {
@@ -1320,6 +1391,10 @@ function Invoke-OracleCase {
             foreach ($reference in @($case.references)) {
                 $null = $vbProject.References.AddFromGuid([string]$reference.guid, [int]$reference.major, [int]$reference.minor)
             }
+        }
+        if ($case.PSObject.Properties.Name -contains "documentControls" -and $case.documentControls) {
+            Set-Stage "add_document_controls"
+            Add-DocumentControls $container $case
         }
         if ($case.PSObject.Properties.Name -contains "modules" -and $case.modules) {
             Set-Stage "add_modules"

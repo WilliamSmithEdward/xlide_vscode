@@ -76,9 +76,11 @@ reference/
 !tests/fixtures/binaries/WordFixture.docm
 !tests/fixtures/binaries/WordFixture.doc
 !tests/fixtures/binaries/WordFormFixture.docm
+!tests/fixtures/binaries/WordControlsFixture.docm
 !tests/fixtures/binaries/PowerPointFixture.pptm
 !tests/fixtures/binaries/PowerPointFixture.ppt
 !tests/fixtures/binaries/PowerPointFixture.ppsm
+!tests/fixtures/binaries/PowerPointControlsFixture.pptm
 !tests/fixtures/binaries/XlsFixture.xls
 !tests/fixtures/binaries/PowerPointShapesFixture.pptm
 !tests/fixtures/binaries/PowerPointPlaceholderFixture.pptm
