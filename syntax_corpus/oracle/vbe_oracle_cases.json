@@ -215573,6 +215573,3025 @@
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid",
       "host": "access"
+    },
+    {
+      "id": "issue1493_deftype_mismatch_compile",
+      "description": "Issue #1493: Source: DefLng X and Event Pulse(ByVal x); Listener: DefStr X and src_Pulse(ByVal x) with a statement in it is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1493_deftype_handler_typed_compile",
+      "description": "Issue #1493: Source: DefLng X and Event Pulse(ByVal x); Listener: DefStr X and src_Pulse(ByVal x As Long) compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x As Long)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1493_deftype_same_compile",
+      "description": "Issue #1493: Source and Listener both DefLng X: Event Pulse(ByVal x) and src_Pulse(ByVal x) compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1493_deftype_none_compile",
+      "description": "Issue #1493: Event Pulse(ByVal x) and src_Pulse(ByVal x), no DefType on either side compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1493_deftype_handler_suffix_compile",
+      "description": "Issue #1493: Source: DefLng X and Event Pulse(ByVal x); Listener: DefStr X and src_Pulse(ByVal x&) compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x&)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1493_deftype_handler_only_compile",
+      "description": "Issue #1493: Event Pulse(ByVal x) with no DefType; Listener: DefLng X and src_Pulse(ByVal x) is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1493_deftype_event_only_compile",
+      "description": "Issue #1493: Source: DefLng X and Event Pulse(ByVal x); src_Pulse(ByVal x) with no DefType is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1493_deftype_event_suffix_compile",
+      "description": "Issue #1493: Source: DefStr X and Event Pulse(ByVal x&); Listener: DefLng X and src_Pulse(ByVal x) compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPublic Event Pulse(ByVal x&)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1493_deftype_byref_compile",
+      "description": "Issue #1493: Source: DefLng X and Event Pulse(ByRef x); Listener: DefStr X and src_Pulse(ByRef x) is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByRef x)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1493_deftype_dec_statement_compile",
+      "description": "Issue #1493: Source: DefDec X, which is no VBA statement is rejected: Compile error: Expected: line number or label or statement or end of statement. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefDec X\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1493_library_defbool_compile",
+      "description": "Issue #1493: an Application event handler's untyped Cancel under DefBool C compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "AppEvents",
+          "type": "class",
+          "source": "Option Explicit\r\nDefBool C\r\nPrivate WithEvents app As Application\r\nPrivate Sub app_WorkbookBeforeClose(ByVal Wb As Workbook, Cancel)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1493_library_untyped_compile",
+      "description": "Issue #1493: an Application event handler's untyped Cancel, a Variant, where the event passes a Boolean is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "AppEvents",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents app As Application\r\nPrivate Sub app_WorkbookBeforeClose(ByVal Wb As Workbook, Cancel)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1493_library_defstr_compile",
+      "description": "Issue #1493: an Application event handler's untyped Cancel under DefStr C is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "AppEvents",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr C\r\nPrivate WithEvents app As Application\r\nPrivate Sub app_WorkbookBeforeClose(ByVal Wb As Workbook, Cancel)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1493_library_typed_wrong_compile",
+      "description": "Issue #1493: an Application event handler with Cancel As String is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "AppEvents",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents app As Application\r\nPrivate Sub app_WorkbookBeforeClose(ByVal Wb As Workbook, Cancel As String)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1493_userform_defstr_compile",
+      "description": "Issue #1493: UserForm1: UserForm_QueryClose(Cancel, CloseMode) under DefStr C, M is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\nDefStr C, M\r\nPrivate Sub UserForm_QueryClose(Cancel, CloseMode)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1493_userform_defint_compile",
+      "description": "Issue #1493: UserForm1: UserForm_QueryClose(Cancel, CloseMode) under DefInt C, M compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\nDefInt C, M\r\nPrivate Sub UserForm_QueryClose(Cancel, CloseMode)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1493_userform_untyped_compile",
+      "description": "Issue #1493: UserForm1: UserForm_QueryClose(Cancel, CloseMode) untyped, two Variants is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPrivate Sub UserForm_QueryClose(Cancel, CloseMode)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1493_collection_class_event_compile",
+      "description": "Issue #1493: a class named Collection declaring Event Changed(), and WithEvents c As Collection compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Changed()\r\nPublic Sub Touch()\r\n    RaiseEvent Changed\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1493_collection_class_no_event_compile",
+      "description": "Issue #1493: a class named Collection with no Event, and WithEvents c As Collection is rejected: Compile error: Object does not source automation events. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1493_collection_standard_module_compile",
+      "description": "Issue #1493: a standard module named Collection, and WithEvents c As Collection is rejected: Compile error: A module is not a valid type. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Collection",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1493_collection_none_compile",
+      "description": "Issue #1493: no project Collection, and WithEvents c As Collection is rejected: Compile error: Object does not source automation events. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1493_collection_class_event_lower_compile",
+      "description": "Issue #1493: a class named Collection declaring an Event, and WithEvents c As collection compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Changed()\r\nPublic Sub Touch()\r\n    RaiseEvent Changed\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1493_collection_class_event_project_compile",
+      "description": "Issue #1493: a class named Collection declaring an Event, and WithEvents c qualified by the project's name compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Changed()\r\nPublic Sub Touch()\r\n    RaiseEvent Changed\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As VBAProject.Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1493_collection_userform_event_compile",
+      "description": "Issue #1493: a UserForm named Collection declaring an Event, and WithEvents c As Collection compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Collection",
+          "type": "userform",
+          "source": "Option Explicit\r\nPublic Event Changed()\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1493_vba_collection_compile",
+      "description": "Issue #1493: WithEvents c As VBA.Collection is rejected: Compile error: Object does not source automation events. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As VBA.Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1493_vba_collection_lower_compile",
+      "description": "Issue #1493: WithEvents c As vba.collection is rejected: Compile error: Object does not source automation events. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As vba.collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1493_vba_collection_bracketed_compile",
+      "description": "Issue #1493: WithEvents c As [VBA].Collection is rejected: Compile error: Object does not source automation events. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As [VBA].Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1493_vba_collection_spaced_compile",
+      "description": "Issue #1493: WithEvents c As VBA . Collection is rejected: Compile error: Object does not source automation events. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As VBA . Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1493_vba_collection_continued_compile",
+      "description": "Issue #1493: WithEvents c As VBA _ / .Collection across a line continuation is rejected: Compile error: Object does not source automation events. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As VBA _\r\n    .Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1493_vba_collection_whole_bracket_compile",
+      "description": "Issue #1493: WithEvents c As [VBA.Collection] is rejected: Compile error: User-defined type not defined. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As [VBA.Collection]\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1493_vba_collection_with_project_class_compile",
+      "description": "Issue #1493: a class named Collection declaring an Event, and WithEvents c As VBA.Collection is rejected: Compile error: Object does not source automation events. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Changed()\r\nPublic Sub Touch()\r\n    RaiseEvent Changed\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As VBA.Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1493_word_deftype_mismatch_compile",
+      "description": "Issue #1493: Source: DefLng X and Event Pulse(ByVal x); Listener: DefStr X and src_Pulse(ByVal x) with a statement in it is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_deftype_handler_typed_compile",
+      "description": "Issue #1493: Source: DefLng X and Event Pulse(ByVal x); Listener: DefStr X and src_Pulse(ByVal x As Long) compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x As Long)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_deftype_same_compile",
+      "description": "Issue #1493: Source and Listener both DefLng X: Event Pulse(ByVal x) and src_Pulse(ByVal x) compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_deftype_none_compile",
+      "description": "Issue #1493: Event Pulse(ByVal x) and src_Pulse(ByVal x), no DefType on either side compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_deftype_handler_suffix_compile",
+      "description": "Issue #1493: Source: DefLng X and Event Pulse(ByVal x); Listener: DefStr X and src_Pulse(ByVal x&) compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x&)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_deftype_handler_only_compile",
+      "description": "Issue #1493: Event Pulse(ByVal x) with no DefType; Listener: DefLng X and src_Pulse(ByVal x) is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_deftype_event_only_compile",
+      "description": "Issue #1493: Source: DefLng X and Event Pulse(ByVal x); src_Pulse(ByVal x) with no DefType is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_deftype_event_suffix_compile",
+      "description": "Issue #1493: Source: DefStr X and Event Pulse(ByVal x&); Listener: DefLng X and src_Pulse(ByVal x) compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPublic Event Pulse(ByVal x&)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_deftype_byref_compile",
+      "description": "Issue #1493: Source: DefLng X and Event Pulse(ByRef x); Listener: DefStr X and src_Pulse(ByRef x) is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByRef x)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_deftype_dec_statement_compile",
+      "description": "Issue #1493: Source: DefDec X, which is no VBA statement is rejected: Compile error: Expected: line number or label or statement or end of statement. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefDec X\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_library_defbool_compile",
+      "description": "Issue #1493: an Application event handler's untyped Cancel under DefBool C compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "AppEvents",
+          "type": "class",
+          "source": "Option Explicit\r\nDefBool C\r\nPrivate WithEvents app As Application\r\nPrivate Sub app_DocumentBeforeClose(ByVal Doc As Document, Cancel)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_library_untyped_compile",
+      "description": "Issue #1493: an Application event handler's untyped Cancel, a Variant, where the event passes a Boolean is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "AppEvents",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents app As Application\r\nPrivate Sub app_DocumentBeforeClose(ByVal Doc As Document, Cancel)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_library_defstr_compile",
+      "description": "Issue #1493: an Application event handler's untyped Cancel under DefStr C is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "AppEvents",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr C\r\nPrivate WithEvents app As Application\r\nPrivate Sub app_DocumentBeforeClose(ByVal Doc As Document, Cancel)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_library_typed_wrong_compile",
+      "description": "Issue #1493: an Application event handler with Cancel As String is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "AppEvents",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents app As Application\r\nPrivate Sub app_DocumentBeforeClose(ByVal Doc As Document, Cancel As String)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_userform_defstr_compile",
+      "description": "Issue #1493: UserForm1: UserForm_QueryClose(Cancel, CloseMode) under DefStr C, M is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\nDefStr C, M\r\nPrivate Sub UserForm_QueryClose(Cancel, CloseMode)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_userform_defint_compile",
+      "description": "Issue #1493: UserForm1: UserForm_QueryClose(Cancel, CloseMode) under DefInt C, M compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\nDefInt C, M\r\nPrivate Sub UserForm_QueryClose(Cancel, CloseMode)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_userform_untyped_compile",
+      "description": "Issue #1493: UserForm1: UserForm_QueryClose(Cancel, CloseMode) untyped, two Variants is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPrivate Sub UserForm_QueryClose(Cancel, CloseMode)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_collection_class_event_compile",
+      "description": "Issue #1493: a class named Collection declaring Event Changed(), and WithEvents c As Collection compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Changed()\r\nPublic Sub Touch()\r\n    RaiseEvent Changed\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_collection_class_no_event_compile",
+      "description": "Issue #1493: a class named Collection with no Event, and WithEvents c As Collection is rejected: Compile error: Object does not source automation events. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_collection_standard_module_compile",
+      "description": "Issue #1493: a standard module named Collection, and WithEvents c As Collection is rejected: Compile error: A module is not a valid type. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Collection",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_collection_none_compile",
+      "description": "Issue #1493: no project Collection, and WithEvents c As Collection is rejected: Compile error: Object does not source automation events. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_collection_class_event_lower_compile",
+      "description": "Issue #1493: a class named Collection declaring an Event, and WithEvents c As collection compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Changed()\r\nPublic Sub Touch()\r\n    RaiseEvent Changed\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_collection_class_event_project_compile",
+      "description": "Issue #1493: a class named Collection declaring an Event, and WithEvents c qualified by the project's name compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Changed()\r\nPublic Sub Touch()\r\n    RaiseEvent Changed\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As Project.Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_collection_userform_event_compile",
+      "description": "Issue #1493: a UserForm named Collection declaring an Event, and WithEvents c As Collection compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Collection",
+          "type": "userform",
+          "source": "Option Explicit\r\nPublic Event Changed()\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_vba_collection_compile",
+      "description": "Issue #1493: WithEvents c As VBA.Collection is rejected: Compile error: Object does not source automation events. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As VBA.Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_vba_collection_lower_compile",
+      "description": "Issue #1493: WithEvents c As vba.collection is rejected: Compile error: Object does not source automation events. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As vba.collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_vba_collection_bracketed_compile",
+      "description": "Issue #1493: WithEvents c As [VBA].Collection is rejected: Compile error: Object does not source automation events. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As [VBA].Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_vba_collection_spaced_compile",
+      "description": "Issue #1493: WithEvents c As VBA . Collection is rejected: Compile error: Object does not source automation events. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As VBA . Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_vba_collection_continued_compile",
+      "description": "Issue #1493: WithEvents c As VBA _ / .Collection across a line continuation is rejected: Compile error: Object does not source automation events. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As VBA _\r\n    .Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_vba_collection_whole_bracket_compile",
+      "description": "Issue #1493: WithEvents c As [VBA.Collection] is rejected: Compile error: User-defined type not defined. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As [VBA.Collection]\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_vba_collection_with_project_class_compile",
+      "description": "Issue #1493: a class named Collection declaring an Event, and WithEvents c As VBA.Collection is rejected: Compile error: Object does not source automation events. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Changed()\r\nPublic Sub Touch()\r\n    RaiseEvent Changed\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As VBA.Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_powerpoint_deftype_mismatch_compile",
+      "description": "Issue #1493: Source: DefLng X and Event Pulse(ByVal x); Listener: DefStr X and src_Pulse(ByVal x) with a statement in it is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_deftype_handler_typed_compile",
+      "description": "Issue #1493: Source: DefLng X and Event Pulse(ByVal x); Listener: DefStr X and src_Pulse(ByVal x As Long) compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x As Long)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_deftype_same_compile",
+      "description": "Issue #1493: Source and Listener both DefLng X: Event Pulse(ByVal x) and src_Pulse(ByVal x) compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_deftype_none_compile",
+      "description": "Issue #1493: Event Pulse(ByVal x) and src_Pulse(ByVal x), no DefType on either side compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_deftype_handler_suffix_compile",
+      "description": "Issue #1493: Source: DefLng X and Event Pulse(ByVal x); Listener: DefStr X and src_Pulse(ByVal x&) compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x&)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_deftype_handler_only_compile",
+      "description": "Issue #1493: Event Pulse(ByVal x) with no DefType; Listener: DefLng X and src_Pulse(ByVal x) is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_deftype_event_only_compile",
+      "description": "Issue #1493: Source: DefLng X and Event Pulse(ByVal x); src_Pulse(ByVal x) with no DefType is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_deftype_event_suffix_compile",
+      "description": "Issue #1493: Source: DefStr X and Event Pulse(ByVal x&); Listener: DefLng X and src_Pulse(ByVal x) compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPublic Event Pulse(ByVal x&)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_deftype_byref_compile",
+      "description": "Issue #1493: Source: DefLng X and Event Pulse(ByRef x); Listener: DefStr X and src_Pulse(ByRef x) is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByRef x)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_deftype_dec_statement_compile",
+      "description": "Issue #1493: Source: DefDec X, which is no VBA statement is rejected: Compile error: Expected: line number or label or statement or end of statement. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefDec X\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_library_defbool_compile",
+      "description": "Issue #1493: an Application event handler's untyped Cancel under DefBool C compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "AppEvents",
+          "type": "class",
+          "source": "Option Explicit\r\nDefBool C\r\nPrivate WithEvents app As Application\r\nPrivate Sub app_PresentationBeforeSave(ByVal Pres As Presentation, Cancel)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_library_untyped_compile",
+      "description": "Issue #1493: an Application event handler's untyped Cancel, a Variant, where the event passes a Boolean is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "AppEvents",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents app As Application\r\nPrivate Sub app_PresentationBeforeSave(ByVal Pres As Presentation, Cancel)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_library_defstr_compile",
+      "description": "Issue #1493: an Application event handler's untyped Cancel under DefStr C is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "AppEvents",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr C\r\nPrivate WithEvents app As Application\r\nPrivate Sub app_PresentationBeforeSave(ByVal Pres As Presentation, Cancel)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_library_typed_wrong_compile",
+      "description": "Issue #1493: an Application event handler with Cancel As String is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "AppEvents",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents app As Application\r\nPrivate Sub app_PresentationBeforeSave(ByVal Pres As Presentation, Cancel As String)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_userform_defstr_compile",
+      "description": "Issue #1493: UserForm1: UserForm_QueryClose(Cancel, CloseMode) under DefStr C, M is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\nDefStr C, M\r\nPrivate Sub UserForm_QueryClose(Cancel, CloseMode)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_userform_defint_compile",
+      "description": "Issue #1493: UserForm1: UserForm_QueryClose(Cancel, CloseMode) under DefInt C, M compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\nDefInt C, M\r\nPrivate Sub UserForm_QueryClose(Cancel, CloseMode)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_userform_untyped_compile",
+      "description": "Issue #1493: UserForm1: UserForm_QueryClose(Cancel, CloseMode) untyped, two Variants is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPrivate Sub UserForm_QueryClose(Cancel, CloseMode)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_collection_class_event_compile",
+      "description": "Issue #1493: a class named Collection declaring Event Changed(), and WithEvents c As Collection compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Changed()\r\nPublic Sub Touch()\r\n    RaiseEvent Changed\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_collection_class_no_event_compile",
+      "description": "Issue #1493: a class named Collection with no Event, and WithEvents c As Collection is rejected: Compile error: Object does not source automation events. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_collection_standard_module_compile",
+      "description": "Issue #1493: a standard module named Collection, and WithEvents c As Collection is rejected: Compile error: A module is not a valid type. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Collection",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_collection_none_compile",
+      "description": "Issue #1493: no project Collection, and WithEvents c As Collection is rejected: Compile error: Object does not source automation events. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_collection_class_event_lower_compile",
+      "description": "Issue #1493: a class named Collection declaring an Event, and WithEvents c As collection compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Changed()\r\nPublic Sub Touch()\r\n    RaiseEvent Changed\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_collection_class_event_project_compile",
+      "description": "Issue #1493: a class named Collection declaring an Event, and WithEvents c qualified by the project's name compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Changed()\r\nPublic Sub Touch()\r\n    RaiseEvent Changed\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As VBAProject.Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_collection_userform_event_compile",
+      "description": "Issue #1493: a UserForm named Collection declaring an Event, and WithEvents c As Collection compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Collection",
+          "type": "userform",
+          "source": "Option Explicit\r\nPublic Event Changed()\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_vba_collection_compile",
+      "description": "Issue #1493: WithEvents c As VBA.Collection is rejected: Compile error: Object does not source automation events. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As VBA.Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_vba_collection_lower_compile",
+      "description": "Issue #1493: WithEvents c As vba.collection is rejected: Compile error: Object does not source automation events. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As vba.collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_vba_collection_bracketed_compile",
+      "description": "Issue #1493: WithEvents c As [VBA].Collection is rejected: Compile error: Object does not source automation events. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As [VBA].Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_vba_collection_spaced_compile",
+      "description": "Issue #1493: WithEvents c As VBA . Collection is rejected: Compile error: Object does not source automation events. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As VBA . Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_vba_collection_continued_compile",
+      "description": "Issue #1493: WithEvents c As VBA _ / .Collection across a line continuation is rejected: Compile error: Object does not source automation events. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As VBA _\r\n    .Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_vba_collection_whole_bracket_compile",
+      "description": "Issue #1493: WithEvents c As [VBA.Collection] is rejected: Compile error: User-defined type not defined. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As [VBA.Collection]\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_vba_collection_with_project_class_compile",
+      "description": "Issue #1493: a class named Collection declaring an Event, and WithEvents c As VBA.Collection is rejected: Compile error: Object does not source automation events. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Changed()\r\nPublic Sub Touch()\r\n    RaiseEvent Changed\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As VBA.Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_access_deftype_mismatch_compile",
+      "description": "Issue #1493: Source: DefLng X and Event Pulse(ByVal x); Listener: DefStr X and src_Pulse(ByVal x) with a statement in it is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1493_access_deftype_handler_typed_compile",
+      "description": "Issue #1493: Source: DefLng X and Event Pulse(ByVal x); Listener: DefStr X and src_Pulse(ByVal x As Long) compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x As Long)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1493_access_deftype_same_compile",
+      "description": "Issue #1493: Source and Listener both DefLng X: Event Pulse(ByVal x) and src_Pulse(ByVal x) compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1493_access_deftype_none_compile",
+      "description": "Issue #1493: Event Pulse(ByVal x) and src_Pulse(ByVal x), no DefType on either side compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1493_access_deftype_handler_suffix_compile",
+      "description": "Issue #1493: Source: DefLng X and Event Pulse(ByVal x); Listener: DefStr X and src_Pulse(ByVal x&) compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x&)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1493_access_deftype_handler_only_compile",
+      "description": "Issue #1493: Event Pulse(ByVal x) with no DefType; Listener: DefLng X and src_Pulse(ByVal x) is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1493_access_deftype_event_only_compile",
+      "description": "Issue #1493: Source: DefLng X and Event Pulse(ByVal x); src_Pulse(ByVal x) with no DefType is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1493_access_deftype_event_suffix_compile",
+      "description": "Issue #1493: Source: DefStr X and Event Pulse(ByVal x&); Listener: DefLng X and src_Pulse(ByVal x) compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPublic Event Pulse(ByVal x&)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1493_access_deftype_byref_compile",
+      "description": "Issue #1493: Source: DefLng X and Event Pulse(ByRef x); Listener: DefStr X and src_Pulse(ByRef x) is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLng X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByRef x)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1493_access_deftype_dec_statement_compile",
+      "description": "Issue #1493: Source: DefDec X, which is no VBA statement is rejected: Compile error: Expected: line number or label or statement or end of statement. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefDec X\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1493_access_library_defint_compile",
+      "description": "Issue #1493: Form_Orders: Form_BeforeUpdate(Cancel) under DefInt C compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Form_Orders",
+          "type": "document",
+          "designerClass": "Access.Form",
+          "implicitMembers": [],
+          "source": "Option Explicit\r\nDefInt C\r\nPrivate Sub Form_BeforeUpdate(Cancel)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1493_access_library_untyped_compile",
+      "description": "Issue #1493: an Application event handler's untyped Cancel, a Variant, where the event passes a Boolean is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Form_Orders",
+          "type": "document",
+          "designerClass": "Access.Form",
+          "implicitMembers": [],
+          "source": "Option Explicit\r\nPrivate Sub Form_BeforeUpdate(Cancel)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1493_access_library_defstr_compile",
+      "description": "Issue #1493: an Application event handler's untyped Cancel under DefStr C is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Form_Orders",
+          "type": "document",
+          "designerClass": "Access.Form",
+          "implicitMembers": [],
+          "source": "Option Explicit\r\nDefStr C\r\nPrivate Sub Form_BeforeUpdate(Cancel)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1493_access_collection_class_event_compile",
+      "description": "Issue #1493: a class named Collection declaring Event Changed(), and WithEvents c As Collection compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Changed()\r\nPublic Sub Touch()\r\n    RaiseEvent Changed\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1493_access_collection_class_no_event_compile",
+      "description": "Issue #1493: a class named Collection with no Event, and WithEvents c As Collection is rejected: Compile error: Object does not source automation events. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1493_access_collection_standard_module_compile",
+      "description": "Issue #1493: a standard module named Collection, and WithEvents c As Collection is rejected: Compile error: A module is not a valid type. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Collection",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1493_access_collection_none_compile",
+      "description": "Issue #1493: no project Collection, and WithEvents c As Collection is rejected: Compile error: Object does not source automation events. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1493_access_collection_class_event_lower_compile",
+      "description": "Issue #1493: a class named Collection declaring an Event, and WithEvents c As collection compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Changed()\r\nPublic Sub Touch()\r\n    RaiseEvent Changed\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1493_access_vba_collection_compile",
+      "description": "Issue #1493: WithEvents c As VBA.Collection is rejected: Compile error: Object does not source automation events. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As VBA.Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1493_access_vba_collection_lower_compile",
+      "description": "Issue #1493: WithEvents c As vba.collection is rejected: Compile error: Object does not source automation events. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As vba.collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1493_access_vba_collection_bracketed_compile",
+      "description": "Issue #1493: WithEvents c As [VBA].Collection is rejected: Compile error: Object does not source automation events. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As [VBA].Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1493_access_vba_collection_spaced_compile",
+      "description": "Issue #1493: WithEvents c As VBA . Collection is rejected: Compile error: Object does not source automation events. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As VBA . Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1493_access_vba_collection_continued_compile",
+      "description": "Issue #1493: WithEvents c As VBA _ / .Collection across a line continuation is rejected: Compile error: Object does not source automation events. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As VBA _\r\n    .Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1493_access_vba_collection_whole_bracket_compile",
+      "description": "Issue #1493: WithEvents c As [VBA.Collection] is rejected: Compile error: User-defined type not defined. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As [VBA.Collection]\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1493_access_vba_collection_with_project_class_compile",
+      "description": "Issue #1493: a class named Collection declaring an Event, and WithEvents c As VBA.Collection is rejected: Compile error: Object does not source automation events. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Collection",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Changed()\r\nPublic Sub Touch()\r\n    RaiseEvent Changed\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents c As VBA.Collection\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
     }
   ]
 }

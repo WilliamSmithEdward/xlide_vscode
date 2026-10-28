@@ -541,7 +541,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'eventHandlerSignatures',
-		run: (ctx, push) => checkEventHandlerSignatures(ctx.mod, ctx.moduleKind, ctx.opts, ctx.memberCtx, ctx.activity, push),
+		run: (ctx, push) => checkEventHandlerSignatures(ctx.mod, ctx.moduleKind, ctx.opts, ctx.memberCtx, ctx.activity, push, ctx.symbols.defTypes),
 	},
 	{
 		name: 'implementsMembers',
