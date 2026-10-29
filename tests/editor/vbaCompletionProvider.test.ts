@@ -84,6 +84,32 @@ describe('completion provider surface', () => {
         expect(prepared.projectContext.cachedEditorProjectContext).not.toHaveBeenCalled();
         expect(prepared.projectContext.localEditorProjectContext).not.toHaveBeenCalled();
     });
+    it.each([
+        ['Dim t As Long ', 'Sub Demo()\n'],
+        ['Dim r As Excel.Range ', 'Sub Demo()\n'],
+        ['Set c = New Widget ', 'Sub Demo()\n'],
+    ])('offers nothing after the finished name in %j (prelude %j)', async (line, prelude) => {
+        const context = { projectTypes: [{ name: 'Widget', kind: 'class' as const, moduleName: 'Widget' }] };
+        for (const trigger of [' ', undefined]) {
+            const labels = (await prepareRequest(line, context, undefined, prelude).run(trigger)).items.map(item => item.label);
+            expect(labels).toEqual([]);
+        }
+    });
+    it('offers no types or general list on the row continued from a finished type', async () => {
+        for (const trigger of [' ', undefined]) {
+            const labels = (await prepareRequest('    ', {}, undefined, 'Sub Demo()\nDim t As Long _\n').run(trigger)).items.map(item => String(item.label));
+            // The test directives still offered on any continued row are a separate issue.
+            expect(labels.filter(label => !label.startsWith('@'))).toEqual([]);
+        }
+    });
+    it.each([
+        ['Dim t As ', ' ', 'Long'],
+        ['Dim t As Lo', undefined, 'LongPtr'],
+        ['    ', ' ', 'Long', 'Sub Demo()\nDim t As _\n'],
+    ])('still offers types in %j on trigger %j', async (line, trigger, expected, prelude = 'Sub Demo()\n') => {
+        const labels = (await prepareRequest(line, {}, undefined, prelude).run(trigger)).items.map(item => item.label);
+        expect(labels).toContain(expected);
+    });
     it.each(['=', ' '])('keeps an unknown property quiet on %s', async trigger => {
         expect((await prepareRequest('ActiveCell.Value = ').run(trigger)).items).toEqual([]);
     });

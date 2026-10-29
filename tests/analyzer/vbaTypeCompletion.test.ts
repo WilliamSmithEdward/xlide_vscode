@@ -5,6 +5,9 @@ import {
 	type TypeCompletionContext,
 } from '../../src/analyzer';
 import { getWordObjectModel } from '../../src/analyzer/host/wordObjectModel';
+import { getExcelObjectModel } from '../../src/analyzer/host/excelObjectModel';
+import { getPowerPointObjectModel } from '../../src/analyzer/host/powerpointObjectModel';
+import { getAccessObjectModel } from '../../src/analyzer/host/accessObjectModel';
 
 /** Offset just past the end of the first occurrence of `marker`. */
 function endOf(src: string, marker: string): number {
@@ -149,6 +152,61 @@ describe('non-type positions return nothing', () => {
 	it('does not offer types inside a comment', () => {
 		expect(resolveTypeCompletions("' Dim x As ", 11)).toEqual([]);
 	});
+
+	it.each([
+		'Sub A()\nDim t As Long ',
+		'Sub A()\nDim t As Lo ',
+		'Sub A()\nDim t As Long\n',
+		'Sub A()\r\nDim t As Long\r\n',
+		'Sub A()\nDim t As Long _\n',
+		'Sub A()\nDim t As Long _\n    ',
+		'Sub A()\r\nDim t As Long _\r\n',
+		'Function F() As Long ',
+		'Sub A()\nDim r As Excel.Range ',
+		'Sub A()\nDim t As [Long] ',
+		'Sub A()\nDim c As New Person ',
+		'Sub A()\nSet c = New Person ',
+	])('does not offer types after a finished name in %j', (src) => {
+		const projectTypes: ProjectTypeName[] = [{ name: 'Person', kind: 'class' }];
+		expect(resolveTypeCompletions(src, src.length, { projectTypes })).toEqual([]);
+	});
+
+	it.each([
+		['Sub A()\nDim t As Lo', ['Long', 'LongLong', 'LongPtr']],
+		['Sub A()\nDim t As _\nLo', ['Long', 'LongLong', 'LongPtr']],
+		['Sub A()\nDim t As _\n    Lo', ['Long', 'LongLong', 'LongPtr']],
+		['Sub A()\nDim r As Excel.Ra', ['Range', 'Ranges']],
+		['Sub A()\nDim c As New Pe', ['Person']],
+		['Sub A()\nDim t As [Long]', ['Long', 'LongLong', 'LongPtr']],
+		['Sub A()\r\nDim t As _\r\n    Lo', ['Long', 'LongLong', 'LongPtr']],
+	])('still offers types for the name touching the cursor in %j', (src, expected) => {
+		const projectTypes: ProjectTypeName[] = [{ name: 'Person', kind: 'class' }];
+		expect(resolveTypeCompletions(src, src.length, { projectTypes }).map((t) => t.name)).toEqual(expected);
+	});
+
+	it('reads the name ending at the cursor, not at the end of the source', () => {
+		const src = 'Sub A()\nDim t As Lo\nDim u As Long \nEnd Sub\n';
+		expect(names(src, 'As Lo')).toEqual(['Long', 'LongLong', 'LongPtr']);
+		expect(resolveTypeCompletions(src, endOf(src, 'As Long '))).toEqual([]);
+	});
+
+	it.each([
+		['Excel', getExcelObjectModel, 'Worksheet'],
+		['Word', getWordObjectModel, 'Document'],
+		['PowerPoint', getPowerPointObjectModel, 'Slide'],
+		['Access', getAccessObjectModel, 'Form'],
+	])('ends the type position after a finished %s type', (_host, model, type) => {
+		const typing = `Sub A()\nDim t As ${type}`;
+		expect(resolveTypeCompletions(typing, typing.length, { model: model() }).map((t) => t.name)).toContain(type);
+		for (const after of [' ', ' _\n']) {
+			expect(resolveTypeCompletions(typing + after, typing.length + after.length, { model: model() })).toEqual([]);
+		}
+	});
+
+	it.each(['Sub A()\nDim t As ', 'Sub A()\nDim t As _\n', 'Sub A()\nDim t As Excel.'])(
+		'still offers the full list with nothing typed in %j', (src) => {
+			expect(resolveTypeCompletions(src, src.length).length).toBeGreaterThan(100);
+		});
 });
 
 describe('project-defined types', () => {

@@ -126,18 +126,22 @@ interface TypePosition {
 	mode: TypePositionMode;
 	qualifier?: string;
 	memberPrefix?: string;
+	/** Source text of the name being typed, when one was read. */
+	nameText?: string;
 }
 
 function readPartialTypeName(tokens: readonly VbaToken[]): {
 	prefix: string;
 	qualifier?: string;
 	memberPrefix?: string;
+	nameText?: string;
 	beforeIndex: number;
 } {
 	let i = tokens.length - 1;
 	let prefix = '';
 	let qualifier: string | undefined;
 	let memberPrefix: string | undefined;
+	let nameText: string | undefined;
 
 	if (tokens[i]?.rawText === '.') {
 		const qualifierName = tokenName(tokens[i - 1]);
@@ -157,6 +161,7 @@ function readPartialTypeName(tokens: readonly VbaToken[]): {
 			const name = tokenName(last) ?? last.rawText;
 			prefix = name;
 			memberPrefix = name;
+			nameText = last.rawText;
 			i--;
 			const qualifierName = tokens[i]?.rawText === '.'
 				? tokenName(tokens[i - 1])
@@ -169,7 +174,7 @@ function readPartialTypeName(tokens: readonly VbaToken[]): {
 		}
 	}
 
-	return { prefix, qualifier, memberPrefix, beforeIndex: i };
+	return { prefix, qualifier, memberPrefix, nameText, beforeIndex: i };
 }
 
 function detectTypePosition(allTokens: readonly VbaToken[]): TypePosition | undefined {
@@ -620,6 +625,11 @@ export function resolveTypeCompletions(
 		boundedTypeGrammarTokens(source, offset),
 	);
 	if (!pos) {
+		return [];
+	}
+	// A name followed by a space or a line break is finished, not being
+	// typed: `As Long ` is past the type position.
+	if (pos.nameText !== undefined && !source.endsWith(pos.nameText, offset)) {
 		return [];
 	}
 	const model = ctx.model ?? getExcelObjectModel();

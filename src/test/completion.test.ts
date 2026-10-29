@@ -116,6 +116,38 @@ suite('Completion editor surface', () => {
         await vscode.commands.executeCommand('acceptSelectedSuggestion');
         assert.equal(document.lineAt(2).text, 'IsNumeric("abc") =');
     });
+    for (const [name, typed] of [['Space', ' '], ['Continued', ' _\n ']] as const) {
+        test(`a finished As type opens no type menu after ${JSON.stringify(typed)}`, async () => {
+            const { document, editor } = await probe(`TypeListAfter${name}`, 'Sub Demo()\nDim total As Long\nEnd Sub\n', 'As Long');
+            await vscode.commands.executeCommand('hideSuggestWidget');
+            for (const text of typed) { await vscode.commands.executeCommand('type', { text }); }
+            const line = editor.selection.active.line;
+            const expected = name === 'Space' ? 'Dim total As Long ' : document.lineAt(line).text;
+            assert.equal(document.lineAt(line).text, expected);
+            assert.equal(editor.selection.active.character, expected.length);
+            if (name === 'Continued') {
+                assert.equal(document.lineAt(line - 1).text, 'Dim total As Long _');
+                assert.match(expected, /^\s+$/);
+            }
+            for (const trigger of [' ', undefined]) {
+                const items = labels((await vscode.commands.executeCommand<vscode.CompletionList>(
+                    'vscode.executeCompletionItemProvider', document.uri, editor.selection.active, trigger))!);
+                assert.deepEqual(items.filter(label => /^Long/.test(label)), [], `no type list on ${JSON.stringify(trigger)}`);
+            }
+            // A menu opened by the typed space would insert its first type here.
+            // The continued row still offers the test directives, a separate
+            // issue, so there only a type insertion fails the check.
+            for (let i = 0; i < 5; i++) {
+                await new Promise(resolve => setTimeout(resolve, 200));
+                await vscode.commands.executeCommand('acceptSelectedSuggestion');
+                if (name === 'Space') {
+                    assert.equal(document.lineAt(line).text, expected);
+                } else {
+                    assert.doesNotMatch(document.lineAt(line).text, /Long/);
+                }
+            }
+        });
+    }
     test('enum insertion bug hunt bypasses a shadowed library qualifier', async () => {
         const source = 'Sub Demo(ByVal sh As Shape)\nDim Office As Long\nDim msoTrue As Long\nsh.Visible = msoT\nEnd Sub\n';
         const { document, caret } = await probe('OfficeQualifierShadow', source, '= msoT');
