@@ -1254,6 +1254,109 @@ function Get-OracleVbProject($App, $Container) {
     return $Container.VBProject
 }
 
+# Another VBA project the case's project references (issue #1503): a file of
+# its own, made in the same instance, its project named `projectReference.name`
+# and holding `projectReference.modules`, saved to the temp folder and added
+# with References.AddFromFile as Tools > References > Browse would. The format
+# is the macro-enabled one a reference can name: a workbook in Excel, a
+# template in Word and an add-in in PowerPoint, which refuse documents and
+# presentations: xlOpenXMLWorkbookMacroEnabled (52), wdFormatXMLTemplateMacroEnabled
+# (15), ppSaveAsOpenXMLAddin
+# (30), read from the hosts' models. The reference is read back by name.
+function New-ProjectReference($App, $VbProject, $Case, [string]$CasePath) {
+    if ($script:hostName -eq "access") {
+        return New-AccessProjectReference $App $Case $CasePath
+    }
+    $spec = $Case.projectReference
+    $extension = @{ excel = '.xlsm'; word = '.dotm'; powerpoint = '.ppam' }[$script:hostName]
+    $path = [string](Join-Path ([IO.Path]::GetTempPath()) ('XlideOracleProvider_' + [Guid]::NewGuid().ToString('N') + $extension))
+    $created = New-OracleContainer $App
+    $provider = $created.Container
+    $providerProject = $null
+    $reference = $null
+    try {
+        $providerProject = Get-OracleVbProject $App $provider
+        $providerProject.Name = [string]$spec.name
+        foreach ($moduleSpec in @($spec.modules)) {
+            $added = Add-OracleComponent $providerProject $moduleSpec
+            Remove-ComObjectReference $added
+        }
+        switch ($script:hostName) {
+            "excel" { $provider.SaveAs($path, 52) }
+            "word" { $provider.SaveAs2($path, 15) }
+            "powerpoint" { $provider.SaveAs($path, 30) }
+        }
+        # Word refuses a reference to a template it has open as a document
+        # ("File format no longer supported"), so the provider is closed
+        # first and the reference loads the template itself. PowerPoint's add-in
+        # is closed the same way.
+        if ($script:hostName -eq "word" -or $script:hostName -eq "powerpoint") {
+            Remove-ComObjectReference $providerProject
+            $providerProject = $null
+            Close-OracleContainer $App $provider
+            Remove-ComObjectReference $provider
+            $provider = $null
+        }
+        $reference = $VbProject.References.AddFromFile($path)
+        if ([string]$reference.Name -cne [string]$spec.name) {
+            throw "The reference is named '$($reference.Name)', not '$($spec.name)'."
+        }
+    }
+    catch {
+        try { Close-OracleContainer $App $provider } catch { }
+        Remove-ComObjectReference $providerProject
+        Remove-ComObjectReference $provider
+        if (Test-Path -LiteralPath $path) { try { Remove-Item -LiteralPath $path -Force } catch { } }
+        throw
+    }
+    finally {
+        Remove-ComObjectReference $reference
+    }
+    Remove-ComObjectReference $providerProject
+    return @{ Container = $provider; Path = $path }
+}
+
+# Access holds one database at a time, so the provider is a database of its
+# own made in between: the case's database is closed, the provider is made,
+# given its modules and its project's name, each module saved
+# (DoCmd.Close acModule (5), name, acSaveYes (1)), and closed; then the case's
+# is opened again and references it. The case's project is fetched again,
+# since the one held before belonged to the closed database.
+function New-AccessProjectReference($App, $Case, [string]$CasePath) {
+    $spec = $Case.projectReference
+    $path = [string](Join-Path ([IO.Path]::GetTempPath()) ('XlideOracleProvider_' + [Guid]::NewGuid().ToString('N') + '.accdb'))
+    $App.CloseCurrentDatabase()
+    $providerProject = $null
+    try {
+        $App.NewCurrentDatabase($path)
+        $App.DoCmd.SetWarnings($false)
+        $providerProject = $App.VBE.ActiveVBProject
+        $providerProject.Name = [string]$spec.name
+        foreach ($moduleSpec in @($spec.modules)) {
+            $added = Add-OracleComponent $providerProject $moduleSpec
+            Remove-ComObjectReference $added
+            $App.DoCmd.Close(5, [string]$moduleSpec.name, 1)
+        }
+    }
+    finally {
+        Remove-ComObjectReference $providerProject
+        try { $App.CloseCurrentDatabase() } catch { }
+    }
+    $App.OpenCurrentDatabase($CasePath)
+    $App.DoCmd.SetWarnings($false)
+    $vbProject = $App.VBE.ActiveVBProject
+    $reference = $vbProject.References.AddFromFile($path)
+    try {
+        if ([string]$reference.Name -cne [string]$spec.name) {
+            throw "The reference is named '$($reference.Name)', not '$($spec.name)'."
+        }
+    }
+    finally {
+        Remove-ComObjectReference $reference
+    }
+    return @{ Container = $null; Path = $path; VbProject = $vbProject }
+}
+
 function Close-OracleContainer($App, $Container) {
     switch ($script:hostName) {
         "excel" { $Container.Close($false) }
@@ -1339,6 +1442,8 @@ function Invoke-OracleCase {
     $component = $null
     $codeModule = $null
     $containerPath = $null
+    $provider = $null
+    $providerPath = $null
     $mode = "compile"
     Set-Stage "setup"
 
@@ -1391,6 +1496,16 @@ function Invoke-OracleCase {
             foreach ($reference in @($case.references)) {
                 $null = $vbProject.References.AddFromGuid([string]$reference.guid, [int]$reference.major, [int]$reference.minor)
             }
+        }
+        if ($case.PSObject.Properties.Name -contains "projectReference" -and $case.projectReference) {
+            Set-Stage "add_project_reference"
+            $madeProvider = New-ProjectReference $app $vbProject $case $containerPath
+            if ($madeProvider.VbProject) {
+                Remove-ComObjectReference $vbProject
+                $vbProject = $madeProvider.VbProject
+            }
+            $provider = $madeProvider.Container
+            $providerPath = $madeProvider.Path
         }
         if ($case.PSObject.Properties.Name -contains "documentControls" -and $case.documentControls) {
             Set-Stage "add_document_controls"
@@ -1536,6 +1651,11 @@ function Invoke-OracleCase {
         if ($null -ne $container) {
             try { Close-OracleContainer $app $container } catch { $closed = $false }
         }
+        # The referenced project closes after the case's, which holds a reference to it.
+        if ($null -ne $provider) {
+            try { Close-OracleContainer $app $provider } catch { $closed = $false }
+            Remove-ComObjectReference $provider
+        }
 
         Remove-ComObjectReference $codeModule
         Remove-ComObjectReference $component
@@ -1551,6 +1671,11 @@ function Invoke-OracleCase {
             Stop-OracleHost
         }
 
+        if ($providerPath) {
+            foreach ($candidate in @($providerPath, [IO.Path]::ChangeExtension($providerPath, ".laccdb"))) {
+                if (Test-Path -LiteralPath $candidate) { try { Remove-Item -LiteralPath $candidate -Force } catch { } }
+            }
+        }
         # Access's database is a file of its own, free once Access has quit.
         if ($containerPath) {
             foreach ($candidate in @($containerPath, [IO.Path]::ChangeExtension($containerPath, '.laccdb'))) {

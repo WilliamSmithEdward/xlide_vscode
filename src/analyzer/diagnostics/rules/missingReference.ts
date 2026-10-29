@@ -21,6 +21,7 @@
 // does not exist yet, and guessing between the two would put a reference
 // suggestion on ordinary broken code.
 
+import type { ReferencedProjectSurface } from '../../symbols/referencedProjects';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { isProcedureKind, type ModuleSymbols, type VbaSymbol } from '../../symbols/symbolModel';
 import { resolveBareIdentifierBinding } from '../../symbols/nameResolution';
@@ -200,6 +201,20 @@ export interface ProjectNames {
 	projectName?: string;
 	/** Every module of the project, lowercased; undefined without the project. */
 	projectModuleNames?: ReadonlySet<string>;
+	/** What each referenced VBA project XLIDE read offers this one, its types included. */
+	referencedProjectSurfaces?: readonly ReferencedProjectSurface[];
+}
+
+/**
+ * The types a read referenced project offers by name, lowercased, or
+ * undefined for a qualifier that is no such project (issue #1503): its
+ * exposed classes and the Public Types and Enums of its visible standard
+ * modules. A class it does not expose is no type of the referring project:
+ * `Dim t As ProbeLibrary.Thing` is "User-defined type not defined".
+ */
+function referencedProjectTypes(qualifier: string, project: ProjectNames | undefined): ReadonlySet<string> | undefined {
+	const surface = project?.referencedProjectSurfaces?.find((candidate) => candidate.name.toLowerCase() === qualifier);
+	return surface && new Set(surface.modules.flatMap((module) => module.types.map((type) => type.toLowerCase())));
 }
 
 /**
@@ -253,6 +268,18 @@ export function checkMissingLibraryReference(
 		// not a missing-library compile error (native Excel control).
 		if (!found.typeQualifier && !explicit) { continue; }
 		const lower = found.library.toLowerCase();
+		const referencedTypes = found.typeQualifier ? referencedProjectTypes(lower, project) : undefined;
+		if (referencedTypes) {
+			const typeName = source.slice(found.span.start, found.span.end).split('.').pop()?.trim().replace(/^\[(.*)\]$/, '$1') ?? '';
+			if (!referencedTypes.has(typeName.toLowerCase())) {
+				push(
+					'missingLibraryReference',
+					`'${found.library}' is a VBA project this project references, and it offers no type '${typeName}': a class it does not expose, or a Type or Enum in a module it keeps private, cannot be named here. This is a VBE compile error: User-defined type not defined.`,
+					found.span,
+				);
+			}
+			continue;
+		}
 		const library = ADDABLE.get(lower);
 		if (library === undefined) {
 			// A library XLIDE cannot add: judged only in a type position, and

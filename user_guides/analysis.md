@@ -99,9 +99,17 @@ In code, a referenced library's name qualifies its constants and functions
 the same way: `stdole.Checked`, `Scripting.BinaryCompare`, and
 `DAO.dbOpenDynaset` with the Access database engine referenced. The name
 stands only before a dot. A library's name on its own, `v = stdole` or
-`v = Excel`, is reported, as the VBE refuses it. A reference to another VBA
-project is still reported when its name qualifies a call, because XLIDE
-does not read the referenced project yet.
+`v = Excel`, is reported, as the VBE refuses it.
+
+A reference to another VBA project, an add-in say, works the same way once
+XLIDE has read that project. `ProbeLibrary.Service.Value()`,
+`Service.Value()` and `Value()` are accepted when the referenced project's
+module `Service` offers a Public `Value`. A name it does not offer is
+reported: a module marked `Option Private Module`, a Private procedure, or
+a class it does not expose. XLIDE reads the referenced file only when it is
+on a local disk, at the path the reference records or beside your file. It
+never opens a network path such as `\\server\share\Lib.xlam`. A reference it
+cannot read is reported as before.
 
 Late binding needs no reference, and is never reported:
 

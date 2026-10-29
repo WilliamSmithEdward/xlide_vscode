@@ -1,3 +1,4 @@
+import type { ReferencedProjectSurface } from './analyzer/symbols/referencedProjects';
 import { isAnalysisWorkerTimeoutError } from './analysisWorkerErrors';
 // Workbook-wide VBA analysis. Reads every module's source from a project and
 // runs the same two analysis passes the live editor uses - the structural
@@ -175,6 +176,8 @@ export interface ProjectAnalysisWorker {
         referencedProjects?: readonly string[];
         /** The project's own name, read with the references. */
         projectName?: string;
+        /** What each referenced VBA project XLIDE could read offers this one. */
+        referencedProjectSurfaces?: readonly ReferencedProjectSurface[];
         /** The host type the module's designer makes it, when the engine read one. */
         designerClass?: string;
         /** The workbook's sheets as saved, when the container is a workbook. */
@@ -407,6 +410,7 @@ async function loadProjectModules(
     modules: RawModule[];
     references: readonly VbaProjectReference[];
     projectName: string | undefined;
+    referencedProjects: readonly ReferencedProjectSurface[] | undefined;
     sheets: readonly WorkbookSheetInfo[] | undefined;
     conditionalConstants: string | undefined;
 }> {
@@ -417,6 +421,7 @@ async function loadProjectModules(
         () => bridge.call<Array<RawModule & {
             projectReferences?: VbaProjectReference[];
             projectName?: string;
+            referencedProjects?: readonly ReferencedProjectSurface[];
             projectSheets?: WorkbookSheetInfo[];
             projectConditionalConstants?: string;
         }>>(
@@ -432,6 +437,8 @@ async function loadProjectModules(
         // nothing this analysis can use either.
         references: modules[0]?.projectReferences ?? [],
         projectName: modules[0]?.projectName,
+        // The referenced projects ride on the first entry only.
+        referencedProjects: modules[0]?.referencedProjects,
         // The workbook's sheets ride on the first entry only.
         sheets: modules[0]?.projectSheets,
         // The project's #If arguments, which the engine repeats on every entry.
@@ -513,7 +520,7 @@ async function runProjectAnalysis(
     const totalTrace = startPerformanceTrace('analyzeProject.total');
     const progress = projectAnalysisProgress(options.progress);
     try {
-        const { modules, references, projectName, sheets: workbookSheets, conditionalConstants } = await loadProjectModules(bridge, filePath, progress, options);
+        const { modules, references, projectName, referencedProjects: referencedProjectSurfaces, sheets: workbookSheets, conditionalConstants } = await loadProjectModules(bridge, filePath, progress, options);
         // A project that references another application is analyzed against
         // both object models, exactly as the editor's own diagnostics are.
         const referencedHosts = referencedHostTokens(hostTokenForFileName(filePath), references);
@@ -647,6 +654,7 @@ async function runProjectAnalysis(
                                 referencedLibraries,
                                 referencedProjects,
                                 projectName,
+                                referencedProjectSurfaces,
                                 workbookSheets,
                             }),
                         );
@@ -695,6 +703,7 @@ async function runProjectAnalysis(
                         referencedLibraries,
                         referencedProjects,
                         projectName,
+                        referencedProjectSurfaces,
                         workbookSheets,
                     }),
                 );

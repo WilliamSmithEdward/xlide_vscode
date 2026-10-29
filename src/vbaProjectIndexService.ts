@@ -19,6 +19,7 @@
 // The byModule views always carry the source text the project index actually
 // parsed, so symbol spans resolved against them are self-consistent.
 
+import type { ReferencedProjectSurface } from './analyzer/symbols/referencedProjects';
 import * as vscode from 'vscode';
 import * as path from 'path';
 import {
@@ -71,6 +72,8 @@ export interface VbaProjectContext {
     readonly references: readonly VbaProjectReference[];
     /** The project's own name, which qualifies its types; undefined before it is read. */
     readonly projectName: string | undefined;
+    /** What each referenced VBA project XLIDE could read offers this one; undefined before it is read. */
+    readonly referencedProjects: readonly ReferencedProjectSurface[] | undefined;
     /** The workbook's sheets as saved; undefined for other files or before they are read. */
     readonly sheets: readonly WorkbookSheetInfo[] | undefined;
     /**
@@ -111,6 +114,7 @@ let generationClock = 0;
 class ProjectRecord implements VbaProjectContext {
     references: readonly VbaProjectReference[] = [];
     projectName: string | undefined;
+    referencedProjects: readonly ReferencedProjectSurface[] | undefined;
     sheets: readonly WorkbookSheetInfo[] | undefined;
     conditionalConstants: string | undefined;
     readonly byModule = new Map<string, VbaModuleSymbols>();
@@ -365,6 +369,7 @@ export class VbaProjectIndexService implements vscode.Disposable {
         const record = new ProjectRecord(projectPath, project);
         record.references = this._index.projectReferences(projectPath);
         record.projectName = this._index.projectName(projectPath);
+        record.referencedProjects = this._index.referencedProjects(projectPath);
         record.sheets = this._index.projectSheets(projectPath);
         record.conditionalConstants = conditionalConstants;
         for (const mod of modules) {

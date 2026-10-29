@@ -1,6 +1,7 @@
 // Message protocol between the extension host and the analysis worker thread.
 // Everything crossing the boundary must be structured-cloneable plain data.
 
+import type { ReferencedProjectSurface } from './analyzer/symbols/referencedProjects';
 import type { VbaModuleAnalysisDiagnostic, VbaModuleAnalysisFailure } from './vbaModuleAnalysis';
 import type { WorkbookSheetInfo } from './analyzer/symbols/sheetChanges';
 
@@ -99,6 +100,8 @@ export type AnalysisWorkerRequest =
 		referencedProjects?: readonly string[];
 		/** The project's own name, read with the references. */
 		projectName?: string;
+		/** What each referenced VBA project XLIDE could read offers this one. */
+		referencedProjectSurfaces?: readonly ReferencedProjectSurface[];
 		/**
 		 * Designer-declared members of the analyzed module, overriding whatever
 		 * the seed carried. A host whose designer state changes between seeds

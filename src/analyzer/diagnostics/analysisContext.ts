@@ -9,6 +9,7 @@
 // share one computation without threading a context object through every
 // helper signature.
 
+import type { ReferencedProjectSurface } from '../symbols/referencedProjects';
 import type { OpenedFileNumbers } from './openedFileNumbers';
 import { getHostMembers, resolveHostGlobal, resolveHostGlobalMember } from '../host/hostModel';
 import type { ModuleNode, Span } from '../parser/nodes';
@@ -308,6 +309,13 @@ export interface AnalyzeModuleOptions {
 	 * read, so a name of one does not yet vouch for what follows its dot.
 	 */
 	referencedProjects?: readonly string[];
+	/**
+	 * What each of `referencedProjects` that XLIDE could read offers this
+	 * project: its modules, which it can see, and their public names (issue
+	 * #1503). A referenced project missing here was not read, and its name
+	 * stays reported as before.
+	 */
+	referencedProjectSurfaces?: readonly ReferencedProjectSurface[];
 	/**
 	 * The project's own name as its dir stream records it (`VBAProject`,
 	 * `Project`, an Access database's), which qualifies its types the way a

@@ -1,3 +1,4 @@
+import type { ReferencedProjectSurface } from './analyzer/symbols/referencedProjects';
 import { isAnalysisWorkerTimeoutError } from './analysisWorkerErrors';
 // Live VBA diagnostics engine: runs the analyzer's module analysis on open,
 // (debounced) on every edit, and when another module of the project changes.
@@ -346,6 +347,8 @@ export function registerVbaDiagnostics(
     const referencedProjectsByProject = new Map<string, readonly string[]>();
     // Each project's own name, read with its references.
     const projectNameByProject = new Map<string, string | undefined>();
+    // What the referenced VBA projects XLIDE could read offer each project.
+    const referencedProjectSurfacesByProject = new Map<string, readonly ReferencedProjectSurface[] | undefined>();
     const fullPassMetadataRetries = new Map<string, number>();
     const settingsWatchers = new ProjectSettingsWatcherRegistry((projectPath) => {
         invalidateAnalysisSettingsForProject(projectPath);
@@ -656,10 +659,12 @@ export function registerVbaDiagnostics(
                         referencedLibrariesByProject.set(projectKey(projectPath), diagnosticProject.references.map((reference) => reference.name));
                         referencedProjectsByProject.set(projectKey(projectPath), referencedProjectNames(diagnosticProject.references));
                         projectNameByProject.set(projectKey(projectPath), diagnosticProject.projectName);
+                        referencedProjectSurfacesByProject.set(projectKey(projectPath), diagnosticProject.referencedProjects);
                     } else {
                         referencedLibrariesByProject.delete(projectKey(projectPath));
                         referencedProjectsByProject.delete(projectKey(projectPath));
                         projectNameByProject.delete(projectKey(projectPath));
+                        referencedProjectSurfacesByProject.delete(projectKey(projectPath));
                     }
                     const current = diagnosticProject.moduleMetadata.get(moduleIdentityKey(moduleName));
                     if (current) {
@@ -749,6 +754,7 @@ export function registerVbaDiagnostics(
                     referencedLibraries: wbKey ? referencedLibrariesByProject.get(wbKey) : undefined,
                     referencedProjects: wbKey ? referencedProjectsByProject.get(wbKey) : undefined,
                     projectName: wbKey ? projectNameByProject.get(wbKey) : undefined,
+                    referencedProjectSurfaces: wbKey ? referencedProjectSurfacesByProject.get(wbKey) : undefined,
                     designerClass,
                     workbookSheets: wbKey ? workbookSheetsByProject.get(wbKey) : undefined,
                 });
@@ -797,6 +803,7 @@ export function registerVbaDiagnostics(
             referencedLibraries: projectPath ? referencedLibrariesByProject.get(projectKey(projectPath)) : undefined,
             referencedProjects: projectPath ? referencedProjectsByProject.get(projectKey(projectPath)) : undefined,
             projectName: projectPath ? projectNameByProject.get(projectKey(projectPath)) : undefined,
+            referencedProjectSurfaces: projectPath ? referencedProjectSurfacesByProject.get(projectKey(projectPath)) : undefined,
             designerClass,
             workbookSheets: projectPath ? workbookSheetsByProject.get(projectKey(projectPath)) : undefined,
         });
