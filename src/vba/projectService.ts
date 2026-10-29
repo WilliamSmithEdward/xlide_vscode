@@ -949,7 +949,7 @@ export function listModules(filePath: string): ModuleEntry[] {
 	}
 	const { container, cfb, project } = open;
 	const entries = project.modules.map((module) => moduleEntryWithDesigner(cfb, project, module));
-	return withSheetControls(container, withHostDesigns(container, entries, project.codePage));
+	return withDocumentControls(container, project, withSheetControls(container, withHostDesigns(container, entries, project.codePage)));
 }
 
 /**
@@ -1106,7 +1106,7 @@ function readModulesFromContainer({ container, cfb, project }: OpenContainer, fu
 	if (sheets && out.length > 0) {
 		out[0].projectSheets = sheets;
 	}
-	return withSheetControls(container, withHostDesigns(container, out, project.codePage, constants));
+	return withDocumentControls(container, project, withSheetControls(container, withHostDesigns(container, out, project.codePage, constants)));
 }
 
 /**
@@ -1140,6 +1140,56 @@ function withSheetControls(container: MacroContainer, entries: ModuleEntry[]): M
 			implicitMembers: controls.map((shape) => ({ name: shape.name, type: 'Object' })),
 		};
 	});
+}
+
+/** The host class a document module with controls is, for the hosts whose controls the module lists. */
+const CONTROL_HOST_CLASSES: Partial<Record<MacroContainer['kind'], string>> = {
+	word: 'Word.Document',
+	powerpoint: 'PowerPoint.Slide',
+};
+
+/**
+ * A Word document's module, or a PowerPoint slide's, with the ActiveX
+ * controls on it as its members, typed Object (issue #1481, measured in Word,
+ * Excel and PowerPoint 16.0 with ActiveX enabled): `CommandButton1`,
+ * `Me.CommandButton1` and, from another module, `ThisDocument.CommandButton1`
+ * or `Slide1.CommandButton1` compile, wherever on the page or in a header the
+ * control sits. `TextBox1.Nope` compiles too, since a control's members are
+ * bound when the code runs.
+ *
+ * Each host lists the module's controls in its attribute header, one
+ * `Attribute VB_Control = "CommandButton1, 1, 0, MSForms, CommandButton"`
+ * each, in the order it gave them IDs, so a legacy .doc or .ppt has them
+ * too. A module with none is left as it was. An Excel sheet's controls come
+ * from its workbook instead (withSheetControls).
+ */
+function withDocumentControls(container: MacroContainer, project: VbaProject, entries: ModuleEntry[]): ModuleEntry[] {
+	const hostClass = CONTROL_HOST_CLASSES[container.kind];
+	if (!hostClass) {
+		return entries;
+	}
+	return entries.map((entry) => {
+		if (entry.type !== 'document' || entry.designerClass !== undefined || entry.implicitMembers !== undefined) {
+			return entry;
+		}
+		const module = project.modules.find((candidate) => candidate.name.toLowerCase() === entry.name.toLowerCase());
+		const names = module ? moduleControlNames(module.sourceHeader) : [];
+		return names.length === 0
+			? entry
+			: { ...entry, designerClass: hostClass, implicitMembers: names.map((name) => ({ name, type: 'Object' })) };
+	});
+}
+
+/** The controls a module's `Attribute VB_Control` lines name, in order. */
+function moduleControlNames(header: string): string[] {
+	const names: string[] = [];
+	for (const match of header.matchAll(/^[ \t]*Attribute[ \t]+VB_Control[ \t]*=[ \t]*"([^",\r\n]+)/gim)) {
+		const name = match[1].trim();
+		if (name && !names.some((known) => known.toLowerCase() === name.toLowerCase())) {
+			names.push(name);
+		}
+	}
+	return names;
 }
 
 /** A workbook's sheets, or undefined for any other file or one whose sheets cannot be read. */

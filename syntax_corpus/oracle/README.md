@@ -393,6 +393,18 @@ fails ends the case as a `worker_error`, never as evidence:
   name was: a workbook, a document or a worksheet. Access names a form's
   or report's module itself, so an Access case with one ends as a
   `worker_error`.
+- `documentControls` on the case: `[{ "name", "progId", "layout" }]`, ActiveX
+  controls put on the document before any code (issue #1481). In Word,
+  `layout` is `inline` in the body (the default), `floating` on the page, or
+  `header` in the first section's primary header. In Excel they go on the
+  first worksheet, so `Sheet1` is the module that has them. In PowerPoint
+  they go on the first slide, added blank when there is none, and the
+  control brings the slide's module, `Slide1`, into the project. Each is
+  read back by name and ProgID. Access has no such controls. The hosts
+  refuse them while ActiveX is disabled in the Trust Center, which ends the
+  case as a `worker_error`. The worker never renames a control, since
+  setting its name through late binding is ambiguous, so name each one as
+  the host does: `CommandButton1`, then `CommandButton2`.
 - `implicitMembers`, `designerClass` and `predeclaredId` are the analyzer's
   side of the same facts. `tests/helpers/oracleModuleInput.ts` hands them,
   and the controls `designerControls` names, to the analyzer, and every
