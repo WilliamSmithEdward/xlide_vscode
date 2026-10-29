@@ -405,6 +405,18 @@ fails ends the case as a `worker_error`, never as evidence:
   case as a `worker_error`. The worker never renames a control, since
   setting its name through late binding is ambiguous, so name each one as
   the host does: `CommandButton1`, then `CommandButton2`.
+- `projectReference` on the case: `{ "name", "modules" }`, another VBA
+  project the case's project references (issue #1503). The worker makes it
+  as a file of its own in the same host, names its project, adds `modules`
+  as it adds a case's, saves it to the temp folder and references it with
+  `References.AddFromFile`, then reads the reference's name back. The file is
+  the kind each host can reference: a workbook in Excel, a template (.dotm)
+  in Word, an add-in (.ppam) in PowerPoint, a database in Access. Word and
+  PowerPoint refuse a reference to a document or presentation. Access holds
+  one database at a time, so it closes the case's, makes the provider, and
+  opens the case's again. The provider is deleted after the case.
+  `tests/helpers/oracleModuleInput.ts` reads it for the analyzer as the
+  engine reads a referenced project.
 - `implicitMembers`, `designerClass` and `predeclaredId` are the analyzer's
   side of the same facts. `tests/helpers/oracleModuleInput.ts` hands them,
   and the controls `designerControls` names, to the analyzer, and every

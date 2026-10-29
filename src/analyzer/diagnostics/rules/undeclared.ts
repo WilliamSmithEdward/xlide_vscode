@@ -44,6 +44,7 @@ import {
 	type VbaRuntimeFunction,
 } from '../../runtime/vbaRuntime';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
+import type { ReferencedProjectSurface } from '../../symbols/referencedProjects';
 import type { BareIdentifierContext } from '../../symbols/nameResolution';
 import {
 	type ModuleSymbolKind,
@@ -707,6 +708,7 @@ export function checkUndeclaredVariables(
 	// (issue #1495, measured in Excel, Word, PowerPoint and Access 16.0).
 	const libraryQualifiers = libraryQualifierNames(hostModel, referencedHosts, project);
 	const isLibraryName = (lower: string): boolean => lower === 'vba' || libraryQualifiers.has(lower);
+	const referencedNames = referencedProjectNames(project.referencedProjectSurfaces);
 	const standsBeforeDot = (span: Span): boolean => BEFORE_DOT.test(source.slice(span.end, span.end + 256));
 	// A form's controls are declared by its DESIGNER, not its text, and the seed
 	// has three states, not two: a list, a vouched-for-empty list, and no answer
@@ -774,7 +776,9 @@ export function checkUndeclaredVariables(
 			resolveRuntimeFunction(name) !== undefined ||
 			// VBA's own enums and modules qualify their members the same way:
 			// `VbMsgBoxResult.vbYes`, `ColorConstants.vbRed`, `Strings.Left`.
-			resolveVbaLibraryQualifier(name) !== undefined
+			resolveVbaLibraryQualifier(name) !== undefined ||
+			// A read referenced project's modules and members (issue #1503).
+			referencedNames.has(lower)
 		);
 	};
 
@@ -1011,6 +1015,29 @@ export interface ProjectQualifiers {
 	referencedProjects?: readonly string[];
 	/** The project's own name: `VBAProject`, `Project`, an Access database's. */
 	projectName?: string;
+	/** What each referenced VBA project XLIDE read offers this one. */
+	referencedProjectSurfaces?: readonly ReferencedProjectSurface[];
+}
+
+/**
+ * The names a read referenced project offers unqualified, lowercased: its
+ * visible modules' names, and every member of its visible standard modules
+ * (issue #1503). `Service.Value()` and `Value()` compile.
+ */
+function referencedProjectNames(surfaces: readonly ReferencedProjectSurface[] | undefined): ReadonlySet<string> {
+	const names = new Set<string>();
+	for (const surface of surfaces ?? []) {
+		for (const module of surface.modules) {
+			if (!module.visible) {
+				continue;
+			}
+			names.add(module.name.toLowerCase());
+			for (const member of module.members) {
+				names.add(member.toLowerCase());
+			}
+		}
+	}
+	return names;
 }
 
 /** A dot after a name, across spaces and line continuations. */
@@ -1046,12 +1073,14 @@ function libraryQualifierNames(
 		}
 	}
 	// A type library's recorded name vouches for what follows it. Another
-	// VBA project's does not until that project is read: its module may be
+	// VBA project's does once XLIDE has read it, and the referenced-project
+	// rule then judges what follows its dot. Unread, its module may be
 	// Option Private, and the call then "Method or data member not found",
-	// so it stays reported rather than turned silent.
+	// so it stays reported rather than turned silent (issue #1503).
+	const read = new Set((project.referencedProjectSurfaces ?? []).map((surface) => surface.name.toLowerCase()));
 	const projects = new Set((project.referencedProjects ?? []).map((name) => name.toLowerCase()));
 	for (const name of project.referencedLibraries ?? []) {
-		if (!projects.has(name.toLowerCase())) {
+		if (!projects.has(name.toLowerCase()) || read.has(name.toLowerCase())) {
 			out.add(name.toLowerCase());
 		}
 	}

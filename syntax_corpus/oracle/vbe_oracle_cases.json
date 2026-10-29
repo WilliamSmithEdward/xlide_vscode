@@ -219740,6 +219740,2115 @@
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid",
       "host": "powerpoint"
+    },
+    {
+      "id": "issue1503_qualified_compile",
+      "description": "Issue #1503: referencing the VBA project ProbeLibrary, whose module Service has Public Function Value: x = ProbeLibrary.Service.Value() compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = ProbeLibrary.Service.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1503_project_member_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: x = ProbeLibrary.Value() compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = ProbeLibrary.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1503_unqualified_module_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: x = Service.Value() compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = Service.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1503_unqualified_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: x = Value() compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1503_lowercase_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: x = probelibrary.service.value() compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = probelibrary.service.value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1503_bracketed_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: x = [ProbeLibrary].Service.Value() compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = [ProbeLibrary].Service.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1503_call_statement_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: the call statement ProbeLibrary.Service.Value compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    ProbeLibrary.Service.Value\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1503_bare_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: v = ProbeLibrary, the project's name bare is rejected: Compile error: Expected variable or procedure, not project. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    v = ProbeLibrary\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1503_missing_module_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: x = ProbeLibrary.Nope.Value() is rejected: Compile error: Method or data member not found. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = ProbeLibrary.Nope.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1503_missing_member_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: x = ProbeLibrary.Service.Nope() is rejected: Compile error: Method or data member not found. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = ProbeLibrary.Service.Nope()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1503_missing_unqualified_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: x = Nope() is rejected: Compile error: Sub or Function not defined. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = Nope()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1503_private_module_qualified_compile",
+      "description": "Issue #1503: referencing ProbeLibrary, Service marked Option Private Module: x = ProbeLibrary.Service.Value() is rejected: Compile error: Method or data member not found. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nOption Private Module\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = ProbeLibrary.Service.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1503_private_module_project_member_compile",
+      "description": "Issue #1503: referencing ProbeLibrary, Service marked Option Private Module: x = ProbeLibrary.Value() is rejected: Compile error: Method or data member not found. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nOption Private Module\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = ProbeLibrary.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1503_private_module_unqualified_module_compile",
+      "description": "Issue #1503: referencing ProbeLibrary, Service marked Option Private Module: x = Service.Value() is rejected: Compile error: Variable not defined. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nOption Private Module\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = Service.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1503_private_module_unqualified_compile",
+      "description": "Issue #1503: referencing ProbeLibrary, Service marked Option Private Module: x = Value() is rejected: Compile error: Sub or Function not defined. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nOption Private Module\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1503_private_function_compile",
+      "description": "Issue #1503: referencing ProbeLibrary, Value a Private Function: x = ProbeLibrary.Service.Value() is rejected: Compile error: Method or data member not found. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPrivate Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = ProbeLibrary.Service.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1503_private_class_type_compile",
+      "description": "Issue #1503: referencing ProbeLibrary, with a class Thing it does not expose: Dim t As ProbeLibrary.Thing is rejected: Compile error: User-defined type not defined. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Thing",
+            "type": "class",
+            "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    Dim t As ProbeLibrary.Thing\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1503_consumer_shadows_compile",
+      "description": "Issue #1503: referencing ProbeLibrary, with a Value() of the project's own: x = Value() compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = Value()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Own",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 1\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1503_no_reference_compile",
+      "description": "Issue #1503: with no reference to ProbeLibrary: x = ProbeLibrary.Service.Value() is rejected: Compile error: Variable not defined. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = ProbeLibrary.Service.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1503_word_qualified_compile",
+      "description": "Issue #1503: referencing the VBA project ProbeLibrary, whose module Service has Public Function Value: x = ProbeLibrary.Service.Value() compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = ProbeLibrary.Service.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1503_word_project_member_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: x = ProbeLibrary.Value() compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = ProbeLibrary.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1503_word_unqualified_module_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: x = Service.Value() compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = Service.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1503_word_unqualified_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: x = Value() compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1503_word_lowercase_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: x = probelibrary.service.value() compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = probelibrary.service.value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1503_word_bracketed_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: x = [ProbeLibrary].Service.Value() compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = [ProbeLibrary].Service.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1503_word_call_statement_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: the call statement ProbeLibrary.Service.Value compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    ProbeLibrary.Service.Value\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1503_word_bare_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: v = ProbeLibrary, the project's name bare is rejected: Compile error: Expected variable or procedure, not project. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    v = ProbeLibrary\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1503_word_missing_module_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: x = ProbeLibrary.Nope.Value() is rejected: Compile error: Method or data member not found. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = ProbeLibrary.Nope.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1503_word_missing_member_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: x = ProbeLibrary.Service.Nope() is rejected: Compile error: Method or data member not found. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = ProbeLibrary.Service.Nope()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1503_word_missing_unqualified_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: x = Nope() is rejected: Compile error: Sub or Function not defined. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = Nope()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1503_word_private_module_qualified_compile",
+      "description": "Issue #1503: referencing ProbeLibrary, Service marked Option Private Module: x = ProbeLibrary.Service.Value() is rejected: Compile error: Method or data member not found. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nOption Private Module\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = ProbeLibrary.Service.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1503_word_private_module_project_member_compile",
+      "description": "Issue #1503: referencing ProbeLibrary, Service marked Option Private Module: x = ProbeLibrary.Value() is rejected: Compile error: Method or data member not found. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nOption Private Module\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = ProbeLibrary.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1503_word_private_module_unqualified_module_compile",
+      "description": "Issue #1503: referencing ProbeLibrary, Service marked Option Private Module: x = Service.Value() is rejected: Compile error: Variable not defined. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nOption Private Module\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = Service.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1503_word_private_module_unqualified_compile",
+      "description": "Issue #1503: referencing ProbeLibrary, Service marked Option Private Module: x = Value() is rejected: Compile error: Sub or Function not defined. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nOption Private Module\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1503_word_private_function_compile",
+      "description": "Issue #1503: referencing ProbeLibrary, Value a Private Function: x = ProbeLibrary.Service.Value() is rejected: Compile error: Method or data member not found. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPrivate Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = ProbeLibrary.Service.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1503_word_private_class_type_compile",
+      "description": "Issue #1503: referencing ProbeLibrary, with a class Thing it does not expose: Dim t As ProbeLibrary.Thing is rejected: Compile error: User-defined type not defined. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Thing",
+            "type": "class",
+            "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    Dim t As ProbeLibrary.Thing\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1503_word_consumer_shadows_compile",
+      "description": "Issue #1503: referencing ProbeLibrary, with a Value() of the project's own: x = Value() compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = Value()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Own",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 1\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1503_word_no_reference_compile",
+      "description": "Issue #1503: with no reference to ProbeLibrary: x = ProbeLibrary.Service.Value() is rejected: Compile error: Variable not defined. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = ProbeLibrary.Service.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1503_powerpoint_qualified_compile",
+      "description": "Issue #1503: referencing the VBA project ProbeLibrary, whose module Service has Public Function Value: x = ProbeLibrary.Service.Value() compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = ProbeLibrary.Service.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1503_powerpoint_project_member_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: x = ProbeLibrary.Value() compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = ProbeLibrary.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1503_powerpoint_unqualified_module_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: x = Service.Value() compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = Service.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1503_powerpoint_unqualified_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: x = Value() compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1503_powerpoint_lowercase_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: x = probelibrary.service.value() compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = probelibrary.service.value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1503_powerpoint_bracketed_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: x = [ProbeLibrary].Service.Value() compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = [ProbeLibrary].Service.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1503_powerpoint_call_statement_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: the call statement ProbeLibrary.Service.Value compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    ProbeLibrary.Service.Value\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1503_powerpoint_bare_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: v = ProbeLibrary, the project's name bare is rejected: Compile error: Expected variable or procedure, not project. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    v = ProbeLibrary\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1503_powerpoint_missing_module_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: x = ProbeLibrary.Nope.Value() is rejected: Compile error: Method or data member not found. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = ProbeLibrary.Nope.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1503_powerpoint_missing_member_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: x = ProbeLibrary.Service.Nope() is rejected: Compile error: Method or data member not found. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = ProbeLibrary.Service.Nope()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1503_powerpoint_missing_unqualified_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: x = Nope() is rejected: Compile error: Sub or Function not defined. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = Nope()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1503_powerpoint_private_module_qualified_compile",
+      "description": "Issue #1503: referencing ProbeLibrary, Service marked Option Private Module: x = ProbeLibrary.Service.Value() is rejected: Compile error: Method or data member not found. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nOption Private Module\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = ProbeLibrary.Service.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1503_powerpoint_private_module_project_member_compile",
+      "description": "Issue #1503: referencing ProbeLibrary, Service marked Option Private Module: x = ProbeLibrary.Value() is rejected: Compile error: Method or data member not found. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nOption Private Module\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = ProbeLibrary.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1503_powerpoint_private_module_unqualified_module_compile",
+      "description": "Issue #1503: referencing ProbeLibrary, Service marked Option Private Module: x = Service.Value() is rejected: Compile error: Variable not defined. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nOption Private Module\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = Service.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1503_powerpoint_private_module_unqualified_compile",
+      "description": "Issue #1503: referencing ProbeLibrary, Service marked Option Private Module: x = Value() is rejected: Compile error: Sub or Function not defined. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nOption Private Module\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1503_powerpoint_private_function_compile",
+      "description": "Issue #1503: referencing ProbeLibrary, Value a Private Function: x = ProbeLibrary.Service.Value() is rejected: Compile error: Method or data member not found. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPrivate Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = ProbeLibrary.Service.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1503_powerpoint_private_class_type_compile",
+      "description": "Issue #1503: referencing ProbeLibrary, with a class Thing it does not expose: Dim t As ProbeLibrary.Thing is rejected: Compile error: User-defined type not defined. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Thing",
+            "type": "class",
+            "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    Dim t As ProbeLibrary.Thing\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1503_powerpoint_consumer_shadows_compile",
+      "description": "Issue #1503: referencing ProbeLibrary, with a Value() of the project's own: x = Value() compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = Value()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Own",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 1\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1503_powerpoint_no_reference_compile",
+      "description": "Issue #1503: with no reference to ProbeLibrary: x = ProbeLibrary.Service.Value() is rejected: Compile error: Variable not defined. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = ProbeLibrary.Service.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1503_access_qualified_compile",
+      "description": "Issue #1503: referencing the VBA project ProbeLibrary, whose module Service has Public Function Value: x = ProbeLibrary.Service.Value() compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = ProbeLibrary.Service.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1503_access_project_member_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: x = ProbeLibrary.Value() compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = ProbeLibrary.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1503_access_unqualified_module_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: x = Service.Value() compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = Service.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1503_access_unqualified_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: x = Value() compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1503_access_lowercase_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: x = probelibrary.service.value() compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = probelibrary.service.value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1503_access_bracketed_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: x = [ProbeLibrary].Service.Value() compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = [ProbeLibrary].Service.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1503_access_call_statement_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: the call statement ProbeLibrary.Service.Value compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    ProbeLibrary.Service.Value\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1503_access_bare_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: v = ProbeLibrary, the project's name bare is rejected: Compile error: Expected variable or procedure, not project. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    v = ProbeLibrary\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1503_access_missing_module_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: x = ProbeLibrary.Nope.Value() is rejected: Compile error: Method or data member not found. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = ProbeLibrary.Nope.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1503_access_missing_member_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: x = ProbeLibrary.Service.Nope() is rejected: Compile error: Method or data member not found. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = ProbeLibrary.Service.Nope()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1503_access_missing_unqualified_compile",
+      "description": "Issue #1503: referencing ProbeLibrary: x = Nope() is rejected: Compile error: Sub or Function not defined. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = Nope()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1503_access_private_module_qualified_compile",
+      "description": "Issue #1503: referencing ProbeLibrary, Service marked Option Private Module: x = ProbeLibrary.Service.Value() is rejected: Compile error: Method or data member not found. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nOption Private Module\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = ProbeLibrary.Service.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1503_access_private_module_project_member_compile",
+      "description": "Issue #1503: referencing ProbeLibrary, Service marked Option Private Module: x = ProbeLibrary.Value() is rejected: Compile error: Method or data member not found. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nOption Private Module\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = ProbeLibrary.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1503_access_private_module_unqualified_module_compile",
+      "description": "Issue #1503: referencing ProbeLibrary, Service marked Option Private Module: x = Service.Value() is rejected: Compile error: Variable not defined. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nOption Private Module\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = Service.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1503_access_private_module_unqualified_compile",
+      "description": "Issue #1503: referencing ProbeLibrary, Service marked Option Private Module: x = Value() is rejected: Compile error: Sub or Function not defined. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nOption Private Module\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1503_access_private_function_compile",
+      "description": "Issue #1503: referencing ProbeLibrary, Value a Private Function: x = ProbeLibrary.Service.Value() is rejected: Compile error: Method or data member not found. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPrivate Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = ProbeLibrary.Service.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1503_access_private_class_type_compile",
+      "description": "Issue #1503: referencing ProbeLibrary, with a class Thing it does not expose: Dim t As ProbeLibrary.Thing is rejected: Compile error: User-defined type not defined. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Thing",
+            "type": "class",
+            "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    Dim t As ProbeLibrary.Thing\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1503_access_consumer_shadows_compile",
+      "description": "Issue #1503: referencing ProbeLibrary, with a Value() of the project's own: x = Value() compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 7\r\nEnd Function\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = Value()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Own",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Value() As Long\r\n    Value = 1\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1503_access_no_reference_compile",
+      "description": "Issue #1503: with no reference to ProbeLibrary: x = ProbeLibrary.Service.Value() is rejected: Compile error: Variable not defined. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    x = ProbeLibrary.Service.Value()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
     }
   ]
 }

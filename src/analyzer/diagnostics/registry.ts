@@ -89,6 +89,7 @@ import {
 	checkUndeclaredVariables,
 	checkUnknownCallStatement,
 } from './rules/undeclared';
+import { checkReferencedProjectNames } from './rules/referencedProjects';
 import {
 	checkArrayBoundIntrinsicArguments,
 	checkArrayDeclarationBounds,
@@ -380,6 +381,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 			{
 				referencedLibraries: ctx.opts.referencedLibraries,
 				referencedProjects: ctx.opts.referencedProjects,
+				referencedProjectSurfaces: ctx.opts.referencedProjectSurfaces,
 				projectName: ctx.opts.projectName,
 			},
 		),
@@ -1037,6 +1039,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 			{
 				referencedLibraries: ctx.opts.referencedLibraries,
 				projectName: ctx.opts.projectName,
+				referencedProjectSurfaces: ctx.opts.referencedProjectSurfaces,
 				projectModuleNames: ctx.opts.projectModuleNames,
 			},
 		),
@@ -1048,6 +1051,17 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 		// and Word).
 		blockHeaders: true,
 		procedureStatements: (ctx, push) => checkMemberNotFound(ctx.source, ctx.memberCtx, push),
+	},
+	{
+		name: 'referencedProjectNames',
+		procedureStatements: (ctx, push) => checkReferencedProjectNames(
+			ctx.source,
+			ctx.opts.referencedProjectSurfaces,
+			ctx.symbols.root.children ?? [],
+			ctx.opts.projectVisibleSymbols,
+			ctx.opts.projectModuleNames,
+			push,
+		),
 	},
 	{
 		name: 'moduleMemberForms',

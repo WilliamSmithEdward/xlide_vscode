@@ -1,3 +1,4 @@
+import type { ReferencedProjectSurface } from './analyzer/symbols/referencedProjects';
 import * as vscode from 'vscode';
 import { ProjectEngine } from './projectEngine';
 import type { EventHandlerDocumentType } from './analyzer/completion/eventHandlers';
@@ -53,6 +54,8 @@ interface CachedProject {
     references?: VbaProjectReference[];
     /** The project's own name, which qualifies its types. Arrives with the module read. */
     projectName?: string;
+    /** What each referenced VBA project XLIDE could read offers this one. Arrives with the module read. */
+    referencedProjects?: readonly ReferencedProjectSurface[];
     /**
      * The workbook's sheets as saved, which say what `ThisWorkbook.Sheets(...)`
      * can reach. Arrives with the module read; absent for other files.
@@ -88,6 +91,8 @@ interface VbaModuleSourceEntry extends VbaModuleEntry {
     projectSheets?: WorkbookSheetInfo[];
     /** The project's own name; same on every entry. */
     projectName?: string;
+    /** The referenced VBA projects XLIDE could read; on the first entry only. */
+    referencedProjects?: readonly ReferencedProjectSurface[];
 }
 
 const MODULE_LIST_CACHE_TTL_MS = 5_000;
@@ -200,6 +205,11 @@ export class VbaSymbolIndex implements vscode.Disposable {
     /** The project's own name, if a module read has already fetched it. */
     projectName(projectPath: string): string | undefined {
         return this.cachedProject(projectIdentityKey(projectPath)).projectName;
+    }
+
+    /** The referenced VBA projects a module read could read, if one has run. */
+    referencedProjects(projectPath: string): readonly ReferencedProjectSurface[] | undefined {
+        return this.cachedProject(projectIdentityKey(projectPath)).referencedProjects;
     }
 
     /**
@@ -332,6 +342,7 @@ export class VbaSymbolIndex implements vscode.Disposable {
             ?.projectConditionalConstants;
         wb.references = entries.find((e) => e.projectReferences)?.projectReferences;
         wb.projectName = entries.find((e) => e.projectName)?.projectName;
+        wb.referencedProjects = entries.find((e) => e.referencedProjects)?.referencedProjects;
         wb.sheets = entries.find((e) => e.projectSheets)?.projectSheets;
         const out: VbaModuleSymbols[] = [];
         for (const [index, entry] of entries.entries()) {

@@ -102,6 +102,9 @@ import { readAttributeAnnotations } from '../analyzer/annotations/attributeAnnot
 import { applyAttributeAnnotations } from '../analyzer/annotations/attributeRewriter';
 import { parseModule } from '../analyzer/parser/parseModule';
 import { hostTokenForFileName } from '../analyzer/host/hostRegistry';
+import { referencedProjectSurface, type ReferencedProjectSurface } from '../analyzer/symbols/referencedProjects';
+import type { ModuleSymbolKind } from '../analyzer/symbols/symbolModel';
+import { referencedProjectFile } from './referencedProjectPath';
 import {
 	isVb6ProjectPath,
 	listVb6Modules,
@@ -173,6 +176,13 @@ export interface ModuleEntry {
 	 * in a Word document. Absent when the read did not reach them.
 	 */
 	projectReferences?: VbaProjectReference[];
+	/**
+	 * What each VBA project the PROJECT references offers it, on the first
+	 * entry of one read only (issue #1503): each referenced project XLIDE
+	 * could read, with its modules, which it can see, and their public names.
+	 * A project reference missing here was not read.
+	 */
+	referencedProjects?: ReferencedProjectSurface[];
 	/**
 	 * The PROJECT's own name (`VBAProject`, `Project`, an Access database's
 	 * name), repeated on every entry the way the references are: it
@@ -1068,7 +1078,57 @@ export function readModules(filePath: string, full = false): ModuleEntry[] {
 		return readVb6Modules(filePath, full).map(vb6ModuleEntry);
 	}
 	const open = openContainerIfAnyVba(filePath);
-	return open ? readModulesFromContainer(open, full) : [];
+	if (!open) {
+		return [];
+	}
+	const entries = readModulesFromContainer(open, full);
+	const referenced = readReferencedProjects(filePath, entries[0]?.projectReferences ?? []);
+	if (referenced.length > 0 && entries.length > 0) {
+		entries[0].referencedProjects = referenced;
+	}
+	return entries;
+}
+
+/**
+ * What each project the file references offers it (issue #1503), for the
+ * references whose file XLIDE may read: a local macro-enabled Office file,
+ * never a network path (see referencedProjectPath.ts). One that cannot be
+ * read, locked or missing say, is left out, and stays judged as unread. A
+ * referenced project's own references are not followed: their names are not
+ * the referring project's.
+ */
+function readReferencedProjects(filePath: string, references: readonly VbaProjectReference[]): ReferencedProjectSurface[] {
+	const out: ReferencedProjectSurface[] = [];
+	for (const reference of references) {
+		if (reference.kind !== 'project') {
+			continue;
+		}
+		const file = referencedProjectFile(reference.libid, reference.relativeLibid, filePath);
+		if (!file) {
+			continue;
+		}
+		try {
+			const open = openContainerIfAnyVba(file);
+			if (!open) {
+				continue;
+			}
+			assertVbaProjectAccess(file, open.project.protection, false);
+			const modules = readModulesFromContainer(open, true).map((entry) => ({
+				name: entry.name,
+				kind: moduleKindOfType(entry.type),
+				source: entry.source ?? '',
+			}));
+			out.push(referencedProjectSurface(reference.name, modules));
+		} catch {
+			// Unreadable or locked: the reference stays one XLIDE did not read.
+		}
+	}
+	return out;
+}
+
+/** The analyzer's kind for an engine module type. */
+function moduleKindOfType(type: ModuleType): ModuleSymbolKind {
+	return type === 'standard' || type === 'class' || type === 'document' ? type : 'userform';
 }
 
 /**

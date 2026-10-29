@@ -197,6 +197,7 @@ export class AnalysisWorkerState {
 			request.referencedLibraries === undefined ? '' : `refs:${request.referencedLibraries.join('+')}`,
 			(request.referencedProjects ?? []).join('+'),
 			request.projectName ?? '',
+			JSON.stringify(request.referencedProjectSurfaces ?? null),
 			// Editing the designer changes diagnostics without changing a line
 			// of code, so incremental reuse has to see the control list.
 			JSON.stringify(implicitMembers ?? null),
@@ -225,6 +226,7 @@ export class AnalysisWorkerState {
 			referencedLibraries: request.referencedLibraries,
 			referencedProjects: request.referencedProjects,
 			projectName: request.projectName,
+			referencedProjectSurfaces: request.referencedProjectSurfaces,
 			designerClass: request.designerClass,
 			workbookSheets: request.workbookSheets,
 			moduleKind: request.moduleKind as ModuleSymbolKind | undefined,

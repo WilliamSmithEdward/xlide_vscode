@@ -3,6 +3,7 @@
 // worker without retrying stuck work on the host; startup/crash failures retain
 // the caller's ordinary fallback path.
 
+import type { ReferencedProjectSurface } from './analyzer/symbols/referencedProjects';
 import { Worker } from 'worker_threads';
 import { AnalysisWorkerTimeoutError } from './analysisWorkerErrors';
 import * as fs from 'fs';
@@ -39,6 +40,8 @@ export interface WorkerAnalyzeRequest {
 	referencedProjects?: readonly string[];
 	/** The project's own name, read with the references. */
 	projectName?: string;
+	/** What each referenced VBA project XLIDE could read offers this one. */
+	referencedProjectSurfaces?: readonly ReferencedProjectSurface[];
 	/** Designer-declared members of this module, when the caller knows them. */
 	implicitMembers?: WorkerImplicitMember[];
 	/** The host type the module's designer makes it, when the caller knows it. */

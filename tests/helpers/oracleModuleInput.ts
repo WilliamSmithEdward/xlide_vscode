@@ -7,6 +7,7 @@
 import type { EventHandlerDocumentType } from '../../src/analyzer';
 import { hostTokenForLibid } from '../../src/analyzer/host/hostLibraries';
 import type { VbaProjectModuleInput } from '../../src/vbaProjectAnalysis';
+import { referencedProjectSurface, type ReferencedProjectSurface } from '../../src/analyzer/symbols/referencedProjects';
 
 export interface OracleFixtureModule {
 	name: string;
@@ -68,7 +69,16 @@ const DEFAULT_PROJECT_NAMES: Readonly<Record<string, string>> = { excel: 'VBAPro
  * oracle compiled the fixture in: the host's defaults, then what the
  * fixture's `references` add.
  */
-export function oracleProjectReferences(kase: { host?: string; references?: readonly { guid: string }[] }): { referencedLibraries: string[]; projectName: string } {
+export function oracleProjectReferences(kase: {
+	host?: string;
+	references?: readonly { guid: string }[];
+	projectReference?: { name: string; modules: readonly OracleFixtureModule[] };
+}): {
+	referencedLibraries: string[];
+	projectName: string;
+	referencedProjects?: string[];
+	referencedProjectSurfaces?: ReferencedProjectSurface[];
+} {
 	const host = kase.host ?? 'excel';
 	const added = (kase.references ?? []).map((reference) => {
 		const name = RECORDED_LIBRARY_NAMES[reference.guid];
@@ -77,7 +87,20 @@ export function oracleProjectReferences(kase: { host?: string; references?: read
 		}
 		return name;
 	});
-	return { referencedLibraries: [...new Set([...DEFAULT_REFERENCES[host], ...added])], projectName: DEFAULT_PROJECT_NAMES[host] };
+	// A VBA project the oracle referenced, read as the engine reads one (issue #1503).
+	const project = kase.projectReference;
+	return {
+		referencedLibraries: [...new Set([...DEFAULT_REFERENCES[host], ...added, ...(project ? [project.name] : [])])],
+		projectName: DEFAULT_PROJECT_NAMES[host],
+		...(project ? {
+			referencedProjects: [project.name],
+			referencedProjectSurfaces: [referencedProjectSurface(project.name, project.modules.map((mod) => ({
+				name: mod.name,
+				kind: mod.type === 'class' ? 'class' as const : 'standard' as const,
+				source: mod.source,
+			})))],
+		} : {}),
+	};
 }
 
 /** The document modules a new file of each host has before the fixture's own modules are added. */

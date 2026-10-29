@@ -45,6 +45,12 @@ export interface VbaProjectReference {
 	kind: 'registered' | 'project' | 'control';
 	/** The libid as written, `*\G{guid}#major.minor#lcid#path#description`. */
 	libid: string;
+	/**
+	 * A project reference's second libid, its path relative to the referring
+	 * file ([MS-OVBA] 2.3.4.2.2.2, LibidRelative). The VBE looks there when
+	 * the absolute one is gone.
+	 */
+	relativeLibid?: string;
 }
 
 /** The names of the references that are other VBA projects, not type libraries. */
@@ -101,13 +107,18 @@ export function readProjectReferenceSpans(dir: Buffer): VbaProjectReferenceSpan[
 					end: record.end,
 				});
 				break;
-			case REC_REFERENCE_PROJECT:
+			case REC_REFERENCE_PROJECT: {
+				// SizeOfLibidAbsolute, LibidAbsolute, SizeOfLibidRelative, LibidRelative.
+				const absolute = sizedString(body);
+				const rest = body.length >= 4 ? body.subarray(4 + body.readUInt32LE(0)) : Buffer.alloc(0);
+				const relative = sizedString(rest);
 				out.push({
-					reference: { name, kind: 'project', libid: sizedString(body) },
+					reference: { name, kind: 'project', libid: absolute, ...(relative ? { relativeLibid: relative } : {}) },
 					start: namesStart ?? record.start,
 					end: record.end,
 				});
 				break;
+			}
 			case REC_REFERENCE_ORIGINAL:
 				// The record's own size IS the libid's, so the body is the libid.
 				control = out.length;
