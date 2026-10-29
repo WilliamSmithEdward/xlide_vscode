@@ -2,6 +2,47 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.2.2] - 2026-10-28
+
+Names reached through a referenced VBA project, ActiveX controls on Word
+documents and PowerPoint slides, and block shapes the formatter misread.
+Every fix here started from an issue Sam (@swsammy) filed, and each was
+measured through the VBE oracle in Excel, Word, PowerPoint and Access.
+
+- Read a referenced VBA project, such as an add-in, and judge a name
+  reached through it by what that project offers:
+  `ProbeLibrary.Service.Value()`, `Service.Value()` and `Value()` are
+  accepted, and a Private procedure, an `Option Private Module` module or
+  a class the project does not expose is reported. XLIDE reads the
+  referenced file only from a local disk, at the path the reference
+  records or beside your file, and never opens a network path (#1503).
+- Accept a referenced library's name before a dot: `stdole.Checked`,
+  `Scripting.BinaryCompare` and `DAO.dbOpenDynaset` were reported as
+  "Variable not defined" (#1495).
+- Know the ActiveX controls on a Word document and a PowerPoint slide.
+  `CommandButton1`, `Me.CommandButton1` and `ThisDocument.CommandButton1`
+  were reported, and a slide's `Me.Nope` was not (#1481).
+- Type a document module named bare as its module, so `Set wb = Sheet1`
+  into a Workbook and an Access form into a Report are reported, as they
+  raise 13. Extract Variable on `Sheet1` now writes `Dim sheet As Sheet1`
+  and `Set sheet = Sheet1` (#1494).
+- Check an untyped event parameter by its module's DefType, so DefLng
+  against DefStr is refused. A project class named Collection that
+  declares an Event can be listened to WithEvents, and
+  `WithEvents x As VBA.Collection` is reported (#1493).
+- Read block structure the way the VBE does in Format Document, Smart
+  Enter and the analyzer: a procedure header in each arm of a #If, Type
+  members named For or Next, a With or loop in a one-line If's tail, a
+  line number before an If, `d.Then` as a member, and `Static Public Sub`
+  (#1496).
+- Spell VBA's compiler constants and a project's #Const names as the VBE
+  does when formatting: `#If vba7 Then` becomes `#If VBA7 Then` (#1497).
+- VBE oracle: `--changed` measures only the fixtures a branch adds or
+  changes, and a case can put ActiveX controls on a document or
+  reference another VBA project (#1498, #1481, #1503).
+- Update qs to 6.17.0 for GHSA-6pq8-jhm2-2vcw, and move the CodeQL,
+  Semgrep and YARA pins (#1506, #1492, #1510, #1491).
+
 ## [11.2.1] - 2026-10-24
 
 Outlook as a project reference, a missing reference reported for any
