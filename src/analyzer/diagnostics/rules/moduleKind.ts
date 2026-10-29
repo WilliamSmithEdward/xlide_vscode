@@ -196,10 +196,17 @@ export function checkWithEventsDeclarations(
 		push('withEventsDeclaration', message, span);
 	};
 	// A project class whose member list is complete and holds no Event:
-	// `WithEvents s As Plain` (issue #445, measured in Excel 16.0).
-	const classWithoutEvents = (lower: string): boolean => {
+	// `WithEvents s As Plain` (issue #445, measured in Excel 16.0). A
+	// UserForm or a document module sources only the Events its code
+	// declares: neither its designer's nor its host's events count, so it
+	// is judged the same way even where the rest of its member list is not
+	// complete (measured in Excel, Word, PowerPoint and Access 16.0).
+	const objectModuleWithoutEvents = (lower: string): boolean => {
 		const type = projectClasses.find((candidate) => candidate.name.toLowerCase() === lower);
-		return type?.kind === 'class' && type.exhaustive === true && !type.members.some((member) => member.kind === 'event');
+		if (type?.kind !== 'class' && type?.kind !== 'userform' && type?.kind !== 'document') {
+			return false;
+		}
+		return (type.kind !== 'class' || type.exhaustive === true) && !type.members.some((member) => member.kind === 'event');
 	};
 	const inspect = (group: VariableGroupNode, insideProcedure: boolean): void => {
 		if (!group.withEvents || isInactiveNode(activity, group)) {
@@ -263,11 +270,9 @@ export function checkWithEventsDeclarations(
 				);
 				continue;
 			}
-			if (projectType?.kind === 'standardModule') {
-				report(
-					`WithEvents variable '${decl.name}' is declared As ${decl.asType}, and Collection is a standard module of this project. This is a VBE compile error: A module is not a valid type.`,
-					nameSpan,
-				);
+			// A standard module is no type at all, Collection or any other
+			// name: invalid-as-type-name reports it, as it does in a Dim.
+			if (parts.length === 1 && projectClasses.some((candidate) => candidate.kind === 'standardModule' && candidate.name.toLowerCase() === parts[0])) {
 				continue;
 			}
 			const projectCollectionWithEvents = projectType !== undefined && projectType.members.some((member) => member.kind === 'event');
@@ -276,7 +281,7 @@ export function checkWithEventsDeclarations(
 					`WithEvents variable '${decl.name}' must be declared As a specific class that raises events; ${decl.asType ? `'${decl.asType}'` : 'no type'} names none.`,
 					nameSpan,
 				);
-			} else if ((normalized === 'collection' && !projectCollectionWithEvents) || isKnownScalarType(normalized) || classWithoutEvents(normalized)) {
+			} else if ((normalized === 'collection' && !projectCollectionWithEvents) || isKnownScalarType(normalized) || (parts.length === 1 && objectModuleWithoutEvents(parts[0]))) {
 				report(
 					`WithEvents variable '${decl.name}' is declared As ${decl.asType}, which does not source automation events.`,
 					nameSpan,

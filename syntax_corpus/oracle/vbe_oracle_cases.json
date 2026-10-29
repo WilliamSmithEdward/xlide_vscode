@@ -221849,6 +221849,4441 @@
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error",
       "host": "access"
+    },
+    {
+      "id": "withevents_source_userform_plain_compile",
+      "description": "UserForm1 declares no Event; Sink declares WithEvents source As UserForm1. Rejected: Compile error: Object does not source automation events. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As UserForm1\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "withevents_source_userform_events_compile",
+      "description": "UserForm1 declares Public Event Pulse(); Sink declares WithEvents source As UserForm1. Compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As UserForm1\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "withevents_source_userform_inactive_event_compile",
+      "description": "UserForm1 declares Public Event Pulse() only inside #If False; Sink declares WithEvents source As UserForm1. Rejected: Compile error: Object does not source automation events. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\n#If False Then\r\nPublic Event Pulse()\r\n#End If\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As UserForm1\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "withevents_source_userform_control_plain_compile",
+      "description": "UserForm1, whose designer holds CommandButton1 (Forms.CommandButton.1), declares no Event; Sink declares WithEvents source As UserForm1. Rejected: Compile error: Object does not source automation events. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n",
+          "designerControls": [
+            {
+              "name": "CommandButton1",
+              "progId": "Forms.CommandButton.1"
+            }
+          ]
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As UserForm1\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "withevents_source_workbook_plain_compile",
+      "description": "ThisWorkbook declares no Event; Sink declares WithEvents source As ThisWorkbook. Rejected: Compile error: Object does not source automation events. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As ThisWorkbook\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "withevents_source_workbook_events_compile",
+      "description": "ThisWorkbook declares Public Event Pulse(); Sink declares WithEvents source As ThisWorkbook. Compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As ThisWorkbook\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "withevents_source_sheet_plain_compile",
+      "description": "Sheet1 declares no Event; Sink declares WithEvents source As Sheet1. Rejected: Compile error: Object does not source automation events. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n",
+          "designerClass": "Excel.Worksheet"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Sheet1\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "withevents_source_sheet_events_compile",
+      "description": "Sheet1 declares Public Event Pulse(); Sink declares WithEvents source As Sheet1. Compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n",
+          "designerClass": "Excel.Worksheet"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Sheet1\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "withevents_source_sheet_control_plain_compile",
+      "description": "Sheet1, with CommandButton1 (Forms.CommandButton.1) on it, declares no Event; Sink declares WithEvents source As Sheet1. Rejected: Compile error: Object does not source automation events. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n",
+          "designerClass": "Excel.Worksheet",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Sheet1\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "withevents_source_sheet_control_events_compile",
+      "description": "Sheet1, with CommandButton1 (Forms.CommandButton.1) on it, declares Public Event Pulse(); Sink declares WithEvents source As Sheet1. Compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n",
+          "designerClass": "Excel.Worksheet",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Sheet1\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "module_as_type_withevents_compile",
+      "description": "Module2 is a standard module; Sink declares WithEvents source As Module2. Rejected: Compile error: A module is not a valid type. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Module2\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_module_level_compile",
+      "description": "Module2 is a standard module; Module3 declares Private x As Module2. Rejected: Compile error: A module is not a valid type. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate x As Module2\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_local_compile",
+      "description": "Module2 is a standard module; Module3 declares Dim x As Module2 in a procedure. Rejected: Compile error: A module is not a valid type. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x As Module2\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_parameter_compile",
+      "description": "Module2 is a standard module; Module3 declares Public Sub T(ByVal x As Module2). Rejected: Compile error: A module is not a valid type. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T(ByVal x As Module2)\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_return_compile",
+      "description": "Module2 is a standard module; Module3 declares Public Function F() As Module2. Rejected: Compile error: A module is not a valid type. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function F() As Module2\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_class_member_compile",
+      "description": "Module2 is a standard module; class Holder declares Public Item As Module2. Rejected: Compile error: A module is not a valid type. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Item As Module2\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_own_name_compile",
+      "description": "Module3 declares Private x As Module3, its own name. Rejected: Compile error: A module is not a valid type. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate x As Module3\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_collection_module_local_compile",
+      "description": "Collection is a standard module; Module3 declares Dim x As Collection in a procedure. Rejected: Compile error: A module is not a valid type. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x As Collection\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_collection_module_level_compile",
+      "description": "Collection is a standard module; Module3 declares Private x As Collection. Rejected: Compile error: A module is not a valid type. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate x As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_collection_module_new_compile",
+      "description": "Collection is a standard module; Module3 declares Dim x As New Collection in a procedure. Rejected: Compile error: A module is not a valid type. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x As New Collection\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_collection_module_vba_compile",
+      "description": "Collection is a standard module; Module3 declares Dim x As VBA.Collection in a procedure. Compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x As VBA.Collection\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "module_as_type_host_type_module_local_compile",
+      "description": "Range is a standard module; Module3 declares Dim x As Range in a procedure. Rejected: Compile error: A module is not a valid type. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Range",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x As Range\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_host_type_module_qualified_compile",
+      "description": "Range is a standard module; Module3 declares Dim x As Excel.Range in a procedure. Compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Range",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x As Excel.Range\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "module_as_type_array_compile",
+      "description": "Module2 is a standard module; Module3 declares Dim x() As Module2 in a procedure. Rejected: Compile error: A module is not a valid type. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x() As Module2\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_type_member_compile",
+      "description": "Module2 is a standard module; Module3 declares Public Type Holder with Item As Module2. Rejected: Compile error: A module is not a valid type. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Type Holder\r\nItem As Module2\r\nEnd Type\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_same_name_type_compile",
+      "description": "Module2 is a standard module; Module3 declares Public Type Module2; Module4 declares Dim x As Module2 in a procedure. Rejected: Compile error: A module is not a valid type. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Type Module2\r\nValue As Long\r\nEnd Type\r\n"
+        },
+        {
+          "name": "Module4",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x As Module2\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_same_name_class_type_compile",
+      "description": "Module2 is a standard module; class Holder declares Dim x As Module2 in a procedure. Rejected: Compile error: A module is not a valid type. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x As Module2\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_inactive_compile",
+      "description": "Module2 is a standard module; Module3 declares Dim x As Module2 only inside #If False. Compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\n#If False Then\r\nDim x As Module2\r\n#End If\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "withevents_source_userform_plain_handler_compile",
+      "description": "UserForm1 declares no Event; Sink declares WithEvents source As UserForm1 and a handler source_Click(). Rejected: Compile error: Object does not source automation events. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As UserForm1\r\nPrivate Sub source_Click()\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "withevents_source_userform_bracketed_plain_compile",
+      "description": "UserForm1 declares no Event; Sink declares WithEvents source As [UserForm1]. Rejected: Compile error: Object does not source automation events. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As [UserForm1]\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "withevents_source_userform_bracketed_events_compile",
+      "description": "UserForm1 declares Public Event Pulse(); Sink declares WithEvents source As [UserForm1]. Compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As [UserForm1]\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "withevents_source_class_bracketed_plain_compile",
+      "description": "Plain, a class, declares no Event; Sink declares WithEvents source As [Plain]. Rejected: Compile error: Object does not source automation events. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Plain",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As [Plain]\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_bracketed_compile",
+      "description": "Module2 is a standard module; Module3 declares Dim x As [Module2] in a procedure. Rejected: Compile error: A module is not a valid type. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x As [Module2]\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_bracketed_withevents_compile",
+      "description": "Module2 is a standard module; Sink declares WithEvents source As [Module2]. Rejected: Compile error: A module is not a valid type. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As [Module2]\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_own_private_type_compile",
+      "description": "Module2 is a standard module; Module3 declares Private Type Module2 and Dim x As Module2 in a procedure. Compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate Type Module2\r\nValue As Long\r\nEnd Type\r\nPublic Sub T()\r\nDim x As Module2\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "module_as_type_own_public_type_compile",
+      "description": "Module2 is a standard module; Module3 declares Public Type Module2 and Dim x As Module2 in a procedure. Compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Type Module2\r\nValue As Long\r\nEnd Type\r\nPublic Sub T()\r\nDim x As Module2\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "module_as_type_own_enum_compile",
+      "description": "Module2 is a standard module; Module3 declares Private Enum Module2 and Dim x As Module2 in a procedure. Compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate Enum Module2\r\nFirst = 1\r\nEnd Enum\r\nPublic Sub T()\r\nDim x As Module2\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "module_as_type_class_own_private_type_compile",
+      "description": "Module2 is a standard module; class Holder declares Private Type Module2 and Dim x As Module2 in a procedure. Compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate Type Module2\r\nValue As Long\r\nEnd Type\r\nPublic Sub T()\r\nDim x As Module2\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "module_as_type_property_get_compile",
+      "description": "Module2 is a standard module; class Holder declares Public Property Get Item() As Module2. Rejected: Compile error: A module is not a valid type. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get Item() As Module2\r\nEnd Property\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_property_let_compile",
+      "description": "Module2 is a standard module; class Holder declares Public Property Let Item(ByVal value As Module2). Rejected: Compile error: A module is not a valid type. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Let Item(ByVal value As Module2)\r\nDebug.Print 1\r\nEnd Property\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_const_compile",
+      "description": "Module2 is a standard module; Module3 declares Private Const C As Module2 = 1. Rejected: Compile error: Expected: type name. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate Const C As Module2 = 1\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "withevents_source_word_userform_plain_compile",
+      "description": "UserForm1 declares no Event; Sink declares WithEvents source As UserForm1. Rejected: Compile error: Object does not source automation events. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As UserForm1\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "withevents_source_word_userform_events_compile",
+      "description": "UserForm1 declares Public Event Pulse(); Sink declares WithEvents source As UserForm1. Compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As UserForm1\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "withevents_source_word_userform_inactive_event_compile",
+      "description": "UserForm1 declares Public Event Pulse() only inside #If False; Sink declares WithEvents source As UserForm1. Rejected: Compile error: Object does not source automation events. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\n#If False Then\r\nPublic Event Pulse()\r\n#End If\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As UserForm1\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "withevents_source_word_userform_control_plain_compile",
+      "description": "UserForm1, whose designer holds CommandButton1 (Forms.CommandButton.1), declares no Event; Sink declares WithEvents source As UserForm1. Rejected: Compile error: Object does not source automation events. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n",
+          "designerControls": [
+            {
+              "name": "CommandButton1",
+              "progId": "Forms.CommandButton.1"
+            }
+          ]
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As UserForm1\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "withevents_source_word_document_plain_compile",
+      "description": "ThisDocument declares no Event; Sink declares WithEvents source As ThisDocument. Rejected: Compile error: Object does not source automation events. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n",
+          "designerClass": "Word.Document"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As ThisDocument\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "withevents_source_word_document_events_compile",
+      "description": "ThisDocument declares Public Event Pulse(); Sink declares WithEvents source As ThisDocument. Compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n",
+          "designerClass": "Word.Document"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As ThisDocument\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "withevents_source_word_document_control_plain_compile",
+      "description": "ThisDocument, with CommandButton1 (Forms.CommandButton.1) on it, declares no Event; Sink declares WithEvents source As ThisDocument. Rejected: Compile error: Object does not source automation events. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n",
+          "designerClass": "Word.Document",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As ThisDocument\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "withevents_source_word_document_control_events_compile",
+      "description": "ThisDocument, with CommandButton1 (Forms.CommandButton.1) on it, declares Public Event Pulse(); Sink declares WithEvents source As ThisDocument. Compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n",
+          "designerClass": "Word.Document",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As ThisDocument\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "module_as_type_word_withevents_compile",
+      "description": "Module2 is a standard module; Sink declares WithEvents source As Module2. Rejected: Compile error: A module is not a valid type. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Module2\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_word_module_level_compile",
+      "description": "Module2 is a standard module; Module3 declares Private x As Module2. Rejected: Compile error: A module is not a valid type. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate x As Module2\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_word_local_compile",
+      "description": "Module2 is a standard module; Module3 declares Dim x As Module2 in a procedure. Rejected: Compile error: A module is not a valid type. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x As Module2\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_word_parameter_compile",
+      "description": "Module2 is a standard module; Module3 declares Public Sub T(ByVal x As Module2). Rejected: Compile error: A module is not a valid type. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T(ByVal x As Module2)\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_word_return_compile",
+      "description": "Module2 is a standard module; Module3 declares Public Function F() As Module2. Rejected: Compile error: A module is not a valid type. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function F() As Module2\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_word_class_member_compile",
+      "description": "Module2 is a standard module; class Holder declares Public Item As Module2. Rejected: Compile error: A module is not a valid type. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Item As Module2\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_word_own_name_compile",
+      "description": "Module3 declares Private x As Module3, its own name. Rejected: Compile error: A module is not a valid type. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate x As Module3\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_word_collection_module_local_compile",
+      "description": "Collection is a standard module; Module3 declares Dim x As Collection in a procedure. Rejected: Compile error: A module is not a valid type. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x As Collection\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_word_collection_module_level_compile",
+      "description": "Collection is a standard module; Module3 declares Private x As Collection. Rejected: Compile error: A module is not a valid type. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate x As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_word_collection_module_new_compile",
+      "description": "Collection is a standard module; Module3 declares Dim x As New Collection in a procedure. Rejected: Compile error: A module is not a valid type. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x As New Collection\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_word_collection_module_vba_compile",
+      "description": "Collection is a standard module; Module3 declares Dim x As VBA.Collection in a procedure. Compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x As VBA.Collection\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "module_as_type_word_host_type_module_local_compile",
+      "description": "Document is a standard module; Module3 declares Dim x As Document in a procedure. Rejected: Compile error: A module is not a valid type. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Document",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x As Document\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_word_host_type_module_qualified_compile",
+      "description": "Document is a standard module; Module3 declares Dim x As Word.Document in a procedure. Compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Document",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x As Word.Document\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "module_as_type_word_array_compile",
+      "description": "Module2 is a standard module; Module3 declares Dim x() As Module2 in a procedure. Rejected: Compile error: A module is not a valid type. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x() As Module2\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_word_type_member_compile",
+      "description": "Module2 is a standard module; Module3 declares Public Type Holder with Item As Module2. Rejected: Compile error: A module is not a valid type. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Type Holder\r\nItem As Module2\r\nEnd Type\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_word_same_name_type_compile",
+      "description": "Module2 is a standard module; Module3 declares Public Type Module2; Module4 declares Dim x As Module2 in a procedure. Rejected: Compile error: A module is not a valid type. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Type Module2\r\nValue As Long\r\nEnd Type\r\n"
+        },
+        {
+          "name": "Module4",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x As Module2\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_word_same_name_class_type_compile",
+      "description": "Module2 is a standard module; class Holder declares Dim x As Module2 in a procedure. Rejected: Compile error: A module is not a valid type. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x As Module2\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_word_inactive_compile",
+      "description": "Module2 is a standard module; Module3 declares Dim x As Module2 only inside #If False. Compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\n#If False Then\r\nDim x As Module2\r\n#End If\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "withevents_source_word_userform_plain_handler_compile",
+      "description": "UserForm1 declares no Event; Sink declares WithEvents source As UserForm1 and a handler source_Click(). Rejected: Compile error: Object does not source automation events. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As UserForm1\r\nPrivate Sub source_Click()\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "withevents_source_word_userform_bracketed_plain_compile",
+      "description": "UserForm1 declares no Event; Sink declares WithEvents source As [UserForm1]. Rejected: Compile error: Object does not source automation events. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As [UserForm1]\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "withevents_source_word_userform_bracketed_events_compile",
+      "description": "UserForm1 declares Public Event Pulse(); Sink declares WithEvents source As [UserForm1]. Compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As [UserForm1]\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "withevents_source_word_class_bracketed_plain_compile",
+      "description": "Plain, a class, declares no Event; Sink declares WithEvents source As [Plain]. Rejected: Compile error: Object does not source automation events. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Plain",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As [Plain]\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_word_bracketed_compile",
+      "description": "Module2 is a standard module; Module3 declares Dim x As [Module2] in a procedure. Rejected: Compile error: A module is not a valid type. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x As [Module2]\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_word_bracketed_withevents_compile",
+      "description": "Module2 is a standard module; Sink declares WithEvents source As [Module2]. Rejected: Compile error: A module is not a valid type. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As [Module2]\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_word_own_private_type_compile",
+      "description": "Module2 is a standard module; Module3 declares Private Type Module2 and Dim x As Module2 in a procedure. Compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate Type Module2\r\nValue As Long\r\nEnd Type\r\nPublic Sub T()\r\nDim x As Module2\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "module_as_type_word_own_public_type_compile",
+      "description": "Module2 is a standard module; Module3 declares Public Type Module2 and Dim x As Module2 in a procedure. Compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Type Module2\r\nValue As Long\r\nEnd Type\r\nPublic Sub T()\r\nDim x As Module2\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "module_as_type_word_own_enum_compile",
+      "description": "Module2 is a standard module; Module3 declares Private Enum Module2 and Dim x As Module2 in a procedure. Compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate Enum Module2\r\nFirst = 1\r\nEnd Enum\r\nPublic Sub T()\r\nDim x As Module2\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "module_as_type_word_class_own_private_type_compile",
+      "description": "Module2 is a standard module; class Holder declares Private Type Module2 and Dim x As Module2 in a procedure. Compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate Type Module2\r\nValue As Long\r\nEnd Type\r\nPublic Sub T()\r\nDim x As Module2\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "module_as_type_word_property_get_compile",
+      "description": "Module2 is a standard module; class Holder declares Public Property Get Item() As Module2. Rejected: Compile error: A module is not a valid type. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get Item() As Module2\r\nEnd Property\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_word_property_let_compile",
+      "description": "Module2 is a standard module; class Holder declares Public Property Let Item(ByVal value As Module2). Rejected: Compile error: A module is not a valid type. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Let Item(ByVal value As Module2)\r\nDebug.Print 1\r\nEnd Property\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_word_const_compile",
+      "description": "Module2 is a standard module; Module3 declares Private Const C As Module2 = 1. Rejected: Compile error: Expected: type name. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate Const C As Module2 = 1\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "withevents_source_powerpoint_userform_plain_compile",
+      "description": "UserForm1 declares no Event; Sink declares WithEvents source As UserForm1. Rejected: Compile error: Object does not source automation events. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As UserForm1\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "withevents_source_powerpoint_userform_events_compile",
+      "description": "UserForm1 declares Public Event Pulse(); Sink declares WithEvents source As UserForm1. Compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As UserForm1\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "withevents_source_powerpoint_userform_inactive_event_compile",
+      "description": "UserForm1 declares Public Event Pulse() only inside #If False; Sink declares WithEvents source As UserForm1. Rejected: Compile error: Object does not source automation events. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\n#If False Then\r\nPublic Event Pulse()\r\n#End If\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As UserForm1\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "withevents_source_powerpoint_userform_control_plain_compile",
+      "description": "UserForm1, whose designer holds CommandButton1 (Forms.CommandButton.1), declares no Event; Sink declares WithEvents source As UserForm1. Rejected: Compile error: Object does not source automation events. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n",
+          "designerControls": [
+            {
+              "name": "CommandButton1",
+              "progId": "Forms.CommandButton.1"
+            }
+          ]
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As UserForm1\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "withevents_source_powerpoint_slide_control_plain_compile",
+      "description": "Slide1, with CommandButton1 (Forms.CommandButton.1) on it, declares no Event; Sink declares WithEvents source As Slide1. Rejected: Compile error: Object does not source automation events. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Slide1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n",
+          "designerClass": "PowerPoint.Slide",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Slide1\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "withevents_source_powerpoint_slide_control_events_compile",
+      "description": "Slide1, with CommandButton1 (Forms.CommandButton.1) on it, declares Public Event Pulse(); Sink declares WithEvents source As Slide1. Compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Slide1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n",
+          "designerClass": "PowerPoint.Slide",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Slide1\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "module_as_type_powerpoint_withevents_compile",
+      "description": "Module2 is a standard module; Sink declares WithEvents source As Module2. Rejected: Compile error: A module is not a valid type. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Module2\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_powerpoint_module_level_compile",
+      "description": "Module2 is a standard module; Module3 declares Private x As Module2. Rejected: Compile error: A module is not a valid type. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate x As Module2\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_powerpoint_local_compile",
+      "description": "Module2 is a standard module; Module3 declares Dim x As Module2 in a procedure. Rejected: Compile error: A module is not a valid type. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x As Module2\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_powerpoint_parameter_compile",
+      "description": "Module2 is a standard module; Module3 declares Public Sub T(ByVal x As Module2). Rejected: Compile error: A module is not a valid type. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T(ByVal x As Module2)\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_powerpoint_return_compile",
+      "description": "Module2 is a standard module; Module3 declares Public Function F() As Module2. Rejected: Compile error: A module is not a valid type. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function F() As Module2\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_powerpoint_class_member_compile",
+      "description": "Module2 is a standard module; class Holder declares Public Item As Module2. Rejected: Compile error: A module is not a valid type. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Item As Module2\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_powerpoint_own_name_compile",
+      "description": "Module3 declares Private x As Module3, its own name. Rejected: Compile error: A module is not a valid type. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate x As Module3\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_powerpoint_collection_module_local_compile",
+      "description": "Collection is a standard module; Module3 declares Dim x As Collection in a procedure. Rejected: Compile error: A module is not a valid type. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x As Collection\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_powerpoint_collection_module_level_compile",
+      "description": "Collection is a standard module; Module3 declares Private x As Collection. Rejected: Compile error: A module is not a valid type. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate x As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_powerpoint_collection_module_new_compile",
+      "description": "Collection is a standard module; Module3 declares Dim x As New Collection in a procedure. Rejected: Compile error: A module is not a valid type. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x As New Collection\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_powerpoint_collection_module_vba_compile",
+      "description": "Collection is a standard module; Module3 declares Dim x As VBA.Collection in a procedure. Compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x As VBA.Collection\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "module_as_type_powerpoint_host_type_module_local_compile",
+      "description": "Slide is a standard module; Module3 declares Dim x As Slide in a procedure. Rejected: Compile error: A module is not a valid type. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Slide",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x As Slide\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_powerpoint_host_type_module_qualified_compile",
+      "description": "Slide is a standard module; Module3 declares Dim x As PowerPoint.Slide in a procedure. Compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Slide",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x As PowerPoint.Slide\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "module_as_type_powerpoint_array_compile",
+      "description": "Module2 is a standard module; Module3 declares Dim x() As Module2 in a procedure. Rejected: Compile error: A module is not a valid type. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x() As Module2\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_powerpoint_type_member_compile",
+      "description": "Module2 is a standard module; Module3 declares Public Type Holder with Item As Module2. Rejected: Compile error: A module is not a valid type. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Type Holder\r\nItem As Module2\r\nEnd Type\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_powerpoint_same_name_type_compile",
+      "description": "Module2 is a standard module; Module3 declares Public Type Module2; Module4 declares Dim x As Module2 in a procedure. Rejected: Compile error: A module is not a valid type. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Type Module2\r\nValue As Long\r\nEnd Type\r\n"
+        },
+        {
+          "name": "Module4",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x As Module2\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_powerpoint_same_name_class_type_compile",
+      "description": "Module2 is a standard module; class Holder declares Dim x As Module2 in a procedure. Rejected: Compile error: A module is not a valid type. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x As Module2\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_powerpoint_inactive_compile",
+      "description": "Module2 is a standard module; Module3 declares Dim x As Module2 only inside #If False. Compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\n#If False Then\r\nDim x As Module2\r\n#End If\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "withevents_source_powerpoint_userform_plain_handler_compile",
+      "description": "UserForm1 declares no Event; Sink declares WithEvents source As UserForm1 and a handler source_Click(). Rejected: Compile error: Object does not source automation events. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As UserForm1\r\nPrivate Sub source_Click()\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "withevents_source_powerpoint_userform_bracketed_plain_compile",
+      "description": "UserForm1 declares no Event; Sink declares WithEvents source As [UserForm1]. Rejected: Compile error: Object does not source automation events. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As [UserForm1]\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "withevents_source_powerpoint_userform_bracketed_events_compile",
+      "description": "UserForm1 declares Public Event Pulse(); Sink declares WithEvents source As [UserForm1]. Compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As [UserForm1]\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "withevents_source_powerpoint_class_bracketed_plain_compile",
+      "description": "Plain, a class, declares no Event; Sink declares WithEvents source As [Plain]. Rejected: Compile error: Object does not source automation events. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Plain",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As [Plain]\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_powerpoint_bracketed_compile",
+      "description": "Module2 is a standard module; Module3 declares Dim x As [Module2] in a procedure. Rejected: Compile error: A module is not a valid type. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x As [Module2]\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_powerpoint_bracketed_withevents_compile",
+      "description": "Module2 is a standard module; Sink declares WithEvents source As [Module2]. Rejected: Compile error: A module is not a valid type. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As [Module2]\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_powerpoint_own_private_type_compile",
+      "description": "Module2 is a standard module; Module3 declares Private Type Module2 and Dim x As Module2 in a procedure. Compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate Type Module2\r\nValue As Long\r\nEnd Type\r\nPublic Sub T()\r\nDim x As Module2\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "module_as_type_powerpoint_own_public_type_compile",
+      "description": "Module2 is a standard module; Module3 declares Public Type Module2 and Dim x As Module2 in a procedure. Compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Type Module2\r\nValue As Long\r\nEnd Type\r\nPublic Sub T()\r\nDim x As Module2\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "module_as_type_powerpoint_own_enum_compile",
+      "description": "Module2 is a standard module; Module3 declares Private Enum Module2 and Dim x As Module2 in a procedure. Compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate Enum Module2\r\nFirst = 1\r\nEnd Enum\r\nPublic Sub T()\r\nDim x As Module2\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "module_as_type_powerpoint_class_own_private_type_compile",
+      "description": "Module2 is a standard module; class Holder declares Private Type Module2 and Dim x As Module2 in a procedure. Compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate Type Module2\r\nValue As Long\r\nEnd Type\r\nPublic Sub T()\r\nDim x As Module2\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "module_as_type_powerpoint_property_get_compile",
+      "description": "Module2 is a standard module; class Holder declares Public Property Get Item() As Module2. Rejected: Compile error: A module is not a valid type. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get Item() As Module2\r\nEnd Property\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_powerpoint_property_let_compile",
+      "description": "Module2 is a standard module; class Holder declares Public Property Let Item(ByVal value As Module2). Rejected: Compile error: A module is not a valid type. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Let Item(ByVal value As Module2)\r\nDebug.Print 1\r\nEnd Property\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_powerpoint_const_compile",
+      "description": "Module2 is a standard module; Module3 declares Private Const C As Module2 = 1. Rejected: Compile error: Expected: type name. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate Const C As Module2 = 1\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "withevents_source_access_userform_plain_compile",
+      "description": "UserForm1 declares no Event; Sink declares WithEvents source As UserForm1. Rejected: Compile error: Object does not source automation events. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As UserForm1\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "withevents_source_access_userform_events_compile",
+      "description": "UserForm1 declares Public Event Pulse(); Sink declares WithEvents source As UserForm1. Compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As UserForm1\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "withevents_source_access_userform_inactive_event_compile",
+      "description": "UserForm1 declares Public Event Pulse() only inside #If False; Sink declares WithEvents source As UserForm1. Rejected: Compile error: Object does not source automation events. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\n#If False Then\r\nPublic Event Pulse()\r\n#End If\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As UserForm1\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "withevents_source_access_userform_control_plain_compile",
+      "description": "UserForm1, whose designer holds CommandButton1 (Forms.CommandButton.1), declares no Event; Sink declares WithEvents source As UserForm1. Rejected: Compile error: Object does not source automation events. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n",
+          "designerControls": [
+            {
+              "name": "CommandButton1",
+              "progId": "Forms.CommandButton.1"
+            }
+          ]
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As UserForm1\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "withevents_source_access_form_plain_compile",
+      "description": "Form_Orders declares no Event; Sink declares WithEvents source As Form_Orders. Rejected: Compile error: Object does not source automation events. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Form_Orders",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n",
+          "designerClass": "Access.Form"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Form_Orders\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "withevents_source_access_form_events_compile",
+      "description": "Form_Orders declares Public Event Pulse(); Sink declares WithEvents source As Form_Orders. Compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Form_Orders",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n",
+          "designerClass": "Access.Form"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Form_Orders\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "withevents_source_access_report_plain_compile",
+      "description": "Report_Sales declares no Event; Sink declares WithEvents source As Report_Sales. Rejected: Compile error: Object does not source automation events. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Report_Sales",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Report_Sales\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "withevents_source_access_report_events_compile",
+      "description": "Report_Sales declares Public Event Pulse(); Sink declares WithEvents source As Report_Sales. Compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Report_Sales",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Report_Sales\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "module_as_type_access_withevents_compile",
+      "description": "Module2 is a standard module; Sink declares WithEvents source As Module2. Rejected: Compile error: A module is not a valid type. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As Module2\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_access_module_level_compile",
+      "description": "Module2 is a standard module; Module3 declares Private x As Module2. Rejected: Compile error: A module is not a valid type. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate x As Module2\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_access_local_compile",
+      "description": "Module2 is a standard module; Module3 declares Dim x As Module2 in a procedure. Rejected: Compile error: A module is not a valid type. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x As Module2\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_access_parameter_compile",
+      "description": "Module2 is a standard module; Module3 declares Public Sub T(ByVal x As Module2). Rejected: Compile error: A module is not a valid type. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T(ByVal x As Module2)\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_access_return_compile",
+      "description": "Module2 is a standard module; Module3 declares Public Function F() As Module2. Rejected: Compile error: A module is not a valid type. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function F() As Module2\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_access_class_member_compile",
+      "description": "Module2 is a standard module; class Holder declares Public Item As Module2. Rejected: Compile error: A module is not a valid type. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Item As Module2\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_access_own_name_compile",
+      "description": "Module3 declares Private x As Module3, its own name. Rejected: Compile error: A module is not a valid type. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate x As Module3\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_access_collection_module_local_compile",
+      "description": "Collection is a standard module; Module3 declares Dim x As Collection in a procedure. Rejected: Compile error: A module is not a valid type. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x As Collection\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_access_collection_module_level_compile",
+      "description": "Collection is a standard module; Module3 declares Private x As Collection. Rejected: Compile error: A module is not a valid type. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate x As Collection\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_access_collection_module_new_compile",
+      "description": "Collection is a standard module; Module3 declares Dim x As New Collection in a procedure. Rejected: Compile error: A module is not a valid type. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x As New Collection\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_access_collection_module_vba_compile",
+      "description": "Collection is a standard module; Module3 declares Dim x As VBA.Collection in a procedure. Compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x As VBA.Collection\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "module_as_type_access_host_type_module_local_compile",
+      "description": "Form is a standard module; Module3 declares Dim x As Form in a procedure. Rejected: Compile error: A module is not a valid type. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Form",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x As Form\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_access_host_type_module_qualified_compile",
+      "description": "Form is a standard module; Module3 declares Dim x As Access.Form in a procedure. Compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Form",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x As Access.Form\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "module_as_type_access_array_compile",
+      "description": "Module2 is a standard module; Module3 declares Dim x() As Module2 in a procedure. Rejected: Compile error: A module is not a valid type. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x() As Module2\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_access_type_member_compile",
+      "description": "Module2 is a standard module; Module3 declares Public Type Holder with Item As Module2. Rejected: Compile error: A module is not a valid type. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Type Holder\r\nItem As Module2\r\nEnd Type\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_access_same_name_type_compile",
+      "description": "Module2 is a standard module; Module3 declares Public Type Module2; Module4 declares Dim x As Module2 in a procedure. Rejected: Compile error: A module is not a valid type. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Type Module2\r\nValue As Long\r\nEnd Type\r\n"
+        },
+        {
+          "name": "Module4",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x As Module2\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_access_same_name_class_type_compile",
+      "description": "Module2 is a standard module; class Holder declares Dim x As Module2 in a procedure. Rejected: Compile error: A module is not a valid type. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x As Module2\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_access_inactive_compile",
+      "description": "Module2 is a standard module; Module3 declares Dim x As Module2 only inside #If False. Compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\n#If False Then\r\nDim x As Module2\r\n#End If\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "withevents_source_access_userform_plain_handler_compile",
+      "description": "UserForm1 declares no Event; Sink declares WithEvents source As UserForm1 and a handler source_Click(). Rejected: Compile error: Object does not source automation events. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As UserForm1\r\nPrivate Sub source_Click()\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "withevents_source_access_userform_bracketed_plain_compile",
+      "description": "UserForm1 declares no Event; Sink declares WithEvents source As [UserForm1]. Rejected: Compile error: Object does not source automation events. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As [UserForm1]\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "withevents_source_access_userform_bracketed_events_compile",
+      "description": "UserForm1 declares Public Event Pulse(); Sink declares WithEvents source As [UserForm1]. Compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPublic Event Pulse()\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As [UserForm1]\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "withevents_source_access_class_bracketed_plain_compile",
+      "description": "Plain, a class, declares no Event; Sink declares WithEvents source As [Plain]. Rejected: Compile error: Object does not source automation events. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Plain",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Long\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As [Plain]\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_access_bracketed_compile",
+      "description": "Module2 is a standard module; Module3 declares Dim x As [Module2] in a procedure. Rejected: Compile error: A module is not a valid type. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub T()\r\nDim x As [Module2]\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_access_bracketed_withevents_compile",
+      "description": "Module2 is a standard module; Sink declares WithEvents source As [Module2]. Rejected: Compile error: A module is not a valid type. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Sink",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents source As [Module2]\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_access_own_private_type_compile",
+      "description": "Module2 is a standard module; Module3 declares Private Type Module2 and Dim x As Module2 in a procedure. Compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate Type Module2\r\nValue As Long\r\nEnd Type\r\nPublic Sub T()\r\nDim x As Module2\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "module_as_type_access_own_public_type_compile",
+      "description": "Module2 is a standard module; Module3 declares Public Type Module2 and Dim x As Module2 in a procedure. Compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Type Module2\r\nValue As Long\r\nEnd Type\r\nPublic Sub T()\r\nDim x As Module2\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "module_as_type_access_own_enum_compile",
+      "description": "Module2 is a standard module; Module3 declares Private Enum Module2 and Dim x As Module2 in a procedure. Compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate Enum Module2\r\nFirst = 1\r\nEnd Enum\r\nPublic Sub T()\r\nDim x As Module2\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "module_as_type_access_class_own_private_type_compile",
+      "description": "Module2 is a standard module; class Holder declares Private Type Module2 and Dim x As Module2 in a procedure. Compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate Type Module2\r\nValue As Long\r\nEnd Type\r\nPublic Sub T()\r\nDim x As Module2\r\nDebug.Print 1\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "module_as_type_access_property_get_compile",
+      "description": "Module2 is a standard module; class Holder declares Public Property Get Item() As Module2. Rejected: Compile error: A module is not a valid type. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get Item() As Module2\r\nEnd Property\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_access_property_let_compile",
+      "description": "Module2 is a standard module; class Holder declares Public Property Let Item(ByVal value As Module2). Rejected: Compile error: A module is not a valid type. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Let Item(ByVal value As Module2)\r\nDebug.Print 1\r\nEnd Property\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "module_as_type_access_const_compile",
+      "description": "Module2 is a standard module; Module3 declares Private Const C As Module2 = 1. Rejected: Compile error: Expected: type name. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\nMain = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Touch()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate Const C As Module2 = 1\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }

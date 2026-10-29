@@ -1611,11 +1611,26 @@ export function checkInvalidAsTypeNames(
 	let ownTypes: Set<string> | undefined;
 	let qualifiedEnumTypes: Set<string> | undefined;
 	let libraries: readonly (ReadonlySet<string> | undefined)[] | undefined;
+	let standardModules: Set<string> | undefined;
+	let constSpans: Span[] | undefined;
 	for (const ref of collectTypeNameReferences(source)) {
 		if (activity?.isInactive(ref.span)) {
 			continue;
 		}
 		const lookupName = typeReferenceLookupName(ref);
+		// A standard module's name is no type: another module's Type of that
+		// name, VBA's Collection or a host's Range all lose to the module, in
+		// a Dim, a procedure's parameter or return, a Type member or a
+		// WithEvents. Only a Type or Enum of this module's own wins over it,
+		// and a Const is const-invalid-type's "Expected: type name" (measured
+		// in Excel, Word, PowerPoint and Access 16.0).
+		if ((ref.kind === 'declaration' || ref.kind === 'newDeclaration') && !ref.qualifier
+			&& (standardModules ??= new Set((opts.projectClassMembers ?? []).filter((type) => type.kind === 'standardModule').map((type) => type.name.toLowerCase()))).has(ref.name.toLowerCase())
+			&& !(ownTypes ??= ownTypeNames(mod, activity)).has(ref.name.toLowerCase())
+			&& !(constSpans ??= collectConstDeclarationSpans(mod, activity)).some((span) => containsSpan(span, ref.span))) {
+			push('invalidAsTypeName', `'${ref.name}' is a standard module of this project, not a type. This is a VBE compile error: A module is not a valid type.`, ref.span);
+			continue;
+		}
 		if (ref.kind === 'declaration' && ref.qualifier && !qualifiedEnumTypes) {
 			qualifiedEnumTypes = new Set((opts.projectTypes ?? []).filter(type => type.kind === 'enum' && type.moduleName)
 				.map(type => `${type.moduleName}.${type.name}`.toLowerCase()));
@@ -1722,7 +1737,7 @@ export function checkInvalidAsTypeNames(
 			[...new Set(opts.referencedLibraries.length
 				? ['VBA', opts.hostModel?.hostName ?? opts.host ?? 'Excel', ...opts.referencedLibraries] : opts.referencedLibraries)]
 				.map((library) => libraryTypeNames(library));
-		ownTypes ??= new Set(activeModuleMembers(mod, activity).filter((member) => member.kind === 'Type' || member.kind === 'Enum').map((member) => member.name.toLowerCase()));
+		ownTypes ??= ownTypeNames(mod, activity);
 		if (!ref.qualifier && !SCRIPTING_TYPE_NAMES.has(ref.name.toLowerCase()) && !ownTypes.has(ref.name.toLowerCase()) && libraries !== undefined && libraries.length > 0 && libraries.every((names) => names !== undefined && !names.has(ref.name.toLowerCase()))) {
 			push(
 				'invalidAsTypeName',
@@ -1751,6 +1766,32 @@ function declaredVariableNames(mod: ModuleNode, activity: ConditionalActivityTra
 		}
 	}
 	return out;
+}
+
+/** The Types and Enums the module declares, lowercased. */
+function ownTypeNames(mod: ModuleNode, activity: ConditionalActivityTracker | undefined): Set<string> {
+	return new Set(activeModuleMembers(mod, activity).filter((member) => member.kind === 'Type' || member.kind === 'Enum').map((member) => member.name.toLowerCase()));
+}
+
+/** The module's Const declarators, at module level or in a procedure. */
+function collectConstDeclarationSpans(
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+): Span[] {
+	const spans: Span[] = [];
+	const inspect = (group: VariableGroupNode): void => {
+		if (group.isConst) {
+			spans.push(...group.declarations.map((decl) => decl.span));
+		}
+	};
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'VariableGroup') {
+			inspect(member);
+		} else if (member.kind === 'Procedure') {
+			forEachVariableGroup(member.body, inspect, activity);
+		}
+	}
+	return spans;
 }
 
 function collectWithEventsNewDeclarationSpans(
