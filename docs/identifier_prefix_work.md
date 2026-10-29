@@ -21,6 +21,12 @@ of a 1,200-procedure module. It covers member-position rejection and identifier
 lookup, plus continued/numbered/colon-led Call statements and the blank-line As,
 operator and Call behavior. Existing casing and identifier suites also pass.
 
+That empty-position lookback has since been removed. Without ` _`, a statement
+ends at its line break, so the row below `Dim t As`, `t =` or `Call` starts a
+new statement and offers what any statement start offers. An empty row now
+reads only its own logical line, and the work-count test checks that a long
+line two rows up is not lexed.
+
 ## Private component measurements
 
 Controlled comparison bundles differ only in identifier cursor lookup. On a

@@ -31,6 +31,9 @@ import * as identifiers from '../../src/analyzer/completion/identifierCompletion
 import { VbaMemberCompletionProvider } from '../../src/vbaCompletionProvider';
 import { callableCompletionShouldInsertParens } from '../../src/analyzer/call/callContext';
 import { getWordObjectModel } from '../../src/analyzer/host/wordObjectModel';
+import { getExcelObjectModel } from '../../src/analyzer/host/excelObjectModel';
+import { getPowerPointObjectModel } from '../../src/analyzer/host/powerpointObjectModel';
+import { getAccessObjectModel } from '../../src/analyzer/host/accessObjectModel';
 import type { EditorProjectContext, VbaEditorProjectContextService } from '../../src/vbaEditorProjectContext';
 
 function prepareRequest(line: string, context: EditorProjectContext = {}, column = line.length, prelude = 'Sub Demo()\n') {
@@ -194,6 +197,21 @@ describe('completion provider surface', () => {
         const result = await request('Set value = Application.');
         expect(result.items.length).toBeGreaterThan(100);
         expect(callableCompletionShouldInsertParens).toHaveBeenCalledTimes(1);
+    });
+    describe.each([
+        ['Excel', { host: 'excel', hostModel: getExcelObjectModel() }],
+        ['Word', { host: 'word', hostModel: getWordObjectModel() }],
+        ['PowerPoint', { host: 'powerpoint', hostModel: getPowerPointObjectModel() }],
+        ['Access', { host: 'access', hostModel: getAccessObjectModel() }],
+    ] as const)('in %s, an empty row below an unfinished line', (_host, context) => {
+        const labelsBelow = async (above: string) =>
+            (await request('', context, 0, 'Sub Demo()\nDim total As Long\n' + above)).items.map(item => item.label);
+        it.each(['Dim\n', 'Const\n', 't =\n', 'Call\n'])('offers the statement-start list below %j', async above => {
+            const labels = await labelsBelow(above);
+            expect(labels).toContain('total');
+            expect(labels).toContain('MsgBox');
+            expect(labels).toEqual(await labelsBelow('t = 1\n'));
+        });
     });
 });
 

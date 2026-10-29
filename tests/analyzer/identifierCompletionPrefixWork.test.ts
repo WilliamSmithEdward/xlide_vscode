@@ -64,18 +64,20 @@ describe('identifier completion prefix work', () => {
         expect(work.lexedChars + work.cachedChars).toBeGreaterThanOrEqual(source.length);
     });
 
-    it('preserves the preceding-token policy at a blank position without crossing a second newline', () => {
-        const resolve = (text: string) => {
-            const source = 'Sub Probe()\n' + text;
-            return resolveIdentifierCompletions(source, source.length).map(item => item.name);
-        };
-        expect(resolve('Dim item As\n')).toEqual([]);
-        expect(resolve('Dim item As\n\n')).toContain('ThisWorkbook');
-        expect(resolve('item =\n')).toContain('True');
-        expect(resolve('item =\n\n')).not.toContain('True');
-        expect(resolve('Call\n')).toContain('MsgBox');
-        expect(resolve('Call\n')).not.toContain('DoEvents');
-        expect(resolve('Call\n\n')).toContain('DoEvents');
+    it('reads no statement above an empty row', () => {
+        // The window always lexes the line above the caret's for its newline;
+        // the long line two rows up must not be lexed as well.
+        const long = 'item = ' + Array.from({ length: 300 }, (_, i) => 'v' + i).join(' + ') + '\n';
+        const source = padded.replace('canonicalvalue\n', 'canonicalvalue\n' + long + 't = 1\n\n');
+        const offset = source.indexOf('t = 1\n') + 't = 1\n'.length;
+        // Warm the module's symbols at another offset, as above.
+        resolveIdentifierCompletions(source, source.lastIndexOf('canonicalvalue') + 14);
+        resetWork();
+        const result = resolveIdentifierCompletions(source, offset).map(item => item.name);
+        expect(result).toContain('CanonicalValue');
+        expect(work.lexedChars).toBeGreaterThan(0);
+        expect(work.lexedChars).toBeLessThanOrEqual(120);
+        expect(work.cachedCalls).toBe(0);
     });
 
     it('preserves explicit Call, continued statements and newline expression boundaries', () => {

@@ -400,6 +400,25 @@ suite('Completion editor surface', () => {
             throw new Error(`${String(error)}; actual=${JSON.stringify(document.getText())}`);
         }
     });
+    for (const [name, above] of [['Dim', 'Dim'], ['Call', 'Call'], ['Equals', 't =']]) {
+        test(`Enter after an unfinished ${JSON.stringify(above)} offers the statement-start identifiers`, async () => {
+            const source = `Sub Demo()\nDim total As Long\n${above}\nEnd Sub\n`;
+            const { document, editor } = await probe(`EmptyRowBelow${name}`, source, `Long\n${above}`);
+            await vscode.commands.executeCommand('type', { text: '\n' });
+            const caret = await until(() => editor.selection.active.line === 3 ? editor.selection.active : undefined,
+                'Enter should move the caret to a new row', 4000).catch(error => {
+                const at = editor.selection.active;
+                throw new Error(`${String(error)}; text=${JSON.stringify(document.getText())} caret=${at.line}:${at.character}`);
+            });
+            await vscode.commands.executeCommand('hideSuggestWidget');
+            assert.equal(document.lineAt(3).text.trim(), '');
+            const offered = labels(await completions(document, caret));
+            for (const expected of ['total', 'MsgBox', 'DoEvents']) {
+                assert.ok(offered.includes(expected), `${expected} must be offered below ${JSON.stringify(above)}`);
+            }
+            assert.ok(!offered.includes('True'), `True belongs to an expression, not below ${JSON.stringify(above)}`);
+        });
+    }
     test('Smart Backspace clears a continued comment then its remaining indent', async () => {
         const { document, editor } = await probe('CommentBackspace',
             "Sub Demo()\n    'note\n    ' \nEnd Sub\n", "    ' ");

@@ -406,3 +406,35 @@ describe('identifier completion - suppressed positions', () => {
 		expect(got).not.toContain('ThisWorkbook');
 	});
 });
+
+describe('identifier completion - an empty row below an unfinished line', () => {
+	// The VBE rejects `Dim t As`, `Set c = New` and a bare `Dim` as syntax
+	// errors: without ` _` the statement ends at the line break, so the row
+	// below starts a new statement whatever the line above ends with.
+	const below = (above: string): string[] => {
+		const prefix = 'Sub Test()\nDim total As Long\n' + above;
+		return resolveIdentifierCompletions(prefix + '\nEnd Sub\n', prefix.length).map((c) => c.name);
+	};
+	const statementStart = below('t = 1\n');
+
+	it.each([
+		'Dim t As\n', 'Dim t As New\n', 'Set c = New\n', 'Dim\n', 'Const\n', 'ReDim\n', 'Static\n',
+		'Private\n', 't =\n', 't = total +\n', 'Call\n', 'x.\n', 'MsgBox 1,\n', 'f(\n',
+		'MsgBox Prompt:=\n', 'Dim t As\r\n', '    Dim t As\n    ', "Dim t As ' note\n",
+	])('offers the statement-start list below %j', (above) => {
+		const got = below(above);
+		expect(got).toContain('total');
+		expect(got).toContain('MsgBox');
+		expect(got).toContain('DoEvents');
+		expect(got).not.toContain('True');
+		expect(got.filter((name) => name !== 't')).toEqual(statementStart.filter((name) => name !== 't'));
+	});
+
+	it('still reads a line continued with " _" as one statement', () => {
+		expect(below('Dim t As _\n')).not.toContain('total');
+		expect(below('Dim _\n')).toEqual([]);
+		expect(below('x. _\n')).toEqual([]);
+		expect(below('x = total + _\n')).toContain('True');
+		expect(below('Call _\n')).not.toContain('DoEvents');
+	});
+});
