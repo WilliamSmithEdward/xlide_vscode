@@ -6,7 +6,8 @@ import { describe, expect, it } from 'vitest';
 
 // Exercise the coordinator's pure policy without starting PowerShell or Office.
 const source = readFileSync(join(process.cwd(), 'syntax_corpus/oracle/run_vbe_oracle.mjs'), 'utf8');
-const names = ['caseHost', 'unsupportedHost', 'malformedReferences', 'validateCrashBuilds', 'hostsNeedingBuilds', 'knownHostCrashResult',
+const names = ['caseHost', 'unsupportedHost', 'malformedReferences', 'caseBitness', 'unsupportedBitness', 'otherBitnessResult',
+    'validateCrashBuilds', 'hostsNeedingBuilds', 'knownHostCrashResult',
     'expectedMatches', 'isOracleInfrastructureFailure', 'promoteObservedCases', 'formatCasesDocument',
     'evidencePhaseForCase', 'evidencePhaseForResult', 'diagnosticMeaningForResult', 'phaseMatches'];
 const functions = names.map((name) => {
@@ -77,11 +78,14 @@ describe('VBE oracle promotion writes', () => {
                 loadCasesDocument: () => document,
                 OFFICE_HOSTS: { [host]: { progId: `${host}.Application` } },
                 comRegistered: () => true,
+                registeredHostBuild: () => ({ registered: true, build: null }),
                 // No real Office, registry, or filesystem effects in this test.
                 setDialogSounds() {},
                 // The run lock is covered in vbeOracleRunLock.test.ts; here it is always free.
                 acquireOracleRunLock: async () => ({ held: true, release: async () => {} }),
                 oracleRunLockAddress: () => 'test-lock', oracleRunOwner: () => ({ pid: 1 }), describeRefusal: () => 'refused',
+                // Bitness is covered in vbeOracleBitness.test.ts; here every host is 64-bit.
+                exeBitness: () => 64,
                 // Owned hosts are covered in vbeOracleOwnedHosts.test.ts; here the run owns none.
                 OwnedHosts: class { load() { return []; } add() {} sweep() { return []; } },
                 ownedHostsPath: () => 'hosts.json', describeLeftHosts: () => 'left', abandonActiveCases: () => {},
@@ -161,6 +165,8 @@ function setupUncheckpointedMain(registered: { build: string | null; why?: strin
         // The run lock is covered in vbeOracleRunLock.test.ts; here it is always free.
         acquireOracleRunLock: async () => ({ held: true, release: async () => {} }),
         oracleRunLockAddress: () => 'test-lock', oracleRunOwner: () => ({ pid: 1 }), describeRefusal: () => 'refused',
+        // Bitness is covered in vbeOracleBitness.test.ts; here every host is 64-bit.
+        exeBitness: () => 64,
         // Owned hosts are covered in vbeOracleOwnedHosts.test.ts; here the run owns none.
         OwnedHosts: class { load() { return []; } add() {} sweep() { return []; } },
         ownedHostsPath: () => 'hosts.json', describeLeftHosts: () => 'left', abandonActiveCases: () => {},
@@ -213,6 +219,8 @@ it.each([true, false])('continues after a skip and excludes it from checkpoints 
         // The run lock is covered in vbeOracleRunLock.test.ts; here it is always free.
         acquireOracleRunLock: async () => ({ held: true, release: async () => {} }),
         oracleRunLockAddress: () => 'test-lock', oracleRunOwner: () => ({ pid: 1 }), describeRefusal: () => 'refused',
+        // Bitness is covered in vbeOracleBitness.test.ts; here every host is 64-bit.
+        exeBitness: () => 64,
         // Owned hosts are covered in vbeOracleOwnedHosts.test.ts; here the run owns none.
         OwnedHosts: class { load() { return []; } add() {} sweep() { return []; } },
         ownedHostsPath: () => 'hosts.json', describeLeftHosts: () => 'left', abandonActiveCases: () => {},

@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { describe, expect, it } from 'vitest';
-import { oracleModuleInput, type OracleFixtureModule } from './oracleModuleInput';
+import { oracleConditionalCompilation, oracleModuleInput, type OracleFixtureModule } from './oracleModuleInput';
 import { oracleShardCases, oracleShardCount } from './oracleShards';
 import { analyzeVbaModuleSource } from '../../src/vbaModuleAnalysis';
 import {
@@ -30,6 +30,8 @@ interface OracleModule extends OracleFixtureModule {
 
 interface OracleCase {
 	id: string;
+	/** The Office the case was measured in; absent means 64-bit. */
+	bitness?: number;
 	entryPoint?: string;
 	moduleName?: string;
 	source?: string;
@@ -45,9 +47,9 @@ function modulesOf(oracleCase: OracleCase): OracleModule[] {
 }
 
 /** Each module's error codes, sorted, as the extension would show them. */
-function errorCodes(modules: readonly OracleModule[]): string[] {
+function errorCodes(oracleCase: OracleCase, modules: readonly OracleModule[]): string[] {
 	const inputs = modules.map(oracleModuleInput);
-	const project = buildVbaProjectIndex(inputs, undefined, { conditionalCompilation: { projectConstants: {} } });
+	const project = buildVbaProjectIndex(inputs, undefined, { conditionalCompilation: oracleConditionalCompilation(oracleCase) });
 	const procedures = projectProcedureSignatures(project);
 	const out: string[] = [];
 	for (const mod of inputs) {
@@ -107,8 +109,8 @@ export function wrappedInIfShard(shard: number): void {
 					continue;
 				}
 				const { modules, entry, source } = checked;
-				const before = errorCodes(modules);
-				const after = errorCodes(modules.map((mod) => (mod === entry ? { ...mod, source } : mod)));
+				const before = errorCodes(oracleCase, modules);
+				const after = errorCodes(oracleCase, modules.map((mod) => (mod === entry ? { ...mod, source } : mod)));
 				if (before.join('\n') !== after.join('\n')) {
 					differences.push(`${oracleCase.id}: [${before.join(', ')}] -> [${after.join(', ')}]`);
 				}

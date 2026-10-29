@@ -172,7 +172,7 @@ describe('the coordinator and worker use one ownership contract', () => {
 			'const left = this.owned.sweep();\n        if (left.length) { throw new HostCleanupError(left); }',
 			'worker.kill();\n            worker.owned.sweep();',
 			"process.once('exit', cleanUp);",
-			'const inherited = owned.load();']) {
+			'const inherited = runnable.length ? owned.load() : [];']) {
 			expect(coordinator.replace(/\r\n/g, '\n'), site).toContain(site);
 		}
 	});

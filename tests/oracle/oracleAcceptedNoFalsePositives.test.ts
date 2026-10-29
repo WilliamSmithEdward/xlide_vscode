@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { oracleDefaultDocumentModules, oracleModuleInput, oracleProjectReferences, oracleReferencedHosts, type OracleFixtureModule } from '../helpers/oracleModuleInput';
+import { oracleConditionalCompilation, oracleDefaultDocumentModules, oracleModuleInput, oracleProjectReferences, oracleReferencedHosts, type OracleFixtureModule } from '../helpers/oracleModuleInput';
 import { diagnosticMetadataForCode } from '../../src/analyzer';
 import { analyzeVbaModuleSource } from '../../src/vbaModuleAnalysis';
 import {
@@ -38,6 +38,8 @@ interface OracleCase {
 	id: string;
 	/** The Office host the case was measured in; absent means Excel. */
 	host?: string;
+	/** The Office bitness the case was measured in; absent means 64. */
+	bitness?: number;
 	/** Type libraries the oracle added before the modules. */
 	references?: { guid: string }[];
 	expected: 'accepted' | 'rejected' | 'observe';
@@ -90,10 +92,9 @@ describe('oracle accepted cases - corpus-wide no-false-positive sweep', () => {
 			// The project is the file's: the host's own document modules too,
 			// which the extension reads with the fixture's.
 			const projectModules = [...modules, ...oracleDefaultDocumentModules(oracleCase, caseModules(oracleCase)).map(oracleModuleInput)];
-			// The extension always supplies the project's conditional
-			// constants, and an Excel case has none: a name no #Const defines
-			// is then provably undefined, as the VBE treats it (issue #208).
-			const project = buildVbaProjectIndex(projectModules, undefined, { conditionalCompilation: { projectConstants: {} } });
+			// The conditional compilation the oracle compiled the case under:
+			// the project's arguments, none, and Win64 off for 32-bit Office.
+			const project = buildVbaProjectIndex(projectModules, undefined, { conditionalCompilation: oracleConditionalCompilation(oracleCase) });
 			const procedures = projectProcedureSignatures(project);
 			const falsePositives: string[] = [];
 			for (const mod of modules) {

@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
 	compileExpectation,
+	measuredIn64BitOffice,
 	modulesOf,
 	splitOptions,
 	stageCase,
@@ -102,5 +103,13 @@ describe('staging a corpus case as a twinBASIC project', () => {
 		expect(compileExpectation({ expected: 'rejected', mode: 'compile', evidencePhase: 'compile' })).toBe('rejected');
 		expect(compileExpectation({ expected: 'accepted', mode: 'compile' })).toBe('accepted');
 		expect(compileExpectation({})).toBe('observe');
+	});
+});
+
+describe('cases the twinBASIC parity report compares', () => {
+	it('leaves out cases measured in 32-bit Office', () => {
+		expect(measuredIn64BitOffice({ id: 'a' })).toBe(true);
+		expect(measuredIn64BitOffice({ id: 'a', bitness: 64 })).toBe(true);
+		expect(measuredIn64BitOffice({ id: 'a', bitness: 32 })).toBe(false);
 	});
 });

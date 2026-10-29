@@ -41,6 +41,32 @@ an exported component header, so default-member and enumeration attributes are
 real VBE metadata rather than invalid editor statements. The worker removes
 only its newly created component and deletes its temporary import file.
 
+## Bitness
+
+A fixture measured in 32-bit Office says `"bitness": 32`; one without a
+`bitness`, or with `64`, was measured in 64-bit Office, where most of the
+corpus was. The two compile different code: 32-bit Office has no LongLong
+and its LongPtr is a Long, so a fixture's verdict holds for its bitness only.
+
+- The coordinator measures each host's bitness from its registered exe (the
+  PE header's machine field), in the probe that already finds the exe. A
+  case for the other bitness is not run: it is reported `SKIP` with the
+  reason (`stage: other_bitness`), like a known host crash. `--strict` counts
+  it as skipped, not failed, so a run where every case was skipped exits 0;
+  the summary says how many were for the other bitness and whether none ran.
+  A run whose cases are all for the other bitness starts no Office and leaves
+  the dialog sounds alone.
+- A host whose bitness cannot be read runs nothing, so no compile is recorded
+  against the wrong bitness.
+- Each result records `hostBitness`, and the checkpoint hash covers it with
+  the host build, which is the same number in both bitnesses.
+- To measure 32-bit fixtures, run the coordinator on a machine with 32-bit
+  Office.
+- The corpus tests analyze a 32-bit fixture with `Win64` off, through
+  `oracleConditionalCompilation()` in `tests/helpers/oracleModuleInput.ts`.
+  A 32-bit fixture references no VBA project yet. The twinBASIC oracle leaves
+  32-bit fixtures out of its parity report.
+
 ## Run
 
 ```powershell

@@ -6,8 +6,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { OFFICE_HOST_APPS } from '../../src/officeHostApps';
 
 const source = readFileSync(join(process.cwd(), 'syntax_corpus/oracle/run_vbe_oracle.mjs'), 'utf8');
-const names = ['comRegistered', 'registeredHostBuild', 'caseHost', 'unsupportedHost', 'malformedReferences', 'hostsNeedingBuilds',
-    'knownHostCrashResult', 'expectedMatches', 'isOracleInfrastructureFailure'];
+const names = ['comRegistered', 'registeredHostBuild', 'caseHost', 'unsupportedHost', 'malformedReferences',
+    'caseBitness', 'unsupportedBitness', 'otherBitnessResult', 'hostsNeedingBuilds', 'knownHostCrashResult', 'expectedMatches', 'isOracleInfrastructureFailure'];
 const functions = names.map((name) => {
     const start = source.indexOf(`function ${name}(`);
     return source.slice(start, source.indexOf('\n}', start) + 2);
@@ -22,7 +22,7 @@ const timeoutError = new Error('spawnSync powershell.exe ETIMEDOUT');
 type Case = { id: string; host?: string; crashesHostBuilds?: string[] };
 type Completed = { status: number | null; stdout?: string | null; stderr?: string | null; error?: Error };
 
-function setup(cases: Case[] = [], checkpoint = false) {
+function setup(cases: Case[] = [], checkpoint = false, exeBitness: (file: unknown) => number | undefined = () => 64) {
     const spawnSync = vi.fn((_command: string, _args: string[], _options: object): Completed => ({ status: 0 }));
     const errors: string[] = [];
     const output: string[] = [];
@@ -46,6 +46,8 @@ function setup(cases: Case[] = [], checkpoint = false) {
         // The run lock is covered in vbeOracleRunLock.test.ts; here it is always free.
         acquireOracleRunLock: async () => ({ held: true, release: async () => {} }),
         oracleRunLockAddress: () => 'test-lock', oracleRunOwner: () => ({ pid: 1 }), describeRefusal: () => 'refused',
+        // Bitness is covered in vbeOracleBitness.test.ts; here every host is 64-bit.
+        exeBitness,
         // Owned hosts are covered in vbeOracleOwnedHosts.test.ts; here the run owns none.
         OwnedHosts: class { load() { return []; } add() {} sweep() { return []; } },
         ownedHostsPath: () => 'hosts.json', describeLeftHosts: () => 'left', abandonActiveCases: () => {},
@@ -140,13 +142,15 @@ describe('VBE oracle synchronous startup probes', () => {
         expect(probe.spawnSync.mock.calls[1][2]).toEqual({ encoding: 'utf8', timeout: 5000 });
     });
 
-    it.each(hosts)('uses one registration-only process for %s when no build is needed', async (host, info) => {
+    it.each(hosts)('uses one probe process for %s when no build is needed, for its exe', async (host, info) => {
+        // Every run needs each host's exe, whose bitness decides what runs.
         const probe = setup([{ id: 'safe', host }, { id: 'also-safe', host }]);
+        probe.spawnSync.mockReturnValue({ status: 0, stdout: `${marker}\r\nXLIDE-ORACLE-EXE C:\\Office\\${info.processName}.EXE\r\n${build}\r\n` });
         expect(await probe.main([])).toBe(0);
         expect(probe.spawnSync).toHaveBeenCalledExactlyOnceWith('powershell.exe', [
-            '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command',
-            `$type = [type]::GetTypeFromProgID("${info.progId}"); if ($null -eq $type) { exit 2 }`,
-        ], { encoding: 'utf8', timeout: 5000 });
+            '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', expect.any(String),
+        ], { encoding: 'utf8', timeout: 15_000 });
+        expect(probe.spawnSync.mock.calls[0][1][4]).toContain(`GetTypeFromProgID("${info.progId}")`);
         expect(probe.ran).toEqual(['safe', 'also-safe']);
     });
 
@@ -165,11 +169,17 @@ describe('VBE oracle synchronous startup probes', () => {
             const write = script.indexOf(`[Console]::Out.WriteLine('${marker}')`);
             const flush = script.indexOf('[Console]::Out.Flush()');
             const registryRead = script.indexOf('[Microsoft.Win32.Registry]::ClassesRoot.OpenSubKey($path)');
+            const exeLine = script.indexOf("[Console]::Out.WriteLine('XLIDE-ORACLE-EXE ' + $exe)");
+            const versionRead = script.indexOf('[Diagnostics.FileVersionInfo]::GetVersionInfo($exe)');
             expect(lookup).toBeGreaterThanOrEqual(0);
             expect(nullCheck).toBeGreaterThan(lookup);
             expect(write).toBeGreaterThan(nullCheck);
             expect(flush).toBeGreaterThan(write);
             expect(registryRead).toBeGreaterThan(flush);
+            // The exe is reported before its version is read, so an unreadable
+            // version still leaves the bitness readable.
+            expect(exeLine).toBeGreaterThan(registryRead);
+            expect(versionRead).toBeGreaterThan(exeLine);
             expect(probe.errors).toEqual([]);
             expect(probe.ran).toEqual([]);
             expect(JSON.parse(probe.output[0])).toMatchObject({ skippedCount: 2 });
@@ -184,6 +194,37 @@ describe('VBE oracle synchronous startup probes', () => {
         const probe = setup();
         probe.spawnSync.mockReturnValue(completed);
         expect(probe.comRegistered('Excel.Application')).toBe(false);
+    });
+});
+
+const exePath = 'C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE';
+const exeLine = `XLIDE-ORACLE-EXE ${exePath}`;
+
+describe('VBE oracle host exe from the probe', () => {
+    it.each([
+        { name: 'exe then build, LF', completed: { status: 0, stdout: `${marker}\n${exeLine}\n${build}\n` },
+            expected: { registered: true, build, exe: exePath } },
+        { name: 'exe then build, CRLF', completed: { status: 0, stdout: `${marker}\r\n${exeLine}\r\n${build}\r\n` },
+            expected: { registered: true, build, exe: exePath } },
+        { name: 'exe then a version timeout', completed: { status: null, stdout: `${marker}\r\n${exeLine}\r\n`, error: timeoutError },
+            expected: { registered: true, build: null, exe: exePath, why: timeoutError.message } },
+        { name: 'exe then no version', completed: { status: 2, stdout: `${marker}\n${exeLine}\n` },
+            expected: { registered: true, build: null, exe: exePath, why: 'PowerShell exited 2' } },
+        { name: 'an empty exe line', completed: { status: 0, stdout: `${marker}\nXLIDE-ORACLE-EXE \n${build}\n` },
+            expected: { registered: true, build } },
+    ])('reads $name', ({ completed, expected }) => {
+        const probe = setup();
+        probe.spawnSync.mockReturnValueOnce(completed);
+        expect(probe.registeredHostBuild('Excel.Application')).toEqual(expected);
+    });
+
+    it('hands the exe the probe found to the bitness check', async () => {
+        const seen: unknown[] = [];
+        const probe = setup([{ id: 'safe' }], false, (file: unknown) => { seen.push(file); return 64; });
+        probe.spawnSync.mockReturnValue({ status: 0, stdout: `${marker}\r\n${exeLine}\r\n${build}\r\n` });
+        expect(await probe.main([])).toBe(0);
+        expect(seen).toEqual([exePath]);
+        expect(probe.ran).toEqual(['safe']);
     });
 });
 
@@ -214,8 +255,8 @@ describe('VBE oracle startup messages and exit codes', () => {
             expect(probe.spawnSync).toHaveBeenCalledTimes(fallback === undefined ? 1 : 2);
         });
 
+    // Every host gets the build probe now, for its exe's bitness.
     const paths = [
-        { checkpoint: false, laterNeedsBuild: false },
         { checkpoint: false, laterNeedsBuild: true },
         { checkpoint: true, laterNeedsBuild: true },
     ];

@@ -25,6 +25,8 @@ interface CorpusProvenanceSidecar {
 interface OracleCase {
 	id: string;
 	crashesHostBuilds?: string[];
+	bitness?: unknown;
+	projectReference?: unknown;
 	expected: 'accepted' | 'rejected' | 'observe';
 	provenance: Provenance;
 	mode?: 'compile' | 'run' | 'compile_then_run';
@@ -138,6 +140,15 @@ describe('syntax corpus provenance', () => {
 				for (const build of fixture.crashesHostBuilds) {
 					expect(build).toMatch(/^\d+\.\d+\.\d+\.\d+$/);
 				}
+			}
+			// The Office a case was measured in: 32 or 64, absent for 64.
+			// Referenced-project helpers build their surface without the
+			// case's bitness, so a 32-bit case does not reference a project.
+			if (fixture.bitness !== undefined) {
+				expect([32, 64], fixture.id).toContain(fixture.bitness);
+			}
+			if (fixture.bitness === 32) {
+				expect(fixture.projectReference, fixture.id).toBeUndefined();
 			}
 			expect(allowed.has(fixture.provenance)).toBe(true);
 			if (fixture.mode === 'compile_then_run') {

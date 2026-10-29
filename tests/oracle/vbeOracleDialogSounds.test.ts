@@ -9,7 +9,8 @@ import { OFFICE_HOST_APPS } from '../../src/officeHostApps';
 // registry writes, Office processes or account-profile writes.
 const source = readFileSync(join(process.cwd(), 'syntax_corpus/oracle/run_vbe_oracle.mjs'), 'utf8');
 const names = ['dialogSoundsPath', 'dialogSoundsScript', 'setDialogSounds', 'parseArgs',
-    'caseHost', 'unsupportedHost', 'malformedReferences', 'hostsNeedingBuilds', 'knownHostCrashResult', 'expectedMatches', 'isOracleInfrastructureFailure'];
+    'caseHost', 'unsupportedHost', 'malformedReferences', 'caseBitness', 'unsupportedBitness', 'otherBitnessResult',
+    'hostsNeedingBuilds', 'knownHostCrashResult', 'expectedMatches', 'isOracleInfrastructureFailure'];
 const functions = names.map((name) => {
     const start = source.indexOf(`function ${name}(`);
     // Up to the next top-level declaration, so a closing brace at the start of
@@ -94,6 +95,8 @@ function setup(cases: Case[] = [{ id: 'first' }, { id: 'second' }], lockHeld = t
             ? { held: true, release: async () => {} }
             : { held: false, reason: 'busy', owner: { pid: 99 } }),
         oracleRunLockAddress: () => 'test-lock', oracleRunOwner: () => ({ pid: 1 }), describeRefusal: () => 'refused',
+        // Bitness is covered in vbeOracleBitness.test.ts; here every host is 64-bit.
+        exeBitness: () => 64,
         // Owned hosts are covered in vbeOracleOwnedHosts.test.ts; here the run owns none.
         OwnedHosts: class { load() { return []; } add() {} sweep() { hostSweeps.count += 1; return []; } },
         ownedHostsPath: () => 'hosts.json', describeLeftHosts: () => 'left', abandonActiveCases: () => {},
@@ -245,7 +248,7 @@ describe('VBE oracle dialog sound lifecycle', () => {
             const hosts: Record<string, string | null> = { 'unknown host': 'other', 'capitalized host': 'Excel', 'null host': null };
             const host = failure in hosts ? hosts[failure] : 'excel';
             const probe = setup([{ id: 'first', host: host as string }]);
-            if (failure === 'unregistered host') { probe.comRegistered.mockReturnValue(false); }
+            if (failure === 'unregistered host') { probe.registeredHostBuild.mockReturnValue({ registered: false, build: null, why: 'unregistered' }); }
             if (failure === 'invalid document') { probe.loadCasesDocument.mockImplementation(() => { throw new Error('bad JSON'); }); }
             if (failure === 'unreadable checkpoint build') {
                 probe.registeredHostBuild.mockReturnValue({ registered: true, build: null, why: 'unreadable' });

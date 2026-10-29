@@ -344,6 +344,13 @@ export function hostBound(kase) {
 	return modulesOf(kase).some((m) => EXCEL_HOST_NAMES.test(m.source));
 }
 
+// A case measured in 32-bit Office (`bitness: 32`) has a 32-bit verdict:
+// LongLong refused, LongPtr a Long. The parity report compares 64-bit VBE
+// verdicts, so those cases are left out.
+export function measuredIn64BitOffice(kase) {
+	return kase.bitness === undefined || kase.bitness === 64;
+}
+
 export function compileExpectation(kase) {
 	// A VBE runtime case compiled before it ran, so at compile it is accepted.
 	const phase = String(kase.evidencePhase ?? '');
@@ -457,10 +464,14 @@ async function main(argv) {
 	const document = JSON.parse(fs.readFileSync(args.cases, 'utf8').replace(/^\uFEFF/, ''));
 	let cases = document.cases;
 	if (!Array.isArray(cases)) { console.error(`${args.cases} has no cases array`); return 2; }
+	const in32Bit = cases.filter((k) => !measuredIn64BitOffice(k)).map((k) => k.id);
+	cases = cases.filter(measuredIn64BitOffice);
 	if (args.caseIds.length) {
 		const wanted = new Set(args.caseIds);
 		cases = cases.filter((k) => wanted.has(k.id));
 		const missing = args.caseIds.filter((id) => !cases.some((k) => k.id === id));
+		const left = missing.filter((id) => in32Bit.includes(id));
+		if (left.length) { console.error(`Measured in 32-bit Office, not compared: ${left.join(', ')}`); return 2; }
 		if (missing.length) { console.error(`Unknown case(s): ${missing.join(', ')}`); return 2; }
 	}
 	// Earlier evidence in the report is kept and its cases skipped, so a

@@ -9,6 +9,8 @@ export interface CorpusSample {
     /** Stable identifier for reporting, e.g. "file.md#3" or an oracle case id. */
     id: string;
     source: string;
+    /** An oracle case measured in 32-bit Office, where Win64 is off; absent is 64-bit. */
+    bitness?: 32;
 }
 
 const repoRoot = process.cwd();
@@ -39,17 +41,19 @@ function oracleCaseSources(): CorpusSample[] {
     ) as {
         cases: {
             id: string;
+            bitness?: number;
             source?: string;
             modules?: { name: string; source: string }[];
         }[];
     };
     const samples: CorpusSample[] = [];
     for (const c of oracle.cases) {
+        const bitness = c.bitness === 32 ? { bitness: 32 as const } : {};
         if (typeof c.source === 'string') {
-            samples.push({ id: `oracle:${c.id}`, source: c.source });
+            samples.push({ id: `oracle:${c.id}`, source: c.source, ...bitness });
         }
         for (const mod of c.modules ?? []) {
-            samples.push({ id: `oracle:${c.id}/${mod.name}`, source: mod.source });
+            samples.push({ id: `oracle:${c.id}/${mod.name}`, source: mod.source, ...bitness });
         }
     }
     return samples;

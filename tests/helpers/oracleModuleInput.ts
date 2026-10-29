@@ -5,6 +5,7 @@
 // the project the VBE compiled.
 
 import type { EventHandlerDocumentType } from '../../src/analyzer';
+import type { ConditionalCompilationEnvironment } from '../../src/analyzer/conditional/conditionalCompilation';
 import { hostTokenForLibid } from '../../src/analyzer/host/hostLibraries';
 import type { VbaProjectModuleInput } from '../../src/vbaProjectAnalysis';
 import { referencedProjectSurface, type ReferencedProjectSurface } from '../../src/analyzer/symbols/referencedProjects';
@@ -21,6 +22,18 @@ export interface OracleFixtureModule {
 	predeclaredId?: boolean;
 	/** The code name the oracle gives a document module, `ThisWorkbook` renamed `BookCode`. */
 	codeName?: string;
+}
+
+/**
+ * The conditional compilation the oracle compiled a case under. The extension
+ * always supplies the project's own arguments, and a fixture has none: a name
+ * no #Const defines is then provably undefined, as the VBE treats it (issue
+ * #208). A case with `bitness: 32` ran in 32-bit Office, where Win64 is off.
+ */
+export function oracleConditionalCompilation(kase: { bitness?: number }): ConditionalCompilationEnvironment {
+	return kase.bitness === 32
+		? { projectConstants: {}, compilerConstants: { Win64: 0 } }
+		: { projectConstants: {} };
 }
 
 /** `Forms.CommandButton.1` is an `MSForms.CommandButton`. */

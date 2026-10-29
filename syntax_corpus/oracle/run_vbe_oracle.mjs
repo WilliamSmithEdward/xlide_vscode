@@ -68,6 +68,60 @@ function malformedReferences(kase) {
     return valid ? undefined : `${String(kase.id)} has references ${JSON.stringify(references)}`;
 }
 
+// A case may say which Office it was measured in: `bitness: 32` for 32-bit
+// Office, where Win64 is off and LongPtr is a Long. Absent means 64, as an
+// absent host means Excel. A case runs only in Office of its bitness.
+function caseBitness(kase) {
+    return kase.bitness === undefined ? 64 : kase.bitness;
+}
+
+function unsupportedBitness(kase) {
+    return kase.bitness === undefined || kase.bitness === 32 || kase.bitness === 64
+        ? undefined : `${String(kase.id)} names bitness ${JSON.stringify(kase.bitness)}`;
+}
+
+/**
+ * 32 or 64 for the exe's PE machine field (x86 or x64), else undefined: the
+ * Office the oracle drives is measured from the binary that runs, not from
+ * registry keys an installation may lay out differently.
+ */
+function exeBitness(file, readHead = readFileHead) {
+    if (!file) { return undefined; }
+    let bytes;
+    try { bytes = readHead(file); } catch { return undefined; }
+    if (bytes.length < 0x40 || bytes.readUInt16LE(0) !== 0x5a4d) { return undefined; }
+    const pe = bytes.readUInt32LE(0x3c);
+    if (pe + 6 > bytes.length || bytes.readUInt32LE(pe) !== 0x00004550) { return undefined; }
+    const machine = bytes.readUInt16LE(pe + 4);
+    return machine === 0x014c ? 32 : machine === 0x8664 ? 64 : undefined;
+}
+
+// The headers sit in the first few hundred bytes; an Office exe is tens of
+// megabytes, so only its start is read.
+function readFileHead(file) {
+    const fd = fs.openSync(file, 'r');
+    try {
+        const head = Buffer.alloc(4096);
+        return head.subarray(0, fs.readSync(fd, head, 0, head.length, 0));
+    } finally {
+        fs.closeSync(fd);
+    }
+}
+
+function otherBitnessResult(kase, hostBitness) {
+    const wanted = caseBitness(kase);
+    const bitness = hostBitness.get(caseHost(kase));
+    if (bitness === undefined || bitness === wanted) { return undefined; }
+    return {
+        caseId: kase.id,
+        outcome: 'skipped',
+        stage: 'other_bitness',
+        hostBitness: bitness,
+        message: `Skipped: needs ${wanted}-bit Office; ${OFFICE_HOSTS[caseHost(kase)].noun} here is ${bitness}-bit.`,
+        hresult: null,
+    };
+}
+
 // Most rejected cases show a VBE error box, and Windows plays a message-box
 // sound for each. On some machines each sound leaves thousands of kernel trace
 // registrations that Windows frees only slowly, so a long run can fill
@@ -270,6 +324,8 @@ function registeredHostBuild(progId) {
             if ($command -notmatch '^\\s*(?:"([^"]+[.]exe)"|(.+?[.]exe))(?:\\s|$)') { exit 2 }
             $exe = $matches[1]
             if (-not $exe) { $exe = $matches[2] }
+            [Console]::Out.WriteLine('XLIDE-ORACLE-EXE ' + $exe)
+            [Console]::Out.Flush()
             $v = [Diagnostics.FileVersionInfo]::GetVersionInfo($exe)
             if ($v.FileMajorPart -le 0) { exit 2 }
             '{0}.{1}.{2}.{3}' -f $v.FileMajorPart, $v.FileMinorPart, $v.FileBuildPart, $v.FilePrivatePart
@@ -278,13 +334,16 @@ function registeredHostBuild(progId) {
     const lines = (completed.stdout ?? '').split(/\r?\n/);
     const trailing = lines.pop();
     const marker = 'XLIDE-ORACLE-REGISTERED';
+    const exePrefix = 'XLIDE-ORACLE-EXE ';
     const confirmed = lines.includes(marker);
     const registered = confirmed || comRegistered(progId);
-    const build = [...lines.filter((line) => line !== marker), trailing].join('\n').trim();
+    const exe = lines.find((line) => line.startsWith(exePrefix))?.slice(exePrefix.length).trim();
+    const found = exe ? { exe } : {};
+    const build = [...lines.filter((line) => line !== marker && !line.startsWith(exePrefix)), trailing].join('\n').trim();
     if (confirmed && !completed.error && completed.status === 0 && /^\d+\.\d+\.\d+\.\d+$/.test(build)) {
-        return { registered, build };
+        return { registered, build, ...found };
     }
-    return { registered, build: null, why: completed.error?.message || completed.stderr?.trim() || `PowerShell exited ${completed.status}` };
+    return { registered, build: null, ...found, why: completed.error?.message || completed.stderr?.trim() || `PowerShell exited ${completed.status}` };
 }
 
 function loadCasesDocument(file) {
@@ -328,17 +387,18 @@ function knownHostCrashResult(kase, hostBuilds) {
 }
 
 // A checkpoint file holds one JSON line per finished case: a hash of the
-// case, this harness and the build of the case's host, and the case's
-// result. A case whose id and hash match a line with evidence is not run
-// again, so an aborted run can resume where it stopped; editing the case or
-// the harness, or a new build of its host, runs it again.
+// case, this harness and the build and bitness of the case's host, and the
+// case's result. A case whose id and hash match a line with evidence is not
+// run again, so an aborted run can resume where it stopped; editing the case
+// or the harness, a new build of its host, or the other bitness of the same
+// build runs it again.
 const HARNESS_HASH = crypto.createHash('sha256')
     .update(fs.readFileSync(fileURLToPath(import.meta.url)))
     .update(fs.readFileSync(WORKER))
     .digest('hex');
 
-function caseHash(kase, hostBuild) {
-    return crypto.createHash('sha256').update(HARNESS_HASH).update(JSON.stringify([hostBuild, kase])).digest('hex');
+function caseHash(kase, hostBuild, hostBitness) {
+    return crypto.createHash('sha256').update(HARNESS_HASH).update(JSON.stringify([hostBuild, hostBitness, kase])).digest('hex');
 }
 
 function checkpointKey(caseId, hash) {
@@ -1019,6 +1079,12 @@ async function main(argv) {
         console.error(`Unknown oracle host: ${unknownHosts.slice(0, 5).join('; ')}${unknownHosts.length > 5 ? `; and ${unknownHosts.length - 5} more` : ''}. Use ${Object.keys(OFFICE_HOSTS).join(', ')}, or leave host out for excel.`);
         return 2;
     }
+    // Every selected case is checked, the ones for the other bitness too.
+    const badBitness = cases.map(unsupportedBitness).filter((why) => why !== undefined);
+    if (badBitness.length) {
+        console.error(`Unknown oracle bitness: ${badBitness.slice(0, 5).join('; ')}${badBitness.length > 5 ? `; and ${badBitness.length - 5} more` : ''}. Use 32 or 64, or leave bitness out for 64.`);
+        return 2;
+    }
     const badReferences = cases.map(malformedReferences).filter((why) => why !== undefined);
     if (badReferences.length) {
         console.error(`Malformed oracle references: ${badReferences.slice(0, 5).join('; ')}${badReferences.length > 5 ? `; and ${badReferences.length - 5} more` : ''}. Each is { "guid": "{...}", "major": n, "minor": n }.`);
@@ -1036,11 +1102,11 @@ async function main(argv) {
     const hosts = [...new Set(cases.map(caseHost))];
     const buildHosts = hostsNeedingBuilds(cases, args.checkpoint);
     const registrations = new Map();
-    // Every host's probe runs before any build failure is reported.
+    // Every host's probe runs before any build failure is reported. It finds
+    // the registered exe, whose bitness every run needs.
     for (const host of hosts) {
         const progId = OFFICE_HOSTS[host].progId;
-        const registered = buildHosts.includes(host)
-            ? registeredHostBuild(progId) : { registered: comRegistered(progId) };
+        const registered = registeredHostBuild(progId);
         registrations.set(host, registered);
         if (!registered.registered) {
             console.error(`VBE oracle cases for ${host} require Microsoft ${OFFICE_HOSTS[host].noun} COM registration.`);
@@ -1057,19 +1123,36 @@ async function main(argv) {
         }
         if (registered.build) { hostBuilds.set(host, registered.build); }
     }
+    // A compile recorded against the wrong bitness would be wrong evidence, so
+    // a host whose bitness cannot be read runs nothing.
+    const hostBitness = new Map();
+    for (const host of hosts) {
+        const { exe } = registrations.get(host);
+        const bitness = exeBitness(exe);
+        if (bitness === undefined) {
+            console.error(`Cannot tell whether ${OFFICE_HOSTS[host].noun} here is 32-bit or 64-bit Office: ${exe ? `${exe} is not an x86 or x64 program` : 'its registered exe was not found'}.`);
+            return 2;
+        }
+        hostBitness.set(host, bitness);
+    }
+    // A case for the other bitness is skipped, never started; a run with
+    // nothing else starts no Office and leaves the dialog sounds alone.
+    const runnable = cases.filter((kase) => !otherBitnessResult(kase, hostBitness));
 
     // One run at a time per user, taken before any Office automation or sound
     // change (issue #1438). Ending this process, however it ends, frees it.
-    const lock = await acquireOracleRunLock(oracleRunLockAddress(), oracleRunOwner(argv));
-    if (!lock.held) {
-        console.error(describeRefusal(lock));
-        return 3;
+    if (runnable.length) {
+        const lock = await acquireOracleRunLock(oracleRunLockAddress(), oracleRunOwner(argv));
+        if (!lock.held) {
+            console.error(describeRefusal(lock));
+            return 3;
+        }
     }
 
     // Hosts an earlier run started and was killed before ending are this run's
     // to end, before it starts any of its own (issue #1439).
     const owned = new OwnedHosts({ file: ownedHostsPath() });
-    const inherited = owned.load();
+    const inherited = runnable.length ? owned.load() : [];
     if (inherited.length) {
         const left = owned.sweep();
         if (left.length) {
@@ -1081,14 +1164,15 @@ async function main(argv) {
 
     const results = [];
     let skippedCount = 0;
+    let otherBitnessCount = 0;
     let failures = 0;
     let oracleFailures = 0;
     const checkpoint = args.checkpoint ? loadCheckpoint(args.checkpoint) : null;
-    const worker = new OracleWorker(args.casesPerInstance, owned);
-    worker.hostBuilds = args.checkpoint ? hostBuilds : null;
+    const worker = runnable.length ? new OracleWorker(args.casesPerInstance, owned) : null;
+    if (worker) { worker.hostBuilds = args.checkpoint ? hostBuilds : null; }
     // Ctrl-C, closing the console and a normal end all put the sounds back,
     // unless Windows ends the process first; the next run then does.
-    let restored = false;
+    let restored = !worker;
     const restoreSounds = () => {
         if (restored) { return; }
         restored = true;
@@ -1102,7 +1186,7 @@ async function main(argv) {
     const cleanUp = () => {
         if (cleanedUp) { return; }
         cleanedUp = true;
-        worker.kill();
+        worker?.kill();
         abandonActiveCases(owned);
         const left = owned.sweep();
         if (left.length) { console.error(describeLeftHosts(left)); }
@@ -1112,14 +1196,16 @@ async function main(argv) {
     const signals = [['SIGINT', interrupt(130)], ['SIGBREAK', interrupt(149)], ['SIGTERM', interrupt(143)], ['SIGHUP', interrupt(129)]];
     for (const [signal, handler] of signals) { process.once(signal, handler); }
     process.once('exit', cleanUp);
-    setDialogSounds('silence');
+    if (worker) { setDialogSounds('silence'); }
     try {
         for (const kase of cases) {
-            const hash = caseHash(kase, hostBuilds.get(caseHost(kase)) ?? null);
+            const bitness = hostBitness.get(caseHost(kase));
+            const hash = caseHash(kase, hostBuilds.get(caseHost(kase)) ?? null, bitness);
             const saved = checkpoint?.get(checkpointKey(String(kase.id), hash));
-            let result = knownHostCrashResult(kase, hostBuilds);
+            let result = otherBitnessResult(kase, hostBitness) ?? knownHostCrashResult(kase, hostBuilds);
             if (result) {
                 skippedCount += 1;
+                if (result.stage === 'other_bitness') { otherBitnessCount += 1; }
             } else if (saved) {
                 result = { ...saved, resumed: true };
             } else {
@@ -1127,9 +1213,11 @@ async function main(argv) {
                     worker, kase, args.timeout, args.timeoutRetries, args.dialogHoldSeconds,
                 );
                 if (args.checkpoint) {
-                    fs.appendFileSync(args.checkpoint, `${JSON.stringify({ caseHash: hash, result })}\n`, 'utf8');
+                    fs.appendFileSync(args.checkpoint, `${JSON.stringify({ caseHash: hash, result: { ...result, hostBitness: bitness } })}\n`, 'utf8');
                 }
             }
+            // Every result says which Office answered it, a skip's too.
+            result.hostBitness = bitness;
             const expected = String(kase.expected ?? 'observe');
             result.expected = expected;
             result.matched = expectedMatches(expected, String(result.outcome ?? ''))
@@ -1145,7 +1233,7 @@ async function main(argv) {
             if (isOracleInfrastructureFailure(outcome)) { break; }
         }
     } finally {
-        try { await worker.close(); }
+        try { await worker?.close(); }
         finally {
             // The worker quit its host; any it could not is ended now, or named.
             abandonActiveCases(owned);
@@ -1186,6 +1274,7 @@ async function main(argv) {
             failureCount: failures,
             oracleFailureCount: oracleFailures,
             skippedCount,
+            otherBitnessCount,
         }, null, 2));
     } else {
         for (const result of results) {
@@ -1201,7 +1290,8 @@ async function main(argv) {
         }
         console.log(
             `\n${results.length} oracle case(s), ${failures} expectation failure(s), `
-            + `${oracleFailures} oracle infrastructure failure(s), ${skippedCount} skipped case(s).`,
+            + `${oracleFailures} oracle infrastructure failure(s), ${skippedCount} skipped case(s)`
+            + `${otherBitnessCount ? ` (${otherBitnessCount} for the other Office bitness${runnable.length ? '' : '; none ran'})` : ''}.`,
         );
     }
 
