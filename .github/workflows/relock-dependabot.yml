@@ -76,6 +76,9 @@ jobs:
         with:
           name: relock
           path: ${{ runner.temp }}/relock
+          # The files keep their repository paths, and the requirement locks
+          # sit under .github, which upload-artifact skips unless told.
+          include-hidden-files: true
           retention-days: 1
 
   push:
