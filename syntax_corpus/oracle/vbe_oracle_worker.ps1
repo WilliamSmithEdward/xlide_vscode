@@ -45,6 +45,10 @@ $ErrorActionPreference = "Stop"
 # Information.TypeName reads a designer control's class, as VBA's TypeName does.
 Add-Type -AssemblyName Microsoft.VisualBasic
 
+# XlideSecurityNotice: accepts the host's macro Security Notice, which can
+# stop a load (a referenced project's file, for one) until it is answered.
+. (Join-Path $PSScriptRoot 'office_security_notice.ps1')
+
 Add-Type @"
 using System;
 using System.Collections.Generic;
@@ -1145,6 +1149,9 @@ function Start-OracleHost {
     }
     $script:appPid = $processId
     $script:appHost = $script:hostName
+    # For as long as the instance runs, whatever the case is doing: a notice
+    # can come from any load, and when none comes nothing waits for one.
+    [XlideSecurityNotice]::Start([uint32]$processId)
     $script:appCases = 0
 }
 
@@ -1158,6 +1165,7 @@ function Write-HostRecord {
 }
 
 function Stop-OracleHost {
+    [XlideSecurityNotice]::Stop()
     $script:appBuild = $null
     $script:appBuildPid = 0
     if ($null -ne $script:app) {
@@ -1444,6 +1452,7 @@ function Invoke-OracleCase {
     $containerPath = $null
     $provider = $null
     $providerPath = $null
+    $noticesBefore = $null
     $mode = "compile"
     Set-Stage "setup"
 
@@ -1476,6 +1485,7 @@ function Invoke-OracleCase {
         }
         $app = $script:app
         $appPid = $script:appPid
+        $noticesBefore = [XlideSecurityNotice]::Accepted.Length
         # The build of the running host, not of the registration. Failure leaves
         # it unknown; checkpoint runs reject such evidence.
         $result.hostBuild = Get-HostBuild $appPid
@@ -1647,6 +1657,13 @@ function Invoke-OracleCase {
     }
     finally {
         try { [XlideVbeDialogWatcher]::Stop() } catch { }
+        # The notices this case's loads raised, read before the host can stop,
+        # once a notice still being answered has been recorded.
+        if ($null -ne $noticesBefore) {
+            [void][XlideSecurityNotice]::Settle(5000)
+            $notices = @([XlideSecurityNotice]::Accepted | Select-Object -Skip $noticesBefore)
+            if ($notices.Count -gt 0) { $result.securityNotices = $notices }
+        }
         $closed = $true
         if ($null -ne $container) {
             try { Close-OracleContainer $app $container } catch { $closed = $false }

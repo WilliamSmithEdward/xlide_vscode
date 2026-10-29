@@ -47,11 +47,19 @@ const report = (project: string, run: string): string[] => [
 	`try { "probe=" + (${run}) } catch { "probe=failed: " + $_ }`,
 ];
 
-/** Opens the database in an Access of the check's own, lists its references and runs the probe. */
+/**
+ * Opens the database in an Access of the check's own, lists its references and runs the probe.
+ * Unlike Excel, Word and PowerPoint, an Access an automation client starts is
+ * at AutomationSecurity 2 (by UI), measured in 16.0 (build 20527): a database
+ * outside a trusted location then opens with its code disabled behind the
+ * message bar, with no notice to answer, and Run fails (0x800A9D9F). So this
+ * instance, the check's own, is set to 1, as the VBE oracle sets its own.
+ */
 async function openInAccess(file: string, label: string): Promise<Record<string, string>> {
 	const result = await psFile([
 		'$ErrorActionPreference = "Continue"',
 		'$app = [Activator]::CreateInstance([type]::GetTypeFromProgID("Access.Application"))',
+		'$app.AutomationSecurity = 1',
 		`$app.OpenCurrentDatabase(${q(file)})`,
 		...report('$app', '$app.Run("Report")'),
 		'$app.CloseCurrentDatabase()',

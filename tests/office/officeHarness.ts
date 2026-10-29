@@ -32,6 +32,12 @@ export const FIXTURES = fileURLToPath(new URL('../fixtures/binaries/', import.me
  */
 export const SCRATCH = path.join(os.tmpdir(), 'xlide-office-live');
 
+/** The oracle's Security Notice accepter, which the suite shares (officeGlobalSetup.ts). */
+export const SECURITY_NOTICE_SCRIPT = fileURLToPath(new URL('../../syntax_corpus/oracle/office_security_notice.ps1', import.meta.url));
+
+/** Each Security Notice the run answered, or left alone, one per line. */
+export const NOTICE_LOG = path.join(SCRATCH, 'security-notices.log');
+
 /** A fresh copy of a fixture in its own scratch folder. */
 export function scratchCopy(fixture: string, label: string, name = fixture): string {
     const dir = path.join(SCRATCH, label);
@@ -192,6 +198,8 @@ export async function foreground(): Promise<{ hwnd: string; process: string }> {
  * Records every dialog a process raises, and closes it, until the process
  * ends: a repair prompt is one of these. Run in its own PowerShell beside the
  * application, since an open that raises one does not return until it closes.
+ * A macro Security Notice is not one: closing it would disable the file's
+ * code, so it is left to the run's notice accepter (officeGlobalSetup.ts).
  */
 export const WATCHER = [
     'param([int]$TargetPid, [string]$LogPath, [int]$Seconds = 180)',
@@ -218,9 +226,11 @@ export const WATCHER = [
     '            if (owner != pid || !IsWindowVisible(hWnd)) { return true; }',
     '            string cls = Class(hWnd);',
     '            if (cls != "#32770" && cls != "NUIDialog") { return true; }',
+    '            string title = Text(hWnd);',
+    '            if (title.StartsWith("Microsoft ") && title.EndsWith(" Security Notice")) { return true; }',
     '            var parts = new List<string>();',
     '            EnumChildWindows(hWnd, (child, l2) => { string t = Text(child); if (t.Length > 0) { parts.Add(t); } return true; }, IntPtr.Zero);',
-    '            found.Add(cls + " | " + Text(hWnd) + " | " + string.Join(" / ", parts));',
+    '            found.Add(cls + " | " + title + " | " + string.Join(" / ", parts));',
     '            PostMessage(hWnd, 0x0010, IntPtr.Zero, IntPtr.Zero);',
     '            return true;',
     '        }, IntPtr.Zero);',

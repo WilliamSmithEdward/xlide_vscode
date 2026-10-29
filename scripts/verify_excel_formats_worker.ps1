@@ -11,6 +11,8 @@ param(
 # already exist so an instance the developer has open is never counted, and
 # never killed during cleanup.
 $ErrorActionPreference = 'Stop'
+# XlideSecurityNotice: accepts Excel's macro Security Notice, if a file raises one.
+. (Join-Path $PSScriptRoot '..\syntax_corpus\oracle\office_security_notice.ps1')
 $before = @(Get-Process -Name EXCEL -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Id)
 
 $excel = New-Object -ComObject Excel.Application
@@ -21,6 +23,7 @@ $excel.Visible = $false
 $excel.DisplayAlerts = $false
 $excel.EnableEvents = $false
 $excel.AutomationSecurity = 1   # msoAutomationSecurityLow: run macros unattended
+if ($ownPid) { [XlideSecurityNotice]::Start([uint32]$ownPid) }
 
 $results = @()
 foreach ($file in (Get-Content $Manifest)) {
@@ -44,6 +47,7 @@ foreach ($file in (Get-Content $Manifest)) {
 $out = Join-Path (Split-Path $Manifest -Parent) 'results.json'
 ConvertTo-Json @($results) -Depth 4 | Out-File -FilePath $out -Encoding utf8
 
+[XlideSecurityNotice]::Stop()
 try { $excel.Quit() } catch { }
 [void][Runtime.InteropServices.Marshal]::ReleaseComObject($excel)
 [GC]::Collect(); [GC]::WaitForPendingFinalizers()

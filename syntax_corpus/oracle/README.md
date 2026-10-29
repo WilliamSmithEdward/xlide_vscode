@@ -455,6 +455,26 @@ compile or run evidence. Dialog detection is owned by Win32 window enumeration
 for the recorded host process; timeouts remain only a fallback and never
 satisfy an expected or observe-only fixture result.
 
+A host can also stop a load with its macro Security Notice ("Microsoft
+PowerPoint Security Notice" and the like) before the call that started it
+returns, even with `AutomationSecurity` low. Measured in Microsoft 365 (16.0
+build 20527): PowerPoint raises it for every add-in a case's
+`projectReference` loads from the temp folder, and Word for the referenced
+template once the VBE is shown, as it is in an instance kept from an earlier
+compile case; Excel and Access raised none for a reference. Access differs
+in another way: an Access an automation client starts is at
+`AutomationSecurity` 2 (by UI), where Excel, Word and PowerPoint start at 1,
+and under 2 it opens a database outside a trusted location with its code
+disabled behind the message bar, raising no notice; the worker sets 1 on
+every host it starts, Access included. The worker loads
+`office_security_notice.ps1`, whose `XlideSecurityNotice` presses the notice's
+Enable Macros button whenever one appears, for as long as the worker's host
+runs; it never waits for a notice that does not come. A case whose load
+raised one lists it in `securityNotices`. A notice is answered rather than
+avoided: the harness neither lowers the machine's macro settings nor adds a
+Trusted Location. The live Office suite (`npm run test:office`) and
+`verify:excel:formats` load the same file.
+
 For harness debugging, `--dialog-hold-seconds N` keeps the first detected VBE
 dialog visible for `N` seconds before dismissal so a developer can inspect or
 screenshot it. This option is not evidence-changing; it only delays cleanup.

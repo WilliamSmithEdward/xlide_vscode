@@ -20,6 +20,8 @@ import { changedCases } from './oracleChangedCases.mjs';
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_CASES = path.join(ROOT, 'vbe_oracle_cases.json');
 const WORKER = path.join(ROOT, 'vbe_oracle_worker.ps1');
+// The worker loads it to accept a host's macro Security Notice.
+const SECURITY_NOTICE = path.join(ROOT, 'office_security_notice.ps1');
 const EVIDENCE_OUTCOMES = new Set(['accepted', 'rejected']);
 const DEFAULT_TIMEOUT_RETRIES = 2;
 const DEFAULT_CASES_PER_INSTANCE = 40;
@@ -335,6 +337,7 @@ function knownHostCrashResult(kase, hostBuilds) {
 const HARNESS_HASH = crypto.createHash('sha256')
     .update(fs.readFileSync(fileURLToPath(import.meta.url)))
     .update(fs.readFileSync(WORKER))
+    .update(fs.readFileSync(SECURITY_NOTICE))
     .digest('hex');
 
 function caseHash(kase, hostBuild) {

@@ -278,3 +278,284 @@ ConvertTo-Json -InputObject @($results) -Compress
     ]);
     expect(results).toEqual(expected);
 }, 20_000);
+
+describe('the macro Security Notice', () => {
+    it('is accepted for as long as the worker drives a host, whatever the case is doing', () => {
+        const worker = readOracle('vbe_oracle_worker.ps1');
+        const coordinator = readOracle('run_vbe_oracle.mjs');
+        expect(worker).toContain(". (Join-Path $PSScriptRoot 'office_security_notice.ps1')");
+        const start = worker.slice(worker.indexOf('function Start-OracleHost'), worker.indexOf('\nfunction ', worker.indexOf('function Start-OracleHost')));
+        const stop = worker.slice(worker.indexOf('function Stop-OracleHost'), worker.indexOf('\nfunction ', worker.indexOf('function Stop-OracleHost')));
+        expect(start).toContain('[XlideSecurityNotice]::Start([uint32]$processId)');
+        expect(start.indexOf('[XlideSecurityNotice]::Start')).toBeGreaterThan(start.indexOf('$script:appPid = $processId'));
+        // A notice still being answered is recorded before the case reads its notices.
+        const settle = worker.indexOf('[void][XlideSecurityNotice]::Settle(5000)');
+        expect(settle).toBeGreaterThan(0);
+        expect(worker.indexOf('[XlideSecurityNotice]::Accepted | Select-Object -Skip $noticesBefore')).toBeGreaterThan(settle);
+        expect(stop.trimStart().split('\n')[1].trim()).toBe('[XlideSecurityNotice]::Stop()');
+        // A checkpoint made before a change to the accepter is not reused.
+        expect(coordinator).toContain('.update(fs.readFileSync(SECURITY_NOTICE))');
+        expect(readOracle('office_security_notice.ps1')).not.toMatch(/^\s*param\s*\(/m);
+    });
+
+    it('is accepted by the Excel formats check and the live Office suite too', () => {
+        const root = path.join(__dirname, '..', '..');
+        const formats = fs.readFileSync(path.join(root, 'scripts', 'verify_excel_formats_worker.ps1'), 'utf8');
+        expect(formats).toContain("office_security_notice.ps1')");
+        expect(formats).toContain('[XlideSecurityNotice]::Start([uint32]$ownPid)');
+        const setup = fs.readFileSync(path.join(root, 'tests', 'office', 'officeGlobalSetup.ts'), 'utf8');
+        expect(setup).toContain('[XlideSecurityNotice]::Poll(0, $Scratch)');
+        // The suite's dialog watcher closes what it finds, which would disable
+        // the file's code, so it leaves a notice to the accepter.
+        const harness = fs.readFileSync(path.join(root, 'tests', 'office', 'officeHarness.ts'), 'utf8');
+        expect(harness).toContain('title.EndsWith(" Security Notice")) { return true; }');
+    });
+});
+
+describe.skipIf(process.platform !== 'win32')('the macro Security Notice, answered in a real window', () => {
+    // One PowerShell shows stand-in notices from a thread of its own and
+    // answers them with the accepter the harnesses load. No Office is needed.
+    let results: Record<string, { clicked: string; lines: string[]; ms: number; open: boolean; shortDiffers?: boolean }>;
+
+    it('runs every scenario', () => {
+        const helper = path.join(ORACLE, 'office_security_notice.ps1');
+        const script = String.raw`
+$ErrorActionPreference = 'Stop'
+. '${helper.replace(/'/g, "''")}'
+Add-Type -ReferencedAssemblies System.Windows.Forms, System.Drawing -TypeDefinition @"
+using System;
+using System.Threading;
+using System.Windows.Forms;
+public static class StandInNotice {
+    public static volatile string Clicked = "";
+    private static Form form;
+    private static Thread thread;
+    public static void Show(string title, string path, string[] buttons) { Show(title, path, buttons, ""); }
+    public static void Show(string title, string path, string[] buttons, string disabled) {
+        Clicked = "";
+        ManualResetEvent shown = new ManualResetEvent(false);
+        thread = new Thread(delegate() {
+            form = new Form();
+            form.Text = title;
+            form.Width = 520;
+            TextBox file = new TextBox();
+            file.ReadOnly = true;
+            file.Text = path;
+            file.Width = 480;
+            form.Controls.Add(file);
+            for (int i = 0; i < buttons.Length; i++) {
+                Button button = new Button();
+                button.Text = buttons[i];
+                button.Top = 40;
+                button.Left = 10 + i * 120;
+                button.Width = 110;
+                button.Enabled = buttons[i] != disabled;
+                string name = buttons[i];
+                button.Click += delegate { Clicked = name; form.Close(); };
+                form.Controls.Add(button);
+            }
+            form.Shown += delegate { shown.Set(); };
+            Application.Run(form);
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.IsBackground = true;
+        thread.Start();
+        shown.WaitOne(10000);
+        Thread.Sleep(200);
+    }
+    public static bool Open { get { return thread != null && thread.IsAlive; } }
+    public static void SetPath(string path) {
+        form.Invoke(new MethodInvoker(delegate { form.Controls[0].Text = path; }));
+    }
+    public static void EnableAll() {
+        form.Invoke(new MethodInvoker(delegate { foreach (Control control in form.Controls) { control.Enabled = true; } }));
+    }
+    public static bool WaitClosed(int ms) { return thread.Join(ms); }
+    public static void Close() { if (Open) { form.Invoke(new MethodInvoker(form.Close)); thread.Join(5000); } }
+}
+"@
+$results = [ordered]@{}
+function Done($name, $lines, $ms) {
+    $open = [StandInNotice]::Open
+    [StandInNotice]::Close()
+    $results[$name] = [ordered]@{ clicked = [StandInNotice]::Clicked; lines = @($lines); ms = [int]$ms; open = $open }
+}
+
+# Shown while a call waits: the background accepter presses Enable Macros.
+# Timed from the notice being up, not from the stand-in's own start.
+[XlideSecurityNotice]::Start([uint32]$PID)
+[StandInNotice]::Show('Microsoft PowerPoint Security Notice', 'C:\Scratch\Lib.ppam', @('Disable Macros', 'Enable Macros'))
+$watch = [Diagnostics.Stopwatch]::StartNew()
+[void][StandInNotice]::WaitClosed(10000)
+[XlideSecurityNotice]::Stop()
+Done 'shown' ([XlideSecurityNotice]::Accepted) $watch.ElapsedMilliseconds
+
+# None shown: settling and stopping the accepter wait for nothing.
+[XlideSecurityNotice]::Start([uint32]$PID)
+Start-Sleep -Milliseconds 300
+$watch = [Diagnostics.Stopwatch]::StartNew()
+$settled = [XlideSecurityNotice]::Settle(5000)
+[XlideSecurityNotice]::Stop()
+$none = @([XlideSecurityNotice]::Accepted) + @([XlideSecurityNotice]::Accept([uint32]$PID))
+if (-not $settled) { $none += 'did not settle' }
+Done 'none' $none $watch.ElapsedMilliseconds
+
+# The same notice twice, one after the other: each is answered and reported.
+$twice = @()
+foreach ($i in 1, 2) {
+    [StandInNotice]::Show('Microsoft Excel Security Notice', 'C:\Scratch\Same.xlsm', @('Enable Macros', 'Disable Macros'))
+    $twice += [XlideSecurityNotice]::Poll(0, 'C:\Scratch')
+    $twice += [XlideSecurityNotice]::Poll(0, 'C:\Scratch')
+    [void][StandInNotice]::WaitClosed(5000)
+}
+Done 'twice' $twice 0
+
+# A folder whose name only starts with the given one is another folder.
+[StandInNotice]::Show('Microsoft Excel Security Notice', 'C:\Scratch-other\Book.xlsm', @('Enable Macros', 'Disable Macros'))
+Done 'sibling' ([XlideSecurityNotice]::Accept(0, 'C:\Scratch')) 0
+
+# A folder given in its short (8.3) form still owns the notice that names its long one.
+$long = Join-Path $env:TEMP ('xlide notice folder ' + [Guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $long | Out-Null
+$short = (New-Object -ComObject Scripting.FileSystemObject).GetFolder($long).ShortPath
+[StandInNotice]::Show('Microsoft Excel Security Notice', (Join-Path $long 'Book.xlsm'), @('Enable Macros', 'Disable Macros'))
+Done 'short form' ([XlideSecurityNotice]::Accept(0, $short)) 0
+$results['short form'].shortDiffers = $short -ne $long
+Remove-Item -LiteralPath $long -Force
+
+# A notice whose button cannot be pressed yet is reported once, and pressed
+# once it can be.
+[StandInNotice]::Show('Microsoft Excel Security Notice', 'C:\Scratch\Late.xlsm', @('Enable Macros', 'Disable Macros'), 'Enable Macros')
+$late = @([XlideSecurityNotice]::Poll(0, 'C:\Scratch')) + @([XlideSecurityNotice]::Poll(0, 'C:\Scratch'))
+[StandInNotice]::EnableAll()
+$late += [XlideSecurityNotice]::Poll(0, 'C:\Scratch')
+[void][StandInNotice]::WaitClosed(5000)
+Done 'late' $late 0
+
+# A notice read before its path is there is looked at again once it is.
+[StandInNotice]::Show('Microsoft Excel Security Notice', '', @('Enable Macros', 'Disable Macros'))
+$slow = @([XlideSecurityNotice]::Poll(0, 'C:\Scratch')) + @([XlideSecurityNotice]::Poll(0, 'C:\Scratch'))
+[StandInNotice]::SetPath('C:\Scratch\Slow.xlsm')
+$slow += [XlideSecurityNotice]::Poll(0, 'C:\Scratch')
+[void][StandInNotice]::WaitClosed(5000)
+Done 'path later' $slow 0
+
+# A button that cannot be pressed is not reported as pressed.
+[StandInNotice]::Show('Microsoft Word Security Notice', 'C:\Scratch\Lib.dotm', @('Enable Macros', 'Disable Macros'), 'Enable Macros')
+Done 'disabled' ([XlideSecurityNotice]::Accept([uint32]$PID)) 0
+
+# Access asks to Open.
+[StandInNotice]::Show('Microsoft Access Security Notice', 'C:\Scratch\Lib.accdb', @('Open', 'Cancel'))
+Done 'access' ([XlideSecurityNotice]::Accept([uint32]$PID)) 0
+
+# A notice about a file outside the given folder is left alone.
+[StandInNotice]::Show('Microsoft Excel Security Notice', 'C:\Elsewhere\Book.xlsm', @('Enable Macros', 'Disable Macros'))
+Done 'elsewhere' ([XlideSecurityNotice]::Accept(0, 'C:\Scratch')) 0
+
+# The same notice about a file inside it is answered, in whichever process shows it.
+[StandInNotice]::Show('Microsoft Excel Security Notice', 'C:\Scratch\Book.xlsm', @('Enable Macros', 'Disable Macros'))
+Done 'inside' ([XlideSecurityNotice]::Accept(0, 'C:\Scratch')) 0
+
+# Another process's notice is not this one's.
+[StandInNotice]::Show('Microsoft Word Security Notice', 'C:\Scratch\Lib.dotm', @('Enable Macros', 'Disable Macros'))
+Done 'other process' ([XlideSecurityNotice]::Accept([uint32]($PID + 1))) 0
+
+# A window that is not a Security Notice is never pressed.
+[StandInNotice]::Show('Microsoft Visual Basic for Applications', 'C:\Scratch\Lib.ppam', @('Open', 'Enable Macros'))
+Done 'other dialog' ([XlideSecurityNotice]::Accept([uint32]$PID)) 0
+
+# A notice with no button it knows is reported and left for the timeout.
+[StandInNotice]::Show('Microsoft PowerPoint Security Notice', 'C:\Scratch\Lib.ppam', @('Trust', 'Distrust'))
+Done 'unknown buttons' ([XlideSecurityNotice]::Accept([uint32]$PID)) 0
+
+ConvertTo-Json -InputObject $results -Depth 4 -Compress
+`;
+        const run = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-STA', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')], {
+            encoding: 'utf8', timeout: 60_000,
+        });
+        expect(run.error).toBeUndefined();
+        expect(run.status, run.stderr).toBe(0);
+        results = JSON.parse(run.stdout.trim());
+    }, 70_000);
+
+    it('presses Enable Macros when a notice comes while a call waits, and says what it pressed and for which file', () => {
+        const shown = results.shown;
+        expect(shown.clicked).toBe('Enable Macros');
+        expect(shown.open).toBe(false);
+        expect(shown.lines).toHaveLength(1);
+        expect(shown.lines[0]).toMatch(/^Microsoft PowerPoint Security Notice \| pressed Enable Macros \| .*C:\\Scratch\\Lib\.ppam/);
+        expect(shown.ms).toBeLessThan(5000);
+    });
+
+    it('waits for nothing when no notice comes', () => {
+        expect(results.none.lines).toEqual([]);
+        expect(results.none.ms).toBeLessThan(1000);
+    });
+
+    it("presses Open, the button Access's notice has", () => {
+        expect(results.access.clicked).toBe('Open');
+        expect(results.access.lines[0]).toMatch(/^Microsoft Access Security Notice \| pressed Open \| /);
+    });
+
+    it('answers only notices about files in the folder it is given', () => {
+        expect(results.elsewhere.clicked).toBe('');
+        expect(results.elsewhere.open).toBe(true);
+        expect(results.elsewhere.lines).toEqual([expect.stringMatching(/^Microsoft Excel Security Notice \| left alone, not about C:\\Scratch \| /)]);
+        expect(results.inside.clicked).toBe('Enable Macros');
+        expect(results.inside.open).toBe(false);
+    });
+
+    it('touches neither another process nor any other dialog', () => {
+        for (const name of ['other process', 'other dialog']) {
+            expect(results[name].clicked, name).toBe('');
+            expect(results[name].open, name).toBe(true);
+            expect(results[name].lines, name).toEqual([]);
+        }
+    });
+
+    it('answers and reports a second notice with the same words as the first', () => {
+        expect(results.twice.lines).toHaveLength(2);
+        for (const line of results.twice.lines) {
+            expect(line).toMatch(/^Microsoft Excel Security Notice \| pressed Enable Macros \| .*C:\\Scratch\\Same\.xlsm/);
+        }
+    });
+
+    it('takes a folder whose name only starts with the given one for another folder', () => {
+        expect(results.sibling.clicked).toBe('');
+        expect(results.sibling.lines).toEqual([expect.stringMatching(/ \| left alone, not about C:\\Scratch \| /)]);
+    });
+
+    it('matches the folder in its short or long form', () => {
+        expect(results['short form'].clicked).toBe('Enable Macros');
+        expect(results['short form'].lines).toEqual([expect.stringMatching(/ \| pressed Enable Macros \| /)]);
+    });
+
+    it('tries a notice again until it can press the button, reporting the first try once', () => {
+        expect(results.late.clicked).toBe('Enable Macros');
+        expect(results.late.lines).toEqual([
+            expect.stringMatching(/^Microsoft Excel Security Notice \| could not press Enable Macros \| /),
+            expect.stringMatching(/^Microsoft Excel Security Notice \| pressed Enable Macros \| /),
+        ]);
+    });
+
+    it('looks again at a notice it left alone, once its path names the folder', () => {
+        expect(results['path later'].clicked).toBe('Enable Macros');
+        expect(results['path later'].lines).toEqual([
+            expect.stringMatching(/^Microsoft Excel Security Notice \| left alone, not about C:\\Scratch \| /),
+            expect.stringMatching(/^Microsoft Excel Security Notice \| pressed Enable Macros \| .*C:\\Scratch\\Slow\.xlsm/),
+        ]);
+    });
+
+    it('says when it could not press the button', () => {
+        expect(results.disabled.clicked).toBe('');
+        expect(results.disabled.open).toBe(true);
+        expect(results.disabled.lines).toEqual([expect.stringMatching(/^Microsoft Word Security Notice \| could not press Enable Macros \| /)]);
+    });
+
+    it('reports a notice whose buttons it does not know, and leaves it', () => {
+        const unknown = results['unknown buttons'];
+        expect(unknown.clicked).toBe('');
+        expect(unknown.open).toBe(true);
+        expect(unknown.lines).toEqual([expect.stringMatching(/^Microsoft PowerPoint Security Notice \| no known button \| /)]);
+    });
+});
