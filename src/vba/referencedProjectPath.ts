@@ -3,9 +3,13 @@
 //
 // A project reference records the referenced file twice ([MS-OVBA]
 // 2.3.4.2.2.2): an absolute libid, `*\CC:\Libs\ProbeLibrary.xlam`, and one
-// relative to the referring file, `*\CProbeLibrary.xlam`, which is where the
-// VBE looks once the absolute path is gone (measured in Excel 16.0: Excel
-// wrote both). XLIDE tries them in that order.
+// meant to be relative to the referring file. Only Excel writes a relative
+// one there, `*\CProbeLibrary.xlam`. Word and PowerPoint write the absolute
+// path in both, and Access a path relative to another folder (measured in
+// Microsoft 365, 16.0 build 20527). Yet all four, given a consumer and its
+// provider moved together to a new folder, find the provider beside the
+// consumer by its file name. XLIDE tries the absolute path, the relative
+// one, and then that file name beside the referring file.
 //
 // The path comes from inside the user's file, so it is not trusted. Only a
 // local file is read: a UNC path, `\\host\share\x.xlam`, would have Windows
@@ -51,9 +55,10 @@ function readableFile(candidate: string): string | undefined {
 }
 
 /**
- * The local file a project reference names, from its absolute libid and then
- * its relative one against the referring file's folder, or undefined when
- * neither names one XLIDE may read. The referring file itself is never one.
+ * The local file a project reference names, from its absolute libid, then
+ * its relative one against the referring file's folder, then the file name
+ * they record beside the referring file, or undefined when none names one
+ * XLIDE may read. The referring file itself is never one.
  */
 export function referencedProjectFile(
 	libid: string,
@@ -71,6 +76,19 @@ export function referencedProjectFile(
 	const relative = libidPath(relativeLibid);
 	if (relative && !isRemoteOrDevice(relative) && !/^[A-Za-z]:/.test(relative) && !isRemoteOrDevice(referring)) {
 		candidates.push(path.resolve(path.dirname(referring), ...relative.split(/[\\/]/)));
+	}
+	// The referenced file's name, beside the referring file, as the VBE finds
+	// a provider moved with its consumer. Not the name of a file on a share:
+	// that reference names another machine's file, not a local one. Nor a
+	// name with a colon, `C:Lib.xlam` or `Book.xlsm:x.xlam`, which Windows
+	// reads as a drive or a file's alternate stream.
+	if (!isRemoteOrDevice(referring)) {
+		for (const recorded of [absolute, relative]) {
+			const name = recorded && !isRemoteOrDevice(recorded) ? recorded.split(/[\\/]/).pop() : undefined;
+			if (name && !name.includes(':')) {
+				candidates.push(path.join(path.dirname(referring), name));
+			}
+		}
 	}
 	for (const candidate of candidates) {
 		if (path.resolve(candidate).toLowerCase() === referring.toLowerCase()) {

@@ -72,6 +72,12 @@ reference/
 !tests/fixtures/binaries/FormFixture.xlsm
 !tests/fixtures/binaries/ProbeLibraryFixture.xlsm
 !tests/fixtures/binaries/ProbeConsumerFixture.xlsm
+!tests/fixtures/binaries/ProbeLibraryFixture.dotm
+!tests/fixtures/binaries/ProbeConsumerFixture.docm
+!tests/fixtures/binaries/ProbeLibraryFixture.ppam
+!tests/fixtures/binaries/ProbeConsumerFixture.pptm
+!tests/fixtures/binaries/ProbeLibraryFixture.accdb
+!tests/fixtures/binaries/ProbeConsumerFixture.accdb
 !tests/fixtures/binaries/SheetsFixture.xlsm
 !tests/fixtures/binaries/SheetsFixture.xlsb
 !tests/fixtures/binaries/SheetsFixture.xls
