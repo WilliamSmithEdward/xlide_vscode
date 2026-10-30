@@ -421,7 +421,18 @@ $short = (New-Object -ComObject Scripting.FileSystemObject).GetFolder($long).Sho
 [StandInNotice]::Show('Microsoft Excel Security Notice', (Join-Path $long 'Book.xlsm'), @('Enable Macros', 'Disable Macros'))
 Done 'short form' ([XlideSecurityNotice]::Accept(0, $short)) 0
 $results['short form'].shortDiffers = $short -ne $long
-Remove-Item -LiteralPath $long -Force
+
+# A notice naming a partly short path, as under a temp folder such as
+# C:\Users\RUNNER~1\AppData\Local\Temp, owns a folder given in another mix.
+$inner = Join-Path $long ('xlide notice inner ' + [Guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $inner | Out-Null
+$files = New-Object -ComObject Scripting.FileSystemObject
+$shownFolder = Join-Path $files.GetFolder($long).ShortPath (Split-Path -Leaf $inner)
+$givenFolder = Join-Path $long (Split-Path -Leaf $files.GetFolder($inner).ShortPath)
+[StandInNotice]::Show('Microsoft Excel Security Notice', (Join-Path $shownFolder 'Book.xlsm'), @('Enable Macros', 'Disable Macros'))
+Done 'mixed form' ([XlideSecurityNotice]::Accept(0, $givenFolder)) 0
+$results['mixed form'].shortDiffers = $shownFolder -ne $inner
+Remove-Item -LiteralPath $long -Recurse -Force
 
 # A notice whose button cannot be pressed yet is reported once, and pressed
 # once it can be.
@@ -544,6 +555,12 @@ ConvertTo-Json -InputObject $results -Depth 4 -Compress
             expect.stringMatching(/^Microsoft Excel Security Notice \| left alone, not about C:\\Scratch \| /),
             expect.stringMatching(/^Microsoft Excel Security Notice \| pressed Enable Macros \| .*C:\\Scratch\\Slow\.xlsm/),
         ]);
+    });
+
+    it('matches a path whose folders are partly short against a folder given in another mix', () => {
+        // Where the disk keeps no 8.3 names, the mix is the long path itself.
+        expect(results['mixed form'].clicked).toBe('Enable Macros');
+        expect(results['mixed form'].lines).toEqual([expect.stringMatching(/ \| pressed Enable Macros \| /)]);
     });
 
     it('says when it could not press the button', () => {

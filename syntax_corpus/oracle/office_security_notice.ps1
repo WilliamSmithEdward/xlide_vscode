@@ -172,7 +172,7 @@ public static class XlideSecurityNotice {
                 }
             }
             AutomationElement button = FindAcceptButton(notice);
-            if (!String.IsNullOrEmpty(folder) && !NamesFileIn(String.Join(" / ", texts.ToArray()), folder)) {
+            if (!String.IsNullOrEmpty(folder) && !NamesFileIn(texts, folder)) {
                 action = "left alone, not about " + folder;
             }
             else if (button == null) {
@@ -193,20 +193,49 @@ public static class XlideSecurityNotice {
     }
 
     // Whether the notice's words name a path inside the folder, written in
-    // its long or its short (8.3) form.
-    private static bool NamesFileIn(string said, string folder) {
+    // its long or its short (8.3) form. A path the notice names is also
+    // compared in its long form, which settles one whose folders are partly
+    // short, as under a temp folder like C:\Users\RUNNER~1\AppData\Local\Temp.
+    private static bool NamesFileIn(List<string> texts, string folder) {
         List<string> forms = new List<string>();
         forms.Add(folder);
+        string longFolder = LongForm(folder);
+        if (longFolder != null) { forms.Add(longFolder); }
         StringBuilder builder = new StringBuilder(1024);
-        if (GetLongPathName(folder, builder, (uint)builder.Capacity) > 0) { forms.Add(builder.ToString()); }
-        builder = new StringBuilder(1024);
         if (GetShortPathName(folder, builder, (uint)builder.Capacity) > 0) { forms.Add(builder.ToString()); }
-        foreach (string form in forms) {
-            if (said.IndexOf(form.TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase) >= 0) {
-                return true;
+        List<string> said = new List<string>(texts);
+        foreach (string text in texts) {
+            string longText = LongForm(text);
+            if (longText != null) { said.Add(longText); }
+        }
+        foreach (string text in said) {
+            foreach (string form in forms) {
+                if (text.IndexOf(form.TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    return true;
+                }
             }
         }
         return false;
+    }
+
+    // The long form of a path, or of its folder when the file itself is not
+    // there; null when it names no folder that exists.
+    private static string LongForm(string path) {
+        if (path.IndexOf(":\\", StringComparison.Ordinal) != 1 && !path.StartsWith("\\\\")) {
+            return null;
+        }
+        StringBuilder builder = new StringBuilder(1024);
+        if (GetLongPathName(path, builder, (uint)builder.Capacity) > 0) {
+            return builder.ToString();
+        }
+        int slash = path.TrimEnd('\\').LastIndexOf('\\');
+        if (slash <= 2) {
+            return null;
+        }
+        builder = new StringBuilder(1024);
+        return GetLongPathName(path.Substring(0, slash), builder, (uint)builder.Capacity) > 0
+            ? builder.ToString() + path.Substring(slash)
+            : null;
     }
 
     private static void AddText(List<string> texts, string text) {
