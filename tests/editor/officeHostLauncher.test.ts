@@ -420,6 +420,42 @@ describe('F5 never reopens a read-only copy holding unsaved work', () => {
     });
 });
 
+describe('Access F5 on a database whose code is disabled', () => {
+    it('stops before Run and says how to enable the code, with nothing run', () => {
+        // Measured 2026-10-30 on Access 16.0 (build 20527): a database outside
+        // a trusted location opens with its code disabled and Run fails with
+        // 0x800A9D9F; after Enable Content, F5 again runs the procedure.
+        const script = buildAccessMacroLaunchScript('C:\\w\\Orders.accdb', 'Main');
+        const check = 'try { $trusted = $app.CurrentProject.IsTrusted } catch { }';
+        expect(script).toContain(check);
+        expect(script.indexOf(check)).toBeGreaterThan(script.indexOf('$app.OpenCurrentDatabase($targetPath)'));
+        expect(script.indexOf(check)).toBeLessThan(script.indexOf('$app.Run($macroName)'));
+        // Only an explicit False stops it: an Access that cannot answer runs as before.
+        expect(script).toContain('$trusted = $null');
+        expect(script).toContain('if ($trusted -eq $false) {');
+        expect(script).toContain('throw "RUN_FAILED|Access opened the database with its code disabled');
+        expect(script).toContain('Click Enable Content in the bar at the top of Access, then press F5 again.');
+        // A trusted location counts only from the next open.
+        expect(script).toContain('Trust Center Settings, Trusted Locations, close the database in Access, and press F5 again.');
+    });
+
+    it('tells a file downloaded from the internet apart, which has no Enable Content to click', () => {
+        const script = buildAccessMacroLaunchScript('C:\\w\\Orders.accdb', 'Main');
+        expect(script).toContain('Get-Content -LiteralPath $targetPath -Stream Zone.Identifier -ErrorAction Stop');
+        expect(script).toContain('if ($line -match "^ZoneId=(\\d+)")');
+        const downloaded = script.indexOf('if ($zone -ge 3) { throw "RUN_FAILED|Access blocked the database\'s code, because the file was downloaded from the internet.');
+        expect(downloaded).toBeGreaterThan(0);
+        expect(downloaded).toBeLessThan(script.indexOf('Access opened the database with its code disabled'));
+        expect(script).toContain("select Unblock in the file's Properties in File Explorer, and press F5 again.");
+    });
+
+    it('leaves a form or report to open as before, since one without code needs none', () => {
+        for (const kind of ['form', 'report'] as const) {
+            expect(buildAccessShowDesignScript('C:\\w\\Orders.accdb', { kind, name: 'Orders' })).not.toContain('IsTrusted');
+        }
+    });
+});
+
 describe('Access form and report F5 script', () => {
     it('opens a form by name, in the database, with nothing written into it', () => {
         const script = buildAccessShowDesignScript('C:\\work\\Orders.accdb', { kind: 'form', name: "Bob's Orders" });

@@ -261,6 +261,17 @@ export function buildWordMacroLaunchScript(filePath: string, macroName: string, 
  *
  * Access recompiles a database XLIDE has written on the next open, so a
  * compile error anywhere in the project surfaces here rather than at the call.
+ *
+ * A database outside a trusted location opens with its code disabled behind
+ * the message bar, and Run then fails with no reason given (0x800A9D9F):
+ * measured on Access 16.0 (build 20527), whether XLIDE started Access or
+ * attached to the user's. An Access an automation client starts is at
+ * AutomationSecurity 2 (by UI), and one handed to the user, as XLIDE hands
+ * every instance, opened the database untrusted at AutomationSecurity 1 as
+ * at 2, so setting it would not enable the code. So the
+ * script asks whether the database is trusted and, if not, says what to do
+ * rather than enabling the code itself; after Enable Content, F5 again runs
+ * the procedure in the same instance.
  */
 export function buildAccessMacroLaunchScript(filePath: string, procedureName: string, attachToRunning = true): string {
 	return [
@@ -269,6 +280,7 @@ export function buildAccessMacroLaunchScript(filePath: string, procedureName: st
 		'try {',
 		`$macroName = ${psSingleQuoted(procedureName)}`,
 		...accessDatabaseLines(filePath, attachToRunning),
+		...ACCESS_TRUSTED_LINES,
 		// Access resolves a bare procedure name and refuses a qualified one.
 		// F5 targets a Function as readily as a Sub here, so its return value
 		// is swallowed rather than printed over the script's own output.
@@ -280,6 +292,25 @@ export function buildAccessMacroLaunchScript(filePath: string, procedureName: st
 		'}',
 	].join('\n');
 }
+
+/**
+ * Stops before Run when the database's code is disabled, and only on an
+ * explicit False: an Access that cannot answer goes on to Run, which reports
+ * its own error. A file marked as downloaded from the internet (Zone.Identifier
+ * zone 3) is told apart, since Access then shows a Security Risk bar with no
+ * Enable Content button (measured on Access 16.0, build 20527); zone 4,
+ * Restricted, is treated the same.
+ */
+const ACCESS_TRUSTED_LINES: readonly string[] = [
+	'$trusted = $null',
+	'try { $trusted = $app.CurrentProject.IsTrusted } catch { }',
+	'if ($trusted -eq $false) {',
+	'  $zone = 0',
+	'  try { foreach ($line in @(Get-Content -LiteralPath $targetPath -Stream Zone.Identifier -ErrorAction Stop)) { if ($line -match "^ZoneId=(\\d+)") { $zone = [int]$Matches[1] } } } catch { }',
+	'  if ($zone -ge 3) { throw "RUN_FAILED|Access blocked the database\'s code, because the file was downloaded from the internet. Close the database in Access, select Unblock in the file\'s Properties in File Explorer, and press F5 again." }',
+	'  throw "RUN_FAILED|Access opened the database with its code disabled, because it is not in a trusted location. Click Enable Content in the bar at the top of Access, then press F5 again. To trust the folder from now on, add it under File, Options, Trust Center, Trust Center Settings, Trusted Locations, close the database in Access, and press F5 again. If Access shows no such bar or settings, whoever manages Access on this computer decides which folders are trusted."',
+	'}',
+];
 
 /**
  * Two Access rules, both measured on Access 16.0. An instance automation
