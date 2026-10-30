@@ -161,7 +161,7 @@
     {
       "code": "declare-missing-ptrsafe",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "Excel and Word 16.0 (64-bit, build 20326) through pyVBAharness, full project compile, 2026-09-30 (issue #215)",
+      "sourceOfTruth": "Excel and Word 16.0 (64-bit, build 20326) through pyVBAharness, full project compile, 2026-09-30 (issue #215); issue #1528 under a module #Const Win64 = 0, which turns only #If Win64 off: Excel, Word, PowerPoint and Access 16.0 (build 20527, 64-bit) through the VBE oracle",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "issue215_01_compile",
@@ -169,13 +169,33 @@
         "issue215_06_compile",
         "issue215_07_compile",
         "issue215_08_compile",
-        "issue215_10_compile"
+        "issue215_10_compile",
+        "issue1528_excel_declare_no_ptrsafe_compile",
+        "issue1528_excel_off_declare_no_ptrsafe_compile",
+        "issue1528_excel_off_declare_ptrsafe_compile",
+        "issue1528_excel_off_else_arm_declare_compile",
+        "issue1528_excel_off_if_arm_skipped_compile",
+        "issue1528_word_declare_no_ptrsafe_compile",
+        "issue1528_word_off_declare_no_ptrsafe_compile",
+        "issue1528_word_off_declare_ptrsafe_compile",
+        "issue1528_word_off_else_arm_declare_compile",
+        "issue1528_word_off_if_arm_skipped_compile",
+        "issue1528_powerpoint_declare_no_ptrsafe_compile",
+        "issue1528_powerpoint_off_declare_no_ptrsafe_compile",
+        "issue1528_powerpoint_off_declare_ptrsafe_compile",
+        "issue1528_powerpoint_off_else_arm_declare_compile",
+        "issue1528_powerpoint_off_if_arm_skipped_compile",
+        "issue1528_access_declare_no_ptrsafe_compile",
+        "issue1528_access_off_declare_no_ptrsafe_compile",
+        "issue1528_access_off_declare_ptrsafe_compile",
+        "issue1528_access_off_else_arm_declare_compile",
+        "issue1528_access_off_if_arm_skipped_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
         "excel_vba_analysis_additional_edge_cases.md"
       ],
-      "notes": "An active Declare without PtrSafe in 64-bit Office, the analyzer's default platform, as in the branch activity: \"The code in this project must be updated for use on 64-bit systems\" (issue #215, measured in 64-bit Excel and Word). Silent when the caller says Win64 is off, in inactive branches such as #If VBA7 ... #Else, and for VB6, which has no PtrSafe.",
+      "notes": "An active Declare without PtrSafe in 64-bit Office, the analyzer's default platform, as in the branch activity: \"The code in this project must be updated for use on 64-bit systems\" (issue #215, measured in 64-bit Excel and Word). Silent when the caller says Win64 is off, in inactive branches such as #If VBA7 ... #Else, and for VB6, which has no PtrSafe. Issue #1528: 64-bit Office still applies this rule under a module #Const Win64 = 0, which only turns #If Win64 off, so the rule reads the host compiler constant and not the module one.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -14122,7 +14142,7 @@
       "code": "longlong-narrowing",
       "status": "vbe-oracle-verified",
       "diagnosticKind": "compile-error",
-      "sourceOfTruth": "Excel/VBE compile oracle, 64-bit: Type mismatch; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports",
+      "sourceOfTruth": "Excel/VBE compile oracle, 64-bit: Type mismatch; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports; issue #1528 under a module #Const Win64 = 0, which turns only #If Win64 off: Excel, Word, PowerPoint and Access 16.0 (build 20527, 64-bit) through the VBE oracle",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "issue298_01_compile",
@@ -14156,17 +14176,33 @@
         "longlong_named_parenthesized_compile",
         "longlong_qualified_byval_long_compile",
         "longlong_qualified_named_byval_long_compile",
-        "longlong_named_byval_long_compile"
+        "longlong_named_byval_long_compile",
+        "issue1528_excel_varptr_long_compile",
+        "issue1528_excel_off_varptr_long_compile",
+        "issue1528_excel_off_varptr_longptr_compile",
+        "issue1528_excel_off_longptr_into_long_compile",
+        "issue1528_word_varptr_long_compile",
+        "issue1528_word_off_varptr_long_compile",
+        "issue1528_word_off_varptr_longptr_compile",
+        "issue1528_word_off_longptr_into_long_compile",
+        "issue1528_powerpoint_varptr_long_compile",
+        "issue1528_powerpoint_off_varptr_long_compile",
+        "issue1528_powerpoint_off_varptr_longptr_compile",
+        "issue1528_powerpoint_off_longptr_into_long_compile",
+        "issue1528_access_varptr_long_compile",
+        "issue1528_access_off_varptr_long_compile",
+        "issue1528_access_off_varptr_longptr_compile",
+        "issue1528_access_off_longptr_into_long_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": ""
+      "notes": " Issue #1528: 64-bit Office still applies this rule under a module #Const Win64 = 0, which only turns #If Win64 off, so the rule reads the host compiler constant and not the module one."
     },
     {
       "code": "addressof-misuse",
       "status": "vbe-oracle-verified",
       "diagnosticKind": "compile-error",
-      "sourceOfTruth": "Excel/VBE compile oracle: AddressOf only as an argument, on a procedure of a standard module",
+      "sourceOfTruth": "Excel/VBE compile oracle: AddressOf only as an argument, on a procedure of a standard module; issue #1528 under a module #Const Win64 = 0, which turns only #If Win64 off: Excel, Word, PowerPoint and Access 16.0 (build 20527, 64-bit) through the VBE oracle",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "issue299_01_compile",
@@ -14190,11 +14226,23 @@
         "issue299_30_compile",
         "issue299_31_compile",
         "issue299_34_compile",
-        "issue299_35_compile"
+        "issue299_35_compile",
+        "issue1528_excel_addressof_long_compile",
+        "issue1528_excel_off_addressof_long_compile",
+        "issue1528_excel_off_addressof_longptr_compile",
+        "issue1528_word_addressof_long_compile",
+        "issue1528_word_off_addressof_long_compile",
+        "issue1528_word_off_addressof_longptr_compile",
+        "issue1528_powerpoint_addressof_long_compile",
+        "issue1528_powerpoint_off_addressof_long_compile",
+        "issue1528_powerpoint_off_addressof_longptr_compile",
+        "issue1528_access_addressof_long_compile",
+        "issue1528_access_off_addressof_long_compile",
+        "issue1528_access_off_addressof_longptr_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": ""
+      "notes": " Issue #1528: 64-bit Office still applies this rule under a module #Const Win64 = 0, which only turns #If Win64 off, so the rule reads the host compiler constant and not the module one."
     },
     {
       "code": "paste-with-nothing-copied",
